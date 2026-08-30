@@ -256,7 +256,7 @@ function GovernanceBanner() {
       <span className={styles.prototypeBadge}>Synthetic prototype</span>
       <p>
         This page is <strong>not a medical device</strong>. It shows only the bed-availability figures a ward has
-        recorded, rolled up to hospital and network level, and it never adds a predicted, confirmed-but-unreleased or
+        recorded, rolled up to hospital and network level, and it never adds a expected, confirmed-but-unreleased or
         leave bed into &quot;available now&quot;.
       </p>
     </div>

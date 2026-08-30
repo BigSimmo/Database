@@ -37,7 +37,7 @@ describe("Ward Flow synthetic prototype", () => {
     // Task 8 (spec item 6) added three capacity-board columns — Sex mix, Specialling, and MHA
     // authorised — raising the count from 12 to 15. Phase 5 added a fourth, "Coordinator action"
     // (the coordinator's refresh control, spec D12), raising it again to 16. The former "Bed
-    // states" header covered five raw counts in one cell; it now shows Confirmed and Predicted
+    // states" header covered five raw counts in one cell; it now shows Confirmed and Expected
     // (via capacityBreakdown) instead of a single undifferentiated count, so the header text
     // dropped its "five" framing — the column itself is unchanged and still counted once here.
     expect(thTags).toHaveLength(16);

@@ -5,7 +5,7 @@ import type { BedRelease, LeaveBed, Unit } from "@/components/ward-management/wa
  * Every figure the capacity board shows, derived in one place so no screen computes its own
  * version. Phase 5, spec D5 and D6.
  *
- * The rule this file exists to enforce: **nothing predicted, confirmed-but-unreleased, or on leave
+ * The rule this file exists to enforce: **nothing expected, confirmed-but-unreleased, or on leave
  * is ever added into `availableNow`.** A coordinator must be able to point at that number and say
  * "that is a bed I can fill this minute", and it must never have been softened by an expectation.
  *
@@ -104,13 +104,13 @@ export function releaseBand(release: BedRelease, now: Instant): ReleaseBand | "b
 export type CapacityBreakdown = {
   availableNow: number;
   confirmedToday: number;
-  predictedToday: number;
+  expectedToday: number;
   /**
    * How many of today's releases carry the blocked flag — the figure the four-stage model
    * structurally could not produce (bed-model rework, 2026-08-28).
    *
    * **It is a CROSS-CUT, not a fourth bucket.** Every release counted here is also counted in
-   * `confirmedToday` or `predictedToday`, because being stuck says nothing about how certain the
+   * `confirmedToday` or `expectedToday`, because being stuck says nothing about how certain the
    * discharge is. Never add it to those two, and never subtract it from them: it answers "how
    * many of these is somebody having to chase", which is a different question from "how many are
    * coming". A release expected beyond tonight is excluded here exactly as it is from the other
@@ -136,7 +136,7 @@ export function capacityBreakdown(
   const unitReleases = releases.filter((release) => release.unitId === unit.id);
 
   let confirmedToday = 0;
-  let predictedToday = 0;
+  let expectedToday = 0;
   let blockedToday = 0;
   let excludedBeyondToday = 0;
 
@@ -155,7 +155,7 @@ export function capacityBreakdown(
     // block is reported alongside rather than instead. Do not re-introduce a `blocker` test into
     // this if/else — that is the defect, not a refinement of it.
     if (release.state === "confirmed") confirmedToday += 1;
-    else predictedToday += 1;
+    else expectedToday += 1;
     if (release.blocker !== null) blockedToday += 1;
   }
 
@@ -164,7 +164,7 @@ export function capacityBreakdown(
   return {
     availableNow,
     confirmedToday,
-    predictedToday,
+    expectedToday,
     blockedToday,
     held,
     leaveUsable,

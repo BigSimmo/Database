@@ -88,7 +88,7 @@ describe("ward bed release flag", () => {
     expect(expectedAtInput).toHaveAttribute("type", "time");
   });
 
-  it("starts with the submit button disabled until a waiting-on value is chosen, then flags a release that raises the predicted count by one", () => {
+  it("starts with the submit button disabled until a waiting-on value is chosen, then flags a release that raises the expected count by one", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardScreen unitId="rph-adult-secure" />
@@ -96,13 +96,13 @@ describe("ward bed release flag", () => {
     );
 
     // Baseline: the one fixture-seeded release for this unit (WR-001) is already `confirmed`, so
-    // it shows as Confirmed 1, Predicted 0 — the two figures that replaced the raw, state-blind
+    // it shows as Confirmed 1, Expected 0 — the two figures that replaced the raw, state-blind
     // "Potential 1" this screen used to show for the same release (unitCapacity()'s `potential`
     // counted every release regardless of state; capacityBreakdown() tells confirmed from
-    // predicted apart).
+    // expected apart).
     const bedsBefore = screen.getByTestId("ward-unit-beds");
     expect(within(bedsBefore).getByText("Confirmed 1")).toBeInTheDocument();
-    expect(within(bedsBefore).getByText("Predicted 0")).toBeInTheDocument();
+    expect(within(bedsBefore).getByText("Expected 0")).toBeInTheDocument();
 
     const submit = screen.getByTestId("ward-flag-bed-release-submit");
     expect(submit).toBeDisabled();
@@ -124,21 +124,21 @@ describe("ward bed release flag", () => {
 
     // Clear the blocker back to "No blocker" before submitting. This dates from spec D3, when a
     // blocker made the produced record `blocked` and `capacityBreakdown()` counted it into
-    // neither Confirmed nor Predicted — submitting with a blocker selected would then have left
+    // neither Confirmed nor Expected — submitting with a blocker selected would then have left
     // every figure unchanged and this test could not tell a real dispatch from a no-op. The
     // 2026-08-28 rework made the flag a cross-cut, so a blocked prediction now DOES move
-    // Predicted; the clear is kept anyway so the figure this test reads has exactly one cause.
+    // Expected; the clear is kept anyway so the figure this test reads has exactly one cause.
     fireEvent.change(screen.getByLabelText("Blocker"), { target: { value: "" } });
 
     fireEvent.click(submit);
 
     // After a real FLAG_BED_RELEASE dispatch updates state.bedReleases, the screen must show the
-    // new live Predicted count — resolving from the frozen fixture (as `unitCapacity` did before
-    // this task) would keep showing Predicted 0 forever. Confirmed is unchanged: the new release
-    // is `predicted`, not `confirmed`.
+    // new live Expected count — resolving from the frozen fixture (as `unitCapacity` did before
+    // this task) would keep showing Expected 0 forever. Confirmed is unchanged: the new release
+    // is `expected`, not `confirmed`.
     const bedsAfter = screen.getByTestId("ward-unit-beds");
     expect(within(bedsAfter).getByText("Confirmed 1")).toBeInTheDocument();
-    expect(within(bedsAfter).getByText("Predicted 1")).toBeInTheDocument();
+    expect(within(bedsAfter).getByText("Expected 1")).toBeInTheDocument();
 
     // The form resets after a successful submit, ready for the next flag.
     expect(screen.getByTestId("ward-flag-bed-release-submit")).toBeDisabled();
@@ -159,11 +159,11 @@ describe("ward bed release flag", () => {
     // the live capacity row rather than the static fixture constant, so a scoping bug in the
     // reducer (writing the flagged release to every unit, or to the wrong one) would be caught
     // here even though it could never show up in the frozen `bedReleases` array itself. Both
-    // Confirmed and Predicted are checked, not just one, since a scoping bug could leak into
+    // Confirmed and Expected are checked, not just one, since a scoping bug could leak into
     // either bucket.
     const sjgmRowBefore = screen.getByTestId("ward-capacity-row-sjgm-adult-open");
     expect(sjgmRowBefore).toHaveTextContent("0Confirmed");
-    expect(sjgmRowBefore).toHaveTextContent("0Predicted");
+    expect(sjgmRowBefore).toHaveTextContent("0Expected");
 
     // No blocker, for the reason the previous test's own comment gives: it keeps the moved figure
     // attributable to exactly one cause. A plain prediction moves a real, visible number.
@@ -171,14 +171,14 @@ describe("ward bed release flag", () => {
     fireEvent.change(screen.getByLabelText("Expected free"), { target: { value: "16:30" } });
     fireEvent.click(screen.getByTestId("ward-flag-bed-release-submit"));
 
-    // rph-adult-secure's own row moved from Predicted 0 to Predicted 1 (the same figure proved on
+    // rph-adult-secure's own row moved from Expected 0 to Expected 1 (the same figure proved on
     // the ward screen above) — the sibling must not move at all.
     const rphRowAfter = screen.getByTestId("ward-capacity-row-rph-adult-secure");
     expect(rphRowAfter).toHaveTextContent("1Confirmed");
-    expect(rphRowAfter).toHaveTextContent("1Predicted");
+    expect(rphRowAfter).toHaveTextContent("1Expected");
     const sjgmRowAfter = screen.getByTestId("ward-capacity-row-sjgm-adult-open");
     expect(sjgmRowAfter).toHaveTextContent("0Confirmed");
-    expect(sjgmRowAfter).toHaveTextContent("0Predicted");
+    expect(sjgmRowAfter).toHaveTextContent("0Expected");
   });
 });
 

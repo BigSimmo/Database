@@ -25,12 +25,12 @@ function aRelease(expectedAt: number): BedRelease {
   return {
     id: "BR-BAND",
     unitId: "rph-adult-secure",
-    state: "predicted",
+    state: "expected",
     expectedAt,
     confirmedAt: 0,
     blocked: false,
     blockReason: null,
-    basis: "predicted",
+    basis: "expected",
   } as unknown as BedRelease;
 }
 

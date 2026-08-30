@@ -1,7 +1,7 @@
 import { referralState } from "../src/components/ward-management/ward-referrals";
 import { describe, expect, it } from "vitest";
 
-import { EVENING_SHIFT_END_MINUTES } from "@/components/ward-management/ward-bed-availability";
+import {} from "@/components/ward-management/ward-bed-availability";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import {
   CAPACITY_FIGURE_LABELS,
@@ -59,7 +59,7 @@ function site(overrides: Partial<Site> = {}): Site {
 
 describe("ward-morning-rollup", () => {
   describe("rule 1: figures are plain sums of the per-unit breakdown", () => {
-    it("sums availableNow, confirmedToday, predictedToday, held and leaveUsable across units", () => {
+    it("sums availableNow, confirmedToday, expectedToday, held and leaveUsable across units", () => {
       const unitA = unit({
         id: "unit-a",
         siteCode: "RPH",
@@ -89,7 +89,7 @@ describe("ward-morning-rollup", () => {
         {
           id: "r-2",
           unitId: "unit-b",
-          state: "predicted",
+          state: "expected",
           expectedAt: NOW,
           waitingOn: "Awaiting ward round",
           blocker: null,
@@ -130,14 +130,14 @@ describe("ward-morning-rollup", () => {
       // Hand-computed expectation: availableNow = min(empty, allocatable) per unit — unit-a
       // min(3,2)=2, unit-b min(5,4)=4, total 6. held = max(empty - availableNow, 0) per unit —
       // unit-a max(3-2,0)=1, unit-b max(5-4,0)=1, total 2. confirmedToday = 2 (unit-a's r-1
-      // confirmed release plus unit-b's r-3 confirmed release). predictedToday = 1 (unit-b's
-      // r-2 predicted release). The two figures are deliberately asymmetric (2 vs 1) so a
-      // swap between confirmedToday and predictedToday in sumBreakdowns changes both totals
+      // confirmed release plus unit-b's r-3 confirmed release). expectedToday = 1 (unit-b's
+      // r-2 expected release). The two figures are deliberately asymmetric (2 vs 1) so a
+      // swap between confirmedToday and expectedToday in sumBreakdowns changes both totals
       // and cannot pass unnoticed.
       expect(result.service.availableNow).toBe(6);
       expect(result.service.held).toBe(2);
       expect(result.service.confirmedToday).toBe(2);
-      expect(result.service.predictedToday).toBe(1);
+      expect(result.service.expectedToday).toBe(1);
       expect(result.service.leaveUsable).toBe(1);
       // No release in this set carries the blocked flag, so the rollup's new sixth figure is a
       // real zero rather than an unasserted one — see the dedicated blocked-flag rollup test
@@ -154,7 +154,7 @@ describe("ward-morning-rollup", () => {
    * the four-stage model performed by accident and this rework exists to undo.
    */
   describe("rule 1 (continued): blockedToday is a real per-unit sum that cross-cuts the other two", () => {
-    it("sums the blocked flag across units without taking those releases out of confirmed or predicted", () => {
+    it("sums the blocked flag across units without taking those releases out of confirmed or expected", () => {
       const unitA = unit({ id: "unit-a", siteCode: "RPH" });
       const unitB = unit({ id: "unit-b", siteCode: "RPH" });
       const releases: BedRelease[] = [
@@ -172,9 +172,9 @@ describe("ward-morning-rollup", () => {
           confirmedBy: "Ward",
         },
         {
-          id: "r-blocked-predicted",
+          id: "r-blocked-expected",
           unitId: "unit-b",
-          state: "predicted",
+          state: "expected",
           expectedAt: NOW,
           waitingOn: "Awaiting ward round",
           blocker: BED_RELEASE_BLOCKERS[1],
@@ -206,7 +206,7 @@ describe("ward-morning-rollup", () => {
 
       expect(result.service.blockedToday).toBe(2);
       expect(result.service.confirmedToday).toBe(2);
-      expect(result.service.predictedToday).toBe(1);
+      expect(result.service.expectedToday).toBe(1);
       expect(result.sites[0]?.rollup.blockedToday).toBe(2);
     });
   });
@@ -230,7 +230,7 @@ describe("ward-morning-rollup", () => {
         {
           id: "r-beyond-a",
           unitId: "unit-a",
-          state: "predicted",
+          state: "expected",
           // Beyond the 22:00 evening-shift-end boundary `releaseBand()` uses — genuinely
           // Beyond the board's horizon entirely: WB-DB-7 (2026-08-30) made a release one day out
           // "tomorrow" rather than excluded, so producing an exclusion now takes two days.
@@ -460,7 +460,7 @@ describe("ward-morning-rollup", () => {
   });
 
   /**
-   * D2's protection: nothing predicted, confirmed-but-unreleased, or on leave may ever reach the
+   * D2's protection: nothing expected, confirmed-but-unreleased, or on leave may ever reach the
    * headline `availableNow` figure. `availableNow` is computed from `unit.allocatable`/`unit.empty`
    * before any release is examined (mirroring `capacityBreakdown` in `ward-bed-availability.ts`),
    * so it must be identical whether or not any releases or leave beds exist at all. If a release
@@ -485,7 +485,7 @@ describe("ward-morning-rollup", () => {
     expect(CAPACITY_FIGURE_LABELS).toEqual({
       availableNow: "Available now",
       confirmedToday: "Confirmed today",
-      predictedToday: "Predicted today",
+      expectedToday: "Expected today",
       blockedToday: "Blocked releases",
       held: "Held",
       leaveUsable: "Leave (usable)",
@@ -587,7 +587,7 @@ describe("ward-morning-rollup", () => {
       expect(Object.keys(CAPACITY_FIGURE_LABELS)).toEqual([
         "availableNow",
         "confirmedToday",
-        "predictedToday",
+        "expectedToday",
         "blockedToday",
         "held",
         "leaveUsable",

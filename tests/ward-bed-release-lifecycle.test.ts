@@ -26,10 +26,10 @@ function unit(state: ReturnType<typeof seeded>, id: string) {
 }
 
 describe("ward bed release lifecycle", () => {
-  it("1. a ward confirms a predicted release", () => {
+  it("1. a ward confirms a expected release", () => {
     const state = seeded();
-    // WR-002 (scgh-adult-open) is seeded predicted.
-    expect(release(state, "WR-002").state).toBe("predicted");
+    // WR-002 (scgh-adult-open) is seeded expected.
+    expect(release(state, "WR-002").state).toBe("expected");
     const next = wardFlowReducer(state, {
       type: "CONFIRM_BED_RELEASE",
       role: "ward",
@@ -43,7 +43,7 @@ describe("ward bed release lifecycle", () => {
   });
 
   it("fix round 2 (Finding 3, P2, spec D7): confirming at a later instant moves confirmedAt to that instant, not the original flag time", () => {
-    // WR-002 is seeded predicted with `confirmedAt: NOW_ANCHOR - 25` — before the fix, every
+    // WR-002 is seeded expected with `confirmedAt: NOW_ANCHOR - 25` — before the fix, every
     // accepted transition spread `...release`, keeping that ORIGINAL confirmedAt forever, so
     // `WardFreshness` on this row would report when the release was first flagged rather than
     // when its current state (confirmed) was actually last reported.
@@ -68,14 +68,14 @@ describe("ward bed release lifecycle", () => {
   /**
    * Bed-model rework (2026-08-28). This used to assert `state === "blocked"` and a null
    * waiting-on value — the fourth state swallowing the row's stage. Blocking is now a FLAG: the
-   * stage is untouched, so a predicted release stays predicted and keeps the value it was flagged
+   * stage is untouched, so a expected release stays expected and keeps the value it was flagged
    * with, and the role that recorded the block is stored beside the reason.
    */
   it("2. a ward blocks a release with a blocker from the list — the flag goes on, the stage does not move", () => {
     const state = seeded();
     const [blocker] = BED_RELEASE_BLOCKERS;
     const before = release(state, "WR-002");
-    expect(before.state).toBe("predicted");
+    expect(before.state).toBe("expected");
     const next = wardFlowReducer(state, {
       type: "BLOCK_BED_RELEASE",
       role: "ward",
@@ -85,7 +85,7 @@ describe("ward bed release lifecycle", () => {
       blocker,
     });
     expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-002").state).toBe("predicted");
+    expect(release(next, "WR-002").state).toBe("expected");
     expect(release(next, "WR-002").blocker).toBe(blocker);
     expect(release(next, "WR-002").blockedBy).toBe("NUM SCGH Adult Open");
     expect(release(next, "WR-002").waitingOn).toBe(before.waitingOn);
@@ -95,7 +95,7 @@ describe("ward bed release lifecycle", () => {
    * THE case the whole rework exists for, proved end to end through the reducer rather than only
    * against `capacityBreakdown`'s arithmetic. A ward confirms a discharge, then reports it stuck.
    * Under the four-stage model the second event moved the release into `"blocked"`, which
-   * `capacityBreakdown` counted in neither `confirmedToday` nor `predictedToday` — so the ward's
+   * `capacityBreakdown` counted in neither `confirmedToday` nor `expectedToday` — so the ward's
    * confirmed count fell by one at the exact moment it got stuck, with nothing saying why.
    */
   it("2b. blocking a CONFIRMED release leaves it confirmed, still counted as confirmed, and reported as blocked", () => {
@@ -153,7 +153,7 @@ describe("ward bed release lifecycle", () => {
    * decision — it only stopped the ward recording it, which is worse. The blocked flag survives,
    * because reversing the discharge decision does not unstick the bed.
    */
-  it("2d. a ward reverts a confirmed release back to predicted, keeping any block", () => {
+  it("2d. a ward reverts a confirmed release back to expected, keeping any block", () => {
     const state = seeded();
     // WR-007 is seeded confirmed AND blocked — the blocked-but-confirmed shape.
     expect(release(state, "WR-007").state).toBe("confirmed");
@@ -168,7 +168,7 @@ describe("ward bed release lifecycle", () => {
       waitingOn: "Nothing outstanding",
     });
     expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-007").state).toBe("predicted");
+    expect(release(next, "WR-007").state).toBe("expected");
     expect(release(next, "WR-007").waitingOn).toBe("Nothing outstanding");
     expect(release(next, "WR-007").blocker).toBe(release(state, "WR-007").blocker);
   });
@@ -176,7 +176,7 @@ describe("ward bed release lifecycle", () => {
   it("2e. a ward may not revert a release that is not confirmed — rejected, release unchanged", () => {
     const state = seeded();
     const before = release(state, "WR-002");
-    expect(before.state).toBe("predicted");
+    expect(before.state).toBe("expected");
     const next = wardFlowReducer(state, {
       type: "REVERT_BED_RELEASE",
       role: "ward",

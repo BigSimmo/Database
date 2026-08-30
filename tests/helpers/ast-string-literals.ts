@@ -16,9 +16,9 @@ import ts from "typescript";
  * literal (which Prettier does not rewrite to quotes), both defeat it silently.
  *
  * WHAT THIS CANNOT SEE: a label built at runtime by concatenating two literal fragments that
- * individually differ from the whole label (`"Predicted" + " today"`), or one assembled from a
+ * individually differ from the whole label (`"Expected" + " today"`), or one assembled from a
  * non-literal expression. Callers that need to catch a label's text arriving as part of a longer
- * literal (a hardcoded label with an interpolated suffix, e.g. `` `Predicted today ${x}` ``) use
+ * literal (a hardcoded label with an interpolated suffix, e.g. `` `Expected today ${x}` ``) use
  * a substring check (`literal.includes(label)`) against each returned literal, not an equality
  * check — this function only extracts candidates, it does not decide what counts as a match.
  */

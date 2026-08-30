@@ -49,6 +49,8 @@ import { wardServiceOrder } from "@/components/ward-management/ward-derivations"
 import type { Unit } from "@/components/ward-management/ward-model";
 import { allEmergencyDepartments, allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { wardMovements } from "@/components/ward-management/ward-movements";
+import { wardPatients } from "@/components/ward-management/ward-patients-seed";
+import { PersonScreen } from "@/components/ward-management/patients/person-screen";
 
 import {
   WARD_DEVELOPER_HUB_HREF,
@@ -125,7 +127,9 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     // ward in the network, grouped by health service, each linking to its own ward screen. It is
     // the answer to the `Owner decision pending on where a full ward index belongs` line that
     // WARD_DYNAMIC_ROUTE_ORPHANS carried for `ward/[unitId]`.
-    expect(wardFlowRoutes.length).toBe(23);
+    // 24, not 23: 2026-08-30 added `/people/[patientId]` (`PersonScreen`) — a PERSON's own screen,
+    // distinct from `/patients/[patientId]`, which despite its name looks a MOVEMENT up by id.
+    expect(wardFlowRoutes.length).toBe(24);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
@@ -254,6 +258,7 @@ const WARD_DYNAMIC_ROUTE_INSTANCES: ReadonlyMap<string, () => number> = new Map(
   ["/mockups/ward-flow/board/[unitId]", () => allUnits().length],
   ["/mockups/ward-flow/ed/[edId]", () => allEmergencyDepartments().length],
   ["/mockups/ward-flow/patients/[patientId]", () => wardMovements.length],
+  ["/mockups/ward-flow/people/[patientId]", () => wardPatients.length],
 ]);
 
 /**
@@ -322,6 +327,14 @@ const WARD_DYNAMIC_ROUTE_ORPHANS: ReadonlyMap<string, string> = new Map([
       "or one and only after a selection. The other 7 departments have no route in.",
   ],
   [
+    "/mockups/ward-flow/people/[patientId]",
+    "0 of 8 instances reachable without state — a person is reached by searching for them, never " +
+      "from a list of everybody. patient-search.tsx's people list is the only route in and it renders " +
+      "nothing until a query is typed, which is the owner's flow rather than a gap: search for a " +
+      "patient, and if nobody comes up, add them. Until 2026-08-30 those rows were inert <li>s, so the " +
+      "figure was 0 of 12 for a different and worse reason — there was nowhere for them to point.",
+  ],
+  [
     "/mockups/ward-flow/patients/[patientId]",
     "0 of 50 instances reachable without state — nothing names a concrete movement anywhere. All four " +
       "builders (patient-search.tsx, live-tracker.tsx, ward-management-modes.tsx, " +
@@ -351,6 +364,7 @@ describe("Ward Flow dynamic routes — what links them, and what they leave orph
       "/mockups/ward-flow/board/[unitId]",
       "/mockups/ward-flow/ed/[edId]",
       "/mockups/ward-flow/patients/[patientId]",
+      "/mockups/ward-flow/people/[patientId]",
       "/mockups/ward-flow/ward/[unitId]",
     ]);
 
@@ -719,6 +733,10 @@ const RENDERABLE_ROUTES: RouteRender[] = [
     route: `${ROUTE_PREFIX}/patients/[patientId]`,
     render: () => createElement(WardPatientWorkspace, { patientId: "WF-001" }),
   },
+  {
+    route: `${ROUTE_PREFIX}/people/[patientId]`,
+    render: () => createElement(PersonScreen, { patientId: wardPatients[0].id }),
+  },
   { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
   { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
   { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
@@ -739,7 +757,9 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     // sharing a name across two files is how one gets updated and the other silently does not; both
     // were moved together here, and a future route must move both.
     // 22 with the ward index (`/wards`, `WardIndex`) — Phase 8.
-    expect(RENDERABLE_ROUTES.length).toBe(22);
+    // 23 with a person's own screen (`/people/[patientId]`, `PersonScreen`) — 2026-08-30. Moved in
+    // both files together, which is exactly what the paragraph above asks of a future route.
+    expect(RENDERABLE_ROUTES.length).toBe(23);
   });
 });
 

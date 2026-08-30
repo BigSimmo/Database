@@ -1164,7 +1164,7 @@ describe("bed release flagging", () => {
    * — a bed coming free but currently held up is a prediction AND a block, and pretending those
    * were alternatives is what let `capacityBreakdown` count such a release nowhere at all.
    */
-  it("appends a predicted release carrying the blocked flag for the acting unit, and increases that unit's potential by one", () => {
+  it("appends a expected release carrying the blocked flag for the acting unit, and increases that unit's potential by one", () => {
     const seeded = seedWardFlowState();
     const unit = seeded.units[0];
     const sibling = seeded.units[1];
@@ -1193,7 +1193,7 @@ describe("bed release flagging", () => {
     expect(flagged.unitId).toBe(unit.id);
     // The stage says how certain the discharge is; the flag says whether it is stuck. Both, at
     // once, on one release — which the four-stage model could not express.
-    expect(flagged.state).toBe("predicted");
+    expect(flagged.state).toBe("expected");
     expect(flagged.waitingOn).toBe("Awaiting ward round");
     expect(flagged.blocker).toBe("Awaiting clean");
     // The role that recorded the block, never a person (Q3).
@@ -1240,7 +1240,7 @@ describe("bed release flagging", () => {
     expect(releaseBand(flagged, NOW)).not.toBe("now");
   });
 
-  it("appends a predicted release when no blocker is given", () => {
+  it("appends a expected release when no blocker is given", () => {
     const seeded = seedWardFlowState();
     const unit = seeded.units[0];
 
@@ -1256,7 +1256,7 @@ describe("bed release flagging", () => {
 
     expect(after.rejections).toEqual([]);
     const flagged = after.bedReleases.at(-1)!;
-    expect(flagged.state).toBe("predicted");
+    expect(flagged.state).toBe("expected");
     expect(flagged.waitingOn).toBe("Awaiting ward round");
     expect(flagged.blocker).toBeNull();
     // No blocker means no blocking role either — the two move together in both directions.

@@ -373,7 +373,7 @@ export function WardDailySheet({
             Who is going
           </h3>
           {/* The basis is named in WORDS, from the same label the board's toggle prints, because a
-            sheet has no toggle on it and "4 beds" without "confirmed" or "predicted" is two
+            sheet has no toggle on it and "4 beds" without "confirmed" or "expected" is two
             different claims sharing a number. */}
           <p className={styles.sheetGroupCount} data-testid="ward-daily-sheet-out-count">
             {outgoingBasisLabel}: {outgoingCount} bed{outgoingCount === 1 ? "" : "s"} expected to free today.
@@ -430,31 +430,33 @@ export function WardDailySheet({
           people={groups.noDate}
           note="An absent date means nobody has set one. It never reads as a plan to stay, and the system never guesses one."
         />
-
-        {/*
-         * LAST in the reading order, and that placement is provisional — see
-         * `AWAY_GROUP_PLACEMENT_UNRESOLVED` below. D19 fixed the first four headings verbatim and
-         * this is a fifth nobody has ruled on, so it goes after them rather than being inserted
-         * into a sequence the owner approved.
-         */}
-        <SheetGroup
-          heading="Who is off the ward"
-          headingId="ward-daily-sheet-away-heading"
-          testId="ward-daily-sheet-away"
-          // OWNER, 2026-08-30, answering whether this group should print at all when nobody is
-          // away: "Just say none." He kept the group and shortened the sentence — which resolves
-          // the tension better than either option I offered him. The sheet's never-blank rule
-          // survives intact (a reader still sees the heading and knows nothing failed to print),
-          // and the page cost drops to one word instead of a sentence, on the sheet that already
-          // spills to a second page at 22 and 24 beds.
-          //
-          // Deliberately shorter than its three siblings above, which keep their full sentences.
-          // Those were approved as they stand and this is the group whose cost was the question.
-          emptyText="None."
-          people={groups.awayFromWard}
-          note="The bed stays theirs while they are away — nothing here frees a bed, and none of these people is counted as leaving."
-        />
       </div>
+
+      {/*
+       * OFF THE WARD — A LINE, NOT A COLUMN. Owner, 2026-08-30: "Remove the away column."
+       *
+       * **The column goes and the FACT stays, and that is not over-caution.** Measured before
+       * changing it: of the two people seeded away, one has an ordinary discharge date and no
+       * blocker, so they appear in NONE of the four groups above. Deleting the group outright
+       * removes them from the printed sheet entirely — and a patient silently absent from the
+       * sheet that is read aloud at handover is the one failure nobody in the room can see. An
+       * unwanted line, by contrast, costs a line and is deleted in seconds.
+       *
+       * So it stops being a sixth grid cell and becomes one sentence under the grid. The reading
+       * order the owner approved is untouched, the page cost drops from a column to a line, and
+       * the handover can still answer "and where is she?".
+       *
+       * Says the bed is still theirs, as every other rendering of this fact does: "off the ward"
+       * on a bed sheet otherwise reads as "so the bed is free", and it is not.
+       */}
+      <p className={styles.sheetAwayLine} data-testid="ward-daily-sheet-away">
+        <strong>Off the ward:</strong>{" "}
+        {groups.awayFromWard.length === 0
+          ? "none."
+          : `${groups.awayFromWard
+              .map((person) => `${person.sex}, from ${person.homeRegion}`)
+              .join("; ")} — at an emergency department. The bed stays theirs.`}
+      </p>
 
       {/* The honest limit of the sheet, on the sheet. D10's editable half — the ward's one-minute
         update — is not here, and its absence must not read as "there is nothing to update". */}

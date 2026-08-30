@@ -374,7 +374,7 @@ function movesPhrase(moves: number): string {
  * values a derived forward `BedRelease` can carry (`ward-discharge-dates.ts`), so the toggle
  * selects a real field on real records rather than a display mode invented here.
  */
-const OUTGOING_BASES = ["confirmed", "predicted"] as const;
+const OUTGOING_BASES = ["confirmed", "expected"] as const;
 type OutgoingBasis = (typeof OUTGOING_BASES)[number];
 
 /**
@@ -383,12 +383,12 @@ type OutgoingBasis = (typeof OUTGOING_BASES)[number];
  * `CAPACITY_FIGURE_LABELS` is the single vocabulary the morning page, the hospital rollup and the
  * ward rollup all render (`ward-morning-rollup.ts`, spec D3/D14), so the toggle names the two
  * figures it switches between with the labels those figures already carry. Typing "Confirmed" and
- * "Predicted" here instead would pass every test today and cost the cheap rename tomorrow, which
+ * "Expected" here instead would pass every test today and cost the cheap rename tomorrow, which
  * is the exact failure that constant exists to prevent.
  */
 const OUTGOING_BASIS_LABEL: Record<OutgoingBasis, string> = {
   confirmed: CAPACITY_FIGURE_LABELS.confirmedToday,
-  predicted: CAPACITY_FIGURE_LABELS.predictedToday,
+  expected: CAPACITY_FIGURE_LABELS.expectedToday,
 };
 
 /**
@@ -653,6 +653,17 @@ export function WardBoard({ unitId }: { unitId: string }) {
    */
   const [outgoingBasis, setOutgoingBasis] = useState<OutgoingBasis>("confirmed");
   /*
+   * Whether the printed sheet is shown on screen. Closed by default: it repeats the board's own
+   * panels, which is why it moved down here, and a reader who wants it is one click away.
+   *
+   * A `<details>` element was the obvious choice and is the wrong one. The browser hides a closed
+   * `details`' content through its own UA stylesheet, and no print rule reliably forces it open —
+   * so the handover sheet would have printed as one line of summary text and a blank page. A
+   * button plus a class the print stylesheet can override keeps the paper correct, which is the
+   * half that matters most: the sheet exists to be printed.
+   */
+  const [sheetOpen, setSheetOpen] = useState(false);
+  /*
    * The tile to hand focus back to once the slide-out closes.
    *
    * A REF rather than a second piece of state, and the distinction is not cosmetic. The focus call
@@ -760,7 +771,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
   const figures: { key: keyof typeof CAPACITY_FIGURE_LABELS; value: number }[] = [
     { key: "availableNow", value: breakdown.availableNow },
     { key: "confirmedToday", value: breakdown.confirmedToday },
-    { key: "predictedToday", value: breakdown.predictedToday },
+    { key: "expectedToday", value: breakdown.expectedToday },
     { key: "blockedToday", value: breakdown.blockedToday },
     { key: "held", value: breakdown.held },
     { key: "leaveUsable", value: breakdown.leaveUsable },
@@ -867,6 +878,14 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * THE BOARD DOES NOT ADVANCE, AND SAYS SO. Owner decision, 2026-08-30, taken in
            * preference to making it live.
            *
+           * **CORRECTED 2026-08-30: the note below said "the times will differ", and that understated
+           * it.** This board reads NO live state — zero uses of `useWardFlow` — and synthesises its
+           * own bed releases from the fixture rather than taking the provider's. So the divergence
+           * is a different DATA SOURCE, not a clock, and the two screens can disagree about FIGURES
+           * too: mark a patient arrived and the ward screen moves while this board cannot. A reader
+           * seeing `Held 1` here against `Held 0` there, under a note that mentions only the clock,
+           * reads a fault rather than the stated design.
+           *
            * Every other Ward Flow screen now follows a clock that starts at the real time of page
            * load and runs. This board deliberately does not: it reads the admissions fixture at
            * `WARD_ADMISSIONS_ANCHOR`, the instant that fixture is authored against, so every stay
@@ -885,33 +904,10 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * site — and this note comes out in the same commit.
            */}
           <p className={styles.asAtFixed} data-testid="ward-board-fixed-note">
-            This board is a fixed snapshot and does not advance while you watch. Other screens follow the live clock, so
-            the times will differ.
+            This board shows a fixed example and does not change while you use the demonstration. Other screens do
+            change, so their figures and times can both differ from these.
           </p>
         </div>
-
-        {/*
-         * THE DAILY SHEET — D19's handover sheet, and page one of anything printed from this board.
-         *
-         * Rendered here, directly under the heading block, because on paper the two are one page: the
-         * heading carries the ward, the hospital, the headline figure, the sentence that qualifies it
-         * and the stamp, and the sheet carries D19's four groups beneath them. That page is what a
-         * charge nurse takes into the morning meeting.
-         *
-         * **Every value handed down is one the board already computed.** Not one of them is derived a
-         * second time here or inside the sheet — see that component's own doc comment. A sheet with
-         * its own copy of the available figure, the since-yesterday counts or the overdue set would be
-         * a second answer to a question somebody is asking out loud with the screen in front of them.
-         */}
-        <WardDailySheet
-          movement={movement}
-          incomingPulled={incoming.filter((person) => person.state === "pulled").length}
-          incomingWaitlisted={incoming.filter((person) => person.state === "waitlisted").length}
-          outgoingCount={outgoing.length}
-          outgoingBasisLabel={OUTGOING_BASIS_LABEL[outgoingBasis]}
-          destinations={targets}
-          people={occupants}
-        />
 
         {/*
          * THE TRIAGE BAR — the day's six figures for this one ward, in the home page's own words.
@@ -926,7 +922,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
          * **The toggle changes emphasis; it never hides a figure.** All six are on the bar in every
          * state. A control able to take the blocked-releases figure off a coordinator's screen is a
          * control able to hide the one thing they most need to chase, so the toggle instead selects
-         * which of Confirmed today / Predicted today the "Going out today" list below is built from —
+         * which of Confirmed today / Expected today the "Going out today" list below is built from —
          * the owner's own "daily discharges … and toggles to daily expects". The selected figure is
          * marked in WORDS ("shown in Going out") as well as by weight, because a mark carried by
          * weight alone is a mark a greyscale sheet loses.
@@ -939,7 +935,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
             {figures.map(({ key, value }) => {
               const led =
                 (outgoingBasis === "confirmed" && key === "confirmedToday") ||
-                (outgoingBasis === "predicted" && key === "predictedToday");
+                (outgoingBasis === "expected" && key === "expectedToday");
               return (
                 <div
                   key={key}
@@ -954,25 +950,6 @@ export function WardBoard({ unitId }: { unitId: string }) {
               );
             })}
           </dl>
-          <div
-            className={styles.triageToggle}
-            role="group"
-            aria-label="Which of today's departures the Going out list shows"
-          >
-            <span className={styles.triageToggleLabel}>Going out shows</span>
-            {OUTGOING_BASES.map((basis) => (
-              <button
-                key={basis}
-                type="button"
-                className={`${styles.triageToggleButton}${outgoingBasis === basis ? ` ${styles.triageToggleButtonOn}` : ""}`}
-                aria-pressed={outgoingBasis === basis}
-                onClick={() => setOutgoingBasis(basis)}
-                data-testid={`ward-board-basis-${basis}`}
-              >
-                {OUTGOING_BASIS_LABEL[basis]}
-              </button>
-            ))}
-          </div>
         </section>
 
         {/*
@@ -1063,6 +1040,37 @@ export function WardBoard({ unitId }: { unitId: string }) {
               <p className={styles.flowIntro} data-testid="ward-board-outgoing-count">
                 Showing {OUTGOING_BASIS_LABEL[outgoingBasis]}: {outgoing.length} bed{outgoing.length === 1 ? "" : "s"}.
               </p>
+              {/*
+               * THE TOGGLE SITS WITH THE LIST IT CHANGES. Owner, 2026-08-30.
+               *
+               * It was on the far right of the triage bar, a full screen-width away from the only
+               * thing it alters — so a reader who pressed it watched a list move in the corner of
+               * their eye, and a reader looking at the list had no idea it had two states. A
+               * control belongs beside its effect.
+               *
+               * The count line directly above states the basis in WORDS as well, which is what
+               * keeps a printed sheet honest: every button is stripped from paper, so the toggle's
+               * pressed state cannot be the only thing saying which list this is.
+               */}
+              <div
+                className={styles.flowToggle}
+                role="group"
+                aria-label="Which of today's departures the Going out list shows"
+              >
+                <span className={styles.flowToggleLabel}>Going out shows</span>
+                {OUTGOING_BASES.map((basis) => (
+                  <button
+                    key={basis}
+                    type="button"
+                    className={`${styles.flowToggleButton}${outgoingBasis === basis ? ` ${styles.flowToggleButtonOn}` : ""}`}
+                    aria-pressed={outgoingBasis === basis}
+                    onClick={() => setOutgoingBasis(basis)}
+                    data-testid={`ward-board-basis-${basis}`}
+                  >
+                    {OUTGOING_BASIS_LABEL[basis]}
+                  </button>
+                ))}
+              </div>
               {outgoing.length === 0 ? (
                 <p className={styles.flowRowLine}>No bed on this ward carries that today.</p>
               ) : (
@@ -1269,19 +1277,6 @@ export function WardBoard({ unitId }: { unitId: string }) {
               Any diagnosis shown is tentative: a broad category a referral gave on the way in, not a diagnosis this
               ward has confirmed.
             </p>
-            {/*
-             * THE EMPTY-SELECTION STATE, and it is deliberately not a blank panel and not somebody
-             * chosen for the reader. Auto-selecting an occupant would read as the system having
-             * picked a person out of the ward, which is a judgement this board does not make and
-             * could not justify; leaving an empty box on screen reads as a panel that failed to load.
-             * So the slide-out is simply absent, and the grid says in words that nothing is chosen and
-             * that nothing will be chosen on the reader's behalf.
-             */}
-            {selectedTile === null && (
-              <p className={styles.selectHint} data-testid="ward-board-select-hint">
-                Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
-              </p>
-            )}
           </div>
 
           {/*
@@ -1294,24 +1289,38 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * from anywhere in the zones, and focus returns to the exact tile that opened it. The tile's
            * own `aria-pressed` is what says which one is open.
            */}
-          {selectedTile !== null && (
-            <aside
-              className={styles.detail}
-              id="ward-board-detail"
-              aria-labelledby="ward-board-detail-heading"
-              data-testid="ward-board-detail"
-              data-detail-kind={selectedTile.kind}
-            >
-              <div className={styles.detailBar}>
-                <h2 id="ward-board-detail-heading" className={styles.detailHeading}>
-                  {selectedTile.kind === "occupied" || selectedTile.kind === "waiting"
+          {/*
+           * A PERMANENT COLUMN, not a slide-out — owner, 2026-08-30: make the side panels more
+           * like the home page's.
+           *
+           * The home page keeps its right region always present and, with nothing chosen, says so:
+           * "Select a movement from the priority queue to see its explainable shortlist." That is
+           * the pattern this now follows. A panel that appears only on click has two costs: the
+           * grid reflows under the reader's hands at the moment they click, and until they click
+           * there is nothing telling them the beds are clickable at all.
+           */}
+          <aside
+            className={styles.detail}
+            id="ward-board-detail"
+            aria-labelledby="ward-board-detail-heading"
+            data-testid="ward-board-detail"
+            data-detail-kind={selectedTile?.kind ?? "none"}
+          >
+            <div className={styles.detailBar}>
+              <h2 id="ward-board-detail-heading" className={styles.detailHeading}>
+                {selectedTile === null
+                  ? "Who is in a bed"
+                  : selectedTile.kind === "occupied" || selectedTile.kind === "waiting"
                     ? "Who is in this bed"
                     : selectedTile.kind === "empty"
                       ? "An empty bed"
                       : selectedTile.kind === "held"
                         ? "A held bed"
                         : "A bed out of service"}
-                </h2>
+              </h2>
+              {/* No Close on an empty panel — there is nothing to close, and a control that does
+                nothing is worse than no control. */}
+              {selectedTile !== null && (
                 <button
                   type="button"
                   className={styles.detailClose}
@@ -1320,57 +1329,77 @@ export function WardBoard({ unitId }: { unitId: string }) {
                 >
                   Close
                 </button>
-              </div>
+              )}
+            </div>
 
-              {selectedTile.kind === "occupied" || selectedTile.kind === "waiting" ? (
-                selectedOccupant !== null ? (
-                  <div className={styles.person} data-testid="ward-board-detail-person">
-                    <PersonEntry occupant={selectedOccupant} idPrefix="ward-board-selected-person" />
-                    {/* Rule 2 spelled out where a reader is looking at one person rather than at the
+            {selectedTile === null ? (
+              /*
+               * THE EMPTY-SELECTION STATE, MOVED HERE from a separate hint under the grid.
+               *
+               * The original decision stands and is why this is not a blank box: auto-selecting an
+               * occupant would read as the system having picked a person out of the ward, and an
+               * empty column reads as a panel that failed to load. Both are still refused — the
+               * absence is STATED, in the same words, including "nobody is chosen for you".
+               *
+               * What changed is where it is said. The hint and this panel were about to carry the
+               * same sentence a column apart, which is the duplication the owner objected to
+               * elsewhere on this page. It belongs in the region it describes.
+               */
+              <p className={styles.detailEmpty} data-testid="ward-board-select-hint">
+                Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+              </p>
+            ) : (
+              <>
+                {selectedTile.kind === "occupied" || selectedTile.kind === "waiting" ? (
+                  selectedOccupant !== null ? (
+                    <div className={styles.person} data-testid="ward-board-detail-person">
+                      <PersonEntry occupant={selectedOccupant} idPrefix="ward-board-selected-person" />
+                      {/* Rule 2 spelled out where a reader is looking at one person rather than at the
                       grid: this bed is gone from the ward's count, and the person is not here. */}
-                    {selectedTile.kind === "waiting" && (
-                      <p className={styles.personLine}>
-                        This ward has already given this bed away. It is taken, not free, and nobody has arrived.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  /* Unreachable while the grid and the list are built from the same two calls, and
+                      {selectedTile.kind === "waiting" && (
+                        <p className={styles.personLine}>
+                          This ward has already given this bed away. It is taken, not free, and nobody has arrived.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    /* Unreachable while the grid and the list are built from the same two calls, and
                    said rather than rendered blank if it ever is: an empty panel would read as a
                    loading failure, and inventing a person to fill it is the one thing this board
                    must never do. */
-                  <p className={styles.personLine}>No record could be read for this bed.</p>
-                )
-              ) : (
-                <div data-testid="ward-board-detail-bed-class">
-                  <p className={styles.detailLead}>
-                    {selectedTile.kind === "empty"
-                      ? `One of this ward's ${emptyTileCount} bed${emptyTileCount === 1 ? "" : "s"} a coordinator can fill right now.`
-                      : selectedTile.kind === "held"
-                        ? `One of this ward's ${heldTileCount} bed${heldTileCount === 1 ? "" : "s"} that are empty but not yet confirmed as ones this ward will offer.`
-                        : `One of this ward's ${blockedTileCount} bed${blockedTileCount === 1 ? "" : "s"} that are out of service and cannot be filled today.`}
-                  </p>
-                  {/* The constraint the header already carries, repeated here only where it bites: a
+                    <p className={styles.personLine}>No record could be read for this bed.</p>
+                  )
+                ) : (
+                  <div data-testid="ward-board-detail-bed-class">
+                    <p className={styles.detailLead}>
+                      {selectedTile.kind === "empty"
+                        ? `One of this ward's ${emptyTileCount} bed${emptyTileCount === 1 ? "" : "s"} a coordinator can fill right now.`
+                        : selectedTile.kind === "held"
+                          ? `One of this ward's ${heldTileCount} bed${heldTileCount === 1 ? "" : "s"} that are empty but not yet confirmed as ones this ward will offer.`
+                          : `One of this ward's ${blockedTileCount} bed${blockedTileCount === 1 ? "" : "s"} that are out of service and cannot be filled today.`}
+                    </p>
+                    {/* The constraint the header already carries, repeated here only where it bites: a
                     reader looking at a fillable bed is exactly the reader who needs to know what
                     will and will not go in it. `constraintSentence` returns null rather than an
                     empty string when nothing constrains. */}
-                  {selectedTile.kind === "empty" && constraint !== null && (
-                    <p className={styles.personLine}>{constraint}</p>
-                  )}
-                  {/*
-                   * THE LINE THAT KEEPS SELECTION HONEST. `Unit.blocked` is a count and
-                   * `unitCapacity`'s held/available split is derived from two more counts; no record
-                   * anywhere says WHICH bed. So a reader who has just clicked one of these tiles is
-                   * told, on the panel, that they have selected a class of bed and not a location.
-                   */}
-                  <p className={styles.detailNotLocation}>
-                    Which bed is not recorded. An admission records the ward it is on and never a bed, so this tile is
-                    one of a count and not a place on the ward.
-                  </p>
-                </div>
-              )}
-            </aside>
-          )}
+                    {selectedTile.kind === "empty" && constraint !== null && (
+                      <p className={styles.personLine}>{constraint}</p>
+                    )}
+                    {/*
+                     * THE LINE THAT KEEPS SELECTION HONEST. `Unit.blocked` is a count and
+                     * `unitCapacity`'s held/available split is derived from two more counts; no record
+                     * anywhere says WHICH bed. So a reader who has just clicked one of these tiles is
+                     * told, on the panel, that they have selected a class of bed and not a location.
+                     */}
+                    <p className={styles.detailNotLocation}>
+                      Which bed is not recorded. An admission records the ward it is on and never a bed, so this tile is
+                      one of a count and not a place on the ward.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </aside>
         </div>
 
         {/*
@@ -1477,6 +1506,53 @@ export function WardBoard({ unitId }: { unitId: string }) {
          * "top 5" with the rest hidden is worse than no list, because nobody reading it can tell that
          * anything is missing.
          */}
+        {/*
+         * THE WARD'S DAILY SHEET — LAST ON SCREEN, AND FOLDED AWAY UNTIL SOMEBODY WANTS IT.
+         *
+         * **Moved here from directly under the heading, owner 2026-08-30.** Measured before the
+         * move: the sheet was 995px of a 2493px page — **40% of the ward board, sitting second**,
+         * pushing the beds themselves below the fold. The board's subject is the beds; the sheet is
+         * what the board PRINTS.
+         *
+         * **Folded because on screen it repeats the board almost entirely, and that was by design.**
+         * The sheet was built as a printout of these same panels, so its "Since yesterday", "Who
+         * came in", "Who is going" and destinations list are the board's own since-panel, incoming
+         * panel, outgoing panel and destinations panel a second time. Two answers to one question,
+         * a screen apart, is exactly what this board refuses everywhere else.
+         *
+         * **Folding removes the duplication from the screen and removes nothing from the paper.**
+         * `<details>` keeps it one click away so nobody has to print to see what will print, and
+         * the print stylesheet forces it open — see `.sheetFold[open]` and the `@media print` rule,
+         * which must stay together: a fold that stayed shut on paper would print a blank page where
+         * the handover sheet belongs, which is the worst outcome of the three.
+         */}
+        <section className={styles.sheetFold} data-testid="ward-board-sheet-fold">
+          <button
+            type="button"
+            className={styles.sheetFoldSummary}
+            aria-expanded={sheetOpen}
+            aria-controls="ward-board-sheet-body"
+            onClick={() => setSheetOpen((open) => !open)}
+          >
+            {sheetOpen ? "Hide" : "Show"} the ward&apos;s daily sheet — the page this board prints
+          </button>
+          <div
+            id="ward-board-sheet-body"
+            className={sheetOpen ? styles.sheetBody : styles.sheetBodyHidden}
+            data-testid="ward-board-sheet-body"
+          >
+            <WardDailySheet
+              movement={movement}
+              incomingPulled={incoming.filter((person) => person.state === "pulled").length}
+              incomingWaitlisted={incoming.filter((person) => person.state === "waitlisted").length}
+              outgoingCount={outgoing.length}
+              outgoingBasisLabel={OUTGOING_BASIS_LABEL[outgoingBasis]}
+              destinations={targets}
+              people={occupants}
+            />
+          </div>
+        </section>
+
         <aside className={styles.people} aria-labelledby="ward-board-people-heading">
           <h2 id="ward-board-people-heading" className={styles.peopleHeading}>
             Who is in these beds

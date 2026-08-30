@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 
-import { formatInstant, splitDuration, formatSheetMoment } from "@/components/ward-management/ward-clock";
+import { splitDuration, formatSheetMoment } from "@/components/ward-management/ward-clock";
 import {
   destinationUnit,
   elapsedLabel,

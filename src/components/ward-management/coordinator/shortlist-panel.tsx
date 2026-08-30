@@ -15,6 +15,8 @@ import {
   type LegalStatusChangeReason,
   type ReleaseHoldReason,
   type UrgencyChangeReason,
+  OVERRIDE_REASONS,
+  type OverrideReason,
 } from "@/components/ward-management/ward-change-reasons";
 import { clockState, formatInstantWithDay, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
@@ -59,9 +61,20 @@ type ShortlistPanelProps = {
  * straight from `movement.referredUnitIds`, the reducer's own live output, so a second,
  * optimistic local flag would only ever be a second place for the truth to diverge from.
  *
- * Override still needs local state, because the typed reason has nowhere else to live —
- * `REFER_TO_UNITS` carries no reason field, so a typed override reason is never written to
- * shared state. But this record is never trusted at face value: `overrideSucceeded` below reads
+ * ⚠️ **CORRECTED 2026-08-30. THIS PARAGRAPH SAID `REFER_TO_UNITS` CARRIES NO REASON FIELD, AND IT
+ * HAD STOPPED BEING TRUE.** The event now carries `overrideReason?: OverrideReason`, the reducer
+ * validates it against `OVERRIDE_REASONS` by membership and rejects anything outside the list, and
+ * a present reason is stored on `Movement.overrides` — which is the whole of owner decision `OD-3`.
+ * The control beside it is a `<select>` over that same list, never a textarea.
+ *
+ * **It did not merely go stale; it misinformed another session.** Ward Referrals read it, believed
+ * it, and filed a request for a field that already existed — a real cost, from a comment that was
+ * accurate when written and that nothing local fails when it stops being. Fifth instance of that
+ * shape found in this prototype today, and the first with a measurable victim.
+ *
+ * Override still keeps local state, for a smaller reason than the one this used to give: the
+ * `<select>` needs a value between choosing a reason and submitting it. This record is never
+ * trusted at face value either: `overrideSucceeded` below reads
  * `movement.referredUnitIds` fresh on every render and only renders a success message when those
  * ids are actually present there, so a refused override (the movement was not in a referable
  * stage, or any other reducer-side reason) can never be reported as one that happened.
@@ -375,7 +388,21 @@ export function ShortlistPanel({
     if (!canOverride) return;
     const reason = overrideReason.trim();
     if (reason.length === 0) return;
-    dispatch({ type: "REFER_TO_UNITS", role: "coordinator", now, movementId, unitIds: [...referTargets] });
+    // Membership-checked here as well as in the reducer. The reducer's check is the one that
+    // matters; this one keeps a malformed value from being reported on screen as recorded.
+    if (!OVERRIDE_REASONS.includes(reason as OverrideReason)) return;
+    // OD-3: the reason travels WITH the event now. It used to go only into `overrideRecord`
+    // below -- this component's own state, cleared on the next patient selection -- while the
+    // governance page said override reasons were recorded. The reducer keeps it on
+    // `Movement.overrides`; `overrideRecord` is now only the on-screen confirmation.
+    dispatch({
+      type: "REFER_TO_UNITS",
+      role: "coordinator",
+      now,
+      movementId,
+      unitIds: [...referTargets],
+      overrideReason: reason as OverrideReason,
+    });
     setOverrideRecord({ unitIds: [...referTargets], at: now, reason });
     setOverrideOpen(false);
     setOverrideReason("");
@@ -1075,13 +1102,29 @@ export function ShortlistPanel({
               Reason for overriding the shortlist for{" "}
               {referredCandidates.map((c) => c?.unit.name ?? "an unresolved unit").join(", ")}
             </label>
-            <textarea
+            {/*
+              Owner decision OD-3: the free-text box is gone and these five replace it. Derived
+              from `OVERRIDE_REASONS` rather than written out here — a second copy of an
+              owner-approved list is how two screens come to offer different words for one thing.
+
+              ⚠️ NEVER ADD AN "OTHER, PLEASE SPECIFY" (WB-DB-16). That option is precisely how free
+              text returns after being removed from the front, and it would undo the decision this
+              control implements.
+            */}
+            <select
               id="ward-shortlist-override-reason"
               required
-              className={styles.shortlistOverrideTextarea}
+              className={styles.shortlistOverrideSelect}
               value={overrideReason}
               onChange={(event) => setOverrideReason(event.target.value)}
-            />
+            >
+              <option value="">Choose a reason</option>
+              {OVERRIDE_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {reason}
+                </option>
+              ))}
+            </select>
             <button type="submit" className={styles.shortlistOverrideSubmit}>
               Record override
             </button>

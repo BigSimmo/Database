@@ -31,6 +31,7 @@ import {
   type HealthService,
   type Movement,
   type MovementStage,
+  type Override,
   type Referral,
   type TransportJob,
   type Unit,
@@ -55,7 +56,7 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
  *  ward-model.ts) are raw lowercase lifecycle identifiers, never sentence-case display text.
  *  A screen renders this label, never `release.state` directly (defect fix, visual pass). */
 export const bedReleaseStateLabels: Record<BedReleaseState, string> = {
-  predicted: "Predicted",
+  expected: "Expected",
   confirmed: "Confirmed",
   discharged: "Discharged",
 };
@@ -85,6 +86,56 @@ export function stageSummaries(movements: Movement[]) {
     ...stageCopy[id],
     count: movements.filter((movement) => movement.stage === id).length,
   }));
+}
+
+/**
+ * THE SAME STRIP, RECONCILED WITH THE QUEUE STANDING NEXT TO IT.
+ *
+ * `stageSummaries` above answers "how many movements are AT this stage" and is correct for the
+ * screens that ask that. The network page asks a different question and rendered the same answer:
+ * its strip sits directly above a panel headed "Priority queue", so its seven cells read as the
+ * queue broken down by stage. They summed to 50 while the queue said 43.
+ *
+ * ⚠️ **THE OBVIOUS FIX IS WRONG BY ONE, AND IT IS THE VERSION TWO REVIEWERS INDEPENDENTLY ASKED
+ * FOR.** Both said: put stage 7 "Arrived" outside the total. That gives 44. `isOpen` is TWO
+ * conditions — `!closure && stage !== "arrived"` — and a movement that does not proceed closes at
+ * whatever stage it had reached, so the closed records are NOT all sitting in stage 7. The seed
+ * holds exactly one of them today.
+ *
+ * ⚠️ **AND 44 BESIDE 43 IS WORSE THAN 50 BESIDE 43.** Fifty is visibly unreconciled: a coordinator
+ * sees two numbers that obviously do not match and asks. Forty-four invites the arithmetic and then
+ * fails it by one, with nothing on screen indicating which cell is lying. A wrong number that looks
+ * right outranks a wrong number that looks wrong, in the direction of harm.
+ *
+ * So this returns the whole reconciliation rather than a rearranged strip: waiting cells that count
+ * PEOPLE STILL WAITING, and one cell holding everyone who has left the pathway by either route.
+ * `waiting` sums to the queue count, `waiting + left.total` is every movement, and
+ * `left.arrived + left.didNotProceed` equals `left.total` by construction rather than by
+ * coincidence — `arrived` is the remainder, so no third outcome can fall between them unnoticed.
+ *
+ * Pinned by `tests/ward-network-stage-strip.dom.test.tsx`, whose canary asserts the fixture still
+ * contains a movement that closed before arriving — because without one, the arrived-only fix
+ * passes every other assertion in that file.
+ */
+export function queueStageSummaries(movements: Movement[]) {
+  const left = movements.filter((movement) => !isOpen(movement));
+  const didNotProceed = left.filter((movement) => movement.closure?.outcome === "did_not_proceed").length;
+
+  return {
+    waiting: MOVEMENT_STAGES.filter((id) => id !== "arrived").map((id) => ({
+      id,
+      ...stageCopy[id],
+      count: movements.filter((movement) => movement.stage === id && isOpen(movement)).length,
+    })),
+    left: {
+      total: left.length,
+      // The remainder, deliberately. Counting `stage === "arrived"` directly would leave a
+      // did-not-proceed closure recorded at the arrived stage in neither bucket, and the two
+      // sub-figures would quietly stop summing to the total they are printed beneath.
+      arrived: left.length - didNotProceed,
+      didNotProceed,
+    },
+  };
 }
 
 /**
@@ -277,11 +328,11 @@ export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
     held,
     /**
      * Task 7 (Phase 5, spec D6); review Finding 4: this is a raw count of every bed release for
-     * the unit regardless of state or timing — it does not distinguish confirmed from predicted
+     * the unit regardless of state or timing — it does not distinguish confirmed from expected
      * from blocked, and it does not exclude a release that falls beyond tonight. Nothing renders
      * this field any more: `ward-management-modes.tsx`, `ward/ward-screen.tsx`,
      * `ward-management-network.tsx` and `coordinator/flow-diagram.tsx` all render
-     * `capacityBreakdown()`'s Confirmed/Predicted figures instead. This field's arithmetic is
+     * `capacityBreakdown()`'s Confirmed/Expected figures instead. This field's arithmetic is
      * deliberately left unchanged — it is protected — but it is dead beyond its remaining
      * offline test callers (`tests/ward-capacity-reconciliation.test.ts`,
      * `tests/ward-flow-reducer.test.ts`, `tests/ward-model.test.ts`); do not repurpose it as a
@@ -583,6 +634,40 @@ export type HandoverSnapshot = {
   inTransit: { movement: Movement; leg: TransportLeg | "Cancelled" | undefined }[];
   placementGoneWrong: { movement: Movement; kind: "escalated" | "declined_by_all" }[];
 };
+
+export type OverrideEntry = { movement: Movement; override: Override };
+
+/**
+ * THE WHOLE OVERRIDE REGISTER — the coordinator's view.
+ *
+ * Every override on every movement, newest last within a movement because that is the order they
+ * were made in. This is the unrestricted read, and it exists so the restriction below is a real
+ * restriction rather than a name for the only thing there is.
+ */
+export function allOverrides(movements: Movement[]): OverrideEntry[] {
+  return movements.flatMap((movement) => movement.overrides.map((override) => ({ movement, override })));
+}
+
+/**
+ * THE WARD'S VIEW — the overrides made AGAINST this unit, and nothing else.
+ *
+ * Owner decision OD-3: an override is **visible to the party overridden**. This is that clause, and
+ * it is the whole difference between an accountability record and an audit trail — which store
+ * identical data and differ only in who can read them.
+ *
+ * ⚠️ **THIS FILTERS AT THE SOURCE, NOT AT RENDER, AND THAT IS THE POINT.** The natural
+ * implementation is to hand a ward screen `allOverrides` and filter it in the component. That looks
+ * identical in review and passes any test asserting a ward sees its own overrides — and it leaks
+ * every other ward's the moment somebody adds a column, a debug panel, or a styling change that
+ * reveals a row meant to be hidden. **What a ward may not see must not reach it.**
+ * `tests/ward-override-register.test.ts` is the boundary that goes red.
+ *
+ * Same shape and same reasoning as FD-23's ward-blindness rule on referrals, which Ward Referrals
+ * is building: a ward-scoped surface is a projection, never the full record with fields hidden.
+ */
+export function overridesAgainstUnit(movements: Movement[], unitId: string): OverrideEntry[] {
+  return allOverrides(movements).filter((entry) => entry.override.unitIds.includes(unitId));
+}
 
 export function handoverSnapshot(movements: Movement[], units: Unit[], now: Instant): HandoverSnapshot {
   const open = movements.filter(isOpen);

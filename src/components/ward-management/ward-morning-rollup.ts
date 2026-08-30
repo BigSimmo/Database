@@ -25,14 +25,14 @@ export const MORNING_HANDOVER_MINUTES = 8 * 60; // 08:00
  *
  * `blockedToday` joined them in the bed-model rework of 2026-08-28. It is a capacity figure about
  * beds, so unlike `PEOPLE_WAITING_LABEL` below it belongs here and is rendered at service,
- * hospital and ward level like the rest. It is a CROSS-CUT of `confirmedToday`/`predictedToday`,
+ * hospital and ward level like the rest. It is a CROSS-CUT of `confirmedToday`/`expectedToday`,
  * never a bucket of its own — see `CapacityBreakdown.blockedToday` — so no level may add it to
  * them or subtract it from them.
  */
 export const CAPACITY_FIGURE_LABELS = {
   availableNow: "Available now",
   confirmedToday: "Confirmed today",
-  predictedToday: "Predicted today",
+  expectedToday: "Expected today",
   blockedToday: BED_RELEASE_BLOCKED_FIGURE_LABEL,
   held: "Held",
   leaveUsable: "Leave (usable)",
@@ -156,7 +156,7 @@ function rollupFreshness(units: Unit[]): RollupFreshness {
 const EMPTY_BREAKDOWN: CapacityBreakdown = {
   availableNow: 0,
   confirmedToday: 0,
-  predictedToday: 0,
+  expectedToday: 0,
   blockedToday: 0,
   held: 0,
   leaveUsable: 0,
@@ -166,9 +166,9 @@ const EMPTY_BREAKDOWN: CapacityBreakdown = {
 /**
  * Rule 1: every figure is the plain sum of the corresponding field, nothing re-derived.
  *
- * `availableNow` sums ONLY `breakdown.availableNow` — never `confirmedToday`, `predictedToday`
+ * `availableNow` sums ONLY `breakdown.availableNow` — never `confirmedToday`, `expectedToday`
  * or `leaveUsable` mixed in. The single most important rule in this module is that nothing
- * predicted, confirmed-but-unreleased, or on leave ever reaches this figure; a rollup that
+ * expected, confirmed-but-unreleased, or on leave ever reaches this figure; a rollup that
  * added another field into `availableNow` would silently launder a softened number into the
  * one figure a coordinator is meant to treat as "fillable this minute" (see the
  * "never lets a release or a leave bed reach the headline figure" contract test below).
@@ -178,7 +178,7 @@ function sumBreakdowns(breakdowns: CapacityBreakdown[]): CapacityBreakdown {
     (sum, breakdown) => ({
       availableNow: sum.availableNow + breakdown.availableNow,
       confirmedToday: sum.confirmedToday + breakdown.confirmedToday,
-      predictedToday: sum.predictedToday + breakdown.predictedToday,
+      expectedToday: sum.expectedToday + breakdown.expectedToday,
       blockedToday: sum.blockedToday + breakdown.blockedToday,
       held: sum.held + breakdown.held,
       leaveUsable: sum.leaveUsable + breakdown.leaveUsable,

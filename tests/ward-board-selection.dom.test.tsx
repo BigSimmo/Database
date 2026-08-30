@@ -54,7 +54,7 @@ function occupantsFor(unitId: string): Admission[] {
 }
 
 function tileButtons(container: HTMLElement): HTMLButtonElement[] {
-  return [...container.querySelectorAll<HTMLButtonElement>('[data-bed-kind] button')];
+  return [...container.querySelectorAll<HTMLButtonElement>("[data-bed-kind] button")];
 }
 
 function tileButtonOfKind(container: HTMLElement, kind: string): HTMLButtonElement {
@@ -70,7 +70,21 @@ describe("ward board selection — nothing is chosen for the reader", () => {
     // Non-vacuity: there are tiles to have failed to select.
     expect(tileButtons(container).length).toBeGreaterThan(0);
 
-    expect(container.querySelector('[data-testid="ward-board-detail"]')).toBeNull();
+    /*
+     * The panel is now PERMANENT and empty rather than absent — owner, 2026-08-30, asking for the
+     * side panels to match the home page's, which keeps its right region always present with an
+     * empty-state sentence.
+     *
+     * The decision this test was written to protect is unchanged and is still asserted below:
+     * nobody is chosen for the reader, and the absence is STATED rather than left as a blank box.
+     * Auto-selecting an occupant would read as the system having picked a person out of the ward;
+     * an unexplained empty column would read as a panel that failed to load. Both are still
+     * refused. What changed is where the sentence lives — it moved INTO the panel it describes,
+     * because the hint and the panel were otherwise carrying the same words a column apart.
+     */
+    expect(container.querySelector('[data-testid="ward-board-detail-person"]')).toBeNull();
+    expect(container.querySelector('[data-testid="ward-board-detail-close"]')).toBeNull();
+    expect(screen.getByTestId("ward-board-select-hint").textContent).toContain("nobody is chosen for you");
     expect(tileButtons(container).filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(0);
 
     // The absence is STATED. A blank column reads as a panel that failed to load, and an
@@ -196,7 +210,21 @@ describe("ward board selection — the keyboard contract", () => {
     // on it — and the handler is on the zones container, so it must reach there by bubbling.
     fireEvent.keyDown(screen.getByTestId("ward-board-detail"), { key: "Escape" });
 
-    expect(container.querySelector('[data-testid="ward-board-detail"]')).toBeNull();
+    /*
+     * The panel is now PERMANENT and empty rather than absent — owner, 2026-08-30, asking for the
+     * side panels to match the home page's, which keeps its right region always present with an
+     * empty-state sentence.
+     *
+     * The decision this test was written to protect is unchanged and is still asserted below:
+     * nobody is chosen for the reader, and the absence is STATED rather than left as a blank box.
+     * Auto-selecting an occupant would read as the system having picked a person out of the ward;
+     * an unexplained empty column would read as a panel that failed to load. Both are still
+     * refused. What changed is where the sentence lives — it moved INTO the panel it describes,
+     * because the hint and the panel were otherwise carrying the same words a column apart.
+     */
+    expect(container.querySelector('[data-testid="ward-board-detail-person"]')).toBeNull();
+    expect(container.querySelector('[data-testid="ward-board-detail-close"]')).toBeNull();
+    expect(screen.getByTestId("ward-board-select-hint").textContent).toContain("nobody is chosen for you");
     expect(document.activeElement).toBe(button);
     expect(button.getAttribute("aria-pressed")).toBe("false");
   });
@@ -209,7 +237,21 @@ describe("ward board selection — the keyboard contract", () => {
     await user.click(button);
     await user.click(screen.getByTestId("ward-board-detail-close"));
 
-    expect(container.querySelector('[data-testid="ward-board-detail"]')).toBeNull();
+    /*
+     * The panel is now PERMANENT and empty rather than absent — owner, 2026-08-30, asking for the
+     * side panels to match the home page's, which keeps its right region always present with an
+     * empty-state sentence.
+     *
+     * The decision this test was written to protect is unchanged and is still asserted below:
+     * nobody is chosen for the reader, and the absence is STATED rather than left as a blank box.
+     * Auto-selecting an occupant would read as the system having picked a person out of the ward;
+     * an unexplained empty column would read as a panel that failed to load. Both are still
+     * refused. What changed is where the sentence lives — it moved INTO the panel it describes,
+     * because the hint and the panel were otherwise carrying the same words a column apart.
+     */
+    expect(container.querySelector('[data-testid="ward-board-detail-person"]')).toBeNull();
+    expect(container.querySelector('[data-testid="ward-board-detail-close"]')).toBeNull();
+    expect(screen.getByTestId("ward-board-select-hint").textContent).toContain("nobody is chosen for you");
     expect(document.activeElement).toBe(button);
   });
 
@@ -243,7 +285,21 @@ describe("ward board selection — the keyboard contract", () => {
     await user.click(button);
 
     expect(button.getAttribute("aria-pressed")).toBe("false");
-    expect(container.querySelector('[data-testid="ward-board-detail"]')).toBeNull();
+    /*
+     * The panel is now PERMANENT and empty rather than absent — owner, 2026-08-30, asking for the
+     * side panels to match the home page's, which keeps its right region always present with an
+     * empty-state sentence.
+     *
+     * The decision this test was written to protect is unchanged and is still asserted below:
+     * nobody is chosen for the reader, and the absence is STATED rather than left as a blank box.
+     * Auto-selecting an occupant would read as the system having picked a person out of the ward;
+     * an unexplained empty column would read as a panel that failed to load. Both are still
+     * refused. What changed is where the sentence lives — it moved INTO the panel it describes,
+     * because the hint and the panel were otherwise carrying the same words a column apart.
+     */
+    expect(container.querySelector('[data-testid="ward-board-detail-person"]')).toBeNull();
+    expect(container.querySelector('[data-testid="ward-board-detail-close"]')).toBeNull();
+    expect(screen.getByTestId("ward-board-select-hint").textContent).toContain("nobody is chosen for you");
     expect(screen.getByTestId("ward-board-select-hint")).toBeTruthy();
   });
 });
@@ -282,10 +338,7 @@ describe("ward board selection — what it looks like on paper", () => {
    * a printed sheet that has recorded no decision reads as a decision made.
    */
   it("carries selection as a weight and never as a fill", () => {
-    const css = readFileSync(
-      path.join(process.cwd(), "src/components/ward-management/board/board.module.css"),
-      "utf8",
-    );
+    const css = readFileSync(path.join(process.cwd(), "src/components/ward-management/board/board.module.css"), "utf8");
     const match = css.match(/\.bedSelected\s*\{([^}]*)\}/);
     expect(match, "board.module.css declares no .bedSelected rule").not.toBeNull();
     const body = match![1]!;
@@ -301,10 +354,7 @@ describe("ward board selection — what it looks like on paper", () => {
    * block.
    */
   it("restores the tile buttons for print", () => {
-    const css = readFileSync(
-      path.join(process.cwd(), "src/components/ward-management/board/board.module.css"),
-      "utf8",
-    );
+    const css = readFileSync(path.join(process.cwd(), "src/components/ward-management/board/board.module.css"), "utf8");
     const printBlock = css.slice(css.indexOf("@media print"));
     expect(printBlock).toContain("display: flex !important");
     // Specifically on the tile class — a restore attached to something else would leave the tiles
@@ -331,10 +381,7 @@ describe("ward board selection — what it looks like on paper", () => {
    * a later edit removes as redundant.
    */
   it("prints its own ink on a light sheet whatever theme the screen was in", () => {
-    const css = readFileSync(
-      path.join(process.cwd(), "src/components/ward-management/board/board.module.css"),
-      "utf8",
-    );
+    const css = readFileSync(path.join(process.cwd(), "src/components/ward-management/board/board.module.css"), "utf8");
     const printBlock = css.slice(css.indexOf("@media print"));
     // **Anchored to the start of a line and required to end in a semicolon, because the first
     // version of this assertion could not fail.** `/color-scheme:\s*light/` matched the prose in

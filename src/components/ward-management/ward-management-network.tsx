@@ -13,8 +13,8 @@ import {
   elapsedLabel,
   isOpen,
   movementHealthService,
+  queueStageSummaries,
   stageCopy,
-  stageSummaries,
   transportStatusLabel,
   unitCapacity,
   wardServiceOrder,
@@ -28,6 +28,7 @@ import type {
   HealthService,
   LeaveBed,
   Movement,
+  MovementStage,
   Referral,
   Unit,
 } from "@/components/ward-management/ward-model";
@@ -52,18 +53,18 @@ import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
-type BedStateKey = "available" | "held" | "confirmed" | "predicted" | "blocked";
+type BedStateKey = "available" | "held" | "confirmed" | "expected" | "blocked";
 
 // Review Finding 4: this used to be `"potential"`, sourced from `unitCapacity()`'s raw release
 // count — every release for the unit regardless of state or timing, including one already
 // `discharged` and one expected beyond tonight, both of which spec D5/D6 exclude from every count.
-// Confirmed and Predicted are read from `capacityBreakdown()` instead, the same figures the
+// Confirmed and Expected are read from `capacityBreakdown()` instead, the same figures the
 // capacity board and the ward screen already show, so this board can never disagree with them.
 const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
   available: { label: "Ready", detail: "Available now" },
   held: { label: "Held", detail: "Bed held" },
   confirmed: { label: "Confirmed", detail: "Confirmed today" },
-  predicted: { label: "Predicted", detail: "Predicted today" },
+  expected: { label: "Expected", detail: "Expected today" },
   blocked: { label: "Blocked", detail: "Not available" },
 };
 
@@ -202,7 +203,7 @@ function transportTone(etaLabel: string) {
   return /requested|awaiting|not yet/i.test(etaLabel) ? "warning" : "good";
 }
 
-// Review Finding 4: the "Confirmed"/"Predicted" chips read `capacityBreakdown()`, not
+// Review Finding 4: the "Confirmed"/"Expected" chips read `capacityBreakdown()`, not
 // `unitCapacity()`'s raw `potential` — see the `bedStateCopy` doc comment above. The four
 // physical states (Ready/Held/Blocked, plus Occupied where shown) are untouched.
 function bedStateValue(
@@ -211,7 +212,7 @@ function bedStateValue(
   breakdown: ReturnType<typeof capacityBreakdown>,
 ): number {
   if (key === "confirmed") return breakdown.confirmedToday;
-  if (key === "predicted") return breakdown.predictedToday;
+  if (key === "expected") return breakdown.expectedToday;
   return capacity[key];
 }
 
@@ -292,7 +293,7 @@ function ServiceCard({
       data-routed={routed ? "true" : undefined}
       data-testid={`ward-network-card-${unit.id}`}
       className={styles.serviceCard}
-      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.predictedToday} predicted, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.${verdict ? ` ${verdict}.` : ""}`}
+      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.expectedToday} expected, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.${verdict ? ` ${verdict}.` : ""}`}
     >
       <span className={styles.serviceName}>{unit.name}</span>
       <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
@@ -444,6 +445,17 @@ export function WardNetworkWorkspace() {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
+  /**
+   * Which stage the queue below is narrowed to, or the whole queue.
+   *
+   * ⚠️ **THE HEADER COUNT DOES NOT READ THIS, AND THAT IS THE SAFETY PROPERTY RATHER THAN AN
+   * OVERSIGHT.** The figure beside "Priority queue" is what a coordinator reads as "how much demand
+   * is there", and a filter that could shrink it would let somebody who has not noticed the filter
+   * read a fraction of the waiting list as the whole of it — a wrong number that agrees with the
+   * rows beneath it and so has nothing on screen to contradict it. The narrowing is stated in
+   * words instead, in its own banner, with a way out that is always present.
+   */
+  const [stageFilter, setStageFilter] = useState<MovementStage | null>(null);
 
   // `selectedPatientId` is only ever set from a real movement's own id (see the queue button
   // below), so this can't miss today — but every hook after this one must still run
@@ -623,9 +635,40 @@ export function WardNetworkWorkspace() {
   // `BedStateChips`/`unitCapacity` below, so the selected unit's own capacity figures must move
   // the instant its ward confirms new capacity, not only at first paint.
   const detail = selectedUnitId ? (units.find((unit) => unit.id === selectedUnitId) ?? null) : null;
-  // Arrived and self-discharged movements have left the pathway (spec §7), so this must not
-  // be the raw stage-count sum — that includes them and overstates live demand.
-  const openMovements = movements.filter(isOpen).length;
+  /**
+   * THE PEOPLE STILL WAITING FOR A PLACE — one array, and everything about the queue reads it.
+   *
+   * Arrived and self-discharged movements have left the pathway (spec §7), so a queue for placement
+   * must not count them: doing so overstates live demand, and this is the figure a coordinator
+   * looks at first.
+   *
+   * ⚠️ **THIS IS DELIBERATELY AN ARRAY RATHER THAN A COUNT, AND THAT IS THE FIX.** Until 2026-08-30
+   * the count was `movements.filter(isOpen).length` here and the panel rendered `movements.length`
+   * thirty-three lines below, with the list rendering `movements.map` — so the header, the list and
+   * this line were three separate answers to one question and two of them were wrong. The comment
+   * explaining why the raw total is wrong was already sitting on this line while the raw total was
+   * on screen.
+   *
+   * A corrected number would drift back. A single array the count and the list both read cannot
+   * disagree with itself. Phase 1's audit recorded this same shape in a different component — "48
+   * open movements counted six arrived and one closed record" — so it has now recurred once, and
+   * `tests/ward-network-queue-count.dom.test.tsx` is what stops a third time.
+   */
+  const openQueue = movements.filter(isOpen);
+  const openMovements = openQueue.length;
+  /**
+   * The strip above the queue, counted the way the queue counts. `queueStageSummaries` rather than
+   * `stageSummaries` — the other screens that render a strip are not standing beside a queue and
+   * are right to ask the other question. See that function's doc comment for why the obvious
+   * remedy here is wrong by exactly one.
+   */
+  const pipeline = queueStageSummaries(movements);
+  /**
+   * The rows actually rendered. Derived from `openQueue` rather than from `movements`, so a filter
+   * can only ever narrow the people who are genuinely waiting — it can never reach past `isOpen`
+   * and put an arrived patient back into a queue for placement.
+   */
+  const visibleQueue = stageFilter ? openQueue.filter((candidate) => candidate.stage === stageFilter) : openQueue;
   const primary = candidates[0];
 
   if (!patient) {
@@ -643,14 +686,44 @@ export function WardNetworkWorkspace() {
       data-shortlist={shortlistOpen ? "open" : "collapsed"}
     >
       <section className={styles.pipeline} aria-label="Movement pipeline">
-        {stageSummaries(movements).map((stage, index) => (
-          <span className={styles.pipelineStage} key={stage.id}>
+        {/*
+          These were `<span>`s until 2026-08-30 — numbered 1 to 6, which reads as a pipeline you can
+          step into, and inert. The button-wiring gate could not fire precisely BECAUSE they were not
+          buttons, so nothing in the repository was able to notice.
+
+          The counts stay unfiltered whatever is selected. A strip that narrowed with the queue would
+          leave no legible route back to the whole picture, and its cells would stop summing to the
+          header count they sit directly above.
+        */}
+        {pipeline.waiting.map((stage, index) => (
+          <button
+            type="button"
+            className={styles.pipelineStage}
+            key={stage.id}
+            data-waiting-stage="true"
+            data-testid={`ward-pipeline-waiting-${stage.id}`}
+            aria-pressed={stageFilter === stage.id}
+            onClick={() => setStageFilter((current) => (current === stage.id ? null : stage.id))}
+          >
             <span className={styles.pipelineLabel}>
               {index + 1} {stage.label}
             </span>
-            <strong>{stage.count}</strong>
-          </span>
+            <strong data-testid="ward-pipeline-count">{stage.count}</strong>
+          </button>
         ))}
+        {/*
+          Everyone who has LEFT the pathway, in one cell, deliberately after a divider and
+          deliberately not numbered. The waiting cells above sum to the queue's own count; this one
+          holds the remainder, so the strip and the queue reconcile exactly and the two figures
+          beneath it always add up to the figure above them. See `queueStageSummaries`.
+        */}
+        <span className={styles.pipelineLeftPathway} data-testid="ward-pipeline-left-pathway">
+          <span className={styles.pipelineLabel}>Left the pathway</span>
+          <strong>{pipeline.left.total}</strong>
+          <span className={styles.pipelineSplit}>
+            {pipeline.left.arrived} arrived &middot; {pipeline.left.didNotProceed} did not proceed
+          </span>
+        </span>
       </section>
 
       <div className={styles.networkGrid}>
@@ -658,10 +731,36 @@ export function WardNetworkWorkspace() {
           <section className={styles.queuePanel} aria-label="Priority queue">
             <header className={styles.panelHeader}>
               <h2>Priority queue</h2>
-              <span className={styles.count}>{movements.length}</span>
+              {/*
+                ⚠️ `openMovements`, NEVER the filtered length. This figure is read as "how much
+                demand is there", and a filter that could shrink it would let a coordinator who has
+                not noticed the filter take a fraction of the waiting list for the whole of it —
+                with the rows beneath it agreeing, so nothing on the screen could contradict it.
+
+                ⚠️ AND THE NAME IS `open-total`, NOT `queue-count`, FOR A REASON THAT COSTS TWO RED
+                TESTS TO REDISCOVER. The rows below are `ward-network-queue-<id>`, and the suites
+                count them with `getAllByTestId(/^ward-network-queue-/)`. Any testid starting
+                `ward-network-queue-` therefore joins that count as a phantom row: the first draft
+                of this element was `ward-network-queue-count`, and the row totals silently became
+                44 and 16 instead of 43 and 14. Do not name anything in this panel with that prefix
+                unless it is a row.
+              */}
+              <span className={styles.count} data-testid="ward-network-open-total">
+                {openMovements}
+              </span>
             </header>
+            {stageFilter ? (
+              <p className={styles.queueFilterNotice} data-testid="ward-network-filter-notice">
+                <span>
+                  Showing {visibleQueue.length} of {openMovements} &mdash; {stageCopy[stageFilter].label}
+                </span>
+                <button type="button" className={styles.queueFilterClear} onClick={() => setStageFilter(null)}>
+                  Show the whole queue
+                </button>
+              </p>
+            ) : null}
             <div className={styles.queueList}>
-              {movements.map((candidate) => (
+              {visibleQueue.map((candidate) => (
                 <button
                   type="button"
                   key={candidate.id}
@@ -1069,8 +1168,8 @@ export function WardNetworkWorkspace() {
               </p>
               <BedStateChips unit={detail} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} />
               <p className={styles.detailMeta}>
-                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Confirmed and predicted
-                beds are not allocatable yet.
+                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Confirmed and expected beds
+                are not allocatable yet.
               </p>
             </section>
           ) : null}

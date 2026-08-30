@@ -15,7 +15,7 @@ import styles from "./discharges.module.css";
  * Task 6, spec D9: the discharge and egress board. A coordinator's whole reason to open this
  * board is "which bed do I chase, and which one is simply on its way" — so releases are grouped
  * by how much work is left on them, worst first: a **blocked** release needs somebody to act on
- * it right now, a **confirmed** one is just waiting for the clock, a **predicted** one is a
+ * it right now, a **confirmed** one is just waiting for the clock, a **expected** one is a
  * belief rather than a fact yet, and **discharged today** is done. Within a group, releases are
  * ordered by `releaseBand` — the same "now / by midday / by 1600 / tonight" ladder the capacity
  * board uses (`ward-bed-availability.ts`), so the two boards never disagree about how soon
@@ -30,7 +30,7 @@ import styles from "./discharges.module.css";
 const GROUP_LABELS = {
   blocked: "Blocked",
   confirmed: "Confirmed",
-  predicted: "Predicted",
+  expected: "Expected",
   "discharged-today": "Discharged today",
 } as const;
 
@@ -42,7 +42,7 @@ type GroupKey = keyof typeof GROUP_LABELS;
  * the rendered heading order against it.
  *
  * Bed-model rework (2026-08-28): these four groups are no longer four STATES. There are three
- * stages now, and `blocked` is a flag that sits on a predicted or confirmed release. The board
+ * stages now, and `blocked` is a flag that sits on a expected or confirmed release. The board
  * keeps its four groups because they answer the coordinator's actual question — how much work is
  * left on this row — and a stuck release is the one that needs somebody whichever stage it is in.
  * `groupDischarges` therefore reads the FLAG first and the stage second, which is why a
@@ -51,7 +51,7 @@ type GroupKey = keyof typeof GROUP_LABELS;
  * release must appear exactly once, the breakdown is a set of counts where "how many confirmed"
  * and "how many stuck" are both wanted in full.
  */
-const GROUP_ORDER: readonly GroupKey[] = ["blocked", "confirmed", "predicted", "discharged-today"];
+const GROUP_ORDER: readonly GroupKey[] = ["blocked", "confirmed", "expected", "discharged-today"];
 
 const BAND_LABELS: Record<ReleaseBand, string> = {
   now: "Now",
@@ -64,14 +64,14 @@ const BAND_LABELS: Record<ReleaseBand, string> = {
 const EMPTY_REASON: Record<GroupKey, string> = {
   blocked: "release is currently blocked",
   confirmed: "release is confirmed, unreleased and not blocked",
-  predicted: "release is predicted and not blocked",
+  expected: "release is expected and not blocked",
   "discharged-today": "the person has been discharged today",
 };
 
 export type DischargeGroups = {
   blocked: BedRelease[];
   confirmed: BedRelease[];
-  predicted: BedRelease[];
+  expected: BedRelease[];
   "discharged-today": BedRelease[];
   /** Releases expected beyond tonight (`EVENING_SHIFT_END_MINUTES`) — never merged into a group,
    *  always counted. Silent truncation reads as "we counted everything" when we did not. */
@@ -87,7 +87,7 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
   const buckets: Record<GroupKey, BedRelease[]> = {
     blocked: [],
     confirmed: [],
-    predicted: [],
+    expected: [],
     "discharged-today": [],
   };
   let excludedBeyondToday = 0;
@@ -106,7 +106,7 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
     if (release.state === "discharged") buckets["discharged-today"].push(release);
     else if (release.blocker !== null) buckets.blocked.push(release);
     else if (release.state === "confirmed") buckets.confirmed.push(release);
-    else buckets.predicted.push(release);
+    else buckets.expected.push(release);
   }
 
   const byBand = (list: BedRelease[]) =>
@@ -119,7 +119,7 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
   return {
     blocked: byBand(buckets.blocked),
     confirmed: byBand(buckets.confirmed),
-    predicted: byBand(buckets.predicted),
+    expected: byBand(buckets.expected),
     "discharged-today": byBand(buckets["discharged-today"]),
     excludedBeyondToday,
   };
@@ -148,7 +148,7 @@ export function DischargeBoard() {
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
             This board is <strong>not a medical device</strong>. It shows only what a ward has recorded — a release
-            predicted, confirmed or discharged, and whether it is currently blocked — and it never adds a predicted or
+            expected, confirmed or discharged, and whether it is currently blocked — and it never adds a expected or
             unreleased bed into &quot;available now&quot;.
           </p>
         </div>

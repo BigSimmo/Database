@@ -187,10 +187,10 @@ export function WardScreen({ unitId }: WardScreenProps) {
   const site = siteByCode(unit.siteCode);
   const capacity = unitCapacity(unit, bedReleases);
   // Visual-fix pass: the capacity board (`CapacityView` in `ward-management-modes.tsx`) was just
-  // corrected to source Confirmed/Predicted from `capacityBreakdown()` rather than `unitCapacity()`'s
+  // corrected to source Confirmed/Expected from `capacityBreakdown()` rather than `unitCapacity()`'s
   // raw, state-and-timing-blind `potential` count — this screen used to be the one place still
   // showing that raw count as "Potential", which is how the same unit could read "Potential 1" here
-  // and "Confirmed 1, Predicted 0" one screen over, for the exact same release. This screen now reads
+  // and "Confirmed 1, Expected 0" one screen over, for the exact same release. This screen now reads
   // the same breakdown so both screens describe the same beds the same way. `unitCapacity()` itself
   // is untouched — see its own doc comment on `potential` in `ward-derivations.ts`.
   const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
@@ -308,16 +308,16 @@ export function WardScreen({ unitId }: WardScreenProps) {
 
   // Task 5 (spec D10): the ward moving its OWN bed release through its own lifecycle —
   // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` and
-  // `submitBedRelease` above. `predicted -> confirmed` is the only transition
-  // CONFIRM_BED_RELEASE accepts; this is only ever rendered on a predicted row (see the
+  // `submitBedRelease` above. `expected -> confirmed` is the only transition
+  // CONFIRM_BED_RELEASE accepts; this is only ever rendered on a expected row (see the
   // legal-transition gating in the render below), so the reducer is never asked for a transition
   // the row does not itself offer.
   function confirmBedRelease(releaseId: string) {
     dispatch({ type: "CONFIRM_BED_RELEASE", role: "ward", now, releaseId, actingUnitId: unitId });
   }
 
-  // Bed-model rework (2026-08-28): the reversal. `confirmed -> predicted`, recorded like any
-  // other change. What the discharge is waiting on has to be restated because a predicted release
+  // Bed-model rework (2026-08-28): the reversal. `confirmed -> expected`, recorded like any
+  // other change. What the discharge is waiting on has to be restated because a expected release
   // carries it and a confirmed release does not — this row's own picker supplies it, defaulting to
   // nothing so the ward states the fact rather than inheriting one. "Nothing outstanding" is a
   // real choice in that picker, so a ward reversing an unobstructed discharge has a value to give.
@@ -386,7 +386,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
   }
 
   // RELEASE_BED is the one transition here that changes a real bed count (see the reducer's own
-  // comment on the case) — accepted from `predicted` and `confirmed` alike, terminal either way.
+  // comment on the case) — accepted from `expected` and `confirmed` alike, terminal either way.
   function releaseBedRelease(releaseId: string) {
     dispatch({ type: "RELEASE_BED", role: "ward", now, releaseId, actingUnitId: unitId });
   }
@@ -550,10 +550,10 @@ export function WardScreen({ unitId }: WardScreenProps) {
             <span className={styles.bedChip} data-state="confirmed">
               Confirmed {breakdown.confirmedToday}
             </span>
-            <span className={styles.bedChip} data-state="predicted">
-              Predicted {breakdown.predictedToday}
+            <span className={styles.bedChip} data-state="expected">
+              Expected {breakdown.expectedToday}
             </span>
-            {/* Bed-model rework (2026-08-28). Shown BESIDE Confirmed and Predicted, never
+            {/* Bed-model rework (2026-08-28). Shown BESIDE Confirmed and Expected, never
                 instead of either: every release counted here is also counted in one of them,
                 because being stuck says nothing about how certain the discharge is. Under the
                 old four-stage model this figure could not exist — a blocked release was counted
@@ -566,10 +566,10 @@ export function WardScreen({ unitId }: WardScreenProps) {
             </span>
           </div>
           <p className={styles.bedNote}>
-            Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Confirmed, predicted and
+            Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Confirmed, expected and
             leave beds are never counted into those four &mdash; a bed only becomes Ready once it has actually been
             released, so this figure is always one you can fill this minute. The blocked-release count sits alongside
-            Confirmed and Predicted rather than inside them: a discharge that is decided and stuck is still a decided
+            Confirmed and Expected rather than inside them: a discharge that is decided and stuck is still a decided
             discharge, and it keeps counting as one.
           </p>
 
@@ -701,7 +701,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                   // alone, except the two block controls, which are about the FLAG alone —
                   // that separation is the change. `discharged` rows never reach this list
                   // (`pendingBedReleases`), so no control here has to test for it.
-                  const canConfirm = release.state === "predicted";
+                  const canConfirm = release.state === "expected";
                   const canRevert = release.state === "confirmed";
                   const isBlocked = release.blocker !== null;
                   const canBlock = !isBlocked;
@@ -751,7 +751,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                             className={styles.declineButton}
                             onClick={() => toggleRevertRelease(release.id)}
                           >
-                            Back to predicted
+                            Back to expected
                           </button>
                         ) : null}
                         {canBlock ? (

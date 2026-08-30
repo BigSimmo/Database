@@ -59,7 +59,7 @@ async function goBackToWard(page: Page) {
 }
 
 /** The capacity board's per-unit row renders six `<span>`s in this fixed order — Now, Held,
- *  Confirmed, Predicted, Blocked, Occupied (`CapacityView`'s own JSX in
+ *  Confirmed, Expected, Blocked, Occupied (`CapacityView`'s own JSX in
  *  `ward-management-modes.tsx`) — each rendering as e.g. `"1Now"` with no space between the
  *  number and its label, so `toHaveText` matches the literal concatenation. */
 function bedStateCells(page: Page) {
@@ -116,7 +116,7 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     // The Q1 axis change (2026-08-28): this picker asked for a confidence (`likely`) and now asks
     // what the discharge is waiting on. "Nothing outstanding" is the value for a prediction with
     // no obstacle — the closest thing to the old `likely`, and the right choice for a journey that
-    // goes on to prove a plain prediction moves the Predicted figure.
+    // goes on to prove a plain prediction moves the Expected figure.
     await page.locator("#ward-bed-release-waiting-on").selectOption("Nothing outstanding");
     await page.locator("#ward-bed-release-expected-at").fill("16:30");
     await page.getByTestId("ward-flag-bed-release-submit").click();
@@ -129,24 +129,24 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     expect(newRowTestId, "a new bed-release row must appear after flagging").toBeDefined();
     const releaseId = newRowTestId!.replace("ward-bed-release-", "");
     const releaseRow = page.getByTestId(newRowTestId!);
-    await expect(releaseStateLabel(releaseRow)).toHaveText("Predicted");
+    await expect(releaseStateLabel(releaseRow)).toHaveText("Expected");
 
-    // --- The coordinator's capacity board reflects the flag: Predicted +1, Confirmed unmoved. ---
+    // --- The coordinator's capacity board reflects the flag: Expected +1, Confirmed unmoved. ---
     await goToCapacityBoard(page);
     const cells = bedStateCells(page);
     await expect(cells.nth(0)).toHaveText("1Now");
     await expect(cells.nth(2)).toHaveText("1Confirmed"); // WR-001, seeded confirmed
-    await expect(cells.nth(3)).toHaveText("1Predicted"); // the release just flagged
+    await expect(cells.nth(3)).toHaveText("1Expected"); // the release just flagged
 
     // --- Step 2: back to the ward, confirm the release. ---
     await goBackToWard(page);
     await page.getByTestId(`ward-bed-release-confirm-${releaseId}`).click();
     await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
 
-    // --- The board reflects the confirm: Confirmed +1, Predicted back to 0. ---
+    // --- The board reflects the confirm: Confirmed +1, Expected back to 0. ---
     await goToCapacityBoard(page);
     await expect(cells.nth(2)).toHaveText("2Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Predicted");
+    await expect(cells.nth(3)).toHaveText("0Expected");
 
     // --- Step 3: back to the ward, block the release with a reason from the fixed list —
     // never free text (binding spec §4). ---
@@ -169,7 +169,7 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     // confirmed discharge — it is simply also stuck, and the stuck-ness is now its own figure. ---
     await goToCapacityBoard(page);
     await expect(cells.nth(2)).toHaveText("2Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Predicted");
+    await expect(cells.nth(3)).toHaveText("0Expected");
     await expect(page.getByTestId("ward-capacity-headline-blocked-releases")).toContainText("Blocked releases");
 
     // --- Step 3b: the flag comes off again without touching the stage. A flag that can only ever
@@ -194,7 +194,7 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     await goToCapacityBoard(page);
     await expect(cells.nth(0)).toHaveText("2Now");
     await expect(cells.nth(2)).toHaveText("1Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Predicted");
+    await expect(cells.nth(3)).toHaveText("0Expected");
   });
 
   /**

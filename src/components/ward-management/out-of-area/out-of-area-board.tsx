@@ -1,7 +1,6 @@
 "use client";
 
 import { daysInBed, type Admission } from "@/components/ward-management/ward-admissions";
-import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import type { Instant } from "@/components/ward-management/ward-clock";
 import {
   INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE,
@@ -45,24 +44,37 @@ import styles from "./out-of-area.module.css";
  * here would be the second local copy this phase exists to prevent. It is still elapsed time and
  * nothing else — just readable.
  *
- * **Why this one screen reads the seed directly rather than the provider.** There is no live
- * source to read: `Admission` is not in the reducer's state and no `WardFlowEvent` creates, ends
- * or moves one, so `wardAdmissions` is the only record of who is in a bed. The single-source rule
- * exists so that two surfaces cannot disagree about one live fact; here there is one surface and
- * no live fact, and the screen says so in its own words rather than leaving a reader to assume the
- * list is live. `units` and `now` still come from the provider — those two ARE live, and reading
- * them from `ward-sites.ts` instead is the specific defect that rule was written for.
+ * **THE ADMISSIONS COME FROM THE PROVIDER, AND UNTIL 2026-08-30 THEY CAME FROM THE SEED.** The
+ * paragraph that used to sit here said `Admission` was not in the reducer's state and that no
+ * event created one. Both had stopped being true: `seedWardFlowState` carries `admissions`, and
+ * `PATIENT_ARRIVED` appends one (`ward-flow-reducer.ts`, `AD-ARR-…`). The comment was accurate when
+ * it was written and nothing failed when it stopped being — which is how it went on justifying a
+ * read that had become wrong.
  *
- * The seed arrives as a DEFAULT PARAMETER rather than a hard-wired read, the same shape
- * `ward-derivations.ts` uses and the same shape `tests/ward-flow-single-source.test.ts` names as
- * acceptable. Nothing in the app passes it: the route renders `<OutOfAreaBoard />`. It exists so a
- * test can render the two states the seeded records cannot produce — nobody out of area at all,
- * and an unclassified count standing on its own as the only non-zero number — because those are
- * the two states whose wording is most easily got wrong and least often seen.
+ * ⚠️ **TWO DEFECTS CAME OUT OF THAT ONE STALE PARAGRAPH, AND THE SMALLER-LOOKING ONE IS WORSE.**
+ *
+ *  1. **A length of stay counted across two clocks.** `now` is re-anchored to the hour the demo
+ *     opens; the seed is not. One side of the subtraction moved, so every figure on a screen whose
+ *     headline fact is DAYS IN A BED was inflated by the anchor offset. Ward Board found this exact
+ *     shape on `edPressure` the same night: *a wrong clock looks wrong; a wrong length of stay
+ *     looks PLAUSIBLE.* Out-of-area duration is a figure people escalate on.
+ *  2. **The screen contradicted itself.** Its own provenance line says a patient who arrives during
+ *     the session is added, and blames their absence on a missing home region. Reading the seed
+ *     made that impossible for a different reason entirely — an arrival appends to state, and this
+ *     screen was not looking at state. The stated reason was not the operative one, which is worse
+ *     than no explanation: it sends the next reader to the wrong place.
+ *
+ * The override parameter SURVIVES, and that is deliberate. Board's lesson from `edPressure` is that
+ * the injection point was never the problem — its OPTIONALITY pointing at a frozen fixture was. It
+ * now falls back to live state, so omitting it (which is what the route does) is safe, and a test
+ * can still render the two states the seeded records cannot produce: nobody out of area at all, and
+ * an unclassified count standing alone as the only non-zero number.
+ *
+ * `units` and `now` come from the provider for the same reason they always did.
  */
-export function OutOfAreaBoard({ admissions = wardAdmissions }: { admissions?: Admission[] }) {
-  const { units, now } = useWardFlow();
-  const { entries, notBanded } = outOfAreaLedger(admissions, units, now);
+export function OutOfAreaBoard({ admissions }: { admissions?: Admission[] }) {
+  const { units, now, admissions: liveAdmissions } = useWardFlow();
+  const { entries, notBanded } = outOfAreaLedger(admissions ?? liveAdmissions, units, now);
 
   return (
     <div className={styles.screen} data-testid="ward-out-of-area-board">
@@ -128,11 +140,12 @@ export function OutOfAreaBoard({ admissions = wardAdmissions }: { admissions?: A
          * this prototype adds to it or removes from it, and it is not a live count of anything.
          */}
         <p className={styles.provenance} data-testid="ward-out-of-area-provenance">
-          Everyone here starts from this prototype&apos;s own seeded records. Somebody who has left their bed is not on
-          this list, and neither is anybody who has not yet arrived. Nothing on these screens takes anyone off it. Since
-          30 August 2026 a patient who ARRIVES during this session is added, because arrival now records a person in a
-          bed — but they appear only once a home region is recorded for them, and the emergency-department pathway does
-          not yet record one, so today an arrival adds nobody here. This is not a live statewide count.
+          This is not a live statewide count. Everyone here starts from this prototype&apos;s own seeded records.
+          Somebody who has left their bed is not on this list, and neither is anybody who has not yet arrived. Nothing on
+          these screens takes anyone off it. A patient who ARRIVES during this session is added straight away, because
+          arrival records a person in a bed — but the emergency-department pathway records no home region, and a distance
+          from an unknown home is not a distance, so they raise the second figure below rather than joining the list of
+          people far from home.
         </p>
 
         <section className={styles.section} data-testid="ward-out-of-area-entries">
@@ -207,7 +220,7 @@ export function OutOfAreaBoard({ admissions = wardAdmissions }: { admissions?: A
  * shape that could put an invented stay length on this screen if that ever changed, so the absence
  * is rendered as an absence.
  */
-function sinceArrivalLabel(entry: OutOfAreaEntry, now: Instant): string {
+export function sinceArrivalLabel(entry: OutOfAreaEntry, now: Instant): string {
   const days = daysInBed(entry.admission, now);
   if (days === null) return "Arrival not recorded";
   if (days === 0) return "Under a day";

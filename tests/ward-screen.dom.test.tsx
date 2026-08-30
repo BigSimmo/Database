@@ -178,18 +178,18 @@ describe("ward screen live unit capacity", () => {
  * `unitCapacity()`'s raw, state-and-timing-blind release count — the same unit's own bed release
  * could be explicitly listed as `Confirmed` in the "Bed releases" list below while this chip row
  * still called it `Potential`, contradicting both itself and the capacity board's own
- * Confirmed/Predicted split one screen over. This suite pins the fix: the chip row must never
- * render the word "Potential" again, and must instead show the same Confirmed/Predicted/Leave
+ * Confirmed/Expected split one screen over. This suite pins the fix: the chip row must never
+ * render the word "Potential" again, and must instead show the same Confirmed/Expected/Leave
  * figures `capacityBreakdown()` computes — the one the capacity board already uses.
  *
  * rph-adult-secure is the phase's own chosen unit and carries exactly one seeded bed release
  * (WR-001, `confirmed`, expected well inside today — asserted at the top of the earlier "bed
  * release controls" suite above) and exactly one seeded leave bed (WL-001, `usable: true`). That
- * gives an unambiguous, non-zero expectation for all three new figures: Confirmed 1, Predicted 0,
+ * gives an unambiguous, non-zero expectation for all three new figures: Confirmed 1, Expected 0,
  * Leave (usable) 1.
  */
 describe("ward screen bed capacity chip row uses the shared breakdown, not the raw potential count", () => {
-  it("never renders 'Potential', and renders Confirmed/Predicted/Leave from capacityBreakdown()", () => {
+  it("never renders 'Potential', and renders Confirmed/Expected/Leave from capacityBreakdown()", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardScreen unitId="rph-adult-secure" />
@@ -207,7 +207,7 @@ describe("ward screen bed capacity chip row uses the shared breakdown, not the r
     // The replacement figures, sourced from the same `capacityBreakdown()` the capacity board
     // reads, not re-derived by hand and not read from `unitCapacity()`.
     expect(chipRow).toHaveTextContent("Confirmed 1");
-    expect(chipRow).toHaveTextContent("Predicted 0");
+    expect(chipRow).toHaveTextContent("Expected 0");
     expect(chipRow).toHaveTextContent("Leave (usable) 1");
 
     // The four physical states are untouched by this fix — same figures, same order, same chips.
@@ -219,7 +219,7 @@ describe("ward screen bed capacity chip row uses the shared breakdown, not the r
 
   /**
    * Bed-model rework (2026-08-28): the ward's own blocked-release figure, shown BESIDE Confirmed
-   * and Predicted rather than instead of either.
+   * and Expected rather than instead of either.
    *
    * The two words matter as much as the number. This chip row already carries a "Blocked" chip
    * meaning physically blocked BEDS (`unitCapacity().blocked`, 0 at rph-adult-secure), so the new
@@ -276,17 +276,17 @@ describe("ward screen bed capacity chip row uses the shared breakdown, not the r
  * All four cases render a fresh `WardFlowProvider` each time, so each starts from the real seed
  * fixture (`ward-movements.ts`'s `bedReleases`) untouched by any other test in this file.
  *
- * WR-002 (`scgh-adult-open`, `predicted`, confidence `likely`) and WR-001 (`rph-adult-secure`,
+ * WR-002 (`scgh-adult-open`, `expected`, confidence `likely`) and WR-001 (`rph-adult-secure`,
  * `confirmed`) are the two seeded releases this suite exercises — both asserted directly against
  * the fixture below so this suite fails loudly, not silently, if the fixture ever changes under
  * it (the same discipline the restriction-notice suite above already uses for WF-301).
  */
 describe("ward screen bed release controls", () => {
-  it("fixture assumption: WR-002 is predicted at scgh-adult-open and WR-001 is confirmed at rph-adult-secure", () => {
+  it("fixture assumption: WR-002 is expected at scgh-adult-open and WR-001 is confirmed at rph-adult-secure", () => {
     const wr002 = bedReleaseById("WR-002");
     const wr001 = bedReleaseById("WR-001");
     expect(wr002?.unitId).toBe("scgh-adult-open");
-    expect(wr002?.state).toBe("predicted");
+    expect(wr002?.state).toBe("expected");
     expect(wr001?.unitId).toBe("rph-adult-secure");
     expect(wr001?.state).toBe("confirmed");
   });
@@ -298,25 +298,25 @@ describe("ward screen bed release controls", () => {
       </WardFlowProvider>,
     );
 
-    // WR-002 is `predicted` in the fixture (asserted above). The screen must show the display
-    // label "Predicted", never the raw union value "predicted" — a coordinator reading this row
+    // WR-002 is `expected` in the fixture (asserted above). The screen must show the display
+    // label "Expected", never the raw union value "expected" — a coordinator reading this row
     // sees the same sentence-case convention every other status label on this screen uses.
     const row = screen.getByTestId("ward-bed-release-WR-002");
     const stateText = row.querySelector("strong")?.textContent ?? "";
-    expect(stateText).toBe("Predicted");
+    expect(stateText).toBe("Expected");
     // Guards the actual defect directly: the raw lowercase value must not be what is rendered.
-    expect(stateText).not.toBe("predicted");
+    expect(stateText).not.toBe("expected");
     expect(stateText).not.toMatch(/^[a-z]/);
   });
 
-  it("confirming a predicted release updates the row", () => {
+  it("confirming a expected release updates the row", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardScreen unitId="scgh-adult-open" />
       </WardFlowProvider>,
     );
 
-    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("Predicted");
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("Expected");
 
     fireEvent.click(screen.getByTestId("ward-bed-release-confirm-WR-002"));
 
@@ -338,9 +338,9 @@ describe("ward screen bed release controls", () => {
     // No blocker chosen yet: the submit control is natively disabled, not merely advisory.
     expect(submit).toBeDisabled();
 
-    // Clicking a disabled submit dispatches nothing — the row must still read "Predicted".
+    // Clicking a disabled submit dispatches nothing — the row must still read "Expected".
     fireEvent.click(submit);
-    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("Predicted");
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("Expected");
 
     fireEvent.change(screen.getByTestId("ward-bed-release-blocker-WR-002"), {
       target: { value: "Awaiting clean" },

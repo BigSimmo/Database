@@ -54,9 +54,9 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
   };
 }
 
-describe("derivedBedReleases — predicted releases", () => {
-  /** Requirement 1: a date set on an occupied bed derives exactly one predicted release. */
-  it("derives one predicted release from an admission with a discharge date set", () => {
+describe("derivedBedReleases — expected releases", () => {
+  /** Requirement 1: a date set on an occupied bed derives exactly one expected release. */
+  it("derives one expected release from an admission with a discharge date set", () => {
     const admission = anAdmission({
       id: "ADM-PLAN",
       unitId: "rph-adult-open",
@@ -70,7 +70,7 @@ describe("derivedBedReleases — predicted releases", () => {
 
     expect(releases).toHaveLength(1);
     const release = releases[0]!;
-    expect(release.state).toBe("predicted");
+    expect(release.state).toBe("expected");
     expect(release.unitId).toBe("rph-adult-open");
     expect(release.expectedAt).toBe(DAY_ZERO + 3 * MINUTES_PER_DAY);
   });
@@ -92,7 +92,7 @@ describe("derivedBedReleases — predicted releases", () => {
    * the latter would pass just as happily if the derivation started asserting "Awaiting ward
    * round" instead, which is a different invented claim and equally wrong.
    */
-  it("gives a predicted release NO waitingOn — nobody has spoken about this discharge", () => {
+  it("gives a expected release NO waitingOn — nobody has spoken about this discharge", () => {
     const nobodyHasLookedAtIt = anAdmission({
       id: "ADM-SILENT",
       state: "occupied",
@@ -105,7 +105,7 @@ describe("derivedBedReleases — predicted releases", () => {
     const releases = derivedBedReleases([nobodyHasLookedAtIt], DAY_ZERO);
 
     expect(releases).toHaveLength(1);
-    expect(releases[0]!.state).toBe("predicted");
+    expect(releases[0]!.state).toBe("expected");
     expect(releases[0]!.waitingOn).toBeNull();
   });
 
@@ -125,7 +125,7 @@ describe("derivedBedReleases — predicted releases", () => {
    * RULING 3, and BOTH HALVES ARE IN ONE TEST SO NEITHER CAN PASS ALONE.
    *
    * A discharge date is a PLAN; confirming it is a DECISION. The earlier implementation of this
-   * module could reach only `"predicted"` because `Admission` recorded no decision, and it
+   * module could reach only `"expected"` because `Admission` recorded no decision, and it
    * declined to invent a proxy — a date within some window, a move count of zero, a date set a
    * while ago — because every one of those renders a decision nobody made. That refusal was
    * correct; `dischargeConfirmedAt` is the fix, and it is now the ONLY thing that may produce a
@@ -135,7 +135,7 @@ describe("derivedBedReleases — predicted releases", () => {
    * a date window, a move count or an elapsed time would give both the same state, and one of the
    * two assertions would fail whichever way it guessed.
    */
-  it("derives 'confirmed' from dischargeConfirmedAt and 'predicted' without it, from otherwise identical admissions", () => {
+  it("derives 'confirmed' from dischargeConfirmedAt and 'expected' without it, from otherwise identical admissions", () => {
     const now = DAY_ZERO;
     const planned = anAdmission({
       id: "ADM-PLANNED",
@@ -157,7 +157,7 @@ describe("derivedBedReleases — predicted releases", () => {
     const [plannedRelease] = derivedBedReleases([planned], now);
     const [decidedRelease] = derivedBedReleases([decided], now);
 
-    expect(plannedRelease!.state).toBe("predicted");
+    expect(plannedRelease!.state).toBe("expected");
     expect(decidedRelease!.state).toBe("confirmed");
     // The decision's own provenance travels with it — the confirming role, not the date-setter.
     expect(decidedRelease!.confirmedAt).toBe(DAY_ZERO - 60);
@@ -169,7 +169,7 @@ describe("derivedBedReleases — predicted releases", () => {
    *
    * Every admission here is one a proxy would have been tempted by — its date has already passed,
    * its date has never moved, its date was set long ago — and none of them has been confirmed.
-   * All three must stay `"predicted"`, so a re-introduced window or move-count heuristic fails
+   * All three must stay `"expected"`, so a re-introduced window or move-count heuristic fails
    * here rather than quietly promoting discharges nobody decided on.
    */
   it("never reaches 'confirmed' from a date window, a move count or an elapsed setting time", () => {
@@ -196,7 +196,7 @@ describe("derivedBedReleases — predicted releases", () => {
     const releases = derivedBedReleases(admissions, now);
 
     expect(releases).toHaveLength(3);
-    expect(releases.map((release) => release.state)).toEqual(["predicted", "predicted", "predicted"]);
+    expect(releases.map((release) => release.state)).toEqual(["expected", "expected", "expected"]);
   });
 
   /**
@@ -220,7 +220,7 @@ describe("derivedBedReleases — predicted releases", () => {
     expect(derivedBedReleases([brokenDate], DAY_ZERO)).toHaveLength(0);
   });
 
-  /** Only a bed genuinely occupied can have a future release predicted — a waitlisted admission
+  /** Only a bed genuinely occupied can have a future release expected — a waitlisted admission
    *  holds no bed yet, so an (incoherent) date recorded on one must not fabricate a release. */
   it("produces no release for a waitlisted admission even if a discharge date is somehow set", () => {
     const waitlistedWithADate = anAdmission({
@@ -235,9 +235,9 @@ describe("derivedBedReleases — predicted releases", () => {
 
 describe("blockedReleaseCount — the cross-cut, never a bucket subtraction", () => {
   /**
-   * Requirement 4, THE MOST IMPORTANT TEST IN THIS FILE, adapted from "confirmed" to "predicted"
+   * Requirement 4, THE MOST IMPORTANT TEST IN THIS FILE, adapted from "confirmed" to "expected"
    * for the reason the test immediately above states in full: `derivedBedReleases` can only ever
-   * reach `"predicted"` from live admission data, never `"confirmed"`. The invariant under test is
+   * reach `"expected"` from live admission data, never `"confirmed"`. The invariant under test is
    * unchanged by that substitution — it is general to EVERY state bucket, not specific to
    * `"confirmed"`: adding a blocker must never remove a release from whichever bucket its
    * CERTAINTY already puts it in.
@@ -247,9 +247,9 @@ describe("blockedReleaseCount — the cross-cut, never a bucket subtraction", ()
    * — rather than counting the blocker ALONGSIDE the bucket a release's state already belongs to
    * — let a release plug up matching neither branch, and it was counted nowhere. Stated as an
    * invariance, not a search: the SAME admission, before and after a blocker is added, must keep
-   * the same predicted count while the blocked count rises by exactly one.
+   * the same expected count while the blocked count rises by exactly one.
    */
-  it("adding a blocker to a predicted release leaves the predicted count unchanged and raises the blocked count by exactly one", () => {
+  it("adding a blocker to a expected release leaves the expected count unchanged and raises the blocked count by exactly one", () => {
     const now = DAY_ZERO;
     const notYetBlocked = anAdmission({
       id: "ADM-BLOCK",
@@ -261,18 +261,18 @@ describe("blockedReleaseCount — the cross-cut, never a bucket subtraction", ()
       blockReason: null,
     });
 
-    const predictedBefore = derivedBedReleases([notYetBlocked], now).filter((r) => r.state === "predicted").length;
+    const expectedBefore = derivedBedReleases([notYetBlocked], now).filter((r) => r.state === "expected").length;
     const blockedBefore = blockedReleaseCount([notYetBlocked], now);
-    expect(predictedBefore).toBe(1);
+    expect(expectedBefore).toBe(1);
     expect(blockedBefore).toBe(0);
 
     const nowBlocked: Admission = { ...notYetBlocked, blockReason: BED_RELEASE_BLOCKERS[0] };
 
-    const predictedAfter = derivedBedReleases([nowBlocked], now).filter((r) => r.state === "predicted").length;
+    const expectedAfter = derivedBedReleases([nowBlocked], now).filter((r) => r.state === "expected").length;
     const blockedAfter = blockedReleaseCount([nowBlocked], now);
 
-    // THE INVARIANT: the predicted bucket does not shrink...
-    expect(predictedAfter).toBe(predictedBefore);
+    // THE INVARIANT: the expected bucket does not shrink...
+    expect(expectedAfter).toBe(expectedBefore);
     // ...while the cross-cut rises by exactly the one release that changed.
     expect(blockedAfter).toBe(blockedBefore + 1);
   });

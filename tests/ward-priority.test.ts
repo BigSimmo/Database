@@ -6,6 +6,7 @@ import { wardMovements } from "../src/components/ward-management/ward-movements"
 import { isOpen } from "../src/components/ward-management/ward-derivations";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import type { Movement } from "../src/components/ward-management/ward-model";
+import type { Instant } from "../src/components/ward-management/ward-clock";
 
 function movementById(id: string) {
   const found = wardMovements.find((movement) => movement.id === id);
@@ -230,8 +231,17 @@ describe("operational score", () => {
 });
 
 describe("queue order", () => {
-  it("puts every tier 1 movement above every tier 2, and every tier 2 above every tier 3", () => {
-    const ordered = queueOrder(wardMovements, NOW_ANCHOR);
+  /**
+   * Narrowed to the UNFLAGGED on 2026-08-30, when the urgent flag landed above the tiers. It read
+   * "every tier 1 above every tier 2" over the whole queue, and a flagged tier-3 patient leading
+   * the board is exactly what the flag is for.
+   *
+   * Narrowed rather than removed: the tier ladder still governs everyone without a flag, and
+   * deleting this would have left that unasserted at the moment something was placed above it.
+   */
+  it("keeps every tier 1 above every tier 2 and every tier 2 above every tier 3, among the unflagged", () => {
+    const ordered = queueOrder(wardMovements, NOW_ANCHOR).filter((movement) => !movement.flaggedUrgent);
+    expect(ordered.length, "the fixture must still hold unflagged movements to order").toBeGreaterThan(1);
     const tiers = ordered.map((movement) => movement.urgency);
     expect([...tiers].sort((a, b) => a - b)).toEqual(tiers);
   });
@@ -281,5 +291,122 @@ describe("queue order", () => {
     // WF-003 was row 3 and is now behind WF-303, which it used to outrank. Asserted by id
     // because that pair is the clearest single consequence of the removal.
     expect(tierOneIds.indexOf("WF-303")).toBeLessThan(tierOneIds.indexOf("WF-003"));
+  });
+});
+
+/**
+ * THE URGENT FLAG — who gets the next bed, and the decision that is deliberately still open.
+ *
+ * Owner, 2026-08-30: "A long wait always is prioritised… however… in certain cases patients can be
+ * marked as urgent for many reasons which outranks everything." Asked how far to take it, he scoped
+ * it small on purpose: "For now just have a feature that flags the patient. I will build on it
+ * later."
+ *
+ * ⚠️ SO THE FLAG SITS ABOVE THREE TIERS ABOVE A COMPOSITE SCORE — THREE RANKINGS STACKED — AND
+ * THAT IS A STAGE, NOT A DESIGN. This block exists so a reader cannot mistake it for settled.
+ *
+ * THE DEFERRED DECISION, named here so it cannot become the shape by default: what becomes of
+ * `UrgencyLevel` 1/2/3 and of `operationalScore` when the flag becomes the ordering. His fuller
+ * ruling — "otherwise go by time for the main level of urgency" — is something the tiers and the
+ * capped score cannot express, because `operationalScore` still stops counting a wait at ten hours
+ * (`Math.min(40, …)`), so a patient at 10 hours and one at 30 rank identically on time. `D9-1`
+ * decided that ceiling comes off and was never built. All of it was scoped, costed and then held
+ * back BY HIM, not overlooked.
+ *
+ * The mapping question that made him defer: with three tiers becoming a flag and everyone else,
+ * tiers 1+2 together are 22 of this fixture's 28 movements — four in five patients would outrank
+ * everyone, and "go by time" would govern six. That number is invented demo data and was given to
+ * him as such.
+ */
+describe("the urgent flag, and the ranking decision still open beneath it", () => {
+  function pairAround(now: Instant) {
+    const base = movementById("WF-001");
+    const flaggedButNewer: Movement = {
+      ...base,
+      id: "WF-FLAGGED-NEW",
+      flaggedUrgent: true,
+      urgency: 3,
+      openedAt: now - 30,
+    };
+    const unflaggedButOlder: Movement = {
+      ...base,
+      id: "WF-UNFLAGGED-OLD",
+      flaggedUrgent: false,
+      urgency: 1,
+      openedAt: now - 600,
+    };
+    return { flaggedButNewer, unflaggedButOlder };
+  }
+
+  it("puts a flagged patient above an unflagged one with a higher tier and twenty times the wait", () => {
+    const { flaggedButNewer, unflaggedButOlder } = pairAround(NOW_ANCHOR);
+    expect(
+      queueOrder([unflaggedButOlder, flaggedButNewer], NOW_ANCHOR).map((movement) => movement.id),
+      "the flag outranks everything: a tier-3 patient thirty minutes in must lead a tier-1 patient " + "ten hours in",
+    ).toEqual(["WF-FLAGGED-NEW", "WF-UNFLAGGED-OLD"]);
+  });
+
+  it("REVERSES when the flag is taken off, which is what proves the flag did the work", () => {
+    const { flaggedButNewer, unflaggedButOlder } = pairAround(NOW_ANCHOR);
+    const noLongerFlagged: Movement = { ...flaggedButNewer, flaggedUrgent: false };
+    expect(
+      queueOrder([noLongerFlagged, unflaggedButOlder], NOW_ANCHOR).map((movement) => movement.id),
+      "with the flag off, the old ranking returns and tier 1 leads tier 3. If this does not flip, " +
+        "the assertion above was passing on argument order, sort stability, or the tier comparator " +
+        "— anything but the flag.",
+    ).toEqual(["WF-UNFLAGGED-OLD", "WF-FLAGGED-NEW"]);
+  });
+
+  it("leads the real fixture with WF-018, which nothing but the flag could have put there", () => {
+    const ordered = queueOrder(wardMovements, NOW_ANCHOR);
+    const leader = ordered[0];
+    expect(leader.id, "the flagged movement must lead the live queue").toBe("WF-018");
+    expect(leader.flaggedUrgent).toBe(true);
+
+    // And it could not have arrived there any other way: lowest tier, shortest wait of any seeded
+    // movement. Asserted rather than asserted-in-a-comment, so a fixture edit that made WF-018
+    // ordinarily top of the queue would fail here instead of hollowing out the test above.
+    expect(leader.urgency, "WF-018 must stay the LOWEST tier or it could lead on tier alone").toBe(3);
+    const others = ordered.filter((movement) => movement.id !== "WF-018");
+    expect(others.every((movement) => movement.openedAt >= leader.openedAt || !movement.flaggedUrgent)).toBe(true);
+    expect(
+      others.some((movement) => movement.urgency === 1),
+      "the queue must contain tier-1 patients for leading it to mean anything",
+    ).toBe(true);
+  });
+
+  it("changes NOTHING beneath the flag — the tiers and the score still order the rest", () => {
+    // The additive half of the ruling, asserted directly: strip the flag from the fixture and the
+    // queue must be exactly what it was before this feature existed.
+    const unflagged = wardMovements.map((movement) => ({ ...movement, flaggedUrgent: false }));
+    const ordered = queueOrder(unflagged, NOW_ANCHOR);
+    const tiers = ordered.map((movement) => movement.urgency);
+    expect(
+      [...tiers].sort((a, b) => a - b),
+      "with no flags, tier order must be intact — the flag was supposed to sit ABOVE the existing " +
+        "ranking, not replace it",
+    ).toEqual(tiers);
+
+    for (let index = 1; index < ordered.length; index += 1) {
+      if (ordered[index].urgency !== ordered[index - 1].urgency) continue;
+      expect(operationalScore(ordered[index - 1], NOW_ANCHOR).score).toBeGreaterThanOrEqual(
+        operationalScore(ordered[index], NOW_ANCHOR).score,
+      );
+    }
+  });
+
+  it("STILL STOPS COUNTING A WAIT AT TEN HOURS — the deferred half, pinned as a known gap", () => {
+    // NOT a bug and NOT to be "fixed" opportunistically. `D9-1` decided this ceiling comes off and
+    // the owner deferred it with the rest of the ranking rework. Pinned so that when somebody does
+    // remove it, they do it as the decided change with this test in front of them — and so the gap
+    // cannot be quietly discovered later as though nobody knew.
+    const base = movementById("WF-001");
+    const tenHours: Movement = { ...base, openedAt: NOW_ANCHOR - 600 };
+    const thirtyHours: Movement = { ...base, openedAt: NOW_ANCHOR - 1800 };
+    expect(
+      operationalScore(tenHours, NOW_ANCHOR).score,
+      "the wait ceiling has moved. If that was deliberate, this is the decided change (D9-1) and " +
+        "the queue's whole ordering should be revisited with it, not just this number.",
+    ).toBe(operationalScore(thirtyHours, NOW_ANCHOR).score);
   });
 });

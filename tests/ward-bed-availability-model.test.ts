@@ -15,17 +15,17 @@ describe("bed release model", () => {
   /**
    * Bed-model rework (2026-08-28), replacing "has four lifecycle states...". Three stages, each
    * saying only how CERTAIN the discharge is. `"blocked"` is gone from this list because being
-   * stuck is not a degree of certainty — it is a flag on a predicted or confirmed release, and
+   * stuck is not a degree of certainty — it is a flag on a expected or confirmed release, and
    * the test immediately below pins that it can sit on either.
    */
   it("has three lifecycle stages in the order a bed moves through them, and blocked is not one of them", () => {
-    expect(BED_RELEASE_STATES).toEqual(["predicted", "confirmed", "discharged"]);
+    expect(BED_RELEASE_STATES).toEqual(["expected", "confirmed", "discharged"]);
     expect(BED_RELEASE_STATES).not.toContain("blocked");
   });
 
   /**
    * The Q1 axis change (2026-08-28, "The three lists" List 2). This replaces "no longer treats
-   * 'confirmed' as a confidence...", which pinned `["likely", "possible"]`. A predicted discharge
+   * 'confirmed' as a confidence...", which pinned `["likely", "possible"]`. A expected discharge
    * no longer states how confident the ward is; it states what it is WAITING ON — a fact two wards
    * can mean the same thing by, which a probability estimate is not.
    *
@@ -34,7 +34,7 @@ describe("bed release model", () => {
    * `"Nothing outstanding"` is asserted present by name as well, because it is the load-bearing
    * one — without it the list forces a ward to name an obstacle that does not exist.
    */
-  it("states what a predicted discharge is waiting on, in the owner-approved words, and offers 'Nothing outstanding'", () => {
+  it("states what a expected discharge is waiting on, in the owner-approved words, and offers 'Nothing outstanding'", () => {
     expect(BED_RELEASE_WAITING_ON).toEqual([
       "Awaiting ward round",
       "Awaiting family or carer agreement",
@@ -154,16 +154,16 @@ describe("bed release model", () => {
    * A blocked-but-confirmed release is the exact shape the counting defect was found on, and a
    * fixture carrying only blocked PREDICTIONS would let a `state`-keyed bucket pass by accident.
    */
-  it("seeds releases in every stage, and the blocked flag on both a predicted and a confirmed one", () => {
+  it("seeds releases in every stage, and the blocked flag on both a expected and a confirmed one", () => {
     const byState = (state: BedRelease["state"]) => bedReleases.filter((r) => r.state === state);
-    expect(byState("predicted").length).toBeGreaterThanOrEqual(1);
+    expect(byState("expected").length).toBeGreaterThanOrEqual(1);
     expect(byState("confirmed").length).toBeGreaterThanOrEqual(1);
     expect(byState("discharged").length).toBeGreaterThanOrEqual(1);
 
     const blocked = bedReleases.filter((release) => release.blocker !== null);
     expect(blocked.length).toBeGreaterThanOrEqual(2);
     expect(blocked.some((release) => release.state === "confirmed")).toBe(true);
-    expect(blocked.some((release) => release.state === "predicted")).toBe(true);
+    expect(blocked.some((release) => release.state === "expected")).toBe(true);
   });
 
   /**
@@ -196,11 +196,11 @@ describe("bed release model", () => {
   });
 
   /**
-   * Replaces "carries a blocker exactly when blocked...". D3's blocked-xor-predicted rule went
-   * with the fourth state: a blocker is now legal on a predicted OR a confirmed release, and
+   * Replaces "carries a blocker exactly when blocked...". D3's blocked-xor-expected rule went
+   * with the fourth state: a blocker is now legal on a expected OR a confirmed release, and
    * illegal only on a released one, because once the bed is free nothing is being held up.
    * The waiting-on rule is untouched by the Q1 axis change — only what the field MEANS changed, so
-   * it still belongs to `predicted` and to nothing else. Every non-null value is additionally
+   * it still belongs to `expected` and to nothing else. Every non-null value is additionally
    * pinned to be a member of `BED_RELEASE_WAITING_ON`, which the old confidence check could not
    * express meaningfully over a two-member union but which now guards real rendered words.
    *
@@ -208,9 +208,9 @@ describe("bed release model", () => {
    * role, or a role left behind on a release nobody says is blocked, are both records that
    * cannot be acted on, and neither would be caught by checking the two fields separately.
    */
-  it("carries a blocker only while unreleased, a waiting-on value exactly when predicted, and a blocking role exactly when blocked", () => {
+  it("carries a blocker only while unreleased, a waiting-on value exactly when expected, and a blocking role exactly when blocked", () => {
     for (const release of bedReleases) {
-      expect(release.waitingOn === null).toBe(release.state !== "predicted");
+      expect(release.waitingOn === null).toBe(release.state !== "expected");
       if (release.waitingOn !== null) {
         expect(BED_RELEASE_WAITING_ON).toContain(release.waitingOn);
       }

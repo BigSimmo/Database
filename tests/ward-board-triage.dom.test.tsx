@@ -42,7 +42,7 @@ function releasesFor(): ReturnType<typeof derivedBedReleases> {
   return derivedBedReleases([...wardAdmissions], WARD_ADMISSIONS_ANCHOR);
 }
 
-const FIGURE_KEYS = ["availableNow", "confirmedToday", "predictedToday", "blockedToday", "held", "leaveUsable"] as const;
+const FIGURE_KEYS = ["availableNow", "confirmedToday", "expectedToday", "blockedToday", "held", "leaveUsable"] as const;
 
 describe("ward board triage bar — the home page's six figures, in the home page's words", () => {
   it("renders all six figures with the shared labels, never a retyped copy", () => {
@@ -111,12 +111,12 @@ describe("ward board triage bar — the toggle changes emphasis and hides nothin
       expect(screen.getByTestId("ward-board-basis-confirmed").getAttribute("aria-pressed")).toBe("true");
       expect(rowsNow(), `${unit.id} confirmed rows`).toBe(breakdown.confirmedToday);
 
-      await user.click(screen.getByTestId("ward-board-basis-predicted"));
-      expect(screen.getByTestId("ward-board-basis-predicted").getAttribute("aria-pressed")).toBe("true");
+      await user.click(screen.getByTestId("ward-board-basis-expected"));
+      expect(screen.getByTestId("ward-board-basis-expected").getAttribute("aria-pressed")).toBe("true");
       expect(screen.getByTestId("ward-board-basis-confirmed").getAttribute("aria-pressed")).toBe("false");
-      expect(rowsNow(), `${unit.id} predicted rows`).toBe(breakdown.predictedToday);
+      expect(rowsNow(), `${unit.id} expected rows`).toBe(breakdown.expectedToday);
 
-      if (breakdown.confirmedToday + breakdown.predictedToday > 0) checkedWithRows += 1;
+      if (breakdown.confirmedToday + breakdown.expectedToday > 0) checkedWithRows += 1;
       unmount();
     }
 
@@ -129,7 +129,7 @@ describe("ward board triage bar — the toggle changes emphasis and hides nothin
     renderWardBoard(UNIT_ID);
 
     for (const key of FIGURE_KEYS) expect(screen.getByTestId(`ward-board-figure-${key}`)).toBeTruthy();
-    await user.click(screen.getByTestId("ward-board-basis-predicted"));
+    await user.click(screen.getByTestId("ward-board-basis-expected"));
     for (const key of FIGURE_KEYS) expect(screen.getByTestId(`ward-board-figure-${key}`)).toBeTruthy();
 
     // Blocked releases in particular: the figure a coordinator most needs to chase must never be
@@ -148,10 +148,8 @@ describe("ward board triage bar — the toggle changes emphasis and hides nothin
     expect(screen.getByTestId("ward-board-outgoing-count").textContent).toContain(
       CAPACITY_FIGURE_LABELS.confirmedToday,
     );
-    await user.click(screen.getByTestId("ward-board-basis-predicted"));
-    expect(screen.getByTestId("ward-board-outgoing-count").textContent).toContain(
-      CAPACITY_FIGURE_LABELS.predictedToday,
-    );
+    await user.click(screen.getByTestId("ward-board-basis-expected"));
+    expect(screen.getByTestId("ward-board-outgoing-count").textContent).toContain(CAPACITY_FIGURE_LABELS.expectedToday);
   });
 });
 
@@ -165,7 +163,7 @@ describe("ward board flow column — who is coming in", () => {
         (admission) => admission.state === "pulled" || admission.state === "waitlisted",
       );
 
-      const rows = container.querySelectorAll('[data-incoming-state]');
+      const rows = container.querySelectorAll("[data-incoming-state]");
       expect(rows, `${unit.id} incoming rows`).toHaveLength(expected.length);
 
       // A pulled bed is one of this ward's beds, so the pulled rows can never outnumber them —
@@ -184,7 +182,7 @@ describe("ward board flow column — who is coming in", () => {
     // `scgh-adult-open` is the one seeded ward carrying both a pulled bed and a waitlisted person,
     // which is what makes the distinction checkable at all rather than assumed.
     const { container } = renderWardBoard("scgh-adult-open");
-    const rows = [...container.querySelectorAll<HTMLElement>('[data-incoming-state]')];
+    const rows = [...container.querySelectorAll<HTMLElement>("[data-incoming-state]")];
     const pulled = rows.filter((row) => row.getAttribute("data-incoming-state") === "pulled");
     const waiting = rows.filter((row) => row.getAttribute("data-incoming-state") === "waitlisted");
     expect(pulled.length).toBeGreaterThan(0);

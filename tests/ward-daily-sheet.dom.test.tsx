@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -69,9 +69,9 @@ describe("the daily sheet exists on the board and says what it is", () => {
       "Who is stuck",
       "Who is overdue",
       "Nobody has said when they are going",
-      // Added 2026-08-30. A fifth group, placed LAST rather than inserted into D19's verbatim
-      // four — see `AWAY_GROUP_PLACEMENT_UNRESOLVED`; the owner has not ruled on where it sits.
-      "Who is off the ward",
+      // "Who is off the ward" was briefly a sixth heading here. The owner removed the column on
+      // 2026-08-30 and it is now a LINE under the grid, not a group — see the off-the-ward test
+      // below. D19's approved reading order is untouched again.
     ]);
   });
 
@@ -92,6 +92,62 @@ describe("the daily sheet exists on the board and says what it is", () => {
     // D10's editable half is not built here — the board dispatches nothing (DB-19). The absence
     // must never read as "there is nothing to update".
     expect(screen.getByTestId("ward-daily-sheet-limits").textContent).toContain("read-only");
+  });
+});
+
+describe("the daily sheet is folded away and last, not second", () => {
+  /*
+   * OWNER, 2026-08-30: put the sheet at the bottom, and the board is cluttered.
+   *
+   * Measured before the move: the sheet was **995px of a 2493px page — 40% of the ward board,
+   * sitting second** and pushing the beds below the fold. Measured after: **1546px**, with the
+   * beds as the first substantial block. The board's subject is the beds; the sheet is what the
+   * board prints.
+   *
+   * Folded because on screen it repeated the board almost entirely, and by design — it was built
+   * as a printout of these same panels, so its "Since yesterday", "Who came in", "Who is going"
+   * and destinations were the board's own panels a second time.
+   *
+   * **These assertions cannot see the folding**, and that is stated rather than worked around:
+   * jsdom applies no stylesheet, so the hidden body is still in the document and every existing
+   * assertion in this file still passes. What CAN be pinned here is the contract the CSS hangs
+   * off — the button, its state, and which class the body carries — and that is what these do.
+   */
+  it("starts folded, and the button says what it will show", () => {
+    renderWardBoard(UNIT_ID);
+    const button = screen.getByTestId("ward-board-sheet-fold").querySelector("button");
+    expect(button, "the fold has no button").not.toBeNull();
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button?.textContent).toMatch(/show the ward.s daily sheet/i);
+  });
+
+  it("opens and closes, and says which state it is in", () => {
+    renderWardBoard(UNIT_ID);
+    const button = screen.getByTestId("ward-board-sheet-fold").querySelector("button")!;
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button.textContent).toMatch(/hide the ward.s daily sheet/i);
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps the sheet in the document while folded, which is what lets it print", () => {
+    /*
+     * The half that matters most and the one a careless simplification would break: if the fold
+     * ever stops RENDERING the sheet and starts omitting it, the printed handover sheet becomes a
+     * blank page — the reader of a printed page cannot click anything.
+     *
+     * A `<details>` element was the obvious build and is the wrong one for exactly this reason:
+     * the browser hides a closed `details`' content through its own stylesheet and no print rule
+     * reliably reopens it. The print stylesheet forces `.sheetBodyHidden` to `display: block`,
+     * which only works while the content is actually there.
+     */
+    renderWardBoard(UNIT_ID);
+    const body = screen.getByTestId("ward-board-sheet-body");
+    expect(within(body).getByTestId("ward-daily-sheet")).toBeInTheDocument();
+    expect(within(body).getByTestId("ward-daily-sheet-away")).toBeInTheDocument();
   });
 });
 
@@ -138,8 +194,11 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     expect(wardWithNobodyAway, "every seeded ward has somebody away — this assertion is vacuous").toBeDefined();
 
     renderWardBoard(wardWithNobodyAway!.unitId);
-    const count = screen.getByTestId("ward-daily-sheet-away-count");
-    expect(count.textContent).toBe("None.");
+    // The group became a line on 2026-08-30 ("remove the away column"), so his "Just say none."
+    // now reads as "Off the ward: none." rather than a bare cell. The word he chose survives; the
+    // container it sat in did not.
+    const line = screen.getByTestId("ward-daily-sheet-away");
+    expect(line.textContent).toMatch(/off the ward:\s*none\./i);
   });
 
   it("says on the PAPER that a patient is at an emergency department, not only on the screen", () => {
@@ -165,23 +224,19 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
 
     renderWardBoard(unitId);
 
-    // Scoped to the group, not the whole sheet. A person who is away AND has no discharge date
-    // appears in BOTH groups on purpose — the same way somebody both stuck and overdue appears
-    // twice — so counting across the sheet counts one of them more than once.
-    const awayGroup = screen.getByTestId("ward-daily-sheet-away");
-    const notes = within(awayGroup).getAllByText(/at an emergency department/i);
-    expect(
-      notes.length,
-      `the off-the-ward group shows ${notes.length} of ${awayHere.length} people away on this ward`,
-    ).toBe(awayHere.length);
-
-    for (const note of notes) {
-      // The half most likely to be trimmed as wordy, and the half a reader most needs: "away" on a
-      // bed sheet otherwise reads as "so the bed is free".
-      expect(note.textContent, `sheet line does not say the bed is still theirs: ${note.textContent}`).toMatch(
-        /still theirs/i,
-      );
+    /*
+     * The line, not a column — the owner removed the column on 2026-08-30. The assertion that
+     * matters did not change with it: EVERY person away on this ward must reach the printed sheet.
+     * One of the two seeded away people has an ordinary discharge date and no blocker, so they
+     * appear in none of the four groups; if the line ever stops naming them they vanish from the
+     * sheet that is read aloud at handover, and nobody in the room can see an absence.
+     */
+    const line = screen.getByTestId("ward-daily-sheet-away");
+    const text = line.textContent ?? "";
+    for (const admission of awayHere) {
+      expect(text, `${admission.id} is away and is not named on the printed sheet`).toContain(admission.homeRegion);
     }
+    expect(text, "the line does not say the bed is still theirs").toMatch(/bed stays theirs/i);
   });
 
   it("says on its face that it does not advance, because every other screen now does", () => {
@@ -200,8 +255,17 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     renderWardBoard(UNIT_ID);
     const note = screen.getByTestId("ward-board-fixed-note").textContent ?? "";
 
-    expect(note).toMatch(/does not advance/i);
+    expect(note).toMatch(/does not change/i);
     expect(note).toMatch(/other screens/i);
+    /*
+     * FIGURES, not only times — corrected 2026-08-30. The note first said "the times will differ",
+     * and the owner approved the label on that description. The board reads NO live state at all
+     * (zero uses of `useWardFlow`) and synthesises its own bed releases from the fixture, so after
+     * a demo control is used the two screens can disagree about counts as well: `Held 1` here
+     * against `Held 0` on the ward screen. A note naming only the clock makes that read as a fault
+     * rather than the stated design.
+     */
+    expect(note, "the note names only the clock, and the figures can differ too").toMatch(/figures/i);
   });
 
   it("prints NO calendar date, now that it could print a real one", () => {
@@ -408,9 +472,9 @@ describe("every count on the sheet is POSSIBLE for this ward, not merely compute
     const releases = derivedBedReleases([...wardAdmissions], WARD_ADMISSIONS_ANCHOR);
     const text = screen.getByTestId("ward-daily-sheet-out-count").textContent ?? "";
 
-    // "4 beds" without "confirmed" or "predicted" beside it is two different claims sharing a
+    // "4 beds" without "confirmed" or "expected" beside it is two different claims sharing a
     // number, and on paper the control that would have said which is gone.
-    expect(text).toMatch(/Confirmed today|Predicted today/);
+    expect(text).toMatch(/Confirmed today|Expected today/);
     // And the figure is bounded by the ward's own releases, never the network's.
     const wardReleases = releases.filter((release) => release.unitId === UNIT_ID).length;
     const shown = Number(/(\d+) bed/.exec(text)?.[1] ?? "-1");

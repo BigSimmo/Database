@@ -197,7 +197,7 @@ describe("network diagram, referral placement", () => {
  * Spec D15, applied to this component. Matching itself must not read the bed-release model at all
  * (`tests/ward-referral-matching.test.ts` holds that over the whole module graph reachable from
  * `ward-eligibility.ts`/`ward-referrals.ts`). This screen is a different case: it ALREADY reads
- * that model for its Confirmed/Predicted chips, which predate this phase. The rule Task 7 works
+ * that model for its Confirmed/Expected chips, which predate this phase. The rule Task 7 works
  * under is therefore narrower and exact — the placement overlay adds no NEW read — so this pins
  * the component's release-model imports to the two that were already there.
  *
@@ -298,7 +298,7 @@ describe("the placement overlay adds no new read of the bed-release model", () =
    *
    * What follows is the READ. Every property taken off a `capacityBreakdown` value in this
    * component, whatever the local variable happens to be called. The permitted set is exactly the
-   * two figures the Confirmed and Predicted chips showed before Phase 8 began. `blockedToday` —
+   * two figures the Confirmed and Expected chips showed before Phase 8 began. `blockedToday` —
    * the blocked-discharge figure, added to the breakdown after this phase's plan was written — and
    * `excludedBeyondToday` are the two that must never appear: surfacing either would grow the
    * phase's only unvalidated-bed-model exposure from two figures to three, and would break the
@@ -408,8 +408,8 @@ describe("the placement overlay adds no new read of the bed-release model", () =
     // proving nothing at all.
     expect(
       breakdownPropertyReads(readFileSync(NETWORK_COMPONENT, "utf8")),
-      "this component now reads a bed-release figure beyond the two the Confirmed/Predicted chips already showed",
-    ).toEqual(["confirmedToday", "predictedToday"]);
+      "this component now reads a bed-release figure beyond the two the Confirmed/Expected chips already showed",
+    ).toEqual(["confirmedToday", "expectedToday"]);
   });
 });
 

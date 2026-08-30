@@ -1,5 +1,9 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import {
+  BED_PREPARATION_NOTES,
+  BED_RELEASE_BLOCKERS,
+  OVERRIDE_REASONS,
+} from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { referralState } from "@/components/ward-management/ward-referrals";
 import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
@@ -14,6 +18,7 @@ import {
   SEXES,
   REFERRAL_DESTINATION_KINDS,
   type ReferralAddressing,
+  TRANSPORT_PROVIDERS,
 } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
@@ -192,6 +197,34 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
   };
 }
 
+/**
+ * A FRESH SEED, ALREADY MOVED TO THE DEMONSTRATION'S CLOCK. The only door application code uses.
+ *
+ * ⚠️ **`shiftInstants` CARRIES NO ALREADY-SHIFTED MARKER, SO APPLYING IT TWICE DOUBLES EVERY
+ * OFFSET.** Ward Board's framing is why that outranks its size: *a wrong clock looks wrong; a wrong
+ * length of stay looks PLAUSIBLE.* A patient nine days in a bed reading as eighteen is not a
+ * visibly broken screen — it is a believable number, on a screen whose purpose is to be believed,
+ * with nothing anywhere to contradict it.
+ *
+ * ⚠️ **Stated honestly: no screen has ever shown that.** All three call sites passed a fresh
+ * `seedWardFlowState()`, so nothing was ever double-shifted. This is a latent hazard being closed
+ * because the cost of closing it is a function signature, not a live defect being repaired.
+ *
+ * The remedy is `TR-F3`-shaped — make the impossible state unrepresentable rather than check that
+ * the reachable ones look right. **This function cannot be handed an already-shifted state because
+ * it does not take a state at all**: it seeds and shifts in one step, so there is no argument a
+ * caller could pass twice. `shiftInstants` stays exported for `ward-reanchor.test.ts`, which tests
+ * the walker itself; `tests/ward-reanchor-single-application.test.ts` is the guard that application
+ * code never reaches around this door to it.
+ *
+ * Offset zero returns a copy rather than the original, for the reason `shiftInstants` already
+ * documents: the pinned and live paths then differ only in the offset, never in whether a copy was
+ * taken, so no path exists that only a non-zero offset exercises.
+ */
+export function seedWardFlowStateAt(offsetMinutes: number, scenario: WardScenario = "standard"): WardFlowState {
+  return shiftInstants(seedWardFlowState(scenario), offsetMinutes);
+}
+
 /** The id a rejection is filed against, for events that are not about one specific movement. */
 function subjectId(event: WardFlowEvent): string {
   switch (event.type) {
@@ -368,10 +401,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     }
 
     case "RESET_SCENARIO":
-      return shiftInstants(seedWardFlowState(), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
+      return seedWardFlowStateAt(event.now - state.clockOffsetMinutes - NOW_ANCHOR);
 
     case "SET_SCENARIO":
-      return shiftInstants(seedWardFlowState(event.scenario), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
+      return seedWardFlowStateAt(event.now - state.clockOffsetMinutes - NOW_ANCHOR, event.scenario);
 
     case "ADVANCE_CLOCK":
       return { ...state, clockOffsetMinutes: state.clockOffsetMinutes + event.minutes };
@@ -400,6 +433,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         id: nextReferralId(sequence),
         originEdId: event.edId,
         openedAt: event.now,
+        // A newly raised movement is never flagged. The flag is an act somebody takes on a
+        // patient already in the queue, not a property of arriving.
+        flaggedUrgent: false,
         urgency: event.draft.urgency,
         cohort: event.draft.cohort,
         security: event.draft.security,
@@ -411,6 +447,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         legalForm: chosenForm === undefined ? undefined : { ...chosenForm },
         statusChanges: [],
         urgencyChanges: [],
+        overrides: [],
         stage: "placement_requested",
         owner: department.name,
         referredUnitIds: [],
@@ -521,9 +558,31 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (unknown) {
         return reject(state, event, `no unit found for id ${unknown}`);
       }
+      // Membership-checked, not truthiness-checked -- the same discipline as every other reason
+      // in this reducer. A caller sending a reason outside the list is refused rather than having
+      // an unrecognised string written into an accountability record.
+      if (event.overrideReason !== undefined && !OVERRIDE_REASONS.includes(event.overrideReason)) {
+        return reject(state, event, `REFER_TO_UNITS overrideReason must be chosen from OVERRIDE_REASONS`);
+      }
       const updated: Movement = {
         ...movement,
         referredUnitIds: [...event.unitIds],
+        // OD-3: the reason is KEPT. It used to live in the shortlist panel's own `useState` and be
+        // discarded on the next selection, while the governance page said override reasons were
+        // recorded. Appended rather than replaced, because a movement can be overridden more than
+        // once and the earlier one is not undone by the later.
+        overrides:
+          event.overrideReason === undefined
+            ? movement.overrides
+            : [
+                ...movement.overrides,
+                {
+                  at: event.now,
+                  by: WARD_FLOW_ROLE_LABELS[event.role],
+                  reason: event.overrideReason,
+                  unitIds: [...event.unitIds],
+                },
+              ],
         stage: "destination_review",
       };
       return replaceMovement(state, movement.id, updated);
@@ -700,7 +759,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         stage: "handover_ready",
         transport: {
           id: `${movement.id}-transport`,
-          provider: "State patient transport service",
+          // TR-D2. Was the literal "State patient transport service" on every job this reducer
+          // created -- a second name, from nowhere, beside the seed's own. The value now comes
+          // from `TRANSPORT_PROVIDERS`, and the event may carry the choice.
+          //
+          // The fallback is the first entry, and it is a PLACEHOLDER DEFAULT rather than a
+          // decision: no screen offers a provider chooser yet, so until one does every job this
+          // creates takes the same one. That is a gap the array makes visible instead of hiding
+          // behind a hardcoded sentence.
+          provider: event.provider ?? TRANSPORT_PROVIDERS[0],
           escortRequired: movement.legalStatus !== "Voluntary",
         },
       };
@@ -849,12 +916,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (event.blocker !== undefined && !BED_RELEASE_BLOCKERS.includes(event.blocker)) {
         return reject(state, event, `FLAG_BED_RELEASE blocker must be chosen from BED_RELEASE_BLOCKERS`);
       }
-      // Bed-model rework (2026-08-28): a flag ALWAYS creates a `"predicted"` release, and a
+      // Bed-model rework (2026-08-28): a flag ALWAYS creates a `"expected"` release, and a
       // blocker sets the blocked FLAG on it rather than choosing a different state. Spec D3's
-      // old "blocked xor predicted" rule is gone with the fourth state it described — a bed
+      // old "blocked xor expected" rule is gone with the fourth state it described — a bed
       // that is coming free but currently held up is a prediction AND a block, and pretending
       // those were alternatives is what let `capacityBreakdown` count such a release nowhere.
-      // `waitingOn` is therefore kept on both paths, because the release is predicted on both.
+      // `waitingOn` is therefore kept on both paths, because the release is expected on both.
       // Fix round 2 (P1): `expectedAt` now carries the ward's own estimate of when the bed will
       // actually be free (`event.expectedAt`, collected on the flag form exactly like
       // `expectedReturn` on the leave-bed form) rather than `event.now`. Before this fix every
@@ -881,7 +948,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // grows and its length is a safe, collision-free id source.
         id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
         unitId: flaggedUnit.id,
-        state: "predicted",
+        state: "expected",
         expectedAt: event.expectedAt,
         waitingOn: event.waitingOn,
         blocker: event.blocker ?? null,
@@ -910,12 +977,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `CONFIRM_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transition: predicted -> confirmed. Nothing else. Naming both the current state and
+      // Legal transition: expected -> confirmed. Nothing else. Naming both the current state and
       // the attempted target keeps a refusal readable without having to cross-reference the state
       // machine comment above. (Before the 2026-08-28 rework this also accepted `blocked ->
       // confirmed`; there is no such state now, and a blocked release is confirmed from whichever
       // stage it is actually in, keeping its flag.)
-      if (release.state !== "predicted") {
+      if (release.state !== "expected") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to confirmed`);
       }
       // Fix round 2 (P2, spec D7): `confirmedAt` restates to `event.now` on every accepted
@@ -957,10 +1024,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `REVERT_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transition: confirmed -> predicted. `discharged` is terminal and `predicted` is
+      // Legal transition: confirmed -> expected. `discharged` is terminal and `expected` is
       // already there, so both fall into the same refusal.
       if (release.state !== "confirmed") {
-        return reject(state, event, `cannot move release ${release.id} from ${release.state} to predicted`);
+        return reject(state, event, `cannot move release ${release.id} from ${release.state} to expected`);
       }
       // Membership check, not truthiness — the same discipline BLOCK_BED_RELEASE's own blocker
       // check holds to, and for the same reason: a runtime rule, not merely a compile-time one.
@@ -970,7 +1037,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // The blocked flag survives: reversing the discharge decision does not unstick the bed.
       const reverted: BedRelease = {
         ...release,
-        state: "predicted",
+        state: "expected",
         waitingOn: event.waitingOn,
         confirmedAt: event.now,
       };
@@ -999,7 +1066,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         return reject(state, event, `BLOCK_BED_RELEASE requires a blocker chosen from BED_RELEASE_BLOCKERS`);
       }
       // Bed-model rework (2026-08-28): this sets a FLAG and moves no stage at all. A blocked
-      // release keeps whichever stage it was in — `predicted` stays predicted, and a confirmed
+      // release keeps whichever stage it was in — `expected` stays expected, and a confirmed
       // discharge that gets stuck stays CONFIRMED and keeps counting as confirmed. Only
       // `discharged` is refused: the bed is already free, so there is nothing left to hold up.
       const blockedUnit = findUnit(state, release.unitId);
@@ -1097,11 +1164,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `RELEASE_BED was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transitions: confirmed -> released and predicted -> released. `discharged` is
-      // terminal, so only a release already in it is refused. Predicted is accepted deliberately:
+      // Legal transitions: confirmed -> released and expected -> released. `discharged` is
+      // terminal, so only a release already in it is refused. Expected is accepted deliberately:
       // "the person has left" is a statement of fact about an empty bed, not a prediction being
       // promoted into availability, and the four-stage model already permitted the same journey
-      // via `predicted -> blocked -> released`. Narrowing it during the rework would have refused
+      // via `expected -> blocked -> released`. Narrowing it during the rework would have refused
       // a path wards could already take.
       if (release.state === "discharged") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to released`);
@@ -1123,10 +1190,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         confirmedAt: event.now,
       };
       // RELEASE_BED is the one event in this six-case group that changes an actual bed count,
-      // not just a record about one — this is where the predicted/confirmed expectation
+      // not just a record about one — this is where the expected/confirmed expectation
       // `FLAG_BED_RELEASE`/`CONFIRM_BED_RELEASE` only anticipated becomes the physical fact.
       // `capacityBreakdown`'s `availableNow` is deliberately blind to `bedReleases` itself (Task
-      // 2: nothing predicted or confirmed-but-unreleased may ever be added into it), so the only
+      // 2: nothing expected or confirmed-but-unreleased may ever be added into it), so the only
       // way a release ever moves that number is through the unit's own fields, here. Both
       // `allocatable.value` and `empty.value` rise by one: the bed is now truly free, not merely
       // reserved (`allocatable` alone) or physically vacant while still held for someone else
