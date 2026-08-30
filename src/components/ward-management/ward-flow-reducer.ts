@@ -18,6 +18,7 @@ import {
   SEXES,
   REFERRAL_DESTINATION_KINDS,
   type ReferralAddressing,
+  TRANSPORT_PROVIDERS,
 } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
@@ -730,7 +731,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         stage: "handover_ready",
         transport: {
           id: `${movement.id}-transport`,
-          provider: "State patient transport service",
+          // TR-D2. Was the literal "State patient transport service" on every job this reducer
+          // created -- a second name, from nowhere, beside the seed's own. The value now comes
+          // from `TRANSPORT_PROVIDERS`, and the event may carry the choice.
+          //
+          // The fallback is the first entry, and it is a PLACEHOLDER DEFAULT rather than a
+          // decision: no screen offers a provider chooser yet, so until one does every job this
+          // creates takes the same one. That is a gap the array makes visible instead of hiding
+          // behind a hardcoded sentence.
+          provider: event.provider ?? TRANSPORT_PROVIDERS[0],
           escortRequired: movement.legalStatus !== "Voluntary",
         },
       };

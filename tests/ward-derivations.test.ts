@@ -23,7 +23,7 @@ import { allUnits, NOW_ANCHOR } from "../src/components/ward-management/ward-sit
 function transportJob(overrides: Partial<TransportJob> = {}): TransportJob {
   return {
     id: "TR-TEST",
-    provider: "St John WA",
+    provider: "Patient transport service",
     escortRequired: true,
     ...overrides,
   };

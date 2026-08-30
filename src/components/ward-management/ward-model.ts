@@ -312,10 +312,43 @@ export type UrgencyChange = {
   reason: UrgencyChangeReason;
 };
 
+/**
+ * WHO COLLECTS THE PATIENT — obviously generic placeholders, and the owner's to replace.
+ *
+ * `TR-D2`. Until 2026-08-30 this field was a bare string with two values and no vocabulary: the
+ * reducer hardcoded "State patient transport service" onto every job it created, and the seed used
+ * **"St John WA"** — a REAL organisation, named inside a synthetic prototype, rendering straight to
+ * screen as "St John WA accepted, awaiting departure".
+ *
+ * Two faults in one field. The screen stated who was collecting a patient and **nobody chose it**;
+ * and a demonstration asserted an operational fact about a real body that has agreed to nothing.
+ *
+ * These three are PLACEHOLDERS in the `CM-8` sense — findable in one place, never presented as the
+ * real set, and replaced wholesale on the day somebody supplies the actual providers. They are the
+ * three the transport design names and no more: "and so on" in a spec is an invitation to invent,
+ * and inventing a fourth provider is the same act as writing a real one in.
+ */
+export const TRANSPORT_PROVIDERS = ["Ambulance service", "Patient transport service", "Ward escort"] as const;
+export type TransportProvider = (typeof TRANSPORT_PROVIDERS)[number];
+
 export type TransportJob = {
   id: string;
-  provider: string;
+  /** From `TRANSPORT_PROVIDERS`. Never free text — see that list's own doc comment. */
+  provider: TransportProvider;
   escortRequired: boolean;
+  /**
+   * The form this transfer requires. **STILL A BARE STRING, and that is a known gap rather than an
+   * oversight** — `TR-D2` asks for it to draw from `SELECTABLE_LEGAL_FORMS`, and it should.
+   *
+   * Not done here because the change is not local. `SELECTABLE_LEGAL_FORMS` is typed
+   * `readonly LegalForm[]` with `code: string`, so deriving a union from it needs `as const` on
+   * that array — and `ward-legal-forms.ts` is pinned in roughly fifteen places by
+   * `tests/ward-legal-figure-guard.test.ts`, the Mental Health Act figure guard the owner has said
+   * must never be disturbed. Widening a type there is a deliberate change with that guard in front
+   * of it, not a side effect of removing two organisation names from a different field.
+   *
+   * Nothing writes a bad code today: the only populated `formRequired` comes from the seed.
+   */
   formRequired?: string;
   acceptedAt?: Instant;
   enRouteAt?: Instant;

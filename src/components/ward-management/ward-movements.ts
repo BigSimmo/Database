@@ -147,7 +147,7 @@ const seededMovements: Movement[] = [
     declines: [],
     transport: {
       id: "TR-1005",
-      provider: "St John WA",
+      provider: "Patient transport service",
       escortRequired: true,
       formRequired: "Form 1A",
       acceptedAt: NOW_ANCHOR - 30,
@@ -183,7 +183,7 @@ const seededMovements: Movement[] = [
     declines: [],
     transport: {
       id: "TR-1006",
-      provider: "St John WA",
+      provider: "Patient transport service",
       escortRequired: true,
       acceptedAt: NOW_ANCHOR - 50,
       enRouteAt: NOW_ANCHOR - 15,
@@ -470,7 +470,7 @@ const seededMovements: Movement[] = [
     declines: [],
     transport: {
       id: "TR-1014",
-      provider: "St John WA",
+      provider: "Patient transport service",
       escortRequired: true,
       formRequired: "Form 1A",
       acceptedAt: NOW_ANCHOR - 45,
@@ -502,7 +502,12 @@ const seededMovements: Movement[] = [
     referredUnitIds: [],
     acceptedUnitId: "scgh-older-adult",
     declines: [],
-    transport: { id: "TR-1015", provider: "St John WA", escortRequired: false, acceptedAt: NOW_ANCHOR - 15 },
+    transport: {
+      id: "TR-1015",
+      provider: "Patient transport service",
+      escortRequired: false,
+      acceptedAt: NOW_ANCHOR - 15,
+    },
     blocker: "Awaiting transport escort",
     withdrawnReferrals: [],
     unwinds: [],
@@ -728,7 +733,7 @@ function stageFields(
         acceptedUnitId: fallbackUnitId(cohort, security, index),
         transport: {
           id: `TR-${1300 + index}`,
-          provider: "St John WA",
+          provider: "Patient transport service",
           escortRequired: index % 2 === 0,
           acceptedAt,
           enRouteAt,

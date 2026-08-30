@@ -20,6 +20,7 @@ import type {
   ReferralSource,
   Security,
   Sex,
+  TransportProvider,
 } from "@/components/ward-management/ward-model";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -119,7 +120,15 @@ export type WardFlowEvent =
       /** From `DECLINE_REASONS`, and nothing beside it — see `Decline`'s own doc comment (PD-6). */
       reason: DeclineReason;
     }
-  | { type: "HANDOVER_READY"; role: WardFlowRole; now: Instant; movementId: string }
+  | {
+      type: "HANDOVER_READY";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      /** Who will collect the patient, from `TRANSPORT_PROVIDERS`. Optional only because no screen
+       *  offers the choice yet; the reducer falls back to the first entry and says so. */
+      provider?: TransportProvider;
+    }
   | { type: "TRANSPORT_ACCEPTED"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "TRANSPORT_EN_ROUTE"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "PATIENT_COLLECTED"; role: WardFlowRole; now: Instant; movementId: string }
