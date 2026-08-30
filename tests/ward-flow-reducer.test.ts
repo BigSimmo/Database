@@ -200,6 +200,10 @@ describe("arrival", () => {
       { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
       { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
       { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
       { type: "HANDOVER_READY", role: "ed" },
       { type: "TRANSPORT_ACCEPTED", role: "officer" },
       { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -235,6 +239,10 @@ describe("arrival", () => {
       { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
       { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
       { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
       { type: "HANDOVER_READY", role: "ed" },
       { type: "TRANSPORT_ACCEPTED", role: "officer" },
       { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -555,6 +563,10 @@ describe("examination", () => {
       { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
       { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
       { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
       { type: "HANDOVER_READY", role: "ed" },
       { type: "TRANSPORT_ACCEPTED", role: "officer" },
       { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -852,6 +864,10 @@ describe("arrival capacity floor", () => {
         { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
         { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
         { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+        // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+        // transport job and answer the escort question by deriving it from legal status. It no
+        // longer invents either, so a walk that reaches handover without booking is refused.
+        { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
         { type: "HANDOVER_READY", role: "ed" },
         { type: "TRANSPORT_ACCEPTED", role: "officer" },
         { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -1122,6 +1138,10 @@ describe("release and cancel", () => {
       { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
       { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
       { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
       { type: "HANDOVER_READY", role: "ed" },
       { type: "TRANSPORT_ACCEPTED", role: "officer" },
       { type: "TRANSPORT_EN_ROUTE", role: "officer" },

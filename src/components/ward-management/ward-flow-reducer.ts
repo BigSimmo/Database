@@ -772,23 +772,29 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (movement.stage !== "bed_held") {
         return reject(state, event, `cannot ready a handover while the movement is ${movement.stage}`);
       }
-      const updated: Movement = {
-        ...movement,
-        stage: "handover_ready",
-        transport: {
-          id: `${movement.id}-transport`,
-          // TR-D2. Was the literal "State patient transport service" on every job this reducer
-          // created -- a second name, from nowhere, beside the seed's own. The value now comes
-          // from `TRANSPORT_PROVIDERS`, and the event may carry the choice.
-          //
-          // The fallback is the first entry, and it is a PLACEHOLDER DEFAULT rather than a
-          // decision: no screen offers a provider chooser yet, so until one does every job this
-          // creates takes the same one. That is a gap the array makes visible instead of hiding
-          // behind a hardcoded sentence.
-          provider: event.provider ?? TRANSPORT_PROVIDERS[0],
-          escortRequired: movement.legalStatus !== "Voluntary",
-        },
-      };
+      /*
+       * 🔴 THIS FABRICATED A TRANSPORT JOB AND ANSWERED A CLINICAL QUESTION NOBODY HAD ASKED.
+       *
+       * It created `transport` on the spot with `escortRequired: movement.legalStatus !==
+       * "Voluntary"` — a judgement made by no person, rendered on screen as though a clinician had
+       * made it, and wrong in BOTH directions: a voluntary patient can need an escort, and a
+       * detained one settled enough to travel may not. `TR-D1` names escort as one of the two facts
+       * the sending team is booking BECAUSE it knows them. The provider was fabricated too, taking
+       * `TRANSPORT_PROVIDERS[0]` whenever the event carried no choice.
+       *
+       * It survived `BOOK_TRANSPORT` landing by an hour, deliberately: removing it before a booking
+       * control existed would have dead-ended "Mark handover ready" on a screen this session does
+       * not own. The control landed at `caacf1eda` with the escort question blank and the provider
+       * unchosen, so the bridge goes.
+       *
+       * ⚠️ **HANDOVER READY NOW REQUIRES A BOOKED TRANSPORT rather than inventing one.** The two
+       * changes cannot be apart: a stage that can be reached with no transport, on a model where
+       * nothing else creates one, is a patient marked ready to hand over with no way to move them.
+       */
+      if (!movement.transport) {
+        return reject(state, event, `cannot ready a handover before transport is booked (BOOK_TRANSPORT)`);
+      }
+      const updated: Movement = { ...movement, stage: "handover_ready" };
       return replaceMovement(state, movement.id, updated);
     }
 

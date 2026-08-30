@@ -32,21 +32,35 @@ const WITHDRAWN_UNIT_ID = "arm-adult-open";
  * raise before the movement has even been referred anywhere — and it gives the privacy
  * invariant a real, walk-caused rejection to inspect instead of an empty `state.rejections`.
  */
+/**
+ * The walk, hoisted so its step INDICES can be derived by name rather than counted by hand.
+ *
+ * ⚠️ They were hand-counted until 2026-08-31, and inserting one step — `BOOK_TRANSPORT`, when
+ * `HANDOVER_READY` stopped fabricating a transport job — silently shifted every index after it
+ * and failed the bed-accounting test with a number, not a reason. **A positional index into a
+ * list somebody else edits is a stale pointer waiting to happen.** `stepAfter` reads the list.
+ */
+const WALK_EVENTS = [
+  { type: "ACCEPT_IN_PRINCIPLE", role: "coordinator", unitId: DECLINED_UNIT_ID },
+  { type: "REFER_TO_UNITS", role: "coordinator", unitIds: [DECLINED_UNIT_ID, WITHDRAWN_UNIT_ID, ACCEPTED_UNIT_ID] },
+  { type: "DECLINE", role: "ward", unitId: DECLINED_UNIT_ID, reason: "no_bed" },
+  { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: ACCEPTED_UNIT_ID },
+  { type: "HOLD_BED", role: "ward", unitId: ACCEPTED_UNIT_ID },
+  // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+  // transport job and answer the escort question by deriving it from legal status. It no
+  // longer invents either, so a walk that reaches handover without booking is refused.
+  { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
+  { type: "HANDOVER_READY", role: "ed" },
+  { type: "TRANSPORT_ACCEPTED", role: "officer" },
+  { type: "TRANSPORT_EN_ROUTE", role: "officer" },
+  { type: "PATIENT_COLLECTED", role: "officer" },
+  { type: "PATIENT_ARRIVED", role: "officer" },
+] as const;
+
 function walk(): WardFlowState[] {
   let state = seedWardFlowState();
   const seen: WardFlowState[] = [state];
-  const events = [
-    { type: "ACCEPT_IN_PRINCIPLE", role: "coordinator", unitId: DECLINED_UNIT_ID },
-    { type: "REFER_TO_UNITS", role: "coordinator", unitIds: [DECLINED_UNIT_ID, WITHDRAWN_UNIT_ID, ACCEPTED_UNIT_ID] },
-    { type: "DECLINE", role: "ward", unitId: DECLINED_UNIT_ID, reason: "no_bed" },
-    { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: ACCEPTED_UNIT_ID },
-    { type: "HOLD_BED", role: "ward", unitId: ACCEPTED_UNIT_ID },
-    { type: "HANDOVER_READY", role: "ed" },
-    { type: "TRANSPORT_ACCEPTED", role: "officer" },
-    { type: "TRANSPORT_EN_ROUTE", role: "officer" },
-    { type: "PATIENT_COLLECTED", role: "officer" },
-    { type: "PATIENT_ARRIVED", role: "officer" },
-  ] as const;
+  const events = WALK_EVENTS;
   for (const event of events) {
     state = wardFlowReducer(state, { ...event, now: NOW, movementId: MOVEMENT_ID } as never);
     seen.push(state);
@@ -59,13 +73,42 @@ function walk(): WardFlowState[] {
  * Named here once so the bed-accounting test below can read the exact unit before and after
  * each bed-moving step without recomputing the offsets inline.
  */
-const AFTER_REFER_TO_UNITS = 2;
-const BEFORE_HOLD_BED = 4; // = AFTER_ACCEPT_IN_PRINCIPLE
-const AFTER_HOLD_BED = 5;
-const BEFORE_PATIENT_ARRIVED = 9; // = AFTER_PATIENT_COLLECTED
-const AFTER_PATIENT_ARRIVED = 10;
+function stepAfter(type: string): number {
+  const index = WALK_EVENTS.findIndex((event) => event.type === type);
+  // A miss would return 0 — the SEED state — and every assertion below would read the fixture
+  // before anything happened while looking like it read a step. Loud rather than plausible.
+  if (index < 0) throw new Error(`walk() has no ${type} step; the index below would read the seed`);
+  return index + 1;
+}
+
+/** The state BEFORE a step: `seen[i]` precedes `events[i]`, so this is the same index. */
+function stepBefore(type: string): number {
+  return stepAfter(type) - 1;
+}
+
+const AFTER_REFER_TO_UNITS = stepAfter("REFER_TO_UNITS");
+// ⚠️ Named against the step they bracket, NOT against whatever happens to precede it. The first
+// version of this derived BEFORE_HOLD_BED as `stepAfter("ACCEPT_IN_PRINCIPLE")` — and `findIndex`
+// returns the FIRST match, which is the coordinator's acceptance of the declined unit, four steps
+// early. The suite still passed, because nothing between the two touches the accepted unit's
+// allocatable count: the assertion could not tell the two indices apart. Bracketing the step by
+// name removes the question rather than answering it, and the pin below fails if they ever drift.
+const BEFORE_HOLD_BED = stepBefore("HOLD_BED");
+const AFTER_HOLD_BED = stepAfter("HOLD_BED");
+const BEFORE_PATIENT_ARRIVED = stepBefore("PATIENT_ARRIVED");
+const AFTER_PATIENT_ARRIVED = stepAfter("PATIENT_ARRIVED");
 
 describe("invariants across every reachable state", () => {
+  it("⚠️ BRACKETS EACH STEP, or the bed arithmetic below measures the wrong two states", () => {
+    // The guard for the derivation itself. A before/after pair that is not adjacent is reading two
+    // states with something else in between, and the arithmetic then attributes that something
+    // else's effect to the step under test — silently, because the numbers still look plausible.
+    expect(AFTER_HOLD_BED - BEFORE_HOLD_BED).toBe(1);
+    expect(AFTER_PATIENT_ARRIVED - BEFORE_PATIENT_ARRIVED).toBe(1);
+    expect(WALK_EVENTS[BEFORE_HOLD_BED]!.type).toBe("HOLD_BED");
+    expect(WALK_EVENTS[BEFORE_PATIENT_ARRIVED]!.type).toBe("PATIENT_ARRIVED");
+  });
+
   it("never lets a movement hold more than the parallel cap", () => {
     for (const state of walk()) {
       for (const movement of state.movements) {

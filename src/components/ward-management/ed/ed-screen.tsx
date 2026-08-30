@@ -227,8 +227,21 @@ function examinationBlockedReason(movement: Movement): string | undefined {
   return undefined;
 }
 
-/** Mirrors `case "HANDOVER_READY"` exactly: the only precondition is stage `bed_held`. */
+/**
+ * Mirrors `case "HANDOVER_READY"` exactly, in the reducer's own order.
+ *
+ * ⚠️ **THE SECOND PRECONDITION ARRIVED 2026-08-31 and this comment said "the ONLY precondition is
+ * stage `bed_held`" until it did.** `HANDOVER_READY` used to fabricate a transport job on the spot,
+ * inventing the provider and deriving the escort answer from legal status; it now REQUIRES a booked
+ * one. Without the second check here the button would offer a handover the reducer refuses — a
+ * control advertising an action it cannot perform, which is the wiring convention this repository
+ * enforces, and the reason a mirror function has to be updated in the same change as the rule it
+ * mirrors rather than the next time somebody reads it.
+ */
 function handoverBlockedReason(movement: Movement): string | undefined {
+  if (!movement.transport && movement.stage === "bed_held") {
+    return `${movement.id} has no transport booked — book it first, then mark the handover ready.`;
+  }
   if (movement.stage !== "bed_held") {
     return `${movement.id} is ${stageCopy[movement.stage].label.toLowerCase()}, not bed held — a handover can only be marked ready once a bed is held.`;
   }

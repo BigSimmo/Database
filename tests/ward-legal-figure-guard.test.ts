@@ -1145,7 +1145,23 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
       offenders.push(...offendingFormsIn(released, `RELEASE_HOLD(${code})`));
 
       const forCancel = buildHeldMovementFor(code, NOW_ANCHOR);
-      const readyForHandover = wardFlowReducer(forCancel.state, {
+      // Booking is its own step since 2026-08-31: HANDOVER_READY no longer fabricates a transport
+      // job, nor answers the escort question by deriving it from legal status. This file is touched
+      // as little as possible, and the edit is forced by the event sequence rather than chosen — no
+      // figure, timeframe or threshold is involved.
+      const booked = wardFlowReducer(forCancel.state, {
+        type: "BOOK_TRANSPORT",
+        role: EVENT_ROLE.BOOK_TRANSPORT[0],
+        now: NOW_ANCHOR,
+        movementId: forCancel.movementId,
+        provider: TRANSPORT_PROVIDERS[0],
+        escortRequired: true,
+      });
+      expect(
+        booked.rejections,
+        `BOOK_TRANSPORT for Form ${code} was refused: ${booked.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      const readyForHandover = wardFlowReducer(booked, {
         type: "HANDOVER_READY",
         role: EVENT_ROLE.HANDOVER_READY[0],
         now: NOW_ANCHOR,
@@ -1155,6 +1171,13 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
         readyForHandover.rejections,
         `HANDOVER_READY for Form ${code} was refused: ${readyForHandover.rejections.at(-1)?.reason}`,
       ).toEqual([]);
+      // HANDOVER_READY joined RELEASE_HOLD and CANCEL_TRANSPORT in this block on 2026-08-31, when it
+      // stopped fabricating a transport job and began REQUIRING one. It now needs a movement already
+      // carrying a booking, which the round-robin sweep above cannot reliably produce — the same
+      // traversal limitation those two have, not grounds for a STRUCTURALLY_IMPOSSIBLE entry, and
+      // the reason it must be recorded here or "Non-vacuity 3" reports it as never accepted.
+      accepted.add("HANDOVER_READY");
+      accepted.add("BOOK_TRANSPORT");
       const cancelled = wardFlowReducer(readyForHandover, {
         type: "CANCEL_TRANSPORT",
         role: EVENT_ROLE.CANCEL_TRANSPORT[0],

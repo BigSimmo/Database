@@ -56,6 +56,10 @@ function withBookedTransport(): { state: WardFlowState; movementId: string } {
     { type: "REFER_TO_UNITS", role: "coordinator", unitIds: [ACCEPTING_UNIT] },
     { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: ACCEPTING_UNIT },
     { type: "HOLD_BED", role: "ward", unitId: ACCEPTING_UNIT },
+    // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+    // transport job and answer the escort question by deriving it from legal status. It no
+    // longer invents either, so a walk that reaches handover without booking is refused.
+    { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
     { type: "HANDOVER_READY", role: "ed" },
     { type: "TRANSPORT_ACCEPTED", role: "officer" },
   ] as const;

@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
@@ -31,10 +28,13 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  * default rather than a claim. This file pins the model half: the event REQUIRES an answer, so
  * there is no value the form can omit and no default for the reducer to invent.
  *
- * ⚠️ **THE FABRICATION IS STILL THERE, DELIBERATELY, AND ONE TEST BELOW SAYS SO.** Removing it now
- * would dead-end "Mark handover ready" on a screen this session does not own, before the booking
- * control that replaces it exists. It goes the hour that control lands, and until then the pin
- * below records that the debt is known rather than forgotten.
+ * ✅ **THE FABRICATION IS GONE, 2026-08-31.** A test here asserted it was PRESENT, with the removal
+ * steps in its own body and worded so it could not stay green afterwards — the debt could not be
+ * forgotten or quietly inherited. The booking control landed at `caacf1eda`, the derivation went
+ * with it in the same hour, and that test failed exactly as designed and was deleted by its own
+ * instructions. **`HANDOVER_READY` now REQUIRES a booked transport rather than inventing one**, and
+ * the two changes shipped together because a stage reachable with no transport, on a model where
+ * nothing else creates one, is a patient marked ready to hand over with no way to move them.
  */
 const NOW = NOW_ANCHOR;
 
@@ -142,6 +142,48 @@ describe("BOOK_TRANSPORT", () => {
     expect(booked.movements.find((candidate) => candidate.id === early.id)!.transport).toBeUndefined();
   });
 
+  it("🔴 REFUSES A HANDOVER WITH NO TRANSPORT BOOKED — the half that replaced the fabrication", () => {
+    // ⚠️ THIS TEST DID NOT EXIST WHEN THE PRECONDITION DID. Removing `HANDOVER_READY`'s fabrication
+    // and adding `if (!movement.transport) reject` were written together, the whole suite went
+    // green, and a mutation deleting the new guard ALSO left 68 tests green. The walks were all
+    // repaired to book first, so every one of them satisfied the precondition and none of them
+    // tested it. **Repairing the callers of a new rule removes the only evidence the rule works.**
+    const { state, movementId } = heldBedMovement();
+    const before = state.movements.find((candidate) => candidate.id === movementId)!;
+    expect(before.transport, "the fixture must have no transport, or this proves nothing").toBeUndefined();
+
+    const refused = wardFlowReducer(state, {
+      type: "HANDOVER_READY",
+      role: "ed",
+      now: NOW,
+      movementId,
+    } as never);
+    expect(refused.rejections.length).toBe(1);
+    expect(refused.rejections[0]!.reason).toContain("transport is booked");
+    expect(
+      refused.movements.find((candidate) => candidate.id === movementId)!.stage,
+      "a refused handover must leave the stage alone",
+    ).toBe("bed_held");
+  });
+
+  it("allows the handover once transport IS booked, so the guard is a precondition and not a wall", () => {
+    // The other direction, without which "always refuse" would satisfy the test above.
+    const { movementId } = heldBedMovement();
+    const booked = book();
+    const ready = wardFlowReducer(booked, {
+      type: "HANDOVER_READY",
+      role: "ed",
+      now: NOW,
+      movementId,
+    } as never);
+    expect(ready.rejections).toEqual([]);
+    expect(ready.movements.find((candidate) => candidate.id === movementId)!.stage).toBe("handover_ready");
+    expect(
+      ready.movements.find((candidate) => candidate.id === movementId)!.transport!.escortRequired,
+      "the booked answer must survive the handover, not be recomputed by it",
+    ).toBe(true);
+  });
+
   it("refuses to book twice, because a second job would replace one a provider may have accepted", () => {
     const { movementId } = heldBedMovement();
     const once = book();
@@ -158,22 +200,5 @@ describe("BOOK_TRANSPORT", () => {
       twice.movements.find((candidate) => candidate.id === movementId)!.transport!.provider,
       "the first booking must survive the refused second one",
     ).toBe(TRANSPORT_PROVIDERS[0]);
-  });
-
-  it("⚠️ RECORDS THAT HANDOVER_READY STILL FABRICATES ONE — a known debt, not a passing state", () => {
-    // The derivation is still in `HANDOVER_READY` and this test exists so that fact is written
-    // down where it fails rather than remembered. It stays until the booking control lands on the
-    // ED screen, because removing it first dead-ends "Mark handover ready" on a screen this
-    // session does not own.
-    //
-    // ⚠️ WHEN THAT LANDS: delete the fabrication, make `HANDOVER_READY` REQUIRE a booked transport,
-    // and delete this test. It is deliberately worded so that leaving it green after the removal is
-    // impossible — it asserts the defect is present.
-    const source = fileURLToPath(new URL("../src/components/ward-management/ward-flow-reducer.ts", import.meta.url));
-    const text = readFileSync(source, "utf8");
-    expect(
-      text.includes('escortRequired: movement.legalStatus !== "Voluntary"'),
-      "the fabrication is gone — good. Now make HANDOVER_READY require a booked transport and delete this test.",
-    ).toBe(true);
   });
 });
