@@ -56,7 +56,7 @@ import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-m
 import { formatInstant, formatInstantWithDay } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
-import { siteByCode } from "@/components/ward-management/ward-sites";
+import { DEMONSTRATION_DAY_LABEL, JURISDICTION_LABEL, siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -167,7 +167,13 @@ function ModeHeader({
       <div className={styles.headerMeta}>
         <span className={styles.prototypeBadge}>Synthetic prototype</span>
         <span>Updated {formatInstant(now)}</span>
-        <span>15 Aug 2026 · WA</span>
+        {/* The day and jurisdiction are authored once in ward-sites.ts. This was the literal
+            "15 Aug 2026 · WA" until 2026-08-30 — a frozen date beside a live clock, on every
+            screen with a header, reading as though the system knew today's date. It is worded
+            as the day the scenario is SET ON because that is what it is. */}
+        <span>
+          Scenario set on {DEMONSTRATION_DAY_LABEL} · {JURISDICTION_LABEL}
+        </span>
       </div>
     </header>
   );
