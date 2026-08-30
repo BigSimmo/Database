@@ -240,6 +240,7 @@ import {
 import { applyCoverageGateTelemetry, evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 export { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 import { createSearchTiming, finishSearch, measureSearchPhase, type SearchTiming } from "@/lib/rag/rag-search-timing";
+import { routeGovernedSearch } from "@/lib/rag/rag-governed-search";
 import { applySecondStageRerankIfNeeded, layerTopScore, recordRetrievalLayer } from "@/lib/rag/rag-second-stage";
 export { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
 import {
@@ -1614,7 +1615,9 @@ export async function searchChunksWithTelemetry(
       return {
         supabase,
         ownerFilter:
-          ownerScopeForDocumentFilteredRetrieval(args.ownerId, documentFilterList, args.allowGlobalSearch) ?? null,
+          (args.ragQueryPlanMode === "canary"
+            ? ownerScopeForDocumentFilteredRetrieval(undefined, undefined, true)
+            : ownerScopeForDocumentFilteredRetrieval(args.ownerId, documentFilterList, args.allowGlobalSearch)) ?? null,
         accessScope: args.accessScope,
       };
     } catch {
@@ -1687,8 +1690,15 @@ export async function searchChunksWithTelemetry(
   telemetry.rag_alias_count = ragAliases.length;
   telemetry.rag_alias_expansion_count = ragAliasExpansions.length;
 
-  const queryVariants = retrievalVariantPlan.servedVariants;
+  const queryVariants =
+    args.ragQueryPlanMode === "canary" ? retrievalVariantPlan.candidateVariants : retrievalVariantPlan.servedVariants;
   telemetry.retrieval_query_variant_count = queryVariants.length;
+  const governedSearch = await routeGovernedSearch({ args, supabase, queryPlan, telemetry });
+  if (governedSearch?.served) {
+    recordSearchScoreTelemetry(telemetry, governedSearch.results);
+    return finishSearch(searchTiming, { results: governedSearch.results, telemetry });
+  }
+  if (governedSearch) searchTiming.shadowCandidateResults = governedSearch.candidateResults;
   const cached = await measureSearchPhase(searchTiming, "local_cache_lookup", () =>
     getCachedSearch(args, queryClassification.queryClass, queryVariants, {
       indexingVersionAtRequestStart: indexingVersionAtRetrievalStart,
@@ -2600,6 +2610,8 @@ async function answerQuestionWithScopeUncoalesced(
         ragRequestContext: args.ragRequestContext,
         ragQueryPlanVersion: args.ragQueryPlanVersion,
         ragQueryPlanMode: args.ragQueryPlanMode,
+        governedCorpusComponents: args.governedCorpusComponents,
+        governedInternationalCoverageGap: args.governedInternationalCoverageGap,
       }),
     );
   } finally {

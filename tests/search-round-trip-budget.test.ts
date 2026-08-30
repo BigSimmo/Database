@@ -30,7 +30,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { countSupabaseRoundTrips } from "./helpers/supabase-round-trip-counter";
-import type { SearchResult } from "../src/lib/types";
+import type { RagQueryPlan, SearchResult } from "../src/lib/types";
 
 /** Minimal indexed chunk; only the fields retrieval reads are populated. */
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -158,9 +158,25 @@ describe("governed corpus round-trip budget", () => {
       }),
     };
     const { searchGovernedCorpora } = await import("../src/lib/rag/rag-candidate-sources");
+    const queryPlan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "decomposed",
+      originalQuery: "original",
+      interpretation: "budget fixture",
+      subquestions: [
+        { id: "sq-1", question: "original", purpose: "primary", required: true },
+        { id: "sq-2", question: "monitoring", purpose: "monitoring", required: true },
+        { id: "sq-3", question: "risk", purpose: "risk", required: true },
+        { id: "sq-4", question: "action", purpose: "required_action", required: true },
+      ],
+      targetSiteDomains: [],
+      siteDomainDecision: "none",
+      reasonCodes: [],
+    };
     await searchGovernedCorpora({
       supabase: supabase as never,
       queryVariants: ["original", "monitoring", "risk", "action"],
+      queryPlan,
       matchCount: 12,
       snapshot: {
         version: "rag-context-snapshot-v1",

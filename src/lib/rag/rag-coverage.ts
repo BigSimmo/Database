@@ -55,32 +55,40 @@ export type EvaluateAnswerCoverageInput = {
   insufficiencyReason?: RagInsufficiencyReason | null;
 };
 
+function subquestionCandidateStatus(question: string, selectedEvidence: readonly SearchResult[]) {
+  const candidates = selectedEvidence
+    .filter(candidateHasKnownServerScope)
+    .map((candidate) => {
+      const candidateForSubquestion = { ...candidate };
+      delete candidateForSubquestion.relevance;
+      return candidateForSubquestion;
+    })
+    .filter((candidate) => buildEvidenceRelevance(question, [candidate]).isSourceBacked);
+  if (candidates.length === 0) return "absent" as const;
+
+  const relevance = buildEvidenceRelevance(question, candidates);
+  const gate = evaluateEvidenceCoverageGate(question, candidates);
+  if (gate.reason !== "coverage_gate_not_applicable" && !gate.accepted) return "absent" as const;
+  if (relevance.verdict === "direct") return "matched" as const;
+  if (relevance.verdict === "partial") return "partial_match" as const;
+  return "absent" as const;
+}
+
+/** Candidate variants are spent only on required subquestions that remain below direct coverage. */
+export function uncoveredRagSubquestions(plan: RagQueryPlan, selectedEvidence: readonly SearchResult[]) {
+  return plan.subquestions.filter(
+    (subquestion) => subquestionCandidateStatus(subquestion.question, selectedEvidence) !== "matched",
+  );
+}
+
 export function evaluateShadowCandidateMatchCounts(
   plan: RagQueryPlan,
   selectedEvidence: readonly SearchResult[],
 ): RagCandidateMatchCounts {
   return plan.subquestions.reduce<RagCandidateMatchCounts>(
     (counts, subquestion) => {
-      const candidates = selectedEvidence
-        .filter(candidateHasKnownServerScope)
-        .map((candidate) => {
-          const candidateForSubquestion = { ...candidate };
-          delete candidateForSubquestion.relevance;
-          return candidateForSubquestion;
-        })
-        .filter((candidate) => buildEvidenceRelevance(subquestion.question, [candidate]).isSourceBacked);
-      if (candidates.length === 0) return { ...counts, absent: counts.absent + 1 };
-
-      const relevance = buildEvidenceRelevance(subquestion.question, candidates);
-      const gate = evaluateEvidenceCoverageGate(subquestion.question, candidates);
-      if (gate.reason !== "coverage_gate_not_applicable" && !gate.accepted) {
-        return { ...counts, absent: counts.absent + 1 };
-      }
-      if (relevance.verdict === "direct") return { ...counts, matched: counts.matched + 1 };
-      if (relevance.verdict === "partial") {
-        return { ...counts, partial_match: counts.partial_match + 1 };
-      }
-      return { ...counts, absent: counts.absent + 1 };
+      const status = subquestionCandidateStatus(subquestion.question, selectedEvidence);
+      return { ...counts, [status]: counts[status] + 1 };
     },
     { matched: 0, partial_match: 0, absent: 0 },
   );

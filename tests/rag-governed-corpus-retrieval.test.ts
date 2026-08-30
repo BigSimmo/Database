@@ -6,7 +6,7 @@ import {
   searchGovernedCorpora,
 } from "../src/lib/rag/rag-candidate-sources";
 import type { RagContextSnapshot } from "../src/lib/site-content/site-content-contracts";
-import type { SourceCorpusScope } from "../src/lib/types";
+import type { RagQueryPlan, SourceCorpusScope } from "../src/lib/types";
 
 const RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
 const DIGEST = "a".repeat(64);
@@ -183,5 +183,51 @@ describe("governed public corpus retrieval", () => {
     });
 
     expect(results.some((candidate) => candidate.corpus_scope === "uploaded_local")).toBe(false);
+  });
+
+  it("spends the shared cap only on the original query and still-uncovered plan subquestions", async () => {
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    const supabase = {
+      rpc: vi.fn((name: string, args: Record<string, unknown>) => {
+        calls.push({ name, args });
+        return Promise.resolve({ data: [], error: null });
+      }),
+    } as never;
+    const plan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "decomposed",
+      originalQuery: "primary question",
+      interpretation: "test",
+      subquestions: [
+        { id: "sq-1", question: "primary question", purpose: "primary", required: true },
+        { id: "sq-2", question: "monitoring question", purpose: "monitoring", required: true },
+        { id: "sq-3", question: "risk question", purpose: "risk", required: true },
+        { id: "sq-4", question: "action question", purpose: "required_action", required: true },
+      ],
+      targetSiteDomains: ["medications"],
+      siteDomainDecision: "explicit",
+      reasonCodes: [],
+    };
+
+    await searchGovernedCorpora({
+      supabase,
+      queryVariants: ["primary question", "unallocated legacy poison"],
+      queryPlan: plan,
+      retrievalMode: "text",
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: { siteContent: true, australianAugmentation: false, australianCurrent: false },
+      targetSiteDomains: ["medications"],
+      internationalCoverageGap: false,
+      maxRpcCalls: 3,
+    });
+
+    expect(calls.map(({ name }) => name)).toEqual(Array(3).fill("match_document_chunks_text_v3"));
+    expect(calls.map(({ args }) => args.query_text)).toEqual([
+      "primary question",
+      "monitoring question",
+      "risk question",
+    ]);
+    expect(calls.map(({ args }) => args.query_text)).not.toContain("unallocated legacy poison");
   });
 });

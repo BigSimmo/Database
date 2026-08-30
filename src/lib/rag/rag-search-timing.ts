@@ -6,6 +6,7 @@ export type SearchTiming = {
   startedAt: number;
   phases: Record<string, number>;
   shadowPlan?: RagQueryPlan;
+  shadowCandidateResults?: SearchResult[];
 };
 
 export function createSearchTiming(): SearchTiming {
@@ -30,7 +31,10 @@ export function finishSearch<T extends { results: SearchResult[]; telemetry: Sea
   search: T,
 ): T {
   if (timing.shadowPlan && !search.telemetry.candidate_match_counts) {
-    search.telemetry.candidate_match_counts = evaluateShadowCandidateMatchCounts(timing.shadowPlan, search.results);
+    search.telemetry.candidate_match_counts = evaluateShadowCandidateMatchCounts(
+      timing.shadowPlan,
+      timing.shadowCandidateResults ?? search.results,
+    );
   }
   search.telemetry.retrieval_phase_latencies_ms = { ...timing.phases };
   search.telemetry.search_total_latency_ms = Date.now() - timing.startedAt;

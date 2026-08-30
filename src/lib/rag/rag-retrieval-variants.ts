@@ -402,10 +402,13 @@ export function buildRagRetrievalVariantPlan(
   signal?: AbortSignal,
 ) {
   const servedVariants = buildRetrievalQueryVariants(query, analysis, aliases);
+  const candidateMode = rolloutMode !== "legacy";
   const shadow = rolloutMode === "shadow";
-  if (shadow) throwIfAborted(signal);
-  const candidateVariants = shadow ? buildRetrievalQueryVariants(query, analysis, aliases, plan) : servedVariants;
-  if (shadow) throwIfAborted(signal);
+  if (candidateMode) throwIfAborted(signal);
+  const candidateVariants = candidateMode
+    ? buildRetrievalQueryVariants(query, analysis, aliases, plan)
+    : servedVariants;
+  if (candidateMode) throwIfAborted(signal);
   return {
     queryPlanVersion: plan.version,
     servedVariants,

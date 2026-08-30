@@ -48,6 +48,7 @@ import type {
   SearchTelemetry,
 } from "@/lib/rag/rag-contracts";
 import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
+import { uncoveredRagSubquestions } from "@/lib/rag/rag-coverage";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import { normalizeOptionalSourceMetadata, normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -55,6 +56,7 @@ import { isReviewedTablePromotable } from "@/lib/table-review";
 import type {
   DocumentIndexUnitMatch,
   DocumentMemoryCard,
+  RagQueryPlan,
   SearchResult,
   SiteContentDomain,
   SourceCorpusScope,
@@ -213,12 +215,18 @@ function sanitizeGovernedCandidateRows(args: {
 export async function searchGovernedCorpora(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
+  queryPlan?: RagQueryPlan;
+  retrievalMode?: "text" | "hybrid" | "vector";
+  embedQuery?: (query: string, signal?: AbortSignal) => Promise<number[]>;
+  documentFilters?: string[];
   matchCount: number;
+  minSimilarity?: number;
   snapshot: RagContextSnapshot;
   components: GovernedCorpusComponents;
   targetSiteDomains: SiteContentDomain[];
   internationalCoverageGap: boolean;
   signal?: AbortSignal;
+  maxRpcCalls?: number;
   onRpcCall?: () => void;
 }): Promise<SearchResult[]> {
   throwIfAborted(args.signal);
@@ -230,47 +238,128 @@ export async function searchGovernedCorpora(args: {
     australianCurrent: args.components.australianCurrent,
     internationalCoverageGap: args.internationalCoverageGap,
   });
-  const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
-  let remainingRpcCalls = maxTextRpcQueryVariants;
+  const originalQuery = args.queryVariants[0];
+  if (!originalQuery) return [];
+  const retrievalMode = args.retrievalMode ?? "text";
+  let remainingRpcCalls = Math.max(1, Math.min(args.maxRpcCalls ?? maxTextRpcQueryVariants, maxTextRpcQueryVariants));
   let results: SearchResult[] = [];
-  for (const phase of phases) {
-    const phaseVariants =
-      phase.phase === "primary" && phases.some((candidate) => candidate.phase === "supplementary")
-        ? variants.slice(0, Math.max(0, remainingRpcCalls - 1))
-        : phase.phase === "supplementary"
-          ? variants.slice(0, 1)
-          : variants;
-    for (const queryText of phaseVariants) {
-      if (remainingRpcCalls <= 0) break;
-      remainingRpcCalls -= 1;
-      args.onRpcCall?.();
-      const { data, error } = await callGovernedRetrievalRpc<GovernedCandidateRpcRow[]>(
-        args.supabase,
-        "match_document_chunks_text_v3",
-        {
-          query_text: queryText,
-          match_count: Math.max(1, Math.min(args.matchCount, 96)),
-          owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
-          include_public: true,
-          corpus_scopes: phase.corpusScopes,
-          expected_site_release_id: siteEligible ? args.snapshot.publicSiteContent.releaseId : null,
-          expected_site_release_digest: siteEligible ? args.snapshot.publicSiteContent.releaseDigest : null,
-          expected_site_change_epoch: siteEligible ? args.snapshot.publicSiteContent.changeEpoch : null,
-          site_content_domains: siteEligible && args.targetSiteDomains.length > 0 ? args.targetSiteDomains : null,
-        },
-        args.signal,
-      );
-      if (error || !data?.length) continue;
-      results = mergeSearchResults(
-        results,
-        sanitizeGovernedCandidateRows({
+  const sharedArgs = (corpusScopes: SourceCorpusScope[]) => ({
+    match_count: Math.max(1, Math.min(args.matchCount, 96)),
+    owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+    include_public: true,
+    corpus_scopes: corpusScopes,
+    expected_site_release_id: siteEligible ? args.snapshot.publicSiteContent.releaseId : null,
+    expected_site_release_digest: siteEligible ? args.snapshot.publicSiteContent.releaseDigest : null,
+    expected_site_change_epoch: siteEligible ? args.snapshot.publicSiteContent.changeEpoch : null,
+    site_content_domains: siteEligible && args.targetSiteDomains.length > 0 ? args.targetSiteDomains : null,
+  });
+  const consumeRpc = async (
+    name: "match_document_chunks_text_v3" | "match_document_chunks_hybrid_v3" | "match_document_chunks_v3",
+    rpcArgs: Record<string, unknown>,
+    phase: GovernedCorpusRetrievalPhase,
+  ) => {
+    if (remainingRpcCalls <= 0) return { error: null as SupabaseRpcError, rows: [] as SearchResult[] };
+    remainingRpcCalls -= 1;
+    args.onRpcCall?.();
+    const { data, error } = await callGovernedRetrievalRpc<GovernedCandidateRpcRow[]>(
+      args.supabase,
+      name,
+      rpcArgs,
+      args.signal,
+    );
+    const rows = data?.length
+      ? sanitizeGovernedCandidateRows({
           rows: data,
           requestedScopes: phase.corpusScopes,
           targetSiteDomains: args.targetSiteDomains,
           snapshot: args.snapshot,
-        }),
+        })
+      : [];
+    results = mergeSearchResults(results, rows);
+    return { error, rows };
+  };
+  const runQuery = async (phase: GovernedCorpusRetrievalPhase, queryText: string) => {
+    throwIfAborted(args.signal);
+    if (retrievalMode === "text") {
+      return consumeRpc(
+        "match_document_chunks_text_v3",
+        { ...sharedArgs(phase.corpusScopes), query_text: queryText, document_filters: args.documentFilters ?? null },
+        phase,
       );
     }
+    let queryEmbedding: number[];
+    try {
+      if (!args.embedQuery) return { error: null as SupabaseRpcError, rows: [] as SearchResult[] };
+      queryEmbedding = await args.embedQuery(queryText, args.signal);
+      throwIfAborted(args.signal);
+    } catch (error) {
+      throwIfAborted(args.signal);
+      return { error: { message: error instanceof Error ? error.message : String(error) }, rows: [] as SearchResult[] };
+    }
+    if (retrievalMode === "vector") {
+      const filters = args.documentFilters?.length ? args.documentFilters : [undefined];
+      for (const documentFilter of filters) {
+        if (remainingRpcCalls <= 0) break;
+        await consumeRpc(
+          "match_document_chunks_v3",
+          {
+            ...sharedArgs(phase.corpusScopes),
+            query_embedding: queryEmbedding as unknown as string,
+            min_similarity: args.minSimilarity ?? 0.15,
+            document_filter: documentFilter,
+          },
+          phase,
+        );
+      }
+      return { error: null as SupabaseRpcError, rows: results };
+    }
+    const hybrid = await consumeRpc(
+      "match_document_chunks_hybrid_v3",
+      {
+        ...sharedArgs(phase.corpusScopes),
+        query_embedding: queryEmbedding as unknown as string,
+        query_text: queryText,
+        min_similarity: args.minSimilarity ?? 0.15,
+        document_filters: args.documentFilters ?? null,
+      },
+      phase,
+    );
+    if (hybrid.error && remainingRpcCalls > 0) {
+      const filters = args.documentFilters?.length ? args.documentFilters : [undefined];
+      for (const documentFilter of filters) {
+        if (remainingRpcCalls <= 0) break;
+        await consumeRpc(
+          "match_document_chunks_v3",
+          {
+            ...sharedArgs(phase.corpusScopes),
+            query_embedding: queryEmbedding as unknown as string,
+            min_similarity: args.minSimilarity ?? 0.15,
+            document_filter: documentFilter,
+          },
+          phase,
+        );
+      }
+    }
+    return hybrid;
+  };
+
+  const primary = phases.find(({ phase }) => phase === "primary");
+  if (primary) {
+    await runQuery(primary, originalQuery);
+    const reserveSupplementary = phases.some(({ phase }) => phase === "supplementary") ? 1 : 0;
+    const primarySubquestionId = args.queryPlan?.subquestions[0]?.id;
+    const uncovered = args.queryPlan
+      ? uncoveredRagSubquestions(args.queryPlan, results).filter(({ id }) => id !== primarySubquestionId)
+      : [];
+    for (const subquestion of uncovered) {
+      if (remainingRpcCalls <= reserveSupplementary) break;
+      await runQuery(primary, buildClinicalTextSearchQuery(subquestion.question));
+    }
+  }
+  const supplementary = phases.find(({ phase }) => phase === "supplementary");
+  if (supplementary && remainingRpcCalls > 0) {
+    const uncovered = args.queryPlan ? uncoveredRagSubquestions(args.queryPlan, results) : [];
+    await runQuery(supplementary, buildClinicalTextSearchQuery(uncovered[0]?.question ?? originalQuery));
   }
   return results.slice(0, Math.max(1, Math.min(args.matchCount, 96)));
 }
