@@ -16,7 +16,7 @@ vi.mock("next/link", () => ({
 import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
-import { COHORTS, URGENCY_LEVELS } from "@/components/ward-management/ward-model";
+import { COHORTS, URGENCY_LEVELS, type UrgencyLevel } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { formTitleForCode } from "@/lib/form-register";
@@ -237,5 +237,122 @@ describe("emergency department urgency pickers", () => {
 
     expect(optionText).toContain("Tier 1 · most urgent");
     expect(optionText).toContain("Tier 3 · least urgent");
+  });
+});
+
+/**
+ * The urgency tier on EVERY emergency department card, spelled out, beside the stage — owner
+ * ruling, 2026-08-31.
+ *
+ * ⚠️ **THE RULING IS "EVERY CARD", AND TIER 3 IS THE SUBSTANCE OF IT, NOT A DETAIL.** If the tier
+ * showed only on tiers 1 and 2, its ABSENCE would become the signal for tier 3 — and an absence is
+ * the one signal this project has repeatedly proved nobody reads. So these tests do not merely
+ * check that a tier appears somewhere; they check that the number of tier labels EQUALS the number
+ * of cards, which is what a "only when urgent" implementation fails.
+ *
+ * Each label is read back against the movement's own `urgency` in state, through the probe below,
+ * rather than against a tier this file remembers — a fixture whose urgencies are re-authored must
+ * not be able to make these pass while the screen shows the wrong tier.
+ *
+ * The expected TEXT is `urgencyTierLabel`'s own output, never a hand-written second spelling, for
+ * the same reason the picker suites above use it: two spellings of one field is this project's most
+ * expensive defect class.
+ */
+function UrgencyProbe() {
+  const { movements } = useWardFlow();
+  return (
+    <ul data-testid="urgency-probe">
+      {movements.map((movement) => (
+        <li key={movement.id} data-testid={`urgency-probe-${movement.id}`} data-urgency={movement.urgency} />
+      ))}
+    </ul>
+  );
+}
+
+/** `renderEd` plus the urgency probe. Deliberately a second helper rather than a change to
+ *  `renderEd`, so the suites above render exactly the DOM they rendered before. */
+function renderEdWithUrgencies() {
+  return render(
+    <WardFlowProvider initialNow={NOW_ANCHOR}>
+      <EdScreen edId="jhc-ed" />
+      <UrgencyProbe />
+    </WardFlowProvider>,
+  );
+}
+
+/** The tier this movement actually carries in state, read from the probe. */
+function urgencyInState(movementId: string): UrgencyLevel {
+  const raw = screen.getByTestId(`urgency-probe-${movementId}`).getAttribute("data-urgency");
+  const level = Number(raw);
+  expect(URGENCY_LEVELS).toContain(level);
+  return level as UrgencyLevel;
+}
+
+describe("emergency department cards carry the urgency tier", () => {
+  it("spells the tier out on every patient card, tier 3 included", () => {
+    renderEdWithUrgencies();
+
+    // The card set is discovered from the rendered screen, never hand-listed, and a silent zero is
+    // refused. `ward-ed-patient-` is also the tier label's near-neighbour prefix, so the movement id
+    // is anchored to the end of the id here.
+    const cards = screen.getAllByTestId(/^ward-ed-patient-WF-\d+$/);
+    expect(cards.length).toBeGreaterThan(0);
+
+    const ids = cards.map((card) => card.getAttribute("data-testid")!.replace("ward-ed-patient-", ""));
+
+    // EVERY card, one label each: as many tier labels on the screen as there are cards. An
+    // implementation that showed the tier only on the urgent ones would fail right here.
+    const labels = screen.getAllByTestId(/^ward-ed-tier-WF-\d+$/);
+    expect(labels).toHaveLength(cards.length);
+
+    for (const id of ids) {
+      expect(screen.getByTestId(`ward-ed-tier-${id}`)).toHaveTextContent(urgencyTierLabel(urgencyInState(id)));
+    }
+
+    // Non-vacuity, and the ruling's actual substance: a tier-3 patient is on this screen and is
+    // labelled in full. Without this, a "tiers 1 and 2 only" screen could still satisfy the loop
+    // above on a fixture that happened to hold no tier-3 patient.
+    const tiersShown = ids.map((id) => urgencyInState(id));
+    expect(tiersShown).toContain(3);
+    const leastUrgentId = ids.find((id) => urgencyInState(id) === 3)!;
+    expect(screen.getByTestId(`ward-ed-tier-${leastUrgentId}`)).toHaveTextContent("Tier 3 · least urgent");
+  });
+
+  it("spells the tier out on every outbox row too", () => {
+    renderEdWithUrgencies();
+
+    const rows = screen.getAllByTestId(/^ward-ed-outbox-row-WF-\d+$/);
+    expect(rows.length).toBeGreaterThan(0);
+
+    const ids = rows.map((row) => row.getAttribute("data-testid")!.replace("ward-ed-outbox-row-", ""));
+    const labels = screen.getAllByTestId(/^ward-ed-outbox-tier-WF-\d+$/);
+    expect(labels).toHaveLength(rows.length);
+
+    for (const id of ids) {
+      expect(screen.getByTestId(`ward-ed-outbox-tier-${id}`)).toHaveTextContent(urgencyTierLabel(urgencyInState(id)));
+    }
+
+    /*
+     * ⚠️ **TODAY'S FIXTURE PUTS NO TIER-3 PATIENT IN THIS DEPARTMENT'S OUTBOX**, so the loop above
+     * — true as it is — cannot see the ruling's actual case: the LEAST urgent patient still
+     * carrying a label. A mutation hiding the tier on tier 3 survived this test until this block
+     * was added, which is exactly the "passes for no reason" shape.
+     *
+     * So one is driven there, through the same controls a clinician uses, rather than by reaching
+     * into the reducer or by re-authoring the fixture. The change is proven to have landed (the
+     * probe reads 3 back out of state) before the row is read, so a silently refused change cannot
+     * make this pass.
+     */
+    const subject = ids[0];
+    fireEvent.click(screen.getByTestId(`ward-change-urgency-toggle-${subject}`));
+    fireEvent.change(screen.getByLabelText(`Urgency tier for ${subject}`), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "reassessed" } });
+    fireEvent.click(screen.getByText("Record urgency change"));
+
+    expect(urgencyInState(subject)).toBe(3);
+    expect(screen.getByTestId(`ward-ed-outbox-tier-${subject}`)).toHaveTextContent("Tier 3 · least urgent");
+
+    // And still one label per row — the row did not lose its label by becoming least urgent.
+    expect(screen.getAllByTestId(/^ward-ed-outbox-tier-WF-\d+$/)).toHaveLength(rows.length);
   });
 });
