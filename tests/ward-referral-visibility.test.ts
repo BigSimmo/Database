@@ -12,7 +12,7 @@ import {
 } from "../src/components/ward-management/ward-referral-visibility";
 import { referrals as seededReferrals } from "../src/components/ward-management/ward-movements";
 import { referralState } from "../src/components/ward-management/ward-referrals";
-import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 /**
  * FD-23, owner 2026-08-30: **a ward cannot see where else a patient has been referred. The
@@ -75,7 +75,13 @@ function multiDestinationReferral(): Referral {
     ageBand: "Adult",
     destinations: [
       { kind: "psychiatric_ward", sex: "Female", secureBedNeeded: false, involuntaryBedNeeded: false },
-      { kind: "emergency_department" },
+      // A real department and a real purpose, not `{ kind }`. This fixture was one of the three
+      // type errors that stopped the branch compiling when the ED arm gained `edId` and `purpose`,
+      // and it is repaired the way the intake form was rather than with a cast: the department is
+      // read out of the network, and the purpose is the one a community referral asking for a bed
+      // actually carries. A stub `edId: ""` would have compiled and would have made this fixture
+      // assert leak-hiding about a department that does not exist.
+      { kind: "emergency_department", edId: allEmergencyDepartments()[0].id, purpose: "bed" },
       { kind: "community_team" },
     ],
     homeRegion: "Perth Metropolitan",

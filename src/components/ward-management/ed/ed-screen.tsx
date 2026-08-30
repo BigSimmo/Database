@@ -31,12 +31,60 @@ import {
   type Security,
   type Sex,
 } from "@/components/ward-management/ward-model";
+import { edReferralsFor, referralPersonFacts, referralPurposeLabel } from "@/components/ward-management/ward-referrals";
 import { edById, siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./ed.module.css";
 
 type EdScreenProps = { edId: string };
+
+/**
+ * WHERE A DURATION WOULD GO ON THE HUB, AND WHY NOTHING GOES THERE.
+ *
+ * ⚠️ **The spec rules that the referral clock STOPS when the patient arrives — and this model
+ * cannot stop it.** `Referral` carries no arrival instant, and nothing links a referral to a
+ * movement, so any elapsed figure rendered on an inbox or outbox row would keep counting after the
+ * event that should have ended it. **A clock that should stop and cannot runs on forever and still
+ * looks plausible**, which is the whole reason this is stated rather than computed "for now".
+ *
+ * It must not be derived from a movement matched by patient either: that is a join this model does
+ * not have, guessed from a coincidence.
+ *
+ * The seeded fixture cannot catch a mistake here — its longest wait is about sixteen hours, so an
+ * inflated figure still reads as a believable figure in a believable order. **A wrong clock looks
+ * wrong; a wrong length of stay looks plausible.**
+ *
+ * The question is with the product owner. Until it is answered these rows say the fact is not
+ * recorded, in the same plain register the rest of the board uses for facts it does not hold.
+ */
+const NOT_TIMED_LABEL = "Not recorded";
+
+/** The same fact as a sentence, for the note under each list heading. Written once so the two
+ *  cannot drift into saying different things about the same absence. */
+const NO_DURATION_REASON =
+  "a referral records no arrival, so a clock started here could never be stopped and would go on counting.";
+
+/** The id the unavailable Decline control points `aria-describedby` at. One reason element per
+ *  list rather than one per row: every row is unavailable for the identical reason, and repeating
+ *  it per row would make a screen reader read it once for each patient. */
+const DECLINE_UNAVAILABLE_REASON_ID = "ward-ed-inbox-decline-unavailable";
+
+/**
+ * ⚠️ **THE REASON IS ABOUT WHO MAY RECORD THE DECISION, NEVER ABOUT WHETHER IT MAY BE DECLINED.**
+ *
+ * Every referral is declinable — including the ward's medical notification, which nobody is
+ * *expected* to act on and everybody is *able* to. The original `FD-3` guard said no action was
+ * ever rendered on that flow, and the owner superseded it.
+ *
+ * What is missing is the permission to record it from here: `EVENT_ROLE.DECLINE_REFERRAL` is
+ * `["ward", "coordinator"]` and this screen acts as `"ed"`, so the reducer would refuse a decline
+ * raised here and the refusal would be invisible to whoever pressed the button.
+ */
+const DECLINE_UNAVAILABLE_REASON =
+  "Declining is not yet recordable from this screen: an ED psychiatry team is not one of the roles permitted to " +
+  "answer a referral. This is a permission that has not been widened yet, not a rule about which referrals may be " +
+  "declined — every referral may be.";
 
 /**
  * Fix round B (review finding I3): this used to be hand-listed as `["Adult", "Older adult"]`,
@@ -215,7 +263,7 @@ function accessTargetLine(minutesInDepartment: number): string {
  * substituted department.
  */
 export function EdScreen({ edId }: EdScreenProps) {
-  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, referrals, now, dispatch } = useWardFlow();
   const department = edById(edId);
 
   // Declared unconditionally, before the early return below — React hooks must run in the same
@@ -269,6 +317,32 @@ export function EdScreen({ edId }: EdScreenProps) {
   const patients = movements.filter(
     (movement) => movement.originEdId === thisEdId && !movement.closure && movement.stage !== "arrived",
   );
+
+  /**
+   * THE INBOX. Two fields, never one — `edId` AND `purpose`.
+   *
+   * ⚠️ A ward→ED medical notification carries the SAME `edId` as psychiatry's own review request:
+   * both are about a patient in this department, raised by parties at this hospital. `purpose` is
+   * the only thing keeping them apart, and `originSiteCode` — the inference that looks right and is
+   * wrong on exactly this case — is not read here or in `edReferralsFor`.
+   */
+  const inbox = edReferralsFor(referrals, thisEdId, "psychiatric_review");
+
+  /**
+   * THE OUTBOX: patients this team referred onward who are STILL HERE.
+   *
+   * Filtered from `patients` above rather than from `movements` again, so it inherits that array's
+   * own definition of who is present (this department's, still open, not yet arrived) instead of
+   * restating it — two filters spelling one rule is how two lists come to disagree about who is in
+   * the building.
+   *
+   * `acceptedUnitId` is the marker for "referred on and taken", and it is set from
+   * `accepted_awaiting_bed` onward. A patient whose placement is still being requested or reviewed
+   * has not been referred onward yet, and one who has `arrived` has left — `patients` already
+   * excludes them. **No stage is treated as finished with**: a held bed and a booked handover are
+   * both still jobs this team owes.
+   */
+  const outbox = patients.filter((movement) => movement.acceptedUnitId !== undefined);
 
   function submitReferral(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -343,6 +417,158 @@ export function EdScreen({ edId }: EdScreenProps) {
           <h1 className={styles.unitName}>{department.name}</h1>
           <p className={styles.unitMeta}>{site ? `${site.name} (${site.code})` : department.siteCode}</p>
         </header>
+
+        {/*
+         * THE INBOX — referrals addressed to THIS department's psychiatry team, still unanswered.
+         *
+         * The count and the list read the SAME array (`inbox`), which is why they cannot disagree:
+         * there is one array, counted and mapped, never a length recomputed beside a filtered list.
+         * Same discipline as `queueStageSummaries` on the network board.
+         */}
+        <section aria-label="Psychiatry inbox" className={styles.listSection} data-testid="ward-ed-inbox">
+          <h2 className={styles.sectionHeading}>
+            Psychiatry inbox &middot; {inbox.length} referral{inbox.length === 1 ? "" : "s"}
+          </h2>
+          <p className={styles.unitMeta}>
+            Referrals addressed to psychiatry at {department.name}, oldest referral first. Nothing here is a wait: no
+            elapsed time is shown on this screen, because {NO_DURATION_REASON}
+          </p>
+          {inbox.length === 0 ? (
+            <p className={styles.placeholder} data-testid="ward-ed-inbox-empty">
+              No referral is addressed to psychiatry at {department.name}. A referral reaches this list only when it
+              names this department AND asks for psychiatric review — a request to the same department for a bed, or
+              about a medical problem, is a different thing and is not shown here.
+            </p>
+          ) : (
+            <ul className={styles.cardList}>
+              {inbox.map(({ referral, destination }) => (
+                <li
+                  key={`${referral.id}-${destination.edId}-${destination.purpose}`}
+                  className={styles.card}
+                  data-testid={`ward-ed-inbox-row-${referral.id}`}
+                  data-purpose={destination.purpose}
+                  data-ed-id={destination.edId}
+                >
+                  <header className={styles.cardHeader}>
+                    <strong>{referral.id}</strong>
+                    {/*
+                     * ⚠️ THE PURPOSE, IN WORDS, ON EVERY ROW — the `FD-18` correction's own
+                     * requirement and not a caption. Since every referral is declinable, what a row
+                     * is FOR is the only thing telling these flows apart; a declinable row with no
+                     * stated purpose is indistinguishable from a bed request.
+                     */}
+                    <span className={styles.cardMeta} data-testid={`ward-ed-inbox-purpose-${referral.id}`}>
+                      {referralPurposeLabel(destination.purpose)}
+                    </span>
+                  </header>
+                  <p className={styles.cardMeta}>{referralPersonFacts(referral).join(" · ")}</p>
+                  <div className={styles.outstandingItem}>
+                    <span className={styles.outstandingLabel}>Waiting</span>
+                    <span>{NOT_TIMED_LABEL}</span>
+                  </div>
+                  {/*
+                   * The decline control is UNAVAILABLE, with the reason stated — never absent, and
+                   * never a native `disabled` (which removes the tab stop the reason is announced
+                   * from), and never both attributes, which is the shape `require-button-wiring`
+                   * fails.
+                   *
+                   * ⚠️ **IT IS NOT ABSENT BECAUSE OF ANY RULE ABOUT WHAT MAY BE DECLINED.** Every
+                   * referral is declinable — the superseded `FD-3` guard said otherwise and was
+                   * reversed. It is unavailable because `EVENT_ROLE.DECLINE_REFERRAL` is
+                   * `["ward", "coordinator"]` and this screen acts as `"ed"`, so a wired control
+                   * here would be silently refused by the reducer. Dispatching as `"ward"` to make
+                   * it work would record `decidedBy: "Ward manager"` against a decision ED
+                   * psychiatry made, which is the false entry that field exists to prevent.
+                   */}
+                  <button
+                    type="button"
+                    className={styles.declineButton}
+                    data-testid={`ward-ed-inbox-decline-${referral.id}`}
+                    aria-disabled="true"
+                    aria-describedby={DECLINE_UNAVAILABLE_REASON_ID}
+                    title="Decline — coming soon"
+                    onClick={ignoreUnavailableActivation}
+                  >
+                    Decline
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {inbox.length === 0 ? null : (
+            <p className={styles.placeholder} id={DECLINE_UNAVAILABLE_REASON_ID}>
+              {DECLINE_UNAVAILABLE_REASON}
+            </p>
+          )}
+        </section>
+
+        {/*
+         * THE OUTBOX — seen, referred on, and STILL TO BE MOVED.
+         *
+         * ⚠️ **THIS IS A WORKLIST, NOT A RECORD OF WHAT WAS DONE**, and reading it the other way is
+         * the mistake the spec's own section exists to prevent (`TR-D3`). For an ED patient going to
+         * a ward, the ED psychiatry team IS the sending team (`TR-D1`), so a patient stays here
+         * until they physically leave — an accepted bed is the middle of this job, never the end of
+         * it.
+         *
+         * Derived from `patients` — the very array the section below renders — so the outbox can
+         * never contain somebody that screen says is not here.
+         *
+         * **There is deliberately no transport control on it**, and its absence is a decision
+         * rather than an omission: no booking event exists yet. A "Book transport" button today
+         * could only be a relabelled `HANDOVER_READY`, which does not book anything and is gated on
+         * `bed_held`, and a control that appears to book and does not is worse than none.
+         */}
+        <section aria-label="Psychiatry outbox" className={styles.listSection} data-testid="ward-ed-outbox">
+          <h2 className={styles.sectionHeading}>
+            Still to be moved &middot; {outbox.length} patient{outbox.length === 1 ? "" : "s"}
+          </h2>
+          <p className={styles.unitMeta}>
+            Patients this team has referred onward who are still in {department.name}. This department is the sending
+            team, so each of these is still owed a move — the job stays here until the patient physically leaves, not
+            until a bed is accepted.
+          </p>
+          {outbox.length === 0 ? (
+            <p className={styles.placeholder} data-testid="ward-ed-outbox-empty">
+              No patient here is waiting to be moved onward.
+            </p>
+          ) : (
+            <ul className={styles.cardList}>
+              {outbox.map((movement) => {
+                // Resolved from the live `units`, never `unitById` — whole-branch review Critical 1,
+                // the same correction the patients section below already carries.
+                const acceptedUnit = units.find((unit) => unit.id === movement.acceptedUnitId);
+                return (
+                  <li
+                    key={movement.id}
+                    className={styles.card}
+                    data-testid={`ward-ed-outbox-row-${movement.id}`}
+                    data-stage={movement.stage}
+                  >
+                    <header className={styles.cardHeader}>
+                      <strong>{movement.id}</strong>
+                      <span className={styles.cardMeta}>{stageCopy[movement.stage].label}</span>
+                    </header>
+                    <p className={styles.cardMeta}>
+                      {movement.cohort} &middot; {movement.security} &middot; {movement.sex} &middot;{" "}
+                      {movement.legalStatus}
+                    </p>
+                    <div className={styles.outstandingItem}>
+                      <span className={styles.outstandingLabel}>Going to</span>
+                      {/* The unit's own name, or an honest statement that this state cannot name
+                          one — never a substituted unit and never a bare id. */}
+                      <span>{acceptedUnit ? acceptedUnit.name : "Accepted unit not resolved"}</span>
+                    </div>
+                    <div className={styles.outstandingItem}>
+                      <span className={styles.outstandingLabel}>Waiting to move</span>
+                      <span>{NOT_TIMED_LABEL}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
         <section aria-label="Raise a referral" className={styles.listSection}>
           <h2 className={styles.sectionHeading}>Raise a referral</h2>
