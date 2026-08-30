@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { absoluteWallClockMinutes, MINUTES_PER_DAY, wallClockNow } from "@/components/ward-management/ward-clock";
+import { absoluteWallClockMinutes, wallClockNow } from "@/components/ward-management/ward-clock";
 import { WardFlowProvider, useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
