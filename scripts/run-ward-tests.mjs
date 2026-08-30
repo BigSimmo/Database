@@ -240,6 +240,21 @@ function main() {
 
   if ((report.numFailedTests ?? 0) > 0 || run.status !== 0) {
     console.error(`\nFAILED: ${report.numFailedTests} test(s) failed.`);
+    // A red run must say WHY, not only THAT it was red. `--reporter=json` sends vitest's own failure
+    // detail to the report FILE and not to stdout, so before this block a failing run printed a
+    // count and nothing else — quietly defeating the discipline of reading the failure message
+    // rather than its colour. Found 2026-08-30 while mutation-proving a label pin: the run went red
+    // correctly, and the reason had to be dug out of the temp JSON afterwards to confirm it had
+    // failed for the RIGHT reason. A tool that makes the right habit expensive is teaching the
+    // wrong one.
+    for (const file of results) {
+      for (const assertion of file.assertionResults ?? []) {
+        if (assertion.status !== "failed") continue;
+        const [firstLine] = (assertion.failureMessages ?? []).join("\n").split("\n");
+        console.error(`  ✗ ${assertion.fullName}\n    ${firstLine ?? "(no message recorded)"}`);
+      }
+    }
+    console.error(`\nFull report: ${reportPath}`);
     return EXIT_TEST_FAILURE;
   }
 
