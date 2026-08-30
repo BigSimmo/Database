@@ -12820,7 +12820,7 @@ as $$
         else pg_catalog.ts_rank_cd(
           pg_catalog.to_tsvector(
             'english',
-            pg_catalog.coalesce(record.record->>'title', '') || ' ' || record.normalized_text
+            coalesce(record.record->>'title', '') || ' ' || record.normalized_text
           ),
           admitted.tsq
         )::double precision
@@ -12831,7 +12831,7 @@ as $$
         admitted.tsq is not null
         and pg_catalog.to_tsvector(
           'english',
-          pg_catalog.coalesce(record.record->>'title', '') || ' ' || record.normalized_text
+          coalesce(record.record->>'title', '') || ' ' || record.normalized_text
         ) @@ admitted.tsq
       ) as text_matched,
       record.record->>'domain' as site_content_domain,
@@ -12925,8 +12925,8 @@ as $$
       combined.*,
       ((combined.similarity * 0.65) + (least(combined.text_rank, 1) * 0.35))::double precision as hybrid_score,
       (
-        pg_catalog.coalesce(1.0 / (60 + rank_positions.vector_rank), 0)
-        + pg_catalog.coalesce(1.0 / (60 + rank_positions.text_match_rank), 0)
+        coalesce(1.0 / (60 + rank_positions.vector_rank), 0)
+        + coalesce(1.0 / (60 + rank_positions.text_match_rank), 0)
       )::double precision as rrf_score
     from combined
     join rank_positions using (id, corpus_scope)

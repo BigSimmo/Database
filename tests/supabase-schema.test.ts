@@ -72,6 +72,10 @@ describe("governed corpus retrieval v3 schema", () => {
       expect(candidateFunction).toContain("select * from vector_ranked union all select * from text_ranked");
       expect(candidateFunction).toContain("1.0 / (60 + rank_positions.vector_rank)");
       expect(candidateFunction).toContain("1.0 / (60 + rank_positions.text_match_rank)");
+      expect(candidateFunction).not.toContain("pg_catalog.coalesce");
+      expect(candidateFunction).toContain("coalesce(record.record->>'title', '')");
+      expect(candidateFunction).toContain("coalesce(1.0 / (60 + rank_positions.vector_rank), 0)");
+      expect(candidateFunction).toContain("coalesce(1.0 / (60 + rank_positions.text_match_rank), 0)");
       expect(candidateFunction.match(/OPERATOR\(extensions\.<=>\)/g)).toHaveLength(2);
       expect(candidateFunction.replaceAll("OPERATOR(extensions.<=>)", "")).not.toContain("<=>");
       const scoreProjection = candidateFunction.slice(candidateFunction.lastIndexOf("ranked as ("));
