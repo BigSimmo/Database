@@ -1,4 +1,11 @@
-import type { RagAnswer, RagQueryClass, RagQueryPlan, SearchResult, SiteContentPartitionState } from "@/lib/types";
+import type {
+  RagAnswer,
+  RagQueryClass,
+  RagQueryPlan,
+  SearchResult,
+  SiteContentPartitionState,
+  SourcePolicyConflict,
+} from "@/lib/types";
 import { selectAustralianClinicalContext } from "@/lib/australian-source-priority";
 import { mergeEvidenceByCoverageAndSourceRole, type CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 
@@ -33,6 +40,7 @@ type ModelContextSelectionArgs = {
   results: SearchResult[];
   queryPlan?: RagQueryPlan;
   siteContentState?: SiteContentPartitionState;
+  sourcePolicyConflicts?: readonly SourcePolicyConflict[];
 };
 
 function selectLegacyModelContextResults(args: ModelContextSelectionArgs) {
@@ -99,6 +107,7 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
     plan: args.queryPlan,
     candidates: args.results,
     siteContentState: args.siteContentState,
+    sourcePolicyConflicts: args.sourcePolicyConflicts,
     maxPerDocument: maxContextChunksPerDocument,
   });
   const fastRoutineQuery =
@@ -110,18 +119,41 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
   const limit = fastRoutineQuery ? fastRoutineModelContextLimit : highRiskNumericQuery ? 6 : args.results.length;
   const results = capPerDocumentCrowding(flattenCoverageSelections(coverageSelections, limit));
   const retainedIds = new Set(results.map((result) => result.id));
-  const reconciledSelections = coverageSelections.map((selection) => ({
-    ...selection,
-    orderedEvidence: selection.orderedEvidence.filter((result) => retainedIds.has(result.id)),
-    conflicts: selection.conflicts.filter(
+  const reconciledSelections = coverageSelections.map((selection) => {
+    const orderedEvidence = selection.orderedEvidence.filter((result) => retainedIds.has(result.id));
+    const conflicts = selection.conflicts.filter(
       (conflict) =>
         conflict.local.supportingChunkIds.some((id) => retainedIds.has(id)) &&
         conflict.australian.supportingChunkIds.some((id) => retainedIds.has(id)),
-    ),
-  }));
+    );
+    const hasDirectLocal = orderedEvidence.some(
+      (result) => result.corpus_scope === "uploaded_local" && result.relevance?.verdict === "direct",
+    );
+    const hasDirectAustralian = orderedEvidence.some(
+      (result) => result.corpus_scope === "australian_public" && result.relevance?.verdict === "direct",
+    );
+    return {
+      ...selection,
+      orderedEvidence,
+      conflicts,
+      sourcePolicyReview: conflicts.length
+        ? ("verified_conflict" as const)
+        : selection.sourcePolicyReview === "not_evaluated" && hasDirectLocal && hasDirectAustralian
+          ? ("not_evaluated" as const)
+          : ("not_applicable" as const),
+    };
+  });
   return { results, coverageSelections: reconciledSelections };
 }
 
 export function selectModelContextResults(args: ModelContextSelectionArgs) {
   return selectModelContextEvidence(args).results;
+}
+
+/** Resolve the served and bounded strong-retry packs against one immutable request-local policy input. */
+export function selectModelContextEvidencePair(args: ModelContextSelectionArgs) {
+  return {
+    served: selectModelContextEvidence(args),
+    strongRetry: selectModelContextEvidence({ ...args, routeMode: "strong" }),
+  };
 }

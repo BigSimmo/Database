@@ -6,7 +6,11 @@ import { selectAustralianClinicalContext } from "@/lib/australian-source-priorit
 import { evidenceFamilyKeys, siteContentClaimPolicy } from "@/lib/site-content/site-content-registry";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { normalizeClinicalSourceMetadata } from "@/lib/source-metadata";
-import { resolveLocalAndAustralianEvidence, searchResultEligibilityForClaim } from "@/lib/source-role-policy";
+import {
+  resolveLocalAndAustralianEvidence,
+  retainCanonicalSourcePolicyConflicts,
+  searchResultEligibilityForClaim,
+} from "@/lib/source-role-policy";
 import type {
   AnswerCoveragePlan,
   ClinicalAmbiguity,
@@ -19,7 +23,7 @@ import type {
   SiteContentPartitionState,
   SourceCorpusScope,
   SourcePolicyConflict,
-  VerifiedSourcePolicyDifference,
+  SmartRagAnswerPlan,
 } from "@/lib/types";
 
 const knownCorpusScopes = new Set<SourceCorpusScope>([
@@ -69,7 +73,7 @@ export type CoverageMergeInput = {
   plan: RagQueryPlan;
   candidates: readonly SearchResult[];
   claimRole?: ClinicalClaimRole;
-  verifiedDifferences?: readonly VerifiedSourcePolicyDifference[];
+  sourcePolicyConflicts?: readonly SourcePolicyConflict[];
   siteContentState?: SiteContentPartitionState;
   maxPerSubquestion?: number;
   maxPerDocument?: number;
@@ -80,6 +84,7 @@ export type CoverageEvidenceSelection = {
   orderedEvidence: SearchResult[];
   collapsedEvidenceFamilyIds: string[];
   conflicts: SourcePolicyConflict[];
+  sourcePolicyReview: "not_applicable" | "not_evaluated" | "verified_conflict";
   coverageReason:
     "direct" | "partial" | "not_in_corpus" | "site_content_updating" | "site_content_stale" | "source_role_mismatch";
 };
@@ -138,8 +143,13 @@ function candidateFamilyIds(result: SearchResult) {
 function productIntent(plan: RagQueryPlan, question: string, result: SearchResult) {
   if (result.corpus_scope !== "clinical_kb_site" || !result.site_content_domain) return false;
   if (plan.targetSiteDomains.length > 0 && !plan.targetSiteDomains.includes(result.site_content_domain)) return false;
-  return /\b(?:clinical kb|catalog(?:ue)?|record|page|available|find|open|show)\b/i.test(
-    `${plan.originalQuery} ${question}`,
+  const intent = `${plan.originalQuery} ${question}`;
+  return (
+    /\bclinical\s+kb\b/i.test(intent) ||
+    /\bcatalog(?:ue)?\b/i.test(intent) ||
+    /\b(?:medication|differential|specifier|service|form|therapy|dictionary|calculator|tool)\s+(?:record|page)\b/i.test(
+      intent,
+    )
   );
 }
 
@@ -227,7 +237,13 @@ function orderedByPolicy(args: {
     local,
     australian,
     claimRole: args.claimRole,
-    verifiedDifferences: [...(args.input.verifiedDifferences ?? [])],
+    verifiedDifferences: [],
+  });
+  const conflicts = retainCanonicalSourcePolicyConflicts({
+    conflicts: args.input.sourcePolicyConflicts ?? [],
+    local,
+    australian,
+    claimRole: args.claimRole,
   });
   const localPrimary = conflictDecision.primaryDecision.selected === "uploaded_local";
   const ordered: SearchResult[] = [];
@@ -251,7 +267,21 @@ function orderedByPolicy(args: {
     add(site);
     add(international);
   }
-  return { ordered, conflicts: conflictDecision.conflicts };
+  const directlyRelevantLocal = args.candidates.some(
+    ({ result }) => result.corpus_scope === "uploaded_local" && result.relevance?.verdict === "direct",
+  );
+  const directlyRelevantAustralian = args.candidates.some(
+    ({ result }) => result.corpus_scope === "australian_public" && result.relevance?.verdict === "direct",
+  );
+  return {
+    ordered,
+    conflicts,
+    sourcePolicyReview: conflicts.length
+      ? ("verified_conflict" as const)
+      : directlyRelevantLocal && directlyRelevantAustralian
+        ? ("not_evaluated" as const)
+        : ("not_applicable" as const),
+  };
 }
 
 function collapseEvidenceFamilies(results: SearchResult[]) {
@@ -299,7 +329,7 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
       return decision.eligible ? [annotateSubquestionRelevance(subquestion.question, candidate)] : [];
     });
     const relevant = eligible.filter(({ result }) => relevanceRank(result) < 2);
-    const { ordered, conflicts } = orderedByPolicy({
+    const { ordered, conflicts, sourcePolicyReview } = orderedByPolicy({
       input,
       question: subquestion.question,
       candidates: relevant,
@@ -334,6 +364,7 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
       orderedEvidence,
       collapsedEvidenceFamilyIds: collapsed.collapsedEvidenceFamilyIds,
       conflicts: retainedSelectionConflicts(conflicts, orderedEvidence),
+      sourcePolicyReview,
       coverageReason,
     };
   });
@@ -355,7 +386,10 @@ export function answerCoverageFromSelections(args: {
       citedChunkIds: selection.orderedEvidence.map((result) => result.id).filter((id) => cited.has(id)),
       eligibleChunkIds: selection.orderedEvidence.map((result) => result.id),
       support: selection.coverageReason === "direct" ? "direct" : "partial",
-      reasonCodes: [selection.coverageReason],
+      reasonCodes: [
+        selection.coverageReason,
+        ...(selection.sourcePolicyReview === "not_evaluated" ? ["source_policy_not_evaluated"] : []),
+      ],
       insufficiencyReason:
         selection.coverageReason === "direct" || selection.coverageReason === "partial"
           ? null
@@ -414,6 +448,61 @@ export function formatAnswerCoveragePromptLine(plan: AnswerCoveragePlan) {
     return `${boundedPromptToken(item.subquestionId)}:${item.status}:${reasons || "none"}`;
   });
   return `answer_plan.coverage: overall=${plan.overall}; items=${items.join("|") || "none"}; insufficiency=${boundedPromptToken(plan.insufficiencyReason ?? "none")}`;
+}
+
+export type AdaptiveCoverageBehavior =
+  "full_synthesis" | "bounded_partial_synthesis" | "source_gap_only" | "verified_conflict_review";
+
+export type InternalAdaptiveAnswerPlan = SmartRagAnswerPlan & {
+  answerCoverage: AnswerCoveragePlan;
+  coverageBehavior: AdaptiveCoverageBehavior;
+  sourcePolicyReview: "none" | "not_evaluated" | "verified_conflict";
+};
+
+/** Consume the full request-local coverage object without attaching it to the public/cached API plan. */
+export function adaptSmartAnswerPlanForCoverage(
+  basePlan: SmartRagAnswerPlan,
+  answerCoverage: AnswerCoveragePlan,
+): InternalAdaptiveAnswerPlan {
+  const sourcePolicyReview = answerCoverage.conflicts.length
+    ? "verified_conflict"
+    : answerCoverage.coverage.some((item) => item.reasonCodes.includes("source_policy_not_evaluated"))
+      ? "not_evaluated"
+      : "none";
+  const coverageBehavior: AdaptiveCoverageBehavior = answerCoverage.conflicts.length
+    ? "verified_conflict_review"
+    : answerCoverage.overall === "absent"
+      ? "source_gap_only"
+      : answerCoverage.overall === "partial"
+        ? "bounded_partial_synthesis"
+        : "full_synthesis";
+  const adaptiveCriteria =
+    coverageBehavior === "verified_conflict_review"
+      ? ["preserve_local_primary_source", "surface_verified_source_conflict", "require_source_review"]
+      : coverageBehavior === "source_gap_only"
+        ? ["report_source_gap_only", "do_not_generate_clinical_advice"]
+        : coverageBehavior === "bounded_partial_synthesis"
+          ? ["omit_uncovered_subquestions", "surface_source_gaps"]
+          : [];
+  if (sourcePolicyReview === "not_evaluated") {
+    adaptiveCriteria.push("do_not_claim_source_agreement", "require_source_policy_review");
+  }
+  return {
+    ...basePlan,
+    retrievalQuality:
+      coverageBehavior === "verified_conflict_review"
+        ? "conflicting"
+        : coverageBehavior === "source_gap_only"
+          ? "weak"
+          : coverageBehavior === "bounded_partial_synthesis"
+            ? "partial"
+            : basePlan.retrievalQuality,
+    qualityCriteria: [...new Set([...basePlan.qualityCriteria, ...adaptiveCriteria])],
+    fallbackBehavior: coverageBehavior === "full_synthesis" ? basePlan.fallbackBehavior : "source_gap",
+    answerCoverage,
+    coverageBehavior,
+    sourcePolicyReview,
+  };
 }
 
 function subquestionCandidateStatus(question: string, selectedEvidence: readonly SearchResult[]) {

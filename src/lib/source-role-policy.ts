@@ -173,6 +173,56 @@ function completeConflictSide(args: {
   };
 }
 
+function sameConflictSide(left: SourcePolicyConflictSide, right: SourcePolicyConflictSide) {
+  const leftChunkIds = [...new Set(left.supportingChunkIds)].sort();
+  const rightChunkIds = [...new Set(right.supportingChunkIds)].sort();
+  return (
+    left.documentId === right.documentId &&
+    left.catalogueKey === right.catalogueKey &&
+    left.title === right.title &&
+    left.publisher === right.publisher &&
+    left.publicationDate === right.publicationDate &&
+    left.effectiveFrom === right.effectiveFrom &&
+    left.jurisdiction === right.jurisdiction &&
+    left.sourceRole === right.sourceRole &&
+    left.corpusScope === right.corpusScope &&
+    leftChunkIds.length === rightChunkIds.length &&
+    leftChunkIds.every((chunkId, index) => chunkId === rightChunkIds[index])
+  );
+}
+
+/** Keep only upstream canonical conflicts whose complete identities still match the eligible request-local rows. */
+export function retainCanonicalSourcePolicyConflicts(args: {
+  conflicts: readonly SourcePolicyConflict[];
+  local: SearchResult[];
+  australian: SearchResult[];
+  claimRole: ClinicalClaimRole;
+}) {
+  const localByChunkId = new Map(args.local.map((result) => [result.id, result]));
+  const australianByChunkId = new Map(args.australian.map((result) => [result.id, result]));
+  return args.conflicts.filter((conflict) => {
+    if (
+      conflict.version !== "source-policy-conflict-v1" ||
+      conflict.claimRole !== args.claimRole ||
+      conflict.reviewTargetDocumentId !== conflict.local.documentId ||
+      conflict.localPrimaryDecision.selected !== "uploaded_local" ||
+      conflict.localPrimaryDecision.reason !== "current_valid_accessible_directly_supportive"
+    )
+      return false;
+    const localEvidence = resultsForVerifiedChunks(localByChunkId, conflict.local.supportingChunkIds);
+    const australianEvidence = resultsForVerifiedChunks(australianByChunkId, conflict.australian.supportingChunkIds);
+    if (!localEvidence || !australianEvidence) return false;
+    const local = completeConflictSide({ ...localEvidence, expectedCorpusScope: "uploaded_local" });
+    const australian = completeConflictSide({ ...australianEvidence, expectedCorpusScope: "australian_public" });
+    return Boolean(
+      local &&
+      australian &&
+      sameConflictSide(conflict.local, local) &&
+      sameConflictSide(conflict.australian, australian),
+    );
+  });
+}
+
 function conflictId(args: {
   difference: VerifiedSourcePolicyDifference;
   localDocumentId: string;

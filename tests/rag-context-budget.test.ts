@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { capPerDocumentCrowding, packedContextCacheKey, selectModelContextResults } from "../src/lib/rag/rag";
 import {
+  adaptSmartAnswerPlanForCoverage,
+  answerCoverageFromSelections,
   evaluateAnswerCoverage,
   formatAnswerCoveragePromptLine,
   mergeEvidenceByCoverageAndSourceRole,
 } from "../src/lib/rag/rag-coverage";
+import { answerCacheAllowedForSourcePolicyConflicts } from "../src/lib/rag/rag-cache";
+import { buildSmartRagApiPlan } from "../src/lib/smart-rag-api";
 import type {
+  AnswerCoveragePlan,
   ClinicalSourceRole,
   RagQueryClass,
   RagQueryPlan,
   SearchResult,
   SourceCorpusScope,
+  SourcePolicyConflict,
 } from "../src/lib/types";
 
 function source(index: number, overrides: Partial<SearchResult> = {}): SearchResult {
@@ -191,6 +197,49 @@ function governedEvidence(args: {
       ...args.metadata,
     },
   });
+}
+
+function canonicalConflict(
+  local: SearchResult,
+  australian: SearchResult,
+  materialDifferenceReason: SourcePolicyConflict["materialDifferenceReason"] = "monitoring_differs",
+): SourcePolicyConflict {
+  const localMetadata = local.source_metadata!;
+  const australianMetadata = australian.source_metadata!;
+  return {
+    version: "source-policy-conflict-v1",
+    id: "canonical-source-policy-conflict",
+    claimRole: "dose_or_monitoring",
+    topicKey: "lithium-monitoring",
+    local: {
+      documentId: local.document_id,
+      catalogueKey: String(localMetadata.source_catalogue_key),
+      title: local.title,
+      publisher: String(localMetadata.publisher),
+      publicationDate: localMetadata.publication_date ?? null,
+      effectiveFrom: localMetadata.effective_date ?? null,
+      jurisdiction: String(localMetadata.jurisdiction),
+      sourceRole: localMetadata.source_role!,
+      corpusScope: "uploaded_local",
+      supportingChunkIds: [local.id],
+    },
+    australian: {
+      documentId: australian.document_id,
+      catalogueKey: String(australianMetadata.source_catalogue_key),
+      title: australian.title,
+      publisher: String(australianMetadata.publisher),
+      publicationDate: australianMetadata.publication_date ?? null,
+      effectiveFrom: australianMetadata.effective_date ?? null,
+      jurisdiction: String(australianMetadata.jurisdiction),
+      sourceRole: australianMetadata.source_role!,
+      corpusScope: "australian_public",
+      supportingChunkIds: [australian.id],
+    },
+    overlapReason: "same_claim",
+    materialDifferenceReason,
+    localPrimaryDecision: { selected: "uploaded_local", reason: "current_valid_accessible_directly_supportive" },
+    reviewTargetDocumentId: local.document_id,
+  };
 }
 
 function select(args: {
@@ -579,6 +628,27 @@ describe("coverage and source-role evidence merge", () => {
     expect(selection?.coverageReason).toBe("direct");
   });
 
+  it("keeps uploaded guidance ahead when record is a clinical verb rather than Clinical KB product intent", () => {
+    const uploaded = governedEvidence({
+      id: "uploaded-clozapine",
+      corpusScope: "uploaded_local",
+      content: "Record an ECG before starting clozapine according to the local clozapine guideline.",
+    });
+    const site = governedEvidence({
+      id: "site-clozapine",
+      corpusScope: "clinical_kb_site",
+      content: "Record an ECG before starting clozapine.",
+      role: "clinical_reference",
+    });
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan([{ id: "monitoring", question: "What ECG should I record before starting clozapine?" }]),
+      candidates: [site, uploaded],
+      claimRole: "dose_or_monitoring",
+    });
+
+    expect(selection?.orderedEvidence[0]?.id).toBe("uploaded-clozapine");
+  });
+
   it("collapses a derivative site summary into its uploaded guideline lineage family", () => {
     const lineageHash = "a".repeat(64);
     const uploaded = governedEvidence({
@@ -691,16 +761,7 @@ describe("coverage and source-role evidence merge", () => {
       plan: queryPlan([{ id: "monitoring", question: "lithium monitoring interval" }]),
       candidates: [australian, local],
       claimRole: "dose_or_monitoring",
-      verifiedDifferences: [
-        {
-          claimRole: "dose_or_monitoring",
-          topicKey: "lithium-monitoring",
-          overlapReason: "same_claim",
-          materialDifferenceReason: "monitoring_differs",
-          localChunkIds: [local.id],
-          australianChunkIds: [australian.id],
-        },
-      ],
+      sourcePolicyConflicts: [canonicalConflict(local, australian)],
     });
 
     expect(selection?.orderedEvidence.map((item) => item.id).slice(0, 2)).toEqual([
@@ -724,6 +785,108 @@ describe("coverage and source-role evidence merge", () => {
       localPrimaryDecision: { selected: "uploaded_local" },
       reviewTargetDocumentId: "local-doc",
     });
+    expect(selection?.sourcePolicyReview).toBe("verified_conflict");
+  });
+
+  it("fails closed to a bounded review state when direct local and Australian evidence has no canonical verdict", () => {
+    const local = governedEvidence({
+      id: "local-review",
+      corpusScope: "uploaded_local",
+      content: "Lithium renal monitoring interval guidance.",
+    });
+    const australian = governedEvidence({
+      id: "au-review",
+      corpusScope: "australian_public",
+      content: "Lithium renal monitoring interval guidance.",
+    });
+    const plan = queryPlan([{ id: "monitoring", question: "lithium renal monitoring interval" }]);
+    const selections = mergeEvidenceByCoverageAndSourceRole({ plan, candidates: [local, australian] });
+    const coverage = answerCoverageFromSelections({
+      plan,
+      selectedEvidence: [local, australian],
+      selections,
+    });
+
+    expect(selections[0]?.conflicts).toEqual([]);
+    expect(selections[0]?.sourcePolicyReview).toBe("not_evaluated");
+    expect(coverage.coverage[0]?.reasonCodes).toContain("source_policy_not_evaluated");
+  });
+
+  it("rejects a stale precomputed conflict whose canonical source identity no longer matches", () => {
+    const local = governedEvidence({
+      id: "local-stale-conflict",
+      corpusScope: "uploaded_local",
+      content: "Lithium renal monitoring interval guidance.",
+    });
+    const australian = governedEvidence({
+      id: "au-stale-conflict",
+      corpusScope: "australian_public",
+      content: "Lithium renal monitoring interval guidance.",
+    });
+    const conflict = canonicalConflict(local, australian);
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan([{ id: "monitoring", question: "lithium renal monitoring interval" }]),
+      candidates: [local, australian],
+      claimRole: "dose_or_monitoring",
+      sourcePolicyConflicts: [{ ...conflict, local: { ...conflict.local, publisher: "Stale publisher" } }],
+    });
+
+    expect(selection?.conflicts).toEqual([]);
+    expect(selection?.sourcePolicyReview).toBe("not_evaluated");
+  });
+
+  it("adapts bounded internal plan behavior for partial, absent, and conflicting coverage only", () => {
+    const basePlan = buildSmartRagApiPlan({
+      query: "lithium monitoring",
+      queryClass: "medication_dose_risk",
+      results: [],
+      routeMode: "strong",
+    }).answerPlan;
+    const coverage = (overall: AnswerCoveragePlan["overall"]): AnswerCoveragePlan => ({
+      interpretation: "PRIVATE SUBQUESTION TEXT CANARY",
+      ambiguity: null,
+      subquestions: [{ id: "monitoring", question: "PRIVATE SUBQUESTION TEXT CANARY", required: true }],
+      coverage: [
+        {
+          subquestionId: "monitoring",
+          status: overall === "conflicting" ? "conflicting" : overall === "absent" ? "absent" : "partial",
+          chunkIds: [],
+          reasonCodes: overall === "partial" ? ["source_policy_not_evaluated"] : [],
+        },
+      ],
+      conflicts: [],
+      overall,
+      insufficiencyReason: overall === "complete" ? null : "insufficient_claim_support",
+    });
+    const partial = adaptSmartAnswerPlanForCoverage(basePlan, coverage("partial"));
+    const absent = adaptSmartAnswerPlanForCoverage(basePlan, coverage("absent"));
+    const conflictingPlan = coverage("conflicting");
+    conflictingPlan.conflicts = [
+      canonicalConflict(
+        governedEvidence({ id: "local-adaptive", corpusScope: "uploaded_local", content: "Lithium monitoring." }),
+        governedEvidence({ id: "au-adaptive", corpusScope: "australian_public", content: "Lithium monitoring." }),
+      ),
+    ];
+    const conflicting = adaptSmartAnswerPlanForCoverage(basePlan, conflictingPlan);
+
+    expect(partial).toMatchObject({
+      coverageBehavior: "bounded_partial_synthesis",
+      sourcePolicyReview: "not_evaluated",
+      retrievalQuality: "partial",
+      fallbackBehavior: "source_gap",
+    });
+    expect(partial.qualityCriteria).toEqual(
+      expect.arrayContaining(["omit_uncovered_subquestions", "require_source_policy_review"]),
+    );
+    expect(absent).toMatchObject({ coverageBehavior: "source_gap_only", retrievalQuality: "weak" });
+    expect(conflicting).toMatchObject({
+      coverageBehavior: "verified_conflict_review",
+      sourcePolicyReview: "verified_conflict",
+      retrievalQuality: "conflicting",
+    });
+    expect(basePlan).not.toHaveProperty("answerCoverage");
+    expect(answerCacheAllowedForSourcePolicyConflicts(conflictingPlan.conflicts)).toBe(false);
+    expect(answerCacheAllowedForSourcePolicyConflicts([])).toBe(true);
   });
 
   it("does not let subsidy, legal, link-only, directory, or tool sources satisfy treatment", () => {

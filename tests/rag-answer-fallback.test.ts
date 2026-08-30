@@ -5,7 +5,7 @@ import {
   answerRouteResultCanBeCached,
   generationRecoveryReserveMs,
 } from "../src/lib/rag/rag-route-budget";
-import type { RagAnswer, SearchResult } from "../src/lib/types";
+import type { RagAnswer, SearchResult, SourcePolicyConflict } from "../src/lib/types";
 
 function retrievalRpcBaseName(name: string) {
   return name.replace(/_v[23]$/, "");
@@ -42,6 +42,32 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
     },
     images: [],
     ...overrides,
+  };
+}
+
+function canonicalPolicyConflict(local: SearchResult, australian: SearchResult): SourcePolicyConflict {
+  const side = (result: SearchResult) => ({
+    documentId: result.document_id,
+    catalogueKey: String(result.source_metadata?.source_catalogue_key),
+    title: result.title,
+    publisher: String(result.source_metadata?.publisher),
+    publicationDate: result.source_metadata?.publication_date ?? null,
+    effectiveFrom: result.source_metadata?.effective_date ?? null,
+    jurisdiction: String(result.source_metadata?.jurisdiction),
+    sourceRole: result.source_metadata!.source_role!,
+    supportingChunkIds: [result.id],
+  });
+  return {
+    version: "source-policy-conflict-v1",
+    id: "canonical-lithium-monitoring-conflict",
+    claimRole: "dose_or_monitoring",
+    topicKey: "lithium-monitoring",
+    local: { ...side(local), corpusScope: "uploaded_local" },
+    australian: { ...side(australian), corpusScope: "australian_public" },
+    overlapReason: "same_claim",
+    materialDifferenceReason: "monitoring_differs",
+    localPrimaryDecision: { selected: "uploaded_local", reason: "current_valid_accessible_directly_supportive" },
+    reviewTargetDocumentId: local.document_id,
   };
 }
 
@@ -98,7 +124,12 @@ async function answerFromTextSources(
   query: string,
   sources: SearchResult[],
   generatedAnswer?: GeneratedAnswerAttempt | GeneratedAnswerAttempt[],
-  options: { sourceOnly?: boolean } = {},
+  options: {
+    sourceOnly?: boolean;
+    sourcePolicyConflicts?: readonly SourcePolicyConflict[];
+    captureInput?: (input: string) => void;
+    captureProgress?: (event: { smartApiPlan?: unknown }) => void;
+  } = {},
 ) {
   // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
   // starts every worker as RAG_PROVIDER_MODE=offline with a blank OpenAI key, so we
@@ -123,7 +154,8 @@ async function answerFromTextSources(
     }),
   }));
   let generatedAnswerAttemptIndex = 0;
-  const generateStructuredTextResult = vi.fn(async () => {
+  const generateStructuredTextResult = vi.fn(async (input: string) => {
+    options.captureInput?.(input);
     const attempt = Array.isArray(generatedAnswer) ? generatedAnswer[generatedAnswerAttemptIndex++] : generatedAnswer;
     if (attempt === "truncated") {
       return {
@@ -170,6 +202,8 @@ async function answerFromTextSources(
     ownerId: undefined,
     logQuery: false,
     skipCache: true,
+    sourcePolicyConflicts: options.sourcePolicyConflicts,
+    onProgress: options.captureProgress,
   });
 }
 
@@ -2100,6 +2134,122 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/Medication point:.*Medication point:/);
     expect(answer.answerSections).toEqual([]);
     expect(answer.routingReason).toContain("claim_support_unsupported_sections_withheld");
+  });
+
+  it("carries an upstream canonical policy conflict through adaptive answer planning and final citations", async () => {
+    const local = source({
+      id: "local-lithium-monitoring",
+      document_id: "local-lithium-doc",
+      title: "Local lithium monitoring guideline",
+      file_name: "local-lithium.pdf",
+      section_heading: "Monitoring",
+      content: "The current local lithium guideline requires renal monitoring every six months.",
+      similarity: 0.94,
+      hybrid_score: 0.94,
+      text_rank: 0.9,
+      corpus_scope: "uploaded_local",
+      site_content_domain: null,
+      source_metadata: {
+        ...source().source_metadata!,
+        source_kind: "document",
+        source_title: "Local lithium monitoring guideline",
+        publisher_code: null,
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+        publication_date: "2024-01-01",
+        effective_date: "2024-01-01",
+        corpus_scope: "uploaded_local",
+        source_role: "local_guideline",
+        content_mode: "indexed_content",
+        source_catalogue_key: "uploaded_local:local-lithium-doc",
+      },
+    });
+    const australian = source({
+      id: "au-lithium-monitoring",
+      document_id: "au-lithium-doc",
+      title: "Australian lithium monitoring guideline",
+      file_name: "au-lithium.pdf",
+      section_heading: "Monitoring",
+      content: "The current Australian lithium guideline requires renal monitoring every three months.",
+      similarity: 0.93,
+      hybrid_score: 0.93,
+      text_rank: 0.89,
+      corpus_scope: "australian_public",
+      site_content_domain: null,
+      source_metadata: {
+        ...source().source_metadata!,
+        source_kind: "document",
+        source_title: "Australian lithium monitoring guideline",
+        publisher_code: "OCPWA",
+        publisher: "Office of the Chief Psychiatrist WA",
+        jurisdiction: "Australia/WA",
+        publication_date: "2026-01-01",
+        effective_date: "2026-01-01",
+        corpus_scope: "australian_public",
+        source_role: "clinical_guideline",
+        content_mode: "indexed_content",
+        source_catalogue_key: "wa-chief-psychiatrist",
+        source_policy_version: "australian-source-policy-v1",
+        licence_policy: "public_index_permitted",
+      },
+    });
+    const conflict = { ...canonicalPolicyConflict(local, australian), claimRole: "treatment" as const };
+    const capturedInputs: string[] = [];
+    const capturedProgress: Array<{ smartApiPlan?: unknown }> = [];
+    const generated = {
+      answer:
+        "Current local and Australian lithium monitoring guidance differs; follow the local guideline and review both cited sources before acting.",
+      grounded: true,
+      confidence: "high" as const,
+      answerSections: [],
+      citations: [{ chunk_id: local.id }, { chunk_id: australian.id }],
+      quoteCards: [],
+      conflictsOrGaps: [
+        {
+          type: "conflict",
+          message: "Provisional policy conflict.",
+          source_chunk_ids: [local.id, australian.id],
+        },
+      ],
+    };
+    const retained = await answerFromTextSources(
+      "Compare current local and Australian lithium renal monitoring guidance",
+      [local, australian],
+      generated,
+      {
+        sourcePolicyConflicts: [conflict],
+        captureInput: (input) => capturedInputs.push(input),
+        captureProgress: (event) => capturedProgress.push(event),
+      },
+    );
+
+    if (!capturedInputs[0]) throw new Error(`Expected generation input; route=${retained.routingReason}`);
+    expect(capturedInputs[0]).toContain("answer_plan.coverage_behavior: verified_conflict_review");
+    expect(capturedInputs[0]).toContain("answer_plan.source_policy_review: verified_conflict");
+    expect(capturedInputs[0]).toContain("surface_verified_source_conflict");
+    expect(retained.conflictsOrGaps).toContainEqual(
+      expect.objectContaining({ type: "conflict", source_chunk_ids: [local.id, australian.id] }),
+    );
+    const publicPlan = capturedProgress.find((event) => event.smartApiPlan)?.smartApiPlan;
+    expect(publicPlan).toBeDefined();
+    expect(JSON.stringify(publicPlan ?? null)).not.toContain("answerCoverage");
+    expect(JSON.stringify(publicPlan ?? null)).not.toContain("coverageBehavior");
+    expect(JSON.stringify(publicPlan ?? null)).not.toContain("canonical-lithium-monitoring-conflict");
+
+    const dropped = await answerFromTextSources(
+      "According to the local lithium guideline, what renal monitoring is required?",
+      [local, australian],
+      {
+        ...generated,
+        answer: "The current local lithium guideline requires renal monitoring.",
+        citations: [{ chunk_id: local.id }],
+        conflictsOrGaps: [],
+      },
+      { sourcePolicyConflicts: [canonicalPolicyConflict(local, australian)] },
+    );
+    expect(dropped.conflictsOrGaps ?? []).not.toContainEqual(
+      expect.objectContaining({ source_chunk_ids: expect.arrayContaining([local.id, australian.id]) }),
+    );
   });
 
   it("preserves grounded source-backed answers when only the overlap heuristic is recoverable", async () => {

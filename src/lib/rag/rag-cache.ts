@@ -20,7 +20,7 @@ import {
   type SearchTelemetry,
 } from "@/lib/rag/rag-contracts";
 import type { Json } from "@/lib/supabase/database.types";
-import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
+import type { RagAnswer, RagQueryClass, SearchResult, SourcePolicyConflict } from "@/lib/types";
 import {
   ragAnswerPromptVersion,
   ragAnswerSchemaVersion,
@@ -326,6 +326,35 @@ export function cloneAnswer(answer: RagAnswer) {
 /** Anonymous callers share no stable identity, so their PHI-bearing answers must never be cached or coalesced. */
 export function answerCacheAllowedForOwner(ownerId?: string | null) {
   return Boolean(ownerId);
+}
+
+/** Canonical conflict payloads remain request-local and never enter cache identity or telemetry. */
+export function answerCacheAllowedForSourcePolicyConflicts(conflicts?: readonly SourcePolicyConflict[]) {
+  return !conflicts?.length;
+}
+
+type AnswerCachePolicyArgs = SearchChunksArgs & { sourcePolicyConflicts?: readonly SourcePolicyConflict[] };
+
+export function answerCoalescingAllowedForRequest(args: AnswerCachePolicyArgs) {
+  return (
+    args.ragQueryPlanMode !== "shadow" &&
+    answerCacheAllowedForOwner(args.ownerId) &&
+    answerCacheAllowedForSourcePolicyConflicts(args.sourcePolicyConflicts) &&
+    isRagCacheAccessAllowed(args) &&
+    !args.skipCache &&
+    env.RAG_ANSWER_CACHE_TTL_MS > 0 &&
+    env.RAG_ANSWER_CACHE_SIZE > 0
+  );
+}
+
+export function answerCacheLookupAllowedForRequest(args: AnswerCachePolicyArgs, adversarialQuery: boolean) {
+  return (
+    !adversarialQuery &&
+    answerCacheAllowedForSourcePolicyConflicts(args.sourcePolicyConflicts) &&
+    answerCacheAllowedForOwner(args.ownerId) &&
+    !args.skipCache &&
+    env.RAG_ANSWER_CACHE_TTL_MS > 0
+  );
 }
 
 type RagPublicCacheKind = "search" | "answer";

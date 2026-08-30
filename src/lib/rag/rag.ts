@@ -64,7 +64,7 @@ import {
 import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import {
-  selectModelContextEvidence,
+  selectModelContextEvidencePair,
   selectModelContextResults,
   summarizeAustralianSourceSelection,
 } from "@/lib/rag/rag-context-selection";
@@ -124,7 +124,9 @@ export {
   textCandidateBudgetForQueryClass,
 } from "@/lib/rag/rag-retrieval-variants";
 import {
-  answerCacheAllowedForOwner,
+  answerCacheAllowedForSourcePolicyConflicts,
+  answerCacheLookupAllowedForRequest,
+  answerCoalescingAllowedForRequest,
   answerInflight,
   cacheIndexingVersion,
   cloneAnswer,
@@ -133,7 +135,6 @@ import {
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
-  isRagCacheAccessAllowed,
   isSearchCacheEnabled,
   isSearchCacheLookupEnabled,
   packAdjacentSourceContext,
@@ -242,8 +243,12 @@ import {
   isRiskFlowchartNextStepQuery,
 } from "@/lib/rag/rag-evidence-gates";
 import { applyCoverageGateTelemetry, evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
-import { answerCoverageFromSelections, formatAnswerCoveragePromptLine } from "@/lib/rag/rag-coverage";
-import { reconcileAnswerSourcePolicyConflicts } from "@/lib/rag/rag-coverage";
+import {
+  adaptSmartAnswerPlanForCoverage,
+  answerCoverageFromSelections,
+  formatAnswerCoveragePromptLine,
+  reconcileAnswerSourcePolicyConflicts,
+} from "@/lib/rag/rag-coverage";
 import type { CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 export { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 import { createSearchTiming, finishSearch, measureSearchPhase, type SearchTiming } from "@/lib/rag/rag-search-timing";
@@ -310,6 +315,7 @@ import type {
   RagAnswer,
   SearchResult,
   SmartRagApiPlan,
+  SourcePolicyConflict,
 } from "@/lib/types";
 
 const answerSectionKinds = [
@@ -539,6 +545,7 @@ type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   logQuery?: boolean;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
   observationContext?: import("@/lib/rag/rag-contracts").RagObservationContext;
+  sourcePolicyConflicts?: readonly SourcePolicyConflict[];
   signal?: AbortSignal;
 };
 
@@ -2427,13 +2434,7 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
     ragQueryPlanMode: args.observationContext?.rolloutMode ?? args.ragQueryPlanMode ?? "legacy",
   };
   const startedAt = Date.now();
-  const coalescingEnabled =
-    args.ragQueryPlanMode !== "shadow" &&
-    answerCacheAllowedForOwner(args.ownerId) &&
-    isRagCacheAccessAllowed(args) &&
-    !args.skipCache &&
-    env.RAG_ANSWER_CACHE_TTL_MS > 0 &&
-    env.RAG_ANSWER_CACHE_SIZE > 0;
+  const coalescingEnabled = answerCoalescingAllowedForRequest(args);
   const inflightKey = coalescingEnabled ? scopedAnswerCacheKey(args) : null;
   let existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
 
@@ -2500,16 +2501,16 @@ async function answerQuestionWithScopeUncoalesced(
   // unchanged cache version) would bypass chooseAnswerRoute's refusal. Skipping the
   // cache lets the query flow to routing, which fails it closed to "unsupported".
   const adversarialQuery = hasAdversarialManipulationIntent(answerFocusQuery);
+  const answerCachePolicyAllowed = answerCacheAllowedForSourcePolicyConflicts(args.sourcePolicyConflicts);
   const cacheContext = args.cacheContext ?? {};
-  const answerCacheLookupEnabled =
-    !adversarialQuery && answerCacheAllowedForOwner(args.ownerId) && !args.skipCache && env.RAG_ANSWER_CACHE_TTL_MS > 0;
+  const answerCacheLookupEnabled = answerCacheLookupAllowedForRequest(args, adversarialQuery);
   const indexingVersionPromise = answerCacheLookupEnabled
     ? (cacheContext.indexingVersionAtRequestStart ??= cacheIndexingVersion(args, { forceRefresh: true }))
     : undefined;
   const indexingVersionAtRetrievalStart = indexingVersionPromise ? await indexingVersionPromise : null;
-  const cachedAnswer = adversarialQuery
-    ? null
-    : await getCachedAnswer(args, startedAt, { indexingVersionAtRequestStart: indexingVersionAtRetrievalStart });
+  const cachedAnswer = answerCacheLookupEnabled
+    ? await getCachedAnswer(args, startedAt, { indexingVersionAtRequestStart: indexingVersionAtRetrievalStart })
+    : null;
   if (cachedAnswer) {
     restoreRagAnswerQueryPlanArgs(cachedAnswer, args);
     const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
@@ -2535,9 +2536,9 @@ async function answerQuestionWithScopeUncoalesced(
         : cachedAnswer.smartPanel,
     });
   }
-  const sharedCachedAnswer = adversarialQuery
-    ? null
-    : await getSharedCachedAnswer(args, startedAt, { indexingVersionAtRequestStart: indexingVersionAtRetrievalStart });
+  const sharedCachedAnswer = answerCacheLookupEnabled
+    ? await getSharedCachedAnswer(args, startedAt, { indexingVersionAtRequestStart: indexingVersionAtRetrievalStart })
+    : null;
   if (sharedCachedAnswer) {
     restoreRagAnswerQueryPlanArgs(sharedCachedAnswer, args);
     void setCachedAnswer(args, sharedCachedAnswer, { indexingVersionAtRetrievalStart }).catch(() => undefined);
@@ -2973,6 +2974,7 @@ async function answerQuestionWithScopeUncoalesced(
 
     // Soft-tail unsupported refusals must not stick in the 5-minute answer cache.
     if (
+      answerCachePolicyAllowed &&
       answerRouteResultCanBeCached(routeDeadline, finalizedAnswer) &&
       !shouldSkipUnsupportedSoftTailAnswerCacheWrite({
         resultCount: results.length,
@@ -3168,7 +3170,7 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    if (answerRouteResultCanBeCached(routeDeadline, finalizedAnswer))
+    if (answerCachePolicyAllowed && answerRouteResultCanBeCached(routeDeadline, finalizedAnswer))
       await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return finalizedAnswer;
@@ -3190,7 +3192,9 @@ async function answerQuestionWithScopeUncoalesced(
       ", ",
     );
     const answerCoveragePlan = coverageFor(contextResults);
-    const internalSmartAnswerPlan = { ...smartApiPlan.answerPlan, answerCoverage: answerCoveragePlan };
+    const internalSmartAnswerPlan = answerCoveragePlan
+      ? adaptSmartAnswerPlanForCoverage(smartApiPlan.answerPlan, answerCoveragePlan)
+      : smartApiPlan.answerPlan;
     const interpretedTask = [
       `intent: ${smartApiPlan.intent}`,
       `query_class: ${queryClass}`,
@@ -3207,6 +3211,8 @@ async function answerQuestionWithScopeUncoalesced(
       `answer_plan.route_mode: ${internalSmartAnswerPlan.routeMode}`,
       `answer_plan.model_strategy: ${internalSmartAnswerPlan.modelStrategy}`,
       `answer_plan.retrieval_quality: ${internalSmartAnswerPlan.retrievalQuality}`,
+      `answer_plan.coverage_behavior: ${"coverageBehavior" in internalSmartAnswerPlan ? internalSmartAnswerPlan.coverageBehavior : "unavailable"}`,
+      `answer_plan.source_policy_review: ${"sourcePolicyReview" in internalSmartAnswerPlan ? internalSmartAnswerPlan.sourcePolicyReview : "none"}`,
       `answer_plan.retrieval_intent: ${
         Object.entries(smartApiPlan.answerPlan.retrievalIntent)
           .filter(([, value]) => value === true)
@@ -3223,8 +3229,8 @@ async function answerQuestionWithScopeUncoalesced(
       }`,
       `answer_plan.source_policy: ${smartApiPlan.answerPlan.sourcePolicy}`,
       answerCoveragePlan ? formatAnswerCoveragePromptLine(answerCoveragePlan) : "answer_plan.coverage: unavailable",
-      `quality_gate: ${smartApiPlan.answerPlan.qualityCriteria.join(", ")}`,
-      `fallback_behavior: ${smartApiPlan.answerPlan.fallbackBehavior}`,
+      `quality_gate: ${internalSmartAnswerPlan.qualityCriteria.join(", ")}`,
+      `fallback_behavior: ${internalSmartAnswerPlan.fallbackBehavior}`,
       `valid_evidence_chunk_ids: ${validEvidenceChunkIds || "none"}`,
       `evidence_contract: every clinical claim must be supported by one or more valid_evidence_chunk_ids; unsupported clinical claims must be omitted or converted to a source-gap statement`,
       `source_count: ${contextResults.length}`,
@@ -3477,21 +3483,14 @@ ${qualityRetryInstruction}`
     } satisfies RagAnswer;
   }
 
-  const modelContextSelection = selectModelContextEvidence({
+  const { served: modelContextSelection, strongRetry: strongRetryContextSelection } = selectModelContextEvidencePair({
     routeMode: route.mode,
     queryClass,
     crossDocument: crossDocumentPlan.enabled,
     results: answerInputResults,
     queryPlan: requestQueryPlan ?? undefined,
     siteContentState: args.ragRequestContext?.snapshot.publicSiteContent.state,
-  });
-  const strongRetryContextSelection = selectModelContextEvidence({
-    routeMode: "strong",
-    queryClass,
-    crossDocument: crossDocumentPlan.enabled,
-    results: answerInputResults,
-    queryPlan: requestQueryPlan ?? undefined,
-    siteContentState: args.ragRequestContext?.snapshot.publicSiteContent.state,
+    sourcePolicyConflicts: args.sourcePolicyConflicts,
   });
   const modelContextResults = modelContextSelection.results;
   const strongRetryContextResults = strongRetryContextSelection.results;
@@ -3909,7 +3908,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    if (answerRouteResultCanBeCached(routeDeadline, answer))
+    if (answerCachePolicyAllowed && answerRouteResultCanBeCached(routeDeadline, answer))
       await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return answer;
@@ -4278,7 +4277,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    if (answerRouteResultCanBeCached(routeDeadline, fallbackAnswer)) {
+    if (answerCachePolicyAllowed && answerRouteResultCanBeCached(routeDeadline, fallbackAnswer)) {
       await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
     }
     routeDeadline.dispose();
