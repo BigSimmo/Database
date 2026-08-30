@@ -21,7 +21,6 @@ import {
   matchReason,
   networkHasCohort,
   referralCandidates,
-  referralWaitLabel,
   TRAVEL_BAND_GROUP_EMPTY_SENTENCE,
   travelBandGroupCounts,
   travelBandGroupCountsSentence,
@@ -34,6 +33,7 @@ import {
 } from "@/components/ward-management/ward-referrals";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
+import { referralWaitLine } from "./referral-wait";
 import styles from "./referrals.module.css";
 
 /**
@@ -289,7 +289,7 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
         {referralPersonFacts(referral).join(" · ")}
       </p>
       <p className={styles.waitBadge} data-testid="ward-referral-match-wait">
-        {referralWaitLabel(referral, now)}
+        {referralWaitLine(referral, now)}
       </p>
 
       {!hasCohort ? (

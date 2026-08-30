@@ -92,6 +92,17 @@ function probeParts(): { count: number; id: string; edId: string; purpose: strin
 const SEEDED_REFERRALS = seededReferrals.length;
 
 /**
+ * The one department with a seeded psychiatry inbox, and the one referral in it.
+ *
+ * ⚠️ **NAMED ONCE, SO THE CANARY AND THE RENDERING TEST CANNOT DRIFT APART.** They are two halves of
+ * one claim — "this row is in the seed" and "this row is on the screen" — and a rendering test
+ * pointed at a department the canary is not watching would go green on an empty hub the moment the
+ * fixture moved, which is the failure the canary exists to catch.
+ */
+const HUB_WITH_A_SEEDED_INBOX = "rph-ed";
+const REFERRAL_ON_THE_HUB = "RF-009";
+
+/**
  * The intake form and one department's hub inside ONE provider, so a referral raised on the form is
  * the very referral the hub is then asked about. Two providers would be two reducers, and the hub
  * would be reading a state the form never wrote to — a test that passes by never connecting.
@@ -689,11 +700,14 @@ describe("an inbox row, once one exists", () => {
 /**
  * THE WORDS, ASSERTED WITHOUT A SCREEN — including the branch no screen can reach.
  *
- * ⚠️ **NO ED-ADDRESSED REFERRAL CAN CARRY A TRIAGE TIME TODAY, so the department clock's PRESENT
- * branch has no reachable caller on this hub.** `triagedAt` is authored on six seeded referrals,
- * every one of them addressed to a psychiatric ward, and `RECEIVE_REFERRAL` — the only event that
- * creates a `Referral` — has no field for it. That is a reported gap, and it is why these three
- * assertions are made against the hub's own formatting function rather than against rendered rows:
+ * ⚠️ **ONE BRANCH OF THE THREE STILL HAS NO REACHABLE CALLER, AND IT IS NO LONGER THE SAME ONE.**
+ * Until `RF-009` was seeded, `triagedAt` was authored only on referrals addressed to psychiatric
+ * wards, so the department clock's PRESENT branch could not be reached from this hub at all. It can
+ * now, and it is asserted on the rendered screen further down this file. What remains unreachable is
+ * the STOPPED referral clock: stopping requires `triagedAt >= raisedAt`, no seeded ED-addressed
+ * referral has that, and `RECEIVE_REFERRAL` — the only event that creates a `Referral` — has no
+ * `triagedAt` field for a screen to supply one. That is a reported gap, and it is why these
+ * assertions are made against the hub's own formatting function as well as against rendered rows:
  * a branch nothing reaches is a branch nothing checks, and this one decides the wording of the two
  * lies the model's own doc comments name (a zero for an absent clock, a stopped span worded as a
  * live wait).
@@ -735,14 +749,26 @@ describe("the words the hub puts on the two clocks", () => {
   });
 
   /**
-   * ⚠️ **RF-005 IS REAL AND IS NOT ON THIS HUB**, and both halves are asserted because the brief
-   * this work came from believed only the first. Its 165-minute gap is the whole argument for two
-   * clocks; it is addressed to a psychiatric ward, and NO seeded referral is addressed to an
-   * emergency department at all — so this hub's inbox is empty on the seed and RF-005 can never
-   * appear on it. The second half fails the day that changes, which is the day this finding is
-   * stale rather than the day somebody quietly assumes it never held.
+   * ⚠️ **RF-005 IS REAL, AND ITS 165-MINUTE GAP IS THE WHOLE ARGUMENT FOR TWO CLOCKS.** It is
+   * addressed to a psychiatric ward, so it is not on this hub and never was; that half is unchanged
+   * and still worth asserting, because the brief this work came from believed the gap was the only
+   * claim being made.
+   *
+   * ⚠️ **WHAT THIS TEST USED TO SAY, AND WHY IT NO LONGER SAYS IT.** It used to pin a FINDING — that
+   * no seeded referral was addressed to an emergency department at all, so this hub's inbox was
+   * empty on the seed and could show nothing. That was true when it was written, and it was pinned
+   * with an assertion that would fail on the day it stopped being true rather than with a comment
+   * nobody would re-read. **The day came:** `RF-009` is seeded, addressed to `rph-ed` for
+   * `psychiatric_review`, and this file went red naming its own staleness. The finding is discharged
+   * here, and what stands in its place is the assertion the finding was a stand-in for all along:
+   * the hub RENDERS that row, with both clocks, in `tests/ward-ed-psychiatry-hub.dom.test.tsx`'s
+   * sibling test below.
+   *
+   * The canary survives the discharge, inverted: the inbox must NOT be empty. A future fixture
+   * change that removes the only ED-addressed referral would otherwise return this screen to
+   * asserting nothing, silently and greenly.
    */
-  it("⚠️ pins RF-005's 165-minute gap as real, and unreachable from this hub", () => {
+  it("⚠️ pins RF-005's 165-minute gap as real, and the seeded ED inbox as non-empty", () => {
     const rf005 = seededReferrals.find((referral) => referral.id === "RF-005");
     expect(rf005, "RF-005 left the fixture; the two-clock argument now has no worked example").toBeDefined();
 
@@ -751,17 +777,74 @@ describe("the words the hub puts on the two clocks", () => {
     expect(clocks.sinceReferral).toBe(20);
     expect(clocks.inDepartment! - clocks.sinceReferral, "the gap the two clocks exist to show").toBe(165);
 
-    for (const department of allEmergencyDepartments()) {
-      expect(
-        edReferralsFor(seededReferrals, department.id, "psychiatric_review"),
-        `${department.id} has a seeded psychiatry inbox, so the reachability finding is stale`,
-      ).toEqual([]);
-    }
+    // RF-005 is addressed to a psychiatric ward, so no ED hub can show it. Unchanged, and still the
+    // reason the worked example above cannot simply be read off this screen.
     expect(
-      seededReferrals.some((referral) =>
-        referral.destinations.some((addressing) => addressing.destination.kind === "emergency_department"),
+      allEmergencyDepartments().some((department) =>
+        edReferralsFor(seededReferrals, department.id, "psychiatric_review").some(
+          (entry) => entry.referral.id === "RF-005",
+        ),
       ),
-      "the seed now addresses an emergency department; re-check what the ED hub can actually show",
+      "RF-005 is now addressed to an emergency department; it is a ward referral and the hub must not hold it",
     ).toBe(false);
+
+    // ⚠️ THE CANARY, INVERTED. The ED psychiatry inbox is what this whole file is about, and an
+    // empty one passes every rendering assertion in it by having nothing to render. This fails the
+    // day the seed stops addressing an emergency department, instead of letting the screen quietly
+    // go back to proving nothing.
+    const inbox = edReferralsFor(seededReferrals, HUB_WITH_A_SEEDED_INBOX, "psychiatric_review");
+    expect(
+      inbox.map((entry) => entry.referral.id),
+      `${HUB_WITH_A_SEEDED_INBOX} has no seeded psychiatry inbox any more. Every rendering assertion ` +
+        `about this hub now passes by having no row to check — restore an ED-addressed referral, or ` +
+        `move these assertions to whatever produces one.`,
+    ).toContain(REFERRAL_ON_THE_HUB);
+  });
+
+  /**
+   * ⚠️ **THE ROW THE FINDING ABOVE WAS STANDING IN FOR — RENDERED, NOT MERELY SEEDED.**
+   *
+   * `RF-009` was triaged 210 minutes BEFORE anyone referred it to psychiatry: somebody had been in
+   * the department three and a half hours before mental health was called. **That gap is the entire
+   * argument for showing two clocks rather than one** — a referral-only clock would print "35m" and
+   * make this look like a fresh request, and a triage-only clock would print "4h 05m" and make
+   * mental health look slow for four hours it could not act on. Neither number alone is the truth,
+   * and the truth is the distance between them.
+   *
+   * So it is asserted ON THE SCREEN, in the words a clinician reads, and not through the fixture or
+   * the pure formatter — both of which were already green while this hub rendered nothing at all.
+   *
+   * ⚠️ **NO HARNESS.** Every other inbox test here raises a referral through `RaiseSelfAddressedReferral`
+   * because no product screen can. This one needs none: the row is in the seed, so it is on the hub
+   * the moment the hub renders, which is the first time that has been true.
+   */
+  it("⚠️ renders RF-009's two clocks on the hub, so the 210-minute gap is legible on screen", () => {
+    renderHub(HUB_WITH_A_SEEDED_INBOX);
+
+    const row = screen.getByTestId(`ward-ed-inbox-row-${REFERRAL_ON_THE_HUB}`);
+
+    // Both figures from ONE `now` — the machine-readable copies of what the two lines below word.
+    expect(row).toHaveAttribute("data-minutes-in-department", "245");
+    expect(row).toHaveAttribute("data-minutes-since-referral", "35");
+    expect(row).toHaveAttribute("data-since-referral-running", "true");
+    expect(245 - 35, "the gap this row exists to show, and the reason one clock is not enough").toBe(210);
+
+    // ⚠️ The department clock: a REAL figure, on the branch this hub could not reach until RF-009
+    // was seeded. `splitDuration(245)` — never hours hand-rolled from minutes.
+    const department = within(screen.getByTestId(`ward-ed-inbox-department-clock-${REFERRAL_ON_THE_HUB}`));
+    expect(department.getByRole("term").textContent).toBe("In department");
+    expect(department.getByRole("definition").textContent).toBe("4h 05m since triage");
+
+    // ⚠️ The referral clock: running, and worded as a wait somebody is still serving — because it
+    // is. Triage came BEFORE the referral here, so there is nothing left to stop this clock.
+    const referral = within(screen.getByTestId(`ward-ed-inbox-referral-clock-${REFERRAL_ON_THE_HUB}`));
+    expect(referral.getByRole("term").textContent).toBe("Since referral");
+    expect(referral.getByRole("definition").textContent).toBe("35m waiting");
+
+    // ⚠️ And the department clock is never worded as an arrival. A patient arrives, waits, and is
+    // triaged some time later; on a night like this one that gap is not small. `triagedAt` is the
+    // closest instant the model records, so it is a proxy and is only honest while labelled as one.
+    const inbox = screen.getByTestId("ward-ed-inbox").textContent ?? "";
+    expect(inbox.toLowerCase(), "the inbox words a triage time as an arrival").not.toContain("arriv");
   });
 });

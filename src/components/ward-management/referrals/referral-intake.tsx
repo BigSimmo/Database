@@ -212,14 +212,18 @@ type ReferralDraft = {
    *  own comment for why that sentinel must not be `""`. */
   originSiteCode: string;
   /**
-   * The patient's suburb, used ON THIS SCREEN ONLY, to read the catchment for each destination.
+   * The patient's suburb, as the picker holds it: a raw `string`, because a `<select>` value is one.
    *
-   * **IT IS NOT RECORDED ON THE REFERRAL, AND THE FORM SAYS SO** rather than letting a clinician
-   * believe it was. `Referral` carries `homeRegion` and no suburb, and widening it is a model
-   * change this session is not the writer of — spec Part 1 ("Catchment needs a fact the model does
-   * not have") already specifies that widening for whoever compiles against it. Until then this
-   * answers the picker's questions and goes no further, which is why it is deliberately NOT in
-   * `REQUIRED_FIELDS`: Send cannot wait on a fact the referral has nowhere to put.
+   * ⚠️ **IT IS RECORDED ON THE REFERRAL** (`CM-4`, 2026-08-30) — `Referral.suburb` exists, so this
+   * answer no longer stops at this screen, and it IS in `REQUIRED_FIELDS`. The note beside the
+   * control says so; it used to say the opposite, truthfully, and the day the model widened was the
+   * day that sentence turned into a false reassurance.
+   *
+   * ⚠️ **A RAW STRING HERE IS NOT THE MODEL'S SHAPE.** The referral holds `ReferralSuburb`, a
+   * union with an `unknown` arm, and `answeredDraft` is the one place that widens this string into
+   * it — the picker offers the `SUBURB_UNKNOWN_REASONS` codes as option values alongside the real
+   * suburb names, and the codes are lower_snake where the table's names are title-case places, so
+   * the two can never collide.
    *
    * Deriving it from `homeRegion` instead was considered and refused: ten broad WA regions cannot
    * produce a 537-suburb catchment answer, and mapping one onto the other would invent an
@@ -395,8 +399,8 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
   } = draft;
   if (ageBand === UNANSWERED_VALUE || sex === UNANSWERED_VALUE || homeRegion === UNANSWERED_VALUE) return undefined;
   // The suburb now REACHES the record (`CM-4`), so it is answered like every other fact rather
-  // than read on this screen and dropped. The note beside the control still says it is
-  // discarded and is now FALSE — that sentence, and its pin, belong to the referral surface.
+  // than read on this screen and dropped. The note beside the control says so as of 2026-08-30;
+  // it said the opposite for the hour between the model widening and this screen catching up.
   if (suburb === UNANSWERED_VALUE) return undefined;
   // The picker offers the named suburbs AND the "not known" answers, so the raw value is widened
   // here into the union the model holds. Reason CODES cannot collide with a suburb name: the
@@ -763,14 +767,23 @@ export function ReferralIntakeForm() {
           </div>
 
           {/*
-           * The suburb, and the sentence beside it that stops this control pretending to record.
+           * The suburb, and the sentence beside it that says what becomes of the answer.
            *
-           * A referral has nowhere to put a suburb — `Referral` carries `homeRegion` and nothing
-           * finer — and widening it is a model change owned elsewhere (spec Part 1). So this
-           * answer reads the catchment for the destination picker below and goes no further, and
-           * the form SAYS that rather than leaving a clinician to assume it was recorded. A
+           * ⚠️ **THIS NOTE HAS BEEN FALSE ONCE ALREADY, IN THE OTHER DIRECTION.** Until
+           * 2026-08-30 `Referral` carried `homeRegion` and nothing finer, so the answer was read
+           * for the destination picker below and then dropped — and the note said so, because a
            * control that quietly discards its answer is the "pretends to record" pattern the
-           * destination spec refuses in as many words.
+           * destination spec refuses in as many words. `Referral.suburb` exists now (`CM-4`), so
+           * that sentence became a FALSE REASSURANCE about what the record holds: worse than a
+           * missing one, because a clinician who read it would believe the answer went nowhere.
+           *
+           * The note therefore says the opposite, and `tests/ward-referral-suburb-pin.test.ts`
+           * pins it against `Referral.suburb`'s continued existence, so removing the field turns
+           * this sentence red rather than quietly false a second time.
+           *
+           * ⚠️ **A SUBURB IS NOT AN ADDRESS (`PD-3`).** No street, number or postcode belongs
+           * beside this picker, however natural it feels: `address` is UNRULED and the guard stays
+           * closed on it. A ruling permitting a suburb is not a ruling permitting the category.
            */}
           <div className={styles.fieldCard}>
             <label className={styles.fieldLegend} htmlFor="ward-referral-intake-suburb">
@@ -805,8 +818,8 @@ export function ReferralIntakeForm() {
               ))}
             </select>
             <p className={styles.fieldNote} data-testid="ward-referral-intake-suburb-note">
-              Used here to read the catchment for each destination below. It is not yet recorded on the referral, which
-              holds a home region and nothing finer.
+              Recorded on the referral, and used here to read the catchment for each destination below. If it is not
+              known, the list has an answer for that — the referral can still be sent.
             </p>
           </div>
 

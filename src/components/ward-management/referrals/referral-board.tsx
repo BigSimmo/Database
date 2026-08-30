@@ -13,7 +13,6 @@ import {
   DECLINE_REASON_LABELS,
   recentlyDecidedReferrals,
   referralQueueOrder,
-  referralWaitLabel,
   referralPersonFacts,
   referralSexCell,
   acceptedAddressing,
@@ -24,6 +23,7 @@ import {
 } from "@/components/ward-management/ward-referrals";
 
 import { ReferralMatchView } from "./referral-match";
+import { referralWaitLine } from "./referral-wait";
 import styles from "./referrals.module.css";
 
 /*
@@ -88,9 +88,14 @@ function outcomeDetail(referral: Referral, units: Unit[]): string {
  * Task 5 (Phase 7, "The front door", spec D9/D10): the coordinator's referral board — the screen
  * the whole phase exists to produce. Queued referrals first, ordered by urgency tier then by how
  * long each has waited (`referralQueueOrder`, `ward-referrals.ts`); recently decided referrals
- * below that, most recent decision first (`recentlyDecidedReferrals`). "Waiting since" is
+ * below that, most recent decision first (`recentlyDecidedReferrals`). The referral clock is
  * rendered prominently on every queued row — the queue ranks by urgency, which is right, but
  * length of wait carries the moral weight and is otherwise buried.
+ *
+ * ⚠️ **THAT CLOCK IS `referralWaitLine`, NEVER `referralWaitLabel`** (`./referral-wait.ts`, which
+ * carries the reasoning). The label form counts from `raisedAt` to `now` and never stops, so it
+ * goes on printing a wait for somebody who was triaged into a department hours ago. `P9-D7` stops
+ * the referral clock at triage, and a stopped span is worded as one rather than as a live wait.
  *
  * Selecting a queued referral opens the match view (`ReferralMatchView`) below the board, keyed
  * on the referral's own id so switching selection always starts that view's local state fresh.
@@ -205,8 +210,14 @@ function QueuedSection({
                   {/* M5 note is on the card below. M9: the cell holds an ELAPSED duration
                       ("40m waiting"), not a clock time — "Waiting since" promised "09:10". The
                       elapsed form is the more useful one on a queue, so the header moves to
-                      match the cell rather than the cell moving to match the header. */}
-                  <th scope="col">Waiting</th>
+                      match the cell rather than the cell moving to match the header.
+                      ⚠️ 2026-08-30: "Waiting" had itself become the wrong word for half of what
+                      this cell can now print. `referralWaitLine` stops the clock at triage
+                      (`P9-D7`), so a row may read "3h 30m referral to triage" — a span that ended,
+                      under a header asserting somebody is still waiting. The header now names what
+                      BOTH forms measure FROM, and each cell says for itself whether it is still
+                      running. */}
+                  <th scope="col">Since referral</th>
                   <th scope="col">Age band</th>
                   <th scope="col">Sex</th>
                   <th scope="col">Home region</th>
@@ -232,7 +243,7 @@ function QueuedSection({
                     </td>
                     <td>{urgencyTierLabel(referral.urgency)}</td>
                     <td className={styles.waitBadge} data-testid={`ward-referral-board-wait-${referral.id}`}>
-                      {referralWaitLabel(referral, now)}
+                      {referralWaitLine(referral, now)}
                     </td>
                     <td>{referral.ageBand}</td>
                     <td>{referralSexCell(referral)}</td>
@@ -263,7 +274,7 @@ function QueuedSection({
                     <span data-tier={referral.urgency}>{urgencyTierLabel(referral.urgency)}</span>
                   </span>
                   <span className={styles.waitBadge} data-testid={`ward-referral-board-card-wait-${referral.id}`}>
-                    {referralWaitLabel(referral, now)}
+                    {referralWaitLine(referral, now)}
                   </span>
                   <span className={styles.cardService}>{referralPersonFacts(referral).join(" · ")}</span>
                 </button>

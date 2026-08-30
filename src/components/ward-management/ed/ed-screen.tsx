@@ -91,13 +91,18 @@ function asLineHeading(term: string): string {
  * The two clocks, in the words this hub shows them in. Pure and exported so all three shapes can be
  * asserted directly — including the one the application cannot currently reach on this screen.
  *
- * ⚠️ **NO ED-ADDRESSED REFERRAL CAN CARRY A TRIAGE TIME TODAY** (2026-08-30). `triagedAt` exists on
- * six seeded referrals, every one of them addressed to a psychiatric ward, and `RECEIVE_REFERRAL` —
- * the only event that creates a `Referral` — has no field for it. So the department clock renders
- * its ABSENT branch for every row this inbox can actually hold, and the present branch below is
- * live code with no reachable caller on this screen. It is written and tested rather than deferred
- * because the absent branch is only meaningful next to the one it is the absence of; the gap is a
- * reported finding, not a silent assumption.
+ * ⚠️ **THE DEPARTMENT CLOCK'S PRESENT BRANCH IS REACHED NOW** (2026-08-30). It was not when this
+ * was written: `triagedAt` was authored only on referrals addressed to psychiatric wards, so this
+ * inbox rendered the ABSENT branch for every row it could hold. `RF-009` changed that — addressed
+ * to `rph-ed` for `psychiatric_review`, triaged 210 minutes before it was raised — and
+ * `tests/ward-ed-psychiatry-hub.dom.test.tsx` now asserts both of its clocks on the rendered screen.
+ *
+ * ⚠️ **WHAT IS STILL UNREACHABLE IS THE STOPPED REFERRAL CLOCK.** Stopping needs
+ * `triagedAt >= raisedAt` — somebody triaged AFTER being referred — and no seeded ED-addressed
+ * referral has that, while `RECEIVE_REFERRAL`, the only event that creates a `Referral`, has no
+ * `triagedAt` field for a screen to supply one. That branch is written and tested rather than
+ * deferred, because the running wording is only meaningful next to the wording it is not; the gap is
+ * a reported finding, not a silent assumption.
  *
  * ⚠️ **THE STOPPED CLOCK IS WORDED DIFFERENTLY FROM THE RUNNING ONE, and that is not styling.** A
  * span that ended at triage rendered like a wait somebody is still serving is the same class of lie

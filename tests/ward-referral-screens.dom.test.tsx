@@ -1110,6 +1110,46 @@ describe("ReferralBoard", () => {
     expect(screen.getByTestId("ward-referral-board-wait-RF-005")).toHaveTextContent("20m waiting");
   });
 
+  /**
+   * ⚠️ **THE CLOCK ON THIS BOARD USED TO BE UNABLE TO STOP.** It read `referralWaitLabel`, which is
+   * `formatElapsed(minutesUntil(now, raisedAt))` and has no reference to `triagedAt` at all — so a
+   * referral raised for somebody who was triaged into a department twenty minutes later went on
+   * printing a growing wait for hours, in the same words as a wait somebody is actually serving.
+   * `P9-D7` stops that clock at triage, and the board now reads it through `referralWaitLine`.
+   *
+   * The two figures above are the proof the RUNNING branch is unchanged — no queued seeded referral
+   * has been triaged AFTER being referred, so no row on this board can currently show a stopped
+   * clock, and the stopped wording is asserted directly in `tests/ward-referral-wait-line.test.ts`.
+   * What is asserted here is the part of the change that IS visible on this screen: the column no
+   * longer promises that every figure under it is a wait still running.
+   */
+  it("heads the wait column with what both forms of the figure measure from, not with 'Waiting'", () => {
+    renderBoard();
+    const table = screen.getByTestId("ward-referral-board-queued-table");
+    const headers = within(table)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent?.trim());
+
+    expect(headers).toContain("Since referral");
+    expect(
+      headers,
+      "the column is headed 'Waiting' again, over a cell that can now read '3h 00m referral to triage'",
+    ).not.toContain("Waiting");
+  });
+
+  /**
+   * ⚠️ No cell on this board may word a triage time as an arrival. A patient arrives, waits, and
+   * is triaged some time later; triage is the closest instant the model records, so it is a proxy
+   * and is only honest while every screen labels it as one.
+   */
+  it("words no figure on the board as an arrival", () => {
+    renderBoard();
+    expect(
+      (screen.getByTestId("ward-referral-board-screen").textContent ?? "").toLowerCase(),
+      "the referral board words a triage time as an arrival",
+    ).not.toContain("arriv");
+  });
+
   it("renders the real fixture's six decided referrals, most recently decided first", () => {
     renderBoard();
     // Real fixture decidedAt offsets from NOW_ANCHOR: RF-002 -10, RF-003 -15, RF-004 -25,
