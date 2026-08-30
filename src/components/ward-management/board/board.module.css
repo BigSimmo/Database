@@ -228,6 +228,44 @@
   line-height: var(--wb-leading-body);
 }
 
+/*
+ * THE FOLD THE DAILY SHEET SITS IN. Owner 2026-08-30: the sheet moved off the top of the board and
+ * out of the way, because on screen it repeated the board's own panels almost entirely — it was
+ * built as a printout of them.
+ *
+ * On screen it is a closed disclosure. On paper it must be OPEN and must not look like a control,
+ * which is what the print rule further down does. The two belong together: a fold that stayed shut
+ * on paper prints a blank page where the handover sheet belongs.
+ */
+.sheetFold {
+  margin-top: var(--wb-space-16);
+  border-top: var(--wb-hairline) solid var(--border);
+  padding-top: var(--wb-space-8);
+}
+
+.sheetFoldSummary {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--wb-leading-body);
+}
+
+/* On screen the body is shown or hidden by the button. On paper `.sheetBodyHidden` is overridden
+ * to `display: block` — the reader of a printed page cannot click anything, and a sheet that
+ * printed only when somebody happened to have expanded it first is a sheet that prints blank. */
+.sheetBody {
+  display: block;
+}
+
+.sheetBodyHidden {
+  display: none;
+}
+
 .asAtFixed {
   margin: var(--wb-space-4) 0 0;
   color: var(--text-muted);
@@ -1767,6 +1805,31 @@
    * above were taken under real print media and these were not, and they should not be compared
    * digit for digit.
    */
+  /*
+   * THE FOLD IS OPEN ON PAPER, AND IS NOT A CONTROL THERE.
+   *
+   * `<details>` collapses its own content when closed, and the reader of a printed sheet cannot
+   * open it — so without this the handover sheet prints as a single line of summary text and
+   * nothing else. `display: block` on the marker's parent plus `list-style: none` removes the
+   * disclosure triangle, which on paper is an arrow pointing at nothing.
+   *
+   * The summary itself is dropped: on screen it says "the page this board prints", which on the
+   * printed page is a sentence about itself.
+   */
+  .sheetFold {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 0;
+  }
+
+  /* The button is already removed by the global print reset (`button { display: none }`); the body
+     is forced open here whatever the screen state was. These two lines are the whole reason this
+     is a button and not a `<details>`. */
+  .sheetBodyHidden,
+  .sheetBody {
+    display: block;
+  }
+
   .sheetGroups {
     gap: var(--wb-space-8);
     margin-top: var(--wb-space-8);

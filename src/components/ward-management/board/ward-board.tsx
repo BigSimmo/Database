@@ -653,6 +653,17 @@ export function WardBoard({ unitId }: { unitId: string }) {
    */
   const [outgoingBasis, setOutgoingBasis] = useState<OutgoingBasis>("confirmed");
   /*
+   * Whether the printed sheet is shown on screen. Closed by default: it repeats the board's own
+   * panels, which is why it moved down here, and a reader who wants it is one click away.
+   *
+   * A `<details>` element was the obvious choice and is the wrong one. The browser hides a closed
+   * `details`' content through its own UA stylesheet, and no print rule reliably forces it open —
+   * so the handover sheet would have printed as one line of summary text and a blank page. A
+   * button plus a class the print stylesheet can override keeps the paper correct, which is the
+   * half that matters most: the sheet exists to be printed.
+   */
+  const [sheetOpen, setSheetOpen] = useState(false);
+  /*
    * The tile to hand focus back to once the slide-out closes.
    *
    * A REF rather than a second piece of state, and the distinction is not cosmetic. The focus call
@@ -889,29 +900,6 @@ export function WardBoard({ unitId }: { unitId: string }) {
             the times will differ.
           </p>
         </div>
-
-        {/*
-         * THE DAILY SHEET — D19's handover sheet, and page one of anything printed from this board.
-         *
-         * Rendered here, directly under the heading block, because on paper the two are one page: the
-         * heading carries the ward, the hospital, the headline figure, the sentence that qualifies it
-         * and the stamp, and the sheet carries D19's four groups beneath them. That page is what a
-         * charge nurse takes into the morning meeting.
-         *
-         * **Every value handed down is one the board already computed.** Not one of them is derived a
-         * second time here or inside the sheet — see that component's own doc comment. A sheet with
-         * its own copy of the available figure, the since-yesterday counts or the overdue set would be
-         * a second answer to a question somebody is asking out loud with the screen in front of them.
-         */}
-        <WardDailySheet
-          movement={movement}
-          incomingPulled={incoming.filter((person) => person.state === "pulled").length}
-          incomingWaitlisted={incoming.filter((person) => person.state === "waitlisted").length}
-          outgoingCount={outgoing.length}
-          outgoingBasisLabel={OUTGOING_BASIS_LABEL[outgoingBasis]}
-          destinations={targets}
-          people={occupants}
-        />
 
         {/*
          * THE TRIAGE BAR — the day's six figures for this one ward, in the home page's own words.
@@ -1477,6 +1465,53 @@ export function WardBoard({ unitId }: { unitId: string }) {
          * "top 5" with the rest hidden is worse than no list, because nobody reading it can tell that
          * anything is missing.
          */}
+        {/*
+         * THE WARD'S DAILY SHEET — LAST ON SCREEN, AND FOLDED AWAY UNTIL SOMEBODY WANTS IT.
+         *
+         * **Moved here from directly under the heading, owner 2026-08-30.** Measured before the
+         * move: the sheet was 995px of a 2493px page — **40% of the ward board, sitting second**,
+         * pushing the beds themselves below the fold. The board's subject is the beds; the sheet is
+         * what the board PRINTS.
+         *
+         * **Folded because on screen it repeats the board almost entirely, and that was by design.**
+         * The sheet was built as a printout of these same panels, so its "Since yesterday", "Who
+         * came in", "Who is going" and destinations list are the board's own since-panel, incoming
+         * panel, outgoing panel and destinations panel a second time. Two answers to one question,
+         * a screen apart, is exactly what this board refuses everywhere else.
+         *
+         * **Folding removes the duplication from the screen and removes nothing from the paper.**
+         * `<details>` keeps it one click away so nobody has to print to see what will print, and
+         * the print stylesheet forces it open — see `.sheetFold[open]` and the `@media print` rule,
+         * which must stay together: a fold that stayed shut on paper would print a blank page where
+         * the handover sheet belongs, which is the worst outcome of the three.
+         */}
+        <section className={styles.sheetFold} data-testid="ward-board-sheet-fold">
+          <button
+            type="button"
+            className={styles.sheetFoldSummary}
+            aria-expanded={sheetOpen}
+            aria-controls="ward-board-sheet-body"
+            onClick={() => setSheetOpen((open) => !open)}
+          >
+            {sheetOpen ? "Hide" : "Show"} the ward&apos;s daily sheet — the page this board prints
+          </button>
+          <div
+            id="ward-board-sheet-body"
+            className={sheetOpen ? styles.sheetBody : styles.sheetBodyHidden}
+            data-testid="ward-board-sheet-body"
+          >
+            <WardDailySheet
+              movement={movement}
+              incomingPulled={incoming.filter((person) => person.state === "pulled").length}
+              incomingWaitlisted={incoming.filter((person) => person.state === "waitlisted").length}
+              outgoingCount={outgoing.length}
+              outgoingBasisLabel={OUTGOING_BASIS_LABEL[outgoingBasis]}
+              destinations={targets}
+              people={occupants}
+            />
+          </div>
+        </section>
+
         <aside className={styles.people} aria-labelledby="ward-board-people-heading">
           <h2 id="ward-board-people-heading" className={styles.peopleHeading}>
             Who is in these beds
