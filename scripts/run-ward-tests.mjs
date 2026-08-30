@@ -75,10 +75,10 @@ function main() {
   const reportPath = path.join(mkdtempSync(path.join(tmpdir(), "ward-tests-")), "report.json").replace(/\\/g, "/");
   console.log(`Handed in: ${handedIn.length} file(s). Running…`);
 
-  const run = spawnSync(
-    `npx vitest run ${handedIn.join(" ")} --reporter=json --outputFile="${reportPath}"`,
-    { stdio: ["ignore", "inherit", "inherit"], shell: true },
-  );
+  const run = spawnSync(`npx vitest run ${handedIn.join(" ")} --reporter=json --outputFile="${reportPath}"`, {
+    stdio: ["ignore", "inherit", "inherit"],
+    shell: true,
+  });
 
   if (!existsSync(reportPath)) {
     console.error(
