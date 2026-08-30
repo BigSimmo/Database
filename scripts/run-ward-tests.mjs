@@ -43,6 +43,22 @@
  * because nobody correlated the death with what other sessions were doing at that second and nobody
  * can now. A correct-sounding cause that ends the inquiry is its own failure mode.
  *
+ * ⚠️ AND A LIMIT THAT SITS UPSTREAM OF THIS TOOL ENTIRELY, 2026-08-30. This guarantees that every
+ * file you handed in produced a result. IT CANNOT GUARANTEE THAT THE EDIT YOU MEANT TO TEST WAS
+ * EVER WRITTEN TO DISK. Under commit-charge exhaustion this machine failed to fork: a `python` and
+ * a `git commit` both died with `0xC000012D` (STATUS_COMMITMENT_LIMIT), and an edit was silently
+ * lost — the command printed an error, the file simply did not change, and the next step carried on
+ * as though it had. Later, PowerShell itself could not start.
+ *
+ * That failure is invisible in the way that matters: AN UNWRITTEN EDIT FOLLOWED BY A CLEAN
+ * `git status` IS INDISTINGUISHABLE FROM HAVING NOTHING TO COMMIT, and a run over the old content
+ * is honestly green. Every number this tool prints would be correct and the result would still be
+ * about code you did not write.
+ *
+ * SO: after a heavy or long step, VERIFY THE EDIT LANDED before trusting any run over it — grep the
+ * changed file for the thing you added, or check the blob, rather than inferring it from a clean
+ * tree. Same discipline as reading a mutation back from disk instead of assuming it applied.
+ *
  * MITIGATION THAT COSTS NOTHING: hand in only the files your change touches. The guarantee here is
  * COMPLETENESS OF WHAT YOU HANDED IN, not breadth — a narrow run is the same check over a smaller
  * set, not a weaker one. Keep the full suite for a fold, and say so when you run it.
