@@ -29,6 +29,30 @@
  * Exit codes: 0 all handed-in files ran and passed · 1 a real test failure · 2 a coverage
  * discrepancy (files vanished, nothing collected) — deliberately distinct, because "your tests are
  * broken" and "your test RUN is not telling you the truth" need different responses.
+ *
+ * ⚠️ KNOWN LIMITATION, 2026-08-30: THIS DOES NOT TAKE A REPOSITORY COORDINATOR LEASE.
+ *
+ * It spawns `npx vitest` directly. `npm run test` goes through `scripts/run-vitest.mjs`, which calls
+ * `acquireHeavyRunLock` first; the coordinator permits at most two focused Vitest leases across all
+ * worktrees and treats a full run as exclusive. So several sessions running the whole ward suite
+ * through this wrapper bypass that limit entirely — and the limit is real: probed at 13:34 the
+ * coordinator refused a run outright because a live Codex worktree held capacity.
+ *
+ * That is a CANDIDATE cause of the `VirtualAlloc failed` worker death this tool exists to catch —
+ * memory exhaustion from concurrent unthrottled runs. Stated as a hypothesis and not a measurement,
+ * because nobody correlated the death with what other sessions were doing at that second and nobody
+ * can now. A correct-sounding cause that ends the inquiry is its own failure mode.
+ *
+ * MITIGATION THAT COSTS NOTHING: hand in only the files your change touches. The guarantee here is
+ * COMPLETENESS OF WHAT YOU HANDED IN, not breadth — a narrow run is the same check over a smaller
+ * set, not a weaker one. Keep the full suite for a fold, and say so when you run it.
+ *
+ * WHY THIS IS NOT SIMPLY FIXED BY CALLING `run-vitest.mjs`: a capacity refusal is NOT a test
+ * failure. The coordinator throws when full, and the repository's own convention treats "blocked,
+ * retry" as a distinct outcome from "red" (see `verify:ui`'s exit 75 /
+ * DATABASE_HEAVY_RUN_ADMISSION_BUSY). Routing through the lease therefore needs a fourth outcome
+ * here, not a changed spawn line — and adding that to a tool several sessions depend on, while they
+ * are mid-build, is the wrong moment. Recorded for a quiet one.
  */
 
 import { spawnSync } from "node:child_process";
