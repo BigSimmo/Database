@@ -23,7 +23,7 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The router, replaced so `refresh()` is observable.
@@ -262,6 +262,13 @@ function overlayAction(): HTMLElement {
 function openOverlayId(): string | null {
   return document.querySelector('[data-testid="workspace-overlay-content"]')?.getAttribute("data-overlay-id") ?? null;
 }
+
+beforeAll(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(new Date(NOW));
+});
+
+afterAll(() => vi.useRealTimers());
 
 beforeEach(() => {
   actingRole = "coordinator";
