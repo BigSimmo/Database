@@ -52,18 +52,18 @@ import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
-type BedStateKey = "available" | "held" | "confirmed" | "predicted" | "blocked";
+type BedStateKey = "available" | "held" | "confirmed" | "expected" | "blocked";
 
 // Review Finding 4: this used to be `"potential"`, sourced from `unitCapacity()`'s raw release
 // count — every release for the unit regardless of state or timing, including one already
 // `discharged` and one expected beyond tonight, both of which spec D5/D6 exclude from every count.
-// Confirmed and Predicted are read from `capacityBreakdown()` instead, the same figures the
+// Confirmed and Expected are read from `capacityBreakdown()` instead, the same figures the
 // capacity board and the ward screen already show, so this board can never disagree with them.
 const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
   available: { label: "Ready", detail: "Available now" },
   held: { label: "Held", detail: "Bed held" },
   confirmed: { label: "Confirmed", detail: "Confirmed today" },
-  predicted: { label: "Predicted", detail: "Predicted today" },
+  expected: { label: "Expected", detail: "Expected today" },
   blocked: { label: "Blocked", detail: "Not available" },
 };
 
@@ -202,7 +202,7 @@ function transportTone(etaLabel: string) {
   return /requested|awaiting|not yet/i.test(etaLabel) ? "warning" : "good";
 }
 
-// Review Finding 4: the "Confirmed"/"Predicted" chips read `capacityBreakdown()`, not
+// Review Finding 4: the "Confirmed"/"Expected" chips read `capacityBreakdown()`, not
 // `unitCapacity()`'s raw `potential` — see the `bedStateCopy` doc comment above. The four
 // physical states (Ready/Held/Blocked, plus Occupied where shown) are untouched.
 function bedStateValue(
@@ -211,7 +211,7 @@ function bedStateValue(
   breakdown: ReturnType<typeof capacityBreakdown>,
 ): number {
   if (key === "confirmed") return breakdown.confirmedToday;
-  if (key === "predicted") return breakdown.predictedToday;
+  if (key === "expected") return breakdown.expectedToday;
   return capacity[key];
 }
 
@@ -292,7 +292,7 @@ function ServiceCard({
       data-routed={routed ? "true" : undefined}
       data-testid={`ward-network-card-${unit.id}`}
       className={styles.serviceCard}
-      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.predictedToday} predicted, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.${verdict ? ` ${verdict}.` : ""}`}
+      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.expectedToday} expected, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.${verdict ? ` ${verdict}.` : ""}`}
     >
       <span className={styles.serviceName}>{unit.name}</span>
       <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
@@ -1069,8 +1069,8 @@ export function WardNetworkWorkspace() {
               </p>
               <BedStateChips unit={detail} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} />
               <p className={styles.detailMeta}>
-                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Confirmed and predicted
-                beds are not allocatable yet.
+                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Confirmed and expected beds
+                are not allocatable yet.
               </p>
             </section>
           ) : null}

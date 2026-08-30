@@ -13,12 +13,12 @@ import type { BedRelease } from "@/components/ward-management/ward-model";
  * derived from it. Pure functions only — no React, no state, no I/O — and no bed arithmetic of
  * its own: `derivedBedReleases` produces the `BedRelease[]` view that `capacityBreakdown`
  * (`ward-bed-availability.ts`) already knows how to bucket into today/beyond-today and
- * predicted/confirmed/blocked. Re-deriving any of THAT here would be exactly the drift this
+ * expected/confirmed/blocked. Re-deriving any of THAT here would be exactly the drift this
  * module exists to prevent — if a count needs computing, `capacityBreakdown` is where it belongs.
  *
  * **A `"confirmed"` release comes from `Admission.dischargeConfirmedAt` and from NOTHING ELSE
  * (owner ruling, 2026-08-29).** A discharge date is a PLAN; confirming it is a DECISION. The first
- * implementation of this module could reach only `"predicted"`, because `Admission` recorded no
+ * implementation of this module could reach only `"expected"`, because `Admission` recorded no
  * decision at all, and it declined to invent a proxy for one — "the date has arrived", "the date
  * has been set a while", "the date has never moved". That refusal was right: each of those renders
  * a ward decision that nobody made, on a screen a coordinator reads as fact, which is the same
@@ -57,7 +57,7 @@ const STATEWIDE_RELEASE_BY_DESTINATION: ReadonlyMap<LeavingDestination, boolean>
 
 /**
  * One admission's forward-looking release — `"confirmed"` when the ward has decided it is
- * happening, `"predicted"` when it has only planned a date — or `null` when there is nothing to
+ * happening, `"expected"` when it has only planned a date — or `null` when there is nothing to
  * derive.
  *
  * **Rule 3 lives here, and it is absolute: no `expectedDischargeAt` (or a non-finite one) means NO
@@ -85,15 +85,15 @@ function deriveForwardRelease(admission: Admission): BedRelease | null {
 
   const blocker = admission.blockReason;
   // A non-finite confirmation instant is exactly as absent as a null one: broken data is never a
-  // decision, so it degrades to `"predicted"` rather than claiming a confirmation at `NaN`.
+  // decision, so it degrades to `"expected"` rather than claiming a confirmation at `NaN`.
   const decidedAt =
     admission.dischargeConfirmedAt !== null && Number.isFinite(admission.dischargeConfirmedAt)
       ? admission.dischargeConfirmedAt
       : null;
   return {
-    id: `derived-${decidedAt !== null ? "confirmed" : "predicted"}-${admission.id}`,
+    id: `derived-${decidedAt !== null ? "confirmed" : "expected"}-${admission.id}`,
     unitId: admission.unitId,
-    state: decidedAt !== null ? "confirmed" : "predicted",
+    state: decidedAt !== null ? "confirmed" : "expected",
     expectedAt,
     // BLANK, never `"Nothing outstanding"` — nobody has looked, and saying nothing is outstanding
     // would be a ward's finding rather than this module's silence. See the module doc comment.
@@ -162,12 +162,12 @@ function deriveDischargedRelease(admission: Admission, now: Instant): BedRelease
 /**
  * Every `BedRelease` this module can honestly derive from a list of admissions: one forward entry
  * per occupied bed carrying a real expected discharge date — `"confirmed"` when the ward has
- * confirmed the discharge (`Admission.dischargeConfirmedAt`) and `"predicted"` when it has not —
+ * confirmed the discharge (`Admission.dischargeConfirmedAt`) and `"expected"` when it has not —
  * and one `"discharged"` entry per admission that has actually left as of `now`.
  *
  * This is the whole surface other code should read for a derived view. `capacityBreakdown`
  * (`ward-bed-availability.ts`) is the existing consumer that turns this list into today/
- * beyond-today and predicted/confirmed/blocked counts; nothing here repeats that arithmetic.
+ * beyond-today and expected/confirmed/blocked counts; nothing here repeats that arithmetic.
  */
 export function derivedBedReleases(admissions: Admission[], now: Instant): BedRelease[] {
   const releases: BedRelease[] = [];

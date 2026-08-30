@@ -387,7 +387,7 @@ function CapacityView() {
   // (`tests/ward-capacity-reconciliation.test.ts` asserts that identity). Its own raw `potential`
   // field is no longer rendered here (defect fix, visual pass): it counted every bed release for
   // the unit regardless of state or timing, which duplicated and contradicted the headline's own
-  // careful `confirmedToday`/`predictedToday` split. The row now sources Confirmed/Predicted from
+  // careful `confirmedToday`/`expectedToday` split. The row now sources Confirmed/Expected from
   // the same per-unit `breakdown` the headline already computes below, rather than calling
   // `unitCapacity` a second time for a figure it does not distinguish. See `unitCapacity`'s own
   // `potential` field doc comment in ward-derivations.ts for why the field itself is untouched.
@@ -398,13 +398,13 @@ function CapacityView() {
   // — and only those five are ever shown as a card. `availableNow` is never added to anything:
   // that is the one rule this whole task exists to protect (see the file-level rule in
   // ward-bed-availability.ts). The per-unit `breakdown` computed here also feeds the per-unit
-  // row's Confirmed/Predicted chips below, so both places read the same figures.
+  // row's Confirmed/Expected chips below, so both places read the same figures.
   const breakdowns = units.map((unit) => ({ unit, breakdown: capacityBreakdown(unit, bedReleases, leaveBeds, now) }));
   const breakdownByUnitId = new Map(breakdowns.map((entry) => [entry.unit.id, entry.breakdown]));
   const headline = {
     availableNow: breakdowns.reduce((sum, entry) => sum + entry.breakdown.availableNow, 0),
     confirmedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.confirmedToday, 0),
-    predictedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.predictedToday, 0),
+    expectedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.expectedToday, 0),
     blockedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.blockedToday, 0),
     held: breakdowns.reduce((sum, entry) => sum + entry.breakdown.held, 0),
     leaveUsable: breakdowns.reduce((sum, entry) => sum + entry.breakdown.leaveUsable, 0),
@@ -414,14 +414,14 @@ function CapacityView() {
   // exactly the figures spec D6 names, in the order it names them, and makes a "total" card
   // impossible to add by accident the way looping over a totals object invited. The sixth,
   // `blocked-releases`, arrived with the bed-model rework of 2026-08-28: it is a CROSS-CUT of
-  // Confirmed today and Predicted today, never a sum with them and never a subtraction from
+  // Confirmed today and Expected today, never a sum with them and never a subtraction from
   // them, and its label is deliberately not the bare word "Blocked" — the per-unit rows below
   // already use that for physically blocked BEDS (`unitCapacity().blocked`), which is a
   // different fact. See `BED_RELEASE_BLOCKED_FIGURE_LABEL`.
   const headlineCards: { key: string; label: string; value: number }[] = [
     { key: "available-now", label: "Available now", value: headline.availableNow },
     { key: "confirmed-today", label: "Confirmed today", value: headline.confirmedToday },
-    { key: "predicted-today", label: "Predicted today", value: headline.predictedToday },
+    { key: "expected-today", label: "Expected today", value: headline.expectedToday },
     { key: "blocked-releases", label: BED_RELEASE_BLOCKED_FIGURE_LABEL, value: headline.blockedToday },
     { key: "held", label: "Held", value: headline.held },
     { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
@@ -433,7 +433,7 @@ function CapacityView() {
         <div>
           <h2>Ward-confirmed capacity</h2>
           <p>
-            Availability is not suitability. Available now is never softened by a predicted, confirmed-but-unreleased or
+            Availability is not suitability. Available now is never softened by a expected, confirmed-but-unreleased or
             on-leave bed.
           </p>
         </div>
@@ -493,7 +493,7 @@ function CapacityView() {
                       <strong>{breakdown?.confirmedToday ?? 0}</strong>Confirmed
                     </span>
                     <span>
-                      <strong>{breakdown?.predictedToday ?? 0}</strong>Predicted
+                      <strong>{breakdown?.expectedToday ?? 0}</strong>Expected
                     </span>
                     <span>
                       <strong>{capacity.blocked}</strong>Blocked

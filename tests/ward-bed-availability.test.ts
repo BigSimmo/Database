@@ -16,7 +16,7 @@ function release(overrides: Partial<BedRelease>): BedRelease {
   return {
     id: "WR-T01",
     unitId: unit.id,
-    state: "predicted",
+    state: "expected",
     expectedAt: NOW_ANCHOR + 60,
     waitingOn: "Awaiting ward round",
     blocker: null,
@@ -94,16 +94,16 @@ describe("release bands", () => {
 });
 
 describe("capacity breakdown", () => {
-  it("never adds a predicted or confirmed bed into availableNow", () => {
+  it("never adds a expected or confirmed bed into availableNow", () => {
     const bare = capacityBreakdown(unit, [], [], NOW_ANCHOR);
     const loaded = capacityBreakdown(
       unit,
-      [release({ state: "predicted" }), release({ id: "WR-T02", state: "confirmed", waitingOn: null })],
+      [release({ state: "expected" }), release({ id: "WR-T02", state: "confirmed", waitingOn: null })],
       [],
       NOW_ANCHOR,
     );
     expect(loaded.availableNow).toBe(bare.availableNow);
-    expect(loaded.predictedToday).toBe(1);
+    expect(loaded.expectedToday).toBe(1);
     expect(loaded.confirmedToday).toBe(1);
   });
 
@@ -121,7 +121,7 @@ describe("capacity breakdown", () => {
 
   it("reports what it excluded rather than dropping it silently", () => {
     const result = capacityBreakdown(unit, [release({ expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY })], [], NOW_ANCHOR);
-    expect(result.predictedToday).toBe(0);
+    expect(result.expectedToday).toBe(0);
     expect(result.excludedBeyondToday).toBe(1);
   });
 
@@ -134,7 +134,7 @@ describe("capacity breakdown", () => {
     );
     expect(result.excludedBeyondToday).toBe(1);
     expect(result.confirmedToday).toBe(0);
-    expect(result.predictedToday).toBe(0);
+    expect(result.expectedToday).toBe(0);
     // Q2 (2026-08-28): the today horizon and its excluded count both stay. The blocked figure
     // obeys the same horizon as the two it cross-cuts, so a release counted as excluded is never
     // also counted as blocked — that would be one release appearing in two totals.
@@ -145,7 +145,7 @@ describe("capacity breakdown", () => {
   /**
    * THE defect this whole bed-model rework exists to close, verified in the code before the change
    * was raised. `capacityBreakdown` used to sort today's releases into `confirmedToday` or
-   * `predictedToday` by state; a release in the fourth state `"blocked"` matched NEITHER branch
+   * `expectedToday` by state; a release in the fourth state `"blocked"` matched NEITHER branch
    * and was counted nowhere at all. Marking a confirmed discharge as blocked therefore DROPPED the
    * ward's confirmed count by one, with nothing appearing anywhere to say why — the figures
    * improved at the exact moment the ward got stuck.
@@ -167,33 +167,33 @@ describe("capacity breakdown", () => {
     expect(blocked.availableNow).toBe(capacityBreakdown(unit, [], [], NOW_ANCHOR).availableNow);
   });
 
-  it("keeps a blocked-but-predicted release counting as predicted, and reports it as blocked beside that", () => {
-    const result = capacityBreakdown(unit, [blockedRelease({ state: "predicted" })], [], NOW_ANCHOR);
-    expect(result.predictedToday).toBe(1);
+  it("keeps a blocked-but-expected release counting as expected, and reports it as blocked beside that", () => {
+    const result = capacityBreakdown(unit, [blockedRelease({ state: "expected" })], [], NOW_ANCHOR);
+    expect(result.expectedToday).toBe(1);
     expect(result.confirmedToday).toBe(0);
     expect(result.blockedToday).toBe(1);
   });
 
   /**
    * `blockedToday` is a CROSS-CUT, not a fourth bucket — every release it counts is also counted
-   * in `confirmedToday` or `predictedToday`. Asserted over a mixed set rather than a single
+   * in `confirmedToday` or `expectedToday`. Asserted over a mixed set rather than a single
    * release so an implementation that partitioned the three (subtracting blocked out of the other
    * two) fails here rather than passing the two single-release cases above.
    */
-  it("counts blocked releases as a cross-cut of confirmed and predicted, never as a bucket taken out of them", () => {
+  it("counts blocked releases as a cross-cut of confirmed and expected, never as a bucket taken out of them", () => {
     const result = capacityBreakdown(
       unit,
       [
         release({ id: "WR-T01", state: "confirmed", waitingOn: null }),
         blockedRelease({ id: "WR-T02", state: "confirmed", waitingOn: null }),
-        release({ id: "WR-T03", state: "predicted" }),
-        blockedRelease({ id: "WR-T04", state: "predicted" }),
+        release({ id: "WR-T03", state: "expected" }),
+        blockedRelease({ id: "WR-T04", state: "expected" }),
       ],
       [],
       NOW_ANCHOR,
     );
     expect(result.confirmedToday).toBe(2);
-    expect(result.predictedToday).toBe(2);
+    expect(result.expectedToday).toBe(2);
     expect(result.blockedToday).toBe(2);
   });
 
@@ -261,7 +261,7 @@ describe("capacity breakdown", () => {
       [leave({ unitId: "not-this-unit" })],
       NOW_ANCHOR,
     );
-    expect(result.predictedToday).toBe(0);
+    expect(result.expectedToday).toBe(0);
     expect(result.leaveUsable).toBe(0);
   });
 });

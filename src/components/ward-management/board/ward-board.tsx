@@ -374,7 +374,7 @@ function movesPhrase(moves: number): string {
  * values a derived forward `BedRelease` can carry (`ward-discharge-dates.ts`), so the toggle
  * selects a real field on real records rather than a display mode invented here.
  */
-const OUTGOING_BASES = ["confirmed", "predicted"] as const;
+const OUTGOING_BASES = ["confirmed", "expected"] as const;
 type OutgoingBasis = (typeof OUTGOING_BASES)[number];
 
 /**
@@ -383,12 +383,12 @@ type OutgoingBasis = (typeof OUTGOING_BASES)[number];
  * `CAPACITY_FIGURE_LABELS` is the single vocabulary the morning page, the hospital rollup and the
  * ward rollup all render (`ward-morning-rollup.ts`, spec D3/D14), so the toggle names the two
  * figures it switches between with the labels those figures already carry. Typing "Confirmed" and
- * "Predicted" here instead would pass every test today and cost the cheap rename tomorrow, which
+ * "Expected" here instead would pass every test today and cost the cheap rename tomorrow, which
  * is the exact failure that constant exists to prevent.
  */
 const OUTGOING_BASIS_LABEL: Record<OutgoingBasis, string> = {
   confirmed: CAPACITY_FIGURE_LABELS.confirmedToday,
-  predicted: CAPACITY_FIGURE_LABELS.predictedToday,
+  expected: CAPACITY_FIGURE_LABELS.expectedToday,
 };
 
 /**
@@ -771,7 +771,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
   const figures: { key: keyof typeof CAPACITY_FIGURE_LABELS; value: number }[] = [
     { key: "availableNow", value: breakdown.availableNow },
     { key: "confirmedToday", value: breakdown.confirmedToday },
-    { key: "predictedToday", value: breakdown.predictedToday },
+    { key: "expectedToday", value: breakdown.expectedToday },
     { key: "blockedToday", value: breakdown.blockedToday },
     { key: "held", value: breakdown.held },
     { key: "leaveUsable", value: breakdown.leaveUsable },
@@ -914,7 +914,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
          * **The toggle changes emphasis; it never hides a figure.** All six are on the bar in every
          * state. A control able to take the blocked-releases figure off a coordinator's screen is a
          * control able to hide the one thing they most need to chase, so the toggle instead selects
-         * which of Confirmed today / Predicted today the "Going out today" list below is built from —
+         * which of Confirmed today / Expected today the "Going out today" list below is built from —
          * the owner's own "daily discharges … and toggles to daily expects". The selected figure is
          * marked in WORDS ("shown in Going out") as well as by weight, because a mark carried by
          * weight alone is a mark a greyscale sheet loses.
@@ -927,7 +927,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
             {figures.map(({ key, value }) => {
               const led =
                 (outgoingBasis === "confirmed" && key === "confirmedToday") ||
-                (outgoingBasis === "predicted" && key === "predictedToday");
+                (outgoingBasis === "expected" && key === "expectedToday");
               return (
                 <div
                   key={key}

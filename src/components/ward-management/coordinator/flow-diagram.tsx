@@ -538,15 +538,15 @@ function UnitNode({
         {/* Review Finding 4: `capacity.potential` counted every bed release for the unit
             regardless of state or timing -- including a release already `discharged` and one
             expected beyond tonight, both of which spec D5/D6 exclude from every count. Confirmed
-            and Predicted are read from the same `capacityBreakdown()` the capacity board and the
+            and Expected are read from the same `capacityBreakdown()` the capacity board and the
             ward screen already use, so this board can never show a figure they contradict.
             Dashed styling marks both as the separate, forward-looking figures they are (ruling
             3); `capacity.potential` itself is untouched -- see its own doc comment. */}
         <span className={styles.diagramBedChip} data-state="confirmed">
           Confirmed {breakdown.confirmedToday}
         </span>
-        <span className={styles.diagramBedChip} data-state="predicted">
-          Predicted {breakdown.predictedToday}
+        <span className={styles.diagramBedChip} data-state="expected">
+          Expected {breakdown.expectedToday}
         </span>
       </span>
       {!unit.authorised ? (

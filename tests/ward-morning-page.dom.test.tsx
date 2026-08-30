@@ -85,25 +85,25 @@ describe("MorningPage", () => {
 
     const remaining = screen.getByTestId("ward-morning-remaining-figures");
     expect(within(remaining).getByTestId("ward-morning-figure-service-confirmedToday")).toBeInTheDocument();
-    expect(within(remaining).getByTestId("ward-morning-figure-service-predictedToday")).toBeInTheDocument();
+    expect(within(remaining).getByTestId("ward-morning-figure-service-expectedToday")).toBeInTheDocument();
     expect(within(remaining).getByTestId("ward-morning-figure-service-held")).toBeInTheDocument();
     expect(within(remaining).getByTestId("ward-morning-figure-service-leaveUsable")).toBeInTheDocument();
   });
 
   /**
    * The single most important rule in this project (stated in `GovernanceBanner`'s own copy):
-   * nothing predicted, confirmed-but-unreleased, or on leave may ever reach "beds available right
+   * nothing expected, confirmed-but-unreleased, or on leave may ever reach "beds available right
    * now". No existing test asserted the headline's actual NUMBER, only its presence — so a
    * mutation making the headline `availableNow + confirmedToday` (mutation-report Gap 3, the most
    * serious of the three) passed every assertion in this file. This test computes the expected
    * figure independently via `serviceRollup(...)` from the same real fixture data the page itself
    * renders, over `bedReleases`/`leaveBeds` fixtures (`ward-movements.ts`) that are seeded with
-   * non-zero `confirmedToday`, `predictedToday` and `leaveUsable` at the frozen 08:00 handover
+   * non-zero `confirmedToday`, `expectedToday` and `leaveUsable` at the frozen 08:00 handover
    * instant — asserted below rather than assumed, so this guard cannot pass merely because those
    * fields happened to be zero. Adding any of them into the headline changes the expected number
    * and fails this test.
    */
-  it("renders the headline as availableNow alone, never mixing in confirmedToday, predictedToday or leaveUsable", () => {
+  it("renders the headline as availableNow alone, never mixing in confirmedToday, expectedToday or leaveUsable", () => {
     let captured: ReturnType<typeof useWardFlow> | undefined;
 
     // Reads the hook during render (required — hooks must be called unconditionally at the top
@@ -139,7 +139,7 @@ describe("MorningPage", () => {
     // below could pass for the wrong reason (headline === availableNow trivially because the
     // excluded fields were already zero).
     expect(expected.confirmedToday).toBeGreaterThan(0);
-    expect(expected.predictedToday).toBeGreaterThan(0);
+    expect(expected.expectedToday).toBeGreaterThan(0);
     expect(expected.leaveUsable).toBeGreaterThan(0);
 
     const headline = screen.getByTestId("ward-morning-headline");
@@ -243,23 +243,23 @@ describe("MorningPage", () => {
 
   /**
    * The test above asserts rendered text equals `CAPACITY_FIGURE_LABELS`'s own values, which is
-   * self-referential: a hardcoded literal identical to the constant (e.g. `"Predicted today"`
-   * typed directly into JSX instead of `{CAPACITY_FIGURE_LABELS.predictedToday}`) produces the
+   * self-referential: a hardcoded literal identical to the constant (e.g. `"Expected today"`
+   * typed directly into JSX instead of `{CAPACITY_FIGURE_LABELS.expectedToday}`) produces the
    * same DOM and passes it (mutation-report Gap 2). What spec D14 actually protects is that the
    * page has no such literal at all — every label site reads the constant, so a future rename of
    * one value is three strings, never a JSX hunt.
    *
    * Gap 3 (final review). This used to be `source.includes(JSON.stringify(label))` — a raw
-   * substring check for the DOUBLE-QUOTED form only. `JSON.stringify("Predicted today")` is
-   * `"Predicted today"` with double quotes, so the guard was blind to a single-quoted literal
-   * (`'Predicted today'`) and, more seriously, to a TEMPLATE literal (`` {`Predicted today`} ``):
+   * substring check for the DOUBLE-QUOTED form only. `JSON.stringify("Expected today")` is
+   * `"Expected today"` with double quotes, so the guard was blind to a single-quoted literal
+   * (`'Expected today'`) and, more seriously, to a TEMPLATE literal (`` {`Expected today`} ``):
    * Prettier does not rewrite a template literal to quotes, so that form survives lint and format
    * as well as the old test. Replaced with an AST-based scan (`literalsIn`, lifted out of
    * `tests/ward-legal-figure-guard.test.ts` rather than re-implemented here — see that helper's
    * own doc comment), which reads every string literal, no-substitution template literal, and
    * template head/middle/tail the TypeScript parser sees, independent of quote style. Matching is
    * by substring (`literal.includes(label)`, not equality) so a label hardcoded with a dynamic
-   * suffix concatenated on — `` `Predicted today ${x}` ``, whose static head text already carries
+   * suffix concatenated on — `` `Expected today ${x}` ``, whose static head text already carries
    * the whole label before the parser ever reaches the interpolation — is caught too, not only an
    * exact one-literal-equals-one-label match.
    */
@@ -317,7 +317,7 @@ describe("MorningPage", () => {
    * I4 fix pass (spec D4, "Zero is a claim"). JHC and PEEL are real fixture sites with no units
    * — before this fix, `SiteBlock` still rendered their five-figure grid, and every field of
    * `sumBreakdowns([])` is zero, so a reader scanning the page saw "Available now 0 · Confirmed
-   * today 0 · Predicted today 0 · Held 0 · Leave (usable) 0" under a real hospital's name, as if
+   * today 0 · Expected today 0 · Held 0 · Leave (usable) 0" under a real hospital's name, as if
    * this page had checked and found nothing. The true fact is that it has nothing to report at
    * all — carried by "Never confirmed" and "No units recorded" alone. This proves the FIGURE GRID
    * itself is gone (not merely covered by a different assertion), for BOTH real no-unit sites,
@@ -475,7 +475,7 @@ describe("MorningPage", () => {
       const service: CapacityRollup = {
         availableNow: 4,
         confirmedToday: 1,
-        predictedToday: 1,
+        expectedToday: 1,
         blockedToday: 1,
         held: 1,
         leaveUsable: 1,

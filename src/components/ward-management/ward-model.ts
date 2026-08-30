@@ -383,35 +383,35 @@ export type Rejection = {
  * **Three stages since 2026-08-28**, down from four — the product owner's decision, recorded in
  * `docs/ward-flow-phase-6-7-decisions.md` ("The bed model becomes three stages plus a flag").
  * Each stage says how CERTAIN the discharge is, and nothing else. `"blocked"` was removed as a
- * stage and became a flag (`BedRelease.blocker`/`blockedBy`) that sits ON a predicted or
+ * stage and became a flag (`BedRelease.blocker`/`blockedBy`) that sits ON a expected or
  * confirmed release, because being stuck is not a degree of certainty.
  *
  * The defect that forced it, verified in the code before it was raised: `capacityBreakdown`
- * (`ward-bed-availability.ts`) sorted today's releases into `confirmedToday` or `predictedToday`
+ * (`ward-bed-availability.ts`) sorted today's releases into `confirmedToday` or `expectedToday`
  * by state, so a release in state `"blocked"` matched NEITHER branch and was counted nowhere.
  * Marking a confirmed discharge blocked silently dropped the ward's confirmed count — the figures
  * improved at the exact moment the ward got stuck. A blocked-but-confirmed bed now keeps counting
  * as confirmed, and `CapacityBreakdown.blockedToday` states how many are stuck beside it.
  *
- * Transitions go BOTH ways: `confirmed` may return to `predicted` when a decision is reversed
+ * Transitions go BOTH ways: `confirmed` may return to `expected` when a decision is reversed
  * (`REVERT_BED_RELEASE`). The old one-way model did not stop reversals happening — it made wards
  * record them dishonestly.
  */
-export const BED_RELEASE_STATES = ["predicted", "confirmed", "discharged"] as const;
+export const BED_RELEASE_STATES = ["expected", "confirmed", "discharged"] as const;
 export type BedReleaseState = (typeof BED_RELEASE_STATES)[number];
 
 /**
  * **The Q1 axis change, landed 2026-08-28** ("The three lists", List 2). This replaces
  * `BED_RELEASE_CONFIDENCE_LEVELS` — the `likely` / `possible` pair Phase 5 shipped — outright.
  *
- * A predicted discharge no longer carries HOW CONFIDENT the ward is; it carries WHAT IT IS
+ * A expected discharge no longer carries HOW CONFIDENT the ward is; it carries WHAT IT IS
  * WAITING ON. The owner's reasoning: confidence asks a ward to estimate a probability, people are
  * poor at that, and worse, two wards' "likely" do not mean the same thing — so a coordinator can
  * neither compare them nor add them up. What a discharge is waiting on is a **fact, not a
  * judgement**: comparable across wards, and actionable. A bed waiting on a ward round is a
  * different prospect from one waiting on a family meeting.
  *
- * **`"Nothing outstanding"` carries more weight than it looks.** It is a predicted discharge with
+ * **`"Nothing outstanding"` carries more weight than it looks.** It is a expected discharge with
  * no obstacle at all — the closest thing to the old "likely", and the one a coordinator can most
  * safely plan against. Without it the list would force a ward to name an obstacle that does not
  * exist, which is how a fixed list starts producing false records.
@@ -444,7 +444,7 @@ export type BedRelease = {
   expectedAt: Instant;
   /**
    * What this discharge is still waiting on, chosen from `BED_RELEASE_WAITING_ON`. Non-null only
-   * while `state` is `"predicted"` — a confirmed discharge is a decision, not something still
+   * while `state` is `"expected"` — a confirmed discharge is a decision, not something still
    * being waited on, and a released one has already happened.
    *
    * Renamed from `confidence` by the Q1 axis change of 2026-08-28. Keeping the old name over the
@@ -452,14 +452,14 @@ export type BedRelease = {
    * coordinator reads as fact, which is the kind of quiet mismatch this project treats as a
    * defect rather than a cosmetic point.
    *
-   * `"Nothing outstanding"` is a legitimate value, not an absence: it means a predicted discharge
-   * with no obstacle. `null` means the release is not predicted at all. The two are different and
+   * `"Nothing outstanding"` is a legitimate value, not an absence: it means a expected discharge
+   * with no obstacle. `null` means the release is not expected at all. The two are different and
    * must not be collapsed.
    */
   waitingOn: BedReleaseWaitingOn | null;
   /**
    * **The blocked FLAG's reason** (bed-model rework, 2026-08-28). Non-null means this discharge
-   * is decided-or-expected AND currently stuck; it may sit on a `"predicted"` release or on a
+   * is decided-or-expected AND currently stuck; it may sit on a `"expected"` release or on a
    * `"confirmed"` one, and a blocked-but-confirmed release still counts as confirmed. Always
    * `null` on a `"discharged"` release — once the bed is free there is nothing left being held up.
    *

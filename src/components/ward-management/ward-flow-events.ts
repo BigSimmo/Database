@@ -237,7 +237,7 @@ export type WardFlowEvent =
        * bed coming free that is ALREADY stuck.
        *
        * Bed-model rework (2026-08-28): supplying this no longer changes which STATE the release
-       * is created in. Every `FLAG_BED_RELEASE` creates a `"predicted"` release, and a blocker
+       * is created in. Every `FLAG_BED_RELEASE` creates a `"expected"` release, and a blocker
        * sets the blocked FLAG on it. Before the rework a flagged blocker produced a release in
        * the fourth state `"blocked"`, which `capacityBreakdown` then counted nowhere at all.
        */
@@ -247,7 +247,7 @@ export type WardFlowEvent =
       type: "CONFIRM_BED_RELEASE";
       role: WardFlowRole;
       now: Instant;
-      /** The release moving from `predicted` into `confirmed`. Any blocked flag it carries is
+      /** The release moving from `expected` into `confirmed`. Any blocked flag it carries is
        *  deliberately KEPT — a discharge that is decided and stuck is exactly that, and losing
        *  the flag here would recreate the count defect this rework closed from the other side. */
       releaseId: string;
@@ -264,7 +264,7 @@ export type WardFlowEvent =
       role: WardFlowRole;
       now: Instant;
       /**
-       * The release moving from `confirmed` back to `predicted` — the reversal the four-stage
+       * The release moving from `confirmed` back to `expected` — the reversal the four-stage
        * model forbade (bed-model rework, 2026-08-28). Forbidding it never stopped a decision
        * being reversed on a ward; it only made the ward record the reversal dishonestly, by
        * leaving a confirmed row standing that everybody knew was no longer true. Any blocked flag
@@ -274,7 +274,7 @@ export type WardFlowEvent =
       /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
       actingUnitId: string;
       /**
-       * A `"predicted"` release carries a waiting-on value and a `"confirmed"` one does not, so
+       * A `"expected"` release carries a waiting-on value and a `"confirmed"` one does not, so
        * the reversal has to restate it — there is no earlier value to restore, and inventing one
        * would be the reducer asserting something the ward never said. Moved with the Q1 axis
        * change of 2026-08-28, exactly as the bed-model rework said it would.
@@ -287,7 +287,7 @@ export type WardFlowEvent =
       now: Instant;
       /**
        * The release gaining the blocked FLAG. Bed-model rework (2026-08-28): this no longer
-       * changes `state` at all — a blocked release stays `predicted` or `confirmed`, and a
+       * changes `state` at all — a blocked release stays `expected` or `confirmed`, and a
        * blocked-but-confirmed bed keeps counting as confirmed. `discharged` is refused: there is
        * nothing left to hold up once the bed is free.
        */
@@ -344,7 +344,7 @@ export type WardFlowEvent =
       now: Instant;
       /**
        * The release moving into `discharged` — terminal. Accepted from `confirmed` and from
-       * `predicted` alike: `discharged` is a statement of fact about a bed that is now empty, not a
+       * `expected` alike: `discharged` is a statement of fact about a bed that is now empty, not a
        * promotion of a prediction into availability, and the four-stage model already allowed the
        * same journey through `blocked`. Narrowing it to `confirmed`-only during the rework would
        * have refused a path wards could already take.

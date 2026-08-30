@@ -133,7 +133,7 @@ function bedAcceptsSex(unit: Unit, sex: Sex, admissions: readonly Admission[], n
  * The one number the board leads with: beds this ward can fill right now.
  *
  * **Read from `capacityBreakdown`, never re-derived.** That module is the single place the
- * available figure is computed — `min(allocatable, empty)`, with nothing predicted, confirmed but
+ * available figure is computed — `min(allocatable, empty)`, with nothing expected, confirmed but
  * unreleased, or on leave ever added in, and nothing subtracted for a bed being cleaned. Doing
  * the arithmetic again here would produce a second answer to the question a coordinator points at
  * and acts on, and the two copies would diverge the first time one of them was corrected.

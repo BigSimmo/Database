@@ -198,10 +198,10 @@ describe("MorningTour", () => {
     // `phase` state flipping to "idle", which happens whether or not the `RESET_SCENARIO`
     // dispatch inside `finish()` actually runs. Prove the SHARED reducer state really returned to
     // its seeded values: the referral the tour raised at beat 1 is gone, and the bed release it
-    // confirmed at beat 3 is back to its seeded "predicted" state.
+    // confirmed at beat 3 is back to its seeded "expected" state.
     const resetProbe = screen.getByTestId("state-probe");
     expect(resetProbe).toHaveAttribute("data-tour-movement-exists", "false");
-    expect(resetProbe).toHaveAttribute("data-release-state", "predicted");
+    expect(resetProbe).toHaveAttribute("data-release-state", "expected");
   });
 
   it("Stop halts at the current beat and does not advance further", () => {
@@ -281,9 +281,9 @@ describe("MorningTour", () => {
 
     // Finding 3: a refused ACCEPT_IN_PRINCIPLE must never let the beat's second event
     // (CONFIRM_BED_RELEASE) still fire — the release stays exactly where the concurrent
-    // acceptance left it (seeded "predicted"), never flipped to "confirmed" under an acceptance
+    // acceptance left it (seeded "expected"), never flipped to "confirmed" under an acceptance
     // that was actually refused.
-    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-release-state", "predicted");
+    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-release-state", "expected");
 
     // Stopped, not skipped ahead: further time must never reach beat 4.
     advance(TOUR_BEAT_INTERVAL_MS * 3);

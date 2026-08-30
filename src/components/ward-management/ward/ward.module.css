@@ -178,11 +178,11 @@
   color: var(--text-muted);
 }
 
-/* Confirmed, predicted and leave beds — never summed into the four physical states above (they
+/* Confirmed, expected and leave beds — never summed into the four physical states above (they
    already account for every physical bed). Dashed styling marks them as the separate,
    forward-looking figures they are, the same convention the flow diagram's own bed chips use. */
 .bedChip[data-state="confirmed"],
-.bedChip[data-state="predicted"],
+.bedChip[data-state="expected"],
 .bedChip[data-state="leave"] {
   border-style: dashed;
   border-color: var(--clinical-accent);
@@ -215,7 +215,7 @@
 
 /* Deliberately its own visible mark, distinct from `.bedChip`/`.notice` — a refresh request
    changes no bed count (spec D12), so it must never read like one of the states in the grid
-   below it. Dashed border echoes `.bedChip[data-state="confirmed"/"predicted"/"leave"]`'s own "this is forward-
+   below it. Dashed border echoes `.bedChip[data-state="confirmed"/"expected"/"leave"]`'s own "this is forward-
    looking, not a physical count" convention rather than borrowing its solid states. */
 .refreshRequestMark {
   display: inline-flex;

@@ -429,7 +429,7 @@
 }
 
 .bedChip[data-state="confirmed"],
-.bedChip[data-state="predicted"] {
+.bedChip[data-state="expected"] {
   border-style: dashed;
   border-color: var(--net-blue);
   color: var(--net-blue);
@@ -530,7 +530,7 @@
 }
 
 .legendSwatch[data-state="confirmed"],
-.legendSwatch[data-state="predicted"] {
+.legendSwatch[data-state="expected"] {
   border-style: dashed;
   border-color: var(--net-blue);
 }

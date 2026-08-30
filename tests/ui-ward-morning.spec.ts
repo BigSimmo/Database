@@ -31,7 +31,7 @@ async function gotoMorning(page: Page) {
  *  same five keys rendered at service, site AND unit level never collide on one `data-testid`
  *  (`FigureList`'s own doc comment in morning-page.tsx). Every figure read in this file goes
  *  through a helper naming its exact level rather than a bare page-level lookup. */
-function unitFigure(page: Page, key: "confirmedToday" | "predictedToday") {
+function unitFigure(page: Page, key: "confirmedToday" | "expectedToday") {
   return page.getByTestId(`ward-morning-figure-unit-${TOUR_UNIT_ID}-${key}`).locator("dd");
 }
 
@@ -67,13 +67,13 @@ test.describe("@mockup Ward morning bed state — fixed/live views and the guide
 
     // Baseline read for the tour-completion assertion below, taken from the live view before the
     // tour touches anything: WR-002 (`morning-tour.tsx`'s own `TOUR_RELEASE_ID`) seeds as a
-    // `predicted` release at this exact unit, so this unit's predicted/confirmed figures are the
+    // `expected` release at this exact unit, so this unit's expected/confirmed figures are the
     // ones the tour's beat 3 (`CONFIRM_BED_RELEASE`) moves.
     const baselineConfirmed = Number(await unitFigure(page, "confirmedToday").innerText());
-    const baselinePredicted = Number(await unitFigure(page, "predictedToday").innerText());
+    const baselineExpected = Number(await unitFigure(page, "expectedToday").innerText());
     expect(
-      baselinePredicted,
-      "fixture assumption: WR-002 seeds scgh-adult-open predictedToday >= 1",
+      baselineExpected,
+      "fixture assumption: WR-002 seeds scgh-adult-open expectedToday >= 1",
     ).toBeGreaterThanOrEqual(1);
 
     // --- 3. The tour runs to completion and the board visibly changes at beat 4. ---
@@ -98,7 +98,7 @@ test.describe("@mockup Ward morning bed state — fixed/live views and the guide
     // `pendingSecondEventRef`'s own doc comment in `morning-tour.tsx`) — wait for that to land on
     // the live board before reading the figures it moves, rather than racing it.
     await expect(unitFigure(page, "confirmedToday")).toHaveText(String(baselineConfirmed + 1));
-    await expect(unitFigure(page, "predictedToday")).toHaveText(String(baselinePredicted - 1));
+    await expect(unitFigure(page, "expectedToday")).toHaveText(String(baselineExpected - 1));
 
     await nextButton.click(); // -> beat 4: no dispatch, the board just re-renders
     await expect(beatLabel).toHaveText("Beat 4 of 4");
@@ -107,14 +107,14 @@ test.describe("@mockup Ward morning bed state — fixed/live views and the guide
     // design), but proof the board carries beat 3's real dispatch forward rather than resetting or
     // stalling on the second-to-last beat.
     await expect(unitFigure(page, "confirmedToday")).toHaveText(String(baselineConfirmed + 1));
-    await expect(unitFigure(page, "predictedToday")).toHaveText(String(baselinePredicted - 1));
+    await expect(unitFigure(page, "expectedToday")).toHaveText(String(baselineExpected - 1));
 
     // Let the tour finish and reset (clicking Next at the last beat calls `finish()`), returning
     // the page to a clean idle state before the next phase of this journey.
     await nextButton.click();
     await expect(page.getByTestId("ward-morning-tour-start")).toBeVisible();
     await expect(unitFigure(page, "confirmedToday")).toHaveText(String(baselineConfirmed));
-    await expect(unitFigure(page, "predictedToday")).toHaveText(String(baselinePredicted));
+    await expect(unitFigure(page, "expectedToday")).toHaveText(String(baselineExpected));
 
     // --- 4. Stop halts the tour at the current beat: clicking Stop mid-tour (beat 2, a
     // non-terminal beat) ends the tour immediately from wherever it currently is, rather than only

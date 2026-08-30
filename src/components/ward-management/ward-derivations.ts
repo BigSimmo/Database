@@ -55,7 +55,7 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
  *  ward-model.ts) are raw lowercase lifecycle identifiers, never sentence-case display text.
  *  A screen renders this label, never `release.state` directly (defect fix, visual pass). */
 export const bedReleaseStateLabels: Record<BedReleaseState, string> = {
-  predicted: "Predicted",
+  expected: "Expected",
   confirmed: "Confirmed",
   discharged: "Discharged",
 };
@@ -277,11 +277,11 @@ export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
     held,
     /**
      * Task 7 (Phase 5, spec D6); review Finding 4: this is a raw count of every bed release for
-     * the unit regardless of state or timing — it does not distinguish confirmed from predicted
+     * the unit regardless of state or timing — it does not distinguish confirmed from expected
      * from blocked, and it does not exclude a release that falls beyond tonight. Nothing renders
      * this field any more: `ward-management-modes.tsx`, `ward/ward-screen.tsx`,
      * `ward-management-network.tsx` and `coordinator/flow-diagram.tsx` all render
-     * `capacityBreakdown()`'s Confirmed/Predicted figures instead. This field's arithmetic is
+     * `capacityBreakdown()`'s Confirmed/Expected figures instead. This field's arithmetic is
      * deliberately left unchanged — it is protected — but it is dead beyond its remaining
      * offline test callers (`tests/ward-capacity-reconciliation.test.ts`,
      * `tests/ward-flow-reducer.test.ts`, `tests/ward-model.test.ts`); do not repurpose it as a

@@ -27,7 +27,7 @@ import styles from "./morning-tour.module.css";
  */
 const TOUR_ED_ID = "scgh-ed";
 const TOUR_UNIT_ID = "scgh-adult-open";
-/** WR-002 in the seeded fixture (`ward-movements.ts`): a `predicted` release at the very unit the
+/** WR-002 in the seeded fixture (`ward-movements.ts`): a `expected` release at the very unit the
  *  tour refers its patient to, so beat 3's two dispatches read as one story rather than two
  *  unrelated ones — the ward about to receive a referral is also the ward whose bed is freeing
  *  up. */
@@ -118,7 +118,7 @@ const BEAT_CAPTIONS: Record<number, { heading: string; body: string }> = {
   },
   3: {
     heading: "The ward confirms",
-    body: "The ward accepts the referral in principle, and separately confirms that a predicted bed is now ready to release. Every figure here is invented.",
+    body: "The ward accepts the referral in principle, and separately confirms that a expected bed is now ready to release. Every figure here is invented.",
   },
   4: {
     heading: "The board updates",

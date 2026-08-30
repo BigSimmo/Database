@@ -373,7 +373,7 @@ export function WardDailySheet({
             Who is going
           </h3>
           {/* The basis is named in WORDS, from the same label the board's toggle prints, because a
-            sheet has no toggle on it and "4 beds" without "confirmed" or "predicted" is two
+            sheet has no toggle on it and "4 beds" without "confirmed" or "expected" is two
             different claims sharing a number. */}
           <p className={styles.sheetGroupCount} data-testid="ward-daily-sheet-out-count">
             {outgoingBasisLabel}: {outgoingCount} bed{outgoingCount === 1 ? "" : "s"} expected to free today.

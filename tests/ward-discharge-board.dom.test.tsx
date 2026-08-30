@@ -60,11 +60,11 @@ function FarFutureReleaseFlagger() {
 }
 
 describe("DischargeBoard", () => {
-  it("groups releases under Blocked, Confirmed, Predicted, Discharged today, in that exact order", () => {
+  it("groups releases under Blocked, Confirmed, Expected, Discharged today, in that exact order", () => {
     renderBoard();
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
-    expect(headings).toEqual(["Blocked", "Confirmed", "Predicted", "Discharged today"]);
+    expect(headings).toEqual(["Blocked", "Confirmed", "Expected", "Discharged today"]);
   });
 
   it("names the blocker on a blocked row", () => {
@@ -84,7 +84,7 @@ describe("DischargeBoard", () => {
    * blocked prediction from a blocked confirmation cannot tell which bed to chase first.
    *
    * The real fixture seeds exactly this pair — WR-007 confirmed-and-blocked at fsh-adult-secure,
-   * WR-009 predicted-and-blocked at rgh-adult-secure — so the assertion is over a genuinely mixed
+   * WR-009 expected-and-blocked at rgh-adult-secure — so the assertion is over a genuinely mixed
    * group, not one row that happens to agree with whatever the implementation prints.
    */
   it("states each blocked row's own stage, so a blocked confirmation is not mistaken for a blocked prediction", () => {
@@ -101,7 +101,7 @@ describe("DischargeBoard", () => {
       }),
     );
     expect(stagesByUnit.get("FSH Adult Secure")).toBe("Confirmed");
-    expect(stagesByUnit.get("RGH Adult Secure")).toBe("Predicted");
+    expect(stagesByUnit.get("RGH Adult Secure")).toBe("Expected");
   });
 
   /**
@@ -152,7 +152,7 @@ describe("DischargeBoard", () => {
   it("gives every row in every non-empty group a freshness stamp", () => {
     renderBoard();
 
-    for (const key of ["blocked", "confirmed", "predicted", "discharged-today"]) {
+    for (const key of ["blocked", "confirmed", "expected", "discharged-today"]) {
       const table = screen.getByTestId(`ward-discharge-table-${key}`);
       const rows = within(table).getAllByRole("row");
       // First row is the header row (<th> cells) — every remaining row is a data row and must
@@ -175,27 +175,27 @@ describe("DischargeBoard", () => {
     );
 
     // Baseline measured against the real fixture (ward-movements.ts): 2 blocked (WR-007, WR-009),
-    // 2 confirmed (WR-001, WR-004), 4 predicted (WR-002, WR-003, WR-005, WR-006), 1 released today
+    // 2 confirmed (WR-001, WR-004), 4 expected (WR-002, WR-003, WR-005, WR-006), 1 released today
     // (WR-008) — 9 rows total, 0 excluded, matching the earlier "renders 0" test.
     fireEvent.click(screen.getByRole("button", { name: "flag far-future release" }));
 
-    // The new release is real reducer state now (a tenth BedRelease, predicted, expectedAt =
+    // The new release is real reducer state now (a tenth BedRelease, expected, expectedAt =
     // EVENING_SHIFT_END_MINUTES + 100), so the excluded count must move off 0 — the half of the
     // spec's promise the earlier "renders 0" test cannot exercise on its own.
     const excluded = screen.getByTestId("ward-discharge-excluded");
     expect(excluded).toHaveTextContent(/^1\b/);
     expect(excluded.textContent?.toLowerCase()).not.toContain("none");
 
-    // Being counted and being listed are different things (D5): the new release is `predicted`,
-    // so a leak would land it in the Predicted group specifically. That group's row count must
+    // Being counted and being listed are different things (D5): the new release is `expected`,
+    // so a leak would land it in the Expected group specifically. That group's row count must
     // stay at its pre-flag 4, not grow to 5.
-    const predictedTable = screen.getByTestId("ward-discharge-table-predicted");
-    const predictedDataRows = within(predictedTable).getAllByRole("row").slice(1);
-    expect(predictedDataRows).toHaveLength(4);
+    const expectedTable = screen.getByTestId("ward-discharge-table-expected");
+    const expectedDataRows = within(expectedTable).getAllByRole("row").slice(1);
+    expect(expectedDataRows).toHaveLength(4);
 
     // Belt and braces: total data rows across every group must stay at 9 even though the reducer
     // now holds 10 bed releases — the tenth is declared (via the count above) but never listed.
-    const totalDataRows = ["blocked", "confirmed", "predicted", "discharged-today"]
+    const totalDataRows = ["blocked", "confirmed", "expected", "discharged-today"]
       .map((key) => within(screen.getByTestId(`ward-discharge-table-${key}`)).getAllByRole("row").length - 1)
       .reduce((sum, count) => sum + count, 0);
     expect(totalDataRows).toBe(9);

@@ -464,9 +464,9 @@ describe("every count on the sheet is POSSIBLE for this ward, not merely compute
     const releases = derivedBedReleases([...wardAdmissions], WARD_ADMISSIONS_ANCHOR);
     const text = screen.getByTestId("ward-daily-sheet-out-count").textContent ?? "";
 
-    // "4 beds" without "confirmed" or "predicted" beside it is two different claims sharing a
+    // "4 beds" without "confirmed" or "expected" beside it is two different claims sharing a
     // number, and on paper the control that would have said which is gone.
-    expect(text).toMatch(/Confirmed today|Predicted today/);
+    expect(text).toMatch(/Confirmed today|Expected today/);
     // And the figure is bounded by the ward's own releases, never the network's.
     const wardReleases = releases.filter((release) => release.unitId === UNIT_ID).length;
     const shown = Number(/(\d+) bed/.exec(text)?.[1] ?? "-1");

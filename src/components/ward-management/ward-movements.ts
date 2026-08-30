@@ -797,7 +797,7 @@ export const bedReleases: BedRelease[] = [
   {
     id: "WR-002",
     unitId: "scgh-adult-open",
-    state: "predicted",
+    state: "expected",
     expectedAt: NOW_ANCHOR + 90,
     waitingOn: "Awaiting ward round",
     blocker: null,
@@ -810,7 +810,7 @@ export const bedReleases: BedRelease[] = [
   {
     id: "WR-003",
     unitId: "fsh-older-adult",
-    state: "predicted",
+    state: "expected",
     expectedAt: NOW_ANCHOR + 180,
     waitingOn: "Awaiting accommodation",
     blocker: null,
@@ -836,7 +836,7 @@ export const bedReleases: BedRelease[] = [
   {
     id: "WR-005",
     unitId: "bty-adult-secure",
-    state: "predicted",
+    state: "expected",
     expectedAt: NOW_ANCHOR + 120,
     waitingOn: "Nothing outstanding",
     blocker: null,
@@ -849,7 +849,7 @@ export const bedReleases: BedRelease[] = [
   {
     id: "WR-006",
     unitId: "gry-older-adult",
-    state: "predicted",
+    state: "expected",
     expectedAt: NOW_ANCHOR + 240,
     waitingOn: "Awaiting community team acceptance",
     blocker: null,
@@ -863,7 +863,7 @@ export const bedReleases: BedRelease[] = [
     // Bed-model rework (2026-08-28): the release the counting defect was found on, seeded in the
     // exact shape that used to be uncountable — a discharge the ward has DECIDED and which is
     // nonetheless stuck. Under the four-stage model this was `state: "blocked"`, which
-    // `capacityBreakdown` sorted into neither `confirmedToday` nor `predictedToday`, so marking
+    // `capacityBreakdown` sorted into neither `confirmedToday` nor `expectedToday`, so marking
     // it blocked silently dropped FSH Adult Secure's confirmed count to zero. It now counts as
     // confirmed AND as blocked, which is what a bed coordinator actually needs to see.
     id: "WR-007",
@@ -903,7 +903,7 @@ export const bedReleases: BedRelease[] = [
     // state alone cannot pass by accident.
     id: "WR-009",
     unitId: "rgh-adult-secure",
-    state: "predicted",
+    state: "expected",
     expectedAt: NOW_ANCHOR + 200,
     waitingOn: "Awaiting family or carer agreement",
     blocker: "Awaiting receiving-service acceptance",
