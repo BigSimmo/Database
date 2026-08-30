@@ -1,5 +1,9 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import {
+  BED_PREPARATION_NOTES,
+  BED_RELEASE_BLOCKERS,
+  OVERRIDE_REASONS,
+} from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { referralState } from "@/components/ward-management/ward-referrals";
 import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
@@ -414,6 +418,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         legalForm: chosenForm === undefined ? undefined : { ...chosenForm },
         statusChanges: [],
         urgencyChanges: [],
+        overrides: [],
         stage: "placement_requested",
         owner: department.name,
         referredUnitIds: [],
@@ -524,9 +529,31 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (unknown) {
         return reject(state, event, `no unit found for id ${unknown}`);
       }
+      // Membership-checked, not truthiness-checked -- the same discipline as every other reason
+      // in this reducer. A caller sending a reason outside the list is refused rather than having
+      // an unrecognised string written into an accountability record.
+      if (event.overrideReason !== undefined && !OVERRIDE_REASONS.includes(event.overrideReason)) {
+        return reject(state, event, `REFER_TO_UNITS overrideReason must be chosen from OVERRIDE_REASONS`);
+      }
       const updated: Movement = {
         ...movement,
         referredUnitIds: [...event.unitIds],
+        // OD-3: the reason is KEPT. It used to live in the shortlist panel's own `useState` and be
+        // discarded on the next selection, while the governance page said override reasons were
+        // recorded. Appended rather than replaced, because a movement can be overridden more than
+        // once and the earlier one is not undone by the later.
+        overrides:
+          event.overrideReason === undefined
+            ? movement.overrides
+            : [
+                ...movement.overrides,
+                {
+                  at: event.now,
+                  by: WARD_FLOW_ROLE_LABELS[event.role],
+                  reason: event.overrideReason,
+                  unitIds: [...event.unitIds],
+                },
+              ],
         stage: "destination_review",
       };
       return replaceMovement(state, movement.id, updated);

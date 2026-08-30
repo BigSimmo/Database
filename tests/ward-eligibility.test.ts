@@ -40,6 +40,7 @@ function movement(overrides: Partial<Movement> = {}): Movement {
     legalStatus: "Voluntary",
     statusChanges: [],
     urgencyChanges: [],
+    overrides: [],
     stage: "destination_review",
     owner: "Flow coordinator",
     referredUnitIds: [],

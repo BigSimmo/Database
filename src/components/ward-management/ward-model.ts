@@ -4,6 +4,7 @@ import type {
   BedReleaseBlocker,
   LegalStatusChangeReason,
   UrgencyChangeReason,
+  OverrideReason,
 } from "@/components/ward-management/ward-change-reasons";
 
 /**
@@ -259,6 +260,39 @@ export type Decline = {
   reason: DeclineReason;
 };
 
+/**
+ * A COORDINATOR OVERRIDE, kept rather than shown and discarded.
+ *
+ * Owner decision OD-3: the reason was collected in a `<textarea>`, held in the shortlist panel's
+ * own `useState`, and thrown away the moment another patient was selected — while the governance
+ * page stated that override reasons are recorded. **A page making a false claim about what it
+ * keeps.** Replacing the box with a fixed list alone would not have fixed that: it would have
+ * swapped free text that goes nowhere for five reasons that go nowhere, and the row would read as
+ * done.
+ *
+ * ⚠️ **THIS RECORD IS AN ACCOUNTABILITY RECORD, NOT AN AUDIT TRAIL, AND THE TWO STORE IDENTICAL
+ * DATA.** The owner's requirement is that it is **visible to the party overridden** — the unit
+ * referred to despite its own gate failing. That difference is a READ PERMISSION, not a field, so
+ * a reviewer reading this type sees nothing missing either way. `overridesAgainstUnit`
+ * (`ward-derivations.ts`) is the ward-facing read, and `tests/ward-override-register.test.ts`
+ * is the boundary that goes red — because an override log only its author can see is a trail, and
+ * the whole point of the decision was that it is not one.
+ */
+export type Override = {
+  /** When the override was made. */
+  at: Instant;
+  /** A ROLE, never a person — the same discipline as `decidedBy` and `StatusChange.by`. */
+  by: string;
+  /** From `OVERRIDE_REASONS`, never free text, and never an "other, please specify" (WB-DB-16). */
+  reason: OverrideReason;
+  /**
+   * The units referred to despite a failing gate — THE PARTIES OVERRIDDEN. This is the field the
+   * ward-facing read is keyed on, which is why it is a list of ids and not a count: a number could
+   * not answer "was I one of them".
+   */
+  unitIds: string[];
+};
+
 export type StatusChange = {
   at: Instant;
   from: LegalStatus;
@@ -355,6 +389,9 @@ export type Movement = {
   /** Urgency-tier changes, in the order they were made. Empty for a movement whose urgency has
    *  never changed since it was raised. */
   urgencyChanges: UrgencyChange[];
+  /** Every coordinator override on this movement, oldest first. Empty for a movement nobody has
+   *  overridden a gate for — which is most of them. See `Override`. */
+  overrides: Override[];
   stage: MovementStage;
   owner: string;
   /** Units currently holding a live referral. Never longer than PARALLEL_REFERRAL_CAP. */

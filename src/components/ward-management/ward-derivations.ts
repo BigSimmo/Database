@@ -31,6 +31,7 @@ import {
   type HealthService,
   type Movement,
   type MovementStage,
+  type Override,
   type Referral,
   type TransportJob,
   type Unit,
@@ -583,6 +584,40 @@ export type HandoverSnapshot = {
   inTransit: { movement: Movement; leg: TransportLeg | "Cancelled" | undefined }[];
   placementGoneWrong: { movement: Movement; kind: "escalated" | "declined_by_all" }[];
 };
+
+export type OverrideEntry = { movement: Movement; override: Override };
+
+/**
+ * THE WHOLE OVERRIDE REGISTER — the coordinator's view.
+ *
+ * Every override on every movement, newest last within a movement because that is the order they
+ * were made in. This is the unrestricted read, and it exists so the restriction below is a real
+ * restriction rather than a name for the only thing there is.
+ */
+export function allOverrides(movements: Movement[]): OverrideEntry[] {
+  return movements.flatMap((movement) => movement.overrides.map((override) => ({ movement, override })));
+}
+
+/**
+ * THE WARD'S VIEW — the overrides made AGAINST this unit, and nothing else.
+ *
+ * Owner decision OD-3: an override is **visible to the party overridden**. This is that clause, and
+ * it is the whole difference between an accountability record and an audit trail — which store
+ * identical data and differ only in who can read them.
+ *
+ * ⚠️ **THIS FILTERS AT THE SOURCE, NOT AT RENDER, AND THAT IS THE POINT.** The natural
+ * implementation is to hand a ward screen `allOverrides` and filter it in the component. That looks
+ * identical in review and passes any test asserting a ward sees its own overrides — and it leaks
+ * every other ward's the moment somebody adds a column, a debug panel, or a styling change that
+ * reveals a row meant to be hidden. **What a ward may not see must not reach it.**
+ * `tests/ward-override-register.test.ts` is the boundary that goes red.
+ *
+ * Same shape and same reasoning as FD-23's ward-blindness rule on referrals, which Ward Referrals
+ * is building: a ward-scoped surface is a projection, never the full record with fields hidden.
+ */
+export function overridesAgainstUnit(movements: Movement[], unitId: string): OverrideEntry[] {
+  return allOverrides(movements).filter((entry) => entry.override.unitIds.includes(unitId));
+}
 
 export function handoverSnapshot(movements: Movement[], units: Unit[], now: Instant): HandoverSnapshot {
   const open = movements.filter(isOpen);
