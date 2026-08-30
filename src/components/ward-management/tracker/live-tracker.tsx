@@ -67,7 +67,20 @@ export function LiveTracker() {
     <div className={styles.screen} data-testid="ward-mode-transport">
       <ClinicalRail activeMode="transport" />
       <main id="main-content" className={styles.main} data-testid="ward-live-tracker">
-        <h1 className="sr-only">Live tracker</h1>
+        {/*
+          The page's ACCESSIBLE NAME, and `HD-Q1` settled what it is: Transport. This said "Live
+          tracker" while the route said /transport and the tab said something else again —
+          three user-facing names for one page.
+
+          ⚠️ This heading is the one that mattered most and was the easiest to leave behind,
+          because it is `sr-only`: nobody reviewing the screen visually ever sees it. For a
+          screen-reader user it is not one name among three, it is the ONLY one they get, so
+          they had nothing to reconcile "Live tracker" against.
+
+          The component is still `LiveTracker` in `live-tracker.tsx`, deliberately: that name
+          is internal, no user meets it, and renaming it moves every import for no reader.
+        */}
+        <h1 className="sr-only">Transport</h1>
 
         <div className={styles.governanceBanner} data-testid="ward-tracker-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
