@@ -113,7 +113,10 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(prototypeLink).toHaveTextContent("Temporary");
     expect(development?.contains(prototypeLink)).toBe(true);
 
-    expect(document.querySelector("[data-settings-nav-target]")).toBeNull();
+    expect(screen.getByRole("navigation", { name: "Settings sections" }).closest("aside")).toHaveClass(
+      "hidden",
+      "md:flex",
+    );
   });
 
   it("clears recent searches through the privacy action", () => {
