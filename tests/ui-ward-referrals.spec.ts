@@ -601,8 +601,28 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
 
     await expect(page.getByTestId(`ward-out-of-area-row-${raisedId}`)).toHaveCount(0);
     await expect(page.getByTestId(`ward-out-of-area-card-${raisedId}`)).toHaveCount(0);
+    /*
+     * ⚠️ THE SENTENCE CHANGED BECAUSE THE BEHAVIOUR DID, AND CHOOSING THE REPLACEMENT IS THE WHOLE
+     * OF THIS EDIT.
+     *
+     * This pinned "Nothing done on these screens adds anyone to this list or takes anyone off it"
+     * until 2026-08-30. That promise was retired at `74253c367`: the board now reads live state, so
+     * a patient who ARRIVES during the session IS added straight away. The old sentence had become
+     * false and the screen correctly stopped saying it.
+     *
+     * ⚠️ **The re-baseline trap, avoided deliberately.** The obvious repair is to paste whatever the
+     * screen now prints, and the new copy offers a longer, more specific-sounding candidate — the
+     * emergency-department pathway records no home region. **That sentence is true and it is not why
+     * OUR referral is absent.** The referral raised by this journey is missing from the ledger
+     * because it has NOT ARRIVED; nobody is in a bed. Pinning the home-region clause would leave a
+     * green test asserting the wrong reason, which is worse than the red one, because nothing would
+     * ever say so again.
+     *
+     * So the assertion pins the clause that carries "why" FOR THIS JOURNEY. The two counts above
+     * prove the referral is absent; this proves the screen says why it is absent.
+     */
     await expect(page.getByTestId("ward-out-of-area-provenance")).toContainText(
-      "Nothing done on these screens adds anyone to this list or takes anyone off it",
+      "neither is anybody who has not yet arrived",
     );
 
     /*
