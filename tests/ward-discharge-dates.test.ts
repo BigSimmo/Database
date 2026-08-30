@@ -38,6 +38,7 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
     state: "occupied",
     pulledAt: DAY_ZERO,
     arrivedAt: DAY_ZERO,
+    awayAtEmergencyDepartmentSince: null,
     expectedDischargeAt: null,
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,
@@ -331,7 +332,7 @@ describe("statewideReleaseCount — a ward-to-ward transfer nets differently for
    * one back), the other is a transfer to another psychiatric ward (frees a bed but gives the
    * state nothing — `LEAVING_DESTINATIONS`'s own `countsAsStatewideRelease: false`).
    *
-   * Half 1 asserts the SENDING unit's own released-release count rises for BOTH admissions
+   * Half 1 asserts the SENDING unit's own discharged-release count rises for BOTH admissions
    * equally — a transfer is still a real, local bed coming free; that is precisely what makes the
    * network figure interesting rather than a foregone conclusion. Half 2 asserts the statewide
    * count reflects only the genuine discharge: one, not two. Constructing both departures side by
@@ -362,8 +363,8 @@ describe("statewideReleaseCount — a ward-to-ward transfer nets differently for
     const releases = derivedBedReleases(admissions, now);
 
     // Half 1: each unit gets its own bed back, transfer included.
-    expect(releases.filter((r) => r.unitId === sendingUnit && r.state === "released")).toHaveLength(1);
-    expect(releases.filter((r) => r.unitId === otherUnit && r.state === "released")).toHaveLength(1);
+    expect(releases.filter((r) => r.unitId === sendingUnit && r.state === "discharged")).toHaveLength(1);
+    expect(releases.filter((r) => r.unitId === otherUnit && r.state === "discharged")).toHaveLength(1);
 
     // Half 2: the network gained exactly one bed, not two.
     expect(statewideReleaseCount(admissions, now)).toBe(1);

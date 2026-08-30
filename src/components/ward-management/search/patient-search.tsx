@@ -8,7 +8,8 @@ import type { Movement, MovementStage, Unit } from "@/components/ward-management
 import {
   destinationUnit,
   elapsedLabel,
-  searchMovements,
+  searchPatients,
+  type PatientSearchResult,
   stageCopy,
   type MovementSearchQuery,
 } from "@/components/ward-management/ward-derivations";
@@ -48,7 +49,11 @@ import styles from "./search.module.css";
  * never a bare empty table with no explanation.
  */
 export function PatientSearchPage() {
-  const { movements, units, now, patients } = useWardFlow();
+  // Both sides of the merge, and neither replaces the other: the board line taught this screen to
+  // search REFERRALS as well as movements, and this line taught it to search PEOPLE. A referral is
+  // somebody awaiting a decision, a movement is somebody whose decision was made, and a patient is
+  // the person all of that happens to.
+  const { movements, referrals, units, now, patients } = useWardFlow();
   const [text, setText] = useState("");
   const [stage, setStage] = useState<MovementStage | "">("");
   const [edId, setEdId] = useState("");
@@ -62,7 +67,10 @@ export function PatientSearchPage() {
     [text, stage, edId],
   );
 
-  const results = useMemo(() => searchMovements(movements, units, query), [movements, units, query]);
+  const results = useMemo(
+    () => searchPatients(movements, referrals, units, query),
+    [movements, referrals, units, query],
+  );
 
   /**
    * PEOPLE, not movements — and this is the half the old search structurally could not do.
@@ -176,13 +184,62 @@ export function PeopleSection({ people, query }: { people: Patient[]; query: str
   );
 }
 
-export function ResultsSection({ results, units, now }: { results: Movement[]; units: Unit[]; now: number }) {
+export function ResultsSection({
+  results,
+  units,
+  now,
+}: {
+  results: PatientSearchResult[];
+  units: Unit[];
+  now: number;
+}) {
+  /*
+   * Split rather than rendered as one list, because the two records genuinely have different
+   * columns: a movement has a stage, a department, a destination and a time since arrival; a
+   * referral has none of those, because nobody has accepted it — which is the whole reason it is
+   * still a referral. Forcing both into the movement table would put four empty cells on every
+   * referral row, and an empty cell reads as missing data rather than as inapplicable.
+   */
+  const referralResults = results.filter((result) => result.kind === "referral");
+  const movementResults = results.filter((result) => result.kind === "movement");
+
   return (
     <section className={styles.section} data-testid="ward-patient-search-results">
       <h2 className={styles.resultsHeading}>{results.length === 1 ? "1 match" : `${results.length} matches`}</h2>
+      {/*
+       * REFERRALS FIRST, and it is not cosmetic ordering. A referral is somebody still waiting for
+       * a decision; a movement is somebody whose decision has been made. The person an ED
+       * psychiatrist can still act on goes at the top.
+       *
+       * Each row says in words that nobody has accepted them yet, because "referral" alone does not
+       * carry that to a reader who has just typed a name into a search box and is scanning for
+       * where their patient is.
+       */}
+      {referralResults.length > 0 && (
+        <ul className={styles.referralList} data-testid="ward-patient-search-referrals">
+          {referralResults.map(({ referral }) => (
+            <li
+              key={referral.id}
+              className={styles.referralRow}
+              data-testid={`ward-patient-search-referral-${referral.id}`}
+            >
+              <span className={styles.referralId}>{referral.id}</span>
+              <span className={styles.referralNote}>
+                Referral from {referral.originSiteCode} · {referral.ageBand} · {referral.homeRegion} — waiting for a
+                decision, no bed accepted yet.
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {results.length === 0 ? (
         <p className={styles.emptyNote} data-testid="ward-patient-search-empty">
-          No matches — no open movement fits the current search.
+          No matches — no open movement or waiting referral fits the current search.
+        </p>
+      ) : movementResults.length === 0 ? (
+        <p className={styles.emptyNote} data-testid="ward-patient-search-no-movements">
+          No open movement fits the current search. The waiting referrals above have not been accepted anywhere yet.
         </p>
       ) : (
         <div className={styles.tableScroll}>
@@ -200,7 +257,7 @@ export function ResultsSection({ results, units, now }: { results: Movement[]; u
               </tr>
             </thead>
             <tbody>
-              {results.map((movement) => (
+              {movementResults.map(({ movement }) => (
                 <ResultRow key={movement.id} movement={movement} units={units} now={now} />
               ))}
             </tbody>

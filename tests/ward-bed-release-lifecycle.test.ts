@@ -200,7 +200,7 @@ describe("ward bed release lifecycle", () => {
     // being made ready. The flag is cleared FIRST so `before` and `after` genuinely differ in the
     // one field under test — comparing "preparing" against "preparing" would subtract the same
     // bed from both sides of a gating implementation and pass while proving nothing.
-    expect(release(state, "WR-008").state).toBe("released");
+    expect(release(state, "WR-008").state).toBe("discharged");
     expect(release(state, "WR-008").preparing).toBe(true);
 
     const cleared = wardFlowReducer(state, {
@@ -377,7 +377,7 @@ describe("ward bed release lifecycle", () => {
       actingUnitId: "rph-adult-secure",
     });
     expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-001").state).toBe("released");
+    expect(release(next, "WR-001").state).toBe("discharged");
     expect(release(next, "WR-001").waitingOn).toBeNull();
     expect(release(next, "WR-001").blocker).toBeNull();
     const after = capacityBreakdown(unit(next, "rph-adult-secure"), next.bedReleases, next.leaveBeds, NOW);
@@ -418,7 +418,7 @@ describe("ward bed release lifecycle", () => {
     });
 
     expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-001").state).toBe("released");
+    expect(release(next, "WR-001").state).toBe("discharged");
     const afterUnit = unit(next, "rph-adult-secure");
     // The reconciliation identity ruling 3 requires (see tests/ward-capacity-reconciliation.test.ts):
     // the four bed-state figures must sum to exactly the unit's own bed count, whatever the

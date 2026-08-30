@@ -55,7 +55,7 @@ type BedStateKey = "available" | "held" | "confirmed" | "predicted" | "blocked";
 
 // Review Finding 4: this used to be `"potential"`, sourced from `unitCapacity()`'s raw release
 // count — every release for the unit regardless of state or timing, including one already
-// `released` and one expected beyond tonight, both of which spec D5/D6 exclude from every count.
+// `discharged` and one expected beyond tonight, both of which spec D5/D6 exclude from every count.
 // Confirmed and Predicted are read from `capacityBreakdown()` instead, the same figures the
 // capacity board and the ward screen already show, so this board can never disagree with them.
 const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {

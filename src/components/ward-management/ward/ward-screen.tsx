@@ -195,19 +195,19 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // plain string is what they close over instead.
   const wardUnitId = unit.id;
 
-  // Task 5: this unit's own bed releases, still pending — `released` is terminal and drops off
+  // Task 5: this unit's own bed releases, still pending — `discharged` is terminal and drops off
   // this list (spec D10's "removes it from the pending list"), never rendered with dead controls.
   const pendingBedReleases = bedReleases.filter(
-    (release) => release.unitId === unit.id && release.state !== "released",
+    (release) => release.unitId === unit.id && release.state !== "discharged",
   );
 
-  // List 3 (2026-08-28): this unit's own beds that have already been RELEASED. They are the only
+  // List 3 (2026-08-28): this unit's own beds that have already been DISCHARGED. They are the only
   // beds a preparation note applies to — the note says what a free bed is being made ready for.
   // They are deliberately a SEPARATE list from `pendingBedReleases` above rather than being
-  // restored to it: `released` is still terminal for every lifecycle control, and nothing in this
+  // restored to it: `discharged` is still terminal for every lifecycle control, and nothing in this
   // section moves a stage.
-  const releasedBedReleases = bedReleases.filter(
-    (release) => release.unitId === unit.id && release.state === "released",
+  const dischargedBedReleases = bedReleases.filter(
+    (release) => release.unitId === unit.id && release.state === "discharged",
   );
 
   // Task 5: this unit's own beds currently occupied by someone on approved leave — read here only
@@ -400,7 +400,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
     event.preventDefault();
     if (!blockChoice) return;
     // Bed-model rework (2026-08-28): this sets the blocked FLAG and moves no stage. The form
-    // renders on any unreleased row, and `released` rows never reach this list at all.
+    // renders on any unreleased row, and `discharged` rows never reach this list at all.
     dispatch({ type: "BLOCK_BED_RELEASE", role: "ward", now, releaseId, actingUnitId: unitId, blocker: blockChoice });
     setBlockOpenFor(undefined);
     setBlockChoice(undefined);
@@ -682,7 +682,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
           {/* Task 5 (spec D10): this unit's own bed releases moving through their own lifecycle.
               Each row offers only the transitions CONFIRM_BED_RELEASE/BLOCK_BED_RELEASE/RELEASE_BED
               would actually accept from its current state (ward-flow-reducer.ts's own case
-              comments) — never a control the reducer would refuse. `released` is terminal and
+              comments) — never a control the reducer would refuse. `discharged` is terminal and
               drops off this list entirely (`pendingBedReleases` above), so it renders no row and
               no controls at all. */}
           <div className={styles.capacityForm} data-testid="ward-bed-release-list">
@@ -694,7 +694,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 {pendingBedReleases.map((release) => {
                   // Bed-model rework (2026-08-28). Every gate below is now about the STAGE
                   // alone, except the two block controls, which are about the FLAG alone —
-                  // that separation is the change. `released` rows never reach this list
+                  // that separation is the change. `discharged` rows never reach this list
                   // (`pendingBedReleases`), so no control here has to test for it.
                   const canConfirm = release.state === "predicted";
                   const canRevert = release.state === "confirmed";
@@ -776,7 +776,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                             className={styles.declineButton}
                             onClick={() => releaseBedRelease(release.id)}
                           >
-                            Released
+                            Discharged
                           </button>
                         ) : null}
                       </div>
@@ -865,21 +865,21 @@ export function WardScreen({ unitId }: WardScreenProps) {
             )}
           </div>
 
-          {/* List 3 (2026-08-28): what a RELEASED bed is being made ready for. The picker exists
+          {/* List 3 (2026-08-28): what a DISCHARGED bed is being made ready for. The picker exists
               because the owner supplied `BED_PREPARATION_NOTES`; before that the array was empty
               and there was nothing to offer.
 
               **Every bed in this list is still available.** The note is informational and gates
               nothing — see `submitBedPreparation` above and `BED_PREPARATION_NOTES` for the
-              owner's own clinical reasoning. No control here moves a lifecycle stage: `released`
+              owner's own clinical reasoning. No control here moves a lifecycle stage: `discharged`
               is still terminal. */}
           <div className={styles.capacityForm} data-testid="ward-bed-preparation-list">
             <span className={styles.capacityLabel}>Beds being made ready at {unit.name}</span>
-            {releasedBedReleases.length === 0 ? (
-              <p className={styles.placeholder}>No released bed at {unit.name} yet.</p>
+            {dischargedBedReleases.length === 0 ? (
+              <p className={styles.placeholder}>No bed has come free at {unit.name} yet.</p>
             ) : (
               <ul className={styles.cardList}>
-                {releasedBedReleases.map((release) => {
+                {dischargedBedReleases.map((release) => {
                   const preparationOpen = preparationOpenFor === release.id;
                   return (
                     <li key={release.id} data-testid={`ward-bed-preparation-${release.id}`} className={styles.card}>

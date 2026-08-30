@@ -384,7 +384,7 @@ export type Rejection = {
  * (`REVERT_BED_RELEASE`). The old one-way model did not stop reversals happening — it made wards
  * record them dishonestly.
  */
-export const BED_RELEASE_STATES = ["predicted", "confirmed", "released"] as const;
+export const BED_RELEASE_STATES = ["predicted", "confirmed", "discharged"] as const;
 export type BedReleaseState = (typeof BED_RELEASE_STATES)[number];
 
 /**
@@ -448,7 +448,7 @@ export type BedRelease = {
    * **The blocked FLAG's reason** (bed-model rework, 2026-08-28). Non-null means this discharge
    * is decided-or-expected AND currently stuck; it may sit on a `"predicted"` release or on a
    * `"confirmed"` one, and a blocked-but-confirmed release still counts as confirmed. Always
-   * `null` on a `"released"` release — once the bed is free there is nothing left being held up.
+   * `null` on a `"discharged"` release — once the bed is free there is nothing left being held up.
    *
    * Before this rework `blocked` was a fourth STATE and this field was legal only in it, which
    * is what made a stuck confirmed discharge fall out of the ward's confirmed count entirely.

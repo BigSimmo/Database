@@ -19,7 +19,7 @@ describe("bed release model", () => {
    * the test immediately below pins that it can sit on either.
    */
   it("has three lifecycle stages in the order a bed moves through them, and blocked is not one of them", () => {
-    expect(BED_RELEASE_STATES).toEqual(["predicted", "confirmed", "released"]);
+    expect(BED_RELEASE_STATES).toEqual(["predicted", "confirmed", "discharged"]);
     expect(BED_RELEASE_STATES).not.toContain("blocked");
   });
 
@@ -158,7 +158,7 @@ describe("bed release model", () => {
     const byState = (state: BedRelease["state"]) => bedReleases.filter((r) => r.state === state);
     expect(byState("predicted").length).toBeGreaterThanOrEqual(1);
     expect(byState("confirmed").length).toBeGreaterThanOrEqual(1);
-    expect(byState("released").length).toBeGreaterThanOrEqual(1);
+    expect(byState("discharged").length).toBeGreaterThanOrEqual(1);
 
     const blocked = bedReleases.filter((release) => release.blocker !== null);
     expect(blocked.length).toBeGreaterThanOrEqual(2);
@@ -214,7 +214,7 @@ describe("bed release model", () => {
       if (release.waitingOn !== null) {
         expect(BED_RELEASE_WAITING_ON).toContain(release.waitingOn);
       }
-      if (release.state === "released") {
+      if (release.state === "discharged") {
         expect(release.blocker).toBeNull();
       }
       expect(release.blockedBy === null).toBe(release.blocker === null);

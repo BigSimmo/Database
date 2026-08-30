@@ -474,7 +474,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // that only stops *further* progress; it does not by itself give back capacity already
       // reserved by an earlier HOLD_BED.
       const heldStages: MovementStage[] = ["bed_held", "handover_ready", "moving"];
-      const releasedState =
+      const dischargedState =
         movement.acceptedUnitId && heldStages.includes(movement.stage)
           ? (() => {
               const heldUnit = findUnit(state, movement.acceptedUnitId!);
@@ -495,7 +495,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
             : movement.transport,
         closure: { at: event.now, outcome: "did_not_proceed", reason: `examination outcome ${event.outcome}` },
       };
-      return replaceMovement(releasedState, movement.id, updated);
+      return replaceMovement(dischargedState, movement.id, updated);
     }
 
     case "REFER_TO_UNITS": {
@@ -637,6 +637,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         state: "occupied",
         pulledAt: movement.transport?.collectedAt ?? null,
         arrivedAt: event.now,
+        // Null, and it is a statement rather than a default: this person has just ARRIVED on the
+        // ward, so they are not temporarily away at an emergency department. The board marks an
+        // away patient so a charge nurse reading the grid does not believe they are in the bed;
+        // somebody who arrived this instant is in it.
+        awayAtEmergencyDepartmentSince: null,
         expectedDischargeAt: null,
         dischargeDateMoves: 0,
         dischargeDateSetAt: null,
@@ -952,7 +957,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `REVERT_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transition: confirmed -> predicted. `released` is terminal and `predicted` is
+      // Legal transition: confirmed -> predicted. `discharged` is terminal and `predicted` is
       // already there, so both fall into the same refusal.
       if (release.state !== "confirmed") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to predicted`);
@@ -996,10 +1001,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // Bed-model rework (2026-08-28): this sets a FLAG and moves no stage at all. A blocked
       // release keeps whichever stage it was in — `predicted` stays predicted, and a confirmed
       // discharge that gets stuck stays CONFIRMED and keeps counting as confirmed. Only
-      // `released` is refused: the bed is already free, so there is nothing left to hold up.
+      // `discharged` is refused: the bed is already free, so there is nothing left to hold up.
       const blockedUnit = findUnit(state, release.unitId);
       if (!blockedUnit) return reject(state, event, `no unit found for id ${release.unitId}`);
-      if (release.state === "released") {
+      if (release.state === "discharged") {
         return reject(state, event, `cannot block release ${release.id} because it is already released`);
       }
       // Fix round 2 (P2, spec D7): same freshness restatement as CONFIRM_BED_RELEASE's own case
@@ -1092,13 +1097,13 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `RELEASE_BED was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transitions: confirmed -> released and predicted -> released. `released` is
+      // Legal transitions: confirmed -> released and predicted -> released. `discharged` is
       // terminal, so only a release already in it is refused. Predicted is accepted deliberately:
       // "the person has left" is a statement of fact about an empty bed, not a prediction being
       // promoted into availability, and the four-stage model already permitted the same journey
       // via `predicted -> blocked -> released`. Narrowing it during the rework would have refused
       // a path wards could already take.
-      if (release.state === "released") {
+      if (release.state === "discharged") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to released`);
       }
       const unit = findUnit(state, release.unitId);
@@ -1111,7 +1116,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // be a claim about a discharge that has already happened.
       const updatedRelease: BedRelease = {
         ...release,
-        state: "released",
+        state: "discharged",
         waitingOn: null,
         blocker: null,
         blockedBy: null,

@@ -203,6 +203,43 @@
  *
  * Found by looking at a screenshot. Every structural check passed on this table.
  */
+/*
+ * WAITING REFERRALS, shown above the movement table and never inside it.
+ *
+ * A referral has no stage, no department, no destination and no time since arrival — four of the
+ * table's six columns — because nobody has accepted it. Four blank cells on a clinical screen read
+ * as missing data rather than as inapplicable, which is why this is a list and not extra rows.
+ */
+.referralList {
+  margin: 0 0 var(--space-4, 1rem);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+}
+
+.referralRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 0.5rem);
+  padding: var(--space-3, 0.75rem);
+  background: var(--surface);
+}
+
+.referralId {
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+.referralNote {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
 .tableScroll {
   overflow-x: auto;
 }

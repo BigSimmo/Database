@@ -52,12 +52,12 @@ describe("release bands", () => {
     expect(EVENING_SHIFT_END_MINUTES).toBe(1320);
   });
 
-  it("puts an already-released bed in 'now' whatever its expected time said", () => {
-    expect(releaseBand(release({ state: "released", expectedAt: NOW_ANCHOR + 600 }), NOW_ANCHOR)).toBe("now");
+  it("puts an already-discharged bed in 'now' whatever its expected time said", () => {
+    expect(releaseBand(release({ state: "discharged", expectedAt: NOW_ANCHOR + 600 }), NOW_ANCHOR)).toBe("now");
   });
 
   it("drops a released bed off 'now' once the operating day rolls over", () => {
-    const released = release({ state: "released", expectedAt: NOW_ANCHOR, confirmedAt: NOW_ANCHOR });
+    const released = release({ state: "discharged", expectedAt: NOW_ANCHOR, confirmedAt: NOW_ANCHOR });
     expect(releaseBand(released, NOW_ANCHOR)).toBe("now");
     expect(releaseBand(released, NOW_ANCHOR + MINUTES_PER_DAY)).toBe("beyond-today");
   });
@@ -209,8 +209,8 @@ describe("capacity breakdown", () => {
    * `availableNow`.
    */
   it("never lets a preparation note change any figure — a bed being made ready is still available", () => {
-    const plain = release({ state: "released", preparing: false, preparationNote: null });
-    const beingPrepared = release({ state: "released", preparing: true, preparationNote: null });
+    const plain = release({ state: "discharged", preparing: false, preparationNote: null });
+    const beingPrepared = release({ state: "discharged", preparing: true, preparationNote: null });
 
     expect(capacityBreakdown(unit, [beingPrepared], [], NOW_ANCHOR)).toEqual(
       capacityBreakdown(unit, [plain], [], NOW_ANCHOR),
@@ -230,13 +230,13 @@ describe("capacity breakdown", () => {
    * is available, a patient will be pulled" — and it is the rule this whole list must never break.
    */
   it("never lets ANY specific preparation note change a figure, sweeping the whole owner-approved list", () => {
-    const plain = capacityBreakdown(unit, [release({ state: "released", preparing: false })], [], NOW_ANCHOR);
+    const plain = capacityBreakdown(unit, [release({ state: "discharged", preparing: false })], [], NOW_ANCHOR);
     expect(plain.availableNow).toBeGreaterThan(0);
 
     for (const note of BED_PREPARATION_NOTES) {
       const withNote = capacityBreakdown(
         unit,
-        [release({ state: "released", preparing: true, preparationNote: note })],
+        [release({ state: "discharged", preparing: true, preparationNote: note })],
         [],
         NOW_ANCHOR,
       );

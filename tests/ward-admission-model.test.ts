@@ -45,6 +45,7 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
     // A block, never a condition, and `null` is equally ordinary — the base admission here carries
     // one so that a test overriding it to `null` is testing the absence deliberately.
     tentativeDiagnosis: "F30–F39",
+    awayAtEmergencyDepartmentSince: null,
     state: "occupied",
     pulledAt: DAY_ZERO,
     arrivedAt: DAY_ZERO,
@@ -477,6 +478,15 @@ describe("Admission privacy — structural", () => {
     "state",
     "pulledAt",
     "arrivedAt",
+    // WIDENED ON PURPOSE, 2026-08-30 — owner decision that the board marks a patient who is
+    // temporarily off the ward at an emergency department. Like `pulledAt` beside it, it is an
+    // INSTANT rather than a boolean, so it carries how long as well as whether.
+    //
+    // It is a fact about the person's whereabouts and nothing else: no reason, no destination
+    // hospital, no free text about why. And it is deliberately not an `AdmissionState` — every
+    // member of that union is about the BED, and this bed stays occupied because the ward is
+    // holding it. Nothing in `bedIsOccupied` or any availability figure may ever read it.
+    "awayAtEmergencyDepartmentSince",
     "expectedDischargeAt",
     "dischargeDateMoves",
     "dischargeDateSetAt",
@@ -496,6 +506,9 @@ describe("Admission privacy — structural", () => {
 
   it("gives a fully-populated Admission exactly the permitted field set", () => {
     const canonical: Required<Admission> = {
+      // Populated, not null — this fixture's whole job is to carry EVERY field at a real value, so
+      // a null here would leave the new field indistinguishable from an absent one.
+      awayAtEmergencyDepartmentSince: 9 * 60,
       id: "ADM-CANON",
       unitId: "rph-adult-open",
       referralId: "REF-CANON",
