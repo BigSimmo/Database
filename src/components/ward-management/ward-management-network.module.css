@@ -76,6 +76,33 @@
   line-height: var(--net-leading-compact);
 }
 
+/*
+ * Everyone who has left the pathway. Set apart from the waiting cells on purpose: those cells sum
+ * to the queue's own count and this one holds the remainder, so the heavier rule is carrying the
+ * meaning rather than decorating it. The figure is muted because it is NOT part of the queue, and
+ * the split beneath it is what lets a reader reconcile the strip with the queue without doing
+ * arithmetic that could come out wrong.
+ */
+.pipelineLeftPathway {
+  display: grid;
+  min-width: 0;
+  gap: var(--net-space-2);
+  border-left: 0.125rem solid var(--net-border-strong);
+  padding-left: var(--net-space-12);
+}
+
+.pipelineLeftPathway strong {
+  color: var(--net-muted);
+  font-size: var(--text-lg);
+  line-height: var(--net-leading-compact);
+}
+
+.pipelineSplit {
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-tight);
+}
+
 .networkGrid {
   display: grid;
   min-height: 0;

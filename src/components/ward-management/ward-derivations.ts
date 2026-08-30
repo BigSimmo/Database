@@ -89,6 +89,56 @@ export function stageSummaries(movements: Movement[]) {
 }
 
 /**
+ * THE SAME STRIP, RECONCILED WITH THE QUEUE STANDING NEXT TO IT.
+ *
+ * `stageSummaries` above answers "how many movements are AT this stage" and is correct for the
+ * screens that ask that. The network page asks a different question and rendered the same answer:
+ * its strip sits directly above a panel headed "Priority queue", so its seven cells read as the
+ * queue broken down by stage. They summed to 50 while the queue said 43.
+ *
+ * ⚠️ **THE OBVIOUS FIX IS WRONG BY ONE, AND IT IS THE VERSION TWO REVIEWERS INDEPENDENTLY ASKED
+ * FOR.** Both said: put stage 7 "Arrived" outside the total. That gives 44. `isOpen` is TWO
+ * conditions — `!closure && stage !== "arrived"` — and a movement that does not proceed closes at
+ * whatever stage it had reached, so the closed records are NOT all sitting in stage 7. The seed
+ * holds exactly one of them today.
+ *
+ * ⚠️ **AND 44 BESIDE 43 IS WORSE THAN 50 BESIDE 43.** Fifty is visibly unreconciled: a coordinator
+ * sees two numbers that obviously do not match and asks. Forty-four invites the arithmetic and then
+ * fails it by one, with nothing on screen indicating which cell is lying. A wrong number that looks
+ * right outranks a wrong number that looks wrong, in the direction of harm.
+ *
+ * So this returns the whole reconciliation rather than a rearranged strip: waiting cells that count
+ * PEOPLE STILL WAITING, and one cell holding everyone who has left the pathway by either route.
+ * `waiting` sums to the queue count, `waiting + left.total` is every movement, and
+ * `left.arrived + left.didNotProceed` equals `left.total` by construction rather than by
+ * coincidence — `arrived` is the remainder, so no third outcome can fall between them unnoticed.
+ *
+ * Pinned by `tests/ward-network-stage-strip.dom.test.tsx`, whose canary asserts the fixture still
+ * contains a movement that closed before arriving — because without one, the arrived-only fix
+ * passes every other assertion in that file.
+ */
+export function queueStageSummaries(movements: Movement[]) {
+  const left = movements.filter((movement) => !isOpen(movement));
+  const didNotProceed = left.filter((movement) => movement.closure?.outcome === "did_not_proceed").length;
+
+  return {
+    waiting: MOVEMENT_STAGES.filter((id) => id !== "arrived").map((id) => ({
+      id,
+      ...stageCopy[id],
+      count: movements.filter((movement) => movement.stage === id && isOpen(movement)).length,
+    })),
+    left: {
+      total: left.length,
+      // The remainder, deliberately. Counting `stage === "arrived"` directly would leave a
+      // did-not-proceed closure recorded at the arrived stage in neither bucket, and the two
+      // sub-figures would quietly stop summing to the total they are printed beneath.
+      arrived: left.length - didNotProceed,
+      didNotProceed,
+    },
+  };
+}
+
+/**
  * The one canonical order of the health services, and the list every screen that groups by service
  * iterates — the ED ward table, the coordinator flow diagram, the network map's two columns and the
  * ward index.

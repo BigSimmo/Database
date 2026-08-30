@@ -13,8 +13,8 @@ import {
   elapsedLabel,
   isOpen,
   movementHealthService,
+  queueStageSummaries,
   stageCopy,
-  stageSummaries,
   transportStatusLabel,
   unitCapacity,
   wardServiceOrder,
@@ -644,6 +644,13 @@ export function WardNetworkWorkspace() {
    */
   const openQueue = movements.filter(isOpen);
   const openMovements = openQueue.length;
+  /**
+   * The strip above the queue, counted the way the queue counts. `queueStageSummaries` rather than
+   * `stageSummaries` — the other screens that render a strip are not standing beside a queue and
+   * are right to ask the other question. See that function's doc comment for why the obvious
+   * remedy here is wrong by exactly one.
+   */
+  const pipeline = queueStageSummaries(movements);
   const primary = candidates[0];
 
   if (!patient) {
@@ -661,14 +668,32 @@ export function WardNetworkWorkspace() {
       data-shortlist={shortlistOpen ? "open" : "collapsed"}
     >
       <section className={styles.pipeline} aria-label="Movement pipeline">
-        {stageSummaries(movements).map((stage, index) => (
-          <span className={styles.pipelineStage} key={stage.id}>
+        {pipeline.waiting.map((stage, index) => (
+          <span
+            className={styles.pipelineStage}
+            key={stage.id}
+            data-waiting-stage="true"
+            data-testid={`ward-pipeline-waiting-${stage.id}`}
+          >
             <span className={styles.pipelineLabel}>
               {index + 1} {stage.label}
             </span>
-            <strong>{stage.count}</strong>
+            <strong data-testid="ward-pipeline-count">{stage.count}</strong>
           </span>
         ))}
+        {/*
+          Everyone who has LEFT the pathway, in one cell, deliberately after a divider and
+          deliberately not numbered. The waiting cells above sum to the queue's own count; this one
+          holds the remainder, so the strip and the queue reconcile exactly and the two figures
+          beneath it always add up to the figure above them. See `queueStageSummaries`.
+        */}
+        <span className={styles.pipelineLeftPathway} data-testid="ward-pipeline-left-pathway">
+          <span className={styles.pipelineLabel}>Left the pathway</span>
+          <strong>{pipeline.left.total}</strong>
+          <span className={styles.pipelineSplit}>
+            {pipeline.left.arrived} arrived &middot; {pipeline.left.didNotProceed} did not proceed
+          </span>
+        </span>
       </section>
 
       <div className={styles.networkGrid}>
