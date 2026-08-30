@@ -317,7 +317,10 @@ begin
   select * into strict v_state from public.site_content_sync_state where singleton for update;
   select * into strict v_active from public.site_content_releases where id = v_state.active_release_id for update;
 
-  if v_active.release_digest is distinct from v_state.active_release_digest then
+  if v_active.release_digest is distinct from v_state.active_release_digest
+    or v_active.state is distinct from 'active'
+    or (select count(*) from public.site_content_releases where state = 'active') <> 1
+  then
     raise exception using errcode = '55000', message = 'site_content_transition_backfill_unprovable';
   end if;
 
@@ -774,6 +777,11 @@ begin
     )
   ) then return false; end if;
   v_receipt_id := public.guard_site_content_receipt_shape(p_activation_receipt, 'activation', p_release_id, p_recovery_digest);
+  if public.site_content_receipt_bytes_valid(
+    v_receipt_id, 'activation', p_release_id, p_recovery_digest, p_activation_receipt
+  ) is not true then
+    return false;
+  end if;
   insert into public.site_content_release_receipts(receipt_id, release_id, receipt_kind, recovery_readiness_digest, receipt)
   values (v_receipt_id, p_release_id, 'activation', p_recovery_digest, p_activation_receipt);
   if v_state.active_release_id is not null then
@@ -854,9 +862,9 @@ begin
   where receipt_id = v_state.active_transition_receipt_id
     and release_id = p_expected_active_release_id and receipt_kind = 'activation';
   if not found
-    or not public.site_content_receipt_bytes_valid(
+    or public.site_content_receipt_bytes_valid(
       v_activation.receipt_id, 'activation', v_activation.release_id,
-      v_activation.recovery_readiness_digest, v_activation.receipt)
+      v_activation.recovery_readiness_digest, v_activation.receipt) is not true
     or p_rollback_receipt->>'activationReceiptId' is distinct from v_activation.receipt_id
     or p_rollback_receipt->>'promotionId' is distinct from v_activation.receipt->>'promotionId'
     or p_rollback_receipt->>'projectRef' is distinct from v_activation.receipt->>'projectRef'
@@ -897,6 +905,11 @@ begin
   end if;
   v_receipt_id := public.guard_site_content_receipt_shape(
     p_rollback_receipt, 'rollback', p_target_release_id, p_recovery_digest);
+  if public.site_content_receipt_bytes_valid(
+    v_receipt_id, 'rollback', p_target_release_id, p_recovery_digest, p_rollback_receipt
+  ) is not true then
+    return false;
+  end if;
   insert into public.site_content_release_receipts(receipt_id, release_id, receipt_kind, recovery_readiness_digest, receipt)
   values (v_receipt_id, p_target_release_id, 'rollback', p_recovery_digest, p_rollback_receipt);
   update public.site_content_releases set state = 'rolled_back' where id = p_expected_active_release_id;

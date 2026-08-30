@@ -552,6 +552,25 @@ export async function main() {
     cloneDatabase("site_content_initial_seed", "site_content_initial_shifted_epoch");
     cloneDatabase("site_content_initial_seed", "site_content_unique_activation_seed");
     psql("site_content_initial_adoption", transition);
+    cloneDatabase("site_content_initial_adoption", "site_content_null_activation_receipt");
+    psql(
+      "site_content_null_activation_receipt",
+      activateCurrentHead
+        .replaceAll("__RELEASE_ID__", "83000000-0000-5000-8000-000000000050")
+        .replaceAll("__GENERATION__", "null-activation-receipt")
+        .replaceAll("__RECONCILIATION_DIGEST__", "recorded")
+        .replaceAll("__RECOVERY_HEX__", "a")
+        .replaceAll(
+          "__RECEIPT_MUTATION__",
+          `v_receipt := jsonb_set(v_receipt, '{activatedAt}', 'null'::jsonb);
+           v_receipt := (v_receipt - 'receiptId') || jsonb_build_object(
+             'receiptId','sha256:' || encode(extensions.digest(convert_to(
+               'activation-receipt-identity-v1' || E'\\n' ||
+               public.site_content_canonical_json(v_receipt - 'receiptId'),
+               'UTF8'),'sha256'),'hex'));`,
+        )
+        .replaceAll("__EXPECT_RESULT__", "false"),
+    );
     psql(
       "site_content_initial_adoption",
       `do $$ begin
@@ -577,12 +596,14 @@ export async function main() {
         .replaceAll("__GENERATION__", "initial-r1")
         .replaceAll("__RECONCILIATION_DIGEST__", "recorded")
         .replaceAll("__RECOVERY_HEX__", "b")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "true"),
     );
     cloneDatabase("site_content_unique_activation_seed", "site_content_unique_activation");
     cloneDatabase("site_content_unique_activation_seed", "site_content_corrupt_active_digest");
     cloneDatabase("site_content_unique_activation_seed", "site_content_null_receipt_digest");
     cloneDatabase("site_content_unique_activation_seed", "site_content_orphan_rollback");
+    cloneDatabase("site_content_unique_activation_seed", "site_content_extra_active_release");
     psql("site_content_unique_activation", transition);
     psql(
       "site_content_unique_activation",
@@ -594,6 +615,15 @@ export async function main() {
         then raise exception 'unique_activation_backfill_invalid'; end if;
       end $$;`,
     );
+    psql(
+      "site_content_extra_active_release",
+      `update public.site_content_releases
+       set state = 'active'
+       where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;`,
+    );
+    psql("site_content_extra_active_release", transition, {
+      expectFailure: "site_content_transition_backfill_unprovable",
+    });
     cloneDatabase("site_content_unique_activation", "site_content_nonzero_rollback_seed");
     psql("site_content_nonzero_rollback_seed", publishNextEpoch.replaceAll("__TITLE_SUFFIX__", "epoch-two"));
     psql(
@@ -603,12 +633,30 @@ export async function main() {
         .replaceAll("__GENERATION__", "current-r2")
         .replaceAll("__RECONCILIATION_DIGEST__", "")
         .replaceAll("__RECOVERY_HEX__", "c")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "true"),
     );
     cloneDatabase("site_content_nonzero_rollback_seed", "site_content_nonzero_rollback");
     cloneDatabase("site_content_nonzero_rollback_seed", "site_content_rollback_candidate_reject");
     cloneDatabase("site_content_nonzero_rollback_seed", "site_content_rollback_live_reject");
     cloneDatabase("site_content_nonzero_rollback_seed", "site_content_rollback_head_reject");
+    cloneDatabase("site_content_nonzero_rollback_seed", "site_content_null_rollback_receipt");
+    psql(
+      "site_content_null_rollback_receipt",
+      rollbackCurrentRelease
+        .replaceAll("__ACTIVE_RELEASE_ID__", "83000000-0000-5000-8000-000000000200")
+        .replaceAll("__TARGET_RELEASE_ID__", "83000000-0000-5000-8000-000000000100")
+        .replaceAll(
+          "__RECEIPT_MUTATION__",
+          `v_receipt := jsonb_set(v_receipt, '{rolledBackAt}', 'null'::jsonb);
+           v_receipt := (v_receipt - 'receiptId') || jsonb_build_object(
+             'receiptId','sha256:' || encode(extensions.digest(convert_to(
+               'rollback-receipt-identity-v1' || E'\\n' ||
+               public.site_content_canonical_json(v_receipt - 'receiptId'),
+               'UTF8'),'sha256'),'hex'));`,
+        )
+        .replaceAll("__EXPECT_RESULT__", "false"),
+    );
     psql(
       "site_content_rollback_candidate_reject",
       `insert into public.site_content_releases(
@@ -625,6 +673,7 @@ export async function main() {
       rollbackCurrentRelease
         .replaceAll("__ACTIVE_RELEASE_ID__", "83000000-0000-5000-8000-000000000200")
         .replaceAll("__TARGET_RELEASE_ID__", "83000000-0000-5000-8000-000000000100")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "false"),
     );
     psql(
@@ -638,6 +687,7 @@ export async function main() {
       rollbackCurrentRelease
         .replaceAll("__ACTIVE_RELEASE_ID__", "83000000-0000-5000-8000-000000000200")
         .replaceAll("__TARGET_RELEASE_ID__", "83000000-0000-5000-8000-000000000100")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "false"),
     );
     psql(
@@ -655,6 +705,7 @@ export async function main() {
       rollbackCurrentRelease
         .replaceAll("__ACTIVE_RELEASE_ID__", "83000000-0000-5000-8000-000000000200")
         .replaceAll("__TARGET_RELEASE_ID__", "83000000-0000-5000-8000-000000000100")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "false"),
     );
     psql(
@@ -662,6 +713,7 @@ export async function main() {
       rollbackCurrentRelease
         .replaceAll("__ACTIVE_RELEASE_ID__", "83000000-0000-5000-8000-000000000200")
         .replaceAll("__TARGET_RELEASE_ID__", "83000000-0000-5000-8000-000000000100")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "true"),
     );
     psql(
@@ -669,6 +721,7 @@ export async function main() {
       rollbackCurrentRelease
         .replaceAll("__ACTIVE_RELEASE_ID__", "83000000-0000-5000-8000-000000000200")
         .replaceAll("__TARGET_RELEASE_ID__", "83000000-0000-5000-8000-000000000100")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "false"),
     );
     psql("site_content_nonzero_rollback", publishNextEpoch.replaceAll("__TITLE_SUFFIX__", "epoch-three"));
@@ -690,6 +743,7 @@ export async function main() {
         .replaceAll("__GENERATION__", "current-r3-corrupt")
         .replaceAll("__RECONCILIATION_DIGEST__", "")
         .replaceAll("__RECOVERY_HEX__", "e")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "false"),
     );
     psql(
@@ -699,6 +753,7 @@ export async function main() {
         .replaceAll("__GENERATION__", "current-r3")
         .replaceAll("__RECONCILIATION_DIGEST__", "")
         .replaceAll("__RECOVERY_HEX__", "e")
+        .replaceAll("__RECEIPT_MUTATION__", "")
         .replaceAll("__EXPECT_RESULT__", "true"),
     );
     psql(

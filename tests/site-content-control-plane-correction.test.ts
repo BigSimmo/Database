@@ -24,6 +24,12 @@ describe("P06 site-content control-plane correction", () => {
     expect(sql).toContain("for share");
     expect(sql).toContain("raw_app_meta_data->>'site_role'");
     expect(sql).toContain("perform pg_catalog.pg_advisory_xact_lock(93206431)");
+    expect(sql).toContain("v_counts - array['adopt','retire','identicalDuplicate','total']");
+    expect(sql).toContain("jsonb_typeof(p_plan->'expectedRecordCount') is distinct from 'number'");
+    expect(sql).toContain("jsonb_typeof(v_item->'disposition') is distinct from 'string'");
+    expect(sql).toContain(
+      "v_item->>'sourceRowId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'",
+    );
     expect(sql).toContain(
       "grant execute on function public.record_site_content_reconciliation_plan(jsonb) to authenticated",
     );
@@ -53,6 +59,7 @@ describe("P06 site-content control-plane correction", () => {
     expect(sql).toContain("site_content_transition_backfill_unprovable");
     expect(sql).toContain("site_content_initial_adoption_closure_valid");
     expect(sql).toContain("v_active.release_digest is distinct from v_state.active_release_digest");
+    expect(sql).toContain("(select count(*) from public.site_content_releases where state = 'active') <> 1");
     expect(sql).toContain("p_receipt->>'recoveryReadinessDigest' is distinct from p_recovery_digest");
     expect(sql).toContain("p_receipt->>'projectRef' !~ '^[a-z0-9][a-z0-9_-]{2,63}$'");
     expect(sql).toContain("source.state = 'rolled_back'");
@@ -62,6 +69,15 @@ describe("P06 site-content control-plane correction", () => {
     expect(sql).toContain("'changeEpoch', s.change_epoch::text");
     expect(sql).not.toContain("'changeEpoch', rel.target_change_epoch::text");
     expect(sql).toContain("h.head_change_epoch > s.served_change_epoch");
+
+    const activation = sql.slice(sql.indexOf("create or replace function public.activate_site_content_release("));
+    const rollback = sql.slice(sql.indexOf("create or replace function public.rollback_site_content_release("));
+    expect(activation.indexOf("site_content_receipt_bytes_valid(")).toBeLessThan(
+      activation.indexOf("insert into public.site_content_release_receipts"),
+    );
+    expect(rollback.indexOf("site_content_receipt_bytes_valid(")).toBeLessThan(
+      rollback.indexOf("insert into public.site_content_release_receipts"),
+    );
   });
 
   it("keeps the accepted migrations immutable", () => {
@@ -86,6 +102,9 @@ describe("P06 site-content control-plane correction", () => {
     expect(runner).toContain("site_content_transition_guard_invalid");
     expect(runner).toContain("site_content_transition_source_state_invalid");
     expect(runner).toContain("site_content_rollback_head_reject");
+    expect(runner).toContain("site_content_null_activation_receipt");
+    expect(runner).toContain("site_content_null_rollback_receipt");
+    expect(runner).toContain("site_content_extra_active_release");
     expect(runner).toMatch(/create database/i);
     expect(runner).toMatch(/template/i);
     expect(runner).not.toMatch(/OPENAI|ANTHROPIC|NEXT_PUBLIC_SUPABASE_URL/);

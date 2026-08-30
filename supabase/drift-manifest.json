@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-29T20:52:35.641Z",
+  "generated_at": "2026-08-30T00:23:09.858Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "c7a4827486fcf7569bebb5b2dea4dafad86eeebcb592dede35dfffd8976d15f1",
-  "replay_seconds": 17,
+  "schema_sha256": "139fe5e3bd5030fad7e0aa5ad96d0c5d3393bce2d0825537f78051ed99ec2fa2",
+  "replay_seconds": 18,
   "snapshot": {
     "views": [
       {
@@ -7913,7 +7913,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "deb00b05b0bd75b84571e40d06f06ad3",
+        "def_hash": "bac2cbdd247bb60929cd21c1de068b5e",
         "signature": "public.activate_site_content_release(uuid,text,bigint,text,jsonb)"
       },
       {
@@ -8565,7 +8565,7 @@
           "authenticated=X/postgres",
           "postgres=X/postgres"
         ],
-        "def_hash": "eb7f41af5c16a815c25b600b180ca88f",
+        "def_hash": "b9a4ce368d6d3b48382c1ea5f888fe6b",
         "signature": "public.record_site_content_reconciliation_plan(jsonb)"
       },
       {
@@ -8693,7 +8693,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "f85ce253af002c8c53cabdad6899fa41",
+        "def_hash": "51959e4a9ccf1879ed87d4ae7271593e",
         "signature": "public.rollback_site_content_release(uuid,uuid,text,jsonb)"
       },
       {

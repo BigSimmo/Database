@@ -35,8 +35,11 @@ declare
   v_authorized_at timestamptz;
   v_dispositions jsonb;
   v_trusted jsonb;
+  v_counts jsonb;
   v_expected integer;
   v_groups integer;
+  v_batch_size integer;
+  v_batch_count integer;
   v_item jsonb;
   v_snapshot jsonb;
   source record;
@@ -55,33 +58,81 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(93206431);
 
   begin
+    if p_plan is null or jsonb_typeof(p_plan) is distinct from 'object' then
+      raise exception 'invalid plan';
+    end if;
+    if p_plan - array['version','planDigest','trustedSnapshotDigest','expectedRecordCount','expectedGroupCount',
+        'batchSize','batchCount','counts','trustedSnapshots','dispositions'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(p_plan)) <> 10
+      or jsonb_typeof(p_plan->'version') is distinct from 'string'
+      or p_plan->>'version' is distinct from 'site-content-reconciliation-plan-v1'
+      or jsonb_typeof(p_plan->'planDigest') is distinct from 'string'
+      or p_plan->>'planDigest' !~ '^[0-9a-f]{64}$'
+      or jsonb_typeof(p_plan->'trustedSnapshotDigest') is distinct from 'string'
+      or p_plan->>'trustedSnapshotDigest' !~ '^[0-9a-f]{64}$'
+      or jsonb_typeof(p_plan->'expectedRecordCount') is distinct from 'number'
+      or jsonb_typeof(p_plan->'expectedGroupCount') is distinct from 'number'
+      or jsonb_typeof(p_plan->'batchSize') is distinct from 'number'
+      or jsonb_typeof(p_plan->'batchCount') is distinct from 'number'
+    then
+      raise exception 'invalid plan';
+    end if;
     v_dispositions := p_plan->'dispositions';
     v_trusted := p_plan->'trustedSnapshots';
+    v_counts := p_plan->'counts';
+    if jsonb_typeof(v_dispositions) is distinct from 'array'
+      or jsonb_typeof(v_trusted) is distinct from 'array'
+      or jsonb_typeof(v_counts) is distinct from 'object'
+      or v_counts - array['adopt','retire','identicalDuplicate','total'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(v_counts)) <> 4
+      or jsonb_typeof(v_counts->'adopt') is distinct from 'number'
+      or jsonb_typeof(v_counts->'retire') is distinct from 'number'
+      or jsonb_typeof(v_counts->'identicalDuplicate') is distinct from 'number'
+      or jsonb_typeof(v_counts->'total') is distinct from 'number'
+    then
+      raise exception 'invalid plan';
+    end if;
+    if (p_plan->>'expectedRecordCount')::numeric <> trunc((p_plan->>'expectedRecordCount')::numeric)
+      or (p_plan->>'expectedGroupCount')::numeric <> trunc((p_plan->>'expectedGroupCount')::numeric)
+      or (p_plan->>'batchSize')::numeric <> trunc((p_plan->>'batchSize')::numeric)
+      or (p_plan->>'batchCount')::numeric <> trunc((p_plan->>'batchCount')::numeric)
+      or (v_counts->>'adopt')::numeric <> trunc((v_counts->>'adopt')::numeric)
+      or (v_counts->>'retire')::numeric <> trunc((v_counts->>'retire')::numeric)
+      or (v_counts->>'identicalDuplicate')::numeric <> trunc((v_counts->>'identicalDuplicate')::numeric)
+      or (v_counts->>'total')::numeric <> trunc((v_counts->>'total')::numeric)
+      or (p_plan->>'expectedRecordCount')::numeric not between 1 and 5000
+      or (p_plan->>'expectedGroupCount')::numeric not between 1 and (p_plan->>'expectedRecordCount')::numeric
+      or (p_plan->>'batchSize')::numeric not between 1 and 500
+      or (p_plan->>'batchCount')::numeric not between 1 and 5000
+    then
+      raise exception 'invalid plan';
+    end if;
     v_expected := (p_plan->>'expectedRecordCount')::integer;
     v_groups := (p_plan->>'expectedGroupCount')::integer;
+    v_batch_size := (p_plan->>'batchSize')::integer;
+    v_batch_count := (p_plan->>'batchCount')::integer;
   exception when others then
     raise exception using errcode = '22023', message = 'site_content_reconciliation_unresolved';
   end;
-  if p_plan is null or jsonb_typeof(p_plan) is distinct from 'object'
-    or p_plan - array['version','planDigest','trustedSnapshotDigest','expectedRecordCount','expectedGroupCount',
-      'batchSize','batchCount','counts','trustedSnapshots','dispositions'] <> '{}'::jsonb
-    or (select count(*) from jsonb_object_keys(p_plan)) <> 10
-    or p_plan->>'version' <> 'site-content-reconciliation-plan-v1'
-    or jsonb_typeof(v_dispositions) is distinct from 'array'
-    or jsonb_typeof(v_trusted) is distinct from 'array'
-    or v_expected < 1 or v_expected > 5000
-    or v_groups < 1 or v_groups > v_expected
-    or jsonb_array_length(v_dispositions) <> v_expected
+  if exists (
+    select 1 from jsonb_array_elements(v_dispositions) item
+    where jsonb_typeof(item) is distinct from 'object'
+  ) or exists (
+    select 1 from jsonb_array_elements(v_trusted) item
+    where jsonb_typeof(item) is distinct from 'object'
+  ) then
+    raise exception using errcode = '22023', message = 'site_content_reconciliation_unresolved';
+  end if;
+  if jsonb_array_length(v_dispositions) <> v_expected
     or jsonb_array_length(v_trusted) <> v_groups
-    or (p_plan->>'batchSize')::integer not between 1 and 500
-    or (p_plan->>'batchCount')::integer <> ceil(v_expected::numeric / (p_plan->>'batchSize')::integer)::integer
+    or v_batch_count <> ceil(v_expected::numeric / v_batch_size)::integer
     or p_plan->>'planDigest' is distinct from public.site_content_json_sha256(p_plan - 'planDigest')
     or p_plan->>'trustedSnapshotDigest' is distinct from public.site_content_json_sha256(jsonb_build_object(
       'version', 'site-content-trusted-snapshot-v1', 'records', v_trusted))
-    or (p_plan#>>'{counts,total}')::integer <> v_expected
-    or (p_plan#>>'{counts,adopt}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
-    or (p_plan#>>'{counts,retire}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'retire')
-    or (p_plan#>>'{counts,identicalDuplicate}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'identical_duplicate')
+    or (v_counts->>'total')::numeric <> v_expected
+    or (v_counts->>'adopt')::numeric <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
+    or (v_counts->>'retire')::numeric <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'retire')
+    or (v_counts->>'identicalDuplicate')::numeric <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'identical_duplicate')
     or (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt') <> v_groups
     or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_dispositions) item) <> v_groups
     or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_dispositions) item
@@ -97,8 +148,15 @@ begin
     raise exception using errcode = '22023', message = 'site_content_reconciliation_unresolved';
   end if;
   for v_snapshot in select value from jsonb_array_elements(v_trusted) loop
-    if v_snapshot - array['logicalId','publicRecordId','route','contentHash','publicationVersion','governanceHash'] <> '{}'::jsonb
+    if jsonb_typeof(v_snapshot) is distinct from 'object'
+      or v_snapshot - array['logicalId','publicRecordId','route','contentHash','publicationVersion','governanceHash'] <> '{}'::jsonb
       or (select count(*) from jsonb_object_keys(v_snapshot)) <> 6
+      or jsonb_typeof(v_snapshot->'logicalId') is distinct from 'string'
+      or jsonb_typeof(v_snapshot->'publicRecordId') is distinct from 'string'
+      or jsonb_typeof(v_snapshot->'route') is distinct from 'string'
+      or jsonb_typeof(v_snapshot->'contentHash') is distinct from 'string'
+      or jsonb_typeof(v_snapshot->'publicationVersion') is distinct from 'string'
+      or jsonb_typeof(v_snapshot->'governanceHash') is distinct from 'string'
       or v_snapshot->>'logicalId' !~ '^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._:-]*$'
       or v_snapshot->>'publicRecordId' is distinct from v_snapshot->>'logicalId'
       or v_snapshot->>'route' not like '/%'
@@ -109,17 +167,29 @@ begin
     end if;
   end loop;
   for v_item in select value from jsonb_array_elements(v_dispositions) loop
-    if v_item - array['logicalId','disposition','sourceKind','sourceRowId','sourceVersion','contentHash',
+    if jsonb_typeof(v_item) is distinct from 'object'
+      or v_item - array['logicalId','disposition','sourceKind','sourceRowId','sourceVersion','contentHash',
         'publicationVersion','trustedPublicRecordId','trustedRoute','trustedGovernanceHash'] <> '{}'::jsonb
       or (select count(*) from jsonb_object_keys(v_item)) <> 10
+      or jsonb_typeof(v_item->'logicalId') is distinct from 'string'
+      or jsonb_typeof(v_item->'disposition') is distinct from 'string'
+      or jsonb_typeof(v_item->'sourceKind') is distinct from 'string'
+      or jsonb_typeof(v_item->'sourceRowId') is distinct from 'string'
+      or jsonb_typeof(v_item->'sourceVersion') is distinct from 'string'
+      or jsonb_typeof(v_item->'contentHash') is distinct from 'string'
+      or jsonb_typeof(v_item->'publicationVersion') is distinct from 'string'
+      or jsonb_typeof(v_item->'trustedPublicRecordId') is distinct from 'string'
+      or jsonb_typeof(v_item->'trustedRoute') is distinct from 'string'
+      or jsonb_typeof(v_item->'trustedGovernanceHash') is distinct from 'string'
       or v_item->>'logicalId' !~ '^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._:-]*$'
       or v_item->>'disposition' not in ('adopt','retire','identical_duplicate')
       or v_item->>'sourceKind' not in ('service','form','medication','differential','presentation')
-      or v_item->>'sourceRowId' !~ '^[0-9a-f-]{36}$'
+      or v_item->>'sourceRowId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
       or v_item->>'sourceVersion' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
       or v_item->>'contentHash' !~ '^[0-9a-f]{64}$'
       or v_item->>'publicationVersion' !~ '^[0-9a-f]{64}$'
       or v_item->>'trustedGovernanceHash' !~ '^[0-9a-f]{64}$'
+      or v_item->>'trustedRoute' not like '/%'
       then raise exception using errcode = '22023', message = 'site_content_reconciliation_item_invalid';
     end if;
     select * into strict source from public.site_content_source_projection(
@@ -174,7 +244,7 @@ begin
     administrator_authorized_at, administrator_authorization_version
   ) values (
     p_plan->>'planDigest', p_plan->>'version', p_plan->>'trustedSnapshotDigest', v_trusted, v_dispositions,
-    v_expected, v_groups, (p_plan->>'batchSize')::integer, (p_plan->>'batchCount')::integer, p_plan->'counts',
+    v_expected, v_groups, v_batch_size, v_batch_count, v_counts,
     v_actor, v_authorized_at, v_authorized_at, 'site-content-admin-authorization-v1'
   ) on conflict (plan_digest) do nothing;
   return exists (
@@ -186,9 +256,9 @@ begin
       and rp.dispositions = v_dispositions
       and rp.expected_record_count = v_expected
       and rp.expected_group_count = v_groups
-      and rp.batch_size = (p_plan->>'batchSize')::integer
-      and rp.batch_count = (p_plan->>'batchCount')::integer
-      and rp.counts = p_plan->'counts'
+      and rp.batch_size = v_batch_size
+      and rp.batch_count = v_batch_count
+      and rp.counts = v_counts
       and rp.reviewed_by is not null
       and rp.reviewed_at = rp.administrator_authorized_at
       and rp.administrator_authorization_version = 'site-content-admin-authorization-v1'

@@ -121,6 +121,7 @@ begin
       'activation-receipt-identity-v1' || E'\n' || public.site_content_canonical_json(v_receipt_fields),
       'UTF8'),'sha256'),'hex')
   );
+  __RECEIPT_MUTATION__
   select jsonb_build_object(
     'state',(select to_jsonb(s) from public.site_content_sync_state s where singleton),
     'releases',(select jsonb_agg(to_jsonb(r) order by r.id) from public.site_content_releases r),

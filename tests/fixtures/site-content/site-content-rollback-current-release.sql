@@ -41,6 +41,7 @@ begin
       'rollback-receipt-identity-v1' || E'\n' || public.site_content_canonical_json(v_fields),
       'UTF8'),'sha256'),'hex')
   );
+  __RECEIPT_MUTATION__
   v_result := public.rollback_site_content_release(
     v_expected_active,v_target,repeat('d',64),v_receipt
   );

@@ -129,6 +129,98 @@ create temporary table correction_authority_original as
 select reviewed_by, reviewed_at, administrator_authorized_at, administrator_authorization_version
 from public.site_content_reconciliation_plans;
 
+create temporary table correction_authority_rows_before_malformed as
+select to_jsonb(plan) as row_bytes
+from public.site_content_reconciliation_plans plan;
+
+create temporary table correction_authority_malformed(case_name text not null, plan jsonb not null);
+grant select on correction_authority_malformed to authenticated;
+
+do $$
+declare
+  v_base jsonb := (select plan from correction_authority_plan);
+  v_candidate jsonb;
+  v_case text;
+begin
+  foreach v_case in array array[
+    'extra_counts_key',
+    'string_count',
+    'string_numeric',
+    'extra_item_key',
+    'null_disposition'
+  ] loop
+    v_candidate := case v_case
+      when 'extra_counts_key' then jsonb_set(
+        v_base, '{counts}', (v_base->'counts') || '{"extra":0}'::jsonb
+      )
+      when 'string_count' then jsonb_set(v_base, '{counts,total}', '"2"'::jsonb)
+      when 'string_numeric' then jsonb_set(v_base, '{expectedRecordCount}', '"2"'::jsonb)
+      when 'extra_item_key' then jsonb_set(
+        v_base, '{dispositions,0}', (v_base#>'{dispositions,0}') || '{"extra":true}'::jsonb
+      )
+      when 'null_disposition' then jsonb_set(v_base, '{dispositions,0,disposition}', 'null'::jsonb)
+    end;
+    v_candidate := (v_candidate - 'planDigest') || jsonb_build_object(
+      'planDigest', public.site_content_json_sha256(v_candidate - 'planDigest')
+    );
+    insert into correction_authority_malformed(case_name, plan) values (v_case, v_candidate);
+  end loop;
+end;
+$$;
+
+begin;
+set local role authenticated;
+select pg_catalog.set_config(
+  'request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true
+);
+select pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
+select pg_catalog.set_config(
+  'request.jwt.claims',
+  '{"sub":"81000000-0000-4000-8000-000000000001","role":"authenticated"}',
+  true
+);
+do $$
+declare
+  v_candidate jsonb;
+  v_case text;
+begin
+  for v_case, v_candidate in
+    select malformed.case_name, malformed.plan
+    from correction_authority_malformed malformed
+    order by malformed.case_name
+  loop
+    begin
+      if public.record_site_content_reconciliation_plan(v_candidate) then
+        raise exception 'control_plane_malformed_reconciliation_plan_accepted_%', v_case;
+      end if;
+    exception when sqlstate '22023' then
+      null;
+    end;
+  end loop;
+end;
+$$;
+reset role;
+commit;
+
+do $$
+begin
+  if (select count(*) from public.site_content_reconciliation_plans) <> 1
+    or exists (
+      select to_jsonb(plan) from public.site_content_reconciliation_plans plan
+      except
+      select row_bytes from correction_authority_rows_before_malformed
+    )
+    or exists (
+      select row_bytes from correction_authority_rows_before_malformed
+      except
+      select to_jsonb(plan) from public.site_content_reconciliation_plans plan
+    )
+  then
+    raise exception 'control_plane_malformed_reconciliation_plan_mutated_rows';
+  end if;
+end;
+$$;
+
 begin;
 set local role authenticated;
 select pg_catalog.set_config(
