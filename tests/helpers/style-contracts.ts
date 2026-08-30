@@ -389,6 +389,7 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "smart-search-phone-ticker": "smart-search ticker title line — no contract yet (#094)",
   "smart-search-phone-ticker-kicker": "smart-search ticker kicker — no contract yet (#094)",
   "smart-search-phone-ticker-action": "smart-search ticker action chip — no contract yet (#094)",
+  "smart-search-intent-cue": "server-gated Smart intent cue — state and accessibility covered by master-search-header",
   // Mode switcher.
   "mode-action-surface": "mode menu surface — dismissal/focus covered by ui-accessibility, effect not contracted",
   "mode-action-mode-option": "mode menu option — no effect contract yet (#094)",

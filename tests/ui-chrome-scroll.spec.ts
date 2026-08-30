@@ -31,7 +31,10 @@ const breakpoints = [
 // These result/detail pages own the generic page-flow slot on desktop.
 const surfaces = [
   { name: "shell results", route: "/forms?q=form%201A&run=1" },
-  { name: "shell service detail", route: "/services/13yarn" },
+  // The dormant Clinical Ask deployment intentionally omits the old Smart-search
+  // promise, so this compact detail page has slightly less runway than the other
+  // surfaces while still leaving enough room to prove the mid-page reveal.
+  { name: "shell service detail", route: "/services/13yarn", minimumRunway: 650 },
   { name: "dashboard results", route: "/?mode=prescribing&q=a&run=1" },
   // Therapy search carries the shared `ModeNav` inside the collapse row. The
   // phone case is covered by ui-phone-scroll; this is the tablet/desktop proof
@@ -209,12 +212,12 @@ test("1024px bounded main scrolling preserves focused page search", async ({ pag
 });
 
 for (const { name: sizeName, viewport } of breakpoints) {
-  for (const { name: surfaceName, route } of surfaces) {
+  for (const { name: surfaceName, route, minimumRunway = requiredRunway } of surfaces) {
     test(`${sizeName}: top bar hides on scroll down and returns mid-page on ${surfaceName}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
-      await waitForRunway(page, requiredRunway);
+      await waitForRunway(page, minimumRunway);
       await page.waitForTimeout(400);
 
       const atTop = await readChromeState(page);
@@ -232,7 +235,7 @@ for (const { name: sizeName, viewport } of breakpoints) {
       await page.waitForTimeout(300);
 
       const scrolledDown = await readChromeState(page);
-      expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(requiredRunway - 200);
+      expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(minimumRunway - 200);
       expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
       expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
       expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
@@ -255,7 +258,7 @@ for (const { name: sizeName, viewport } of breakpoints) {
       await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
-      await waitForRunway(page, requiredRunway);
+      await waitForRunway(page, minimumRunway);
       await page.waitForTimeout(400);
 
       const atTop = await readChromeState(page);

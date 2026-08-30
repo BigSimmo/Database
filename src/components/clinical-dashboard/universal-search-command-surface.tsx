@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -43,6 +44,7 @@ import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/u
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 
 // Domains whose live result totals a cross-mode chip should sum. Answer/favourites
 // chips have no countable domain; the
@@ -212,7 +214,7 @@ function SmartRotatingHint({
 
   return (
     <>
-      <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
+      <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text">
         <span>Smart search</span>
         <span aria-hidden="true">·</span>
         <span>
@@ -248,6 +250,33 @@ function SmartRotatingHint({
           </span>
         </button>
       ) : null}
+    </>
+  );
+}
+
+function SmartIntentCue({ active, modeLabel }: { active: boolean; modeLabel: string }) {
+  const previouslyActiveRef = useRef(false);
+  const announcementRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const announcement = announcementRef.current;
+    if (active && !previouslyActiveRef.current) {
+      if (announcement) announcement.textContent = `Smart answer selected for ${modeLabel}.`;
+    } else if (!active) {
+      if (announcement) announcement.textContent = "";
+    }
+    previouslyActiveRef.current = active;
+  }, [active, modeLabel]);
+
+  return (
+    <>
+      {active ? (
+        <div className="smart-search-intent-cue" data-testid="smart-search-intent-cue" aria-hidden="true">
+          <Sparkles aria-hidden="true" className="size-icon-sm" />
+          Smart answer · governed sources
+        </div>
+      ) : null}
+      <span ref={announcementRef} className="sr-only" aria-live="polite" aria-atomic="true" />
     </>
   );
 }
@@ -432,6 +461,7 @@ export function UniversalSearchCommandSurface({
   onListboxIdReady,
   onActiveItemIdChange,
   showPhoneSuggestionTicker = false,
+  clinicalAskAvailable = false,
   placement = "inline",
   children,
 }: {
@@ -454,6 +484,8 @@ export function UniversalSearchCommandSurface({
   onActiveItemIdChange?: (activeItemId: string | null) => void;
   /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
   showPhoneSuggestionTicker?: boolean;
+  /** Server-projected capability; false keeps the composer fully deterministic. */
+  clinicalAskAvailable?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -474,6 +506,8 @@ export function UniversalSearchCommandSurface({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
+  const smartClinicalAsk =
+    clinicalAskAvailable && resolveSmartSearchSubmissionIntent(modeId, trimmedQuery) === "clinical-ask";
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
@@ -1071,15 +1105,18 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
-      <SmartRotatingHint
-        examples={config.examples}
-        modeLabel={mode.label}
-        showPhoneTicker={showPhoneSuggestionTicker}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          onFocusSearchInput?.();
-        }}
-      />
+      <SmartIntentCue active={smartClinicalAsk} modeLabel={mode.label} />
+      {clinicalAskAvailable && !smartClinicalAsk ? (
+        <SmartRotatingHint
+          examples={config.examples}
+          modeLabel={mode.label}
+          showPhoneTicker={showPhoneSuggestionTicker}
+          onPickExample={(example) => {
+            onQueryChange(example);
+            onFocusSearchInput?.();
+          }}
+        />
+      ) : null}
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {
