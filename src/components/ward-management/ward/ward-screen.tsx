@@ -1039,7 +1039,6 @@ export function WardScreen({ unitId }: WardScreenProps) {
               {incoming.map((movement) => {
                 const blocked = referralAnswerBlocked(movement, unit);
                 const notice = restrictionNotice(movement, unit);
-                const parallel = movement.referredUnitIds.length > 1;
                 const declineOpen = declineOpenFor === movement.id;
                 return (
                   <li key={movement.id} data-testid={`ward-incoming-${movement.id}`} className={styles.card}>
@@ -1051,7 +1050,48 @@ export function WardScreen({ unitId }: WardScreenProps) {
                       </span>
                       <span className={styles.cardMeta}>{elapsedLabel(movement, now)}</span>
                     </header>
-                    {parallel ? <span className={styles.parallelBadge}>Parallel referral</span> : null}
+                    {/*
+                      ⚠️ NO "PARALLEL REFERRAL" BADGE HERE — AND THIS IS THE REVERSIBLE ANSWER TO AN
+                      OPEN QUESTION, NOT A SETTLED RULE. Do not read its absence as decided, and do
+                      not put it back without the owner's answer below.
+
+                      This rendered `referredUnitIds.length > 1`: a badge telling a ward the patient
+                      was also referred somewhere else, without saying where.
+
+                      WHAT IS SETTLED, the owner's ruling, verbatim in `ward-referral-visibility.ts`:
+                      "a ward cannot see where else a patient has been referred. The coordinator may
+                      see everything." ⚠️ A BADGE SAYING ONLY THAT OTHERS EXIST DOES NOT BREAK THAT
+                      SENTENCE — it names nowhere. So the ruling alone does not decide this.
+
+                      WHAT IS NOT SETTLED is whether the bare fact is also barred. The same module
+                      adds "the count is as forbidden as the list", and I first recorded that here as
+                      the ruling. ⚠️ IT IS THE IMPLEMENTER'S READING, written in the same voice one
+                      line below the owner's words, and its author has since corrected me. Two live
+                      readings, and they point opposite ways:
+
+                        AGAINST a badge  visible competition invites waiting, so a patient addressed
+                                         to four wards could be deprioritised by all four — each of
+                                         them reading the badge correctly.
+                        FOR a badge      the owner's own stated reason is "so a ward does not spend
+                                         its time on a patient who is being placed elsewhere", which
+                                         is an argument for telling the ward, not for hiding it.
+
+                      ⚠️ AND THE COST OF HIDING IT IS REAL, in a window that is easy to argue away.
+                      `FD-22` cancels the other referrals on the first acceptance and
+                      `withdrawnReferrals` then tells this ward ("a shrinking `referredUnitIds` tells
+                      nobody"). But that only pays AFTER somebody accepts. While three wards are each
+                      still deliberating, nothing has fired and no ward knows it is one of three —
+                      which is exactly the window in which a bed gets held.
+
+                      SO WHY STRICT MEANWHILE: not because it is right, because it is the one that
+                      can be undone. Adding the flag later is one edit. Removing a disclosure after
+                      wards have been reading it is not — and the visibility projection is built so
+                      that widening must be typed out deliberately rather than switched on.
+
+                      ⚠️ If the owner permits it, it belongs on `WardScopedReferral` as its own typed
+                      field. NEVER as a `hideOtherDestinations` flag: a flag is a thing that can be
+                      passed the other way, which is why two projections are two TYPES here.
+                    */}
                     {notice ? (
                       <span
                         className={notice.level === "voluntary_on_locked" ? styles.noticeProminent : styles.notice}
@@ -1301,7 +1341,49 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 return (
                   <li key={movement.id} data-testid={`ward-withdrawn-${movement.id}`} className={styles.card}>
                     <strong>{movement.id}</strong>
-                    <span className={styles.cardMeta}>{entry ? entry.reason : "Withdrawn — reason unresolved"}</span>
+                    {/*
+                      ⚠️ THE STORED `reason` IS NOT RENDERED, BECAUSE IT NAMES THE WARD THAT WON.
+
+                      `ward-flow-reducer.ts` writes `reason: `withdrawn — placed at ${acceptedUnit.name}``,
+                      and the seed carries the same shape ("Referral withdrawn once RGH Adult Secure
+                      confirmed the bed"). Rendering it told FSH Adult Secure that RGH took the
+                      patient — the exact fact `FD-23` forbids a ward-facing surface to reveal,
+                      arriving through `withdrawnReferrals`, the field that exists to PROTECT this
+                      ward from holding a bed. The most dangerous leak was inside the safeguard.
+
+                      A structural guard cannot see this: `reason` is a permitted field carrying a
+                      forbidden VALUE. Only reading the values finds it.
+
+                      What the ward needs is the whole of what it can act on — this referral has
+                      ended, and another unit accepted the patient — and the destination is no part
+                      of that.
+
+                      ⚠️ THE WORDING IS "ACCEPTED", NOT "PLACED", AND NOT "YOUR BED IS FREE". Both
+                      of those were in my first draft and both would have been new false statements
+                      on a page whose whole job here is to stop making them. `ACCEPT_IN_PRINCIPLE`
+                      leaves the patient `accepted_awaiting_bed` — accepted, not moved, so "placed"
+                      overstates it (the reducer's own string says "placed at" and is wrong about
+                      that too). And this ward may never have held a bed at all; whether one is free
+                      is the bed-capacity section's question, answered from the bed state, not an
+                      inference anybody can draw from a withdrawal.
+
+                      MEASURED, not assumed: `ACCEPT_IN_PRINCIPLE` is the ONLY writer of
+                      `withdrawnReferrals` (one site, reducer line 636) and the seed's single entry
+                      means the same thing. So "another unit accepted" is true of every entry that
+                      can exist today. ⚠️ It is true CONDITIONALLY — a second withdrawal path with a
+                      different cause would make this sentence quietly wrong, and nothing here would
+                      catch it. A structured cause on the record is what would; see below.
+
+                      ⚠️ THIS IS A CONTAINMENT, NOT THE FIX. It stops the leak at the one surface I
+                      own, by declining to render a string I do not control. Any other ward-facing
+                      surface that renders `reason` raw leaks again, and nothing here would go red.
+                      The durable fix is a structured cause on the record so a coordinator screen
+                      can say WHERE and a ward page cannot — handed to Ward Core, whose file writes
+                      it. Until that lands, do not "simplify" this back to `{entry.reason}`.
+                    */}
+                    <span className={styles.cardMeta} data-testid={`ward-withdrawn-reason-${movement.id}`}>
+                      {entry ? "Withdrawn — another unit accepted this patient." : "Withdrawn — reason unresolved"}
+                    </span>
                     {entry ? <span className={styles.cardMeta}>{formatInstantWithDay(entry.at, now)}</span> : null}
                   </li>
                 );

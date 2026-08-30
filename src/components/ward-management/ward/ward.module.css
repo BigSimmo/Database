@@ -330,15 +330,15 @@
   font-size: var(--text-3xs);
 }
 
-.parallelBadge {
-  justify-self: start;
-  border-radius: var(--radius-pill, 9999px);
-  background: var(--clinical-accent-soft);
-  padding: 0 var(--wd-space-8);
-  color: var(--clinical-accent);
-  font-size: var(--text-3xs);
-  font-weight: 700;
-}
+/*
+ * `.parallelBadge` IS DELETED, NOT ORPHANED, and the deletion is part of the FD-23 fix rather than
+ * tidying after it. It styled a "Parallel referral" badge telling a ward that a patient was also
+ * referred elsewhere — forbidden by `ward-referral-visibility.ts` ("the count is as forbidden as
+ * the list"), see the long note at its old render site in `ward-screen.tsx`.
+ *
+ * A dead rule with an inviting name is how a removed disclosure comes back: the next person adds
+ * the badge, finds the styling already waiting, and reads that as evidence it belonged here.
+ */
 
 /*
  * The two restriction-notice levels, reading identically to `shortlist-panel.tsx` and
