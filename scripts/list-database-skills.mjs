@@ -369,10 +369,34 @@ export const userFacingPluginMetadata = [
   "plugins/clinical-kb/README.md",
 ];
 
-/** The product's retired name. `Clinical KB Database` is the live Supabase
- *  project and is excluded by the negative lookahead — it is the database's
- *  real name, pinned by AGENTS.md, not a product name. */
-const RETIRED_PRODUCT_NAME = /Clinical KB(?! Database)/g;
+/** The product's retired name. `Clinical KB Database` and `Clinical KB
+ *  Staging` are the live Supabase projects and are excluded by the negative
+ *  lookaheads — those are the databases' real names, pinned by AGENTS.md, not
+ *  product names. */
+const RETIRED_PRODUCT_NAME = /Clinical KB(?! Database)(?! Staging)/g;
+
+/** Repository surfaces outside the plugin whose *user-facing* text names the
+ *  product: the repo front page, the security policy, the container image
+ *  labels, and the living reference docs a person reads to learn what this is.
+ *  Dated reports, plans, specs, ledgers and archives are deliberately NOT
+ *  covered — they record what was true when they were written, and rewriting
+ *  history to match a later name makes the record less accurate, not more.
+ *  `Clinical KB Database` and `Clinical KB Staging` stay: those are the live
+ *  Supabase projects' real names, pinned by AGENTS.md. */
+export const userFacingProductSurfaces = [
+  "README.md",
+  "SECURITY.md",
+  "Dockerfile",
+  "mockups/README.md",
+  "docs/README.md",
+  "docs/codebase-index.md",
+  "docs/pwa.md",
+  "docs/privacy-impact-assessment.md",
+  "docs/clinical-governance.md",
+  "docs/deployment-architecture.md",
+  "docs/production-readiness-checklist.md",
+  "docs/design-system/README.md",
+];
 
 export function validatePluginProductName(files = userFacingPluginMetadata) {
   const errors = [];
@@ -399,7 +423,13 @@ function run(argv = process.argv.slice(2)) {
   const validation = validateSkillCatalog(catalog);
   const repositoryValidation = validateRepositorySkillPolicies();
   const productName = validatePluginProductName();
-  const errors = [...validation.errors, ...repositoryValidation.errors, ...productName.errors];
+  const productSurfaces = validatePluginProductName(userFacingProductSurfaces);
+  const errors = [
+    ...validation.errors,
+    ...repositoryValidation.errors,
+    ...productName.errors,
+    ...productSurfaces.errors,
+  ];
   if (errors.length) {
     console.error(errors.map((error) => `- ${error}`).join("\n"));
     process.exitCode = 1;

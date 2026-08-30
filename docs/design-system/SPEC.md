@@ -1,4 +1,4 @@
-# Clinical KB design system — SPEC
+# PsychSift design system — SPEC
 
 **The complete design system: roles, rules, rationale. Never values.** Token values live in
 `src/app/ckb-v2-tokens.css` (branch copy) and `src/app/globals.css` (live layer) only — a value

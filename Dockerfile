@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Clinical KB app tier (Next.js). See docs/deployment-architecture.md.
+# PsychSift app tier (Next.js). See docs/deployment-architecture.md.
 #
 # The repo is engine-strict (Node 24.x / npm 11.x via .npmrc + preinstall
 # guard), so every stage pins the same Node 24 base image. The build stage
@@ -96,8 +96,8 @@ COPY package.json next.config.ts ./
 USER node
 EXPOSE 3000
 LABEL org.opencontainers.image.source="https://github.com/BigSimmo/Database"
-LABEL org.opencontainers.image.title="Clinical KB app tier"
-LABEL org.opencontainers.image.description="Next.js 16 app tier for the Clinical KB medical guideline RAG knowledge base"
+LABEL org.opencontainers.image.title="PsychSift app tier"
+LABEL org.opencontainers.image.description="Next.js 16 app tier for the PsychSift medical guideline RAG knowledge base"
 LABEL org.opencontainers.image.licenses="UNLICENSED"
 STOPSIGNAL SIGTERM
 # /api/health is the app's own ops health route.
