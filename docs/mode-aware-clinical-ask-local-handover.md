@@ -136,6 +136,11 @@ evidence as pending or partial. Named clinical-authority and privacy approval
 and physical iPhone Safari/PWA Smart-path acceptance also remain open. These
 are activation gates, not evidence supplied by the dormant code PR.
 
+The final code review completed against
+8de6dae0e541166dad23523ca3a4e2340eb6c217 with all identified P2 defects fixed
+and no open P0, P1, or P2 finding. Its immutable repository review record is
+included with the publication handover.
+
 ## Phase 3 — Publication and activation boundary
 
 Before publication, fetch origin/main again. If it advanced, merge it normally,
