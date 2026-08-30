@@ -622,7 +622,17 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
 
       const withdrawn = movement.referredUnitIds
         .filter((unitId) => unitId !== event.unitId)
-        .map((unitId) => ({ unitId, at: event.now, reason: `withdrawn — placed at ${acceptedUnit.name}` }));
+        .map((unitId) => ({
+          unitId,
+          at: event.now,
+          // 🔴 FD-23, and TWO defects in one string. It read `withdrawn — placed at
+          // ${acceptedUnit.name}`, and the ward page renders this field verbatim — so the LOSING
+          // ward read the WINNER's name out of the record of its own loss. The second defect
+          // survives the first fix: "placed" asserts a transfer that has not happened, because
+          // this event leaves the movement at `accepted_awaiting_bed`. A code, never a sentence:
+          // see WITHDRAWAL_REASONS. The coordinator reads `acceptedUnitId` for the destination.
+          reason: "another_unit_accepted" as const,
+        }));
 
       const updated: Movement = {
         ...movement,

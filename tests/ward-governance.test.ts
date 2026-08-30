@@ -178,7 +178,7 @@ describe("effectivenessNumbers", () => {
       acceptedAt: undefined,
       referredUnitIds: [],
       declines: [],
-      withdrawnReferrals: [{ unitId: "unit-b", at: 140, reason: "withdrawn — placed at Unit A" }],
+      withdrawnReferrals: [{ unitId: "unit-b", at: 140, reason: "another_unit_accepted" }],
     });
     const computableSlow = movementFrom({
       id: "WF-ACC-2",
@@ -187,7 +187,7 @@ describe("effectivenessNumbers", () => {
       acceptedAt: undefined,
       referredUnitIds: [],
       declines: [],
-      withdrawnReferrals: [{ unitId: "unit-d", at: 260, reason: "withdrawn — placed at Unit C" }],
+      withdrawnReferrals: [{ unitId: "unit-d", at: 260, reason: "another_unit_accepted" }],
     });
     // Reached acceptance (acceptedUnitId is set) but was the only unit ever referred, so
     // ACCEPT_IN_PRINCIPLE withdrew nothing and left no timestamp anywhere in this model. This
@@ -223,7 +223,7 @@ describe("effectivenessNumbers", () => {
       referredUnitIds: [],
       declines: [],
       // A stale/incidental withdrawnReferrals entry that, if read instead, would say 900 minutes.
-      withdrawnReferrals: [{ unitId: "unit-b", at: 1000, reason: "withdrawn — placed at Unit A" }],
+      withdrawnReferrals: [{ unitId: "unit-b", at: 1000, reason: "another_unit_accepted" }],
     });
     const result = effectivenessNumbers([movement]);
     expect(result.medianMinutesToAcceptance).toEqual({ value: 30, sampleSize: 1, population: 1 });
@@ -280,7 +280,7 @@ describe("effectivenessNumbers", () => {
       id: "WF-UC-2",
       referredUnitIds: [],
       declines: [{ unitId: "unit-b", at: 10, reason: "no_bed" }],
-      withdrawnReferrals: [{ unitId: "unit-c", at: 20, reason: "withdrawn — placed at Unit D" }],
+      withdrawnReferrals: [{ unitId: "unit-c", at: 20, reason: "another_unit_accepted" }],
       acceptedUnitId: "unit-d",
     });
     const result = effectivenessNumbers([noReferral, oneUnit, threeUnits]);

@@ -197,7 +197,11 @@ const seededMovements: Movement[] = [
       {
         unitId: "fsh-adult-secure",
         at: NOW_ANCHOR - 470,
-        reason: "Referral withdrawn once RGH Adult Secure confirmed the bed",
+        // 🔴 FD-23. This read "Referral withdrawn once RGH Adult Secure confirmed the bed" and
+        // rendered verbatim at /mockups/ward-flow/ward/fsh-adult-secure — FSH told, in plain
+        // English, that RGH took the patient. Hand-authored, so fixing the reducer alone would
+        // have left the DEMONSTRATION leaking while the generated path was clean.
+        reason: "another_unit_accepted",
       },
     ],
     unwinds: [],

@@ -5,6 +5,7 @@ import type {
   LegalStatusChangeReason,
   UrgencyChangeReason,
   OverrideReason,
+  WithdrawalReason,
 } from "@/components/ward-management/ward-change-reasons";
 
 /**
@@ -452,7 +453,11 @@ export type Movement = {
    *  not know whether an authorised bed is needed at all. */
   examination?: { at: Instant; outcome: "inpatient_order" | "community_order" | "revoked" };
   /** Referrals ended because another unit accepted. A shrinking `referredUnitIds` tells nobody. */
-  withdrawnReferrals: { unitId: string; at: Instant; reason: string }[];
+  /** ⚠️ `reason` is a CODE from `WITHDRAWAL_REASONS`, never free text, and it may never name a
+   *  place — `FD-23`. A losing ward reads this field, and it used to carry the accepting
+   *  ward's name. See that list's own doc comment for why a type rather than a better
+   *  sentence. Render `withdrawalReasonLabels[reason]`, never the code. */
+  withdrawnReferrals: { unitId: string; at: Instant; reason: WithdrawalReason }[];
   /** Recorded when the network is exhausted. */
   escalation?: { at: Instant; triedUnitIds: string[]; contact: string };
   /** Every hold released and transport job cancelled against this movement, oldest first. Empty

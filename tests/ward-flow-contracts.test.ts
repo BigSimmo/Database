@@ -140,7 +140,12 @@ describe("invariants across every reachable state", () => {
 
     const withdrawn = target.withdrawnReferrals.find((entry) => entry.unitId === WITHDRAWN_UNIT_ID);
     expect(withdrawn).toBeDefined();
-    expect(withdrawn?.reason).toBe("withdrawn — placed at FRE Adult Open");
+    // 🔴 This line USED to read `.toBe("withdrawn — placed at FRE Adult Open")`, and that is the
+    // uncomfortable part: a test was holding the FD-23 leak in place as the expected value. It
+    // pinned the string precisely and never asked what the string said. See
+    // `tests/ward-withdrawal-reason-privacy.test.ts` — the reason is now a code, it names no unit,
+    // and it does not claim the patient has moved.
+    expect(withdrawn?.reason).toBe("another_unit_accepted");
 
     // The declined unit ends its referral through `declines`, never through `withdrawnReferrals`
     // — the two mechanisms record different things and must not blur together.
