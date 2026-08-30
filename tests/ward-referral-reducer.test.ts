@@ -2,7 +2,7 @@
 //
 // Phase 7 Task 3 (spec "The front door"): the three events that wire Task 1's `Referral` type
 // into live reducer state — RECEIVE_REFERRAL (community), ACCEPT_REFERRAL and DECLINE_REFERRAL
-// (both coordinator-only). Every guard named in the task brief gets its own test here, and every
+// (both ["ward", "coordinator"] since owner ruling FD-25, 2026-08-30; coordinator-only before). Every guard named in the task brief gets its own test here, and every
 // one of those tests is proven against a mutation in the accompanying report — see
 // `.superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/task-3-report.md`.
 import { describe, expect, it } from "vitest";
@@ -246,8 +246,9 @@ describe("ACCEPT_REFERRAL", () => {
     expect(decided.acceptedUnitId).toBe("scgh-adult-open");
     expect(decided.decidedAt).toBe(NOW);
     // H4 fix: was `.toBeTruthy()`, which "Dr Jane Smith" would also pass — `decidedBy`'s own doc
-    // comment says "a role, never a person", and ACCEPT_REFERRAL is coordinator-only, so the
-    // exact value it can ever write is asserted, not merely its presence.
+    // comment says "a role, never a person", so the exact value is asserted, not merely its
+    // presence. NOT coordinator-only since FD-25: the value follows the ACTING role, which the
+    // ward-accepts test below is what actually proves.
     expect(decided.decidedBy).toBe("Flow coordinator");
     expect(decided.declineReason).toBeUndefined();
 
@@ -258,7 +259,47 @@ describe("ACCEPT_REFERRAL", () => {
     expect(after.movements).toEqual(before.movements);
   });
 
-  it("refuses (visibly) a role other than coordinator, rather than silently doing nothing", () => {
+  /**
+   * FD-25 widened ACCEPT_REFERRAL to `["ward", "coordinator"]` while the reducer still wrote
+   * `decidedBy: "Flow coordinator"` as a LITERAL. A ward accepting would have been recorded as the
+   * coordinator having decided -- a false entry in the only field that names who answered, and
+   * exactly the fact the override register exists to make accountable.
+   *
+   * This is the test that makes the fix real. Widening the role list on its own broke nothing and
+   * no existing test noticed, because every one of them accepts as the coordinator.
+   */
+  it("records the ward as having decided when a WARD accepts, not the coordinator", () => {
+    const received = receiveReferral(seeded());
+    const created = received.referrals.at(-1)!;
+    const after = wardFlowReducer(received, {
+      type: "ACCEPT_REFERRAL",
+      role: "ward",
+      now: NOW,
+      referralId: created.id,
+      unitId: "scgh-adult-open",
+    });
+    expect(after.rejections, "a ward may accept a referral addressed to it since FD-25").toEqual([]);
+    const decided = referral(after, created.id);
+    expect(decided.state).toBe("accepted");
+    expect(
+      decided.decidedBy,
+      "the ward accepted, so the ward is who decided. Recording the coordinator would put a party " +
+        "that took no part in the decision into the one field naming who answered.",
+    ).toBe("Ward manager");
+
+    // And a coordinator still writes the coordinator's label -- so this does not pass merely
+    // because the lookup returns one string for everybody.
+    const byCoordinator = wardFlowReducer(received, {
+      type: "ACCEPT_REFERRAL",
+      role: "coordinator",
+      now: NOW,
+      referralId: created.id,
+      unitId: "scgh-adult-open",
+    });
+    expect(referral(byCoordinator, created.id).decidedBy).toBe("Flow coordinator");
+  });
+
+  it("refuses (visibly) a role that is neither ward nor coordinator, rather than silently doing nothing", () => {
     const received = receiveReferral(seeded());
     const created = received.referrals.at(-1)!;
     const after = wardFlowReducer(received, {
@@ -364,7 +405,7 @@ describe("DECLINE_REFERRAL", () => {
     expect(decided.acceptedUnitId).toBeUndefined();
   });
 
-  it("refuses (visibly) a role other than coordinator, rather than silently doing nothing", () => {
+  it("refuses (visibly) a role that is neither ward nor coordinator, rather than silently doing nothing", () => {
     const received = receiveReferral(seeded());
     const created = received.referrals.at(-1)!;
     const after = wardFlowReducer(received, {

@@ -923,10 +923,7 @@ export function ShortlistPanel({
                   className={styles.shortlistDeclineRow}
                 >
                   <strong>{unit ? unit.name : "Unresolved unit"}</strong>
-                  <span>
-                    {decline.reason.replace(/_/g, " ")}
-                    {decline.note ? ` — ${decline.note}` : ""}
-                  </span>
+                  <span>{decline.reason.replace(/_/g, " ")}</span>
                   <span>{formatInstantWithDay(decline.at, now)}</span>
                 </li>
               );

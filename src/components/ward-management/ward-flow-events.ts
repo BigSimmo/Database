@@ -31,6 +31,31 @@ import type { WardScenario } from "@/components/ward-management/ward-scenarios";
  */
 export type WardFlowRole = "coordinator" | "ed" | "ward" | "officer" | "demo" | "community";
 
+/**
+ * The ROLE a decision is recorded against — never a person, and never a name.
+ *
+ * Exists because `ACCEPT_REFERRAL` and `DECLINE_REFERRAL` were coordinator-only until FD-25
+ * widened them to `["ward", "coordinator"]`, while the reducer wrote `decidedBy: "Flow
+ * coordinator"` as a literal. A ward accepting would have been recorded as the coordinator having
+ * decided — a false entry in the one field that says who answered, and precisely the fact the
+ * override register (FD-27) exists to make accountable.
+ *
+ * Exhaustive over `WardFlowRole` on purpose: a new role cannot be added without deciding what a
+ * decision by it is called, rather than silently inheriting somebody else's label.
+ *
+ * Distinct from `roleLabels` in `ward-derivations.ts`, which maps the three-value UI `WardRole`
+ * ("flow" | "ed" | "ward"). The two vocabularies are not the same and must not be conflated —
+ * `WardRole` has no `coordinator`, and this has no `flow`.
+ */
+export const WARD_FLOW_ROLE_LABELS: Record<WardFlowRole, string> = {
+  coordinator: "Flow coordinator",
+  ed: "ED mental health",
+  ward: "Ward manager",
+  officer: "Authorised officer",
+  demo: "Demonstration control",
+  community: "Community service",
+};
+
 /** The short form an ED fills in to raise a brand-new referral. */
 export type ReferralDraft = {
   cohort: Cohort;
@@ -71,8 +96,8 @@ export type WardFlowEvent =
       now: Instant;
       movementId: string;
       unitId: string;
+      /** From `DECLINE_REASONS`, and nothing beside it — see `Decline`'s own doc comment (PD-6). */
       reason: DeclineReason;
-      note?: string;
     }
   | { type: "HANDOVER_READY"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "TRANSPORT_ACCEPTED"; role: WardFlowRole; now: Instant; movementId: string }
@@ -432,7 +457,17 @@ export type WardFlowEvent =
  * the same shape, so the table is widened here rather than special-cased per event.
  */
 export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> = {
-  RAISE_REFERRAL: ["ed"],
+  /**
+   * Owner ruling FD-25, 2026-08-30: a referral is raised by whoever is with the patient, and that
+   * is not only an ED. A ward refers to a medical ward or to a community team; a community service
+   * refers in. Widened from `["ed"]` accordingly.
+   *
+   * `edId` on this event is now an ORIGIN of any kind, not an emergency department — the name is
+   * left alone in this pass because renaming it touches every raise path, and a half-renamed field
+   * is worse than an accurate comment. Recorded here so the next reader does not take the name as
+   * a constraint.
+   */
+  RAISE_REFERRAL: ["ed", "community", "ward"],
   RECORD_EXAMINATION: ["ed"],
   REFER_TO_UNITS: ["coordinator"],
   ACCEPT_IN_PRINCIPLE: ["ward"],
@@ -474,8 +509,12 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   RECEIVE_REFERRAL: ["community"],
   // Anyone at the front door may add a patient who is not yet known - that IS the front door.
   ADD_PATIENT: ["ed", "community", "coordinator"],
-  ACCEPT_REFERRAL: ["coordinator"],
-  DECLINE_REFERRAL: ["coordinator"],
+  /**
+   * Owner ruling FD-25: a WARD answers a referral addressed to it. The coordinator keeps the role
+   * too — it overrides, and an override nobody can exercise is not an override.
+   */
+  ACCEPT_REFERRAL: ["ward", "coordinator"],
+  DECLINE_REFERRAL: ["ward", "coordinator"],
   // `coordinator` only, and this one is a PLAN JUDGEMENT rather than a spec ruling — the spec
   // says only "role-gated like every other referral event", and the control sits on the
   // coordinator's own match view. The owner may want `community` here as well (a community team

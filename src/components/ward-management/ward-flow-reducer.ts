@@ -1,7 +1,7 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { isWardReferral, referralEligibility } from "@/components/ward-management/ward-eligibility";
-import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
+import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
   BED_RELEASE_WAITING_ON,
@@ -677,10 +677,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updated: Movement = {
         ...movement,
         referredUnitIds: movement.referredUnitIds.filter((unitId) => unitId !== event.unitId),
-        declines: [
-          ...movement.declines,
-          { unitId: event.unitId, at: event.now, reason: event.reason, note: event.note },
-        ],
+        declines: [...movement.declines, { unitId: event.unitId, at: event.now, reason: event.reason }],
         stage: "destination_review",
       };
       return replaceMovement(state, movement.id, updated);
@@ -1314,7 +1311,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         state: "accepted",
         acceptedUnitId: unit.id,
         decidedAt: event.now,
-        decidedBy: "Flow coordinator",
+        // The role that ACTUALLY decided. A ward may accept and decline since FD-25; writing
+        // the coordinator's label here regardless would record the wrong party as having answered.
+        decidedBy: WARD_FLOW_ROLE_LABELS[event.role],
       };
       // Spec D14: acceptance decides only that the network takes this referral — it creates NO
       // `Movement`. Wiring an accepted referral into one needs an `originEdId`, a legal status
@@ -1342,7 +1341,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         state: "declined",
         declineReason: event.reason,
         decidedAt: event.now,
-        decidedBy: "Flow coordinator",
+        // The role that ACTUALLY decided. A ward may accept and decline since FD-25; writing
+        // the coordinator's label here regardless would record the wrong party as having answered.
+        decidedBy: WARD_FLOW_ROLE_LABELS[event.role],
       };
       return replaceReferral(state, referral.id, updated);
     }

@@ -263,30 +263,26 @@ const seededMovements: Movement[] = [
     owner: "Flow coordinator",
     referredUnitIds: [],
     declines: [
-      { unitId: "rph-adult-secure", at: NOW_ANCHOR - 90, reason: "no_bed", note: "Zero allocatable beds confirmed" },
+      { unitId: "rph-adult-secure", at: NOW_ANCHOR - 90, reason: "no_bed" },
       {
         unitId: "gry-adult-secure",
         at: NOW_ANCHOR - 60,
         reason: "acuity_mix",
-        note: "Acuity mix unsuitable for the current ward composition",
       },
       {
         unitId: "bty-adult-secure",
         at: NOW_ANCHOR - 30,
         reason: "bed_held_for_earlier_referral",
-        note: "Bed already held against an earlier referral",
       },
       {
         unitId: "fsh-adult-secure",
         at: NOW_ANCHOR - 15,
         reason: "specialling_unavailable",
-        note: "No specialling capacity available at referral time",
       },
       {
         unitId: "rgh-adult-secure",
         at: NOW_ANCHOR - 5,
         reason: "capability_mismatch",
-        note: "Ward composition unsuitable for this referral",
       },
     ],
     // Every authorised secure adult unit in the network has now either declined this
@@ -528,7 +524,6 @@ const seededMovements: Movement[] = [
         unitId: "gry-adult-secure",
         at: NOW_ANCHOR - 70,
         reason: "specialling_unavailable",
-        note: "No specialling capacity available",
       },
     ],
     blocker: "Escalated to duty psychiatrist — breach imminent",

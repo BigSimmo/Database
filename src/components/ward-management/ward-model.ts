@@ -239,11 +239,24 @@ export type Site = {
   units: Unit[];
 };
 
+/**
+ * A unit's refusal of a movement: which unit, when, and a reason from `DECLINE_REASONS`.
+ *
+ * **THERE IS NO `note` FIELD, and its absence is the point** (owner ruling PD-6, 2026-08-30). It
+ * held free text written about a named individual, sitting immediately beside a controlled
+ * vocabulary — and a controlled vocabulary with an escape hatch next to it is not a controlled
+ * vocabulary. Every reason a decline can give is now a value from a list somebody chose
+ * deliberately, which is what makes `DECLINE_REASONS`' own privacy discipline real rather than a
+ * naming convention.
+ *
+ * If a reason cannot be expressed, the answer is a new member of `DECLINE_REASONS`, decided and
+ * recorded — never a text field restored here. `tests/ward-model.test.ts` pins this structurally,
+ * against the real seeded declines, so it cannot return quietly.
+ */
 export type Decline = {
   unitId: string;
   at: Instant;
   reason: DeclineReason;
-  note?: string;
 };
 
 export type StatusChange = {
