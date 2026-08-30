@@ -108,8 +108,38 @@ function discoverWardTests() {
     .map((f) => `tests/${f}`);
 }
 
+/**
+ * The ward files this tool DELIBERATELY does not run. Printed every run, never silently omitted.
+ *
+ * ⚠️ A CONTROL'S COVERAGE IS PART OF WHAT IT CLAIMS (Ward Settings, 2026-08-30, after a citation
+ * checker reported `documents scanned: 31` over a ~130-document corpus — a whole guarantee about a
+ * set nobody had stated). `files handed in: 84` reads as "the ward suite" unless the boundary is
+ * said out loud, and this tool exists precisely because a number that agrees with itself is not a
+ * number anybody checked.
+ *
+ * Here the exclusion is CORRECT and still has to be stated: `tests/ui-ward-*.spec.ts` are Playwright
+ * journeys and vitest cannot run them at all — a different runner, not a hole in this one. That is
+ * the difference from the citation checker, whose missing 70 documents were genuinely in scope.
+ * Measured 2026-08-30 on `claude/ward-flow-setup-967aa0-wf`: 84 discovered here, 6 excluded.
+ *
+ * ⚠️ DO NOT WIDEN EITHER PATTERN TO A BARE `ward` MATCH.
+ * `tests/forward-codify-retrieval-targets.test.ts` contains "ward" inside "forward" and has nothing
+ * to do with this project — it turned up in my own measurement of this very gap, so the trap is not
+ * hypothetical. A substring match on a common English fragment is a measurement error waiting for
+ * the right filename.
+ */
+function discoverExcludedWardSpecs() {
+  const dir = "tests";
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /^ui-ward-.*.spec.tsx?$/.test(f))
+    .sort()
+    .map((f) => `tests/${f}`);
+}
+
 function main() {
-  const handedIn = process.argv.slice(2).length > 0 ? process.argv.slice(2) : discoverWardTests();
+  const usedDiscovery = process.argv.slice(2).length === 0;
+  const handedIn = usedDiscovery ? discoverWardTests() : process.argv.slice(2);
 
   if (handedIn.length === 0) {
     console.error("REFUSED: no test files selected. An empty selection cannot pass.");
@@ -129,6 +159,16 @@ function main() {
   // unreliable teaches people to ignore it.
   const reportPath = path.join(mkdtempSync(path.join(tmpdir(), "ward-tests-")), "report.json").replace(/\\/g, "/");
   console.log(`Handed in: ${handedIn.length} file(s). Running…`);
+
+  // State the boundary on every discovered run, not only when somebody thinks to ask.
+  // See discoverExcludedWardSpecs for why these are excluded and why that is still worth printing.
+  if (usedDiscovery) {
+    const excluded = discoverExcludedWardSpecs();
+    console.log(
+      `Coverage: tests/ward-*.test.ts(x) only. ${excluded.length} Playwright ward journey(s) are NOT in` +
+        ` this run — vitest cannot run them; use verify:ui. Excluded: ${excluded.join(", ") || "(none found)"}`,
+    );
+  }
 
   const run = spawnSync(`npx vitest run ${handedIn.join(" ")} --reporter=json --outputFile="${reportPath}"`, {
     stdio: ["ignore", "inherit", "inherit"],
