@@ -1,15 +1,25 @@
 import { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 import type { RagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
-import { buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { classifyRagQuery, medicationDoseEvidenceQueryIntent } from "@/lib/clinical-search";
+import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { selectAustralianClinicalContext } from "@/lib/australian-source-priority";
+import { evidenceFamilyKeys, siteContentClaimPolicy } from "@/lib/site-content/site-content-registry";
+import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
+import { normalizeClinicalSourceMetadata } from "@/lib/source-metadata";
+import { resolveLocalAndAustralianEvidence, searchResultEligibilityForClaim } from "@/lib/source-role-policy";
 import type {
   AnswerCoveragePlan,
   ClinicalAmbiguity,
+  ClinicalClaimRole,
+  RagAnswer,
   RagInsufficiencyReason,
   RagQueryPlan,
   SearchResult,
   SiteContentDomain,
+  SiteContentPartitionState,
   SourceCorpusScope,
   SourcePolicyConflict,
+  VerifiedSourcePolicyDifference,
 } from "@/lib/types";
 
 const knownCorpusScopes = new Set<SourceCorpusScope>([
@@ -54,6 +64,357 @@ export type EvaluateAnswerCoverageInput = {
   ambiguity?: ClinicalAmbiguity | null;
   insufficiencyReason?: RagInsufficiencyReason | null;
 };
+
+export type CoverageMergeInput = {
+  plan: RagQueryPlan;
+  candidates: readonly SearchResult[];
+  claimRole?: ClinicalClaimRole;
+  verifiedDifferences?: readonly VerifiedSourcePolicyDifference[];
+  siteContentState?: SiteContentPartitionState;
+  maxPerSubquestion?: number;
+  maxPerDocument?: number;
+};
+
+export type CoverageEvidenceSelection = {
+  subquestionId: string;
+  orderedEvidence: SearchResult[];
+  collapsedEvidenceFamilyIds: string[];
+  conflicts: SourcePolicyConflict[];
+  coverageReason:
+    "direct" | "partial" | "not_in_corpus" | "site_content_updating" | "site_content_stale" | "source_role_mismatch";
+};
+
+type CandidateWithOrder = { result: SearchResult; inputIndex: number };
+
+function metadataRecord(result: SearchResult): Record<string, unknown> {
+  return result.source_metadata && typeof result.source_metadata === "object"
+    ? (result.source_metadata as unknown as Record<string, unknown>)
+    : {};
+}
+
+function stableTextHash(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function candidateFamilyIds(result: SearchResult) {
+  const metadata = metadataRecord(result);
+  const contentHash = typeof metadata.content_hash === "string" && metadata.content_hash ? metadata.content_hash : null;
+  const lineage: SiteContentRecord["sourceLineage"] = Array.isArray(metadata.site_content_lineage)
+    ? metadata.site_content_lineage.flatMap((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+        const value = entry as Record<string, unknown>;
+        if (
+          typeof value.sourceId !== "string" ||
+          typeof value.sourceHash !== "string" ||
+          (value.relationship !== "derived_from" && value.relationship !== "references")
+        )
+          return [];
+        return [
+          {
+            sourceId: value.sourceId,
+            sourceHash: value.sourceHash,
+            relationship: value.relationship,
+          },
+        ];
+      })
+    : [];
+  if (contentHash || lineage.length) {
+    return evidenceFamilyKeys({
+      sourceId: result.document_id,
+      sourceHash: contentHash ?? `document-${stableTextHash(result.document_id)}`,
+      sourceLineage: lineage,
+    });
+  }
+  // No lineage means no safe cross-row family decision. Keep the candidate distinct;
+  // exact public-release admission and document crowding remain the outer bounds.
+  return [`source-family:chunk-${stableTextHash(result.id)}`];
+}
+
+function productIntent(plan: RagQueryPlan, question: string, result: SearchResult) {
+  if (result.corpus_scope !== "clinical_kb_site" || !result.site_content_domain) return false;
+  if (plan.targetSiteDomains.length > 0 && !plan.targetSiteDomains.includes(result.site_content_domain)) return false;
+  return /\b(?:clinical kb|catalog(?:ue)?|record|page|available|find|open|show)\b/i.test(
+    `${plan.originalQuery} ${question}`,
+  );
+}
+
+function legacySiteCandidateRejected(result: SearchResult) {
+  if (result.corpus_scope !== "clinical_kb_site") return false;
+  const metadata = metadataRecord(result);
+  return (
+    (typeof metadata.row_owner_id === "string" && metadata.row_owner_id.length > 0) ||
+    metadata.explicitly_reconciled === false ||
+    (typeof metadata.publication_state === "string" && metadata.publication_state !== "published")
+  );
+}
+
+function claimRoleForSubquestion(input: CoverageMergeInput, purpose: RagQueryPlan["subquestions"][number]["purpose"]) {
+  if (purpose === "monitoring") return "dose_or_monitoring" as const;
+  if (purpose === "risk") return "safety" as const;
+  return input.claimRole ?? "treatment";
+}
+
+function eligibilityForCandidate(args: {
+  input: CoverageMergeInput;
+  question: string;
+  claimRole: ClinicalClaimRole;
+  result: SearchResult;
+}) {
+  const { input, question, claimRole, result } = args;
+  if (!candidateHasKnownServerScope(result) || legacySiteCandidateRejected(result)) {
+    return { eligible: false, roleMismatch: false };
+  }
+  const metadata = normalizeClinicalSourceMetadata(result.source_metadata);
+  if (metadata.corpus_scope !== result.corpus_scope) return { eligible: false, roleMismatch: false };
+  if (productIntent(input.plan, question, result) && metadata.source_role) {
+    const policy = siteContentClaimPolicy({
+      claimKind: "product_catalogue",
+      siteSourceRole: metadata.source_role,
+      directlyRelevantUploadedGuideline: false,
+    });
+    const eligibleProductRecord =
+      policy.primaryCorpus === "clinical_kb_site" &&
+      metadata.source_kind === "registry_record" &&
+      metadata.content_mode === "indexed_content" &&
+      metadata.document_status === "current" &&
+      (metadata.clinical_validation_status === "approved" ||
+        metadata.clinical_validation_status === "locally_reviewed") &&
+      metadata.extraction_quality === "good";
+    return { eligible: eligibleProductRecord, roleMismatch: !eligibleProductRecord };
+  }
+  const decision = searchResultEligibilityForClaim(result, claimRole);
+  if (decision.eligible) return { eligible: true, roleMismatch: false };
+  return { eligible: false, roleMismatch: decision.reason === "role_mismatch" || decision.reason === "link_only" };
+}
+
+function annotateSubquestionRelevance(question: string, candidate: CandidateWithOrder): CandidateWithOrder {
+  const withoutPriorRelevance = { ...candidate.result };
+  delete withoutPriorRelevance.relevance;
+  return {
+    ...candidate,
+    result: annotateSearchResults(question, [withoutPriorRelevance])[0] ?? withoutPriorRelevance,
+  };
+}
+
+function relevanceRank(result: SearchResult) {
+  return result.relevance?.verdict === "direct"
+    ? 0
+    : result.relevance?.verdict === "partial"
+      ? 1
+      : result.relevance?.verdict === "nearby"
+        ? 2
+        : 3;
+}
+
+function orderedByPolicy(args: {
+  input: CoverageMergeInput;
+  question: string;
+  candidates: CandidateWithOrder[];
+  claimRole: ClinicalClaimRole;
+}) {
+  const local = args.candidates
+    .filter(({ result }) => result.corpus_scope === "uploaded_local")
+    .map(({ result }) => result);
+  const australian = args.candidates
+    .filter(({ result }) => result.corpus_scope === "australian_public")
+    .map(({ result }) => result);
+  const conflictDecision = resolveLocalAndAustralianEvidence({
+    local,
+    australian,
+    claimRole: args.claimRole,
+    verifiedDifferences: [...(args.input.verifiedDifferences ?? [])],
+  });
+  const localPrimary = conflictDecision.primaryDecision.selected === "uploaded_local";
+  const ordered: SearchResult[] = [];
+  const add = (items: CandidateWithOrder[]) =>
+    items.forEach(({ result }) => !ordered.includes(result) && ordered.push(result));
+
+  for (const band of [0, 1, 2]) {
+    const inBand = args.candidates.filter(({ result }) => relevanceRank(result) === band);
+    const site = inBand.filter(({ result }) => result.corpus_scope === "clinical_kb_site");
+    const uploaded = inBand.filter(({ result }) => result.corpus_scope === "uploaded_local");
+    const au = inBand.filter(({ result }) => result.corpus_scope === "australian_public");
+    const international = inBand.filter(({ result }) => result.corpus_scope === "international_supplementary");
+    if (site.some(({ result }) => productIntent(args.input.plan, args.question, result))) add(site);
+    if (localPrimary) {
+      add(uploaded);
+      add(au);
+    } else {
+      add(au);
+      add(uploaded);
+    }
+    add(site);
+    add(international);
+  }
+  return { ordered, conflicts: conflictDecision.conflicts };
+}
+
+function collapseEvidenceFamilies(results: SearchResult[]) {
+  const seenFamilies = new Set<string>();
+  const seenLogicalIds = new Set<string>();
+  const orderedEvidence: SearchResult[] = [];
+  const collapsedEvidenceFamilyIds: string[] = [];
+  for (const result of results) {
+    const families = candidateFamilyIds(result);
+    const newFamilies = families.filter((family) => !seenFamilies.has(family));
+    const logicalId = metadataRecord(result).site_content_logical_id;
+    if (newFamilies.length === 0) continue;
+    if (typeof logicalId === "string" && logicalId && seenLogicalIds.has(logicalId)) continue;
+    newFamilies.forEach((family) => seenFamilies.add(family));
+    if (typeof logicalId === "string" && logicalId) seenLogicalIds.add(logicalId);
+    orderedEvidence.push(result);
+    collapsedEvidenceFamilyIds.push(...newFamilies);
+  }
+  return { orderedEvidence, collapsedEvidenceFamilyIds: [...new Set(collapsedEvidenceFamilyIds)] };
+}
+
+function retainedSelectionConflicts(conflicts: SourcePolicyConflict[], results: SearchResult[]) {
+  const retainedIds = new Set(results.map((result) => result.id));
+  return conflicts.filter(
+    (conflict) =>
+      conflict.local.supportingChunkIds.some((id) => retainedIds.has(id)) &&
+      conflict.australian.supportingChunkIds.some((id) => retainedIds.has(id)),
+  );
+}
+
+/** Merge eligible evidence in policy order without numeric authority or locality score boosts. */
+export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput): CoverageEvidenceSelection[] {
+  const indexed = input.candidates.map((result, inputIndex) => ({ result, inputIndex }));
+  return input.plan.subquestions.map((subquestion) => {
+    const claimRole = claimRoleForSubquestion(input, subquestion.purpose);
+    let roleMismatch = false;
+    const eligible = indexed.flatMap((candidate) => {
+      const decision = eligibilityForCandidate({
+        input,
+        question: subquestion.question,
+        claimRole,
+        result: candidate.result,
+      });
+      roleMismatch ||= decision.roleMismatch;
+      return decision.eligible ? [annotateSubquestionRelevance(subquestion.question, candidate)] : [];
+    });
+    const relevant = eligible.filter(({ result }) => relevanceRank(result) < 2);
+    const { ordered, conflicts } = orderedByPolicy({
+      input,
+      question: subquestion.question,
+      candidates: relevant,
+      claimRole,
+    });
+    const collapsed = collapseEvidenceFamilies(ordered);
+    const selectedIds = new Set(
+      selectAustralianClinicalContext(collapsed.orderedEvidence, {
+        limit: input.maxPerSubquestion ?? 6,
+        maxPerDocument: input.maxPerDocument ?? 2,
+        sufficientAustralianChunks: 4,
+        omitSupplementaryPadding: true,
+        preserveInputPolicyOrder: true,
+      }).map((result) => result.id),
+    );
+    const orderedEvidence = collapsed.orderedEvidence.filter((result) => selectedIds.has(result.id));
+    const direct = orderedEvidence.some((result) => result.relevance?.verdict === "direct");
+    const partial = orderedEvidence.some((result) => result.relevance?.verdict === "partial");
+    const coverageReason: CoverageEvidenceSelection["coverageReason"] = direct
+      ? "direct"
+      : partial
+        ? "partial"
+        : roleMismatch
+          ? "source_role_mismatch"
+          : input.siteContentState === "updating"
+            ? "site_content_updating"
+            : input.siteContentState === "stale"
+              ? "site_content_stale"
+              : "not_in_corpus";
+    return {
+      subquestionId: subquestion.id,
+      orderedEvidence,
+      collapsedEvidenceFamilyIds: collapsed.collapsedEvidenceFamilyIds,
+      conflicts: retainedSelectionConflicts(conflicts, orderedEvidence),
+      coverageReason,
+    };
+  });
+}
+
+export function answerCoverageFromSelections(args: {
+  plan: RagQueryPlan;
+  selectedEvidence: readonly SearchResult[];
+  selections: readonly CoverageEvidenceSelection[];
+  citedChunkIds?: readonly string[];
+}) {
+  const cited = new Set(args.citedChunkIds ?? args.selectedEvidence.map((result) => result.id));
+  return evaluateAnswerCoverage({
+    plan: args.plan,
+    selectedEvidence: args.selectedEvidence,
+    evidenceBySubquestion: args.selections.map((selection) => ({
+      subquestionId: selection.subquestionId,
+      selectedChunkIds: selection.orderedEvidence.map((result) => result.id),
+      citedChunkIds: selection.orderedEvidence.map((result) => result.id).filter((id) => cited.has(id)),
+      eligibleChunkIds: selection.orderedEvidence.map((result) => result.id),
+      support: selection.coverageReason === "direct" ? "direct" : "partial",
+      reasonCodes: [selection.coverageReason],
+      insufficiencyReason:
+        selection.coverageReason === "direct" || selection.coverageReason === "partial"
+          ? null
+          : selection.coverageReason,
+    })),
+    conflicts: args.selections.flatMap((selection) => selection.conflicts),
+  });
+}
+
+/** Replace provisional policy-conflict flags with the post-citation request-local verdict. */
+export function reconcileAnswerSourcePolicyConflicts(
+  answer: RagAnswer,
+  selections: readonly CoverageEvidenceSelection[],
+  coveragePlan: AnswerCoveragePlan | null,
+) {
+  const candidateConflicts = selections.flatMap((selection) => selection.conflicts);
+  const nonPolicyFlags = (answer.conflictsOrGaps ?? []).filter(
+    (item) =>
+      item.type !== "conflict" ||
+      !candidateConflicts.some((conflict) => {
+        const itemIds = new Set(item.source_chunk_ids ?? []);
+        return (
+          conflict.local.supportingChunkIds.some((id) => itemIds.has(id)) &&
+          conflict.australian.supportingChunkIds.some((id) => itemIds.has(id))
+        );
+      }),
+  );
+  const retainedPolicyFlags = (coveragePlan?.conflicts ?? []).slice(0, 4).map((conflict) => {
+    const sourceChunkIds = [
+      conflict.local.supportingChunkIds[0],
+      conflict.australian.supportingChunkIds[0],
+      ...conflict.local.supportingChunkIds.slice(1),
+      ...conflict.australian.supportingChunkIds.slice(1),
+    ].filter((id): id is string => Boolean(id));
+    return {
+      type: "conflict" as const,
+      message: `Current local-primary and Australian sources have a reviewed ${conflict.materialDifferenceReason.replaceAll("_", " ")} difference. Review the local-primary source before acting.`,
+      source_chunk_ids: [...new Set(sourceChunkIds)].slice(0, 4),
+    };
+  });
+  answer.conflictsOrGaps = [...nonPolicyFlags, ...retainedPolicyFlags];
+}
+
+function boundedPromptToken(value: string, maxLength = 64) {
+  const bounded = value.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, maxLength);
+  return bounded || "unknown";
+}
+
+/** Content-free prompt projection: IDs, statuses and reason codes only. */
+export function formatAnswerCoveragePromptLine(plan: AnswerCoveragePlan) {
+  const items = plan.coverage.slice(0, 4).map((item) => {
+    const reasons = item.reasonCodes
+      .slice(0, 4)
+      .map((reason) => boundedPromptToken(reason, 48))
+      .join(",");
+    return `${boundedPromptToken(item.subquestionId)}:${item.status}:${reasons || "none"}`;
+  });
+  return `answer_plan.coverage: overall=${plan.overall}; items=${items.join("|") || "none"}; insufficiency=${boundedPromptToken(plan.insufficiencyReason ?? "none")}`;
+}
 
 function subquestionCandidateStatus(question: string, selectedEvidence: readonly SearchResult[]) {
   const candidates = selectedEvidence
@@ -168,7 +529,16 @@ export function evaluateAnswerCoverage(input: EvaluateAnswerCoverageInput): Answ
       return [result];
     });
     const gate = evaluateEvidenceCoverageGate(subquestion.question, directEvidence);
-    const gateApplies = gate.reason !== "coverage_gate_not_applicable";
+    const queryClass = classifyRagQuery(subquestion.question).queryClass;
+    const doseIntent = medicationDoseEvidenceQueryIntent(subquestion.question);
+    const gateApplies =
+      gate.reason !== "coverage_gate_not_applicable" &&
+      !(
+        queryClass === "medication_dose_risk" &&
+        !doseIntent.asksAmount &&
+        !doseIntent.asksRoute &&
+        !doseIntent.asksFrequency
+      );
     const supportedEvidence = (gateApplies && !gate.accepted) || supportDecisionMissing ? [] : directEvidence;
     for (const result of supportedEvidence) allDirectIds.add(result.id);
     const reasonCodes = [

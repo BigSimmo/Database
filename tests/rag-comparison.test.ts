@@ -233,4 +233,20 @@ describe("source-attributed comparison matrices", () => {
     expect(answer?.citations.map((citation) => citation.chunk_id)).toEqual(["chunk-a", "chunk-b"]);
     expect(answer?.answerSections?.[0]?.citation_chunk_ids).toEqual(["chunk-a", "chunk-b"]);
   });
+
+  it("preserves the supplied relevance order for comparison evidence from one corpus", () => {
+    const results = [
+      source({ id: "first", document_id: "first-document", corpus_scope: "australian_public" }),
+      source({ id: "second", document_id: "second-document", corpus_scope: "australian_public" }),
+      source({ id: "third", document_id: "third-document", corpus_scope: "australian_public" }),
+    ];
+
+    const comparison = buildComparisonMatrix({ query: "Compare the protocols", results });
+
+    expect(comparison.matrix.documents.map((document) => document.documentId)).toEqual([
+      "first-document",
+      "second-document",
+      "third-document",
+    ]);
+  });
 });

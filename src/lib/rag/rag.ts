@@ -63,7 +63,11 @@ import {
 } from "@/lib/answer-verification";
 import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
-import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
+import {
+  selectModelContextEvidence,
+  selectModelContextResults,
+  summarizeAustralianSourceSelection,
+} from "@/lib/rag/rag-context-selection";
 import { relatedInformationMenuLine } from "@/lib/rag/answer-composition";
 export {
   capPerDocumentCrowding,
@@ -238,6 +242,9 @@ import {
   isRiskFlowchartNextStepQuery,
 } from "@/lib/rag/rag-evidence-gates";
 import { applyCoverageGateTelemetry, evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
+import { answerCoverageFromSelections, formatAnswerCoveragePromptLine } from "@/lib/rag/rag-coverage";
+import { reconcileAnswerSourcePolicyConflicts } from "@/lib/rag/rag-coverage";
+import type { CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 export { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 import { createSearchTiming, finishSearch, measureSearchPhase, type SearchTiming } from "@/lib/rag/rag-search-timing";
 import { planGovernedCandidateSearch, routeGovernedSearch } from "@/lib/rag/rag-governed-search";
@@ -299,6 +306,7 @@ import type {
   RetrievalConfidenceGateStatus,
   RetrievalDiagnostics,
   RagQueryClass,
+  RagQueryPlan,
   RagAnswer,
   SearchResult,
   SmartRagApiPlan,
@@ -1608,6 +1616,7 @@ export async function searchChunksWithTelemetry(
     ? { ...governedPlanning.variantPlan, servedVariants: servedRetrievalVariantPlan.servedVariants }
     : servedRetrievalVariantPlan;
   const governedQueryPlan = governedPlanning?.queryPlan ?? queryPlan;
+  args.captureRagQueryPlan?.(governedQueryPlan);
   searchTiming.shadowPlan = args.ragQueryPlanMode === "shadow" ? governedQueryPlan : undefined;
   const queryClassification = {
     queryClass: queryAnalysis.queryClass,
@@ -2557,6 +2566,7 @@ async function answerQuestionWithScopeUncoalesced(
   }
   const searchStartedAt = Date.now();
   const preRetrievalLatencyMs = searchStartedAt - startedAt;
+  let requestQueryPlan: RagQueryPlan | null = null;
   const retrievalDeadline = createAnswerRouteDeadline({
     routeMode: "strong",
     callerSignal: args.signal,
@@ -2583,6 +2593,7 @@ async function answerQuestionWithScopeUncoalesced(
         ragQueryPlanMode: args.ragQueryPlanMode,
         governedCorpusComponents: args.governedCorpusComponents,
         governedInternationalCoverageGap: args.governedInternationalCoverageGap,
+        captureRagQueryPlan: (plan) => void (requestQueryPlan = plan),
       }),
     );
   } finally {
@@ -2815,9 +2826,24 @@ async function answerQuestionWithScopeUncoalesced(
     route_deadline_exceeded: routeDeadline.deadlineExceeded,
     route_budget_exhausted_by_retrieval: routeBudgetExhaustedByRetrieval,
   });
+  let coverageSelections: CoverageEvidenceSelection[] = [];
+  const coverageFor = (selectedEvidence: SearchResult[], citedChunkIds?: string[]) =>
+    requestQueryPlan && coverageSelections.length
+      ? answerCoverageFromSelections({
+          plan: requestQueryPlan,
+          selectedEvidence,
+          selections: coverageSelections,
+          citedChunkIds,
+        })
+      : null;
   const finalizeAnswer = (answer: RagAnswer, numericVerificationSources?: SearchResult[]) => {
     const verificationStartedAt = Date.now();
     const finalized = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
+    const currentAnswerCoveragePlan = coverageFor(
+      finalized.sources ?? [],
+      finalized.citations.map((citation) => citation.chunk_id),
+    );
+    reconcileAnswerSourcePolicyConflicts(finalized, coverageSelections, currentAnswerCoveragePlan);
     finalized.latencyTimings = {
       ...answer.latencyTimings,
       ...finalized.latencyTimings,
@@ -3148,7 +3174,6 @@ async function answerQuestionWithScopeUncoalesced(
     return finalizedAnswer;
   }
 
-  /** Build answer input. */
   function buildAnswerInput(contextResults: SearchResult[]) {
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
     const fusedBrief = crossDocumentFusionBrief?.text ?? "";
@@ -3164,6 +3189,8 @@ async function answerQuestionWithScopeUncoalesced(
     const validEvidenceChunkIds = Array.from(new Set(contextResults.map((result) => result.id).filter(Boolean))).join(
       ", ",
     );
+    const answerCoveragePlan = coverageFor(contextResults);
+    const internalSmartAnswerPlan = { ...smartApiPlan.answerPlan, answerCoverage: answerCoveragePlan };
     const interpretedTask = [
       `intent: ${smartApiPlan.intent}`,
       `query_class: ${queryClass}`,
@@ -3176,10 +3203,10 @@ async function answerQuestionWithScopeUncoalesced(
       relatedInformationMenuLine(queryClass, queryAnalysis.intent),
       `display_mode: ${smartApiPlan.displayMode}`,
       `route: ${route.mode} (${route.reason})`,
-      `answer_plan.intent: ${smartApiPlan.answerPlan.intent}`,
-      `answer_plan.route_mode: ${smartApiPlan.answerPlan.routeMode}`,
-      `answer_plan.model_strategy: ${smartApiPlan.answerPlan.modelStrategy}`,
-      `answer_plan.retrieval_quality: ${smartApiPlan.answerPlan.retrievalQuality}`,
+      `answer_plan.intent: ${internalSmartAnswerPlan.intent}`,
+      `answer_plan.route_mode: ${internalSmartAnswerPlan.routeMode}`,
+      `answer_plan.model_strategy: ${internalSmartAnswerPlan.modelStrategy}`,
+      `answer_plan.retrieval_quality: ${internalSmartAnswerPlan.retrievalQuality}`,
       `answer_plan.retrieval_intent: ${
         Object.entries(smartApiPlan.answerPlan.retrievalIntent)
           .filter(([, value]) => value === true)
@@ -3195,6 +3222,7 @@ async function answerQuestionWithScopeUncoalesced(
         smartApiPlan.answerPlan.sourceSelection.missingRequiredSignals.join(", ") || "none"
       }`,
       `answer_plan.source_policy: ${smartApiPlan.answerPlan.sourcePolicy}`,
+      answerCoveragePlan ? formatAnswerCoveragePromptLine(answerCoveragePlan) : "answer_plan.coverage: unavailable",
       `quality_gate: ${smartApiPlan.answerPlan.qualityCriteria.join(", ")}`,
       `fallback_behavior: ${smartApiPlan.answerPlan.fallbackBehavior}`,
       `valid_evidence_chunk_ids: ${validEvidenceChunkIds || "none"}`,
@@ -3227,7 +3255,6 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   const contextPackOptions = { crossDocument: crossDocumentPlan.enabled };
   const packedContextCache = new Map<string, SearchResult[]>();
 
-  /** Pack context for generation. */
   async function packContextForGeneration(contextResults: SearchResult[]) {
     const cacheKey = packedContextCacheKey(contextResults, queryClass, {
       ...contextPackOptions,
@@ -3248,7 +3275,6 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     return packed;
   }
 
-  /** Generate with model. */
   async function generateWithModel(
     model: string,
     contextResults: SearchResult[],
@@ -3304,18 +3330,15 @@ ${qualityRetryInstruction}`
   // strong answer rather than risk a third generation (and a truncation -> unsupported tail).
   const generationTotalBudgetMs = env.OPENAI_ANSWER_TIMEOUT_MS * 2;
 
-  /** Generation incomplete reason. */
   function generationIncompleteReason(result: OpenAITextResult) {
     return result.incompleteReason ?? (result.status === "incomplete" ? "incomplete" : "unknown");
   }
 
-  /** Generation retry reason. */
   function generationRetryReason(prefix: string, result: OpenAITextResult) {
     const reason = generationIncompleteReason(result);
     return reason === "max_output_tokens" ? `${prefix}_max_output_tokens` : `${prefix}_incomplete_${reason}`;
   }
 
-  /** Should recover fast failure extractively. */
   function shouldRecoverFastFailureExtractively(retryReason: string) {
     const sourceBackedRecoveryRetryReasons = new Set([
       "fast_source_gap_retry_strong",
@@ -3454,18 +3477,25 @@ ${qualityRetryInstruction}`
     } satisfies RagAnswer;
   }
 
-  const modelContextResults = selectModelContextResults({
+  const modelContextSelection = selectModelContextEvidence({
     routeMode: route.mode,
     queryClass,
     crossDocument: crossDocumentPlan.enabled,
     results: answerInputResults,
+    queryPlan: requestQueryPlan ?? undefined,
+    siteContentState: args.ragRequestContext?.snapshot.publicSiteContent.state,
   });
-  const strongRetryContextResults = selectModelContextResults({
+  const strongRetryContextSelection = selectModelContextEvidence({
     routeMode: "strong",
     queryClass,
     crossDocument: crossDocumentPlan.enabled,
     results: answerInputResults,
+    queryPlan: requestQueryPlan ?? undefined,
+    siteContentState: args.ragRequestContext?.snapshot.publicSiteContent.state,
   });
+  const modelContextResults = modelContextSelection.results;
+  const strongRetryContextResults = strongRetryContextSelection.results;
+  coverageSelections = strongRetryContextSelection.coverageSelections;
   const generationFallbackResults = strongRetryContextResults;
   const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
   await args.onProgress?.({
@@ -3482,9 +3512,7 @@ ${qualityRetryInstruction}`
       relevance,
     }),
   });
-  // The quality-repair call below may itself fail or truncate. Preserve the first
-  // deterministic verdict so fallback telemetry explains why that retry occurred,
-  // rather than only reporting its terminal transport/output failure.
+  // Preserve the first deterministic quality verdict even if the repair call fails.
   let initialGenerationQualityFailure: ReturnType<typeof generationQualityFailureDiagnostics> = null;
   try {
     await args.onProgress?.({

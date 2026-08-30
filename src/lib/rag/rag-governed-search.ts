@@ -3,7 +3,7 @@ import { governedPublicRetrievalAccessScope } from "@/lib/owner-scope";
 import { embedTextWithTelemetry } from "@/lib/openai";
 import { searchGovernedCorpora } from "@/lib/rag/rag-candidate-sources";
 import { evaluateShadowCandidateMatchCounts } from "@/lib/rag/rag-coverage";
-import type { SearchChunksArgs, SearchTelemetry } from "@/lib/rag/rag-contracts";
+import { governedCorpusComponentState, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { attachDocumentRankingMetadata, attachPageVisualEvidence } from "@/lib/rag/rag-hydration";
 import { isSourceOnlyMode, SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag/rag-provider";
 import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
@@ -50,6 +50,7 @@ export async function routeGovernedSearch(input: {
   const { args, queryPlan, queryVariants, supabase, telemetry } = input;
   if (args.ragQueryPlanMode === "legacy") return null;
   const shadow = args.ragQueryPlanMode === "shadow";
+  telemetry.governed_component_state = governedCorpusComponentState(args.governedCorpusComponents);
   if (!args.governedCorpusComponents || !args.ragRequestContext) {
     return shadow ? null : { candidateResults: [], results: [], served: true };
   }

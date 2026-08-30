@@ -2,6 +2,7 @@ import type {
   ClinicalQueryMode,
   CorpusGroundingVerdict,
   RagQueryClass,
+  RagQueryPlan,
   RetrievalIntent,
   RetrievalSelectionSummary,
 } from "@/lib/types";
@@ -85,6 +86,8 @@ export type SearchChunksArgs = {
   governedCorpusComponents?: GovernedCorpusComponents;
   /** Internal explicit coverage decision; supplementary retrieval is forbidden unless true. */
   governedInternationalCoverageGap?: boolean;
+  /** Request-local handoff of the exact served plan; never persisted in cache identity or telemetry. */
+  captureRagQueryPlan?: (plan: RagQueryPlan) => void;
 };
 
 export type GovernedCorpusComponents = Readonly<{
@@ -92,6 +95,22 @@ export type GovernedCorpusComponents = Readonly<{
   australianAugmentation: boolean;
   australianCurrent: boolean;
 }>;
+
+export type GovernedCorpusComponentState = Readonly<{
+  siteContent: "enabled" | "disabled";
+  australianAugmentation: "enabled_current" | "enabled_unavailable" | "disabled";
+}>;
+
+export function governedCorpusComponentState(components?: GovernedCorpusComponents): GovernedCorpusComponentState {
+  return {
+    siteContent: components?.siteContent ? "enabled" : "disabled",
+    australianAugmentation: !components?.australianAugmentation
+      ? "disabled"
+      : components.australianCurrent
+        ? "enabled_current"
+        : "enabled_unavailable",
+  };
+}
 
 export type RetrievalCorpusScopePolicy = Readonly<{
   siteContentEnabled: boolean;
@@ -130,6 +149,7 @@ export type SearchTelemetry = {
   query_plan_reason_codes?: string[];
   candidate_retrieval_query_variant_count?: number;
   candidate_match_counts?: RagCandidateMatchCounts;
+  governed_component_state?: GovernedCorpusComponentState;
   governed_candidate_rpc_calls?: number;
   governed_candidate_count?: number;
   governed_candidate_site_domains?: SiteContentDomain[];

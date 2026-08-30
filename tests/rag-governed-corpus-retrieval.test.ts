@@ -5,6 +5,12 @@ import {
   retrievalCorpusScopes,
   searchGovernedCorpora,
 } from "../src/lib/rag/rag-candidate-sources";
+import {
+  governedCorpusComponentCacheNamespace,
+  retrievalPlanCacheQuery,
+  scopedAnswerCacheKey,
+} from "../src/lib/rag/rag-cache";
+import { governedCorpusComponentState } from "../src/lib/rag/rag-contracts";
 import type { RagContextSnapshot } from "../src/lib/site-content/site-content-contracts";
 import type { RagQueryPlan, SourceCorpusScope } from "../src/lib/types";
 
@@ -219,6 +225,7 @@ describe("governed public corpus retrieval", () => {
       components: { siteContent: true, australianAugmentation: false, australianCurrent: false },
       targetSiteDomains: ["medications"],
       internationalCoverageGap: false,
+      signal: new AbortController().signal,
       maxRpcCalls: 3,
     });
 
@@ -229,5 +236,63 @@ describe("governed public corpus retrieval", () => {
       "risk question",
     ]);
     expect(calls.map(({ args }) => args.query_text)).not.toContain("unallocated legacy poison");
+  });
+
+  it("removes site candidates from caller-disabled retrieval without changing Australian retrieval", async () => {
+    const { calls, supabase } = harness();
+
+    const results = await searchGovernedCorpora({
+      supabase,
+      queryVariants: ["clozapine monitoring"],
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: ["medications"],
+      internationalCoverageGap: false,
+      signal: new AbortController().signal,
+    });
+
+    expect(calls[0]?.args.corpus_scopes).toEqual(["uploaded_local", "australian_public"]);
+    expect(results.map((result) => result.corpus_scope)).toEqual(["australian_public"]);
+    expect(calls[0]?.args.expected_site_release_id).toBeNull();
+  });
+
+  it("makes the caller-disabled Australian lane a no-RPC bounded cache state", async () => {
+    const { calls, supabase } = harness();
+    const enabled = { siteContent: true, australianAugmentation: true, australianCurrent: true } as const;
+    const disabled = { siteContent: true, australianAugmentation: false, australianCurrent: false } as const;
+
+    await searchGovernedCorpora({
+      supabase,
+      queryVariants: ["clozapine monitoring"],
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: disabled,
+      targetSiteDomains: ["medications"],
+      internationalCoverageGap: true,
+      signal: new AbortController().signal,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args.corpus_scopes).toEqual(["uploaded_local", "clinical_kb_site"]);
+    expect(calls.flatMap(({ args }) => args.corpus_scopes as string[])).not.toContain("australian_public");
+    expect(calls.flatMap(({ args }) => args.corpus_scopes as string[])).not.toContain("international_supplementary");
+    expect(governedCorpusComponentCacheNamespace("rag-query-plan-v1", enabled)).not.toBe(
+      governedCorpusComponentCacheNamespace("rag-query-plan-v1", disabled),
+    );
+    const cacheArgs = { query: "clozapine monitoring", ragQueryPlanMode: "canary" as const };
+    expect(retrievalPlanCacheQuery({ ...cacheArgs, governedCorpusComponents: enabled })).not.toBe(
+      retrievalPlanCacheQuery({ ...cacheArgs, governedCorpusComponents: disabled }),
+    );
+    expect(scopedAnswerCacheKey({ ...cacheArgs, governedCorpusComponents: enabled })).not.toBe(
+      scopedAnswerCacheKey({ ...cacheArgs, governedCorpusComponents: disabled }),
+    );
+    expect(governedCorpusComponentCacheNamespace("rag-query-plan-v1", disabled)).toBe(
+      "rag-query-plan-v1|site:on|australian:off|australian-current:off",
+    );
+    expect(governedCorpusComponentState(disabled)).toEqual({
+      siteContent: "enabled",
+      australianAugmentation: "disabled",
+    });
   });
 });

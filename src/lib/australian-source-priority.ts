@@ -87,6 +87,7 @@ export function selectAustralianClinicalContext(
     sufficientAustralianChunks?: number;
     omitSupplementaryPadding?: boolean;
     claimRole?: ClinicalClaimRole;
+    preserveInputPolicyOrder?: boolean;
   } = {},
 ) {
   const limit = options.limit ?? 6;
@@ -98,8 +99,12 @@ export function selectAustralianClinicalContext(
     .map((result, index) => ({ result, index, tier: australianSourceTier(result) }))
     .filter(({ result }) => result.relevance?.verdict !== "none")
     .sort((left, right) => {
+      if (options.preserveInputPolicyOrder) return left.index - right.index;
       const leftRelevance = resultRelevanceRank(left.result);
       const rightRelevance = resultRelevanceRank(right.result);
+      const leftCorpus = left.result.source_metadata?.corpus_scope ?? left.result.corpus_scope;
+      const rightCorpus = right.result.source_metadata?.corpus_scope ?? right.result.corpus_scope;
+      if (leftCorpus && leftCorpus === rightCorpus) return leftRelevance - rightRelevance || left.index - right.index;
       return leftRelevance - rightRelevance || tierRank[left.tier] - tierRank[right.tier] || left.index - right.index;
     });
   const withoutSupplementaryPadding = omitSupplementaryPadding

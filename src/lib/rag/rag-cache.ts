@@ -9,7 +9,7 @@ import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
 import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { compactContextText } from "@/lib/rag/rag-source-block";
 import { assertRagRequestContextIntegrity } from "@/lib/rag/rag-context-snapshot";
-import { sanitizeRagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
+import { governedCorpusComponentState, sanitizeRagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
 import { sanitizeRagQueryPlanDiagnostics } from "@/lib/rag/rag-retrieval-variants";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -133,6 +133,14 @@ function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
   return args.queryMode ?? "auto";
 }
 
+export function governedCorpusComponentCacheNamespace(
+  base: string,
+  components: SearchChunksArgs["governedCorpusComponents"],
+) {
+  if (!components) return base;
+  return `${base}|site:${components?.siteContent ? "on" : "off"}|australian:${components?.australianAugmentation ? "on" : "off"}|australian-current:${components?.australianCurrent ? "on" : "off"}`;
+}
+
 export type AnswerGenerationFingerprintInput = {
   answerModel: string;
   fastModel: string;
@@ -186,13 +194,21 @@ export function answerGenerationFingerprint() {
 export function sharedAnswerNormalizedQuery(
   args: Pick<
     SearchChunksArgs,
-    "query" | "queryMode" | "ragRequestContext" | "ragQueryPlanVersion" | "ragQueryPlanMode"
+    | "query"
+    | "queryMode"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "governedCorpusComponents"
   >,
 ) {
   const query = normalizedCacheQuery(`${modeKey(args)} ${args.query}`);
   const snapshotCacheKey = requestSnapshotCacheKey(args);
   return queryCacheKeyForStorage(
-    `${query}|generation:${answerGenerationFingerprint()}|queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}|queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
+    governedCorpusComponentCacheNamespace(
+      `${query}|generation:${answerGenerationFingerprint()}|queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}|queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
+      args.governedCorpusComponents,
+    ),
   );
 }
 
@@ -210,6 +226,7 @@ export function scopedAnswerCacheKey(
     | "ragQueryPlanMode"
     | "ragQueryPlanKind"
     | "ragSubquestionCount"
+    | "governedCorpusComponents"
   >,
 ) {
   const snapshotCacheKey = requestSnapshotCacheKey(args);
@@ -221,6 +238,7 @@ export function scopedAnswerCacheKey(
     `queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}`,
     `generation:${answerGenerationFingerprint()}`,
     args.query.trim().toLowerCase().replace(/\s+/g, " "),
+    governedCorpusComponentCacheNamespace("corpora", args.governedCorpusComponents),
   ];
   if (snapshotCacheKey) {
     identity.push(`snapshot:${snapshotCacheKey}`);
@@ -537,6 +555,7 @@ export async function getCachedAnswer(
     | "ragRequestContext"
     | "ragQueryPlanVersion"
     | "ragQueryPlanMode"
+    | "governedCorpusComponents"
     | "ragQueryPlanKind"
     | "ragSubquestionCount"
   >,
@@ -712,6 +731,7 @@ export function retrievalPlanCacheQuery(
     | "ragRequestContext"
     | "ragQueryPlanVersion"
     | "ragQueryPlanMode"
+    | "governedCorpusComponents"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -725,6 +745,7 @@ export function retrievalPlanCacheQuery(
     `variants:${variantHash}`,
     `queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}`,
     `queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}`,
+    governedCorpusComponentCacheNamespace("corpora", args.governedCorpusComponents),
     `mode:${modeKey(args)}`,
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
@@ -1057,6 +1078,7 @@ export async function getSharedCachedSearch(
         shared_cache_hit: true,
         shared_cache_status: "hit",
         shared_cache_miss_reason: null,
+        governed_component_state: governedCorpusComponentState(args.governedCorpusComponents),
         query_class: payload.telemetry?.query_class,
         corpus_grounding: payload.telemetry?.corpus_grounding,
         vector_candidate_count: payload.telemetry?.vector_candidate_count,

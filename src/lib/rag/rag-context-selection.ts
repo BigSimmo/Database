@@ -1,5 +1,6 @@
-import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
+import type { RagAnswer, RagQueryClass, RagQueryPlan, SearchResult, SiteContentPartitionState } from "@/lib/types";
 import { selectAustralianClinicalContext } from "@/lib/australian-source-priority";
+import { mergeEvidenceByCoverageAndSourceRole, type CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 
 export { summarizeAustralianSourceSelection } from "@/lib/australian-source-priority";
 
@@ -25,12 +26,16 @@ export function capPerDocumentCrowding(results: SearchResult[], maxPerDocument =
   return capped;
 }
 
-export function selectModelContextResults(args: {
+type ModelContextSelectionArgs = {
   routeMode: RagAnswer["routingMode"];
   queryClass: RagQueryClass;
   crossDocument: boolean;
   results: SearchResult[];
-}) {
+  queryPlan?: RagQueryPlan;
+  siteContentState?: SiteContentPartitionState;
+};
+
+function selectLegacyModelContextResults(args: ModelContextSelectionArgs) {
   const highRiskNumericQuery = args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold";
   if (highRiskNumericQuery) {
     return selectAustralianClinicalContext(args.results);
@@ -64,4 +69,59 @@ export function selectModelContextResults(args: {
     omitSupplementaryPadding: false,
   });
   return results;
+}
+
+function flattenCoverageSelections(selections: CoverageEvidenceSelection[], limit: number) {
+  const selected: SearchResult[] = [];
+  const seen = new Set<string>();
+  const maxDepth = Math.max(0, ...selections.map((selection) => selection.orderedEvidence.length));
+  for (let depth = 0; depth < maxDepth && selected.length < limit; depth += 1) {
+    for (const selection of selections) {
+      const result = selection.orderedEvidence[depth];
+      if (!result || seen.has(result.id)) continue;
+      seen.add(result.id);
+      selected.push(result);
+      if (selected.length >= limit) break;
+    }
+  }
+  return selected;
+}
+
+export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
+  results: SearchResult[];
+  coverageSelections: CoverageEvidenceSelection[];
+} {
+  const legacyResults = selectLegacyModelContextResults(args);
+  if (!args.queryPlan || !args.results.some((result) => result.corpus_scope)) {
+    return { results: legacyResults, coverageSelections: [] };
+  }
+  const coverageSelections = mergeEvidenceByCoverageAndSourceRole({
+    plan: args.queryPlan,
+    candidates: args.results,
+    siteContentState: args.siteContentState,
+    maxPerDocument: maxContextChunksPerDocument,
+  });
+  const fastRoutineQuery =
+    args.routeMode === "fast" &&
+    !args.crossDocument &&
+    args.queryClass !== "comparison" &&
+    args.queryClass !== "broad_summary";
+  const highRiskNumericQuery = args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold";
+  const limit = fastRoutineQuery ? fastRoutineModelContextLimit : highRiskNumericQuery ? 6 : args.results.length;
+  const results = capPerDocumentCrowding(flattenCoverageSelections(coverageSelections, limit));
+  const retainedIds = new Set(results.map((result) => result.id));
+  const reconciledSelections = coverageSelections.map((selection) => ({
+    ...selection,
+    orderedEvidence: selection.orderedEvidence.filter((result) => retainedIds.has(result.id)),
+    conflicts: selection.conflicts.filter(
+      (conflict) =>
+        conflict.local.supportingChunkIds.some((id) => retainedIds.has(id)) &&
+        conflict.australian.supportingChunkIds.some((id) => retainedIds.has(id)),
+    ),
+  }));
+  return { results, coverageSelections: reconciledSelections };
+}
+
+export function selectModelContextResults(args: ModelContextSelectionArgs) {
+  return selectModelContextEvidence(args).results;
 }
