@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { ESCALATION_CONTACTS } from "@/components/ward-management/ward-change-reasons";
 import { ShortlistPanel } from "@/components/ward-management/coordinator/shortlist-panel";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { URGENCY_LEVELS } from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 /**
@@ -122,5 +124,35 @@ describe("ShortlistPanel escalation contact", () => {
     fireEvent.click(screen.getByTestId("ward-shortlist-escalation-submit"));
     const record = screen.getByTestId("ward-shortlist-escalation-record");
     expect(record.textContent).toContain(`contact: "${ESCALATION_CONTACTS[0]}"`);
+  });
+});
+
+/**
+ * Wave 1 referral corrections — the coordinator half of the same defect fixed in
+ * `ward-ed-screen.dom.test.tsx`. This picker rendered a bare "1", "2", "3" with nothing saying
+ * which end of the scale is urgent, on the one control that re-ranks a patient inside a queue
+ * urgency now dominates.
+ *
+ * Read against `urgencyTierLabel` itself, never three remembered strings, so this is a guard on
+ * "one spelling everywhere" rather than on the wording this test happens to hold.
+ */
+describe("ShortlistPanel urgency picker", () => {
+  it("labels every urgency option with its direction, keeping the bare tier as the value", () => {
+    renderShortlist();
+    fireEvent.click(screen.getByTestId("ward-change-urgency-toggle"));
+
+    const picker = screen.getByLabelText(`Urgency tier for ${TARGET_MOVEMENT_ID}`) as HTMLSelectElement;
+
+    const optionText = [...picker.options].map((option) => option.textContent);
+    expect(optionText).toEqual(URGENCY_LEVELS.map((level) => urgencyTierLabel(level)));
+
+    // The VALUE stays the bare tier: the reducer and every value-reading test are unchanged.
+    const optionValues = [...picker.options].map((option) => option.value);
+    expect(optionValues).toEqual(URGENCY_LEVELS.map((level) => String(level)));
+
+    // Non-vacuity: the labels really do carry a direction, so a `urgencyTierLabel` that returned
+    // the bare tier again would fail here even though the first assertion still matched.
+    expect(optionText).toContain("Tier 1 · most urgent");
+    expect(optionText).toContain("Tier 3 · least urgent");
   });
 });

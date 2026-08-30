@@ -39,7 +39,7 @@ import {
   type Movement,
   type Unit,
 } from "@/components/ward-management/ward-model";
-import { operationalScore } from "@/components/ward-management/ward-priority";
+import { operationalScore, urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
@@ -646,9 +646,13 @@ export function ShortlistPanel({
                 setUrgencyDraft((current) => ({ ...current, urgency: Number(event.target.value) as 1 | 2 | 3 }))
               }
             >
+              {/* The option TEXT carries the tier's direction, the option VALUE stays the bare tier.
+                  A bare "1"/"2"/"3" left the direction of the scale to the reader on the one control
+                  that re-ranks a patient in a queue urgency now dominates. `urgencyTierLabel` is the
+                  one spelling, shared with the boards that read the same field back. */}
               {URGENCY_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {urgencyTierLabel(option)}
                 </option>
               ))}
             </select>
