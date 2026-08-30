@@ -1334,4 +1334,39 @@ export const referrals: Referral[] = [
     originSiteCode: "RPH",
     transportNeeded: true,
   },
+  {
+    /*
+     * 🔴 THE ONLY REFERRAL ADDRESSED TO AN EMERGENCY DEPARTMENT, AND UNTIL IT EXISTED THE ED
+     * PSYCHIATRY HUB WAS EMPTY FOR EVERY DEPARTMENT.
+     *
+     * The other eight all address a psychiatric ward, so the hub's inbox had nothing to hold and
+     * every row it COULD hold would have rendered the "not in department yet" branch. ⚠️ A screen
+     * showing that for every patient looks like correct handling of a legitimate case rather than
+     * like a feature with no data — `R46`: a thing built before its input exists cannot be built
+     * wrong, only empty, and empty is indistinguishable from working.
+     *
+     * Found by Ward Referrals, who had told the owner `RF-005`'s 165-minute gap would be visible on
+     * the hub, measured that it could not be, and corrected that to him.
+     *
+     * `triagedAt` 210 minutes before `raisedAt`: somebody who had been in the department three and
+     * a half hours before anyone called psychiatry. That is the gap `P9-D2` exists to show, on the
+     * one screen built to show it.
+     */
+    id: "RF-009",
+    ageBand: "Adult",
+    destinations: [
+      {
+        destination: { kind: "emergency_department", edId: "rph-ed", purpose: "psychiatric_review" },
+        state: "queued",
+      },
+    ],
+    homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Cannington" },
+    source: "ambulance",
+    raisedAt: NOW_ANCHOR - 35,
+    triagedAt: NOW_ANCHOR - 245,
+    urgency: 2,
+    originSiteCode: "RPH",
+    transportNeeded: false,
+  },
 ];

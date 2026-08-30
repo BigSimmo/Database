@@ -980,7 +980,11 @@ describe("Referral privacy — structural", () => {
 describe("Task 5 — referral board ordering (referralQueueOrder, recentlyDecidedReferrals)", () => {
   it("orders the real fixture's two queued referrals by urgency, then by longest wait — RF-001 (raised 40 min ago) before RF-005 (raised 20 min ago), both tier 2", () => {
     const queuedIds = referralQueueOrder(referrals).map((referral) => referral.id);
-    expect(queuedIds).toEqual(["RF-001", "RF-005"]);
+    // RF-009 joined the fixture on 2026-08-30 as the only referral addressed to an emergency
+    // department — before it, the ED hub's inbox was empty for every department and its screen was
+    // indistinguishable from a working one with nothing to show. It is queued and urgency 2, so it
+    // sorts by wait: raised 35 minutes ago, after RF-001 (40) and before RF-005 (20).
+    expect(queuedIds).toEqual(["RF-001", "RF-009", "RF-005"]);
   });
 
   it("never includes an accepted or declined referral in the queued order", () => {
@@ -1066,7 +1070,15 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
     // true regardless of gate order: a forensic unit is NEVER eligible and NEVER in the accepting
     // list, for any referral. The next test below proves the forensic gate's own wording
     // specifically, for the one referral shape where it is genuinely the first gate to fail.
-    for (const referral of referrals) {
+    // Narrowed to referrals that ASK for a ward, since 2026-08-30: `RF-009` addresses an emergency
+    // department and has no ward arm at all, so `wardOf` would throw rather than fail. The canary
+    // below matters more than the narrowing — a filter that matched nothing would leave this loop
+    // asserting about an empty list and passing.
+    const wardReferrals = referrals.filter((referral) =>
+      referral.destinations.some((addressing) => addressing.destination.kind === "psychiatric_ward"),
+    );
+    expect(wardReferrals.length, "no seeded referral asks for a ward, so this proves nothing").toBeGreaterThan(1);
+    for (const referral of wardReferrals) {
       const candidates = referralCandidates(referral, wardOf(referral).destination, units, NOW_ANCHOR);
       const forensicCandidates = candidates.filter((candidate) => candidate.unit.forensic);
       expect(forensicCandidates.length).toBeGreaterThan(0);

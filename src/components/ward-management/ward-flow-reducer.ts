@@ -1399,6 +1399,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!siteByCode(event.originSiteCode)) {
         return reject(state, event, `RECEIVE_REFERRAL originSiteCode must resolve to a real site`);
       }
+      // A triage instant in the FUTURE would put a patient in the department before they got
+      // there, and `referralClocks` clamps at zero rather than printing a negative — so the wrong
+      // value would render as a plausible "0m" instead of an obvious error. Refused at the door.
+      if (event.triagedAt !== undefined && event.triagedAt > event.now) {
+        return reject(state, event, `RECEIVE_REFERRAL triagedAt cannot be later than the referral itself`);
+      }
       const sequence = state.frontDoorReferralSequence + 1;
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
@@ -1409,6 +1415,8 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         suburb: event.suburb,
         source: event.source,
         raisedAt: event.now,
+        // Absent for a community expect, which is a real state and not a missing value.
+        triagedAt: event.triagedAt,
         urgency: event.urgency,
         originSiteCode: event.originSiteCode,
         transportNeeded: event.transportNeeded,

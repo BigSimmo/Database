@@ -355,7 +355,12 @@ describe("the ED psychiatry inbox selector", () => {
     });
     expect(answered.rejections, "the reducer refused the decline this test needs").toEqual([]);
 
-    expect(edReferralsFor(answered.referrals, departments[0].id, "psychiatric_review")).toEqual([]);
+    // Asserted as "this referral is gone" rather than "the inbox is empty", since 2026-08-30: the
+    // seed now carries `RF-009`, a real psychiatric-review referral to this department, and it is
+    // supposed to still be there. An emptiness check would have started failing for the right
+    // reason — data arriving — while reading as though the drop had broken.
+    const remaining = edReferralsFor(answered.referrals, departments[0].id, "psychiatric_review");
+    expect(remaining.map((entry) => entry.referral.id)).not.toContain(referral.id);
   });
 });
 
@@ -475,9 +480,18 @@ describe("the hub's two lists", () => {
     expect(probe.purpose).toBe("bed");
 
     // And it is not in the psychiatry inbox, because it asks for a bed.
-    expect(screen.getByTestId("ward-ed-inbox-empty")).toBeInTheDocument();
+    //
+    // ⚠️ This used to assert the inbox was EMPTY, which was true only because no seeded referral
+    // addressed an emergency department at all — the exclusion and the absence of any data were
+    // indistinguishable, so the test could not tell "the bed request was filtered out" from "this
+    // screen never shows anything". `RF-009` now sits in that inbox legitimately, and the assertion
+    // is the one the test was always about: THIS referral is not there.
     expect(screen.queryByTestId(`ward-ed-inbox-row-${probe.id}`)).not.toBeInTheDocument();
-    expect(screen.getByTestId("ward-ed-inbox").textContent).toContain("0 referrals");
+    const inboxRows = screen.getAllByTestId(/^ward-ed-inbox-row-/);
+    expect(inboxRows.length, "the inbox is empty, so the exclusion below is vacuous again").toBeGreaterThan(0);
+    for (const row of inboxRows) {
+      expect(row.getAttribute("data-testid")).not.toBe(`ward-ed-inbox-row-${probe.id}`);
+    }
   });
 
   it("says the inbox is empty rather than showing nothing at all", () => {

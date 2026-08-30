@@ -1072,7 +1072,7 @@ describe("ReferralBoard", () => {
       .getAllByRole("row")
       .slice(1) // drop the header row
       .map((row) => row.querySelector("td button")?.textContent);
-    expect(ids).toEqual(["RF-001", "RF-005"]);
+    expect(ids).toEqual(["RF-001", "RF-009", "RF-005"]);
   });
 
   /**
@@ -1136,6 +1136,7 @@ describe("ReferralBoard", () => {
     const cards = Array.from(container.querySelectorAll("[data-testid^='ward-referral-board-card-select-']"));
     expect(cards.map((card) => card.getAttribute("data-testid"))).toEqual([
       "ward-referral-board-card-select-RF-001",
+      "ward-referral-board-card-select-RF-009",
       "ward-referral-board-card-select-RF-005",
     ]);
   });
