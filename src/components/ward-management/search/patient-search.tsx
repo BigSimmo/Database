@@ -174,9 +174,17 @@ export function PeopleSection({ people, query }: { people: Patient[]; query: str
         </p>
       ) : (
         <ul className={styles.peopleList} data-testid="ward-patient-search-people-list">
+          {/*
+            Each person opens their own screen. Until 2026-08-30 these were bare `<li>`s: a search
+            result you could click and nothing happened, silently — the third instance of that shape
+            found in this prototype in one day. They had nowhere to point, because a person had no
+            screen and `/patients/[patientId]` is a MOVEMENT workspace wearing a patient's name.
+          */}
           {people.map((patient) => (
             <li key={patient.id} data-testid={`ward-patient-search-person-${patient.id}`}>
-              <strong>{patientDisplayName(patient)}</strong> · {patient.umrn} · born {patient.dateOfBirth}
+              <Link className={styles.personLink} href={`/mockups/ward-flow/people/${patient.id}`}>
+                <strong>{patientDisplayName(patient)}</strong> · {patient.umrn} · born {patient.dateOfBirth}
+              </Link>
             </li>
           ))}
         </ul>
