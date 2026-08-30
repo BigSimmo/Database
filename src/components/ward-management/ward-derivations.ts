@@ -1044,11 +1044,15 @@ export type EffectivenessMeasure = {
 /**
  * The fewest observations a governance figure may be computed from before it is published.
  *
- * ⚠️ **THE SHAPE IS THE OWNER'S AND THE NUMBER IS NOT.** He approved suppressing below a stated
- * minimum; **five was proposed by a session and is PROVISIONAL** — low enough that a working board
- * still says something, high enough that one or two outliers cannot masquerade as typical. It is
- * named here rather than inlined so it is findable and arguable, because a plausible number nobody
- * flagged becomes a requirement within a week.
+ * **RULED BY THE OWNER, 2026-08-30, first-hand: hide the governance median below FIVE cases.** It
+ * was provisional until then — proposed by a session, recorded as provisional so it would be
+ * findable rather than inherited — and he has now decided it.
+ *
+ * ⚠️ **IT IS A DISPLAY THRESHOLD AND NOT A CLINICAL ONE, AND HE AGREED ON THAT BASIS.** Five is a
+ * convention borrowed from health reporting — the point at which a middle value stops describing
+ * anything real. **It is not derived from this data and it is not a figure from anywhere else.**
+ * That was said to him plainly before he agreed, and it is written here because it is exactly the
+ * kind of number a later reader assumes was derived from something.
  *
  * Applied to BOTH measures, not only the median that prompted it. They are the same kind of claim,
  * rendered by the same component with the same basis line, and a floor on one alone would publish

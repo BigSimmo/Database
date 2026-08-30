@@ -23,6 +23,7 @@ import {
   BED_RELEASE_WAITING_ON,
   DECLINE_REASONS,
   REFERRAL_DECLINE_REASONS,
+  TRANSPORT_PROVIDERS,
   type LegalForm,
   type LegalStatus,
 } from "../src/components/ward-management/ward-model";
@@ -560,6 +561,16 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       // `role` is the first permitted role (coordinator), so `actingUnitId` is never needed here.
       return movementIds.flatMap((movementId) =>
         RELEASE_HOLD_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
+    case "BOOK_TRANSPORT":
+      // One candidate per provider crossed with BOTH escort answers, the same "one candidate per
+      // real domain value" precedent the reason-keyed events below set. Both booleans, because
+      // `escortRequired` is the field this event exists to make somebody answer and a sweep that
+      // only ever sent `true` would leave the other branch unentered.
+      return movementIds.flatMap((movementId) =>
+        TRANSPORT_PROVIDERS.flatMap((provider) =>
+          [true, false].map((escortRequired) => ({ type, role, now, movementId, provider, escortRequired })),
+        ),
       );
     case "CANCEL_TRANSPORT":
       return movementIds.flatMap((movementId) =>

@@ -23,11 +23,19 @@ import type { Movement } from "@/components/ward-management/ward-model";
  * than replacing it** — a question framed as "your code disagrees with itself" would have got a yes
  * from anybody and quietly deleted a considered decision.
  *
- * ⚠️ **THE NUMBER FIVE IS NOT THE OWNER'S.** He approved the SHAPE — suppress below a stated
- * minimum. Five was proposed by a session and is a provisional value: low enough that a working
- * board still says something, high enough that one or two outliers cannot masquerade as typical.
- * **It is recorded as provisional here so it is findable rather than inherited**, because a
- * plausible number nobody flagged becomes a requirement within a week.
+ * ✅ **FIVE IS NOW THE OWNER'S TOO — ruled first-hand, 2026-08-30: hide the governance median below
+ * five cases.** It had been recorded here as provisional, proposed by a session, precisely so it
+ * would be findable rather than inherited. It was findable, it was put to him, and he decided it.
+ *
+ * ⚠️ **AND IT IS A DISPLAY THRESHOLD, NOT A CLINICAL ONE.** Five is a convention borrowed from
+ * health reporting — the point at which a middle value stops describing anything real. It is not
+ * derived from this data and not a figure from anywhere else, and he agreed on that stated basis.
+ * Written down because it is the kind of number a later reader assumes came from somewhere.
+ *
+ * ⚠️ **WHAT THE SCREEN DOES TODAY WILL LOOK LIKE A REGRESSION AND IS NOT.** The board publishes
+ * "30 min — from 1 of 27 recorded acceptances", so with the floor in place it reads "Not enough
+ * data to compute" until more than four computable durations exist. **That is the correct outcome.**
+ * Anyone who "fixes" it back has removed the ruling.
  */
 describe("the governance board refuses to publish a figure from a thin sample", () => {
   const state = seedWardFlowState();

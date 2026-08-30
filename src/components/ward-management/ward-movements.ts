@@ -1149,6 +1149,16 @@ export const referrals: Referral[] = [
     suburb: { kind: "named", name: "Nedlands" },
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
+    // ⚠️ THE ONLY SEEDED REFERRAL WHOSE REFERRAL CLOCK HAS STOPPED, and it was missing: every
+    // other triaged referral was triaged BEFORE anyone referred (the ED presentation), so
+    // `sinceReferralRunning` was `true` across the whole fixture and the stopped branch rendered
+    // nowhere. Measured across all nine before this was added, not assumed.
+    //
+    // This is the community-expect story `P9-D7` is about: a crisis service refers, and the
+    // patient arrives 25 minutes LATER. The referral clock ends at 25 and stops; the department
+    // clock starts then and runs. Found by Ward Referrals, whose screens are the ones that would
+    // otherwise have shown one of the two wordings and never the other.
+    triagedAt: NOW_ANCHOR - 30,
     urgency: 1,
     originSiteCode: "SCGH",
     transportNeeded: false,

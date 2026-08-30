@@ -109,7 +109,20 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
    * frozen 10:42 night the fixture was measured against, which is what lets 53 test files assert
    * against it without depending on the hour the suite happens to run.
    */
-  const [anchorOffsetMinutes] = useState<number>(() => (initialNow !== undefined ? 0 : wallClockNow() - NOW_ANCHOR));
+  //
+  // 🔴 THIS READ `initialNow !== undefined ? 0 : …` UNTIL 2026-08-30 — the prop was accepted and its
+  // VALUE was never used, here or anywhere else. All three reads of it were `!== undefined`, so a
+  // caller pinning the clock to any instant other than `NOW_ANCHOR` silently got `NOW_ANCHOR`.
+  // Nothing was wrong the day it was found: all ~85 call sites pass `NOW_ANCHOR` or
+  // `WARD_ADMISSIONS_ANCHOR`, and both constants are `10 * 60 + 42`. The seed-default class with the
+  // trigger not yet pulled. Reported by Ward Referrals.
+  //
+  // Pinned and live now take the same shape — the offset is *the now we want* minus the anchor,
+  // wherever that now came from. `initialNow === NOW_ANCHOR` is offset zero, which is exactly the
+  // old behaviour, which is why no existing suite moves.
+  const [anchorOffsetMinutes] = useState<number>(
+    () => (initialNow !== undefined ? initialNow : wallClockNow()) - NOW_ANCHOR,
+  );
 
   const [state, dispatch] = useReducer(wardFlowReducer, anchorOffsetMinutes, (offset) => seedWardFlowStateAt(offset));
 

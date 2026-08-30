@@ -50,6 +50,20 @@ describe("who may raise which event", () => {
     // in the `transport_cancelled` unwind record as `by`, which is a ROLE and never a person —
     // so no false attribution is introduced. Asserted directly in
     // `tests/ward-transport-cancel-permission.test.ts`.
+    // `TR-D1` (OWNER, 2026-08-30): the sending ward or ED arranges transport, because the sending
+    // team knows the facts the booking needs — whether an escort is required, whether the patient
+    // is settled enough to travel. ⚠️ The bed COORDINATOR was rejected by name: it owns the bed
+    // search and does not know the patient's state. `TR-D5` generalises it past bed placement,
+    // which is why `ward` is here too.
+    //
+    // ⚠️ The asymmetry with CANCEL_TRANSPORT below is deliberate and is the interesting part: the
+    // coordinator may CANCEL but may not BOOK. Booking needs knowledge of the patient; noticing a
+    // booking that has become wrong needs knowledge of the whole network, which `CO-D2` says only
+    // the coordinator has.
+    //
+    // What the reducer writes for these roles: `provider` from `TRANSPORT_PROVIDERS` and the
+    // `escortRequired` answer the caller gave — no role name, no person, and nothing derived.
+    BOOK_TRANSPORT: ["ed", "ward"],
     CANCEL_TRANSPORT: ["coordinator", "ed"],
     CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
     CHANGE_URGENCY: ["coordinator", "ed"],

@@ -217,6 +217,33 @@ export type WardFlowEvent =
       actingUnitId?: string;
     }
   | {
+      /**
+       * The sending team books the transport out — `TR-D1` (OWNER, 2026-08-30). Once a receiving
+       * ward accepts, the team currently holding the patient arranges the move.
+       *
+       * ⚠️ **HIS REASON IS THE DESIGN: the sending team knows the facts the booking needs** —
+       * whether an escort is required, whether the patient is settled enough to travel. **The bed
+       * coordinator was rejected by name**, because it owns the bed search and does not know the
+       * patient's state. `TR-D5` generalises it beyond bed placement, which is why a ward books too
+       * and not only an emergency department.
+       */
+      type: "BOOK_TRANSPORT";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      /** From `TRANSPORT_PROVIDERS`, membership-checked by the reducer. Never free text. */
+      provider: TransportProvider;
+      /**
+       * ⚠️ **ANSWERED BY A PERSON, NEVER DERIVED, AND REQUIRED SO THERE IS NO VALUE TO OMIT.**
+       * `HANDOVER_READY` fills this today by computing `movement.legalStatus !== "Voluntary"` — a
+       * clinical judgement made by nobody and shown on screen as though a clinician had made it,
+       * and wrong in both directions: a voluntary patient can need an escort, and a detained one
+       * settled enough to travel may not. The booking control opens BLANK (owner, relayed); a
+       * pre-filled answer is the same defect moved into the UI where it looks like a default.
+       */
+      escortRequired: boolean;
+    }
+  | {
       type: "CANCEL_TRANSPORT";
       role: WardFlowRole;
       now: Instant;
@@ -557,6 +584,12 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   // by the destination is indistinguishable on the sending board from one that failed — so
   // the sending team cannot tell "they changed their mind" from "it never went through".
   // This list read ["coordinator", "ward"] until 2026-08-30, which was TR-D6 inverted.
+  // `TR-D1`: the sending ward or ED, and the coordinator REJECTED BY NAME — it owns the bed search
+  // and does not know whether this patient needs an escort or is settled enough to travel. Note the
+  // asymmetry with `CANCEL_TRANSPORT` below, which the coordinator MAY do (`TR-D6`): it is the only
+  // role that sees the whole picture and so the only one positioned to notice a booking that has
+  // become wrong. Booking needs knowledge of the patient; cancelling needs knowledge of the network.
+  BOOK_TRANSPORT: ["ed", "ward"],
   CANCEL_TRANSPORT: ["coordinator", "ed"],
   FLAG_BED_RELEASE: ["ward"],
   CONFIRM_BED_RELEASE: ["ward"],

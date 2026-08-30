@@ -154,5 +154,16 @@ describe("a referral's two clocks", () => {
       referrals.some((referral) => referral.triagedAt !== undefined && referral.triagedAt < referral.raisedAt),
       "no seeded referral was already in the department when it was raised, so the gap is never shown",
     ).toBe(true);
+    // ⚠️ THE THIRD SHAPE, AND IT WAS MISSING FOR AN HOUR WHILE THE OTHER TWO LOOKED LIKE FULL
+    // COVERAGE. Stopping needs triage AFTER the referral — the community expect who has since
+    // arrived — and every triaged referral in the seed was the opposite case, triaged before anyone
+    // referred. So `sinceReferralRunning` was `true` across all nine and the stopped wording
+    // rendered nowhere, on a screen built to show both. Measured by Ward Referrals rather than
+    // inferred from the derivation, which is the only way this was visible: the code was right and
+    // the FIXTURE was silent.
+    expect(
+      referrals.some((referral) => !referralClocks(referral, NOW).sinceReferralRunning),
+      "no seeded referral has a STOPPED referral clock, so half of this derivation renders nowhere",
+    ).toBe(true);
   });
 });
