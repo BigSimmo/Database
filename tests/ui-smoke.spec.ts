@@ -1546,16 +1546,20 @@ test.describe("PsychSift UI smoke coverage", () => {
       await expectNoPageHorizontalOverflow(page);
     }
 
+    const rail = settings.getByRole("navigation", { name: "Settings sections" });
     const search = settings.getByTestId("settings-search-input");
     await search.fill("dark mode");
     await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
     await expect(settings.getByTestId("settings-row-jurisdiction")).toHaveCount(0);
+    await expect(rail.getByRole("button", { name: "App preferences", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
     await search.press("Escape");
     await expect(search).toHaveValue("");
     await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
 
     const close = settings.getByRole("button", { name: "Close settings" });
-    const rail = settings.getByRole("navigation", { name: "Settings sections" });
     const port = settings.getByTestId("settings-scroll-port");
 
     const scrollState = async () =>

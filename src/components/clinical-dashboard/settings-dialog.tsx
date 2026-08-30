@@ -316,6 +316,15 @@ export function SettingsDialog({
   const filtering = filterMatches !== null;
   const noMatches = filtering && filterMatches.size === 0;
 
+  useEffect(() => {
+    if (!filtering || visibleSectionIds.length === 0 || visibleSectionIds.includes(activeSection)) return;
+    // Filtering can remove the section that owned aria-current without moving
+    // the scroll port. Keep the desktop rail truthful by promoting the first
+    // surviving section instead of leaving every enabled item unselected.
+    pinnedSectionRef.current = null;
+    setActiveSection(visibleSectionIds[0]);
+  }, [activeSection, filtering, visibleSectionIds]);
+
   const jurisdictionLabel = useMemo(
     () =>
       JURISDICTION_OPTIONS.find((option) => option.value === preferences.jurisdiction)?.label ??
@@ -890,6 +899,7 @@ export function SettingsDialog({
                 {filterMatches !== null && !filterMatches.has("settings-account-card") ? null : (
                   <section
                     data-testid="settings-account-card"
+                    data-settings-search-row="settings-account-card"
                     className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[var(--shadow-inset)] md:bg-[color:var(--surface)] md:p-4"
                   >
                     <div className="flex items-center gap-3">
@@ -1294,6 +1304,7 @@ export function SettingsDialog({
                     type="button"
                     onClick={() => handleResetPreferences("section")}
                     data-testid="settings-row-reset-app-preferences-only"
+                    data-settings-search-row="settings-row-reset-app-preferences-only"
                     className={cn(floatingControl, "mt-2 min-h-tap w-full gap-2 text-sm md:w-auto md:px-4")}
                   >
                     <RotateCcw aria-hidden="true" className="h-4 w-4" />
@@ -1475,6 +1486,7 @@ function SettingsCard({ rowId, padded = false, children }: { rowId: string; padd
   return (
     <div
       data-testid={`${rowId}-card`}
+      data-settings-search-row={rowId}
       className={cn(
         "overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2),var(--shadow-inset)] md:bg-[color:var(--surface)] md:shadow-[var(--shadow-inset)]",
         padded && "p-4",
@@ -1523,6 +1535,7 @@ function PreferenceSyncRow({ state, onRetry }: { state: PreferenceSyncState; onR
   return (
     <div
       data-testid="settings-row-preference-sync"
+      data-settings-search-row="settings-row-preference-sync"
       data-sync-state={state}
       className="mt-2 flex items-center gap-3 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3.5 py-3 shadow-[var(--shadow-inset)] md:bg-[color:var(--surface)]"
     >
@@ -1646,6 +1659,7 @@ function SettingsField({
   return (
     <div
       data-testid={rowId}
+      data-settings-search-row={rowId}
       className={cn(
         "flex border-b border-[color:var(--border)]/70 px-3.5 last:border-b-0",
         stacked ? "flex-col gap-2.5 py-3" : "flex-col gap-3 py-3.5 md:flex-row md:items-center md:justify-between",
@@ -1745,6 +1759,7 @@ function SettingsToggleField({
   return (
     <div
       data-testid={rowId}
+      data-settings-search-row={rowId}
       className="flex items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3.5 last:border-b-0"
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -1835,6 +1850,7 @@ function SettingsActionRow({
       disabled={disabled}
       aria-label={actionLabel}
       data-testid={rowId}
+      data-settings-search-row={rowId}
       className={cn(
         settingsSectionScrollMarginClass,
         "flex w-full items-center gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-55 md:hover:bg-[color:var(--surface-lux)]/55",
