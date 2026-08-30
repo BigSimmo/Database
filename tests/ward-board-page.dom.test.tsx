@@ -197,9 +197,10 @@ describe("ward board page — held beds", () => {
     const capacity = unitCapacity(unit, []);
     // Non-vacuity: if the fixture ever changes so this unit has no held bed, this suite would
     // otherwise pass while proving nothing about the held tile at all.
-    expect(capacity.held, `${UNIT_ID} must have at least one held bed for this suite to prove anything`).toBeGreaterThan(
-      0,
-    );
+    expect(
+      capacity.held,
+      `${UNIT_ID} must have at least one held bed for this suite to prove anything`,
+    ).toBeGreaterThan(0);
 
     const { container } = renderWardBoard(UNIT_ID);
 

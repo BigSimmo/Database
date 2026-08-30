@@ -288,7 +288,9 @@ describe("check 3 — nobody is listed in a ward with too few beds", () => {
     data.admissions = [...occupants("rph-adult-secure", 9, 9), ...occupants("rph-adult-secur", 0, 1)];
     const message = onlyMessage(data);
     expect(message).toContain('Ward id "rph-adult-secur"');
-    expect(message).toContain('1 person in src/components/ward-management/ward-admissions-seed.ts is listed in a ward called "rph-adult-secur"');
+    expect(message).toContain(
+      '1 person in src/components/ward-management/ward-admissions-seed.ts is listed in a ward called "rph-adult-secur"',
+    );
     expect(message).toContain('Did you mean "rph-adult-secure"?');
     expect(message).toContain("the ward they should be in reads as emptier than it is");
   });
@@ -364,7 +366,9 @@ describe("check 6 — a health service used by a hospital reaches every screen l
     expect(message).toContain('1 hospital uses the health service "Central Metro"');
     expect(message).toContain("Hospitals affected: Royal Perth Hospital (RPH)");
     expect(message).toContain("wardServiceOrder in src/components/ward-management/ward-derivations.ts");
-    expect(message).toContain("the ED screen's ward table and the coordinator flow diagram will skip these wards entirely");
+    expect(message).toContain(
+      "the ED screen's ward table and the coordinator flow diagram will skip these wards entirely",
+    );
     expect(message).toContain("columnServices in src/components/ward-management/ward-management-network.tsx");
     expect(message).toContain("the network map will never draw a column for these wards");
     expect(message).toContain("the app compiles and runs perfectly with these wards invisible");
@@ -378,7 +382,7 @@ describe("check 6 — a health service used by a hospital reaches every screen l
     const message = found.find((entry) => entry.includes('Health service "East Metro"')) ?? "";
     expect(message).toContain("columnServices in src/components/ward-management/ward-management-network.tsx");
     expect(message).not.toContain("wardServiceOrder in");
-    expect(message).toContain("add \"East Metro\" to that list");
+    expect(message).toContain('add "East Metro" to that list');
   });
 
   it("says when a listed service has no hospitals, because the map draws an empty column for it", () => {
@@ -406,7 +410,7 @@ describe("check 7 — every ward or department named in a link exists", () => {
     (data.unitReferences as AnyRecord[])[0].unitId = "rph-adult-secure-2";
     const message = onlyMessage(data);
     expect(message).toContain('Navigation menu: ward "rph-adult-secure-2"');
-    expect(message).toContain('there is no ward with that id in src/components/ward-management/ward-sites.ts');
+    expect(message).toContain("there is no ward with that id in src/components/ward-management/ward-sites.ts");
     expect(message).toContain('Did you mean "rph-adult-secure" (RPH Adult Secure)?');
     expect(message).toContain('Anyone following it lands on a "not found" page.');
     expect(message).toContain("correct the id in src/components/ward-management/ward-nav.ts");
@@ -443,7 +447,9 @@ describe("check 8 — a menu label names the ward it actually opens", () => {
     const found = messages(data);
     const message = found.find((entry) => entry.includes("menu label")) ?? found.join("\n---\n");
     expect(message).toContain('Navigation menu: menu item "Ward — RPH Adult Secure"');
-    expect(message).toContain('the menu says this link goes to "RPH Adult Secure", but the ward it actually opens is called "RPH Adult Intensive Care"');
+    expect(message).toContain(
+      'the menu says this link goes to "RPH Adult Secure", but the ward it actually opens is called "RPH Adult Intensive Care"',
+    );
     expect(message).toContain("nothing checks the two against each other");
     expect(message).toContain('"Ward — RPH Adult Intensive Care"');
   });
@@ -460,7 +466,14 @@ describe("check 9 (added) — the network's own ids and nesting are coherent", (
   it("says when a ward was copied and its id was not changed", () => {
     const data = consistentData();
     const [unit] = theUnit(data);
-    theUnit(data).push({ ...unit, name: "RPH Adult Open", sexMix: { Female: 0, Male: 0 }, beds: 0, empty: capacityFigure(0), allocatable: capacityFigure(0) });
+    theUnit(data).push({
+      ...unit,
+      name: "RPH Adult Open",
+      sexMix: { Female: 0, Male: 0 },
+      beds: 0,
+      empty: capacityFigure(0),
+      allocatable: capacityFigure(0),
+    });
     const found = messages(data).join("\n---\n");
     expect(found).toContain('Ward id "rph-adult-secure"');
     expect(found).toContain("is used by two wards: RPH Adult Secure and RPH Adult Open.");
@@ -479,7 +492,9 @@ describe("check 9 (added) — the network's own ids and nesting are coherent", (
     theUnit(data)[0].siteCode = "SCGH";
     const message = onlyMessage(data);
     expect(message).toContain("RPH Adult Secure (rph-adult-secure) at Royal Perth Hospital");
-    expect(message).toContain('is written under Royal Perth Hospital, whose code is "RPH", but its own siteCode says "SCGH"');
+    expect(message).toContain(
+      'is written under Royal Perth Hospital, whose code is "RPH", but its own siteCode says "SCGH"',
+    );
     expect(message).toContain("appear under that hospital on the network map, and travel times will be measured to it");
     expect(message).toContain('change siteCode to "RPH"');
   });
