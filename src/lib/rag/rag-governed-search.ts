@@ -1,25 +1,53 @@
 import { rankClinicalResults } from "@/lib/clinical-search";
+import { governedPublicRetrievalAccessScope } from "@/lib/owner-scope";
 import { embedTextWithTelemetry } from "@/lib/openai";
 import { searchGovernedCorpora } from "@/lib/rag/rag-candidate-sources";
 import { evaluateShadowCandidateMatchCounts } from "@/lib/rag/rag-coverage";
 import type { SearchChunksArgs, SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { attachDocumentRankingMetadata, attachPageVisualEvidence } from "@/lib/rag/rag-hydration";
 import { isSourceOnlyMode, SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag/rag-provider";
+import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
+import { buildRagQueryPlan } from "@/lib/rag/rag-query-plan";
+import { buildRagRetrievalVariantPlan, fetchEnabledRagAliases } from "@/lib/rag/rag-retrieval-variants";
 import { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
 import { selectRetrievalEvidence } from "@/lib/retrieval-selection";
 import type { createAdminClient } from "@/lib/supabase/admin";
-import type { RagQueryClass, RagQueryPlan, SearchResult } from "@/lib/types";
+import type { ClinicalQueryAnalysis, RagQueryClass, RagQueryPlan, SearchResult } from "@/lib/types";
 
 type GovernedModeResult = { candidateResults: SearchResult[]; results: SearchResult[]; served: boolean };
+
+/** Build the candidate plan from public-only analysis and aliases, independently of a shadow control. */
+export async function planGovernedCandidateSearch(input: {
+  analysis: Promise<ClinicalQueryAnalysis>;
+  mode: RagProgrammeMode;
+  query: string;
+  queryClass?: RagQueryClass;
+  signal?: AbortSignal;
+  supabase: ReturnType<typeof createAdminClient>;
+}) {
+  if (input.mode === "legacy") return null;
+  const [resolvedAnalysis, aliases] = await Promise.all([
+    input.analysis,
+    fetchEnabledRagAliases(input.supabase, undefined, governedPublicRetrievalAccessScope(), input.signal),
+  ]);
+  const analysis = input.queryClass ? { ...resolvedAnalysis, queryClass: input.queryClass } : resolvedAnalysis;
+  const queryPlan = buildRagQueryPlan(input.query, analysis);
+  return {
+    analysis,
+    queryPlan,
+    variantPlan: buildRagRetrievalVariantPlan(input.query, analysis, aliases, queryPlan, input.mode, input.signal),
+  };
+}
 
 /** Run one v3 candidate lane; shadow observes it while canary serves its public-only output. */
 export async function routeGovernedSearch(input: {
   args: SearchChunksArgs;
   supabase: ReturnType<typeof createAdminClient>;
   queryPlan: RagQueryPlan;
+  queryVariants: string[];
   telemetry: SearchTelemetry;
 }): Promise<GovernedModeResult | null> {
-  const { args, queryPlan, supabase, telemetry } = input;
+  const { args, queryPlan, queryVariants, supabase, telemetry } = input;
   if (args.ragQueryPlanMode === "legacy") return null;
   const shadow = args.ragQueryPlanMode === "shadow";
   if (!args.governedCorpusComponents || !args.ragRequestContext) {
@@ -38,7 +66,7 @@ export async function routeGovernedSearch(input: {
   let rpcCalls = 0;
   const candidateResults = await searchGovernedCorpora({
     supabase,
-    queryVariants: [query],
+    queryVariants,
     queryPlan,
     retrievalMode,
     embedQuery: async (embeddingQuery, signal) => {
@@ -76,7 +104,7 @@ export async function routeGovernedSearch(input: {
     telemetry.embedding_skip_reason = providerSourceOnly ? SOURCE_ONLY_EMBEDDING_SKIP_REASON : "lexical_only";
   }
 
-  const hydrated = await attachDocumentRankingMetadata(supabase, candidateResults, undefined);
+  const hydrated = await attachDocumentRankingMetadata(supabase, candidateResults, undefined, undefined, args.signal);
   const selection = selectRetrievalEvidence({
     query,
     queryClass,
@@ -86,7 +114,7 @@ export async function routeGovernedSearch(input: {
   });
   telemetry.retrieval_intent = selection.intent;
   telemetry.retrieval_selection = selection.summary;
-  let results = await attachPageVisualEvidence(supabase, selection.results);
+  let results = await attachPageVisualEvidence(supabase, selection.results, args.signal);
   results = applySecondStageRerankIfNeeded({
     queryClass,
     results,

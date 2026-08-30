@@ -1,4 +1,5 @@
-import type { ChunkImage, ClinicalImageUseClass, SearchResult } from "@/lib/types";
+import { rankClinicalResults } from "@/lib/clinical-search";
+import type { ChunkImage, ClinicalImageUseClass, RagQueryClass, SearchResult } from "@/lib/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchRelatedDocumentMetadata } from "@/lib/document-enrichment";
 import { normalizeImageBbox } from "@/lib/image-filtering";
@@ -6,11 +7,15 @@ import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/r
 import { metadataText, safeRecord } from "@/lib/rag/rag-answer-text";
 import { compactContextText } from "@/lib/rag/rag-source-block";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
+import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
 import {
   applyMemoryBoostArtifacts,
   loadMemoryBoostArtifacts,
   type MemoryCardCache,
 } from "@/lib/rag/rag-candidate-sources";
+import { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
+import { measureSearchPhase, type SearchTiming } from "@/lib/rag/rag-search-timing";
+import { selectRetrievalEvidence } from "@/lib/retrieval-selection";
 
 // Extracted from rag.ts (maturity X3 / #101): per-request hydration of retrieved
 // results — document ranking metadata, cached index quality, and page visual
@@ -33,6 +38,68 @@ export function createDocumentRankingMetadataCache(): DocumentRankingMetadataCac
   };
 }
 
+/** Select ranked retrieval results and record the shared selection diagnostics. */
+export function selectRankedRetrievalResults(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  candidates: SearchResult[];
+  topK: number;
+  maxResultsPerDocument: number;
+  telemetry?: SearchTelemetry;
+}) {
+  const selection = selectRetrievalEvidence({
+    query: args.query,
+    queryClass: args.queryClass,
+    results: rankClinicalResults(args.query, args.candidates),
+    topK: args.topK,
+    maxResultsPerDocument: args.maxResultsPerDocument,
+  });
+  if (args.telemetry) {
+    args.telemetry.retrieval_intent = selection.intent;
+    args.telemetry.retrieval_selection = selection.summary;
+  }
+  return selection.results;
+}
+
+/** Hydrate, select, and rerank the evidence used by the coverage gate. */
+export async function prepareCoverageGateResults(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  candidates: SearchResult[];
+  ownerId?: string;
+  topK: number;
+  maxResultsPerDocument: number;
+  queryClass: RagQueryClass;
+  telemetry: SearchTelemetry;
+  metadataCache: DocumentRankingMetadataCache;
+  timing: SearchTiming;
+  signal?: AbortSignal;
+}) {
+  const startedAt = Date.now();
+  const candidates = await measureSearchPhase(args.timing, "metadata_hydration", () =>
+    attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache, args.signal),
+  );
+  const selected = selectRankedRetrievalResults({
+    query: args.query,
+    queryClass: args.queryClass,
+    candidates,
+    topK: args.topK,
+    maxResultsPerDocument: args.maxResultsPerDocument,
+    telemetry: args.telemetry,
+  });
+  let results = await measureSearchPhase(args.timing, "visual_hydration", () =>
+    attachPageVisualEvidence(args.supabase, selected, args.signal),
+  );
+  results = applySecondStageRerankIfNeeded({
+    queryClass: args.queryClass,
+    results,
+    telemetry: args.telemetry,
+    topK: args.topK,
+  });
+  args.telemetry.rerank_latency_ms += Date.now() - startedAt;
+  return results;
+}
+
 /** Overlap independent metadata and memory reads, then merge them deterministically. */
 export async function hydrateCandidatesWithMetadataAndMemory(args: {
   supabase: ReturnType<typeof createAdminClient>;
@@ -45,13 +112,14 @@ export async function hydrateCandidatesWithMetadataAndMemory(args: {
   matchCount: number;
   metadataCache: DocumentRankingMetadataCache;
   cardCache: MemoryCardCache;
+  signal?: AbortSignal;
   measurePhase: <T>(phase: string, operation: () => Promise<T>) => Promise<T>;
 }) {
   // Neither read consumes the other's result. Candidate assembly remains ordered because
   // memory boosts are applied only after both promises settle, preserving the serial output.
   const [metadataCandidates, memoryArtifacts] = await args.measurePhase("metadata_and_memory_hydration", () =>
     Promise.all([
-      attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache),
+      attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache, args.signal),
       loadMemoryBoostArtifacts({
         supabase: args.supabase,
         query: args.query,
@@ -73,7 +141,9 @@ export async function attachDocumentRankingMetadata(
   results: SearchResult[],
   ownerId?: string,
   cache = createDocumentRankingMetadataCache(),
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
   const missingDocumentIds = documentIds.filter(
@@ -102,7 +172,7 @@ export async function attachDocumentRankingMetadata(
         document_summary: metadata.summary,
       };
     });
-    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
+    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache, signal);
   }
 
   const [metadataRows, indexedResults] = await Promise.all([
@@ -110,9 +180,14 @@ export async function attachDocumentRankingMetadata(
       supabase,
       ownerId,
       documentIds: missingDocumentIds,
-    }).catch(() => null),
-    attachIndexQualityMetadata(supabase, results, ownerId, cache),
+      signal,
+    }).catch(() => {
+      signal?.throwIfAborted();
+      return null;
+    }),
+    attachIndexQualityMetadata(supabase, results, ownerId, cache, signal),
   ]);
+  signal?.throwIfAborted();
   if (!metadataRows) return indexedResults;
 
   try {
@@ -148,7 +223,9 @@ async function attachIndexQualityMetadata(
   results: SearchResult[],
   ownerId?: string,
   cache = createDocumentRankingMetadataCache(),
+  signal?: AbortSignal,
 ): Promise<SearchResult[]> {
+  signal?.throwIfAborted();
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
   const missingDocumentIds = documentIds.filter((documentId) => !cache.indexQuality.has(documentId));
@@ -159,12 +236,15 @@ async function attachIndexQualityMetadata(
       .select("document_id,owner_id,quality_score,extraction_quality,metrics,issues,updated_at")
       .in("document_id", missingDocumentIds);
     if (ownerId) query = query.eq("owner_id", ownerId);
+    if (signal) query = query.abortSignal(signal);
     const { data, error } = await query;
+    signal?.throwIfAborted();
     if (error) return results;
     for (const documentId of missingDocumentIds) cache.indexQuality.set(documentId, null);
     for (const row of data ?? []) cache.indexQuality.set(row.document_id, row as SearchResult["indexing_quality"]);
     return withCachedIndexQuality(results, cache);
   } catch {
+    signal?.throwIfAborted();
     return results;
   }
 }
@@ -173,7 +253,9 @@ async function attachIndexQualityMetadata(
 export async function attachPageVisualEvidence(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
+  signal?: AbortSignal,
 ): Promise<SearchResult[]> {
+  signal?.throwIfAborted();
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   const pageNumbers = Array.from(
     new Set(results.map((result) => result.page_number).filter((page): page is number => Boolean(page))),
@@ -194,26 +276,35 @@ export async function attachPageVisualEvidence(
     "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata";
   const [pageData, directData] = await Promise.all([
     pageNumbers.length > 0
-      ? supabase
-          .from("document_images")
-          .select(selectColumns)
-          .in("document_id", documentIds)
-          .in("page_number", pageNumbers)
-          .eq("searchable", true)
-          .neq("image_type", "logo_decorative")
-          .order("clinical_relevance_score", { ascending: false })
-          .limit(80)
+      ? (() => {
+          let query = supabase
+            .from("document_images")
+            .select(selectColumns)
+            .in("document_id", documentIds)
+            .in("page_number", pageNumbers)
+            .eq("searchable", true)
+            .neq("image_type", "logo_decorative")
+            .order("clinical_relevance_score", { ascending: false })
+            .limit(80);
+          if (signal) query = query.abortSignal(signal);
+          return query;
+        })()
       : Promise.resolve({ data: [], error: null }),
     sourceImageIds.length > 0
-      ? supabase
-          .from("document_images")
-          .select(selectColumns)
-          .in("id", sourceImageIds)
-          .eq("searchable", true)
-          .neq("image_type", "logo_decorative")
-          .limit(sourceImageIds.length)
+      ? (() => {
+          let query = supabase
+            .from("document_images")
+            .select(selectColumns)
+            .in("id", sourceImageIds)
+            .eq("searchable", true)
+            .neq("image_type", "logo_decorative")
+            .limit(sourceImageIds.length);
+          if (signal) query = query.abortSignal(signal);
+          return query;
+        })()
       : Promise.resolve({ data: [], error: null }),
   ]);
+  signal?.throwIfAborted();
 
   const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
   if ((pageData.error && directData.error) || data.length === 0) return results;

@@ -36,6 +36,29 @@ describe("related-document metadata RPC rollout", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it("does not fan out to legacy or table fallbacks after caller cancellation", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("metadata lookup cancelled", "AbortError");
+    const abortSignal = vi.fn(async (signal: AbortSignal) => {
+      controller.abort(reason);
+      return { data: null, error: { code: "PGRST202", message: "missing versioned RPC" }, signal };
+    });
+    const rpc = vi.fn(() => ({ abortSignal }));
+    const from = vi.fn();
+
+    await expect(
+      fetchRelatedDocumentMetadata({
+        supabase: { rpc, from } as never,
+        accessScope: { includePublic: true },
+        documentIds: ["public-doc"],
+        signal: controller.signal,
+      }),
+    ).rejects.toBe(reason);
+    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(from).not.toHaveBeenCalled();
+  });
+
   it.each(["document_labels", "document_summaries"])("propagates %s fallback query errors", async (failedTable) => {
     const rpc = vi.fn(async () => ({ data: null, error: { code: "42501", message: "permission denied" } }));
     const fallbackError = Object.assign(new Error(`${failedTable} fallback failed`), { code: "PGRST000" });

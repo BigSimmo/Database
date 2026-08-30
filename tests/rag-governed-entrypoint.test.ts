@@ -98,11 +98,33 @@ function governedRow(id: string, scope: SourceCorpusScope): SearchResult & Recor
   };
 }
 
-async function loadHarness(options: { hybridError?: boolean; missingV3?: boolean } = {}) {
+async function loadHarness(
+  options: {
+    abortDuringImageHydration?: { controller: AbortController; reason: Error };
+    abortDuringMetadataHydration?: { controller: AbortController; reason: Error };
+    divergentCorpusGrounding?: boolean;
+    hybridError?: boolean;
+    missingV3?: boolean;
+  } = {},
+) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const setCachedSearch = vi.fn(async () => undefined);
-  const attachDocumentRankingMetadata = vi.fn(async (_client, rows: SearchResult[], _ownerId?: string) => rows);
-  const attachPageVisualEvidence = vi.fn(async (_client, rows: SearchResult[]) => rows);
+  const attachDocumentRankingMetadata = vi.fn(
+    async (_client, rows: SearchResult[], _ownerId?: string, _cache?: unknown, signal?: AbortSignal) => {
+      if (signal && options.abortDuringMetadataHydration) {
+        options.abortDuringMetadataHydration.controller.abort(options.abortDuringMetadataHydration.reason);
+        signal.throwIfAborted();
+      }
+      return rows;
+    },
+  );
+  const attachPageVisualEvidence = vi.fn(async (_client, rows: SearchResult[], signal?: AbortSignal) => {
+    if (signal && options.abortDuringImageHydration) {
+      options.abortDuringImageHydration.controller.abort(options.abortDuringImageHydration.reason);
+      signal.throwIfAborted();
+    }
+    return rows;
+  });
   const rpc = vi.fn((name: string, args: Record<string, unknown>) => {
     calls.push({ name, args });
     const response = (() => {
@@ -132,7 +154,15 @@ async function loadHarness(options: { hybridError?: boolean; missingV3?: boolean
     fetchEnabledRagAliases: vi.fn(async () => []),
   }));
   vi.doMock("@/lib/corpus-grounding", () => ({
-    classifyCorpusGrounding: vi.fn(async () => ({ verdict: "inconclusive", anchorTerms: [], absentTerms: [] })),
+    classifyCorpusGrounding: vi.fn(async ({ ownerFilter }: { ownerFilter: string }) => ({
+      verdict: options.divergentCorpusGrounding
+        ? ownerFilter === "00000000-0000-0000-0000-000000000000"
+          ? "out_of_corpus"
+          : "in_corpus_topic"
+        : "inconclusive",
+      anchorTerms: [],
+      absentTerms: [],
+    })),
   }));
   vi.doMock("@/lib/rag/rag-provider", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../src/lib/rag/rag-provider")>()),
@@ -282,6 +312,37 @@ describe("governed retrieval production entrypoint", () => {
     expect(setCachedSearch).not.toHaveBeenCalled();
   });
 
+  it("keeps the shadow candidate plan public and identity-invariant while preserving identity-scoped controls", async () => {
+    const { searchChunksWithTelemetry, calls } = await loadHarness({ divergentCorpusGrounding: true });
+    const candidateArgs: Record<string, unknown>[] = [];
+    const candidateCounts = [];
+
+    for (const ownerId of [undefined, "user-a", "administrator-a"]) {
+      const callStart = calls.length;
+      const result = await searchChunksWithTelemetry({
+        query: "bipolar disorder",
+        ownerId,
+        allowGlobalSearch: true,
+        lexicalOnly: true,
+        skipCache: true,
+        ragQueryPlanMode: "shadow",
+        ragContextSnapshotInput: snapshotInput,
+        governedCorpusComponents: { siteContent: true, australianAugmentation: false, australianCurrent: false },
+      });
+      const requestCalls = calls.slice(callStart);
+      candidateArgs.push(requestCalls.find(({ name }) => name === "match_document_chunks_text_v3")?.args ?? {});
+      candidateCounts.push(result.telemetry.candidate_match_counts);
+    }
+
+    expect(candidateArgs[1]).toEqual(candidateArgs[0]);
+    expect(candidateArgs[2]).toEqual(candidateArgs[0]);
+    expect(candidateCounts[1]).toEqual(candidateCounts[0]);
+    expect(candidateCounts[2]).toEqual(candidateCounts[0]);
+    const controlOwnerFilters = calls.filter(({ name }) => name.endsWith("_v2")).map(({ args }) => args.owner_filter);
+    expect(controlOwnerFilters).toContain("user-a");
+    expect(controlOwnerFilters).toContain("administrator-a");
+  });
+
   it("propagates caller cancellation from the production v3 lane without issuing legacy retrieval", async () => {
     const { searchChunksWithTelemetry, calls, rpc } = await loadHarness();
     const controller = new AbortController();
@@ -310,5 +371,49 @@ describe("governed retrieval production entrypoint", () => {
     ).rejects.toBe(reason);
 
     expect(calls.map(({ name }) => name)).toEqual(["match_document_chunks_hybrid_v3"]);
+  });
+
+  it("propagates caller cancellation during governed metadata hydration", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("caller left metadata hydration", "AbortError");
+    const { searchChunksWithTelemetry, attachPageVisualEvidence } = await loadHarness({
+      abortDuringMetadataHydration: { controller, reason },
+    });
+
+    await expect(
+      searchChunksWithTelemetry({
+        query: "What is clozapine?",
+        allowGlobalSearch: true,
+        skipCache: true,
+        signal: controller.signal,
+        ragQueryPlanMode: "canary",
+        ragContextSnapshotInput: snapshotInput,
+        governedCorpusComponents: { siteContent: true, australianAugmentation: false, australianCurrent: false },
+      }),
+    ).rejects.toBe(reason);
+
+    expect(attachPageVisualEvidence).not.toHaveBeenCalled();
+  });
+
+  it("propagates caller cancellation during governed image hydration", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("caller left image hydration", "AbortError");
+    const { searchChunksWithTelemetry, attachDocumentRankingMetadata } = await loadHarness({
+      abortDuringImageHydration: { controller, reason },
+    });
+
+    await expect(
+      searchChunksWithTelemetry({
+        query: "What is clozapine?",
+        allowGlobalSearch: true,
+        skipCache: true,
+        signal: controller.signal,
+        ragQueryPlanMode: "canary",
+        ragContextSnapshotInput: snapshotInput,
+        governedCorpusComponents: { siteContent: true, australianAugmentation: false, australianCurrent: false },
+      }),
+    ).rejects.toBe(reason);
+
+    expect(attachDocumentRankingMetadata).toHaveBeenCalledOnce();
   });
 });

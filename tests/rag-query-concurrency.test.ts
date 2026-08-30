@@ -133,4 +133,79 @@ describe("RAG enrichment query concurrency", () => {
 
     await expect(pending).resolves.toEqual([searchResult]);
   });
+
+  it("attaches the caller signal to index-quality hydration and preserves its abort reason", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("metadata hydration cancelled", "AbortError");
+    vi.doMock("@/lib/document-enrichment", async () => {
+      const actual =
+        await vi.importActual<typeof import("../src/lib/document-enrichment")>("@/lib/document-enrichment");
+      return { ...actual, fetchRelatedDocumentMetadata: vi.fn(async () => []) };
+    });
+    const abortSignal = vi.fn((signal: AbortSignal) => {
+      controller.abort(reason);
+      signal.throwIfAborted();
+    });
+    const query = { select: () => query, in: () => query, eq: () => query, abortSignal };
+    const { attachDocumentRankingMetadata } = await import("../src/lib/rag/rag-hydration");
+
+    await expect(
+      attachDocumentRankingMetadata(
+        { from: vi.fn(() => query) } as never,
+        [result()],
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        undefined,
+        controller.signal,
+      ),
+    ).rejects.toBe(reason);
+    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
+  });
+
+  it("attaches the caller signal to both image hydration reads and preserves its abort reason", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("image hydration cancelled", "AbortError");
+    const attachedKinds: string[] = [];
+    const supabase = {
+      from: vi.fn(() => {
+        let kind = "page";
+        const query = {
+          select: () => query,
+          in: (column: string) => {
+            if (column === "id") kind = "direct";
+            return query;
+          },
+          eq: () => query,
+          neq: () => query,
+          order: () => query,
+          limit: () => query,
+          abortSignal: vi.fn(async (signal: AbortSignal) => {
+            attachedKinds.push(kind);
+            if (kind === "page") controller.abort(reason);
+            signal.throwIfAborted();
+            return { data: [], error: null };
+          }),
+        };
+        return query;
+      }),
+    };
+    const { attachPageVisualEvidence } = await import("../src/lib/rag/rag-hydration");
+    const searchResult = result({
+      id: "unit-1",
+      unit_type: "table",
+      title: "Lithium table",
+      content: "Lithium table",
+      source_chunk_id: "chunk-1",
+      source_image_id: "image-1",
+      page_start: 1,
+      page_end: 1,
+      heading_path: [],
+      normalized_terms: ["lithium"],
+      quality_score: 1,
+      extraction_mode: "deterministic",
+      metadata: {},
+    });
+
+    await expect(attachPageVisualEvidence(supabase as never, [searchResult], controller.signal)).rejects.toBe(reason);
+    expect(attachedKinds).toEqual(expect.arrayContaining(["page", "direct"]));
+  });
 });
