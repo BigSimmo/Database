@@ -441,7 +441,16 @@ export function WardDailySheet({
           heading="Who is off the ward"
           headingId="ward-daily-sheet-away-heading"
           testId="ward-daily-sheet-away"
-          emptyText="Everybody in a bed on this ward is on it."
+          // OWNER, 2026-08-30, answering whether this group should print at all when nobody is
+          // away: "Just say none." He kept the group and shortened the sentence — which resolves
+          // the tension better than either option I offered him. The sheet's never-blank rule
+          // survives intact (a reader still sees the heading and knows nothing failed to print),
+          // and the page cost drops to one word instead of a sentence, on the sheet that already
+          // spills to a second page at 22 and 24 beds.
+          //
+          // Deliberately shorter than its three siblings above, which keep their full sentences.
+          // Those were approved as they stand and this is the group whose cost was the question.
+          emptyText="None."
           people={groups.awayFromWard}
           note="The bed stays theirs while they are away — nothing here frees a bed, and none of these people is counted as leaving."
         />
