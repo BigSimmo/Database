@@ -1756,6 +1756,43 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       return replaceMovement(withUnit, movement.id, updatedMovement);
     }
 
+    case "BOOK_TRANSPORT": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot book transport for a closed movement (${movement.closure.reason})`);
+      }
+      if (movement.stage !== "bed_held") {
+        return reject(state, event, `cannot book transport while the movement is ${movement.stage}`);
+      }
+      // A second booking would replace a job a provider may already have accepted, and the
+      // acceptance timestamps would vanish with it. Cancel first (`CANCEL_TRANSPORT`), then rebook.
+      if (movement.transport) {
+        return reject(state, event, `transport for movement ${movement.id} is already booked`);
+      }
+      if (!TRANSPORT_PROVIDERS.includes(event.provider)) {
+        return reject(state, event, `BOOK_TRANSPORT provider must be chosen from TRANSPORT_PROVIDERS`);
+      }
+      // ⚠️ A MISSING ESCORT ANSWER IS REFUSED RATHER THAN DEFAULTED, and that is the whole event.
+      // The control opens blank; storing `false` for a question nobody answered would put "no
+      // escort required" on screen as though a clinician had said so, which is exactly the defect
+      // `HANDOVER_READY`'s derivation commits and the reason `TR-D1` puts booking on the team that
+      // knows. `typeof` because the payload reaches this from JavaScript, where the field can be
+      // absent whatever the type says.
+      if (typeof event.escortRequired !== "boolean") {
+        return reject(state, event, `BOOK_TRANSPORT escortRequired must be answered, and it has no default`);
+      }
+      const booked: Movement = {
+        ...movement,
+        transport: {
+          id: `${movement.id}-transport`,
+          provider: event.provider,
+          escortRequired: event.escortRequired,
+        },
+      };
+      return replaceMovement(state, movement.id, booked);
+    }
+
     case "CANCEL_TRANSPORT": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);

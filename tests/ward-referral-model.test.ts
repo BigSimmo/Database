@@ -384,6 +384,8 @@ describe("front-door contract — an ED may close to all admissions, never refus
     CHANGE_URGENCY: false,
     CHANGE_LEGAL_STATUS: false,
     RELEASE_HOLD: false,
+    // Books a transport job; refuses nothing and names no subject.
+    BOOK_TRANSPORT: false,
     CANCEL_TRANSPORT: false,
     FLAG_BED_RELEASE: false,
     CONFIRM_BED_RELEASE: false,
