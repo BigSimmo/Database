@@ -423,6 +423,16 @@
   line-height: var(--wb-leading-body);
 }
 
+/* "Off the ward: …" — one line under the group grid rather than a sixth column (owner,
+ * 2026-08-30). Sits with the sheet's other standing notes and takes their ink on paper, which is
+ * why it is listed in the print block beside `.sheetNote`. */
+.sheetAwayLine {
+  margin: var(--wb-space-8) 0 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -847,11 +857,23 @@
 }
 
 @media (min-width: 84rem) {
-  .zonesOpen {
+  /*
+   * THREE COLUMNS ALWAYS, not only when a bed is chosen. Owner, 2026-08-30: the side panels should
+   * be more like the home page's, and the home page keeps its left and right regions permanently
+   * (`14rem minmax(38rem, 1fr) 23rem`) with an empty-state sentence in the right one.
+   *
+   * `.zonesOpen` is retained only for the tablet case below 84rem, where a third column would
+   * leave the grid too narrow to read and the panel wraps underneath instead.
+   *
+   * What this fixes beyond matching: the grid used to reflow under the reader's hands at the exact
+   * moment they clicked a bed, and until they clicked, nothing on the page said the beds were
+   * clickable.
+   */
+  .zones {
     grid-template-columns: 17rem minmax(0, 1fr) 21rem;
   }
 
-  .zonesOpen .detail {
+  .detail {
     grid-column: 3;
   }
 }
@@ -996,12 +1018,67 @@
  * deliberately: they are readings of the same ward and a reader should recognise them as the same
  * KIND of thing. What separates them is what is inside, not a second box style.
  */
+/* `--surface`, matching the home page's `.queueRegion`/`.shortlistRegion`, rather than the chrome
+ * tint this used before — the owner asked for the two pages' side panels to read as one system. */
 .flowPanel {
   min-width: 0;
   border: var(--wb-hairline) solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--surface-chrome);
+  background: var(--surface);
   padding: var(--wb-space-12);
+}
+
+/* The Going-out toggle, moved out of the triage bar to sit with the list it changes (owner,
+ * 2026-08-30). Same buttons, same pressed semantics; only the position moved. */
+.flowToggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wb-space-4);
+  margin-top: var(--wb-space-8);
+}
+
+.flowToggleLabel {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.flowToggleButton {
+  border: var(--wb-hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: var(--wb-space-4) var(--wb-space-8);
+  color: var(--text);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+/*
+ * The chosen option, and it has to be unmistakable rather than technically different. Measured
+ * before changing it: the two buttons differed by a border shade of `rgb(211,219,229)` against
+ * `rgb(230,235,242)` and a font weight — a distinction a reader has to look for, on the control
+ * that decides which list they are reading.
+ *
+ * Fill AND weight AND the pressed state, so it survives greyscale, forced-colors and a printer:
+ * weight alone is what a monochrome sheet keeps, `aria-pressed` is what a screen reader gets, and
+ * the fill is what an eye catches at a glance. Never the fill alone.
+ */
+.flowToggleButtonOn {
+  border-color: var(--border-strong);
+  background: var(--surface-inset);
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+/* The right panel with nothing chosen — the home page's own empty-state treatment. */
+.detailEmpty {
+  margin: var(--wb-space-8) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
 }
 
 .flowHeading {
@@ -1873,6 +1950,7 @@
      white, on the sheet that is read aloud at handover. Exactly the defect this block already
      exists to fix, reintroduced by a new rule that set a colour. */
   .sheetRowAway,
+  .sheetAwayLine,
   .sheetNote {
     color: CanvasText;
   }

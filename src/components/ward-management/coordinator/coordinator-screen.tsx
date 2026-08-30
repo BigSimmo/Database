@@ -161,7 +161,7 @@ export function CoordinatorScreen() {
         </div>
 
         <div className={styles.body} data-testid="ward-coordinator-body">
-          <PressureStrip now={now} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
+          <PressureStrip now={now} movements={movements} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
 
           <div className={styles.regionGrid} data-testid="ward-coordinator-region-grid">
             <PriorityQueue
@@ -192,6 +192,7 @@ export function CoordinatorScreen() {
               {isPhoneDiagramLayout ? null : (
                 <FlowDiagram
                   movement={selectedMovement}
+                  movements={movements}
                   now={now}
                   units={units}
                   bedReleases={bedReleases}

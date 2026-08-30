@@ -26,6 +26,10 @@ import styles from "./coordinator.module.css";
 
 type FlowDiagramProps = {
   movement: Movement | undefined;
+  /** Every open movement, for the ED pressure figures along the left. Passed rather than defaulted:
+   *  this diagram used to call `edPressure(now)` and take the seed fixture through that function's
+   *  old default, so its ED nodes never moved while the queue beside them did. */
+  movements: Movement[];
   now: Instant;
   units: Unit[];
   bedReleases: BedRelease[];
@@ -148,6 +152,7 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
  */
 export function FlowDiagram({
   movement,
+  movements,
   now,
   units,
   bedReleases,
@@ -155,7 +160,9 @@ export function FlowDiagram({
   selectedUnitId,
   onSelectUnit,
 }: FlowDiagramProps) {
-  const pressure = useMemo(() => edPressure(now), [now]);
+  // Live movements, not the seed. This read `edPressure(now)` and took the fixture through the
+  // old default, so the diagram's ED nodes never moved while the queue beside them did.
+  const pressure = useMemo(() => edPressure(now, movements), [now, movements]);
   const shortlist = useMemo(
     () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
     [movement, units, now],

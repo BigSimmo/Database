@@ -878,6 +878,14 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * THE BOARD DOES NOT ADVANCE, AND SAYS SO. Owner decision, 2026-08-30, taken in
            * preference to making it live.
            *
+           * **CORRECTED 2026-08-30: the note below said "the times will differ", and that understated
+           * it.** This board reads NO live state — zero uses of `useWardFlow` — and synthesises its
+           * own bed releases from the fixture rather than taking the provider's. So the divergence
+           * is a different DATA SOURCE, not a clock, and the two screens can disagree about FIGURES
+           * too: mark a patient arrived and the ward screen moves while this board cannot. A reader
+           * seeing `Held 1` here against `Held 0` there, under a note that mentions only the clock,
+           * reads a fault rather than the stated design.
+           *
            * Every other Ward Flow screen now follows a clock that starts at the real time of page
            * load and runs. This board deliberately does not: it reads the admissions fixture at
            * `WARD_ADMISSIONS_ANCHOR`, the instant that fixture is authored against, so every stay
@@ -896,8 +904,8 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * site — and this note comes out in the same commit.
            */}
           <p className={styles.asAtFixed} data-testid="ward-board-fixed-note">
-            This board is a fixed snapshot and does not advance while you watch. Other screens follow the live clock, so
-            the times will differ.
+            This board shows a fixed example and does not change while you use the demonstration. Other screens do
+            change, so their figures and times can both differ from these.
           </p>
         </div>
 
@@ -942,25 +950,6 @@ export function WardBoard({ unitId }: { unitId: string }) {
               );
             })}
           </dl>
-          <div
-            className={styles.triageToggle}
-            role="group"
-            aria-label="Which of today's departures the Going out list shows"
-          >
-            <span className={styles.triageToggleLabel}>Going out shows</span>
-            {OUTGOING_BASES.map((basis) => (
-              <button
-                key={basis}
-                type="button"
-                className={`${styles.triageToggleButton}${outgoingBasis === basis ? ` ${styles.triageToggleButtonOn}` : ""}`}
-                aria-pressed={outgoingBasis === basis}
-                onClick={() => setOutgoingBasis(basis)}
-                data-testid={`ward-board-basis-${basis}`}
-              >
-                {OUTGOING_BASIS_LABEL[basis]}
-              </button>
-            ))}
-          </div>
         </section>
 
         {/*
@@ -1051,6 +1040,37 @@ export function WardBoard({ unitId }: { unitId: string }) {
               <p className={styles.flowIntro} data-testid="ward-board-outgoing-count">
                 Showing {OUTGOING_BASIS_LABEL[outgoingBasis]}: {outgoing.length} bed{outgoing.length === 1 ? "" : "s"}.
               </p>
+              {/*
+               * THE TOGGLE SITS WITH THE LIST IT CHANGES. Owner, 2026-08-30.
+               *
+               * It was on the far right of the triage bar, a full screen-width away from the only
+               * thing it alters — so a reader who pressed it watched a list move in the corner of
+               * their eye, and a reader looking at the list had no idea it had two states. A
+               * control belongs beside its effect.
+               *
+               * The count line directly above states the basis in WORDS as well, which is what
+               * keeps a printed sheet honest: every button is stripped from paper, so the toggle's
+               * pressed state cannot be the only thing saying which list this is.
+               */}
+              <div
+                className={styles.flowToggle}
+                role="group"
+                aria-label="Which of today's departures the Going out list shows"
+              >
+                <span className={styles.flowToggleLabel}>Going out shows</span>
+                {OUTGOING_BASES.map((basis) => (
+                  <button
+                    key={basis}
+                    type="button"
+                    className={`${styles.flowToggleButton}${outgoingBasis === basis ? ` ${styles.flowToggleButtonOn}` : ""}`}
+                    aria-pressed={outgoingBasis === basis}
+                    onClick={() => setOutgoingBasis(basis)}
+                    data-testid={`ward-board-basis-${basis}`}
+                  >
+                    {OUTGOING_BASIS_LABEL[basis]}
+                  </button>
+                ))}
+              </div>
               {outgoing.length === 0 ? (
                 <p className={styles.flowRowLine}>No bed on this ward carries that today.</p>
               ) : (
@@ -1257,19 +1277,6 @@ export function WardBoard({ unitId }: { unitId: string }) {
               Any diagnosis shown is tentative: a broad category a referral gave on the way in, not a diagnosis this
               ward has confirmed.
             </p>
-            {/*
-             * THE EMPTY-SELECTION STATE, and it is deliberately not a blank panel and not somebody
-             * chosen for the reader. Auto-selecting an occupant would read as the system having
-             * picked a person out of the ward, which is a judgement this board does not make and
-             * could not justify; leaving an empty box on screen reads as a panel that failed to load.
-             * So the slide-out is simply absent, and the grid says in words that nothing is chosen and
-             * that nothing will be chosen on the reader's behalf.
-             */}
-            {selectedTile === null && (
-              <p className={styles.selectHint} data-testid="ward-board-select-hint">
-                Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
-              </p>
-            )}
           </div>
 
           {/*
@@ -1282,24 +1289,38 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * from anywhere in the zones, and focus returns to the exact tile that opened it. The tile's
            * own `aria-pressed` is what says which one is open.
            */}
-          {selectedTile !== null && (
-            <aside
-              className={styles.detail}
-              id="ward-board-detail"
-              aria-labelledby="ward-board-detail-heading"
-              data-testid="ward-board-detail"
-              data-detail-kind={selectedTile.kind}
-            >
-              <div className={styles.detailBar}>
-                <h2 id="ward-board-detail-heading" className={styles.detailHeading}>
-                  {selectedTile.kind === "occupied" || selectedTile.kind === "waiting"
+          {/*
+           * A PERMANENT COLUMN, not a slide-out — owner, 2026-08-30: make the side panels more
+           * like the home page's.
+           *
+           * The home page keeps its right region always present and, with nothing chosen, says so:
+           * "Select a movement from the priority queue to see its explainable shortlist." That is
+           * the pattern this now follows. A panel that appears only on click has two costs: the
+           * grid reflows under the reader's hands at the moment they click, and until they click
+           * there is nothing telling them the beds are clickable at all.
+           */}
+          <aside
+            className={styles.detail}
+            id="ward-board-detail"
+            aria-labelledby="ward-board-detail-heading"
+            data-testid="ward-board-detail"
+            data-detail-kind={selectedTile?.kind ?? "none"}
+          >
+            <div className={styles.detailBar}>
+              <h2 id="ward-board-detail-heading" className={styles.detailHeading}>
+                {selectedTile === null
+                  ? "Who is in a bed"
+                  : selectedTile.kind === "occupied" || selectedTile.kind === "waiting"
                     ? "Who is in this bed"
                     : selectedTile.kind === "empty"
                       ? "An empty bed"
                       : selectedTile.kind === "held"
                         ? "A held bed"
                         : "A bed out of service"}
-                </h2>
+              </h2>
+              {/* No Close on an empty panel — there is nothing to close, and a control that does
+                nothing is worse than no control. */}
+              {selectedTile !== null && (
                 <button
                   type="button"
                   className={styles.detailClose}
@@ -1308,57 +1329,77 @@ export function WardBoard({ unitId }: { unitId: string }) {
                 >
                   Close
                 </button>
-              </div>
+              )}
+            </div>
 
-              {selectedTile.kind === "occupied" || selectedTile.kind === "waiting" ? (
-                selectedOccupant !== null ? (
-                  <div className={styles.person} data-testid="ward-board-detail-person">
-                    <PersonEntry occupant={selectedOccupant} idPrefix="ward-board-selected-person" />
-                    {/* Rule 2 spelled out where a reader is looking at one person rather than at the
+            {selectedTile === null ? (
+              /*
+               * THE EMPTY-SELECTION STATE, MOVED HERE from a separate hint under the grid.
+               *
+               * The original decision stands and is why this is not a blank box: auto-selecting an
+               * occupant would read as the system having picked a person out of the ward, and an
+               * empty column reads as a panel that failed to load. Both are still refused — the
+               * absence is STATED, in the same words, including "nobody is chosen for you".
+               *
+               * What changed is where it is said. The hint and this panel were about to carry the
+               * same sentence a column apart, which is the duplication the owner objected to
+               * elsewhere on this page. It belongs in the region it describes.
+               */
+              <p className={styles.detailEmpty} data-testid="ward-board-select-hint">
+                Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+              </p>
+            ) : (
+              <>
+                {selectedTile.kind === "occupied" || selectedTile.kind === "waiting" ? (
+                  selectedOccupant !== null ? (
+                    <div className={styles.person} data-testid="ward-board-detail-person">
+                      <PersonEntry occupant={selectedOccupant} idPrefix="ward-board-selected-person" />
+                      {/* Rule 2 spelled out where a reader is looking at one person rather than at the
                       grid: this bed is gone from the ward's count, and the person is not here. */}
-                    {selectedTile.kind === "waiting" && (
-                      <p className={styles.personLine}>
-                        This ward has already given this bed away. It is taken, not free, and nobody has arrived.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  /* Unreachable while the grid and the list are built from the same two calls, and
+                      {selectedTile.kind === "waiting" && (
+                        <p className={styles.personLine}>
+                          This ward has already given this bed away. It is taken, not free, and nobody has arrived.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    /* Unreachable while the grid and the list are built from the same two calls, and
                    said rather than rendered blank if it ever is: an empty panel would read as a
                    loading failure, and inventing a person to fill it is the one thing this board
                    must never do. */
-                  <p className={styles.personLine}>No record could be read for this bed.</p>
-                )
-              ) : (
-                <div data-testid="ward-board-detail-bed-class">
-                  <p className={styles.detailLead}>
-                    {selectedTile.kind === "empty"
-                      ? `One of this ward's ${emptyTileCount} bed${emptyTileCount === 1 ? "" : "s"} a coordinator can fill right now.`
-                      : selectedTile.kind === "held"
-                        ? `One of this ward's ${heldTileCount} bed${heldTileCount === 1 ? "" : "s"} that are empty but not yet confirmed as ones this ward will offer.`
-                        : `One of this ward's ${blockedTileCount} bed${blockedTileCount === 1 ? "" : "s"} that are out of service and cannot be filled today.`}
-                  </p>
-                  {/* The constraint the header already carries, repeated here only where it bites: a
+                    <p className={styles.personLine}>No record could be read for this bed.</p>
+                  )
+                ) : (
+                  <div data-testid="ward-board-detail-bed-class">
+                    <p className={styles.detailLead}>
+                      {selectedTile.kind === "empty"
+                        ? `One of this ward's ${emptyTileCount} bed${emptyTileCount === 1 ? "" : "s"} a coordinator can fill right now.`
+                        : selectedTile.kind === "held"
+                          ? `One of this ward's ${heldTileCount} bed${heldTileCount === 1 ? "" : "s"} that are empty but not yet confirmed as ones this ward will offer.`
+                          : `One of this ward's ${blockedTileCount} bed${blockedTileCount === 1 ? "" : "s"} that are out of service and cannot be filled today.`}
+                    </p>
+                    {/* The constraint the header already carries, repeated here only where it bites: a
                     reader looking at a fillable bed is exactly the reader who needs to know what
                     will and will not go in it. `constraintSentence` returns null rather than an
                     empty string when nothing constrains. */}
-                  {selectedTile.kind === "empty" && constraint !== null && (
-                    <p className={styles.personLine}>{constraint}</p>
-                  )}
-                  {/*
-                   * THE LINE THAT KEEPS SELECTION HONEST. `Unit.blocked` is a count and
-                   * `unitCapacity`'s held/available split is derived from two more counts; no record
-                   * anywhere says WHICH bed. So a reader who has just clicked one of these tiles is
-                   * told, on the panel, that they have selected a class of bed and not a location.
-                   */}
-                  <p className={styles.detailNotLocation}>
-                    Which bed is not recorded. An admission records the ward it is on and never a bed, so this tile is
-                    one of a count and not a place on the ward.
-                  </p>
-                </div>
-              )}
-            </aside>
-          )}
+                    {selectedTile.kind === "empty" && constraint !== null && (
+                      <p className={styles.personLine}>{constraint}</p>
+                    )}
+                    {/*
+                     * THE LINE THAT KEEPS SELECTION HONEST. `Unit.blocked` is a count and
+                     * `unitCapacity`'s held/available split is derived from two more counts; no record
+                     * anywhere says WHICH bed. So a reader who has just clicked one of these tiles is
+                     * told, on the panel, that they have selected a class of bed and not a location.
+                     */}
+                    <p className={styles.detailNotLocation}>
+                      Which bed is not recorded. An admission records the ward it is on and never a bed, so this tile is
+                      one of a count and not a place on the ward.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </aside>
         </div>
 
         {/*

@@ -17,6 +17,7 @@ import { FlowDiagram } from "@/components/ward-management/coordinator/flow-diagr
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
+import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 /**
@@ -66,6 +67,10 @@ describe("network view and coordinator flow diagram never show the raw potential
     render(
       <FlowDiagram
         movement={undefined}
+        /* Named rather than defaulted. `FlowDiagram` used to reach the seed through `edPressure`'s
+           old default parameter, so its ED figures were the fixture's whatever the caller meant.
+           The argument is required now and every caller says which movements it means. */
+        movements={wardMovements}
         now={NOW_ANCHOR}
         units={allUnits()}
         bedReleases={bedReleases}
