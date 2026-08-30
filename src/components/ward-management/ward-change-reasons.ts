@@ -133,10 +133,64 @@ export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
 export const BED_PREPARATION_NOTES = ["Being cleaned", "Awaiting maintenance or repair"] as const;
 export type BedPreparationNote = (typeof BED_PREPARATION_NOTES)[number];
 
+/**
+ * ⚠️ PLACEHOLDER VALUES. THE OWNER HAS NOT CHOSEN THESE. HE ASKED FOR TEN TO BUILD AGAINST.
+ *
+ * Owner, 2026-08-30: "patients must met a certain high threshold to be marked as urgent", then
+ * "Just have 10 placeholder urgent reasons for now." So the SHAPE is his decision and the CONTENT
+ * is a stand-in written by a session, and those two facts must not be allowed to merge. A chosen
+ * value and a provisional value look identical in code; the difference is whether anybody can find
+ * it again (`docs/ward-flow-provisional-values.md`). This block is that finding.
+ *
+ * WHY THIS LIST EXISTS AT ALL. Urgency is the primary sort and outranks every wait, so a tier that
+ * is easy to apply inflates until it means nothing — and the wait ordering underneath it stops
+ * mattering too. The threshold is the safeguard. It is expressed as a fixed list a HUMAN PICKS
+ * FROM, never a number the software evaluates: a computed threshold would breach "nothing predicts,
+ * scores, ranks or recommends a person", and a sourced clinical one would breach "no figure,
+ * timeframe or threshold from the Mental Health Act" without a named accountable owner.
+ *
+ * ⚠️ AND THESE STRAIN THIS FILE'S OWN RULE, which is why it is said out loud rather than left for a
+ * reviewer to notice. The block at the top of this file says its reasons are "operational and
+ * content-free" and that "if richer reasons are wanted they come from the product owner; no agent
+ * adds one". A reason for urgency CANNOT be entirely content-free — saying why somebody must be
+ * moved first is closer to the person than saying why a hold was released. These are written in the
+ * most operational register available (what the current setting cannot do, rather than what is
+ * wrong with the person), they carry no diagnosis, no narrative, no figure and no timeframe, and
+ * they duplicate nothing the model already holds — cohort, security need and legal status are
+ * separate fields and must not be restated here. The owner asked for them, which is the condition
+ * the rule names.
+ *
+ * REPLACING THEM IS ONE EDIT HERE plus the labels below. Nothing else authors this list.
+ */
+export const URGENT_MARK_REASONS = [
+  "one_to_one_observation_needed",
+  "cannot_be_observed_safely_here",
+  "no_psychiatric_cover_at_this_site",
+  "currently_secluded_or_restrained",
+  "repeated_attempts_to_leave",
+  "needs_medical_care_unavailable_here",
+  "safety_of_others_in_this_setting",
+  "escort_in_place_and_unsustainable",
+  "earlier_placement_broke_down",
+  "this_setting_cannot_continue_current_care",
+] as const;
+export type UrgentMarkReason = (typeof URGENT_MARK_REASONS)[number];
+
 export const changeReasonLabels: Record<
-  UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason,
+  UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason | UrgentMarkReason,
   string
 > = {
+  // Placeholder labels for the placeholder list above — replaced together, never separately.
+  one_to_one_observation_needed: "One-to-one observation needed",
+  cannot_be_observed_safely_here: "Cannot be observed safely here",
+  no_psychiatric_cover_at_this_site: "No psychiatric cover at this site",
+  currently_secluded_or_restrained: "Currently secluded or restrained",
+  repeated_attempts_to_leave: "Repeated attempts to leave",
+  needs_medical_care_unavailable_here: "Needs medical care unavailable here",
+  safety_of_others_in_this_setting: "Safety of others in this setting",
+  escort_in_place_and_unsustainable: "Escort in place and unsustainable",
+  earlier_placement_broke_down: "Earlier placement broke down",
+  this_setting_cannot_continue_current_care: "This setting cannot continue current care",
   reassessed: "Reassessed",
   new_information: "New information",
   correcting_an_error: "Correcting an error",

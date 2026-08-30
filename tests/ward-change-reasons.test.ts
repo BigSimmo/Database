@@ -8,10 +8,12 @@ import {
   LEGAL_STATUS_CHANGE_REASONS,
   RELEASE_HOLD_REASONS,
   URGENCY_CHANGE_REASONS,
+  URGENT_MARK_REASONS,
   type CancelTransportReason,
   type LegalStatusChangeReason,
   type ReleaseHoldReason,
   type UrgencyChangeReason,
+  type UrgentMarkReason,
 } from "../src/components/ward-management/ward-change-reasons";
 
 describe("ward-change-reasons", () => {
@@ -119,11 +121,14 @@ describe("ward-change-reasons", () => {
   });
 
   it("gives every union member a label and no label an orphan entry", () => {
-    const allReasons: (UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason)[] = [
+    const allReasons: (
+      UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason | UrgentMarkReason
+    )[] = [
       ...URGENCY_CHANGE_REASONS,
       ...LEGAL_STATUS_CHANGE_REASONS,
       ...RELEASE_HOLD_REASONS,
       ...CANCEL_TRANSPORT_REASONS,
+      ...URGENT_MARK_REASONS,
     ];
     // Every reason in all four lists resolves to a label.
     for (const reason of allReasons) {
@@ -148,6 +153,20 @@ describe("ward-change-reasons", () => {
         "patient_not_ready",
         "destination_changed",
         "job_created_in_error",
+        // The ten PLACEHOLDER urgent-mark reasons (owner asked for ten to build against,
+        // 2026-08-30; he has not chosen them). Pinned here for the same reason as every other
+        // entry: an added or renamed reason must turn this red rather than arrive quietly. When he
+        // supplies the real ones, this block and the list in ward-change-reasons.ts change together.
+        "one_to_one_observation_needed",
+        "cannot_be_observed_safely_here",
+        "no_psychiatric_cover_at_this_site",
+        "currently_secluded_or_restrained",
+        "repeated_attempts_to_leave",
+        "needs_medical_care_unavailable_here",
+        "safety_of_others_in_this_setting",
+        "escort_in_place_and_unsustainable",
+        "earlier_placement_broke_down",
+        "this_setting_cannot_continue_current_care",
       ].sort(),
     );
   });
