@@ -31,6 +31,28 @@ describe("bounded RAG query planning", () => {
     ]);
   });
 
+  it.each([
+    ["How should a missed clozapine dose be managed?", "medication_dose_risk"],
+    ["Give an overview of the Clozapine monitoring guideline", "medication_dose_risk"],
+    ["Give an overview of the ANC threshold for clozapine.", "table_threshold"],
+    ["Give an overview of the NOCC document.", "document_lookup"],
+    ["Give a comprehensive definition of catatonia.", "unsupported_or_general"],
+  ] as const)("does not generically decompose protected %s queries", (query, queryClass) => {
+    const analysis = analyzeClinicalQuery(query);
+    const result = buildRagQueryPlan(query, analysis);
+
+    expect(analysis.queryClass).toBe(queryClass);
+    expect(result.kind).toBe("single");
+    expect(result.subquestions).toEqual([{ id: "sq-1", question: query, purpose: "primary", required: true }]);
+  });
+
+  it("does not generically decompose a classifier-confirmed unsupported query", () => {
+    const query = "Give an overview of configuring a router.";
+    const analysis = { ...analyzeClinicalQuery(query), queryClass: "unsupported_or_general" as const };
+
+    expect(buildRagQueryPlan(query, analysis).kind).toBe("single");
+  });
+
   it("creates comparison sides only when two bounded sides are identifiable", () => {
     const identifiable = "Compare clozapine and lithium monitoring requirements";
     const openEnded = "Compare the available monitoring approaches";
@@ -101,6 +123,17 @@ describe("bounded RAG query planning", () => {
     expect(plan.reasonCodes).toEqual(expect.arrayContaining(["population_explicit", "jurisdiction_explicit"]));
     expect(plan.targetSiteDomains).toEqual(["services", "forms"]);
     expect(plan.siteDomainDecision).toBe("explicit");
+  });
+
+  it.each([
+    "What does thought form mean in schizophrenia?",
+    "How should thought form be documented in a mental state assessment?",
+  ])("does not treat clinical thought form usage as an administrative forms domain: %s", (query) => {
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+
+    expect(plan.targetSiteDomains).not.toContain("forms");
+    expect(plan.targetSiteDomains).toEqual([]);
+    expect(plan.siteDomainDecision).toBe("none");
   });
 
   it("asks one clarification only when an unresolved dimension changes retrieval", () => {

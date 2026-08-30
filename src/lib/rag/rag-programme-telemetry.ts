@@ -5,7 +5,7 @@ import type {
   RagQueryPlanKind,
   RagReconciliationOutcome,
 } from "@/lib/rag/rag-programme-eval";
-import type { RagObservationContext } from "@/lib/rag/rag-contracts";
+import type { RagCoverageCounts, RagObservationContext } from "@/lib/rag/rag-contracts";
 import { ragAnswerQueryPlanDiagnostics } from "@/lib/rag/rag-cache";
 import type {
   RagAnswer,
@@ -84,7 +84,7 @@ const RECONCILIATION_OUTCOMES = [
 ] as const satisfies readonly RagReconciliationOutcome[];
 
 type ProgrammeCounts = Record<SourceCorpusScope, number>;
-type CoverageCounts = { direct: number; partial: number; conflicting: number; absent: number };
+type CoverageCounts = RagCoverageCounts;
 type PendingCountBucket = (typeof PENDING_COUNT_BUCKETS)[number];
 
 export type RagProgrammeTelemetry = {
@@ -298,7 +298,10 @@ function inputForAnswer(answer: RagAnswer, context: RagObservationContext): RagP
     queryPlanKind: queryPlan?.queryPlanKind ?? "single",
     subquestionCount: queryPlan?.subquestionCount ?? 1,
     materialAmbiguity: Boolean(answer.conflictsOrGaps?.some((item) => item.type === "conflict")),
-    coverageCounts: coverageCountsForAnswer(answer),
+    coverageCounts:
+      context.rolloutMode === "shadow" && queryPlan?.shadowCoverageCounts
+        ? queryPlan.shadowCoverageCounts
+        : coverageCountsForAnswer(answer),
     candidateCounts: candidates,
     selectedCounts: selected,
     selectedSiteDomains: [],
@@ -340,6 +343,7 @@ export function carryRagProgrammeTelemetry(source: RagAnswer, target: RagAnswer)
       query_plan_kind: telemetry.query_plan_kind,
       subquestion_count: telemetry.subquestion_count,
       material_ambiguity: telemetry.material_ambiguity,
+      coverage_counts: { ...telemetry.coverage_counts },
       candidate_counts: { ...telemetry.candidate_counts },
       selected_counts: { ...telemetry.selected_counts },
       selected_site_domains: [...telemetry.selected_site_domains],

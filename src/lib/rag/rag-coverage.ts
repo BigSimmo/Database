@@ -1,4 +1,6 @@
 import { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
+import type { RagCoverageCounts } from "@/lib/rag/rag-contracts";
+import { buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import type {
   AnswerCoveragePlan,
   ClinicalAmbiguity,
@@ -52,6 +54,36 @@ export type EvaluateAnswerCoverageInput = {
   ambiguity?: ClinicalAmbiguity | null;
   insufficiencyReason?: RagInsufficiencyReason | null;
 };
+
+export function evaluateShadowCandidateCoverageCounts(
+  plan: RagQueryPlan,
+  selectedEvidence: readonly SearchResult[],
+): RagCoverageCounts {
+  const coverage = evaluateAnswerCoverage({
+    plan,
+    selectedEvidence,
+    evidenceBySubquestion: plan.subquestions.map((subquestion) => {
+      const candidates = selectedEvidence.filter(
+        (candidate) =>
+          candidateHasKnownServerScope(candidate) &&
+          buildEvidenceRelevance(subquestion.question, [candidate]).isSourceBacked,
+      );
+      const ids = candidates.map(({ id }) => id);
+      const relevance = buildEvidenceRelevance(subquestion.question, candidates);
+      return {
+        subquestionId: subquestion.id,
+        selectedChunkIds: ids,
+        citedChunkIds: ids,
+        eligibleChunkIds: ids,
+        support: relevance.verdict === "direct" ? ("direct" as const) : ("partial" as const),
+      };
+    }),
+  });
+  return coverage.coverage.reduce<RagCoverageCounts>(
+    (counts, item) => ({ ...counts, [item.status]: counts[item.status] + 1 }),
+    { direct: 0, partial: 0, conflicting: 0, absent: 0 },
+  );
+}
 
 function candidateHasKnownServerScope(result: SearchResult) {
   if (!knownCorpusScopes.has(result.corpus_scope as SourceCorpusScope)) return false;

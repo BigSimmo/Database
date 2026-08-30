@@ -16,7 +16,6 @@ const broadPurposeOrder = [
 export const ragQueryPlanVersion = "rag-query-plan-v1" as const;
 const siteDomainSignals: ReadonlyArray<readonly [SiteContentDomain, RegExp]> = [
   ["services", /\bservices?\b/i],
-  ["forms", /\bforms?\b/i],
   ["medications", /\bmedications?|medicines?|drugs?\b/i],
   ["differentials", /\bdifferentials?|diagnos(?:is|es|tic)\b/i],
   ["specifiers", /\bspecifiers?\b/i],
@@ -33,6 +32,14 @@ const populationSignal =
 const jurisdictionSignal =
   /\b(?:WA|Western Australia|Australia|Australian|NSW|Victoria|Queensland|Tasmania|ACT|NT|SA)\b/i;
 const settingSignal = /\b(?:inpatient|outpatient|community|hospital|ward|emergency department|ED|clinic)\b/i;
+const administrativeFormSignal =
+  /\b(?:application|assessment|consent|referral|template)\s+forms?\b|\bforms?\s+(?:is\s+)?(?:downloadable|needed|required|template)\b|\b(?:complete|download|submit|upload)\b(?:\s+\w+){0,3}\s+forms?\b/i;
+const broadDecompositionProtectedClasses = new Set<ClinicalQueryAnalysis["queryClass"]>([
+  "medication_dose_risk",
+  "table_threshold",
+  "document_lookup",
+  "unsupported_or_general",
+]);
 
 function unique(values: string[]) {
   return [...new Set(values.filter(Boolean))];
@@ -156,7 +163,10 @@ export function detectClinicalAmbiguity(query: string, analysis: ClinicalQueryAn
 
 export function buildRagQueryPlan(query: string, analysis: ClinicalQueryAnalysis): RagQueryPlan {
   const ambiguity = materialAmbiguity(query, analysis);
-  const explicitDomains = siteDomainSignals.filter(([, pattern]) => pattern.test(query)).map(([domain]) => domain);
+  const explicitDomains = [
+    ...siteDomainSignals.filter(([, pattern]) => pattern.test(query)).map(([domain]) => domain),
+    ...(administrativeFormSignal.test(query) ? (["forms"] as const) : []),
+  ];
   const inferredDomains: SiteContentDomain[] =
     explicitDomains.length > 0
       ? []
@@ -185,9 +195,11 @@ export function buildRagQueryPlan(query: string, analysis: ClinicalQueryAnalysis
 
   const sides = comparisonSides(query, analysis);
   const broad =
-    analysis.queryClass === "broad_summary" ||
-    analysis.intent === "broad_summary" ||
-    /\b(?:managed?|management|including treatment|monitoring and escalation|comprehensive|overview)\b/i.test(query);
+    !broadDecompositionProtectedClasses.has(analysis.queryClass) &&
+    analysis.intent !== "definition" &&
+    (analysis.queryClass === "broad_summary" ||
+      analysis.intent === "broad_summary" ||
+      /\b(?:managed?|management|including treatment|monitoring and escalation|comprehensive|overview)\b/i.test(query));
   let kind: RagQueryPlan["kind"] = "single";
   let subquestions = [subquestion(1, query, "primary")];
   if (sides) {

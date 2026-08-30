@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SearchTelemetry } from "../src/lib/rag/rag-contracts";
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -60,6 +61,96 @@ function createSharedCacheBuilder(payload: {
 }
 
 describe("shared RAG search cache", () => {
+  it("sanitizes query-plan diagnostics before local and shared cache writes", async () => {
+    vi.resetModules();
+    const insertedRows: Array<{ payload?: unknown }> = [];
+    const documentBuilder = {
+      select: () => documentBuilder,
+      eq: () => documentBuilder,
+      is: () => documentBuilder,
+      or: () => documentBuilder,
+      in: () => documentBuilder,
+      order: () => documentBuilder,
+      limit: () => documentBuilder,
+      abortSignal: () => documentBuilder,
+      then: (resolve: (value: { data: unknown[]; error: null }) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve({
+          data: [{ id: "document-1", updated_at: "2026-08-30T00:00:00.000Z", metadata: {} }],
+          error: null,
+        }).then(resolve, reject),
+    };
+    const responseBuilder = {
+      delete: () => responseBuilder,
+      insert: (value: { payload?: unknown }) => {
+        insertedRows.push(value);
+        return Promise.resolve({ data: null, error: null });
+      },
+      eq: () => responseBuilder,
+      is: () => responseBuilder,
+      in: () => responseBuilder,
+      abortSignal: () => responseBuilder,
+      then: (resolve: (value: { data: null; error: null }) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve({ data: null, error: null }).then(resolve, reject),
+    };
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        RAG_SEARCH_CACHE_TTL_MS: 60_000,
+        RAG_SEARCH_CACHE_SIZE: 200,
+        RAG_ANSWER_CACHE_TTL_MS: 60_000,
+        RAG_ANSWER_CACHE_SIZE: 200,
+        RAG_PERSIST_RAW_QUERY_TEXT: false,
+        RAG_QUERY_HASH_SECRET: "test-query-hash-secret",
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/deep-memory", () => ({ ragDeepMemoryVersion: "test-rag-version" }));
+    vi.doMock("@/lib/clinical-search", () => ({ buildClinicalTextSearchQuery: (query: string) => query.trim() }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        from: (table: string) => (table === "documents" ? documentBuilder : responseBuilder),
+      }),
+    }));
+
+    const { getCachedSearch, setCachedSearch } = await import("../src/lib/rag/rag-cache");
+    const args = {
+      query: "cache diagnostic boundary",
+      ownerId,
+      accessScope: { ownerId, includePublic: true as const },
+    };
+    const unsafeTelemetry = {
+      search_cache_hit: false,
+      text_fast_path_latency_ms: 0,
+      embedding_skipped: true,
+      embedding_latency_ms: 0,
+      embedding_cache_hit: false,
+      supabase_rpc_latency_ms: 0,
+      rerank_latency_ms: 0,
+      query_plan_kind: "patient-name-canary",
+      subquestion_count: -1,
+      query_plan_reason_codes: ["patient-name-canary"],
+      candidate_retrieval_query_variant_count: 99,
+      shadow_coverage_counts: { direct: 1, partial: 0, conflicting: 0, absent: 3 },
+    } as unknown as SearchTelemetry;
+
+    await setCachedSearch(args, [], unsafeTelemetry);
+    await vi.waitFor(() => expect(insertedRows).toHaveLength(1));
+    const localHit = await getCachedSearch(args);
+
+    expect(localHit).not.toBeNull();
+    expect(localHit?.telemetry.query_plan_kind).toBeUndefined();
+    expect(localHit?.telemetry.subquestion_count).toBeUndefined();
+    expect(localHit?.telemetry.query_plan_reason_codes).toEqual([]);
+    expect(localHit?.telemetry.candidate_retrieval_query_variant_count).toBeUndefined();
+    expect(localHit?.telemetry.shadow_coverage_counts).toBeUndefined();
+    expect(JSON.stringify(localHit?.telemetry)).not.toContain("patient-name-canary");
+    expect(JSON.stringify(insertedRows[0]?.payload)).not.toContain("patient-name-canary");
+    expect(insertedRows[0]?.payload).toMatchObject({
+      telemetry: { query_plan_reason_codes: [] },
+    });
+    expect(insertedRows[0]?.payload).not.toHaveProperty("telemetry.shadow_coverage_counts");
+  });
+
   it("replaces authenticated site-aware search rows under the null owner on every write", async () => {
     vi.resetModules();
     const deleteOwnerSelectors: Array<Array<{ method: "eq" | "is"; value: unknown }>> = [];

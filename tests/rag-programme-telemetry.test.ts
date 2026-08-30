@@ -185,7 +185,11 @@ describe("RAG programme telemetry projection", () => {
         sources: [],
         routingMode: "extractive",
       } satisfies RagAnswer,
-      { ragQueryPlanKind: "decomposed", ragSubquestionCount: 3 },
+      {
+        ragQueryPlanKind: "decomposed",
+        ragSubquestionCount: 3,
+        ragShadowCoverageCounts: { direct: 1, partial: 1, conflicting: 0, absent: 1 },
+      },
     );
     const observed = observeRagAnswer(planned, {
       interactionId: INTERACTION_ID,
@@ -212,6 +216,7 @@ describe("RAG programme telemetry projection", () => {
     expect(ragProgrammeTelemetryForAnswer(governedCopy)).toMatchObject({
       query_plan_kind: "decomposed",
       subquestion_count: 3,
+      coverage_counts: { direct: 1, partial: 1, conflicting: 0, absent: 1 },
     });
     expect(JSON.stringify(ragProgrammeTelemetryForAnswer(governedCopy))).not.toContain("Shadow-planned");
   });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateAnswerCoverage } from "@/lib/rag/rag-coverage";
+import { evaluateAnswerCoverage, evaluateShadowCandidateCoverageCounts } from "@/lib/rag/rag-coverage";
+import { sanitizeRagCoverageCounts } from "@/lib/rag/rag-contracts";
 import type { RagQueryPlan, SearchResult, SourcePolicyConflict } from "@/lib/types";
 
 function result(id: string, overrides: Partial<SearchResult> = {}): SearchResult {
@@ -241,5 +242,36 @@ describe("answer coverage", () => {
 
     expect(coverage.overall).toBe("absent");
     expect(coverage.insufficiencyReason).toBe("not_in_corpus");
+  });
+
+  it("rejects bounded counters whose total cannot match the query plan", () => {
+    expect(sanitizeRagCoverageCounts({ direct: 1, partial: 0, conflicting: 0, absent: 3 }, 4)).toEqual({
+      direct: 1,
+      partial: 0,
+      conflicting: 0,
+      absent: 3,
+    });
+    expect(sanitizeRagCoverageCounts({ direct: 1, partial: 0, conflicting: 0, absent: 1 }, 4)).toBeUndefined();
+    expect(sanitizeRagCoverageCounts({ direct: 5, partial: 0, conflicting: 0, absent: 0 }, 5)).toBeUndefined();
+  });
+
+  it("fails closed when a primary shadow candidate is canonically irrelevant", () => {
+    const singlePlan = {
+      ...plan,
+      kind: "single" as const,
+      originalQuery: "How is catatonia managed?",
+      subquestions: [
+        { id: "sq-1", question: "How is catatonia managed?", purpose: "primary" as const, required: true },
+      ],
+    };
+    const counts = evaluateShadowCandidateCoverageCounts(singlePlan, [
+      result("irrelevant", {
+        title: "Clozapine blood monitoring",
+        content: "Check the full blood count weekly during clozapine initiation.",
+      }),
+    ]);
+
+    expect(counts).toEqual({ direct: 0, partial: 0, conflicting: 0, absent: 1 });
+    expect(Object.values(counts).reduce((sum, count) => sum + count, 0)).toBe(singlePlan.subquestions.length);
   });
 });

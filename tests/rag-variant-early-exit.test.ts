@@ -3,7 +3,7 @@ import { analyzeClinicalQuery } from "../src/lib/clinical-search";
 import { buildRagQueryPlan } from "../src/lib/rag/rag-query-plan";
 import { buildRagRetrievalVariantPlan } from "../src/lib/rag/rag-retrieval-variants";
 import type { RagProgrammeMode } from "../src/lib/rag/rag-programme-eval";
-import type { SearchResult } from "../src/lib/types";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 // PT-02: a question fans out to up to 3 near-duplicate lexical RPC calls per
 // text surface. When the FIRST variant already returns a deep pool anchored by
@@ -142,6 +142,51 @@ afterEach(() => {
 });
 
 describe("lexical variant early-exit (PT-02)", () => {
+  it("reports shadow-only per-subquestion coverage without changing served results", async () => {
+    const query = "Give an overview of catatonia management.";
+    const primaryOnly = {
+      ...chunk(700, 0.9),
+      title: "Catatonia overview",
+      file_name: "catatonia-overview.pdf",
+      content: "Catatonia clinical presentation overview.",
+      corpus_scope: "uploaded_local" as const,
+    };
+    const { results } = await runLexicalSearch([primaryOnly], ["legacy", "shadow"], query);
+    const [legacy, shadow] = results;
+
+    expect(shadow!.results.map(({ id }) => id)).toEqual(legacy!.results.map(({ id }) => id));
+    expect(legacy!.telemetry.shadow_coverage_counts).toBeUndefined();
+    expect(shadow!.telemetry.shadow_coverage_counts).toEqual({ direct: 0, partial: 1, conflicting: 0, absent: 3 });
+    expect(Object.values(shadow!.telemetry.shadow_coverage_counts!).reduce((sum, count) => sum + count, 0)).toBe(4);
+
+    const { withRagAnswerQueryPlanDiagnostics } = await import("@/lib/rag/rag-cache");
+    const { observeRagAnswer, ragProgrammeTelemetryForAnswer } = await import("@/lib/rag/rag-programme-telemetry");
+    const answer = withRagAnswerQueryPlanDiagnostics(
+      {
+        answer: "Catatonia overview.",
+        grounded: true,
+        confidence: "high",
+        citations: [],
+        sources: shadow!.results,
+      } satisfies RagAnswer,
+      {
+        ragQueryPlanKind: shadow!.telemetry.query_plan_kind,
+        ragSubquestionCount: shadow!.telemetry.subquestion_count,
+        ragShadowCoverageCounts: shadow!.telemetry.shadow_coverage_counts,
+      },
+    );
+    observeRagAnswer(answer, {
+      interactionId: "11111111-1111-4111-8111-111111111111",
+      rolloutMode: "shadow",
+    });
+    expect(ragProgrammeTelemetryForAnswer(answer)?.coverage_counts).toEqual({
+      direct: 0,
+      partial: 1,
+      conflicting: 0,
+      absent: 3,
+    });
+  });
+
   it("keeps divergent decomposed shadow candidates out of served RPCs and result order", async () => {
     const query = "Compare clozapine and olanzapine monitoring requirements.";
     const analysis = analyzeClinicalQuery(query);

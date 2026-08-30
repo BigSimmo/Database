@@ -17,6 +17,34 @@ export type RagObservationContext = {
   rolloutMode: RagProgrammeMode;
 };
 
+export type RagCoverageCounts = { direct: number; partial: number; conflicting: number; absent: number };
+
+export function sanitizeRagCoverageCounts(
+  value: unknown,
+  expectedSubquestionCount?: number,
+): RagCoverageCounts | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const counts = value as Record<keyof RagCoverageCounts, unknown>;
+  const bounded = (count: unknown) => Number.isInteger(count) && Number(count) >= 0 && Number(count) <= 4;
+  if (!bounded(counts.direct) || !bounded(counts.partial) || !bounded(counts.conflicting) || !bounded(counts.absent))
+    return undefined;
+  const sanitized = {
+    direct: Number(counts.direct),
+    partial: Number(counts.partial),
+    conflicting: Number(counts.conflicting),
+    absent: Number(counts.absent),
+  };
+  if (
+    expectedSubquestionCount !== undefined &&
+    (!Number.isInteger(expectedSubquestionCount) ||
+      expectedSubquestionCount < 0 ||
+      expectedSubquestionCount > 4 ||
+      Object.values(sanitized).reduce((sum, count) => sum + count, 0) !== expectedSubquestionCount)
+  )
+    return undefined;
+  return sanitized;
+}
+
 export type SearchChunksArgs = {
   query: string;
   topK?: number;
@@ -52,6 +80,8 @@ export type SearchChunksArgs = {
   /** Internal bounded diagnostics carried into answer cache/programme observation. */
   ragQueryPlanKind?: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
   ragSubquestionCount?: number;
+  /** Internal shadow-only, content-free per-subquestion coverage diagnostics. */
+  ragShadowCoverageCounts?: RagCoverageCounts;
 };
 
 export type SearchTelemetry = {
@@ -70,6 +100,7 @@ export type SearchTelemetry = {
   subquestion_count?: number;
   query_plan_reason_codes?: string[];
   candidate_retrieval_query_variant_count?: number;
+  shadow_coverage_counts?: RagCoverageCounts;
   rag_alias_count?: number;
   rag_alias_expansion_count?: number;
   text_fast_path_latency_ms: number;

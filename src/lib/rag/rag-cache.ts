@@ -9,6 +9,7 @@ import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
 import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { compactContextText } from "@/lib/rag/rag-source-block";
 import { assertRagRequestContextIntegrity } from "@/lib/rag/rag-context-snapshot";
+import { sanitizeRagCoverageCounts } from "@/lib/rag/rag-contracts";
 import { sanitizeRagQueryPlanDiagnostics } from "@/lib/rag/rag-retrieval-variants";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -30,6 +31,7 @@ import {
 export type RagAnswerQueryPlanDiagnostics = Readonly<{
   queryPlanKind: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
   subquestionCount: number;
+  shadowCoverageCounts?: import("@/lib/rag/rag-contracts").RagCoverageCounts;
 }>;
 const answerQueryPlanDiagnostics = new WeakMap<RagAnswer, RagAnswerQueryPlanDiagnostics>();
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
@@ -228,14 +230,20 @@ export function scopedAnswerCacheKey(
 }
 
 function boundedAnswerQueryPlanDiagnostics(
-  input: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount"> | null | undefined,
+  input:
+    Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragShadowCoverageCounts"> | null | undefined,
 ): RagAnswerQueryPlanDiagnostics | undefined {
   const diagnostics = sanitizeRagQueryPlanDiagnostics({
     query_plan_kind: input?.ragQueryPlanKind,
     subquestion_count: input?.ragSubquestionCount,
   });
+  const shadowCoverageCounts = sanitizeRagCoverageCounts(input?.ragShadowCoverageCounts, diagnostics.subquestion_count);
   return diagnostics.query_plan_kind !== undefined && diagnostics.subquestion_count !== undefined
-    ? { queryPlanKind: diagnostics.query_plan_kind, subquestionCount: diagnostics.subquestion_count }
+    ? {
+        queryPlanKind: diagnostics.query_plan_kind,
+        subquestionCount: diagnostics.subquestion_count,
+        ...(shadowCoverageCounts ? { shadowCoverageCounts } : {}),
+      }
     : undefined;
 }
 
@@ -250,6 +258,7 @@ function storedAnswerQueryPlanDiagnostics(value: unknown) {
   return boundedAnswerQueryPlanDiagnostics({
     ragQueryPlanKind: stored.queryPlanKind as SearchChunksArgs["ragQueryPlanKind"],
     ragSubquestionCount: stored.subquestionCount as number,
+    ragShadowCoverageCounts: stored.shadowCoverageCounts as SearchChunksArgs["ragShadowCoverageCounts"],
   });
 }
 
@@ -259,18 +268,19 @@ export function ragAnswerQueryPlanDiagnostics(answer: RagAnswer): RagAnswerQuery
 
 export function restoreRagAnswerQueryPlanArgs(
   answer: RagAnswer,
-  args: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount">,
+  args: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragShadowCoverageCounts">,
 ) {
   const diagnostics = answerQueryPlanDiagnostics.get(answer);
   if (diagnostics) {
     args.ragQueryPlanKind = diagnostics.queryPlanKind;
     args.ragSubquestionCount = diagnostics.subquestionCount;
+    args.ragShadowCoverageCounts = diagnostics.shadowCoverageCounts;
   }
 }
 
 export function withRagAnswerQueryPlanDiagnostics(
   answer: RagAnswer,
-  input: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount">,
+  input: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragShadowCoverageCounts">,
 ) {
   return markAnswerQueryPlanDiagnostics(
     answer,
@@ -745,8 +755,23 @@ function cloneSearchResults(results: SearchResult[]) {
 }
 
 function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelemetry {
+  const cacheTelemetry = { ...telemetry };
+  delete cacheTelemetry.shadow_coverage_counts;
+  const {
+    query_plan_kind,
+    subquestion_count,
+    query_plan_reason_codes,
+    candidate_retrieval_query_variant_count,
+    ...cacheSafeTelemetry
+  } = cacheTelemetry;
   return {
-    ...telemetry,
+    ...cacheSafeTelemetry,
+    ...sanitizeRagQueryPlanDiagnostics({
+      query_plan_kind,
+      subquestion_count,
+      query_plan_reason_codes,
+      candidate_retrieval_query_variant_count,
+    }),
     shared_cache_hit: false,
     shared_cache_status: undefined,
     shared_cache_miss_reason: null,

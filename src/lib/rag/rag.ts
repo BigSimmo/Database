@@ -236,6 +236,7 @@ import {
 } from "@/lib/rag/rag-evidence-gates";
 import { applyCoverageGateTelemetry, evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 export { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
+import { createSearchTiming, finishSearch, measureSearchPhase } from "@/lib/rag/rag-search-timing";
 import { applySecondStageRerankIfNeeded, layerTopScore, recordRetrievalLayer } from "@/lib/rag/rag-second-stage";
 export { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
 import {
@@ -1566,29 +1567,10 @@ function createSearchTelemetry(query: string, queryClass: RagQueryClass): Search
   };
 }
 
-type SearchTiming = {
-  startedAt: number;
-  phases: Record<string, number>;
-};
-
-async function measureSearchPhase<T>(timing: SearchTiming, phase: string, operation: () => Promise<T>): Promise<T> {
-  const startedAt = Date.now();
-  try {
-    return await operation();
-  } finally {
-    timing.phases[phase] = (timing.phases[phase] ?? 0) + (Date.now() - startedAt);
-  }
-}
-
-function finishSearch<T extends { telemetry: SearchTelemetry }>(timing: SearchTiming, search: T): T {
-  search.telemetry.retrieval_phase_latencies_ms = { ...timing.phases };
-  search.telemetry.search_total_latency_ms = Date.now() - timing.startedAt;
-  return search;
-}
 export async function searchChunksWithTelemetry(
   args: SearchChunksArgs,
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry }> {
-  const searchTiming: SearchTiming = { startedAt: Date.now(), phases: {} };
+  const searchTiming = createSearchTiming();
   args = { ...args, accessScope: retrievalAccessScopeForArgs(args) };
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
@@ -1661,6 +1643,7 @@ export async function searchChunksWithTelemetry(
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
   const queryPlan = buildRagQueryPlan(retrievalQuery, queryAnalysis);
+  searchTiming.shadowPlan = args.ragQueryPlanMode === "shadow" ? queryPlan : undefined;
   const retrievalVariantPlan = buildRagRetrievalVariantPlan(
     retrievalQuery,
     queryAnalysis,
@@ -2621,6 +2604,7 @@ async function answerQuestionWithScopeUncoalesced(
   }
   args.ragQueryPlanKind = search.telemetry.query_plan_kind;
   args.ragSubquestionCount = search.telemetry.subquestion_count;
+  args.ragShadowCoverageCounts = search.telemetry.shadow_coverage_counts;
   const currentQueryClass = classifyRagQuery(answerFocusQuery).queryClass;
   const cachedQueryClass = search.telemetry.query_class ?? null;
   const queryClass =
