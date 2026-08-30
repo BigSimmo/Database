@@ -30,7 +30,6 @@ import {
   type TravelBandGroup,
   type TravelBandGroupCounts,
   referralPersonFacts,
-  referralDestinationLabel,
   referralDestinationLabels,
 } from "@/components/ward-management/ward-referrals";
 import { createBrowserStore } from "@/lib/client-store-factory";
@@ -107,6 +106,60 @@ type ReferralMatchViewProps = {
  */
 export function ReferralMatchView({ referral, units, now, dispatch, rejections }: ReferralMatchViewProps) {
   /*
+   * EVERY HOOK THIS VIEW HAS IS CALLED HERE, above the not-a-bed-question return below, and none
+   * of them may move under it. React identifies a hook by its position in the call order, so a
+   * component whose hook COUNT depends on a prop has no stable identity for its own state. While
+   * these sat beneath that return, a render for a referral with no ward destination called none of
+   * them, and the next render that did reach them was treated as a fresh mount.
+   *
+   * React raises nothing for that exact shape — an early return above EVERY hook leaves both of
+   * its guards asleep, since `current.memoizedState` stays null (so the MOUNT dispatcher is chosen
+   * again) and `currentHook` is never set (so `didRenderTooFewHooks` cannot fire). So it failed
+   * silently rather than loudly: the decline reason a coordinator had already chosen was discarded,
+   * and the media-query subscription was replaced without its predecessor's cleanup ever running.
+   * `tests/ward-referral-match-hooks-order.dom.test.tsx` pins both. It stops being silent and
+   * becomes React's "Rendered more hooks…" crash the day a second early return lands between two
+   * hooks, which is why the lint rule refuses the arrangement rather than the consequence.
+   *
+   * None of the six needs a value the early return guards. Their arguments are constants
+   * (`REFERRAL_DECLINE_REASONS[0]`, `undefined`, `0`) or props that arrive on every render
+   * (`rejections`), and the effect reads only `rejections`, `checkToken` and `referral.id` —
+   * nothing derived from `ward`. There is therefore no no-ward stand-in value to invent here;
+   * everything that IS derived from `ward` stays below, where it runs only once there is one.
+   */
+  /* Shut on a phone, open at desktop width — read through the repository's own SSR-safe external
+   * store rather than by setting state in an effect, so the value is already correct on the first
+   * client render and no cascading re-render is needed to reach it. */
+  const bandGroupsOpenByDefault = useBandGroupsOpenByDefault();
+
+  const [declineReason, setDeclineReason] = useState<ReferralDeclineReason>(REFERRAL_DECLINE_REASONS[0]);
+  const [lastRejection, setLastRejection] = useState<Rejection | undefined>(undefined);
+  // Same async-detection pattern as `referral-intake.tsx`'s own `checkToken`/`priorRejectionCountRef`
+  // pair (see that file's doc comment for the full reasoning) — `dispatch` never returns whether
+  // the reducer accepted or refused an event, so the only way to know is to compare `rejections`
+  // before and after, on the next render.
+  const priorRejectionCountRef = useRef(rejections.length);
+  const [checkToken, setCheckToken] = useState(0);
+
+  useEffect(() => {
+    if (checkToken === 0) return;
+    if (rejections.length > priorRejectionCountRef.current) {
+      const newest = rejections[rejections.length - 1];
+      // Scoped to THIS referral's own ACCEPT_REFERRAL/DECLINE_REFERRAL — `Rejection.movementId`
+      // carries the referral id for these two event types (see `subjectId` in
+      // `ward-flow-reducer.ts`), never a movement id. A rejection some other coordinator action
+      // raised elsewhere must never surface here as though it were about this referral.
+      const isForThisDecision =
+        newest.movementId === referral.id &&
+        (MATCH_VIEW_DECISION_EVENTS as readonly string[]).includes(newest.attempted);
+      setLastRejection(isForThisDecision ? newest : undefined);
+    } else {
+      setLastRejection(undefined);
+    }
+    priorRejectionCountRef.current = rejections.length;
+  }, [rejections, checkToken, referral.id]);
+
+  /*
    * This whole view answers one question -- WHICH BED -- and only a psychiatric ward referral has
    * that question. An ED, a medical ward and a community team are answered by a person or a team.
    *
@@ -141,38 +194,6 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
   /* Derived from the grouping's OWN output, never from a second read of the travel-band table. */
   const everyCandidateUnrecorded =
     groupedUnitCount > 0 && notRecordedIndex >= 0 && bandGroupCounts[notRecordedIndex].units === groupedUnitCount;
-
-  /* Shut on a phone, open at desktop width — read through the repository's own SSR-safe external
-   * store rather than by setting state in an effect, so the value is already correct on the first
-   * client render and no cascading re-render is needed to reach it. */
-  const bandGroupsOpenByDefault = useBandGroupsOpenByDefault();
-
-  const [declineReason, setDeclineReason] = useState<ReferralDeclineReason>(REFERRAL_DECLINE_REASONS[0]);
-  const [lastRejection, setLastRejection] = useState<Rejection | undefined>(undefined);
-  // Same async-detection pattern as `referral-intake.tsx`'s own `checkToken`/`priorRejectionCountRef`
-  // pair (see that file's doc comment for the full reasoning) — `dispatch` never returns whether
-  // the reducer accepted or refused an event, so the only way to know is to compare `rejections`
-  // before and after, on the next render.
-  const priorRejectionCountRef = useRef(rejections.length);
-  const [checkToken, setCheckToken] = useState(0);
-
-  useEffect(() => {
-    if (checkToken === 0) return;
-    if (rejections.length > priorRejectionCountRef.current) {
-      const newest = rejections[rejections.length - 1];
-      // Scoped to THIS referral's own ACCEPT_REFERRAL/DECLINE_REFERRAL — `Rejection.movementId`
-      // carries the referral id for these two event types (see `subjectId` in
-      // `ward-flow-reducer.ts`), never a movement id. A rejection some other coordinator action
-      // raised elsewhere must never surface here as though it were about this referral.
-      const isForThisDecision =
-        newest.movementId === referral.id &&
-        (MATCH_VIEW_DECISION_EVENTS as readonly string[]).includes(newest.attempted);
-      setLastRejection(isForThisDecision ? newest : undefined);
-    } else {
-      setLastRejection(undefined);
-    }
-    priorRejectionCountRef.current = rejections.length;
-  }, [rejections, checkToken, referral.id]);
 
   function handleAccept(unitId: string) {
     priorRejectionCountRef.current = rejections.length;

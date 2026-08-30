@@ -6,7 +6,7 @@ import Link from "next/link";
 import { formatInstantWithDay, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import type { Referral, ReferralDeclineReason, Unit } from "@/components/ward-management/ward-model";
+import type { Referral, Unit } from "@/components/ward-management/ward-model";
 import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
@@ -97,9 +97,19 @@ function outcomeDetail(referral: Referral, units: Unit[]): string {
  * A decided referral is informational only here — its own match decision already happened, so
  * this board renders no selection control for it.
  *
- * LIVE, like `EscalationBoardPage` and `DischargeBoard`, never `HandoverPage`'s frozen snapshot:
- * reads `useWardFlow()` fresh on every render, so an ACCEPT_REFERRAL/DECLINE_REFERRAL dispatched
- * from the match view immediately moves that referral from "queued" to "recently decided" here.
+ * LIVE, like `EscalationBoardPage`, `DischargeBoard` and — since owner decision OD-4 — the shift
+ * handover as well: reads `useWardFlow()` fresh on every render, so an
+ * ACCEPT_REFERRAL/DECLINE_REFERRAL dispatched from the match view immediately moves that referral
+ * from "queued" to "recently decided" here. Every screen in this feature now reads live; there is
+ * no frozen one left to contrast against, `HandoverPage` having been the last (`123b0c139`, which
+ * recomputes it every render and renames `frozenAt` to `takenAt`).
+ *
+ * That sentence previously named `HandoverPage`'s frozen snapshot as the counter-example, and had
+ * been false since the day that page changed — which is the failure mode worth naming here rather
+ * than just correcting. A comment that points at a SIBLING as an example decays when the sibling
+ * moves, so nothing in this file can ever fail to catch it, and a reader is not merely misinformed:
+ * they are shown a pattern to copy that looks safe because it cites a real precedent. State the
+ * property this file has; cite a neighbour only with the commit that fixes what it is being cited for.
  */
 export function ReferralBoard() {
   const { referrals, units, now, dispatch, rejections } = useWardFlow();

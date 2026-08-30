@@ -206,6 +206,10 @@ const EXPECTED_FIELD_TESTIDS = [
   "ward-referral-intake-urgency",
   "ward-referral-intake-originSiteCode",
   "ward-referral-intake-transportNeeded",
+  // FD-21: the destination picker, added 2026-08-30. Its testid sits on the wrapping
+  // `<fieldset>` like the three need questions above, and the loop below pins the real controls
+  // inside it for the same reason it pins theirs.
+  "ward-referral-intake-destinations",
 ];
 
 /**
@@ -227,6 +231,10 @@ const REQUIRED_QUESTIONS: readonly { readonly name: string; readonly answer: () 
   { name: "Secure bed needed", answer: () => chooseNeed("secureBedNeeded", "no") },
   { name: "Involuntary bed needed", answer: () => chooseNeed("involuntaryBedNeeded", "no") },
   { name: "Transport needed", answer: () => chooseNeed("transportNeeded", "no") },
+  // FD-21. One kind is enough to make Send available; the picker's own suite
+  // (`ward-referral-destinations.dom.test.tsx`) is what proves several can be chosen in one act,
+  // that the cap holds, and that no kind can be chosen twice.
+  { name: "Destination", answer: () => chooseDestination("psychiatric_ward") },
 ];
 
 function selectAnswer(field: string, value: string) {
@@ -235,6 +243,12 @@ function selectAnswer(field: string, value: string) {
 
 function chooseNeed(field: "secureBedNeeded" | "involuntaryBedNeeded" | "transportNeeded", answer: "yes" | "no") {
   fireEvent.click(screen.getByTestId(`ward-referral-intake-${field}-${answer}`));
+}
+
+/** Ticks one destination. A checkbox per kind, so this can never produce two of one kind — which
+ *  is what `RECEIVE_REFERRAL` refuses rather than de-duplicates. */
+function chooseDestination(kind: string) {
+  fireEvent.click(screen.getByTestId(`ward-referral-intake-destination-${kind}`));
 }
 
 /** Answers every required question. `except`, when given, names the ONE left unanswered. */
@@ -367,7 +381,7 @@ describe("ReferralIntakeForm", () => {
     expect(screen.getByTestId("ward-referral-intake-submit")).toBeInTheDocument();
 
     /*
-     * R2 review finding M3. Seven of the nine ids above sit on the control itself; the two need
+     * R2 review finding M3. Seven of the ids above sit on the control itself; the three need
      * questions carry theirs on the wrapping `<fieldset>` (R2.1 moved them there when the
      * checkboxes became radio pairs). For those two, the loop above is satisfied by a container
      * that need not contain a control at all — an empty fieldset passes it. Nothing is actually
@@ -506,12 +520,17 @@ describe("ReferralIntakeForm", () => {
       ["Referral source", "ward-referral-intake-source"],
       ["Urgency", "ward-referral-intake-urgency"],
       ["Origin site", "ward-referral-intake-originSiteCode"],
+      // The suburb picker, added 2026-08-30 so each destination can say whether it is in
+      // catchment. Its answer is deliberately NOT recorded on the referral — see the form's own
+      // comment — but it is still a control a police officer names on a phone, so it is named here
+      // with the six that carry the permitted facts.
+      ["Suburb", "ward-referral-intake-suburb"],
     ];
     for (const [name, testId] of named) {
       expect(screen.getByLabelText(name)).toBe(screen.getByTestId(testId));
     }
 
-    // Non-vacuity: the list above must cover every combobox the form renders, so a seventh
+    // Non-vacuity: the list above must cover every combobox the form renders, so an eighth
     // picker added later without a name is caught rather than simply going unlisted here.
     expect(screen.getAllByRole("combobox")).toHaveLength(named.length);
   });
@@ -666,7 +685,7 @@ describe("ReferralIntakeForm", () => {
    * so a ninth question, a removed one, a renamed one or a reordered one is a decision somebody
    * takes here rather than something a diff reveals later.
    */
-  it("waits on exactly these nine questions, named in the order the form asks them", () => {
+  it("waits on exactly these ten questions, named in the order the form asks them", () => {
     expect([...REQUIRED_FIELD_NAMES]).toEqual([
       "Age band",
       "Sex",
@@ -681,6 +700,11 @@ describe("ReferralIntakeForm", () => {
       // question, or this one quietly dropped back to a default, is a decision somebody takes in
       // this test rather than something a diff reveals later.
       "Transport needed",
+      // Tenth, on FD-21: the referrer addresses the referral, choosing several destinations in one
+      // act. Last because the picker shows what each destination looks like FOR THIS REQUEST — how
+      // much of the network accepts it, which team the catchment table names — so every answer
+      // above it is what makes the question answerable.
+      "Destination",
     ]);
     expect(REQUIRED_QUESTIONS.map((question) => question.name)).toEqual([...REQUIRED_FIELD_NAMES]);
   });
@@ -694,7 +718,7 @@ describe("ReferralIntakeForm", () => {
     const note = screen.getByTestId("ward-referral-intake-unavailable");
     expect(note.textContent?.replace(/\s+/g, " ").trim()).toBe(
       "Not yet answered: Age band, Sex, Home region, Referral source, Urgency, Origin site, Secure bed needed, " +
-        "Involuntary bed needed, Transport needed. Send stays unavailable until each has an answer.",
+        "Involuntary bed needed, Transport needed, Destination. Send stays unavailable until each has an answer.",
     );
 
     // Below the button, never above it: the note appears and disappears as questions are answered,
@@ -923,7 +947,7 @@ describe("ReferralIntakeForm", () => {
    * Why the ordering is the ruling and not a detail: clearing the confirmation removes the only
    * evidence the send happened, and a clinician who looks away mid-task then either sends twice
    * or believes a referral went when it did not. A confirmation that has slipped BELOW the note
-   * saying nine questions are unanswered reads as belonging to the blank form underneath it,
+   * saying ten questions are unanswered reads as belonging to the blank form underneath it,
    * which is the same failure wearing a different hat.
    *
    * Stated exactly, so nothing here is overclaimed: the confirmation sits above the "not yet
