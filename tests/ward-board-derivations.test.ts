@@ -66,6 +66,7 @@ function admission(overrides: Partial<Admission> = {}): Admission {
     state: "occupied",
     pulledAt: null,
     arrivedAt: NOW - MINUTES_PER_DAY * 2,
+    awayAtEmergencyDepartmentSince: null,
     expectedDischargeAt: null,
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,
@@ -141,18 +142,27 @@ describe("the accepts rule is never an equality", () => {
     const probe: Referral = {
       id: "WR-PROBE",
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destinations: [
+        {
+          destination: {
+            kind: "psychiatric_ward",
+            sex: "Female",
+            secureBedNeeded: false,
+            involuntaryBedNeeded: false,
+          },
+          state: "queued",
+        },
+      ],
       homeRegion: HOME_REGIONS[0],
       source: "community",
       raisedAt: NOW,
       urgency: 2,
       originSiteCode: "TST",
       transportNeeded: false,
-      state: "queued",
     };
-    const gateNames = referralEligibility(probe, testUnit(), NOW).gates.map((gate) => gate.gate);
+    const probeWard = probe.destinations[0].destination;
+    if (probeWard.kind !== "psychiatric_ward") throw new Error("the probe must be a ward question");
+    const gateNames = referralEligibility(probe, probeWard, testUnit(), NOW).gates.map((gate) => gate.gate);
     expect(gateNames).toContain("sex_designation");
   });
 

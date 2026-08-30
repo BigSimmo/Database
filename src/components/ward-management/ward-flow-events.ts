@@ -14,6 +14,8 @@ import type {
   HomeRegion,
   LegalStatus,
   ReferralDeclineReason,
+  ReferralDestination,
+  ReferralDestinationKind,
   ReferralSource,
   Security,
   Sex,
@@ -29,6 +31,31 @@ import type { WardScenario } from "@/components/ward-management/ward-scenarios";
  * be five things to maintain before anything is known to actually need them apart.
  */
 export type WardFlowRole = "coordinator" | "ed" | "ward" | "officer" | "demo" | "community";
+
+/**
+ * The ROLE a decision is recorded against — never a person, and never a name.
+ *
+ * Exists because `ACCEPT_REFERRAL` and `DECLINE_REFERRAL` were coordinator-only until FD-25
+ * widened them to `["ward", "coordinator"]`, while the reducer wrote `decidedBy: "Flow
+ * coordinator"` as a literal. A ward accepting would have been recorded as the coordinator having
+ * decided — a false entry in the one field that says who answered, and precisely the fact the
+ * override register (FD-27) exists to make accountable.
+ *
+ * Exhaustive over `WardFlowRole` on purpose: a new role cannot be added without deciding what a
+ * decision by it is called, rather than silently inheriting somebody else's label.
+ *
+ * Distinct from `roleLabels` in `ward-derivations.ts`, which maps the three-value UI `WardRole`
+ * ("flow" | "ed" | "ward"). The two vocabularies are not the same and must not be conflated —
+ * `WardRole` has no `coordinator`, and this has no `flow`.
+ */
+export const WARD_FLOW_ROLE_LABELS: Record<WardFlowRole, string> = {
+  coordinator: "Flow coordinator",
+  ed: "ED mental health",
+  ward: "Ward manager",
+  officer: "Authorised officer",
+  demo: "Demonstration control",
+  community: "Community service",
+};
 
 /** The short form an ED fills in to raise a brand-new referral. */
 export type ReferralDraft = {
@@ -70,8 +97,8 @@ export type WardFlowEvent =
       now: Instant;
       movementId: string;
       unitId: string;
+      /** From `DECLINE_REASONS`, and nothing beside it — see `Decline`'s own doc comment (PD-6). */
       reason: DeclineReason;
-      note?: string;
     }
   | { type: "HANDOVER_READY"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "TRANSPORT_ACCEPTED"; role: WardFlowRole; now: Instant; movementId: string }
@@ -261,7 +288,7 @@ export type WardFlowEvent =
       /**
        * The release gaining the blocked FLAG. Bed-model rework (2026-08-28): this no longer
        * changes `state` at all — a blocked release stays `predicted` or `confirmed`, and a
-       * blocked-but-confirmed bed keeps counting as confirmed. `released` is refused: there is
+       * blocked-but-confirmed bed keeps counting as confirmed. `discharged` is refused: there is
        * nothing left to hold up once the bed is free.
        */
       releaseId: string;
@@ -316,8 +343,8 @@ export type WardFlowEvent =
       role: WardFlowRole;
       now: Instant;
       /**
-       * The release moving into `released` — terminal. Accepted from `confirmed` and from
-       * `predicted` alike: `released` is a statement of fact about a bed that is now empty, not a
+       * The release moving into `discharged` — terminal. Accepted from `confirmed` and from
+       * `predicted` alike: `discharged` is a statement of fact about a bed that is now empty, not a
        * promotion of a prediction into availability, and the four-stage model already allowed the
        * same journey through `blocked`. Narrowing it to `confirmed`-only during the rework would
        * have refused a path wards could already take.
@@ -359,15 +386,26 @@ export type WardFlowEvent =
       type: "RECEIVE_REFERRAL";
       role: WardFlowRole;
       now: Instant;
-      /** The five permitted facts about the person referred, unchanged from `Referral`'s own
-       *  field set (`ward-model.ts`) — see that type's own doc comment for why nothing else may
-       *  ever be added here. */
+      /** The permitted facts about the person referred, unchanged from `Referral`'s own field set
+       *  (`ward-model.ts`) — see that type's own doc comment for why nothing else may ever be
+       *  added here. */
       ageBand: Cohort;
-      sex: Sex;
-      secureBedNeeded: boolean;
-      /** This REQUEST needs a bed that can hold someone involuntarily — see `Referral`'s own doc
-       *  comment on the field of the same name for why this is a requirement, never a status. */
-      involuntaryBedNeeded: boolean;
+      /**
+       * Where this referral is addressed, and the criteria that destination can answer. Carries
+       * the ward arm's `sex`, `secureBedNeeded` and `involuntaryBedNeeded`, which sat flat on this
+       * event until 2026-08-30.
+       *
+       * One to `PARALLEL_REFERRAL_CAP` of them, chosen in ONE act (FD-21). The reducer refuses an
+       * empty list, more than the cap, and two of the same kind — asking one kind twice is asking
+       * twice, not addressing two destinations.
+       *
+       * **The event carries the destinations because otherwise the union would be decorative.** If
+       * this event could only express bed criteria, every referral it created would be a ward
+       * referral by construction, and the three arms that carry no bed criteria would be
+       * unreachable — a type distinction nothing could ever produce. Making the caller name the
+       * destination is what puts the choice at the front door, where the referrer makes it.
+       */
+      destinations: ReferralDestination[];
       /** The broad area this person is from — one of `HOME_REGIONS`, never an address. See
        *  `Referral.homeRegion`'s own doc comment. */
       homeRegion: HomeRegion;
@@ -382,11 +420,20 @@ export type WardFlowEvent =
       type: "ACCEPT_REFERRAL";
       role: WardFlowRole;
       now: Instant;
-      /** The queued referral the coordinator is deciding on. */
+      /** The referral being decided. */
       referralId: string;
-      /** The unit the coordinator is placing this referral with. Refused unless
-       *  `referralEligibility` (ward-eligibility.ts) says this unit accepts this referral. */
-      unitId: string;
+      /**
+       * WHICH of the referral's destinations is answering (FD-21). A referral may be addressed to
+       * several at once, so "accept this referral" is no longer a complete instruction — without
+       * this the reducer would have to guess which destination replied, and the only guess
+       * available (the ward, because it is the one with a unit) would have made the other three
+       * unable to answer at all.
+       */
+      destinationKind: ReferralDestinationKind;
+      /** The accepting unit. REQUIRED for `psychiatric_ward` and meaningless for the other three,
+       *  which are answered by a person or a team and have no bed to name. Refused unless
+       *  `referralEligibility` (ward-eligibility.ts) says that unit accepts this referral. */
+      unitId?: string;
     }
   | {
       type: "RECORD_LOCAL_BED_SOUGHT";
@@ -407,8 +454,11 @@ export type WardFlowEvent =
       type: "DECLINE_REFERRAL";
       role: WardFlowRole;
       now: Instant;
-      /** The queued referral the coordinator is deciding on. */
+      /** The referral being decided. */
       referralId: string;
+      /** WHICH destination is declining — see `ACCEPT_REFERRAL`'s own comment. A decline locks
+       *  nobody out and leaves every other destination live (FD-24), so it must say which one. */
+      destinationKind: ReferralDestinationKind;
       /** Chosen from `REFERRAL_DECLINE_REASONS`, never free text — refused by a membership check,
        *  not a truthiness test (Phase 5 shipped a truthiness test in this exact position). */
       reason: ReferralDeclineReason;
@@ -424,7 +474,17 @@ export type WardFlowEvent =
  * the same shape, so the table is widened here rather than special-cased per event.
  */
 export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> = {
-  RAISE_REFERRAL: ["ed"],
+  /**
+   * Owner ruling FD-25, 2026-08-30: a referral is raised by whoever is with the patient, and that
+   * is not only an ED. A ward refers to a medical ward or to a community team; a community service
+   * refers in. Widened from `["ed"]` accordingly.
+   *
+   * `edId` on this event is now an ORIGIN of any kind, not an emergency department — the name is
+   * left alone in this pass because renaming it touches every raise path, and a half-renamed field
+   * is worse than an accurate comment. Recorded here so the next reader does not take the name as
+   * a constraint.
+   */
+  RAISE_REFERRAL: ["ed", "community", "ward"],
   RECORD_EXAMINATION: ["ed"],
   REFER_TO_UNITS: ["coordinator"],
   ACCEPT_IN_PRINCIPLE: ["ward"],
@@ -466,8 +526,12 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   RECEIVE_REFERRAL: ["community"],
   // Anyone at the front door may add a patient who is not yet known - that IS the front door.
   ADD_PATIENT: ["ed", "community", "coordinator"],
-  ACCEPT_REFERRAL: ["coordinator"],
-  DECLINE_REFERRAL: ["coordinator"],
+  /**
+   * Owner ruling FD-25: a WARD answers a referral addressed to it. The coordinator keeps the role
+   * too — it overrides, and an override nobody can exercise is not an override.
+   */
+  ACCEPT_REFERRAL: ["ward", "coordinator"],
+  DECLINE_REFERRAL: ["ward", "coordinator"],
   // `coordinator` only, and this one is a PLAN JUDGEMENT rather than a spec ruling — the spec
   // says only "role-gated like every other referral event", and the control sits on the
   // coordinator's own match view. The owner may want `community` here as well (a community team

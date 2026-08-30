@@ -125,7 +125,7 @@
  * Found by the Phase 8 Task 10 review, then MEASURED in a real browser before being touched.
  *
  * Measured at 641, 700, 760 and 820px, on all four groups (blocked, confirmed, predicted,
- * released-today): `.tableScroll` gets a client box 142px narrower than the viewport, the table
+ * discharged-today): `.tableScroll` gets a client box 142px narrower than the viewport, the table
  * holds itself at 704px, and `Freshness` — the column carrying who confirmed this discharge and
  * when — sits at right edge 811px against a scroller ending at 606 / 665 / 725 / 785px. At 641px
  * `Blocker` is off the screen too. Both were in the document at every width, which is why the

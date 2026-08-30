@@ -69,6 +69,9 @@ describe("the daily sheet exists on the board and says what it is", () => {
       "Who is stuck",
       "Who is overdue",
       "Nobody has said when they are going",
+      // Added 2026-08-30. A fifth group, placed LAST rather than inserted into D19's verbatim
+      // four — see `AWAY_GROUP_PLACEMENT_UNRESOLVED`; the owner has not ruled on where it sits.
+      "Who is off the ward",
     ]);
   });
 
@@ -111,13 +114,90 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     }
   });
 
-  it("says it holds no calendar date rather than inventing one", () => {
+  it("says on the PAPER that a patient is at an emergency department, not only on the screen", () => {
+    /*
+     * The gap the tile fix left, and the more serious half of it.
+     *
+     * The board's grid was fixed first. The printed sheet still showed that patient as an ordinary
+     * occupant — a day count, a discharge plan, a diagnosis, and nothing saying they were not on
+     * the ward. **This sheet is read aloud at handover**, so it is precisely the moment somebody
+     * asks "and where is she?" and the page cannot answer. The paper is also the artefact that
+     * leaves the room: a screen is re-read, a printed sheet is carried to a meeting and believed.
+     *
+     * Asserted against the sheet specifically, not the board as a whole — the board contains both
+     * surfaces, so a query over the whole page would have passed on the strength of the tile fix
+     * and this line could have been deleted with the suite green.
+     */
+    // The ward that actually has people away, not this file's default — a sheet with nobody away
+    // proves nothing, and would pass just as quietly if the line were never rendered.
+    const away = wardAdmissions.filter((admission) => admission.awayAtEmergencyDepartmentSince !== null);
+    expect(away.length, "no seeded admission is away at an ED").toBeGreaterThan(0);
+    const unitId = away[0].unitId;
+    const awayHere = away.filter((admission) => admission.unitId === unitId);
+
+    renderWardBoard(unitId);
+
+    // Scoped to the group, not the whole sheet. A person who is away AND has no discharge date
+    // appears in BOTH groups on purpose — the same way somebody both stuck and overdue appears
+    // twice — so counting across the sheet counts one of them more than once.
+    const awayGroup = screen.getByTestId("ward-daily-sheet-away");
+    const notes = within(awayGroup).getAllByText(/at an emergency department/i);
+    expect(
+      notes.length,
+      `the off-the-ward group shows ${notes.length} of ${awayHere.length} people away on this ward`,
+    ).toBe(awayHere.length);
+
+    for (const note of notes) {
+      // The half most likely to be trimmed as wordy, and the half a reader most needs: "away" on a
+      // bed sheet otherwise reads as "so the bed is free".
+      expect(note.textContent, `sheet line does not say the bed is still theirs: ${note.textContent}`).toMatch(
+        /still theirs/i,
+      );
+    }
+  });
+
+  it("says on its face that it does not advance, because every other screen now does", () => {
+    /*
+     * Owner decision, 2026-08-30: label the board as a fixed snapshot rather than make it live.
+     *
+     * The reason this is a TEST and not just a sentence in the markup: the note is the entire
+     * mitigation. The defect it covers — a board showing 10:42 while every neighbouring screen
+     * shows the real time — is invisible to every other assertion in this suite, because they all
+     * render this board alone and it is perfectly self-consistent. Nothing here can see the
+     * disagreement, so nothing here would notice the note being deleted by someone tidying up.
+     *
+     * Asserted on the two claims a reader needs rather than on the sentence, so a reword survives
+     * and a deletion does not: that it does not advance, and that other screens differ.
+     */
+    renderWardBoard(UNIT_ID);
+    const note = screen.getByTestId("ward-board-fixed-note").textContent ?? "";
+
+    expect(note).toMatch(/does not advance/i);
+    expect(note).toMatch(/other screens/i);
+  });
+
+  it("prints NO calendar date, now that it could print a real one", () => {
+    /*
+     * This test got STRONGER when the clock gained a date (`b1198cf6e`), and it is worth saying
+     * why rather than just editing the string it pins.
+     *
+     * Before, the sheet could not print a date — there was no calendar — so asserting the absence
+     * of one asserted a LIMITATION, and would have passed no matter what anybody decided. Now
+     * `dayZero` and `calendarDateOf` exist and this sheet could say "30 August" in one line. The
+     * same assertion therefore now guards a DECISION: a real date beside invented figures is the
+     * one combination that makes a prototype look like a record.
+     *
+     * Asserted as the absence of any year or month name rather than of one fixed sentence, so it
+     * cannot be satisfied by rewording — the point is that no date reaches the page, by any
+     * spelling.
+     */
     renderWardBoard(UNIT_ID);
     const stamp = screen.getByTestId("ward-board-as-at").textContent ?? "";
-    // DB-10 asks for date AND time. An `Instant` is minutes since midnight on one synthetic
-    // operating day, so the date does not exist — and a fabricated one on the element the decision
-    // made load-bearing would be worse than the gap. The gap is stated instead.
-    expect(stamp).toContain("no calendar date");
+
+    expect(stamp).toMatch(/synthetic/i);
+    expect(stamp, `a year reached the stamp: ${stamp}`).not.toMatch(/(19|20)\d{2}/);
+    const months = /(January|February|March|April|May|June|July|August|September|October|November|December)/;
+    expect(stamp, `a month name reached the stamp: ${stamp}`).not.toMatch(months);
   });
 
   it("moves with the instant it is given, and never reads a clock of its own", () => {
@@ -158,7 +238,7 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     // distinguishes two sheets from each other; it tells nobody which Tuesday either was. The
     // refusal therefore travels on every day, not only the opening one.
     for (const instant of [8 * 60 + 14, 8 * 60 + 14 + MINUTES_PER_DAY, 8 * 60 + 14 + 9 * MINUTES_PER_DAY]) {
-      expect(asAtStamp(instant).dayNote).toContain("no calendar date");
+      expect(asAtStamp(instant).dayNote).toContain("not a record of any real day");
     }
   });
 
@@ -167,7 +247,7 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     // on a sheet somebody pins to a wall, so time and day fail together on purpose.
     expect(asAtStamp(Number.NaN).time).toBeNull();
     expect(asAtStamp(Number.NaN).dayNote).not.toContain("NaN");
-    expect(asAtStamp(Number.NaN).dayNote).toContain("no calendar date");
+    expect(asAtStamp(Number.NaN).dayNote).toContain("not a record of any real day");
   });
 
   it("yields no time at all for an unusable instant, never NaN", () => {
@@ -188,6 +268,7 @@ describe("dailySheetGroups — a partition of the board's rows, never a second d
     tentativeDiagnosis: null,
     expectedDays: 3,
     blockReason: null,
+    awayAtEdHours: null,
   };
 
   it("reads the flags the board already computed rather than recomputing them", () => {

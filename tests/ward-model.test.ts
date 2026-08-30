@@ -49,6 +49,44 @@ describe("ward model constants", () => {
   });
 });
 
+/**
+ * Owner ruling PD-6, 2026-08-30: `Decline.note` is removed. It held free text written about a named
+ * individual, immediately beside a controlled vocabulary — and a controlled vocabulary with an
+ * escape hatch next to it is not a controlled vocabulary.
+ *
+ * Guarded rather than merely done, because the field is the kind a future decline screen re-adds in
+ * one line as an obvious convenience. If a reason cannot be expressed, the answer is a new member of
+ * `DECLINE_REASONS`, decided and recorded — never a text field restored here.
+ *
+ * Checked on real seeded declines rather than a hand-built literal, so it fails on a fixture that
+ * starts carrying one as well as on a type that starts permitting one.
+ */
+describe("a decline gives a reason from the list and nothing else (PD-6)", () => {
+  const seededDeclines = wardMovements.flatMap((movement) => movement.declines);
+
+  it("has declines to check, so this cannot pass by scanning nothing", () => {
+    expect(seededDeclines.length).toBeGreaterThan(0);
+  });
+
+  it("carries exactly unitId, at and reason — no note, and no free-text field under any name", () => {
+    const allowed = ["at", "reason", "unitId"];
+    for (const decline of seededDeclines) {
+      expect(
+        Object.keys(decline).sort(),
+        "a decline carries a field beyond its unit, its time and its reason. PD-6 removed `note` " +
+          "because free text about a named individual sat beside a controlled vocabulary; a field " +
+          "added back under any name is that same escape hatch. Add a DECLINE_REASONS member instead.",
+      ).toEqual(allowed);
+    }
+  });
+
+  it("gives every decline a reason drawn from DECLINE_REASONS, which is what makes the list the only channel", () => {
+    for (const decline of seededDeclines) {
+      expect(DECLINE_REASONS, `${decline.unitId} declined with an unlisted reason`).toContain(decline.reason);
+    }
+  });
+});
+
 describe("ward sites", () => {
   it("models the eight metro emergency departments", () => {
     const codes = allEmergencyDepartments()

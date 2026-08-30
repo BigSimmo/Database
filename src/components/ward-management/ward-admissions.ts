@@ -49,7 +49,7 @@ import type { HomeRegion, Sex } from "@/components/ward-management/ward-model";
  *                    emergency department waiting for transport. The bed is gone from this
  *                    moment; see `bedIsOccupied`.
  *   - `occupied`   — the person is physically in the bed.
- *   - `left`       — gone. The bed is released; see `LEAVING_DESTINATIONS` for what "released"
+ *   - `left`       — gone. The bed is released; see `LEAVING_DESTINATIONS` for what "discharged"
  *                    means to the state as opposed to this ward.
  *
  * A runtime array beside the union, the same treatment every other union in this feature that
@@ -289,6 +289,30 @@ export type Admission = {
    *  ever measured from. `null` until they get here — including for a pulled bed. */
   arrivedAt: Instant | null;
   /**
+   * When this person left the ward for an emergency department, or `null` while they are on it.
+   *
+   * **THE BED STAYS OCCUPIED AND THIS FIELD MUST NEVER CHANGE THAT.** A ward sending somebody to
+   * an ED for a medical problem is usually holding the bed, because they are coming back. So this
+   * is deliberately NOT an `AdmissionState`, NOT a `LeavingDestination`, and nothing in
+   * `bedIsOccupied`, `capacityBreakdown` or any availability figure reads it. Every one of those
+   * routes would free a bed that is not free, which is the single failure this model exists to
+   * prevent — a coordinator offering a bed a ward is still keeping.
+   *
+   * **It is a fact about the PERSON, which is why it is a field and not a state.** `AdmissionState`
+   * is `waitlisted | pulled | occupied | left` and every member is about the BED. Putting "away at
+   * an ED" in there is how `"pulled"` comes to look like the nearest fit when it is the mirror
+   * image — someone in an ED whose ward bed has already gone.
+   *
+   * **An instant rather than a boolean, following `pulledAt`.** A ward reading the board wants to
+   * know how long, not merely whether: somebody six hours in an ED is a different conversation
+   * from somebody thirty minutes in. One field carries both facts and cannot disagree with itself.
+   *
+   * Owner decision, 2026-08-30: the board marks a patient who is temporarily off the ward. Without
+   * it their tile is an ordinary occupant — day count, stay band, tentative diagnosis — and a
+   * charge nurse reading the grid believes they are in the bed.
+   */
+  awayAtEmergencyDepartmentSince: Instant | null;
+  /**
    * When the ward currently expects this person to leave. A WARD'S OWN PLAN, revisable at will
    * and carrying no legal or contractual weight of any kind — never a deadline, never a target,
    * never a figure derived from any statute. `null` means nobody has set one, which is a real and
@@ -368,6 +392,7 @@ const ADMISSION_FIELD_PRESENCE: Record<keyof Admission, true> = {
   state: true,
   pulledAt: true,
   arrivedAt: true,
+  awayAtEmergencyDepartmentSince: true,
   expectedDischargeAt: true,
   dischargeDateMoves: true,
   dischargeDateSetAt: true,

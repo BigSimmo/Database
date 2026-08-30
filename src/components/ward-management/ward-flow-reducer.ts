@@ -1,7 +1,8 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
-import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
+import { referralState } from "@/components/ward-management/ward-referrals";
+import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
   BED_RELEASE_WAITING_ON,
@@ -11,6 +12,8 @@ import {
   REFERRAL_DECLINE_REASONS,
   REFERRAL_SOURCES,
   SEXES,
+  REFERRAL_DESTINATION_KINDS,
+  type ReferralAddressing,
 } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
@@ -474,7 +477,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // that only stops *further* progress; it does not by itself give back capacity already
       // reserved by an earlier HOLD_BED.
       const heldStages: MovementStage[] = ["bed_held", "handover_ready", "moving"];
-      const releasedState =
+      const dischargedState =
         movement.acceptedUnitId && heldStages.includes(movement.stage)
           ? (() => {
               const heldUnit = findUnit(state, movement.acceptedUnitId!);
@@ -495,7 +498,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
             : movement.transport,
         closure: { at: event.now, outcome: "did_not_proceed", reason: `examination outcome ${event.outcome}` },
       };
-      return replaceMovement(releasedState, movement.id, updated);
+      return replaceMovement(dischargedState, movement.id, updated);
     }
 
     case "REFER_TO_UNITS": {
@@ -637,6 +640,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         state: "occupied",
         pulledAt: movement.transport?.collectedAt ?? null,
         arrivedAt: event.now,
+        // Null, and it is a statement rather than a default: this person has just ARRIVED on the
+        // ward, so they are not temporarily away at an emergency department. The board marks an
+        // away patient so a charge nurse reading the grid does not believe they are in the bed;
+        // somebody who arrived this instant is in it.
+        awayAtEmergencyDepartmentSince: null,
         expectedDischargeAt: null,
         dischargeDateMoves: 0,
         dischargeDateSetAt: null,
@@ -672,10 +680,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updated: Movement = {
         ...movement,
         referredUnitIds: movement.referredUnitIds.filter((unitId) => unitId !== event.unitId),
-        declines: [
-          ...movement.declines,
-          { unitId: event.unitId, at: event.now, reason: event.reason, note: event.note },
-        ],
+        declines: [...movement.declines, { unitId: event.unitId, at: event.now, reason: event.reason }],
         stage: "destination_review",
       };
       return replaceMovement(state, movement.id, updated);
@@ -952,7 +957,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `REVERT_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transition: confirmed -> predicted. `released` is terminal and `predicted` is
+      // Legal transition: confirmed -> predicted. `discharged` is terminal and `predicted` is
       // already there, so both fall into the same refusal.
       if (release.state !== "confirmed") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to predicted`);
@@ -996,10 +1001,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // Bed-model rework (2026-08-28): this sets a FLAG and moves no stage at all. A blocked
       // release keeps whichever stage it was in — `predicted` stays predicted, and a confirmed
       // discharge that gets stuck stays CONFIRMED and keeps counting as confirmed. Only
-      // `released` is refused: the bed is already free, so there is nothing left to hold up.
+      // `discharged` is refused: the bed is already free, so there is nothing left to hold up.
       const blockedUnit = findUnit(state, release.unitId);
       if (!blockedUnit) return reject(state, event, `no unit found for id ${release.unitId}`);
-      if (release.state === "released") {
+      if (release.state === "discharged") {
         return reject(state, event, `cannot block release ${release.id} because it is already released`);
       }
       // Fix round 2 (P2, spec D7): same freshness restatement as CONFIRM_BED_RELEASE's own case
@@ -1092,13 +1097,13 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `RELEASE_BED was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transitions: confirmed -> released and predicted -> released. `released` is
+      // Legal transitions: confirmed -> released and predicted -> released. `discharged` is
       // terminal, so only a release already in it is refused. Predicted is accepted deliberately:
       // "the person has left" is a statement of fact about an empty bed, not a prediction being
       // promoted into availability, and the four-stage model already permitted the same journey
       // via `predicted -> blocked -> released`. Narrowing it during the rework would have refused
       // a path wards could already take.
-      if (release.state === "released") {
+      if (release.state === "discharged") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to released`);
       }
       const unit = findUnit(state, release.unitId);
@@ -1111,7 +1116,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // be a claim about a discharge that has already happened.
       const updatedRelease: BedRelease = {
         ...release,
-        state: "released",
+        state: "discharged",
         waitingOn: null,
         blocker: null,
         blockedBy: null,
@@ -1223,7 +1228,34 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // queue silently, after which `unit.sexMix["F"] ?? 0` is 0 everywhere and
       // `sexDesignationAccepts("Female only", "F")` is false, so the referral matches almost
       // nothing with plausible-looking per-unit reasons instead of being visibly refused.
-      if (!SEXES.includes(event.sex)) {
+      //
+      // Since the destination union landed, `sex` exists only on the ward arm, so the check is
+      // guarded by the arm rather than dropped: the runtime hole this closes is an untyped caller,
+      // and an untyped caller can just as easily send a malformed ward destination.
+      // FD-21: one act, several destinations, up to the cap. Each of these refusals names a
+      // different way the list can be wrong, because "invalid destinations" tells a caller nothing.
+      if (event.destinations.length === 0) {
+        return reject(state, event, `RECEIVE_REFERRAL needs at least one destination`);
+      }
+      if (event.destinations.length > PARALLEL_REFERRAL_CAP) {
+        return reject(
+          state,
+          event,
+          `RECEIVE_REFERRAL may address at most ${PARALLEL_REFERRAL_CAP} destinations, not ${event.destinations.length}`,
+        );
+      }
+      const kinds = event.destinations.map((destination) => destination.kind);
+      if (new Set(kinds).size !== kinds.length) {
+        // Asking one kind twice is asking twice, not addressing two destinations. Refused rather
+        // than de-duplicated: silently collapsing it would make the cap count something other than
+        // what the referrer chose.
+        return reject(state, event, `RECEIVE_REFERRAL cannot address the same destination kind twice`);
+      }
+      if (kinds.some((kind) => !REFERRAL_DESTINATION_KINDS.includes(kind))) {
+        return reject(state, event, `RECEIVE_REFERRAL destination kind must be chosen from REFERRAL_DESTINATION_KINDS`);
+      }
+      const wardDestination = event.destinations.find((destination) => destination.kind === "psychiatric_ward");
+      if (wardDestination?.kind === "psychiatric_ward" && !SEXES.includes(wardDestination.sex)) {
         return reject(state, event, `RECEIVE_REFERRAL sex must be chosen from SEXES`);
       }
       if (!REFERRAL_SOURCES.includes(event.source)) {
@@ -1247,16 +1279,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
         ageBand: event.ageBand,
-        sex: event.sex,
-        secureBedNeeded: event.secureBedNeeded,
-        involuntaryBedNeeded: event.involuntaryBedNeeded,
+        // Every destination starts queued: the referrer chose them, nobody has answered yet.
+        destinations: event.destinations.map((destination) => ({ destination, state: "queued" as const })),
         homeRegion: event.homeRegion,
         source: event.source,
         raisedAt: event.now,
         urgency: event.urgency,
         originSiteCode: event.originSiteCode,
         transportNeeded: event.transportNeeded,
-        state: "queued",
       };
       return { ...state, referrals: [...state.referrals, created], frontDoorReferralSequence: sequence };
     }
@@ -1264,63 +1294,140 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "ACCEPT_REFERRAL": {
       const referral = findReferral(state, event.referralId);
       if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
-      // A decision on an already-decided referral is refused — same discipline as every other
-      // one-shot transition in this reducer (CONFIRM_BED_RELEASE's `predicted -> confirmed`
-      // guard, HOLD_BED's stage check). "queued" is the only state ACCEPT_REFERRAL may act on;
-      // "accepted" and "declined" are both already-decided and refused identically.
-      if (referral.state !== "queued") {
-        return reject(state, event, `referral ${referral.id} was already decided (${referral.state})`);
-      }
-      const unit = findUnit(state, event.unitId);
-      if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
-      // The failing gate is named in the rejection, not just "ineligible" — `referralEligibility`
-      // (ward-eligibility.ts) already produces a human-readable detail per gate; reusing it here
-      // is what keeps this refusal and the match view's own "why not here?" reading identically.
-      const verdict = referralEligibility(referral, unit, event.now);
-      if (!verdict.eligible) {
-        const failedGate = verdict.gates.find((gate) => !gate.pass);
+      const addressing = referral.destinations.find(
+        (candidate) => candidate.destination.kind === event.destinationKind,
+      );
+      if (!addressing) {
         return reject(
           state,
           event,
-          `${unit.name} does not accept referral ${referral.id} — failed gate ${failedGate?.gate}: ${failedGate?.detail}`,
+          `referral ${referral.id} was not addressed to ${event.destinationKind.replace(/_/g, " ")}`,
         );
       }
-      const updated: Referral = {
-        ...referral,
-        state: "accepted",
-        acceptedUnitId: unit.id,
-        decidedAt: event.now,
-        decidedBy: "Flow coordinator",
-      };
-      // Spec D14: acceptance decides only that the network takes this referral — it creates NO
+      // FD-22: the first acceptance ends the placement. A second destination accepting afterwards
+      // would mean two places believing they had taken the same person -- the exact outcome the
+      // automatic cancellation exists to prevent, so it is refused rather than recorded.
+      if (referralState(referral) === "accepted") {
+        return reject(state, event, `referral ${referral.id} has already been accepted elsewhere`);
+      }
+      // Per-destination, not per-referral: another destination having declined leaves this one
+      // free to answer (FD-24). Only THIS destination being already decided is a refusal.
+      if (addressing.state !== "queued") {
+        return reject(
+          state,
+          event,
+          `${event.destinationKind.replace(/_/g, " ")} has already answered referral ${referral.id} (${addressing.state})`,
+        );
+      }
+
+      let accepted: ReferralAddressing;
+      if (addressing.destination.kind === "psychiatric_ward") {
+        // Only a ward acceptance names a unit, and only a ward acceptance runs the bed gates.
+        if (!event.unitId) {
+          return reject(state, event, `ACCEPT_REFERRAL into a psychiatric ward must name a unit`);
+        }
+        const unit = findUnit(state, event.unitId);
+        if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
+        // The failing gate is named in the rejection, not just "ineligible" -- `referralEligibility`
+        // (ward-eligibility.ts) already produces a human-readable detail per gate; reusing it here
+        // is what keeps this refusal and the match view's own "why not here?" reading identically.
+        const verdict = referralEligibility(referral, addressing.destination, unit, event.now);
+        if (!verdict.eligible) {
+          const failedGate = verdict.gates.find((gate) => !gate.pass);
+          return reject(
+            state,
+            event,
+            `${unit.name} does not accept referral ${referral.id} — failed gate ${failedGate?.gate}: ${failedGate?.detail}`,
+          );
+        }
+        accepted = {
+          ...addressing,
+          state: "accepted",
+          acceptedUnitId: unit.id,
+          decidedAt: event.now,
+          decidedBy: WARD_FLOW_ROLE_LABELS[event.role],
+        };
+      } else {
+        // An ED, a medical ward and a community team are answered by a person or a team. There is
+        // no bed to gate on and no unit to name, so a `unitId` sent with one of these would be a
+        // caller's mistake rather than a detail to ignore.
+        if (event.unitId) {
+          return reject(
+            state,
+            event,
+            `${event.destinationKind.replace(/_/g, " ")} is answered by a team, not a bed — it cannot name a unit`,
+          );
+        }
+        accepted = {
+          ...addressing,
+          state: "accepted",
+          decidedAt: event.now,
+          decidedBy: WARD_FLOW_ROLE_LABELS[event.role],
+        };
+      }
+
+      // FD-22, and the reason it is here rather than on a screen: the first acceptance cancels
+      // every destination still waiting, automatically, with no coordination step. A DECLINED
+      // destination is left exactly as it was -- its refusal, its time and its reason stay on the
+      // record, which is the surviving half of the decision FD-24 retired.
+      const destinations = referral.destinations.map((candidate) => {
+        if (candidate === addressing) return accepted;
+        if (candidate.state !== "queued") return candidate;
+        return { ...candidate, state: "cancelled" as const, decidedAt: event.now };
+      });
+      // Spec D14: acceptance decides only that the network takes this referral -- it creates NO
       // `Movement`. Wiring an accepted referral into one needs an `originEdId`, a legal status
       // and a stage machine, every one of which is entangled with Phase 8's geography work; that
       // seam is deliberate, not an oversight, and `tests/ward-referral-reducer.test.ts` asserts
       // it explicitly so a future change has to argue with a test rather than slip past.
-      return replaceReferral(state, referral.id, updated);
+      return replaceReferral(state, referral.id, { ...referral, destinations });
     }
 
     case "DECLINE_REFERRAL": {
       const referral = findReferral(state, event.referralId);
       if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
-      if (referral.state !== "queued") {
-        return reject(state, event, `referral ${referral.id} was already decided (${referral.state})`);
+      const addressing = referral.destinations.find(
+        (candidate) => candidate.destination.kind === event.destinationKind,
+      );
+      if (!addressing) {
+        return reject(
+          state,
+          event,
+          `referral ${referral.id} was not addressed to ${event.destinationKind.replace(/_/g, " ")}`,
+        );
       }
-      // Membership check, not truthiness — same discipline as FLAG_BED_RELEASE's own comment on
+      if (referralState(referral) === "accepted") {
+        return reject(state, event, `referral ${referral.id} has already been accepted elsewhere`);
+      }
+      if (addressing.state !== "queued") {
+        return reject(
+          state,
+          event,
+          `${event.destinationKind.replace(/_/g, " ")} has already answered referral ${referral.id} (${addressing.state})`,
+        );
+      }
+      // Membership check, not truthiness -- same discipline as FLAG_BED_RELEASE's own comment on
       // this exact shape of check above. Phase 5 shipped a truthiness test in this position
       // (`!event.blocker`, which refuses a missing/empty value but accepts any other non-empty
       // string) and review caught it; "chosen from a fixed list, never typed" is a runtime rule.
       if (!REFERRAL_DECLINE_REASONS.includes(event.reason)) {
         return reject(state, event, `DECLINE_REFERRAL reason must be chosen from REFERRAL_DECLINE_REASONS`);
       }
-      const updated: Referral = {
-        ...referral,
-        state: "declined",
-        declineReason: event.reason,
-        decidedAt: event.now,
-        decidedBy: "Flow coordinator",
-      };
-      return replaceReferral(state, referral.id, updated);
+      // FD-24: this destination declines and NOTHING ELSE CHANGES. The other destinations stay
+      // queued, this ward is not locked out of anything later, and the refusal stays on the record
+      // with its time and its reason.
+      const destinations = referral.destinations.map((candidate) =>
+        candidate === addressing
+          ? {
+              ...candidate,
+              state: "declined" as const,
+              declineReason: event.reason,
+              decidedAt: event.now,
+              decidedBy: WARD_FLOW_ROLE_LABELS[event.role],
+            }
+          : candidate,
+      );
+      return replaceReferral(state, referral.id, { ...referral, destinations });
     }
 
     case "RECORD_LOCAL_BED_SOUGHT": {
@@ -1332,8 +1439,8 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // A search for a local bed is a thing done while the referral is still undecided. Recording
       // one against an already-decided referral would be recording it after the fact, so the
       // refused state is named exactly as `ACCEPT_REFERRAL`/`DECLINE_REFERRAL` name theirs.
-      if (referral.state !== "queued") {
-        return reject(state, event, `referral ${referral.id} was already decided (${referral.state})`);
+      if (referralState(referral) !== "queued") {
+        return reject(state, event, `referral ${referral.id} was already decided (${referralState(referral)})`);
       }
       // One-shot, the same discipline `ACCEPT_REFERRAL`'s already-decided guard uses: a second
       // record would silently overwrite the first, losing the time and role of the search that

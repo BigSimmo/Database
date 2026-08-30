@@ -118,7 +118,7 @@ function deriveForwardRelease(admission: Admission): BedRelease | null {
 }
 
 /**
- * One admission's actual departure, restated as a `"released"` `BedRelease`, or `null` when
+ * One admission's actual departure, restated as a `"discharged"` `BedRelease`, or `null` when
  * there is nothing to restate.
  *
  * Requires BOTH `leftAt` and `leavingDestination` — an admission whose `state` is `"left"` but is
@@ -132,15 +132,15 @@ function deriveForwardRelease(admission: Admission): BedRelease | null {
  * "due". A non-finite `now` degrades the same way: no claim, rather than a bare `NaN > x`
  * comparison silently evaluating to `false` and letting every departure through unchecked.
  */
-function deriveReleasedRelease(admission: Admission, now: Instant): BedRelease | null {
+function deriveDischargedRelease(admission: Admission, now: Instant): BedRelease | null {
   const { leftAt, leavingDestination } = admission;
   if (leftAt === null || leavingDestination === null) return null;
   if (!Number.isFinite(leftAt) || !Number.isFinite(now) || leftAt > now) return null;
 
   return {
-    id: `derived-released-${admission.id}`,
+    id: `derived-discharged-${admission.id}`,
     unitId: admission.unitId,
-    state: "released",
+    state: "discharged",
     // The original plan when there was one, otherwise the departure instant itself — an
     // unplanned departure (e.g. "left against advice") still needs a real, non-fabricated instant
     // here, and the moment it actually happened is the only one on record.
@@ -163,7 +163,7 @@ function deriveReleasedRelease(admission: Admission, now: Instant): BedRelease |
  * Every `BedRelease` this module can honestly derive from a list of admissions: one forward entry
  * per occupied bed carrying a real expected discharge date — `"confirmed"` when the ward has
  * confirmed the discharge (`Admission.dischargeConfirmedAt`) and `"predicted"` when it has not —
- * and one `"released"` entry per admission that has actually left as of `now`.
+ * and one `"discharged"` entry per admission that has actually left as of `now`.
  *
  * This is the whole surface other code should read for a derived view. `capacityBreakdown`
  * (`ward-bed-availability.ts`) is the existing consumer that turns this list into today/
@@ -177,7 +177,7 @@ export function derivedBedReleases(admissions: Admission[], now: Instant): BedRe
       releases.push(forward);
       continue;
     }
-    const released = deriveReleasedRelease(admission, now);
+    const released = deriveDischargedRelease(admission, now);
     if (released !== null) releases.push(released);
   }
   return releases;
@@ -188,7 +188,7 @@ export function derivedBedReleases(admissions: Admission[], now: Instant): BedRe
  * bed back (`LEAVING_DESTINATIONS`'s own `countsAsStatewideRelease`).
  *
  * **The one `false` destination — `"transferred-to-another-psychiatric-ward"` — is excluded here
- * on purpose, and only here.** It still produces a `"released"` `BedRelease` from
+ * on purpose, and only here.** It still produces a `"discharged"` `BedRelease` from
  * `derivedBedReleases` (the SENDING unit's own bed genuinely comes free, and that release must
  * still show up on that unit's board), but it must never inflate the network-wide total: the
  * person still occupies a psychiatric bed, the state gained nothing. Counting it here would let

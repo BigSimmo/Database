@@ -1,3 +1,4 @@
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { describe, expect, it } from "vitest";
 
 import { EVENING_SHIFT_END_MINUTES } from "@/components/ward-management/ward-bed-availability";
@@ -10,7 +11,14 @@ import {
   PEOPLE_WAITING_LABEL,
   serviceRollup,
 } from "@/components/ward-management/ward-morning-rollup";
-import type { BedRelease, LeaveBed, Referral, Site, Unit } from "@/components/ward-management/ward-model";
+import type {
+  BedRelease,
+  LeaveBed,
+  Referral,
+  ReferralAddressing,
+  Site,
+  Unit,
+} from "@/components/ward-management/ward-model";
 import { bedReleases, leaveBeds, referrals } from "@/components/ward-management/ward-movements";
 import { referralQueueOrder } from "@/components/ward-management/ward-referrals";
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
@@ -507,21 +515,37 @@ describe("ward-morning-rollup", () => {
    *      `sumBreakdowns` (spec D2).
    */
   describe("task 9: the people-waiting figure", () => {
-    function referral(overrides: Partial<Referral> = {}): Referral {
+    /** Flat decision overrides, routed into the single ward addressing -- so the cases below still
+     *  read `referral({ state: "accepted" })` and only the shape moved, not their meaning. */
+    type ReferralOverrides = Partial<Omit<Referral, "destinations">> &
+      Partial<Pick<ReferralAddressing, "state" | "acceptedUnitId" | "declineReason" | "decidedAt">>;
+
+    function referral(overrides: ReferralOverrides = {}): Referral {
+      const { state, acceptedUnitId, declineReason, decidedAt, ...rest } = overrides;
       return {
         id: "RF-TEST",
         ageBand: "Adult",
-        sex: "Female",
-        secureBedNeeded: false,
-        involuntaryBedNeeded: false,
+        destinations: [
+          {
+            destination: {
+              kind: "psychiatric_ward",
+              sex: "Female",
+              secureBedNeeded: false,
+              involuntaryBedNeeded: false,
+            },
+            state: state ?? "queued",
+            acceptedUnitId,
+            declineReason,
+            decidedAt,
+          },
+        ],
         homeRegion: "Perth Metropolitan",
         source: "community",
         raisedAt: NOW - 30,
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
-        state: "queued",
-        ...overrides,
+        ...rest,
       };
     }
 
@@ -536,7 +560,7 @@ describe("ward-morning-rollup", () => {
 
       // Guard the guard: the set really does hold decided referrals, so "2" cannot be right for
       // the wrong reason (nothing to exclude in the first place).
-      expect(mixed.filter((entry) => entry.state !== "queued")).toHaveLength(3);
+      expect(mixed.filter((entry) => referralState(entry) !== "queued")).toHaveLength(3);
       expect(peopleWaitingCount(mixed)).toBe(2);
     });
 

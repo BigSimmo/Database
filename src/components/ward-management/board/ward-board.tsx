@@ -75,7 +75,25 @@ const BAND_CLASS: Record<StayBandId, string> = {
 };
 
 type Tile =
-  | { kind: "occupied"; key: string; days: number; bandId: StayBandId | null; bandLabel: string; pastDate: boolean }
+  | {
+      kind: "occupied";
+      key: string;
+      days: number;
+      bandId: StayBandId | null;
+      bandLabel: string;
+      pastDate: boolean;
+      /**
+       * Whether this person is currently at an emergency department. **On the TILE, not only in
+       * the person panel** — added 2026-08-30 after looking at the rendered board, where the panel
+       * carrying this marker is `display: none` at desktop width. The marker existed, every
+       * assertion passed, and a charge nurse scanning the grid saw nothing: jsdom applies no
+       * stylesheet, so a DOM query finds an element CSS has hidden.
+       *
+       * The grid is what a ward reads. A fact that only appears once somebody clicks the right
+       * bed is not on the board.
+       */
+      awayAtEd: boolean;
+    }
   | { kind: "waiting"; key: string }
   | { kind: "blocked"; key: string }
   | { kind: "held"; key: string }
@@ -158,6 +176,7 @@ function buildTiles(
       bandId: band?.id ?? null,
       bandLabel: band?.label ?? "Stay not banded",
       pastDate: isPastExpectedDischarge(admission, now),
+      awayAtEd: admission.awayAtEmergencyDepartmentSince !== null,
     };
   });
 
@@ -220,6 +239,16 @@ type Occupant = {
    * sentence. A bare "F30–F39" on a ward board would be a string a reader cannot check.
    */
   tentativeDiagnosis: string | null;
+  /**
+   * Whole hours this person has been away at an emergency department, or `null` while they are on
+   * the ward. Rounded down, and floored at zero so a clock nudged backwards cannot print "-1
+   * hours".
+   *
+   * **The bed is still theirs and nothing here says otherwise.** This is a fact about where the
+   * person is, not about the bed: the tile still draws as occupied, the stay still counts, and no
+   * capacity figure reads it.
+   */
+  awayAtEdHours: number | null;
   /** Whole days from `now` to the ward's own expected date — NEGATIVE when it has passed, `null`
    *  when nobody has set one. */
   expectedDays: number | null;
@@ -294,6 +323,10 @@ function buildOccupants(unit: Unit, admissions: readonly Admission[], now: Insta
       sex: admission.sex,
       homeRegion: admission.homeRegion,
       tentativeDiagnosis: tentativeDiagnosisPhrase(admission.tentativeDiagnosis),
+      awayAtEdHours:
+        admission.awayAtEmergencyDepartmentSince === null
+          ? null
+          : Math.max(0, Math.floor((now - admission.awayAtEmergencyDepartmentSince) / 60)),
       expectedDays: daysUntilExpected(admission, now),
       dischargeDateMoves: admission.dischargeDateMoves,
       dischargeDateSetBy: admission.dischargeDateSetBy,
@@ -398,8 +431,8 @@ function outgoingToday(
   basis: OutgoingBasis,
   now: Instant,
 ): BedRelease[] {
-  // `state === basis` already excludes `"released"` — the two bases are the only other states a
-  // `BedRelease` can carry — so `capacityBreakdown`'s explicit `"released"` skip needs no separate
+  // `state === basis` already excludes `"discharged"` — the two bases are the only other states a
+  // `BedRelease` can carry — so `capacityBreakdown`'s explicit `"discharged"` skip needs no separate
   // clause here. It is the same cut, reached by the narrower test.
   return bedReleases.filter(
     (release) => release.unitId === unit.id && release.state === basis && releaseBand(release, now) !== "beyond-today",
@@ -532,6 +565,29 @@ function PersonEntry({ occupant, idPrefix }: { occupant: Occupant; idPrefix: str
        * to fill in — the same distinction `blockReason` above draws between silence and a ward's
        * own answer.
        */}
+      {/*
+       * AWAY AT AN EMERGENCY DEPARTMENT. Owner decision, 2026-08-30.
+       *
+       * Stated FIRST among this person's facts, above the diagnosis, because it changes what every
+       * line below it means: a stay length, a discharge plan and a diagnosis all read differently
+       * about somebody who is not on the ward. Without it the tile is an ordinary occupant and a
+       * charge nurse reading the grid believes they are in the bed.
+       *
+       * Says the bed is still theirs, in the same breath, because the honest reading of "away" on
+       * a bed board is otherwise "so the bed is free" — and it is not. The ward is holding it.
+       *
+       * Rendered ONLY when the record holds it. Unlike the diagnosis directly below, there is no
+       * "not recorded" branch: an absent value here means the person is on the ward, which is the
+       * ordinary case and needs no sentence. The diagnosis states both states because its absence
+       * is genuinely ambiguous; this one's is not.
+       */}
+      {occupant.awayAtEdHours !== null && (
+        <p className={styles.personAway} data-testid="ward-board-person-away">
+          {occupant.awayAtEdHours === 0
+            ? "At an emergency department — the bed is still theirs."
+            : `At an emergency department for ${occupant.awayAtEdHours} ${occupant.awayAtEdHours === 1 ? "hour" : "hours"} — the bed is still theirs.`}
+        </p>
+      )}
       <p className={styles.personLine}>
         {occupant.tentativeDiagnosis !== null
           ? `Tentative diagnosis: ${occupant.tentativeDiagnosis}.`
@@ -792,9 +848,10 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * renders this board at two different instants and asserts the stamp AND the figures both
            * moved.
            *
-           * The DATE that DB-10 also asks for is absent and says so: an `Instant` is minutes since
-           * midnight on one synthetic operating day and this model holds no calendar at all, so a
-           * printed date would be invented on the one element the decision made load-bearing.
+           * The DATE that DB-10 also asks for is absent, and since `b1198cf6e` that is a CHOICE
+           * rather than a limitation: the clock gained a real date, so this could print one. It
+           * does not, because a real date beside invented figures is the one combination that
+           * makes a prototype look like a record. See `asAtStamp`'s own doc comment.
            */}
           <p className={styles.asAt} data-testid="ward-board-as-at">
             {stamp.time === null ? (
@@ -805,6 +862,31 @@ export function WardBoard({ unitId }: { unitId: string }) {
                 <span className={styles.asAtNote}>{stamp.dayNote}</span>
               </>
             )}
+          </p>
+          {/*
+           * THE BOARD DOES NOT ADVANCE, AND SAYS SO. Owner decision, 2026-08-30, taken in
+           * preference to making it live.
+           *
+           * Every other Ward Flow screen now follows a clock that starts at the real time of page
+           * load and runs. This board deliberately does not: it reads the admissions fixture at
+           * `WARD_ADMISSIONS_ANCHOR`, the instant that fixture is authored against, so every stay
+           * length is the one the seed intends.
+           *
+           * **The alternative was considered and refused, and the reason belongs here rather than
+           * in a message.** Making the board live means re-anchoring the fixture by an offset, and
+           * `shiftInstants` — the one function that does that — is not idempotent and carries no
+           * marker saying a state has already been shifted. A second applier would silently double
+           * every offset, so a patient who has been in a bed nine days would read as eighteen. A
+           * wrong clock looks wrong; a wrong length of stay looks plausible, and this board's whole
+           * subject is how long people have been in beds.
+           *
+           * So the honest thing is to say what this is. If the board is ever made live, the change
+           * is to move admissions into the provider so there is ONE applier — never a second call
+           * site — and this note comes out in the same commit.
+           */}
+          <p className={styles.asAtFixed} data-testid="ward-board-fixed-note">
+            This board is a fixed snapshot and does not advance while you watch. Other screens follow the live clock, so
+            the times will differ.
           </p>
         </div>
 
@@ -1120,6 +1202,15 @@ export function WardBoard({ unitId }: { unitId: string }) {
                           {tile.pastDate && (
                             <span className={styles.pastMark} data-testid={`ward-board-bed-${index + 1}-past`}>
                               Past date
+                            </span>
+                          )}
+                          {/* Words, never a fill or a colour — the same rule the past-date badge
+                            above follows, and for the same reader: greyscale, forced-colors, or
+                            paper. The short form is what fits a 390px tile; the full sentence,
+                            including that the bed is still theirs, is in the person panel. */}
+                          {tile.awayAtEd && (
+                            <span className={styles.awayMark} data-testid={`ward-board-bed-${index + 1}-away`}>
+                              At ED
                             </span>
                           )}
                         </>

@@ -51,7 +51,12 @@ import {
   unitTravelBand,
   type TravelBand,
 } from "@/components/ward-management/ward-distance";
-import { DECLINE_REASON_LABELS } from "@/components/ward-management/ward-referrals";
+import {
+  DECLINE_REASON_LABELS,
+  acceptedAddressing,
+  declinedAddressings,
+  referralState,
+} from "@/components/ward-management/ward-referrals";
 import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 import { installMatchMediaStub } from "./setup/jsdom.setup";
@@ -113,6 +118,11 @@ function RejectionCount() {
 function NewestReferralFacts() {
   const { referrals } = useWardFlow();
   const newest = referrals[referrals.length - 1];
+  // The bed criteria live on the ward arm now, so they are read through it rather than off the
+  // referral. `undefined` where a referral is addressed elsewhere -- printed as such, so a test
+  // reading this span can tell "not a ward referral" from "false".
+  const wardAddressing = newest?.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  const ward = wardAddressing?.destination.kind === "psychiatric_ward" ? wardAddressing.destination : undefined;
   return (
     <>
       {/* The COUNT, not merely the newest record: the seed already holds eight referrals, so
@@ -135,7 +145,7 @@ function NewestReferralFacts() {
       <span data-testid="referral-ids">{referrals.map((referral) => referral.id).join(",")}</span>
       <span data-testid="newest-referral-facts">
         {newest
-          ? `id=${newest.id} secure=${String(newest.secureBedNeeded)} involuntary=${String(newest.involuntaryBedNeeded)} ageBand=${newest.ageBand} sex=${newest.sex} urgency=${String(newest.urgency)}`
+          ? `id=${newest.id} secure=${String(ward?.secureBedNeeded)} involuntary=${String(ward?.involuntaryBedNeeded)} ageBand=${newest.ageBand} sex=${String(ward?.sex)} urgency=${String(newest.urgency)}`
           : "none"}
       </span>
     </>
@@ -1240,8 +1250,15 @@ describe("ReferralBoard", () => {
 
     // And the summary line carries no tier of any kind. Exact text, not `toContainText`: a
     // summary that put the tier back would still "contain" the three fields below.
+    // Written out here rather than built from `referralPersonFacts` -- the screen renders that
+    // function's output, so asserting against it would compare the helper with itself and pass
+    // whatever it returned.
+    const wardArm = referral.destinations.find(
+      (addressing) => addressing.destination.kind === "psychiatric_ward",
+    )?.destination;
+    if (wardArm?.kind !== "psychiatric_ward") throw new Error(`${referral.id} is not a ward referral`);
     expect(screen.getByTestId("ward-referral-match-summary")).toHaveTextContent(
-      `${referral.ageBand} · ${referral.sex} · ${referral.homeRegion}`,
+      `${referral.ageBand} · ${wardArm.sex} · ${referral.homeRegion}`,
     );
     expect(screen.getByTestId("ward-referral-match-summary").textContent).not.toMatch(/Tier/);
   });
@@ -1274,18 +1291,21 @@ describe("ReferralBoard", () => {
   it("every decided row names its accepting unit, or its decline reason", () => {
     renderBoard();
 
-    const acceptedUnitId = referrals.find((candidate) => candidate.id === "RF-006")!.acceptedUnitId!;
+    const acceptedUnitId = acceptedAddressing(
+      referrals.find((candidate) => candidate.id === "RF-006")!,
+    )!.acceptedUnitId!;
     const acceptedUnitName = allUnits().find((unit) => unit.id === acceptedUnitId)!.name;
     expect(screen.getByTestId("ward-referral-board-decided-detail-RF-006")).toHaveTextContent(acceptedUnitName);
 
-    const declineReason = referrals.find((candidate) => candidate.id === "RF-004")!.declineReason!;
+    const declineReason = declinedAddressings(referrals.find((candidate) => candidate.id === "RF-004")!)[0]!
+      .declineReason!;
     expect(screen.getByTestId("ward-referral-board-decided-detail-RF-004")).toHaveTextContent(
       DECLINE_REASON_LABELS[declineReason],
     );
 
     // Non-vacuity, and the phone view too: every decided referral carries a detail on both
     // renderings, so a row that silently lost one cannot hide behind these two named cases.
-    const decided = referrals.filter((candidate) => candidate.state !== "queued");
+    const decided = referrals.filter((candidate) => referralState(candidate) !== "queued");
     expect(decided.length).toBeGreaterThan(1);
     for (const referral of decided) {
       expect(screen.getByTestId(`ward-referral-board-decided-detail-${referral.id}`).textContent).not.toBe("");
@@ -1316,16 +1336,23 @@ describe("ReferralBoard", () => {
 const SYNTHETIC_YOUTH_REFERRAL: Referral = {
   id: "RF-TEST-STRUCTURAL",
   ageBand: "Youth",
-  sex: "Female",
-  secureBedNeeded: false,
-  involuntaryBedNeeded: false,
+  destinations: [
+    {
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
+      state: "queued",
+    },
+  ],
   homeRegion: "Perth Metropolitan",
   source: "community",
   raisedAt: NOW_ANCHOR - 10,
   urgency: 2,
   originSiteCode: "RPH",
   transportNeeded: false,
-  state: "queued",
 };
 
 /** `ReferralMatchView` takes `units`/`referral` as explicit props (never reading them from
@@ -1393,9 +1420,14 @@ function RaiseAndReviewForensicHarness() {
             role: "community",
             now,
             ageBand: "Adult",
-            sex: "Male",
-            secureBedNeeded: false,
-            involuntaryBedNeeded: false,
+            destinations: [
+              {
+                kind: "psychiatric_ward",
+                sex: "Male",
+                secureBedNeeded: false,
+                involuntaryBedNeeded: false,
+              },
+            ],
             homeRegion: "Kimberley",
             source: "police",
             urgency: 2,
@@ -1464,16 +1496,23 @@ function bandReferral(overrides: Partial<Referral> = {}): Referral {
   return {
     id: "RF-TEST-BANDS",
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+        state: "queued",
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW_ANCHOR - 30,
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
-    state: "queued",
     ...overrides,
   };
 }

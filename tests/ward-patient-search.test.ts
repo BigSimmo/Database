@@ -1,10 +1,11 @@
 // tests/ward-patient-search.test.ts
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { describe, expect, it } from "vitest";
 
-import { isOpen, searchMovements } from "../src/components/ward-management/ward-derivations";
+import { isOpen, searchMovements, searchPatients } from "../src/components/ward-management/ward-derivations";
 import { seedWardFlowState } from "../src/components/ward-management/ward-flow-reducer";
 
-const { movements, units } = seedWardFlowState();
+const { movements, units, referrals } = seedWardFlowState();
 const openIds = movements
   .filter(isOpen)
   .map((movement) => movement.id)
@@ -156,5 +157,90 @@ describe("searchMovements", () => {
 
     const byStageAndEd = searchMovements(withClone, units, { text: "", stage: "bed_held", edId: "arm-ed" });
     expect(byStageAndEd.map((movement) => movement.id)).not.toContain("WF-TEST-CLOSED-CLONE");
+  });
+});
+
+describe("searchPatients — the owner's requirement that a referred patient shows up", () => {
+  /*
+   * > "when I search that patient, there should be some way of the ED psych to see the patient
+   * > show up."   — owner, 2026-08-30
+   *
+   * `searchMovements` above cannot satisfy that and its NAME is why nobody noticed: it promises a
+   * patient search and searches movements, a record that begins when somebody is already being
+   * moved. A person referred and not yet accepted has no movement, so the search returns nothing —
+   * and nothing is indistinguishable from a search for somebody who does not exist.
+   */
+
+  const queued = referrals.filter((referral) => referralState(referral) === "queued");
+
+  it("the fixture holds a queued referral, or everything below is vacuous", () => {
+    // First, because every assertion after it searches for referrals, and a search that finds none
+    // passes just as quietly when the function is broken as when the fixture is empty.
+    expect(queued.length, "no seeded referral is queued").toBeGreaterThan(0);
+  });
+
+  it("finds a queued referral by its id, which searchMovements cannot do at all", () => {
+    const target = queued[0];
+
+    const viaMovements = searchMovements(movements, units, { text: target.id });
+    expect(viaMovements, "a movement search should never find a referral").toEqual([]);
+
+    const viaPatients = searchPatients(movements, referrals, units, { text: target.id });
+    expect(viaPatients.map((result) => result.kind)).toContain("referral");
+    expect(
+      viaPatients.some((result) => result.kind === "referral" && result.referral.id === target.id),
+      `the queued referral ${target.id} did not show up`,
+    ).toBe(true);
+  });
+
+  it("returns waiting referrals BEFORE movements", () => {
+    // Somebody still waiting for a decision is the one an ED psychiatrist can act on.
+    const results = searchPatients(movements, referrals, units, { text: "" });
+    const firstMovement = results.findIndex((result) => result.kind === "movement");
+    const lastReferral = results.map((result) => result.kind).lastIndexOf("referral");
+
+    expect(firstMovement, "no movement in an empty-text search").toBeGreaterThan(-1);
+    expect(lastReferral, "no referral in an empty-text search").toBeGreaterThan(-1);
+    expect(lastReferral).toBeLessThan(firstMovement);
+  });
+
+  it("never returns a referral that is not queued, so nobody appears twice or after leaving", () => {
+    /*
+     * An ACCEPTED referral has a movement, so returning it here would put the same person on the
+     * screen twice under two kinds — which a reader sees as two patients. A DECLINED one is a
+     * closed request, and surfacing it is the same untruth `isOpen` prevents on the movement side.
+     */
+    const results = searchPatients(movements, referrals, units, { text: "" });
+    const returned = results.filter((result) => result.kind === "referral").map((result) => result.referral);
+
+    for (const referral of returned) {
+      expect(referralState(referral), `${referral.id} was returned but is ${referralState(referral)}`).toBe("queued");
+    }
+  });
+
+  it("drops referrals entirely when a movement-shaped filter is set", () => {
+    /*
+     * `stage` and `edId` are questions only a movement can answer. Returning referrals anyway
+     * would be answering a different question from the one asked — the failure mode is a
+     * coordinator filtering to one stage and being handed records that have no stage at all.
+     */
+    const withStage = searchPatients(movements, referrals, units, { text: "", stage: "bed_held" });
+    expect(withStage.every((result) => result.kind === "movement")).toBe(true);
+
+    const withEd = searchPatients(movements, referrals, units, { text: "", edId: "arm-ed" });
+    expect(withEd.every((result) => result.kind === "movement")).toBe(true);
+  });
+
+  it("leaves searchMovements answering exactly the question it always did", () => {
+    // The regression that would be invisible: widening search in place would have re-pointed
+    // twenty movement assertions at a function answering a different question. This asserts the
+    // movement half of the new function is the old function, unchanged, result for result.
+    const query = { text: "" };
+    const direct = searchMovements(movements, units, query);
+    const viaPatients = searchPatients(movements, referrals, units, query)
+      .filter((result) => result.kind === "movement")
+      .map((result) => result.movement);
+
+    expect(viaPatients).toEqual(direct);
   });
 });

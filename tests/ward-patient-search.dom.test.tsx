@@ -1,3 +1,4 @@
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -43,6 +44,9 @@ function renderSearch() {
 
 const { movements } = seedWardFlowState();
 const openCount = movements.filter(isOpen).length;
+/** The waiting referrals the search now also covers — see the heading assertion below for why the
+ *  heading counts these and the table does not. */
+const queuedReferrals = seedWardFlowState().referrals.filter((referral) => referralState(referral) === "queued");
 
 describe("PatientSearchPage", () => {
   it("renders the root, the three labelled fields, and the results section", () => {
@@ -69,7 +73,22 @@ describe("PatientSearchPage", () => {
     const rows = within(screen.getByTestId("ward-patient-search-results")).getAllByRole("row");
     // One header row plus one row per open movement.
     expect(rows.length - 1).toBe(openCount);
-    expect(screen.getByRole("heading", { name: `${openCount} matches` })).toBeInTheDocument();
+
+    /*
+     * The heading counts BOTH records and the table counts one, and that is deliberate rather than
+     * an inconsistency to reconcile. As of 2026-08-30 the search covers waiting referrals as well
+     * as open movements — a person referred and not yet accepted has no movement at all, and the
+     * owner's requirement is that they show up. The table above is movement-shaped (stage,
+     * department, destination, time since arrival) and referrals have none of those, so they are
+     * listed separately; the heading is the count of everything found.
+     *
+     * Stated as a sum with both halves named rather than re-baselined to whatever the page now
+     * prints. A number copied out of a failing test is a screenshot of the current behaviour, and
+     * it agrees with a defect exactly as readily as with a fix.
+     */
+    const queuedReferralCount = queuedReferrals.length;
+    expect(queuedReferralCount, "no queued referral seeded — this assertion would prove nothing").toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: `${openCount + queuedReferralCount} matches` })).toBeInTheDocument();
   });
 
   it("narrows to the matching movement when searching by id, and links to its patient page", () => {

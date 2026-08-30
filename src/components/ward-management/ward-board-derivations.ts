@@ -98,20 +98,32 @@ function bedAcceptsSex(unit: Unit, sex: Sex, admissions: readonly Admission[], n
     // and discarded. It is never stored, never rendered, and never derived from anybody. Every
     // field other than `sex` is set to a neutral value that the sex gate does not read, so the
     // gate's answer is a fact about the bed alone.
+    //
+    // Typed `WardReferral` rather than `Referral` because it asks a question only a ward can be
+    // asked: whether a BED accepts this sex. The type now says so.
     ageBand: unit.cohort,
-    sex,
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex,
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+        state: "queued",
+      },
+    ],
     homeRegion: HOME_REGIONS[0],
     source: "community",
     raisedAt: now,
     urgency: 2,
     originSiteCode: unit.siteCode,
     transportNeeded: false,
-    state: "queued",
   };
+  const probeWard = probe.destinations[0].destination;
+  if (probeWard.kind !== "psychiatric_ward") throw new Error("the board probe must be a ward question");
   const unitWithDerivedMix: Unit = { ...unit, sexMix: derivedSexMix(admissions, unit.id) };
-  const gate = referralEligibility(probe, unitWithDerivedMix, now).gates.find(
+  const gate = referralEligibility(probe, probeWard, unitWithDerivedMix, now).gates.find(
     (candidate) => candidate.gate === SEX_DESIGNATION_GATE,
   );
   return gate?.pass ?? false;

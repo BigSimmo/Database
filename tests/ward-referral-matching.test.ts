@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { referralEligibility } from "../src/components/ward-management/ward-eligibility";
 import { referralCandidates } from "../src/components/ward-management/ward-referrals";
-import type { Referral, Unit } from "../src/components/ward-management/ward-model";
+import type { Referral, Unit, WardReferralDestination } from "../src/components/ward-management/ward-model";
 
 const NOW = 10 * 60 + 42;
 
@@ -31,22 +31,68 @@ function unit(overrides: Partial<Unit> = {}): Unit {
   };
 }
 
-function referral(overrides: Partial<Referral> = {}): Referral {
+/**
+ * Every referral in this file is a WARD referral, because every gate under test is a bed gate.
+ *
+ * The overrides stay FLAT — `referral({ sex: "Male" })`, not `referral({}, { sex: "Male" })` —
+ * and the helper routes the three ward-arm keys into `destination` itself. That is a deliberate
+ * choice to leave ~50 call sites saying exactly what they said before, so this file's diff shows
+ * only the shape change and no test's meaning moves with it. The nesting is pinned in
+ * `ward-referral-model.test.ts`, which is the file whose subject is the shape; this file's subject
+ * is which beds accept whom, and it should not have to restate the model to ask that.
+ */
+type ReferralOverrides = Partial<Omit<Referral, "destinations">> & Partial<Omit<WardReferralDestination, "kind">>;
+
+function referral(overrides: ReferralOverrides = {}): Referral {
+  const { sex, secureBedNeeded, involuntaryBedNeeded, ...rest } = overrides;
   return {
     id: "RF-TEST",
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: sex ?? "Female",
+          secureBedNeeded: secureBedNeeded ?? false,
+          involuntaryBedNeeded: involuntaryBedNeeded ?? false,
+        },
+        state: "queued",
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW - 30,
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
-    state: "queued",
-    ...overrides,
+    ...rest,
   };
+}
+
+/**
+ * Runs the bed gates for a referral built above.
+ *
+ * Exists because `referralEligibility` now takes the WARD DESTINATION as well as the referral —
+ * the criteria live on the arm, and a referral may be addressed to several places. This unwraps
+ * the one ward destination these fixtures carry and THROWS if there is not one, so a fixture that
+ * stopped being a ward referral fails loudly here rather than quietly skipping the gates.
+ */
+/** `referralCandidates` for a fixture referral, unwrapping its ward destination the same way
+ *  `verdictFor` does — and throwing for the same reason. */
+function candidatesFor(subject: Referral, units: Unit[], now: number) {
+  const ward = subject.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  if (!ward || ward.destination.kind !== "psychiatric_ward") {
+    throw new Error(`${subject.id} has no psychiatric ward destination, so it has no bed candidates`);
+  }
+  return referralCandidates(subject, ward.destination, units, now);
+}
+
+function verdictFor(subject: Referral, unitArg: Unit, now: number) {
+  const ward = subject.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  if (!ward || ward.destination.kind !== "psychiatric_ward") {
+    throw new Error(`${subject.id} has no psychiatric ward destination, so it has no bed gates to run`);
+  }
+  return referralEligibility(subject, ward.destination, unitArg, now);
 }
 
 function gate(verdict: ReturnType<typeof referralEligibility>, name: string) {
@@ -55,18 +101,18 @@ function gate(verdict: ReturnType<typeof referralEligibility>, name: string) {
 
 describe("age", () => {
   it("accepts a referral whose age band matches the unit's cohort", () => {
-    const verdict = referralEligibility(referral({ ageBand: "Older adult" }), unit({ cohort: "Older adult" }), NOW);
+    const verdict = verdictFor(referral({ ageBand: "Older adult" }), unit({ cohort: "Older adult" }), NOW);
     expect(gate(verdict, "age")?.pass).toBe(true);
   });
 
   it("rejects a referral whose age band does not match the unit's cohort", () => {
-    const verdict = referralEligibility(referral({ ageBand: "Youth" }), unit({ cohort: "Adult" }), NOW);
+    const verdict = verdictFor(referral({ ageBand: "Youth" }), unit({ cohort: "Adult" }), NOW);
     expect(gate(verdict, "age")?.pass).toBe(false);
   });
 
   it("gives the age gate a different detail string on pass than on fail", () => {
-    const passing = referralEligibility(referral({ ageBand: "Adult" }), unit({ cohort: "Adult" }), NOW);
-    const failing = referralEligibility(referral({ ageBand: "Youth" }), unit({ cohort: "Adult" }), NOW);
+    const passing = verdictFor(referral({ ageBand: "Adult" }), unit({ cohort: "Adult" }), NOW);
+    const failing = verdictFor(referral({ ageBand: "Youth" }), unit({ cohort: "Adult" }), NOW);
     expect(gate(passing, "age")?.detail).not.toBe(gate(failing, "age")?.detail);
   });
 });
@@ -79,12 +125,12 @@ describe("legal_status", () => {
   // exactly this case, because an authorised unit would then wrongly refuse a referral that
   // doesn't need one.
   it("a referral that does not need an involuntary bed is accepted by an authorised unit", () => {
-    const verdict = referralEligibility(referral({ involuntaryBedNeeded: false }), unit({ authorised: true }), NOW);
+    const verdict = verdictFor(referral({ involuntaryBedNeeded: false }), unit({ authorised: true }), NOW);
     expect(gate(verdict, "legal_status")?.pass).toBe(true);
   });
 
   it("a referral that does not need an involuntary bed is also accepted by an unauthorised (voluntary-only) unit", () => {
-    const verdict = referralEligibility(referral({ involuntaryBedNeeded: false }), unit({ authorised: false }), NOW);
+    const verdict = verdictFor(referral({ involuntaryBedNeeded: false }), unit({ authorised: false }), NOW);
     expect(gate(verdict, "legal_status")?.pass).toBe(true);
   });
 
@@ -92,22 +138,18 @@ describe("legal_status", () => {
   // accept it. This is the case a bare "always pass" gate (the dimension's pre-Phase-7 state) can
   // never catch, because it would pass here too.
   it("a referral that needs an involuntary bed is accepted by an authorised unit", () => {
-    const verdict = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
+    const verdict = verdictFor(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
     expect(gate(verdict, "legal_status")?.pass).toBe(true);
   });
 
   it("a referral that needs an involuntary bed is refused by an unauthorised (voluntary-only) unit", () => {
-    const verdict = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: false }), NOW);
+    const verdict = verdictFor(referral({ involuntaryBedNeeded: true }), unit({ authorised: false }), NOW);
     expect(gate(verdict, "legal_status")?.pass).toBe(false);
   });
 
   it("gives the legal_status gate a different detail string for an authorised unit than an unauthorised one, when a referral needs an involuntary bed", () => {
-    const authorised = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
-    const unauthorised = referralEligibility(
-      referral({ involuntaryBedNeeded: true }),
-      unit({ authorised: false }),
-      NOW,
-    );
+    const authorised = verdictFor(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
+    const unauthorised = verdictFor(referral({ involuntaryBedNeeded: true }), unit({ authorised: false }), NOW);
     expect(gate(authorised, "legal_status")?.detail).not.toBe(gate(unauthorised, "legal_status")?.detail);
   });
 
@@ -117,13 +159,9 @@ describe("legal_status", () => {
   // specific judgement about THIS bed also name it, so a coordinator reading the detail knows
   // which unit it is talking about.
   it("neither detail string judges the person — both describe the bed or the requirement", () => {
-    const authorised = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
-    const unauthorised = referralEligibility(
-      referral({ involuntaryBedNeeded: true }),
-      unit({ authorised: false }),
-      NOW,
-    );
-    const notNeeded = referralEligibility(referral({ involuntaryBedNeeded: false }), unit({ authorised: true }), NOW);
+    const authorised = verdictFor(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
+    const unauthorised = verdictFor(referral({ involuntaryBedNeeded: true }), unit({ authorised: false }), NOW);
+    const notNeeded = verdictFor(referral({ involuntaryBedNeeded: false }), unit({ authorised: true }), NOW);
 
     expect(gate(authorised, "legal_status")?.detail).toContain("Test Unit");
     expect(gate(unauthorised, "legal_status")?.detail).toContain("Test Unit");
@@ -146,21 +184,21 @@ describe("sex_designation", () => {
   it("an undesignated bed accepts a referral of either sex", () => {
     const bed = unit({ sexDesignation: "Undesignated" });
     for (const sex of ["Female", "Male"] as const) {
-      const verdict = referralEligibility(referral({ sex }), bed, NOW);
+      const verdict = verdictFor(referral({ sex }), bed, NOW);
       expect(gate(verdict, "sex_designation")?.pass).toBe(true);
     }
   });
 
   it("a Female only bed accepts a female referral and rejects a male referral", () => {
     const bed = unit({ sexDesignation: "Female only" });
-    expect(gate(referralEligibility(referral({ sex: "Female" }), bed, NOW), "sex_designation")?.pass).toBe(true);
-    expect(gate(referralEligibility(referral({ sex: "Male" }), bed, NOW), "sex_designation")?.pass).toBe(false);
+    expect(gate(verdictFor(referral({ sex: "Female" }), bed, NOW), "sex_designation")?.pass).toBe(true);
+    expect(gate(verdictFor(referral({ sex: "Male" }), bed, NOW), "sex_designation")?.pass).toBe(false);
   });
 
   it("a Male only bed accepts a male referral and rejects a female referral", () => {
     const bed = unit({ sexDesignation: "Male only" });
-    expect(gate(referralEligibility(referral({ sex: "Male" }), bed, NOW), "sex_designation")?.pass).toBe(true);
-    expect(gate(referralEligibility(referral({ sex: "Female" }), bed, NOW), "sex_designation")?.pass).toBe(false);
+    expect(gate(verdictFor(referral({ sex: "Male" }), bed, NOW), "sex_designation")?.pass).toBe(true);
+    expect(gate(verdictFor(referral({ sex: "Female" }), bed, NOW), "sex_designation")?.pass).toBe(false);
   });
 });
 
@@ -177,7 +215,7 @@ describe("sex_designation and sex_mix are independent", () => {
       sexMix: { Female: 0, Male: 5 },
       allocatable: { value: 1, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 },
     });
-    const verdict = referralEligibility(referral({ sex: "Female" }), bed, NOW);
+    const verdict = verdictFor(referral({ sex: "Female" }), bed, NOW);
     expect(gate(verdict, "sex_designation")?.pass).toBe(true);
     expect(gate(verdict, "sex_mix")?.pass).toBe(false);
   });
@@ -188,7 +226,7 @@ describe("sex_designation and sex_mix are independent", () => {
       sexMix: { Female: 0, Male: 5 },
       allocatable: { value: 1, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 },
     });
-    const verdict = referralEligibility(referral({ sex: "Male" }), bed, NOW);
+    const verdict = verdictFor(referral({ sex: "Male" }), bed, NOW);
     expect(gate(verdict, "sex_designation")?.pass).toBe(false);
     expect(gate(verdict, "sex_mix")?.pass).toBe(true);
   });
@@ -196,12 +234,12 @@ describe("sex_designation and sex_mix are independent", () => {
 
 describe("forensic", () => {
   it("a forensic bed never accepts a Phase 7 referral", () => {
-    const verdict = referralEligibility(referral(), unit({ forensic: true }), NOW);
+    const verdict = verdictFor(referral(), unit({ forensic: true }), NOW);
     expect(gate(verdict, "forensic")?.pass).toBe(false);
   });
 
   it("a non-forensic bed passes the forensic gate", () => {
-    const verdict = referralEligibility(referral(), unit({ forensic: false }), NOW);
+    const verdict = verdictFor(referral(), unit({ forensic: false }), NOW);
     expect(gate(verdict, "forensic")?.pass).toBe(true);
   });
 
@@ -211,7 +249,7 @@ describe("forensic", () => {
   // those three fragments. Asserted as the POSITIVE shape instead: the detail names the unit, and
   // contains none of the words that would put the judgement on the person rather than the bed.
   it("the forensic gate's detail names the bed and never judges the person", () => {
-    const verdict = referralEligibility(referral(), unit({ forensic: true, name: "Bunbury Adult Secure" }), NOW);
+    const verdict = verdictFor(referral(), unit({ forensic: true, name: "Bunbury Adult Secure" }), NOW);
     const detail = gate(verdict, "forensic")?.detail ?? "";
     expect(detail).toContain("Bunbury Adult Secure");
     expect(detail.toLowerCase()).not.toMatch(/\b(referral|patient|they|them|person)\b/);
@@ -220,17 +258,17 @@ describe("forensic", () => {
 
 describe("security (secureBedNeeded)", () => {
   it("accepts a secure-bed-needed referral into a Secure unit", () => {
-    const verdict = referralEligibility(referral({ secureBedNeeded: true }), unit({ security: "Secure" }), NOW);
+    const verdict = verdictFor(referral({ secureBedNeeded: true }), unit({ security: "Secure" }), NOW);
     expect(gate(verdict, "security")?.pass).toBe(true);
   });
 
   it("rejects a secure-bed-needed referral from an Open unit", () => {
-    const verdict = referralEligibility(referral({ secureBedNeeded: true }), unit({ security: "Open" }), NOW);
+    const verdict = verdictFor(referral({ secureBedNeeded: true }), unit({ security: "Open" }), NOW);
     expect(gate(verdict, "security")?.pass).toBe(false);
   });
 
   it("accepts a referral not needing a secure bed into an Open unit", () => {
-    const verdict = referralEligibility(referral({ secureBedNeeded: false }), unit({ security: "Open" }), NOW);
+    const verdict = verdictFor(referral({ secureBedNeeded: false }), unit({ security: "Open" }), NOW);
     expect(gate(verdict, "security")?.pass).toBe(true);
   });
 });
@@ -241,12 +279,12 @@ describe("reused gates carry over unchanged", () => {
       sexMix: { Female: 0, Male: 4 },
       allocatable: { value: 1, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 },
     });
-    const verdict = referralEligibility(referral({ sex: "Female" }), bed, NOW);
+    const verdict = verdictFor(referral({ sex: "Female" }), bed, NOW);
     expect(gate(verdict, "sex_mix")?.pass).toBe(false);
   });
 
   it("a referral always passes specialling, since it carries no specialling-need fact", () => {
-    const verdict = referralEligibility(referral(), unit({ speciallingCapacity: 0 }), NOW);
+    const verdict = verdictFor(referral(), unit({ speciallingCapacity: 0 }), NOW);
     expect(gate(verdict, "specialling")?.pass).toBe(true);
   });
 
@@ -255,7 +293,7 @@ describe("reused gates carry over unchanged", () => {
   // specialling required" as though the absence of a fact were itself a clinical finding about
   // the person. "required"/"not required" are the fabricated-certainty words this guards against.
   it("the specialling gate's detail describes what the record holds, not a fabricated clinical fact", () => {
-    const verdict = referralEligibility(referral(), unit({ speciallingCapacity: 0 }), NOW);
+    const verdict = verdictFor(referral(), unit({ speciallingCapacity: 0 }), NOW);
     const detail = gate(verdict, "specialling")?.detail ?? "";
     expect(detail.toLowerCase()).not.toMatch(/\brequired\b/);
     expect(detail.toLowerCase()).toMatch(/not recorded|no.*fact|unknown/);
@@ -263,13 +301,13 @@ describe("reused gates carry over unchanged", () => {
 
   it("drops a unit whose allocatable figure has gone stale rather than showing it hopefully", () => {
     const stale = unit({ allocatable: { value: 4, source: "ward", confirmedAt: NOW - 200, staleAfterMinutes: 120 } });
-    const verdict = referralEligibility(referral(), stale, NOW);
+    const verdict = verdictFor(referral(), stale, NOW);
     expect(gate(verdict, "capacity_freshness")?.pass).toBe(false);
   });
 
   it("refuses a unit with zero allocatable beds", () => {
     const empty = unit({ allocatable: { value: 0, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 } });
-    const verdict = referralEligibility(referral(), empty, NOW);
+    const verdict = verdictFor(referral(), empty, NOW);
     expect(gate(verdict, "allocatable_bed")?.pass).toBe(false);
   });
 
@@ -285,7 +323,7 @@ describe("reused gates carry over unchanged", () => {
       allocatable: { value: 2, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 },
       empty: { value: 0, source: "feed", confirmedAt: NOW - 2, staleAfterMinutes: 15 },
     });
-    const verdict = referralEligibility(referral(), divergent, NOW);
+    const verdict = verdictFor(referral(), divergent, NOW);
     expect(gate(verdict, "allocatable_bed")?.pass).toBe(false);
   });
 
@@ -305,14 +343,14 @@ describe("reused gates carry over unchanged", () => {
       allocatable: { value: 3, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 },
       empty: { value: 1, source: "feed", confirmedAt: NOW - 2, staleAfterMinutes: 15 },
     });
-    const verdict = referralEligibility(referral({ sex: "Female" }), divergent, NOW);
+    const verdict = verdictFor(referral({ sex: "Female" }), divergent, NOW);
     expect(gate(verdict, "allocatable_bed")?.pass).toBe(true);
     expect(gate(verdict, "sex_mix")?.pass).toBe(false);
     expect(verdict.eligible).toBe(false);
   });
 
   it("passes every gate for a well-matched referral", () => {
-    const verdict = referralEligibility(referral(), unit(), NOW);
+    const verdict = verdictFor(referral(), unit(), NOW);
     expect(verdict.eligible).toBe(true);
     expect(verdict.gates.every((g) => g.pass)).toBe(true);
   });
@@ -321,7 +359,7 @@ describe("reused gates carry over unchanged", () => {
 describe("referralCandidates", () => {
   it("returns every unit, never a truncated list", () => {
     const units = [unit({ id: "u1" }), unit({ id: "u2" }), unit({ id: "u3" })];
-    const candidates = referralCandidates(referral(), units, NOW);
+    const candidates = candidatesFor(referral(), units, NOW);
     expect(candidates).toHaveLength(units.length);
     expect(candidates.map((c) => c.unit.id)).toEqual(["u1", "u2", "u3"]);
   });
@@ -332,13 +370,13 @@ describe("referralCandidates", () => {
       unit({ id: "u1", cohort: "Adult" }), // sorted matches first would read as a recommendation
       unit({ id: "u2", cohort: "Adult" }),
     ];
-    const candidates = referralCandidates(referral({ ageBand: "Adult" }), units, NOW);
+    const candidates = candidatesFor(referral({ ageBand: "Adult" }), units, NOW);
     expect(candidates.map((c) => c.unit.id)).toEqual(["u3", "u1", "u2"]);
   });
 
   it("pairs each unit with its own verdict", () => {
     const units = [unit({ id: "match", cohort: "Adult" }), unit({ id: "mismatch", cohort: "Youth" })];
-    const candidates = referralCandidates(referral({ ageBand: "Adult" }), units, NOW);
+    const candidates = candidatesFor(referral({ ageBand: "Adult" }), units, NOW);
     expect(candidates.find((c) => c.unit.id === "match")?.verdict.eligible).toBe(true);
     const mismatchVerdict = candidates.find((c) => c.unit.id === "mismatch")?.verdict;
     expect(mismatchVerdict && gate(mismatchVerdict, "age")?.pass).toBe(false);

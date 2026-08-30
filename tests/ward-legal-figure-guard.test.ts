@@ -1,3 +1,4 @@
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
@@ -402,13 +403,25 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
  * membership-checks `ageBand`, `source` and `homeRegion`, validates `urgency`, and resolves
  * `originSiteCode` against the real site list (`ward-flow-reducer.ts`). Every field below must
  * stay valid against those checks for this candidate to keep being accepted — `homeRegion` was
- * added here for exactly that reason when the field was added to `Referral`.
+ * added here for exactly that reason when the field was added to `Referral`. The three ward-arm
+ * fields now sit under `destinations[0]` and are validated through it; the event takes a LIST
+ * since FD-21, so this candidate addresses exactly one destination.
  */
 const RECEIVE_REFERRAL_CANDIDATE = {
   ageBand: "Adult" as const,
-  sex: "Female" as const,
-  secureBedNeeded: false,
-  involuntaryBedNeeded: false,
+  // 2026-08-30, destination union: `sex`, `secureBedNeeded` and `involuntaryBedNeeded` sat flat
+  // here until they moved onto the ward arm of `ReferralDestination`. A STRUCTURAL change only —
+  // the same three values, the same always-valid candidate, and no figure, timeframe or threshold
+  // anywhere near it. This file is touched as little as possible on purpose; the edit was forced
+  // by the event type it constructs, not chosen.
+  destinations: [
+    {
+      kind: "psychiatric_ward" as const,
+      sex: "Female" as const,
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
+  ],
   homeRegion: "Perth Metropolitan" as const,
   source: "community" as const,
   urgency: 2 as const,
@@ -691,15 +704,31 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       // candidate rather than guessing which one currently matches (allocatable counts and sex
       // mix shift as the sweep runs other event types).
       return state.referrals
-        .filter((referral) => referral.state === "queued")
-        .flatMap((referral) => unitIds.map((unitId) => ({ type, role, now, referralId: referral.id, unitId })));
+        .filter((referral) => referralState(referral) === "queued")
+        .flatMap((referral) =>
+          unitIds.map((unitId) => ({
+            type,
+            role,
+            now,
+            referralId: referral.id,
+            destinationKind: "psychiatric_ward" as const,
+            unitId,
+          })),
+        );
     case "DECLINE_REFERRAL":
       // Every queued referral crossed with every real decline reason, same "offer every
       // legitimate candidate" reasoning as ACCEPT_REFERRAL above.
       return state.referrals
-        .filter((referral) => referral.state === "queued")
+        .filter((referral) => referralState(referral) === "queued")
         .flatMap((referral) =>
-          REFERRAL_DECLINE_REASONS.map((reason) => ({ type, role, now, referralId: referral.id, reason })),
+          REFERRAL_DECLINE_REASONS.map((reason) => ({
+            type,
+            role,
+            now,
+            referralId: referral.id,
+            destinationKind: "psychiatric_ward" as const,
+            reason,
+          })),
         );
     // Phase 8 Task 2. Generated against the CURRENT state for the same reason every list above
     // is: the sweep applies other event types as it goes, so which referrals are still queued
@@ -709,7 +738,7 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
     // names the unreached event. (Task 2R removed `REFERRAL_ARRIVED`, which had the same shape.)
     case "RECORD_LOCAL_BED_SOUGHT":
       return state.referrals
-        .filter((referral) => referral.state === "queued" && referral.localBedSought === undefined)
+        .filter((referral) => referralState(referral) === "queued" && referral.localBedSought === undefined)
         .map((referral) => ({ type, role, now, referralId: referral.id }));
   }
 }

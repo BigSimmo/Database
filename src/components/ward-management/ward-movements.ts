@@ -263,30 +263,26 @@ const seededMovements: Movement[] = [
     owner: "Flow coordinator",
     referredUnitIds: [],
     declines: [
-      { unitId: "rph-adult-secure", at: NOW_ANCHOR - 90, reason: "no_bed", note: "Zero allocatable beds confirmed" },
+      { unitId: "rph-adult-secure", at: NOW_ANCHOR - 90, reason: "no_bed" },
       {
         unitId: "gry-adult-secure",
         at: NOW_ANCHOR - 60,
         reason: "acuity_mix",
-        note: "Acuity mix unsuitable for the current ward composition",
       },
       {
         unitId: "bty-adult-secure",
         at: NOW_ANCHOR - 30,
         reason: "bed_held_for_earlier_referral",
-        note: "Bed already held against an earlier referral",
       },
       {
         unitId: "fsh-adult-secure",
         at: NOW_ANCHOR - 15,
         reason: "specialling_unavailable",
-        note: "No specialling capacity available at referral time",
       },
       {
         unitId: "rgh-adult-secure",
         at: NOW_ANCHOR - 5,
         reason: "capability_mismatch",
-        note: "Ward composition unsuitable for this referral",
       },
     ],
     // Every authorised secure adult unit in the network has now either declined this
@@ -528,7 +524,6 @@ const seededMovements: Movement[] = [
         unitId: "gry-adult-secure",
         at: NOW_ANCHOR - 70,
         reason: "specialling_unavailable",
-        note: "No specialling capacity available",
       },
     ],
     blocker: "Escalated to duty psychiatrist — breach imminent",
@@ -892,7 +887,7 @@ export const bedReleases: BedRelease[] = [
     // construction. It is still a note and still gates nothing.
     id: "WR-008",
     unitId: "arm-adult-open",
-    state: "released",
+    state: "discharged",
     expectedAt: NOW_ANCHOR - 15,
     waitingOn: null,
     blocker: null,
@@ -1019,98 +1014,157 @@ export const referrals: Referral[] = [
   {
     id: "RF-001",
     ageBand: "Youth",
-    sex: "Female",
-    secureBedNeeded: true,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: true,
+          involuntaryBedNeeded: false,
+        },
+        state: "queued",
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW_ANCHOR - 40,
     urgency: 2,
     originSiteCode: "ARM",
     transportNeeded: true,
-    state: "queued",
   },
   {
     id: "RF-002",
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+        state: "accepted",
+        acceptedUnitId: "ger-adult-open",
+        decidedAt: NOW_ANCHOR - 10,
+        // Fix round B (review finding M2/M3): was "Bed management", a decider ACCEPT_REFERRAL
+        // (ward-flow-reducer.ts) can never actually produce — the reducer writes the ACTING role's
+        // label, and this seed records a coordinator's acceptance. (Until FD-25, 2026-08-30, the
+        // event was coordinator-only and could write nothing else; a ward may now accept too, so
+        // the label here is a choice about this seed rather than the only possible value.)
+        decidedBy: "Flow coordinator",
+      },
+    ],
     homeRegion: "Kimberley",
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 90,
     urgency: 2,
     originSiteCode: "KUN",
     transportNeeded: true,
-    state: "accepted",
-    acceptedUnitId: "ger-adult-open",
-    decidedAt: NOW_ANCHOR - 10,
-    // Fix round B (review finding M2/M3): was "Bed management", a decider ACCEPT_REFERRAL
-    // (ward-flow-reducer.ts) can never actually produce — that event is coordinator-only and
-    // always writes "Flow coordinator". Made consistent with what the live reducer writes.
-    decidedBy: "Flow coordinator",
   },
   {
     id: "RF-003",
     ageBand: "Adult",
-    sex: "Male",
-    secureBedNeeded: false,
-    // Seeds the `legal_status` accepts-rule (D3 rule 2): needs a bed that can hold someone
-    // involuntarily. Accepted at `scgh-adult-open`, which is authorised — and SJGS Adult Open
-    // (`sjgs-adult-open`, Adult/Open/Undesignated but NOT authorised) is a real bed elsewhere in
-    // the network that this same referral would correctly be refused by on `legal_status` alone,
-    // proving the rule actually excludes something rather than passing for every bed.
-    involuntaryBedNeeded: true,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Male",
+          secureBedNeeded: false,
+          // Seeds the `legal_status` accepts-rule (D3 rule 2): needs a bed that can hold someone
+          // involuntarily. Accepted at `scgh-adult-open`, which is authorised — and SJGS Adult Open
+          // (`sjgs-adult-open`, Adult/Open/Undesignated but NOT authorised) is a real bed elsewhere in
+          // the network that this same referral would correctly be refused by on `legal_status` alone,
+          // proving the rule actually excludes something rather than passing for every bed.
+          involuntaryBedNeeded: true,
+        },
+        state: "accepted",
+        acceptedUnitId: "scgh-adult-open",
+        decidedAt: NOW_ANCHOR - 15,
+        decidedBy: "Flow coordinator",
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
     urgency: 1,
     originSiteCode: "SCGH",
     transportNeeded: false,
-    state: "accepted",
-    acceptedUnitId: "scgh-adult-open",
-    decidedAt: NOW_ANCHOR - 15,
-    decidedBy: "Flow coordinator",
   },
   {
     id: "RF-004",
     ageBand: "Older adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+        state: "declined",
+        declineReason: "belongs_to_another_service",
+        decidedAt: NOW_ANCHOR - 25,
+        // Fix round B (review finding M2/M3): was "Duty psychiatrist". DECLINE_REFERRAL writes the
+        // acting role's label; this seed records a coordinator's decline — see RF-002's comment above.
+        decidedBy: "Flow coordinator",
+      },
+    ],
     homeRegion: "Peel",
     source: "police",
     raisedAt: NOW_ANCHOR - 70,
     urgency: 3,
     originSiteCode: "PEEL",
     transportNeeded: true,
-    state: "declined",
-    declineReason: "belongs_to_another_service",
-    decidedAt: NOW_ANCHOR - 25,
-    // Fix round B (review finding M2/M3): was "Duty psychiatrist" — DECLINE_REFERRAL is also
-    // coordinator-only and always writes "Flow coordinator"; see RF-002's own comment above.
-    decidedBy: "Flow coordinator",
   },
   {
     id: "RF-005",
     ageBand: "Older adult",
-    sex: "Male",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Male",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+        state: "queued",
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 20,
     urgency: 2,
     originSiteCode: "FSH",
     transportNeeded: true,
-    state: "queued",
   },
   {
     id: "RF-006",
     ageBand: "Adult",
-    sex: "Male",
-    secureBedNeeded: true,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Male",
+          secureBedNeeded: true,
+          involuntaryBedNeeded: false,
+        },
+        state: "accepted",
+        // Fix round B (review finding C1): was `acceptedUnitId: "brm-adult-secure"` — that unit is
+        // `forensic: true`, and `referralEligibility` (ward-eligibility.ts) refuses every forensic
+        // unit unconditionally (D7: "never offered"), on top of the unit's own `allocatable: 0` at
+        // the time. `ACCEPT_REFERRAL` calls that same function, so the reducer would have refused
+        // this exact acceptance — the seed recorded an acceptance the live system could not produce.
+        // `fsh-adult-secure` is the network's real Male-only Secure bed (see the doc comment above)
+        // and genuinely passes every gate; `referralEligibility(referral, unitById("fsh-adult-secure"),
+        // NOW_ANCHOR).eligible` is asserted `true` for every accepted referral in
+        // `tests/ward-referral-model.test.ts`, which is the four-line test that would have caught the
+        // original seed at Task 1.
+        acceptedUnitId: "fsh-adult-secure",
+        decidedAt: NOW_ANCHOR - 5,
+        // Fix round B (review finding M2/M3): was "Bed management" — see RF-002's own comment above.
+        decidedBy: "Flow coordinator",
+      },
+    ],
     // Out of area on purpose — see this fixture's own doc comment above.
     homeRegion: "Kimberley",
     source: "police",
@@ -1118,21 +1172,6 @@ export const referrals: Referral[] = [
     urgency: 1,
     originSiteCode: "BRM",
     transportNeeded: false,
-    state: "accepted",
-    // Fix round B (review finding C1): was `acceptedUnitId: "brm-adult-secure"` — that unit is
-    // `forensic: true`, and `referralEligibility` (ward-eligibility.ts) refuses every forensic
-    // unit unconditionally (D7: "never offered"), on top of the unit's own `allocatable: 0` at
-    // the time. `ACCEPT_REFERRAL` calls that same function, so the reducer would have refused
-    // this exact acceptance — the seed recorded an acceptance the live system could not produce.
-    // `fsh-adult-secure` is the network's real Male-only Secure bed (see the doc comment above)
-    // and genuinely passes every gate; `referralEligibility(referral, unitById("fsh-adult-secure"),
-    // NOW_ANCHOR).eligible` is asserted `true` for every accepted referral in
-    // `tests/ward-referral-model.test.ts`, which is the four-line test that would have caught the
-    // original seed at Task 1.
-    acceptedUnitId: "fsh-adult-secure",
-    decidedAt: NOW_ANCHOR - 5,
-    // Fix round B (review finding M2/M3): was "Bed management" — see RF-002's own comment above.
-    decidedBy: "Flow coordinator",
   },
   {
     id: "RF-007",
@@ -1142,9 +1181,20 @@ export const referrals: Referral[] = [
     // rather than decorative. This referral is that missing case: Youth, no secure bed needed (so
     // the Open EMyU can actually accept it), accepted at `bty-youth`.
     ageBand: "Youth",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+        state: "accepted",
+        acceptedUnitId: "bty-youth",
+        decidedAt: NOW_ANCHOR - 8,
+        decidedBy: "Flow coordinator",
+      },
+    ],
     // Out of area on purpose, same reason as RF-006 above — a second real example for the
     // out-of-area ledger `homeRegion` exists to make possible.
     homeRegion: "Mid West",
@@ -1153,10 +1203,6 @@ export const referrals: Referral[] = [
     urgency: 2,
     originSiteCode: "GER",
     transportNeeded: true,
-    state: "accepted",
-    acceptedUnitId: "bty-youth",
-    decidedAt: NOW_ANCHOR - 8,
-    decidedBy: "Flow coordinator",
   },
   {
     // Phase 8 Task 2. Added — not edited into an existing referral — because the equity ledger
@@ -1187,18 +1233,25 @@ export const referrals: Referral[] = [
     // fact by a later screen.
     id: "RF-008",
     ageBand: "Adult",
-    sex: "Male",
-    secureBedNeeded: true,
-    involuntaryBedNeeded: false,
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Male",
+          secureBedNeeded: true,
+          involuntaryBedNeeded: false,
+        },
+        state: "accepted",
+        acceptedUnitId: "fsh-adult-secure",
+        decidedAt: NOW_ANCHOR - 45,
+        decidedBy: "Flow coordinator",
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 75,
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: true,
-    state: "accepted",
-    acceptedUnitId: "fsh-adult-secure",
-    decidedAt: NOW_ANCHOR - 45,
-    decidedBy: "Flow coordinator",
   },
 ];

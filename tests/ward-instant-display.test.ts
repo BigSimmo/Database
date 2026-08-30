@@ -37,7 +37,6 @@ const MAY_ASSERT_TODAY = new Map([
   ["legalForm.dueAt", "STILL TO SWEEP - needs `now` threaded into legalFormReadinessLine"],
   ["rejection.at", "STILL TO SWEEP - exception-drawer has no `now` in scope; needs a prop"],
   ["movement.transport.acceptedAt as Instant", "STILL TO SWEEP - transport accepted yesterday reads as today"],
-  ["referral.decidedAt", "referral surface, owned by another session - not swept from here by agreement"],
   ["referral.localBedSought.at", "referral surface, owned by another session"],
 ]);
 

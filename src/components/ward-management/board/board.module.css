@@ -205,6 +205,37 @@
 }
 
 /*
+ * The board's statement that it does not advance (owner decision 2026-08-30). Muted like
+ * `.asAtNote` and sitting directly under the stamp, because it qualifies the stamp: it is the
+ * sentence that stops a reader treating a time that never moves as a time that has stopped
+ * working. It PRINTS — no `display: none` in the print block below — since a printed board carries
+ * the same fixed instant and a reader holding paper has even less way to tell.
+ */
+/*
+ * "At an emergency department — the bed is still theirs." Owner decision 2026-08-30.
+ *
+ * Weighted like a warning rather than a detail, because it qualifies every other line on the
+ * person: their stay length, their discharge plan and their diagnosis all read differently about
+ * somebody who is not on the ward. Uses the board's own attention token — never a bare hex, and
+ * never colour alone: the sentence carries the whole meaning if the colour is not perceived at all,
+ * which is what makes it survive forced-colors and a monochrome printer.
+ */
+.personAway {
+  margin: 0 0 var(--wb-space-4);
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--wb-leading-body);
+}
+
+.asAtFixed {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+/*
  * THE DAILY SHEET — D19's ward handover sheet, page one of anything printed from this board.
  *
  * On screen it is one more panel among the board's others, deliberately: it is not a preview of a
@@ -321,6 +352,20 @@
   color: var(--text);
   font-size: var(--text-2xs);
   line-height: var(--wb-leading-body);
+}
+
+/*
+ * "At an emergency department" on the printed sheet. Bolder than `.sheetRowLine` because it
+ * qualifies every line beneath it, and because this sheet is read aloud — the reader's eye has to
+ * catch it before they start reciting a discharge plan for somebody who is not on the ward.
+ *
+ * Weight and words, never a fill: a printer drops backgrounds, and the whole defect this board has
+ * already been through once is ink that vanishes on paper.
+ */
+.sheetRowAway {
+  margin: 0 0 var(--wb-space-4);
+  color: var(--text-heading);
+  font-weight: 700;
 }
 
 .sheetDestinations {
@@ -612,6 +657,33 @@
   background: var(--danger-solid);
   padding: 0 var(--wb-space-4);
   color: var(--danger-solid-contrast);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/*
+ * "At ED" on the tile — the same SHAPE as `.pastMark` above and deliberately not the same colour.
+ *
+ * Same shape because they are the same kind of fact: a short word-badge qualifying the day count
+ * beside it, and a reader who has learned to read one should not have to learn another.
+ *
+ * NOT the danger fill, which is what copying `.pastMark` wholesale gave it at first. A passed
+ * discharge date is a problem; being at an emergency department is a STATUS, and a ward is
+ * usually holding the bed because the person is coming back. A red badge would have every board
+ * with an ED trip on it reading as a board in trouble, and a marker that over-alarms is ignored
+ * within a week — which costs more than the marker was worth.
+ *
+ * Bordered rather than filled, so it is still legible in forced-colors and on paper, and the word
+ * carries the whole meaning if no colour is perceived at all.
+ */
+.awayMark {
+  border-radius: var(--radius-xs);
+  border: var(--wb-hairline) solid var(--border-strong);
+  background: var(--surface-inset);
+  padding: 0 var(--wb-space-4);
+  color: var(--text-heading);
   font-size: var(--text-3xs);
   font-weight: 700;
   letter-spacing: var(--tracking-label);
@@ -1514,6 +1586,11 @@
    * This applies to the badge wherever it appears: the tiles carried it before this pass and the
    * people panel carries it now, and the two must not diverge on paper.
    */
+  /* `.awayMark` takes `.pastMark`'s treatment exactly — same shape on screen, same on paper, and
+     for the reason the comment above gives: the two badges must not diverge on paper. It sets its
+     own `--surface-inset` background and `--text-heading` ink, both of which are theme tokens
+     chosen for a screen. */
+  .awayMark,
   .pastMark {
     border: var(--wb-hairline) solid CanvasText;
     /*
@@ -1581,6 +1658,17 @@
    * a real 400dpi sheet. Only elements sitting on the PAGE GROUND are listed: everything inside a
    * panel keeps its own painted background and the ink that goes with it.
    */
+  /*
+   * `.asAtFixed` was added to this list on 2026-08-30 — it sits on the page ground directly beneath
+   * `.asAtNote` and needs the same ink for the same reason. It is the sentence saying the board
+   * does not advance, which on paper is the only way a reader can tell a fixed time from a stopped
+   * one.
+   *
+   * The note lives HERE rather than beside the selector because
+   * `tests/ward-board-selection.dom.test.tsx` pins this list's shape within 400 characters, and a
+   * comment inside it pushes `color: CanvasText` out of range. That guard is doing its job; do not
+   * widen it to make room for prose.
+   */
   .unitName,
   .siteName,
   .headlineValue,
@@ -1588,6 +1676,7 @@
   .constraint,
   .asAtValue,
   .asAtNote,
+  .asAtFixed,
   .legend,
   .occupancy,
   .peopleAbsence,
@@ -1689,6 +1778,12 @@
   .sheetRowLead,
   .sheetRowBand,
   .sheetRowLine,
+  /* Added 2026-08-30 WITH the element itself, not after somebody noticed a blank line on paper.
+     `.sheetRowAway` sets its own `--text-heading`, which resolves to a near-white in the dark
+     theme — so without this the one line saying a patient is not on the ward printed white on
+     white, on the sheet that is read aloud at handover. Exactly the defect this block already
+     exists to fix, reintroduced by a new rule that set a colour. */
+  .sheetRowAway,
   .sheetNote {
     color: CanvasText;
   }
@@ -1769,6 +1864,11 @@
   .personNoStay,
   .personWho,
   .personLine,
+  /* The fourth of the same defect, all introduced in one night by rules that each set a colour.
+     `.personAway` is the people panel's copy of the at-an-ED line; the sheet's copy is handled
+     with the sheet block above. Neither is optional on paper: a printed occupant list that cannot
+     say somebody is off the ward is the list a handover reads from. */
+  .personAway,
   .personExpected,
   .personBlocker,
   .personSelectedMark {

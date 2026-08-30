@@ -45,20 +45,39 @@ export const RELEASE_BANDS = ["now", "by-midday", "by-1600", "tonight", "tomorro
 export type ReleaseBand = (typeof RELEASE_BANDS)[number];
 
 /**
- * `Instant` is minutes since midnight on the synthetic operating day, not a wall-clock time of
- * day that wraps — so the band is derived from the RAW instant, compared directly against the
- * named minute constants, never from a wrapped time-of-day (e.g. via `formatInstant`). A release
- * expected a full day after `now` (`now + 1440`) must land in `"beyond-today"` even though it
- * falls at the same clock time as `now` itself; wrapping first would put it back in an earlier
- * band and silently resurrect a release that should have dropped off the board. Do not "fix" this
- * back to a wrapped time-of-day comparison.
+ * WHICH DAY FIRST, THEN WHICH PART OF THAT DAY. Rewritten 2026-08-30; read the reason before
+ * changing it back.
+ *
+ * The three named constants are minutes from the start of DAY ZERO. Until the demo clock moved,
+ * every instant WAS a minute of day zero, so comparing a raw instant against them was correct —
+ * and the comment that used to sit here defended exactly that, for a real reason restated below.
+ *
+ * **Once the clock ran past midnight that comparison collapsed.** An instant on day one is 1440 or
+ * more, so every release on day one exceeded `EVENING_SHIFT_END_MINUTES` and came back
+ * `"beyond-today"`: the whole band vocabulary reduced to one value, and "beyond today" came to
+ * mean "beyond day zero". Confirmed by running it rather than inferred —
+ * `tests/ward-release-band-day-boundary.test.ts` failed with `expected 'beyond-today' to be
+ * 'by-midday'` for an 09:00 discharge read at 08:00 on day one.
+ *
+ * **The rule the old comment protected still holds and is still enforced.** A release a full day
+ * after `now` must NOT wrap back into an earlier band — `now + 1440` falls at the same clock time
+ * as `now` and is emphatically not "now". That is why the DAY comparison comes first and
+ * short-circuits before any minute-of-day comparison is reached. Wrapping first was the danger;
+ * wrapping only after the day is settled is not.
+ *
+ * **DB-7 HAS SINCE LANDED and this paragraph's premise is gone.** It said the horizon was
+ * deliberately unchanged and that a later day was still `"beyond-today"`. The owner answered on
+ * 2026-08-30: the horizon rolls a full twenty-four hours and a later day is `"tomorrow"`. The
+ * morning page carries the stated notice that its figures rose because the rule changed. Kept as a
+ * record rather than deleted, because the reasoning above is why the change was dangerous to make
+ * carelessly, and that is still true
  */
 export function releaseBand(release: BedRelease, now: Instant): ReleaseBand | "beyond-today" {
-  if (release.state === "released") {
-    // A ROLLING twenty-four hours, not the calendar day. A bed released at 23:00 stopped counting
+  if (release.state === "discharged") {
+    // A ROLLING twenty-four hours, not the calendar day. A bed discharged at 23:00 stopped counting
     // at midnight under the old comparison - an hour later, and by the calendar rather than by
     // anything a ward would recognise. The night shift reads this board at 02:00 and the beds
-    // released on their own shift had already dropped off it.
+    // discharged on their own shift had already dropped off it.
     if (now - release.confirmedAt >= MINUTES_PER_DAY) return "beyond-today";
     return "now";
   }
@@ -122,7 +141,7 @@ export function capacityBreakdown(
   let excludedBeyondToday = 0;
 
   for (const release of unitReleases) {
-    if (release.state === "released") continue;
+    if (release.state === "discharged") continue;
     const band = releaseBand(release, now);
     if (band === "beyond-today") {
       excludedBeyondToday += 1;
