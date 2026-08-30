@@ -67,10 +67,20 @@ type ShortlistPanelProps = {
  * a present reason is stored on `Movement.overrides` — which is the whole of owner decision `OD-3`.
  * The control beside it is a `<select>` over that same list, never a textarea.
  *
- * **It did not merely go stale; it misinformed another session.** Ward Referrals read it, believed
- * it, and filed a request for a field that already existed — a real cost, from a comment that was
- * accurate when written and that nothing local fails when it stops being. Fifth instance of that
- * shape found in this prototype today, and the first with a measurable victim.
+ * ⚠️ **AND THE FIRST VERSION OF THIS CORRECTION WAS ITSELF WRONG, WHICH IS THE MORE USEFUL HALF.**
+ * It said the paragraph had "misinformed another session" — that Ward Referrals read a rotted
+ * comment and filed a request for work already done. **That was not what happened.** The reason
+ * field exists on `claude/ward-flow-phases-6-7-design` and does NOT exist on
+ * `claude/ward-flow-wave1-referral-corrections`, where that session was standing. **On its branch
+ * both the comment and its request were correct.** There was no stale comment and no victim; there
+ * were two branches, and I compared its report against my own working tree and read the difference
+ * as its mistake.
+ *
+ * So this paragraph is stale HERE, on this branch, from the day `OD-3` landed here — and it is
+ * accurate anywhere the event has not arrived. **An observation carries its branch as well as its
+ * date, and a fact with its position stripped off looks like a fact about the world.** I had quoted
+ * that exact rule at another session hours earlier, after it reported a defect class closed from a
+ * grep on one branch.
  *
  * Override still keeps local state, for a smaller reason than the one this used to give: the
  * `<select>` needs a value between choosing a reason and submitting it. This record is never

@@ -30,7 +30,15 @@ import { allEmergencyDepartments } from "@/components/ward-management/ward-sites
  * case the spec names, which is the case nobody re-reads after implementing from it. `FD-18` is the
  * general form. The last test in this file is the guard.
  */
-function edDestination(edId: string, purpose: ReferralPurpose): ReferralDestination {
+/**
+ * Typed as the NARROWED arm rather than the `ReferralDestination` union, deliberately. Returning
+ * the union compiles and then hides the fields this file exists to check: `.edId` is not reachable
+ * on a union member without narrowing, so every assertion about it would need a cast — and a cast
+ * is exactly what would let the field be removed again without this file noticing.
+ */
+type EdDestination = Extract<ReferralDestination, { kind: "emergency_department" }>;
+
+function edDestination(edId: string, purpose: ReferralPurpose): EdDestination {
   return { kind: "emergency_department", edId, purpose };
 }
 
