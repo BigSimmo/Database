@@ -86,10 +86,14 @@ describe("EscalationBoardPage", () => {
     }
   });
 
-  // This board is deliberately NOT frozen, unlike the shift handover — see the doc comment on
-  // `EscalationBoardPage`. Advancing the shared clock must move WF-009's wait label forward, the
-  // opposite assertion of ward-handover.dom.test.tsx's freeze test. If a future edit added a
-  // `useState` freeze here (copying the handover pattern without the reasoning), this goes red.
+  // This board reads live: advancing the shared clock must move WF-009's wait label forward. If a
+  // future edit added a `useState` freeze here, this goes red.
+  //
+  // This comment used to say "unlike the shift handover" and pointed at that suite's freeze test as
+  // the opposite assertion. Both halves died with owner decision OD-4 on 2026-08-30 — the handover
+  // reads live too, and its freeze test was replaced by the inverse. Left pointing at a pattern
+  // that no longer exists, this would have told a reader to copy a freeze from a page that has
+  // none.
   it("stays live: the wait column advances when the shared clock advances", () => {
     renderEscalationBoard();
 

@@ -107,6 +107,22 @@ export function calendarDateOf(instant: Instant, dayZero: Date): Date {
  * Relative wording rather than a date because the reader is oriented to now rather than to a
  * calendar. A date belongs only where somebody would say one aloud.
  */
+/**
+ * A moment written out in full — weekday, date and clock face — for something that will be PRINTED.
+ *
+ * `formatInstant` gives a bare clock face and `formatInstantWithDay` gives one relative to now
+ * ("yesterday", "in 2 days"). Both are right on screen and both are wrong on paper: a sheet
+ * outlives the day it was taken on, and "14:32" or "14:32 yesterday" on a printed handover cannot
+ * say which day it means once it has been carried out of the room.
+ *
+ * Takes `dayZero` because an `Instant` is an offset, not a moment — see `calendarDateOf`.
+ */
+export function formatSheetMoment(instant: Instant, dayZero: Date): string {
+  const date = calendarDateOf(instant, dayZero);
+  const day = date.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+  return `${day}, ${formatInstant(instant)}`;
+}
+
 export function formatInstantWithDay(instant: Instant, now: Instant): string {
   const clockFace = formatInstant(instant);
   const dayDifference = dayOf(instant) - dayOf(now);

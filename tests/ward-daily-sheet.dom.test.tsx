@@ -114,6 +114,34 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     }
   });
 
+  it('says "None." and nothing longer when nobody on the ward is away', () => {
+    /*
+     * OWNER, 2026-08-30, answering whether this group should print at all when it is empty:
+     * "Just say none."
+     *
+     * He kept the group and shortened the sentence, which resolves the tension better than either
+     * option offered: the sheet's never-blank rule survives whole — a reader still meets the
+     * heading and knows nothing failed to print — while the page cost on a sheet already spilling
+     * to a second page drops from a sentence to one word.
+     *
+     * Pinned because it is his wording on a clinical artefact and nothing else asserts it. Twenty
+     * of this project's user-facing control labels turned out to be pinned by no test at all, and
+     * an owner-chosen string with no assertion is the same gap in a different place.
+     */
+    const wardWithNobodyAway = wardAdmissions.find(
+      (admission) =>
+        admission.awayAtEmergencyDepartmentSince === null &&
+        !wardAdmissions.some(
+          (other) => other.unitId === admission.unitId && other.awayAtEmergencyDepartmentSince !== null,
+        ),
+    );
+    expect(wardWithNobodyAway, "every seeded ward has somebody away — this assertion is vacuous").toBeDefined();
+
+    renderWardBoard(wardWithNobodyAway!.unitId);
+    const count = screen.getByTestId("ward-daily-sheet-away-count");
+    expect(count.textContent).toBe("None.");
+  });
+
   it("says on the PAPER that a patient is at an emergency department, not only on the screen", () => {
     /*
      * The gap the tile fix left, and the more serious half of it.

@@ -1740,6 +1740,32 @@
    *
    * A ward with many people in the attention groups still runs to a second page, and that is
    * correct rather than a defect: the alternative is a sheet that quietly leaves somebody off.
+   *
+   * **MEASURED AGAIN 2026-08-30, after "Who is off the ward" became a sixth group, because I had
+   * told the owner it would cost a column on every sheet. It costs nothing when empty, and the
+   * reason is the grid rather than the group.**
+   *
+   * At A4 width the groups grid resolves to THREE columns (`208.3px` each), so six groups occupy
+   * two rows of three rather than a sixth column. On the 24-bed `scgh-adult-open`:
+   *
+   *   row 1  in(0 rows) out(9) stuck(2)      top 361, height 380
+   *   row 2  overdue(3) no-date(5) away(0)   top 753, height 646
+   *   sheet total 1178px against 1123px of page — about 55px, four lines, over
+   *
+   * **Row 2's height is set by `no-date` at five rows, and the grid rows are equal height, so an
+   * empty `away` cell adds zero.** It only costs anything if it becomes the tallest group in its
+   * row, or if a SEVENTH group forces a third row. That is the number that was owed, and it
+   * refutes the concern rather than confirming it.
+   *
+   * The owner's answer to whether the group should print when empty — *"Just say none."* — is what
+   * keeps it that way: `emptyText="None."` rather than a sentence, so the empty cell stays the
+   * shortest in its row instead of competing to set the row height.
+   *
+   * **Caveat, because the number is only as good as how it was taken:** measured with screen CSS at
+   * a 794x1123 viewport, not under print-media emulation. This block changes only `gap` and
+   * `margin-top` for `.sheetGroups`, so the column count is the same — but the earlier figures
+   * above were taken under real print media and these were not, and they should not be compared
+   * digit for digit.
    */
   .sheetGroups {
     gap: var(--wb-space-8);
