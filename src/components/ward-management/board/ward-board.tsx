@@ -878,6 +878,14 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * THE BOARD DOES NOT ADVANCE, AND SAYS SO. Owner decision, 2026-08-30, taken in
            * preference to making it live.
            *
+           * **CORRECTED 2026-08-30: the note below said "the times will differ", and that understated
+           * it.** This board reads NO live state — zero uses of `useWardFlow` — and synthesises its
+           * own bed releases from the fixture rather than taking the provider's. So the divergence
+           * is a different DATA SOURCE, not a clock, and the two screens can disagree about FIGURES
+           * too: mark a patient arrived and the ward screen moves while this board cannot. A reader
+           * seeing `Held 1` here against `Held 0` there, under a note that mentions only the clock,
+           * reads a fault rather than the stated design.
+           *
            * Every other Ward Flow screen now follows a clock that starts at the real time of page
            * load and runs. This board deliberately does not: it reads the admissions fixture at
            * `WARD_ADMISSIONS_ANCHOR`, the instant that fixture is authored against, so every stay
@@ -896,8 +904,8 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * site — and this note comes out in the same commit.
            */}
           <p className={styles.asAtFixed} data-testid="ward-board-fixed-note">
-            This board is a fixed snapshot and does not advance while you watch. Other screens follow the live clock, so
-            the times will differ.
+            This board shows a fixed example and does not change while you use the demonstration. Other screens do
+            change, so their figures and times can both differ from these.
           </p>
         </div>
 

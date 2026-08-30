@@ -255,8 +255,17 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     renderWardBoard(UNIT_ID);
     const note = screen.getByTestId("ward-board-fixed-note").textContent ?? "";
 
-    expect(note).toMatch(/does not advance/i);
+    expect(note).toMatch(/does not change/i);
     expect(note).toMatch(/other screens/i);
+    /*
+     * FIGURES, not only times — corrected 2026-08-30. The note first said "the times will differ",
+     * and the owner approved the label on that description. The board reads NO live state at all
+     * (zero uses of `useWardFlow`) and synthesises its own bed releases from the fixture, so after
+     * a demo control is used the two screens can disagree about counts as well: `Held 1` here
+     * against `Held 0` on the ward screen. A note naming only the clock makes that read as a fault
+     * rather than the stated design.
+     */
+    expect(note, "the note names only the clock, and the figures can differ too").toMatch(/figures/i);
   });
 
   it("prints NO calendar date, now that it could print a real one", () => {
