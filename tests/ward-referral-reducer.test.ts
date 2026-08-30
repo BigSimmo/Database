@@ -71,6 +71,7 @@ function receiveReferral(state: WardFlowState, now = NOW) {
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: "Armadale",
     source: "community",
     urgency: 2,
     originSiteCode: "SCGH",
@@ -144,6 +145,7 @@ describe("RECEIVE_REFERRAL", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: "Armadale",
       source: "community",
       urgency: 2,
       originSiteCode: "SCGH",
@@ -179,6 +181,9 @@ describe("RECEIVE_REFERRAL", () => {
           },
         ],
         homeRegion: "Perth Metropolitan",
+        // A real suburb, so a case testing a bad `urgency` fails on urgency rather than on the
+        // suburb check that now runs before it. `overrides` below can still replace it.
+        suburb: "Armadale",
         source: "community",
         urgency: 2,
         originSiteCode: "SCGH",
@@ -705,6 +710,7 @@ describe("a referral addressed to several destinations", () => {
       ageBand: "Adult",
       destinations: kinds,
       homeRegion: "Perth Metropolitan",
+      suburb: "Armadale",
       source: "community",
       urgency: 2,
       originSiteCode: "SCGH",

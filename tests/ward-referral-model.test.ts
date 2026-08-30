@@ -122,6 +122,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Kimberley",
+      suburb: "Broome",
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -153,6 +154,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: "Armadale",
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -706,6 +708,20 @@ describe("Referral privacy — structural", () => {
     // session that built it — recorded that way because `R55` exists precisely to stop a relay
     // hardening into "(OWNER)" once it has been written down twice.
     "triagedAt",
+    // 2026-08-30, and the second widening in one night — which is exactly the pace this list exists
+    // to slow down, so it gets its own reason rather than riding on the one above.
+    //
+    // `CM-4`: the SUBURB is the recorded fact. It is the coarsest fact the owner's catchment
+    // documents are keyed on and the finest one that is stable, so it survives whichever way the
+    // five deferred catchment questions are answered. `PD-3` is what lets it through this guard at
+    // all: ⚠️ **a suburb is not an address** — it names a service area, not a dwelling. `address`
+    // remains UNRULED and still fails here, and a ruling permitting a suburb must never be read as
+    // permitting the category.
+    //
+    // Resolved against the catchment table by `RECEIVE_REFERRAL`, never checked for non-emptiness:
+    // "12 Wellington St, Perth" is a non-empty string and a length check would have put the very
+    // thing this field is coarser than into the field itself.
+    "suburb",
   ].sort();
 
   /**
@@ -844,6 +860,10 @@ describe("Referral privacy — structural", () => {
       // Before `raisedAt`: this canonical referral is somebody already in the department when
       // mental health was called, which is the case where BOTH clocks run.
       triagedAt: NOW_ANCHOR - 90,
+      // A real suburb from the catchment table, for the same reason the ED arm's `edId` is a real
+      // department: this literal is the exhaustive half of the guard and a fictional value here
+      // would be a fixture the front door itself would refuse.
+      suburb: "Armadale",
     };
     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_REFERRAL_FIELDS);
     // Exact equality on the arm as well: `Required<Referral>` forces every OUTER field to be
@@ -904,6 +924,7 @@ describe("Referral privacy — structural", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: "Armadale",
       source: "community",
       urgency: 2,
       originSiteCode: "RPH",

@@ -1,5 +1,6 @@
 import { bedIsOccupied, type Admission } from "@/components/ward-management/ward-admissions";
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
+import { lookupCatchment } from "@/components/ward-management/ward-catchment";
 import {
   NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
@@ -361,6 +362,37 @@ export const REFERRAL_CLOCK_TERMS = {
   /** What a screen says instead of a duration when the person is not in the department yet. */
   notInDepartment: "not in department yet",
 } as const;
+
+/**
+ * Whether the catchment source recognises this suburb as a PLACE.
+ *
+ * ⚠️ **Resolved against the real table, never checked for non-emptiness** — the same move as `edId`
+ * resolving against the real network. `"12 Wellington St, Perth"` is a non-empty string and would
+ * pass a length check, putting a street address into the one field whose entire defence is that it
+ * is coarser than one (`PD-3`: a suburb identifies a service area, not a dwelling).
+ *
+ * ⚠️ **"KNOWN" IS NOT "HAS A CATCHMENT", and conflating the two would refuse real patients.** A
+ * suburb the table lists with no follow-up clinic recorded is a real place; so is one whose two
+ * documents disagree (`CM-2`'s five contradictions). Both are recordable. Whether anybody can be
+ * ROUTED from there is a different question, asked later, by `lookupCatchment` itself — which
+ * answers it honestly rather than by refusing the referral.
+ *
+ * Lives here rather than in `ward-catchment.ts` only because that module is owned by another
+ * session tonight; it is built entirely on that module's public API and belongs beside it.
+ */
+export function referralSuburbIsKnown(suburb: string): boolean {
+  // `typeof` rather than a truthiness check, and not because the type says otherwise: three suites
+  // hand the reducer a `RECEIVE_REFERRAL` payload through an `as never` cast with no suburb on it
+  // at all, and `undefined.trim()` is a CRASH rather than a refusal. A validator that throws on the
+  // input it exists to reject is worse than no validator, because the rejection path is the one
+  // nobody exercises.
+  if (typeof suburb !== "string" || suburb.trim().length === 0) return false;
+  const lookup = lookupCatchment(suburb);
+  // Every state except `unknown` means the table has a row. `unknown` splits: one reason is "not in
+  // the table at all", the other is "in the table, but the source records no clinic on it" — and
+  // the second IS a known place. Reading `state !== "unknown"` alone would refuse it.
+  return lookup.state !== "unknown" || lookup.reason === "suburb-in-source-table-but-no-follow-up-clinic-recorded";
+}
 
 export function referralClocks(referral: Referral, now: Instant): ReferralClocks {
   const { raisedAt, triagedAt } = referral;

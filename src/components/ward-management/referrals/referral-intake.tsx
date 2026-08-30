@@ -255,6 +255,12 @@ type AnsweredDraft = {
   ageBand: Cohort;
   sex: Sex;
   homeRegion: HomeRegion;
+  /** ⚠️ ADDED BY WARD CORE, 2026-08-30, and it is a decision on this form rather than only a
+   *  field: `Referral.suburb` is required, so the suburb becomes a required ANSWER and Send
+   *  stays inert until it is given. Made in this shape because it is the shape every other
+   *  question here already uses; if the referral surface wants it optional, this is the line to
+   *  change and the reducer check to revisit — not something to work around at the dispatch. */
+  suburb: string;
   secureBedNeeded: boolean;
   involuntaryBedNeeded: boolean;
   source: ReferralSource;
@@ -313,6 +319,11 @@ const REQUIRED_FIELDS: readonly {
   { key: "ageBand", name: "Age band" },
   { key: "sex", name: "Sex" },
   { key: "homeRegion", name: "Home region" },
+  // 2026-08-30. The suburb became a required ANSWER when `Referral` gained a place to put it —
+  // until then this control read the catchment for the picker below and was dropped. Placed beside
+  // `homeRegion` because they are the two facts about where a person is from, and NEITHER is
+  // derived from the other (see `Referral.suburb`).
+  { key: "suburb", name: "Suburb" },
   { key: "source", name: "Referral source" },
   { key: "urgency", name: "Urgency" },
   { key: "originSiteCode", name: "Origin site" },
@@ -372,8 +383,13 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
     transportNeeded,
     destinationKinds,
     edId,
+    suburb,
   } = draft;
   if (ageBand === UNANSWERED_VALUE || sex === UNANSWERED_VALUE || homeRegion === UNANSWERED_VALUE) return undefined;
+  // The suburb now REACHES the record (`CM-4`), so it is answered like every other fact rather
+  // than read on this screen and dropped. The note beside the control still says it is
+  // discarded and is now FALSE — that sentence, and its pin, belong to the referral surface.
+  if (suburb === UNANSWERED_VALUE) return undefined;
   // FD-21. An empty list is refused BY THE REDUCER too ("needs at least one destination"); it is
   // stopped here as well so the form never sends an event it already knows will be refused, in the
   // same shape every other unanswered question is stopped.
@@ -397,6 +413,7 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
   );
   if (destinations === undefined) return undefined;
   return {
+    suburb,
     ageBand,
     sex,
     homeRegion,
@@ -591,6 +608,7 @@ export function ReferralIntakeForm() {
       role: "community",
       now,
       ageBand: answered.ageBand,
+      suburb: answered.suburb,
       // FD-21, and the day the comment that stood here was written for. It said "one destination
       // for now ... the day the form offers the choice nothing below it has to move", and nothing
       // below it moved: the event already took a list, the reducer already refused an empty one,

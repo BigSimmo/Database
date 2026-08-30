@@ -212,6 +212,7 @@ describe("Referral destinations — nothing is removed from the list", () => {
         ],
         ageBand: COHORTS[0],
         homeRegion: HOME_REGIONS[0],
+        suburb: "Armadale",
         source: "community",
         raisedAt: NOW_ANCHOR - 60,
         urgency: URGENCY_LEVELS[0],
@@ -270,6 +271,10 @@ function answerEverythingButTheDestination() {
   selectAnswer("ageBand", COHORTS[0]);
   selectAnswer("sex", SEXES[0]);
   selectAnswer("homeRegion", HOME_REGIONS[0]);
+  // 2026-08-30: the suburb became a required answer when `Referral` gained a place to put it.
+  // A real name from the catchment table, because the reducer resolves it rather than
+  // measuring its length.
+  selectAnswer("suburb", "Armadale");
   selectAnswer("source", "community");
   selectAnswer("urgency", String(URGENCY_LEVELS[0]));
   selectAnswer("originSiteCode", wardSites[0].code);

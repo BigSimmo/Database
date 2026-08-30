@@ -437,6 +437,10 @@ export type WardFlowEvent =
       /** The broad area this person is from — one of `HOME_REGIONS`, never an address. See
        *  `Referral.homeRegion`'s own doc comment. */
       homeRegion: HomeRegion;
+      /** The suburb, resolved against the catchment table by the reducer — never free text, and
+       *  never an address. See `Referral.suburb`'s own doc comment for why a suburb is allowed
+       *  where an address is not, and why `homeRegion` beside it is not derived from it. */
+      suburb: string;
       /** Where the referral arrived from — one of `REFERRAL_SOURCES`. */
       source: ReferralSource;
       urgency: 1 | 2 | 3;

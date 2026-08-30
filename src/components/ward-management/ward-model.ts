@@ -924,6 +924,35 @@ export type Referral = {
    * ordering by proximity — that is Phase 8's work, deliberately not built here.
    */
   homeRegion: HomeRegion;
+  /**
+   * The suburb this person is from — **`CM-4`: the suburb is the RECORDED fact.** It is the coarsest
+   * fact the owner's catchment documents are keyed on and the finest one that is stable, so it
+   * survives whichever way the five deferred catchment questions are answered.
+   *
+   * ⚠️ **A SUBURB IS NOT AN ADDRESS (`PD-3`), and that is the entire reason this field is allowed
+   * to exist.** It identifies a service area, not a dwelling. `PD-1`'s permission to hold facts
+   * about a person reaches it for exactly that reason, while `address` remains UNRULED and the
+   * guard stays closed on it. A ruling permitting a suburb must never be read as permitting the
+   * category.
+   *
+   * ⚠️ **Resolved against the catchment table, never checked for non-emptiness** —
+   * `referralSuburbIsKnown` (`ward-referrals.ts`), enforced by `RECEIVE_REFERRAL`. A street address
+   * is a non-empty string and would pass a length check, which would put the very thing this field
+   * is coarser than into the field itself.
+   *
+   * ⚠️ **`homeRegion` IS NOT DERIVED FROM THIS, AND THE DUPLICATION IS AN ACCEPTED COST WITH A
+   * REASON.** `CM-4` says region should be derived from suburb, and it cannot be today: the
+   * catchment source keys suburbs to follow-up CLINICS, not to the ten WA regions `HOME_REGIONS`
+   * holds. Mapping one onto the other would invent an administrative fact — the same invention
+   * `homeRegion`'s own comment refuses, and the reason `"out_of_catchment"` was renamed. So both
+   * are stored, they CAN contradict one another, and nothing can catch it. Recorded rather than
+   * quietly lived with; `tests/ward-referral-suburb.test.ts` is where the fix starts on the day a
+   * suburb-to-region source exists.
+   *
+   * ⚠️ **PROVENANCE: relayed by Ward Referrals, not heard first-hand by this session** (`R55`). The
+   * design basis, `CM-4` and `PD-3`, is first-hand in the register and is what this is built on.
+   */
+  suburb: string;
   // Facts about the referral itself.
   source: ReferralSource;
   raisedAt: Instant;

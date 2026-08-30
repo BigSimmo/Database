@@ -154,6 +154,7 @@ describe("the accepts rule is never an equality", () => {
         },
       ],
       homeRegion: HOME_REGIONS[0],
+      suburb: "Armadale",
       source: "community",
       raisedAt: NOW,
       urgency: 2,

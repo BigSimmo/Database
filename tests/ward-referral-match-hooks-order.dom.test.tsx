@@ -50,6 +50,7 @@ const WARD_REFERRAL: Referral = {
     },
   ],
   homeRegion: "Perth Metropolitan",
+  suburb: "Armadale",
   source: "community",
   raisedAt: NOW_ANCHOR - 10,
   urgency: 2,

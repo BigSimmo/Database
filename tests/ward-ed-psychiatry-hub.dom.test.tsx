@@ -142,6 +142,7 @@ function RaiseSelfAddressedReferral({ edId }: { edId: string }) {
           ageBand: "Adult",
           destinations: [{ kind: "emergency_department", edId, purpose: "psychiatric_review" }],
           homeRegion: "Perth Metropolitan",
+          suburb: "Armadale",
           source: "community",
           urgency: 2,
           originSiteCode: "RPH",
@@ -178,6 +179,10 @@ function answerEverythingButTheDepartment() {
   selectAnswer("ageBand", COHORTS[0]);
   selectAnswer("sex", SEXES[0]);
   selectAnswer("homeRegion", HOME_REGIONS[0]);
+  // 2026-08-30: the suburb became a required answer when `Referral` gained a place to put it.
+  // A real name from the catchment table, because the reducer resolves it rather than
+  // measuring its length.
+  selectAnswer("suburb", "Armadale");
   selectAnswer("source", REFERRAL_SOURCES[0]);
   selectAnswer("urgency", String(URGENCY_LEVELS[0]));
   selectAnswer("originSiteCode", wardSites[0].code);
@@ -210,6 +215,7 @@ function raiseEdReferral(
     ageBand: "Adult",
     destinations: [{ kind: "emergency_department", edId, purpose }],
     homeRegion: "Perth Metropolitan",
+    suburb: "Armadale",
     source: "community",
     urgency: 2,
     originSiteCode: "RPH",
@@ -233,6 +239,7 @@ function raiseAll(entries: readonly { edId: string; purpose: ReferralPurpose }[]
       ageBand: "Adult",
       destinations: [{ kind: "emergency_department", edId: entry.edId, purpose: entry.purpose }],
       homeRegion: "Perth Metropolitan",
+      suburb: "Armadale",
       source: "community",
       urgency: 2,
       originSiteCode: "RPH",

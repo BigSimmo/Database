@@ -6,7 +6,7 @@ import {
   OVERRIDE_REASONS,
 } from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
-import { referralState } from "@/components/ward-management/ward-referrals";
+import { referralState, referralSuburbIsKnown } from "@/components/ward-management/ward-referrals";
 import {
   EVENT_ROLE,
   WARD_FLOW_ROLE_LABELS,
@@ -1380,6 +1380,13 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!HOME_REGIONS.includes(event.homeRegion)) {
         return reject(state, event, `RECEIVE_REFERRAL homeRegion must be chosen from HOME_REGIONS`);
       }
+      // The suburb is resolved against the real catchment table, never merely checked for
+      // non-emptiness — the same reason `edId` and `originSiteCode` below resolve rather than
+      // measure. "12 Wellington St, Perth" is non-empty, and letting it through would put a street
+      // address in the one field whose defence is that it is coarser than one (`PD-3`).
+      if (!referralSuburbIsKnown(event.suburb)) {
+        return reject(state, event, `RECEIVE_REFERRAL suburb must resolve to a suburb the catchment source knows`);
+      }
       if (event.urgency !== 1 && event.urgency !== 2 && event.urgency !== 3) {
         return reject(state, event, `RECEIVE_REFERRAL urgency must be 1, 2 or 3`);
       }
@@ -1395,6 +1402,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // Every destination starts queued: the referrer chose them, nobody has answered yet.
         destinations: event.destinations.map((destination) => ({ destination, state: "queued" as const })),
         homeRegion: event.homeRegion,
+        suburb: event.suburb,
         source: event.source,
         raisedAt: event.now,
         urgency: event.urgency,
