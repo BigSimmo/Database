@@ -4,7 +4,12 @@ import { edById, unitById } from "@/components/ward-management/ward-sites";
 
 async function gotoWard(page: Page, unitId: string) {
   await page.goto(`/mockups/ward-flow/ward/${unitId}`, { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
+  const wardScreen = page.getByTestId("ward-unit-screen");
+  // App Router can briefly retain the previous render while hydrating this route,
+  // especially when emulated media is configured before navigation. Wait for the
+  // route to converge to its documented single screen before using a strict locator.
+  await expect(wardScreen).toHaveCount(1, { timeout: 15_000 });
+  await expect(wardScreen).toBeVisible();
   await page.waitForLoadState("networkidle");
 }
 
