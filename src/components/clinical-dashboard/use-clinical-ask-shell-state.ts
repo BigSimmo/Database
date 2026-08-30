@@ -8,6 +8,7 @@ import {
 import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 import type { AppModeId } from "@/lib/app-modes";
 import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 
 export type ClinicalDashboardProps = {
   initialSearchMode?: AppModeId;
@@ -84,10 +85,19 @@ export function useClinicalAskDashboardChrome({
     clinicalAskSession,
     query,
   });
+  const submitSmartSearch = (question: string, onDetected: () => void) => {
+    if (!clinicalAskMode || resolveSmartSearchSubmissionIntent(clinicalAskMode, question) !== "clinical-ask") {
+      return false;
+    }
+    onDetected();
+    runModeClinicalAsk(question);
+    return true;
+  };
   return {
     clinicalAskSession,
     clinicalAskOnline,
     clinicalAskMode,
     runModeClinicalAsk,
+    submitSmartSearch,
   };
 }

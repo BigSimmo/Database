@@ -21,7 +21,6 @@ import {
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -48,14 +47,13 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import {
   clinicalAskWorkspaceVisible,
   type ClinicalDashboardProps,
   useClinicalAskDashboardChrome,
 } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
-import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
-import { ClinicalAskAnswerSurface } from "@/components/clinical-dashboard/clinical-ask-answer-surface";
+import { ModeClinicalAskSurface } from "@/components/clinical-dashboard/mode-clinical-ask-surface";
+import { ClinicalAskDashboardBoundary } from "@/components/clinical-dashboard/clinical-ask-dashboard-boundary";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -210,7 +208,6 @@ import {
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 import {
   privateScopeReadyForRoute,
   readSearchNavigationContext,
@@ -281,17 +278,11 @@ import {
 } from "@/components/clinical-dashboard/answer-thread-turn";
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
-
-function ClinicalAskSessionBoundary({ children }: { children: ReactNode }) {
-  const auth = useAuthSession();
-  return <ClinicalAskSessionProvider accountId={auth.session?.user.id}>{children}</ClinicalAskSessionProvider>;
-}
-
 export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
   return (
-    <ClinicalAskSessionBoundary>
+    <ClinicalAskDashboardBoundary>
       <ClinicalDashboardContent {...props} />
-    </ClinicalAskSessionBoundary>
+    </ClinicalAskDashboardBoundary>
   );
 }
 
@@ -575,16 +566,12 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+  const { clinicalAskSession, clinicalAskMode, runModeClinicalAsk, submitSmartSearch } = useClinicalAskDashboardChrome({
     accountId: auth.session?.user.id,
     searchMode,
     query,
     clinicalAskAvailableModeIds,
   });
-  const clinicalAskFailure =
-    clinicalAskMode && clinicalAskSession.mode === clinicalAskMode && clinicalAskSession.response?.state === "failed"
-      ? clinicalAskSession.response
-      : null;
   const {
     status: authStatus,
     authorizationHeader,
@@ -2204,11 +2191,7 @@ function ClinicalDashboardContent({
       run: true,
       ...navigationContext,
     });
-    if (clinicalAskMode && resolveSmartSearchSubmissionIntent(clinicalAskMode, trimmedQuery) === "clinical-ask") {
-      setModeSearchSubmitted(true);
-      runModeClinicalAsk(trimmedQuery);
-      return;
-    }
+    if (submitSmartSearch(trimmedQuery, () => setModeSearchSubmitted(true))) return;
     if (trimmedQuery && !isDashboardModeHref(modeDestination)) {
       rememberRecentQuery(trimmedQuery);
       router.push(modeDestination);
@@ -2692,25 +2675,9 @@ function ClinicalDashboardContent({
     });
   }
 
-  function stageAnswerFollowUpDraft(draft: string) {
-    setQuery(draft);
-    focusComposerInput();
-  }
-
-  function returnClinicalAskToSearch() {
-    clinicalAskSession.clear();
-    setQuery("");
-    setModeSearchSubmitted(false);
-    const alreadyOnPrivateSearchUrl =
-      !searchParams.has("q") && !searchParams.has("query") && searchParams.get("run") !== "1";
-    if (!alreadyOnPrivateSearchUrl) {
-      router.replace(appModeSelectionHref(searchMode, { queryMode, scopeFilters }));
-    }
-    focusComposerInput();
-  }
-
   function handleFollowUpQuote(quote: QuoteCard) {
-    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
+    setQuery(createQuoteFollowUp(quote));
+    focusComposerInput();
   }
 
   function handlePickFollowUpSuggestion(suggestion: string) {
@@ -3701,22 +3668,17 @@ function ClinicalDashboardContent({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                {clinicalAskFailure ? (
-                  <section className="clinical-ask-workspace" aria-label="Clinical Ask workspace">
-                    <ClinicalAskAnswerSurface
-                      response={clinicalAskFailure}
-                      question={clinicalAskSession.submittedQuestion || clinicalAskSession.draft}
-                      onRetry={() =>
-                        runModeClinicalAsk(clinicalAskSession.submittedQuestion || clinicalAskSession.draft)
-                      }
-                      onReturnToSearch={returnClinicalAskToSearch}
-                    />
-                  </section>
-                ) : clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
-                  <ClinicalAskWorkspace
-                    onDraftChange={stageAnswerFollowUpDraft}
+                {clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                  <ModeClinicalAskSurface
+                    session={clinicalAskSession}
+                    activeMode={clinicalAskMode}
+                    searchMode={searchMode}
+                    queryMode={queryMode}
+                    scopeFilters={scopeFilters}
+                    setDraft={setQuery}
+                    setSearchSubmitted={setModeSearchSubmitted}
+                    focusSearch={focusComposerInput}
                     onRun={runModeClinicalAsk}
-                    onReturnToSearch={returnClinicalAskToSearch}
                   />
                 ) : showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
