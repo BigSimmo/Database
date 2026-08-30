@@ -51,6 +51,58 @@ it has been put to him. Nine test files enforce the rule today.
 
 ---
 
+## 0b. A live defect that blocks a whole class of work — durations
+
+**Reported and verified directly by the build session, 2026-08-30. Recorded here because it gates
+more than one chat and nobody would find it from a plan.**
+
+**`Instant` means two different things in the same codebase.** `wallClockNow()` and `formatInstant`
+treat it as **a minute of one day**; the admissions seed writes **multi-day values**.
+
+**So a 30-hour wait displays as 6 hours, and nothing errors** — a wrapping formatter **cannot fail on
+an out-of-range value.** It silently returns an in-range one. No red, no warning, and the number looks
+entirely reasonable.
+
+**Why it is worse than a display bug:** the point of this system is showing **how long a person has
+waited.** A silently wrong waiting time is the system misreporting the thing it exists to reveal, on
+the screen a coordinator uses to decide who is worst off.
+
+**The untangle session owns the fix.**
+
+### CORRECTED 2026-08-30 — the hold is LIFTED, and a different one replaces it
+
+**I had this wrong, and the way I had it wrong is instructive.** I searched for callers of the new
+primitives `dayOf` / `minuteOf`, found none, and concluded the migration was pending. **The defect was
+never fixed by a new primitive — it was fixed by changing the behaviour of a function every screen
+already calls.** Measured at `a3d199fa7`: **39 files import from `ward-clock`; 7 call `splitDuration`
+directly and 5 more reach it through `formatElapsed` / `formatRemaining`.**
+
+**So a thirty-hour wait renders `1d 6h` on twelve surfaces today, with no consumer edit** — which is
+why a two-file commit changed twelve screens. **Searching for the new thing missed the change to the
+old thing.**
+
+**DURATIONS: the hold is LIFTED, with one condition that is not optional.** The longest seeded wait
+is about sixteen hours, so **no fixture data reaches the day path.** Anyone building a waiting-time
+column **constructs the over-24-hour case explicitly in the test** and **says in the commit that the
+day path is unexercised by the fixture.** A green suite over a fixture that cannot produce the case
+is the "everyone believes it works" gap in its purest form.
+
+**POINTS IN TIME: the hold STANDS, and this is the honest line between them.** `formatInstant` is
+unchanged and still wraps with `((instant % 1440) + 1440) % 1440`. **A patient who arrived three days
+ago still renders as a bare `14:00` with no day attached**, and `wallClockNow()` returns only hours
+and minutes, so the application does not know the date at all.
+
+> **Durations are fixed. Points in time are not. Nobody displays an instant that may fall on another
+> day.**
+
+**Remaining, both owned by the untangle session and neither started:** connect the clock to the real
+date, and extend the fixture so some waits genuinely exceed a day.
+
+**And the original reasoning stands for whatever is still held:** a test written against a defect is
+how a defect becomes a requirement.
+
+---
+
 ## 1. What actually forces serialisation
 
 Only three things. **Everything else parallelises**, and most of the apparent conflicts today were

@@ -711,6 +711,68 @@ not**, which is why it is a different kind of addition from the other eight.
 
 **NOT open and not touched by any of this:** `FD-4`, whether `sex` widens, remains as it was.
 
+## 5d. What the referral survey found — three legs, 2026-08-30
+
+**Commissioned by the owner before further referral work. Three independent legs: a conversation
+archive search, a repository/git survey, and this session's records.**
+
+### The sentence that reconciles two honest and opposite answers
+
+One leg found addressing **built** — `Movement.referredUnitIds`, capped at three by
+`PARALLEL_REFERRAL_CAP`, reducer-managed, 70 source and 49 test occurrences, present since the phase
+1 domain types. Another found **no design for routing anywhere in any history.** Both were right.
+
+> **A referral has never been addressed by the person raising it. Destination is chosen downstream,
+> by the coordinator, and only ever to wards.**
+
+**The two searches were measuring two different acts that share a word.** `referredUnitIds` is the
+coordinator triaging someone **already in the pipeline**; it has never been a front door.
+
+**And the consequence for the owner's hub model, which is the part that must not be lost in
+relaying:** *"addressing is built"* will read to the next session as **"the hub model is half
+done"**, and it is not — **the half that exists is the half he did not ask for.**
+
+### The two forms are accidental divergence, and it is now dated
+
+**The ED form** was built **2026-08-22** from the Phase 3 spec, dispatches `RAISE_REFERRAL`, creates
+a **`Movement`**. **The shared `ReferralIntakeForm`** came from the Phase 6 front-door work after his
+**2026-08-26** instruction, dispatches `RECEIVE_REFERRAL`, creates a **`Referral`**.
+
+**No conversation anywhere decides to keep both.** Two records on two pipelines, built four days
+apart under different specs. **His own 2026-08-26 words — *"Same stages, different front door"* —
+were an intention to unify that never reached the code.**
+
+### Three code facts, verified here
+
+1. **`referral-intake.tsx:319` hard-codes `role: "community"`** regardless of the source the
+   clinician picks. **So even the source the form already collects does not reach the record
+   faithfully** — and anyone building "one form for three kinds of hub" inherits a lie in the field
+   nearest the thing they are adding.
+2. **`REFERRAL_ARRIVED` and `RECORD_LOCAL_BED_SOUGHT` are reducer cases with no UI dispatcher** —
+   seed and tests only. **Their existence is not evidence a feature shipped.**
+3. **`FD-8` is built backwards** — see the charter. The admission authors the diagnosis; the
+   referral has nothing to inherit from.
+
+### Two owner rulings that bind this work and were in nobody's register
+
+**2026-08-22, verbatim:** *"the reality is in ED that a patient needs review before they are referred
+for a bed as they may not need a bed."* **A referral out of an ED is gated on an examination.** When
+it landed, **only 2 of 17 open movements at a referable stage qualified.** Anyone building an ED
+hub's outgoing referrals must not bypass that gate.
+
+**2026-08-18:** a ward's refusal is recorded against the patient and that ward drops out of
+suggestions for them — **and service-level "who refuses most" reporting is explicitly rejected as
+politically charged.** Recorded in `docs/ward-flow-mission-and-refusals.md`.
+
+### The gap in the evidence, stated rather than papered over
+
+**The conversation archive lags about a day, so today's and yesterday's sessions are not in it.** The
+`FD-` series and R1–R6 do not appear in that leg at all. **Its silence about them is an artefact of
+the cut, not evidence.**
+
+**Do not average the three legs.** Where they disagree, the usual answer is that they were looking at
+different things — which is exactly what happened above.
+
 ## 6. Verification
 
 - **Mutation-test every rule-bearing test.** Record `git hash-object` before mutating, restore,

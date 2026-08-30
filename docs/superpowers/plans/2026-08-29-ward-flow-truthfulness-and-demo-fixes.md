@@ -40,6 +40,71 @@ at all** — `git grep admission ward-flow-reducer.ts` returns nothing. So the d
 one person moving once, and then that person is gone. **Nothing else on this list is worth doing
 first.**
 
+## Two thirds of the buttons can change their words with every gate green
+
+**Counted 2026-08-30 by the board session, after this was raised as an entry with no number.
+Spot-checked here on the four most consequential labels — all four confirmed unpinned.**
+
+```
+ward component files scanned : 62      plain-literal button labels : 30
+ward test files scanned      : 85        pinned by text somewhere  : 10
+                                         NO test pins the words    : 20
+```
+
+**Including the two the entire front door turns on:**
+
+```
+referrals/referral-intake.tsx:639   "Send referral"        <- no test pins it
+referrals/referral-match.tsx:329    "Decline referral"     <- no test pins it
+ward/ward-screen.tsx:586            "Confirm capacity"     <- no test pins it
+ward/ward-screen.tsx:1002           "Record leave bed"     <- no test pins it
+```
+
+Plus fifteen more across the ward screen, the shortlist panel, the ED screen, the tour and the demo
+controls.
+
+### 20 is a FLOOR, and both reasons push the same way
+
+1. **Only plain literals were counted.** Any label built from a constant or interpolated was skipped
+   rather than guessed at, **so the real population is larger.**
+2. **A label counted as "pinned" if its exact words appear ANYWHERE in any ward test.** Deliberately
+   generous — **so the ten called covered may include weak pins, while anything in the twenty is
+   unpinned by a wide margin.**
+
+### The question the survey asked, and why the obvious one fails
+
+**It asked, once per button: "if THIS button's words changed, would anything fail?"**
+
+**Not "is this vocabulary covered?"** — which is the question that fails, because
+`"Discharged today"` **is** pinned among the discharge board's group headings. **A vocabulary check
+finds a real passing assertion and stops.** The per-control question is the one that discriminates.
+
+### Cleared rather than found
+
+**`ward-screen.tsx:1271` "Confirm release" is NOT a rename survivor.** It submits
+`RELEASE_HOLD_REASONS` — releasing a **hold**, not a discharge. **Correct as it stands**, recorded so
+nobody "finishes" the rename by changing it.
+
+### OWNER DECISION OWED: should label text be a gate?
+
+**Nobody has fixed any of the twenty, and that is right** — twenty label pins is its own change with
+its own judgement about which words are load-bearing, and most of those files belong to other
+sessions.
+
+**The recommendation is to make it a gate, SCOPED to controls that cause a state change.**
+
+**Why scoped rather than blanket:** pinning every label makes every copy change break a test, which
+is why projects do not do it and why the pins would eventually be deleted in frustration. **But a
+button that causes a state change is different: a wrong or empty label there means a clinician does
+the wrong thing.** For a demonstration whose whole claim is that the screens tell the truth, **the
+words on an action control are the part a clinician acts on**, and they are currently the part
+nothing verifies.
+
+**The honest cost: copy changes on those controls would then require a deliberate test update.** That
+is the intent, not a side effect.
+
+---
+
 ## The foundation — read this before deciding what any task is for
 
 **Owner, 2026-08-29, and it governs every task below:**
