@@ -312,6 +312,11 @@ test.describe("Header element overlap coverage", () => {
     expect(tickerBox, "phone suggestion ticker must render").not.toBeNull();
     expect(tickerBox!.height, "phone ticker must meet the tap-target floor").toBeGreaterThanOrEqual(48);
 
+    // Hover first: the ticker freezes its rotation on pointer/focus, so the
+    // label read below cannot be superseded by the 3.2s tick between reading it
+    // and clicking. Reading the label on a live rotation is the race that made
+    // this journey flaky.
+    await ticker.hover();
     const suggestion = (await ticker.getAttribute("aria-label"))?.replace("Try suggested search: ", "");
     expect(suggestion).toBeTruthy();
     await ticker.click();
