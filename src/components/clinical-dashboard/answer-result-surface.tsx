@@ -27,7 +27,7 @@ import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/c
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-card";
 import { Sheet } from "@/components/ui/sheet";
-import { answerSurface, cn, iconTilePremium } from "@/components/ui-primitives";
+import { answerSurface, cn } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
@@ -375,13 +375,23 @@ function StagedAnswerResultSurfaceImpl({
             title="Safety-critical source findings"
             description="Items come from source text. Verify before clinical use."
             closeLabel="Close safety findings"
+            // The warning tones are written out rather than layered onto
+            // `iconTilePremium`: that recipe carries the clinical-accent border and
+            // background, so appending `text-…` recoloured only the glyph — the sheet
+            // opened with an amber shield sitting in a blue tile while the card that
+            // opens it drew an amber one. This matches `AnswerSupportSummaryCard`'s
+            // tile exactly, so the colour the design assigns to the icon tile is the
+            // same on both sides of the tap.
             headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--warning)]")}>
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
                 <ShieldAlert aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             }
+            // Neutral for the same reason as the trigger row's count: the header's
+            // icon tile and title carry the state, so the number itself must not be a
+            // status-coloured numeral.
             titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-1 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-1 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
                 {safetyFindings.length}
               </span>
             }

@@ -214,7 +214,12 @@ export function AnswerUtilityActions({
           >
             <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--warning)]" />
             Evidence gaps
-            <span className="nums rounded-full bg-[color:var(--warning-soft)] px-1.5 text-2xs text-[color:var(--text-heading)]">
+            {/* Neutral, not amber. A count painted with a status colour is a
+                status-coloured numeral, and the icon beside it already says
+                which state the row is in — the treatment the approved specimen
+                draws (`answer-chat-perfected-v2-mockups.tsx`, "Seven") and the
+                one the sibling count on the safety row above already uses. */}
+            <span className="nums inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-1.5 text-2xs text-[color:var(--text-muted)]">
               {warnings.length}
             </span>
           </button>
