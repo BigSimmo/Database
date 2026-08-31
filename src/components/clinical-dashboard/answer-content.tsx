@@ -518,7 +518,7 @@ export function NaturalLanguageAnswer({
                 data-testid="source-only-disclosure"
                 role="note"
                 className={cn(
-                  "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-2xs transition-[border-radius] duration-[var(--duration-quick)]",
+                  "w-fit max-w-full self-start overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-2xs transition-[border-radius] duration-[var(--duration-quick)]",
                   sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
                   textMuted,
                 )}
@@ -566,7 +566,7 @@ export function NaturalLanguageAnswer({
               <RetrievalStateBanner
                 state={answerState}
                 onOpenSource={onOpenStateSource}
-                className="w-fit min-w-0 max-w-full flex-none"
+                className="w-fit min-w-0 max-w-full flex-none self-start"
               />
             ) : null}
           </div>
