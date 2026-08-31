@@ -292,17 +292,38 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
-  test("phone dormant search omits Smart hints and keeps desktop prompts hidden", async ({ page }) => {
+  test("phone home keeps one tappable example ticker without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
+    // The desktop prompt rail is display:none on a phone, so the ticker is the
+    // only suggestion a phone home page carries. It offers an ordinary search,
+    // which is why it stays while the Smart line does not.
     await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
     await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
-    await expect(page.getByTestId("smart-search-phone-ticker")).toHaveCount(0);
+
+    const ticker = page.getByTestId("smart-search-phone-ticker");
+    await expect(ticker).toBeVisible();
+    await expect(ticker).toContainText("Try this");
+    await expect(ticker).toContainText("Tap to search");
+
+    const tickerBox = await ticker.boundingBox();
+    expect(tickerBox, "phone suggestion ticker must render").not.toBeNull();
+    expect(tickerBox!.height, "phone ticker must meet the tap-target floor").toBeGreaterThanOrEqual(48);
+
+    // Hover first: the ticker freezes its rotation on pointer/focus, so the
+    // label read below cannot be superseded by the 3.2s tick between reading it
+    // and clicking. Reading the label on a live rotation is the race that made
+    // this journey flaky.
+    await ticker.hover();
+    const suggestion = (await ticker.getAttribute("aria-label"))?.replace("Try suggested search: ", "");
+    expect(suggestion).toBeTruthy();
+    await ticker.click();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestion ?? "");
   });
 
-  test("phone Documents home does not advertise governed Smart answers", async ({ page }) => {
+  test("phone suggestion ticker renders on /documents mode home", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await page.goto("/documents", { waitUntil: "domcontentloaded" });
@@ -313,6 +334,12 @@ test.describe("Header element overlap coverage", () => {
     }).toPass({ timeout: 30_000 });
 
     const ticker = page.getByTestId("smart-search-phone-ticker");
-    await expect(ticker).toHaveCount(0);
+    await expect(ticker).toBeVisible();
+    // Documents has no governed Smart answers, so the ticker must stay an
+    // ordinary example search — no "Smart search" line beside it.
+    await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
+    const tickerBox = await ticker.boundingBox();
+    expect(tickerBox, "phone suggestion ticker must render on /documents home").not.toBeNull();
+    expect(tickerBox!.height, "phone ticker must meet the tap-target floor on /documents").toBeGreaterThanOrEqual(48);
   });
 });

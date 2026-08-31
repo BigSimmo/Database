@@ -1,4 +1,4 @@
-# Clinical KB
+# PsychSift
 
 Local-first medical guideline RAG knowledge base for a psychiatrist in Perth,
 Australia. The app uploads private clinical reference documents to Supabase
@@ -100,7 +100,7 @@ For chat-driven work, use:
 npm run ensure
 ```
 
-This checks whether Clinical KB is already running, verifies the local server
+This checks whether PsychSift is already running, verifies the local server
 belongs to this project, and starts the dev server in the background if needed.
 When you say `run` in this chat, Codex should use this command and return the
 printed URL.
@@ -170,7 +170,7 @@ advisors, and docs lookup — not as a replacement for committed migrations.
 
 Defaults in `.cursor/mcp.json`:
 
-- `project_ref=sjrfecxgysukkwxsowpy` — scoped to the live Clinical KB project
+- `project_ref=sjrfecxgysukkwxsowpy` — scoped to the live `Clinical KB Database` Supabase project
   only
 - `read_only=true` — safer default for exploration and reviews
 

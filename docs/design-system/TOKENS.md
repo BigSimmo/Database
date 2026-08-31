@@ -1,4 +1,4 @@
-# Clinical KB design system — TOKENS
+# PsychSift design system — TOKENS
 
 **The reconciled token inventory (conflict C1 resolved): every role, its winning name, its
 owner, and what it replaces. Never values** — values live only in the owner file named per

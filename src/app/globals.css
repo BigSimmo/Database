@@ -410,6 +410,27 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #c6dcf2;
   --clinical-accent-contrast: #ffffff;
+
+  /* Brand-mark ink. The logo is identity, not UI state, so it carries its own
+     role rather than reading --clinical-accent directly: retuning the accent for
+     selection/evidence/send must not silently repaint the brand, and a surface
+     that needs the mark to hold its ground can ask for the emphasis role by name
+     instead of borrowing a pressed-state colour.
+
+     Why an emphasis role exists at all: the mark is drawn as two counter-turning
+     strokes whose lower one is the thinner read, so at chrome sizes (28-40px) on
+     a near-white band the resting accent lets the bottom of the S dissolve into
+     the ground while the dot-and-bowl cluster at the top stays solid — the mark
+     goes top-heavy. Emphasis is a full ramp step, not a nudge, and restores an
+     even read without changing the geometry.
+
+     All three are aliases, so light, dark and forced-colors are inherited from
+     the accent ramp with no second definition to keep in sync. `.dark` and the
+     forced-colors block both land on <html>, the same element as `:root`, so the
+     var() substitution below resolves against whichever theme is winning. */
+  --brand-mark: var(--clinical-accent);
+  --brand-mark-emphasis: var(--clinical-accent-strong);
+  --brand-mark-contrast: var(--clinical-accent-contrast);
   /* Tinted filter-count pill on the results band — quieter than a solid disc. */
   --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 

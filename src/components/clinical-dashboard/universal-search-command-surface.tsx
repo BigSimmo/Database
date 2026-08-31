@@ -176,11 +176,14 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 function SmartRotatingHint({
   examples,
   modeLabel,
+  showSmartLine,
   showPhoneTicker,
   onPickExample,
 }: {
   examples: string[];
   modeLabel: string;
+  /** The desktop line names Smart search, so it follows the server capability. */
+  showSmartLine: boolean;
   showPhoneTicker: boolean;
   onPickExample: (example: string) => void;
 }) {
@@ -189,14 +192,17 @@ function SmartRotatingHint({
   const [isTickerHeld, setIsTickerHeld] = useState(false);
   const activeExample = examples[activeExampleIndex % examples.length];
 
+  const visible = showSmartLine || showPhoneTicker;
+
   useEffect(() => {
+    if (!visible) return;
     if (isTickerHeld) return;
     if (examples.length <= 1) return;
     const intervalId = window.setInterval(() => {
       setActiveExampleIndex((current) => (current + 1) % examples.length);
     }, SMART_HINT_ROTATION_MS);
     return () => window.clearInterval(intervalId);
-  }, [examples, isTickerHeld]);
+  }, [examples, isTickerHeld, visible]);
 
   const freezeTicker = useCallback(() => {
     setHeldTickerExample(activeExample);
@@ -210,17 +216,19 @@ function SmartRotatingHint({
     heldTickerExample && examples.includes(heldTickerExample) ? heldTickerExample : activeExample;
   const resolvedTickerExample = isTickerHeld ? currentHeldTickerExample : activeExample;
 
-  if (!activeExample) return null;
+  if (!activeExample || !visible) return null;
 
   return (
     <>
-      <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text">
-        <span>Smart search</span>
-        <span aria-hidden="true">·</span>
-        <span>
-          Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
-        </span>
-      </div>
+      {showSmartLine ? (
+        <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text">
+          <span>Smart search</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
+          </span>
+        </div>
+      ) : null}
       {showPhoneTicker ? (
         <button
           type="button"
@@ -1106,17 +1114,25 @@ export function UniversalSearchCommandSurface({
       )}
     >
       <SmartIntentCue active={smartClinicalAsk} modeLabel={mode.label} />
-      {clinicalAskAvailable && !smartClinicalAsk ? (
+      {smartClinicalAsk ? null : (
+        // Two different promises share this component. The desktop line names
+        // Smart search, so it stays tied to the server capability. The phone
+        // ticker is an ordinary example search — "Try this … Tap to search" —
+        // and is the only suggestion a phone home page has, because the desktop
+        // prompt rail is display:none below 640px. It therefore belongs on
+        // every phone home page, capability or not (owner decision 2026-08-30,
+        // restoring the pre-#2459 behaviour).
         <SmartRotatingHint
           examples={config.examples}
           modeLabel={mode.label}
+          showSmartLine={clinicalAskAvailable}
           showPhoneTicker={showPhoneSuggestionTicker}
           onPickExample={(example) => {
             onQueryChange(example);
             onFocusSearchInput?.();
           }}
         />
-      ) : null}
+      )}
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {

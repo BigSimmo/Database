@@ -1,6 +1,6 @@
 # Clinical Governance Workstream
 
-Clinical KB is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
+PsychSift is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
 
 ## Deployment Classification
 

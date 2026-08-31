@@ -1,4 +1,4 @@
-# Clinical KB design system — ADOPTION
+# PsychSift design system — ADOPTION
 
 **The committed ownership and disposition contract for every production surface.** The source
 of truth is `adoption-contract.json`; the generated manifest and marked tables in this document

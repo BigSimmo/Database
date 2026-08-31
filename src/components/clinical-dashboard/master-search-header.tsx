@@ -2298,7 +2298,7 @@ export function MasterSearchHeader({
           </button>
           {sharedHomeIdentity ? (
             <div data-testid="shared-home-brand" className="hidden min-w-0 items-center gap-3 lg:flex">
-              <BrandMark className="h-10 w-10" />
+              <BrandMark tone="emphasis" className="h-10 w-10" />
               <span className="min-w-0">
                 {/* The name leads and the strapline supports, which is a weight and a
                     colour apart, not just a size. The wordmark takes the display
