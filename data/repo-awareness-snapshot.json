@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "dc540ed9c22056a22d69624dde691d9b0955ba4f",
-    "committed_at": "2026-08-31T11:14:41+08:00"
+    "sha": "e3df71ece467ecdd3588c730a1ba1b89a3c1e226",
+    "committed_at": "2026-08-31T11:25:44+08:00"
   },
   "routes": {
     "modes": [
@@ -2730,21 +2730,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/design-system/FIX-GUIDE.md",
-        "section": "design-system",
-        "catalogued": true
-      },
-      {
-        "path": "docs/design-system/GATES.md",
-        "section": "design-system",
-        "catalogued": true
-      },
-      {
-        "path": "docs/design-system/GATES.md",
-        "section": "design-system",
-        "catalogued": true
-      },
-      {
         "path": "docs/design-system/GATES.md",
         "section": "design-system",
         "catalogued": true
@@ -2803,16 +2788,6 @@
         "path": "docs/design-system/sweep-fix-tap-floors.md",
         "section": "design-system",
         "catalogued": false
-      },
-      {
-        "path": "docs/design-system/TOKENS.md",
-        "section": "design-system",
-        "catalogued": true
-      },
-      {
-        "path": "docs/design-system/TOKENS.md",
-        "section": "design-system",
-        "catalogued": true
       },
       {
         "path": "docs/design-system/TOKENS.md",
@@ -3795,16 +3770,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md",
         "section": "superpowers",
         "catalogued": false
@@ -4298,9 +4263,9 @@
       }
     ],
     "counts": {
-      "documents": 561,
-      "catalogued": 114,
-      "uncatalogued": 447,
+      "documents": 554,
+      "catalogued": 109,
+      "uncatalogued": 445,
       "sections": 20
     }
   },
