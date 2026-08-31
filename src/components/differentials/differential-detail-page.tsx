@@ -54,7 +54,6 @@ import {
   type DifferentialSafetyFact,
 } from "@/lib/differential-detail";
 import type { DifferentialRecord, DifferentialSection } from "@/lib/differentials";
-import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { useAccountData } from "@/components/account-data-provider";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
@@ -368,20 +367,12 @@ const factIcons: Record<DifferentialSafetyFact["id"], LucideIcon> = {
 
 function safetyFactGridClass(count: number): string {
   if (count <= 1) return "grid-cols-1";
+  if (count >= 4) return "grid-cols-4";
   if (count === 3) return "grid-cols-3";
-  if (count >= 4) return "grid-cols-2 sm:grid-cols-4";
   return "grid-cols-2";
 }
 
-function SafetySnapshot({
-  record,
-  onReviewMustNotMiss,
-  termLinks,
-}: {
-  record: DifferentialRecord;
-  onReviewMustNotMiss: (() => void) | null;
-  termLinks: Record<string, string>;
-}) {
+function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; termLinks: Record<string, string> }) {
   const theme = snapshotThemes[record.status];
   const facts = resolveSafetyFacts(record);
   const tags = record.safetySnapshot.tags;
@@ -390,62 +381,46 @@ function SafetySnapshot({
 
   return (
     <section
-      className={cn("rounded-lg border p-3 shadow-[var(--shadow-inset)] sm:p-4", theme.container)}
+      className={cn("rounded-lg border px-3 py-2.5 shadow-[var(--shadow-inset)] sm:px-3.5 sm:py-3", theme.container)}
       data-testid="differential-safety-snapshot"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            "grid h-7 w-7 shrink-0 place-items-center rounded-md border sm:h-8 sm:w-8 sm:rounded-lg",
-            theme.iconTile,
-          )}
-        >
-          <theme.Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
+      <div className="flex items-center gap-1.5">
+        <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md border", theme.iconTile)}>
+          <theme.Icon className="h-3.5 w-3.5" aria-hidden />
         </span>
-        <h2 className={cn("text-sm font-extrabold uppercase tracking-label", theme.heading)}>Safety snapshot</h2>
-        <span
-          className={cn(
-            "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-extrabold uppercase",
-            statusToneClass[record.status],
-          )}
-        >
-          {differentialStatusLabel(record.status)}
-        </span>
+        <h2 className={cn("text-xs font-extrabold uppercase tracking-label", theme.heading)}>Safety snapshot</h2>
       </div>
 
       {showSummary ? (
-        <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">{summary}</p>
+        <p className="mt-1.5 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">{summary}</p>
       ) : null}
 
       {tags.length > 0 ? (
-        <div className="mt-2 grid gap-1.5">
-          <span className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
+        <div
+          className="mt-1.5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5"
+          data-testid="differential-safety-watchlist"
+        >
+          <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
             Watch for
           </span>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((tag) => {
-              const cleaned = cleanDifferentialItem(tag);
-              return (
-                <DiagnosisTermChip
-                  key={tag}
-                  label={cleaned}
-                  slug={termLinks[cleaned] ?? null}
-                  tone="danger"
-                  className={cn(!termLinks[cleaned] && theme.chip, "min-h-6 px-2 text-2xs")}
-                />
-              );
-            })}
-          </div>
+          {tags.map((tag) => {
+            const cleaned = cleanDifferentialItem(tag);
+            return (
+              <DiagnosisTermChip
+                key={tag}
+                label={cleaned}
+                slug={termLinks[cleaned] ?? null}
+                tone="danger"
+                className={cn(!termLinks[cleaned] && theme.chip, "min-h-6 shrink-0 px-2 text-2xs")}
+              />
+            );
+          })}
         </div>
       ) : null}
 
       {facts.length > 0 ? (
         <div
-          className={cn(
-            "mt-2 grid gap-2 border-y py-2 sm:mt-2.5 sm:gap-3 sm:py-2.5",
-            safetyFactGridClass(facts.length),
-            theme.divider,
-          )}
+          className={cn("mt-1.5 grid gap-1 border-t pt-2 sm:gap-2", safetyFactGridClass(facts.length), theme.divider)}
           role="list"
           aria-label="Safety metrics"
         >
@@ -454,11 +429,17 @@ function SafetySnapshot({
             const compactLabel = safetyFactCompactLabel[fact.id] ?? fact.label;
             return (
               <div key={fact.id} className="min-w-0 text-center sm:text-left" role="listitem">
-                <p className={cn("text-base font-extrabold leading-none tabular-nums", theme.accentText)}>
+                <p
+                  className={cn(
+                    "min-w-0 text-2xs font-extrabold leading-tight tracking-tight tabular-nums [overflow-wrap:anywhere] min-[360px]:text-xs sm:text-base sm:leading-none sm:tracking-normal",
+                    theme.accentText,
+                  )}
+                  data-testid="differential-safety-value"
+                >
                   {fact.value}
                 </p>
                 <p
-                  className="mt-1 flex items-center justify-center gap-1 text-2xs font-bold leading-tight text-[color:var(--text-muted)] sm:justify-start sm:text-xs"
+                  className="mt-1 flex min-w-0 items-center justify-center gap-1 text-2xs font-bold leading-tight text-[color:var(--text-muted)] sm:justify-start sm:text-xs"
                   aria-label={fact.label}
                 >
                   <Icon className={cn("h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5", theme.accentText)} aria-hidden />
@@ -471,18 +452,6 @@ function SafetySnapshot({
             );
           })}
         </div>
-      ) : null}
-
-      {onReviewMustNotMiss ? (
-        <button
-          type="button"
-          data-testid="differential-safety-cta"
-          onClick={onReviewMustNotMiss}
-          className="mt-2 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:mt-2.5 sm:w-auto sm:justify-start"
-        >
-          <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
-          Review must-not-miss causes
-        </button>
       ) : null}
     </section>
   );
@@ -1049,14 +1018,6 @@ export function DifferentialDetailPage({
     }
   }
 
-  const hasMustNotMiss = record.sections.some((section) => section.id === "must-not-miss");
-  const reviewMustNotMiss = hasMustNotMiss
-    ? () => {
-        setSectionOpen("must-not-miss", true);
-        const target = document.getElementById("differential-section-must-not-miss");
-        target?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
-      }
-    : null;
   const openCompareTab = () => changeTab("compare");
 
   return (
@@ -1133,11 +1094,7 @@ export function DifferentialDetailPage({
         >
           {activeTab === "overview" ? (
             <>
-              <SafetySnapshot
-                record={record}
-                onReviewMustNotMiss={reviewMustNotMiss}
-                termLinks={detailContext.termLinks ?? {}}
-              />
+              <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} />
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
                   <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">

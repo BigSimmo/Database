@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9d654032-6e3d-439f-81ac-70d8314f4763",
+  "createdOn": "2026-08-31",
+  "action": "update",
+  "payload": {
+    "id": "#9GPWT3",
+    "summary": "Ward Flow: bed-release state model is unvalidated by any ward clinician",
+    "baseRowFingerprint": "ff1ca4ef8e1d5156f4fc720d2fce7d1325a54b097ed016ab01a30f2348e6cd7e"
+  }
+}

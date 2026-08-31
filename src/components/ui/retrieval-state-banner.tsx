@@ -92,7 +92,7 @@ function StaleEvidenceBody({
   return (
     <div
       className={cn(
-        "w-fit max-w-full overflow-hidden border text-sm",
+        "w-fit max-w-full overflow-hidden border text-2xs",
         open ? "rounded-lg" : "rounded-full",
         toneWarning,
       )}
@@ -103,7 +103,7 @@ function StaleEvidenceBody({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-controls={detailId}
-        className="inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+        className="flex min-h-compact-meta max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
       >
         <span data-testid="retrieval-state-headline" className="min-w-0 truncate font-semibold">
           Review due
