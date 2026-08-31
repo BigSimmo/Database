@@ -791,7 +791,7 @@ describe("coverage and source-role evidence merge", () => {
     expect(selection?.sourcePolicyReview).toBe("verified_conflict");
   });
 
-  it("keeps a late canonical conflict pair atomic inside the six-chunk high-risk budget", () => {
+  it("displaces a same-document singleton to keep a late canonical conflict pair atomic", () => {
     const plan = queryPlan([
       { id: "baseline", question: "clozapine baseline assessment" },
       { id: "adverse", question: "clozapine adverse effects" },
@@ -802,6 +802,7 @@ describe("coverage and source-role evidence merge", () => {
       id: "late-local-conflict",
       corpusScope: "uploaded_local",
       content: "Lithium renal monitoring interval is every six months.",
+      documentId: "shared-local-doc",
       role: "local_guideline",
     });
     const australian = governedEvidence({
@@ -811,19 +812,34 @@ describe("coverage and source-role evidence merge", () => {
       role: "clinical_guideline",
     });
     const candidates = [
-      governedEvidence({ id: "baseline-1", corpusScope: "uploaded_local", content: "Clozapine baseline assessment." }),
+      governedEvidence({
+        id: "baseline-1",
+        corpusScope: "uploaded_local",
+        content: "Clozapine baseline assessment.",
+        documentId: "shared-local-doc",
+      }),
       governedEvidence({
         id: "baseline-2",
         corpusScope: "uploaded_local",
         content: "Clozapine baseline assessment checklist.",
       }),
-      governedEvidence({ id: "adverse-1", corpusScope: "uploaded_local", content: "Clozapine adverse effects." }),
+      governedEvidence({
+        id: "adverse-1",
+        corpusScope: "uploaded_local",
+        content: "Clozapine adverse effects.",
+        documentId: "shared-local-doc",
+      }),
       governedEvidence({
         id: "adverse-2",
         corpusScope: "uploaded_local",
         content: "Clozapine adverse effects review.",
       }),
-      governedEvidence({ id: "follow-up-1", corpusScope: "uploaded_local", content: "Clozapine follow up review." }),
+      governedEvidence({
+        id: "follow-up-1",
+        corpusScope: "uploaded_local",
+        content: "Clozapine follow up review.",
+        documentId: "shared-local-doc",
+      }),
       local,
       australian,
     ];
@@ -842,6 +858,8 @@ describe("coverage and source-role evidence merge", () => {
     expect(selection.results.map((result) => result.id)).toEqual(
       expect.arrayContaining(["late-local-conflict", "late-au-conflict"]),
     );
+    expect(selection.results.filter((result) => result.document_id === "shared-local-doc")).toHaveLength(3);
+    expect(selection.results.map((result) => result.id)).not.toContain("follow-up-1");
     expect(monitoring?.conflicts).toHaveLength(1);
     expect(monitoring?.sourcePolicyReview).toBe("verified_conflict");
   });

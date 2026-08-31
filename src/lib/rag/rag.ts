@@ -3494,7 +3494,7 @@ ${qualityRetryInstruction}`
   });
   const modelContextResults = modelContextSelection.results;
   const strongRetryContextResults = strongRetryContextSelection.results;
-  coverageSelections = strongRetryContextSelection.coverageSelections;
+  coverageSelections = modelContextSelection.coverageSelections;
   const generationFallbackResults = strongRetryContextResults;
   const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
   await args.onProgress?.({
@@ -3553,6 +3553,7 @@ ${qualityRetryInstruction}`
       });
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
+      coverageSelections = strongRetryContextSelection.coverageSelections;
       packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
       // reasoning (strong) just re-truncates. This is the truncation self-heal.
@@ -3641,7 +3642,7 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
+      coverageSelections = strongRetryContextSelection.coverageSelections;
       packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Strong spends more reasoning tokens than the fast attempt it is replacing, so it needs
       // the boosted cap to avoid truncating (and degrading to unsupported) on the escalation.
@@ -3768,6 +3769,7 @@ ${qualityRetryInstruction}`
     // answer. Only the model path needs this; the extractive branch verifies against its own sources.
     let numericVerificationSources: SearchResult[] | undefined;
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
+      coverageSelections = strongRetryContextSelection.coverageSelections;
       answer = buildExtractiveAnswer({
         query: args.query,
         queryClass,
@@ -3913,6 +3915,7 @@ ${qualityRetryInstruction}`
     routeDeadline.dispose();
     return answer;
   } catch (error) {
+    coverageSelections = strongRetryContextSelection.coverageSelections;
     if (args.signal?.aborted) {
       routeDeadline.dispose();
       throw args.signal.reason ?? error;

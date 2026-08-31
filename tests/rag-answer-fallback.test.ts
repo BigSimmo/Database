@@ -2250,6 +2250,73 @@ describe("RAG structured-output fallback", () => {
     expect(dropped.conflictsOrGaps ?? []).not.toContainEqual(
       expect.objectContaining({ source_chunk_ids: expect.arrayContaining([local.id, australian.id]) }),
     );
+
+    const overflowPairs = [1, 2, 3].map((index) => {
+      const pairLocal = {
+        ...local,
+        id: `fast-local-${index}`,
+        document_id: `fast-local-doc-${index}`,
+        title: `Fast local patient safety planning source ${index}`,
+        file_name: `fast-local-${index}.pdf`,
+        content: "Patient safety planning is handled collaboratively and reviewed when clinical status changes.",
+        source_metadata: {
+          ...local.source_metadata!,
+          source_title: `Fast local patient safety planning source ${index}`,
+          source_catalogue_key: `uploaded_local:fast-local-doc-${index}`,
+        },
+      };
+      const pairAustralian = {
+        ...australian,
+        id: `fast-au-${index}`,
+        document_id: `fast-au-doc-${index}`,
+        title: `Fast Australian patient safety planning source ${index}`,
+        file_name: `fast-au-${index}.pdf`,
+        content: "Patient safety planning is handled collaboratively and reviewed when clinical status changes.",
+        source_metadata: {
+          ...australian.source_metadata!,
+          source_title: `Fast Australian patient safety planning source ${index}`,
+        },
+      };
+      return {
+        local: pairLocal,
+        australian: pairAustralian,
+        conflict: {
+          ...canonicalPolicyConflict(pairLocal, pairAustralian),
+          id: `fast-conflict-${index}`,
+          topicKey: `patient-safety-planning-${index}`,
+          claimRole: "treatment" as const,
+        },
+      };
+    });
+    const fastCitedIds = overflowPairs.slice(0, 2).flatMap((pair) => [pair.local.id, pair.australian.id]);
+    const fastInputs: string[] = [];
+    const fastOverflow = await answerFromTextSources(
+      "How is patient safety planning handled?",
+      overflowPairs.flatMap((pair) => [pair.local, pair.australian]),
+      {
+        answer: "Patient safety planning is handled collaboratively and reviewed when clinical status changes.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: fastCitedIds.map((chunk_id) => ({ chunk_id })),
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+      {
+        sourcePolicyConflicts: overflowPairs.map((pair) => pair.conflict),
+        captureInput: (input) => fastInputs.push(input),
+      },
+    );
+
+    expect(fastInputs).toHaveLength(1);
+    expect(fastInputs[0]).toContain("route: fast");
+    expect(fastInputs[0]).toContain("source_policy_not_evaluated");
+    expect(fastInputs[0]?.match(/^citation_chunk_id:/gm)).toHaveLength(4);
+    for (const chunkId of fastCitedIds) expect(fastInputs[0]).toContain(`citation_chunk_id: ${chunkId}`);
+    expect(fastInputs[0]).not.toContain(`citation_chunk_id: ${overflowPairs[2]!.local.id}`);
+    expect(fastInputs[0]).not.toContain(`citation_chunk_id: ${overflowPairs[2]!.australian.id}`);
+    expect(fastOverflow.conflictsOrGaps?.filter((item) => item.type === "conflict")).toHaveLength(2);
+    expect(fastOverflow.conflictsOrGaps).toContainEqual(expect.objectContaining({ type: "gap" }));
   });
 
   it("preserves grounded source-backed answers when only the overlap heuristic is recoverable", async () => {
