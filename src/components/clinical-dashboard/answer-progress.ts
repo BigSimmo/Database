@@ -4,14 +4,6 @@ import { isDeliverableVerifiedUnit } from "@/lib/answer-stream-contract";
 export type AnswerProgressUpdate = PublicAnswerProgressEvent;
 export type TimedAnswerProgressUpdate = AnswerProgressUpdate & { receivedAt: number };
 
-export const answerProgressSteps = [
-  { label: "Prepare scope", description: "Interpreting your question", stage: "scoping" },
-  { label: "Search sources", description: "Scanning indexed clinical documents", stage: "retrieving" },
-  { label: "Select evidence", description: "Prioritising relevant passages", stage: "ranking" },
-  { label: "Draft answer", description: "Synthesising the response and citations", stage: "generating" },
-  { label: "Check answer", description: "Checking citations and clinical details", stage: "verifying" },
-] as const;
-
 const answerProgressStages = new Set<PublicAnswerProgressStage>([
   "scoping",
   "retrieving",
@@ -83,30 +75,78 @@ export function answerProgressStepIndex(stage: PublicAnswerProgressStage) {
   return 4;
 }
 
-/** UI copy is derived from the public stage/counts and never from an incoming message. */
+/** UI copy is derived from the public stage and never from an incoming message.
+ *
+ * One rule holds this whole set together, taken from the pending screens in
+ * `/mockups/answer-chat-perfected-v2`:
+ *
+ *   **The wait shows no number the reader cannot reconcile with something on
+ *   screen.**
+ *
+ * That rules out every raw count the stream offers. `resultCount` is candidate
+ * chunks — commonly 24 where the answer will cite three — and a reader who takes
+ * "24" away from this screen has been told the wrong thing about how much
+ * evidence is behind their answer, whether or not the word beside it was
+ * "passages". `australianSourceCount` fails the same test: it is real and it is
+ * useful, but 4 of 6 is a ratio nothing on screen can confirm, so the fact
+ * survives here as a fact ("Prioritising Australian sources") and the per-source
+ * origin stays where it can be checked — on the sources themselves.
+ *
+ * The one count that IS shown lives in `answerProgressPreviewMessage` below,
+ * because it counts exactly the cards visible beneath the line.
+ *
+ * Accrual does not depend on numbers. A healthy wait moves through four
+ * distinct clauses in roughly seven seconds, which is what tells a reader the
+ * search is working rather than stuck.
+ */
 export function answerProgressDisplayMessage(progress: AnswerProgressUpdate) {
-  if (progress.stage === "scoping") return "Preparing the clinical search scope.";
-  if (progress.stage === "retrieved" && progress.resultCount !== undefined) {
-    return `Found ${progress.resultCount} candidate source passage${progress.resultCount === 1 ? "" : "s"}.`;
-  }
-  if (progress.stage === "retrieving" || progress.stage === "retrieved") {
-    return "Searching indexed clinical documents.";
-  }
+  if (progress.stage === "scoping") return "Reading your question…";
+  if (progress.stage === "retrieving" || progress.stage === "retrieved") return "Searching your documents…";
   if (progress.stage === "ranking") {
-    if (progress.australianSourceCount) {
-      const waDetail = progress.waSourceCount ? `, including ${progress.waSourceCount} WA` : "";
-      return `Prioritising ${progress.australianSourceCount} Australian source passage${progress.australianSourceCount === 1 ? "" : "s"}${waDetail}.`;
-    }
-    return "Selecting the most relevant source passages.";
+    // The fact, not the ratio. A Perth reader cares that local guidance is being
+    // favoured; "4 of 6" is the part nothing on screen can confirm.
+    return progress.australianSourceCount
+      ? "Prioritising Australian sources…"
+      : "Selecting the most relevant passages…";
   }
-  if (progress.stage === "retrying") {
-    return "The draft needs another pass; revising it against the evidence.";
-  }
-  if (progress.stage === "fallback") {
-    return "Building a source-backed answer from the selected passages.";
-  }
-  if (progress.stage === "generating") return "Drafting a cited answer from the selected passages.";
-  if (progress.stage === "verifying") return "Checking citations, clinical numbers, and source metadata.";
-  if (progress.stage === "cached") return "Loading a recent cited answer.";
+  if (progress.stage === "retrying") return "Revising the draft against the evidence…";
+  if (progress.stage === "fallback") return "Assembling the answer from the sources directly…";
+  if (progress.stage === "generating") return "Writing the answer…";
+  if (progress.stage === "verifying") return "Checking citations and clinical numbers…";
+  if (progress.stage === "cached") return "Loading a recent cited answer…";
   return "Answer ready.";
+}
+
+/**
+ * The line once the evidence preview is on screen.
+ *
+ * This is the only place the wait prints a number, and it prints the number of
+ * cards the reader can count directly beneath it. The mockup's wording
+ * ("3 sources found · writing the answer…") is kept because it names both halves
+ * of what is true at that moment: retrieval finished, generation has not.
+ *
+ * Returns null before generation starts, so the caller falls back to the stage
+ * clause rather than claiming the answer is being written while ranking is still
+ * running.
+ */
+export function answerProgressPreviewMessage(sourceCount: number, stage: PublicAnswerProgressStage) {
+  if (sourceCount <= 0) return null;
+  const sources = `${sourceCount} source${sourceCount === 1 ? "" : "s"} found`;
+  if (stage === "generating" || stage === "retrying") return `${sources} · writing the answer…`;
+  if (stage === "fallback") return `${sources} · assembling the answer from them…`;
+  if (stage === "verifying") return `${sources} · checking the citations…`;
+  return sources;
+}
+
+/** The stages worth disclosing after the fact.
+ *
+ * A routine answer has nothing to explain — scope, search, select, write, check,
+ * in that order, every time — which is why the old Processing details disclosure
+ * held the same five lines for every question and nobody opened it. These three
+ * stages mean the answer did NOT take the ordinary route, and that is worth a
+ * reader being able to read back. */
+const disclosableStages = new Set<PublicAnswerProgressStage>(["retrying", "fallback", "cached"]);
+
+export function answerProgressTookUnusualRoute(events: readonly AnswerProgressUpdate[]) {
+  return events.some((event) => disclosableStages.has(event.stage));
 }

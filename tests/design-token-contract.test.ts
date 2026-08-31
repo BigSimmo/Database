@@ -349,9 +349,14 @@ describe("disabled and pre-paint values", () => {
   it("keeps the brand mark on the current accent", () => {
     // The favicon and generated icon routes render outside any stylesheet, so
     // they hard-code the accent and can silently keep a retired brand colour.
+    // Since the mark became symbol-on-ground rather than ink-on-tile, the accent
+    // is what the glyph is drawn in and the tile only matches the surface it
+    // stands on — so both roles are pinned, not just one.
     const brand = readFileSync(new URL("../src/lib/brand-mark.ts", import.meta.url), "utf8");
-    expect(brand).toContain(`tile: "${colourOf(light, "--clinical-accent")}"`);
-    expect(brand).toContain(`tile: "${colourOf(dark, "--clinical-accent")}"`);
+    expect(brand).toContain(`ink: "${colourOf(light, "--clinical-accent")}"`);
+    expect(brand).toContain(`ink: "${colourOf(dark, "--clinical-accent")}"`);
+    expect(brand).toContain(`tile: "${colourOf(light, "--surface-raised")}"`);
+    expect(brand).toContain(`tile: "${colourOf(dark, "--surface-raised")}"`);
   });
 });
 

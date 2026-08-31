@@ -48,7 +48,7 @@
  * Reads .next/static/chunks/**.js. If no build output exists it prints a note and
  * exits 0 (so it never breaks a run that didn't build).
  *
- * Flags: --update (write current measurement as the baseline), --json.
+ * Flags: --refresh-baseline (strict provenance check and scheduled baseline refresh), --max-distance <n>, --update (write current measurement as baseline), --json.
  *
  * Exit hardening: CI has observed this check print success then never terminate
  * (GHA then cancels the Build job at timeout-minutes, which "Re-run failed jobs"
@@ -625,6 +625,104 @@ export function resolveBaselineCommitDistance(baselineSha, cwd = root, exec = ex
 }
 
 /**
+ * Parse optional `--max-distance <n>` or `--max-distance=<n>` argument.
+ * Returns `null` if not specified, non-negative integer if valid, or `NaN` if invalid.
+ * @param {string[]} argv
+ * @returns {number | null}
+ */
+export function parseMaxDistance(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--max-distance") {
+      if (i + 1 < argv.length) {
+        const val = Number(argv[i + 1]);
+        if (Number.isSafeInteger(val) && val >= 0) return val;
+      }
+      return Number.NaN;
+    }
+    if (arg.startsWith("--max-distance=")) {
+      const raw = arg.slice("--max-distance=".length);
+      const val = Number(raw);
+      if (Number.isSafeInteger(val) && val >= 0) return val;
+      return Number.NaN;
+    }
+  }
+  return null;
+}
+
+/**
+ * Strict provenance check for baseline refresh.
+ * Verifies that the baseline source SHA exists in Git, is an ancestor of HEAD (or HEAD itself),
+ * and optionally enforces maximum commit distance behind HEAD.
+ *
+ * @param {string | null | undefined} baselineSha
+ * @param {object} [options]
+ * @param {string} [options.cwd]
+ * @param {number | null} [options.maxDistance]
+ * @param {typeof execFileSync} [options.exec]
+ * @returns {{
+ *   valid: boolean;
+ *   code?: "invalid-sha" | "commit-not-found" | "not-ancestor" | "distance-unresolvable" | "distance-exceeded";
+ *   message: string;
+ *   baselineSource?: string;
+ *   commitDistance?: number;
+ * }}
+ */
+export function validateBaselineProvenance(baselineSha, options = {}) {
+  const { cwd = root, maxDistance = null, exec = execFileSync } = options;
+  if (!baselineSha || typeof baselineSha !== "string" || !/^[0-9a-f]{40}$/i.test(baselineSha.trim())) {
+    return {
+      valid: false,
+      code: "invalid-sha",
+      message: "Baseline source must be a valid 40-character Git commit SHA.",
+    };
+  }
+  const normalized = baselineSha.trim().toLowerCase();
+  const gitStatus = resolveBaselineGitStatus(normalized, cwd, exec);
+
+  if (gitStatus.commitExists !== true) {
+    return {
+      valid: false,
+      code: "commit-not-found",
+      message: `Baseline source commit ${normalized} does not exist in local Git history.`,
+    };
+  }
+
+  if (gitStatus.comparableAsAncestor !== true) {
+    return {
+      valid: false,
+      code: "not-ancestor",
+      message: `Baseline source commit ${normalized} is not an ancestor of HEAD (or HEAD itself).`,
+    };
+  }
+
+  const distance = resolveBaselineCommitDistance(normalized, cwd, exec);
+  if (distance === null) {
+    return {
+      valid: false,
+      code: "distance-unresolvable",
+      message: `Could not determine commit distance between baseline source ${normalized} and HEAD.`,
+    };
+  }
+
+  if (maxDistance !== null && distance > maxDistance) {
+    return {
+      valid: false,
+      code: "distance-exceeded",
+      message: `Baseline source commit ${normalized} is ${distance} commit(s) behind HEAD, exceeding maximum allowed distance of ${maxDistance}.`,
+      commitDistance: distance,
+    };
+  }
+
+  return {
+    valid: true,
+    baselineSource: normalized,
+    commitDistance: distance,
+    message: `Baseline source ${normalized} is verified (${distance === 0 ? "HEAD" : `${distance} commit(s) behind HEAD`}).`,
+  };
+}
+
+/**
  * Injectable stdio/timer/exit surface for {@link exitProcess}. Defaults match
  * Node's process helpers; tests pass narrow mocks. Typed via JSDoc so Vitest
  * mocks do not have to satisfy `WriteStream` / `never` inference from defaults
@@ -788,6 +886,55 @@ export function selfTest() {
     parsed && parsed.route === "/" && parsed.chunks.has("a.js"),
   );
 
+  // parseMaxDistance
+  check("parseMaxDistance: space separated valid", parseMaxDistance(["--max-distance", "10"]) === 10);
+  check("parseMaxDistance: equal separated valid", parseMaxDistance(["--max-distance=5"]) === 5);
+  check("parseMaxDistance: negative value is NaN", Number.isNaN(parseMaxDistance(["--max-distance", "-1"])));
+  check("parseMaxDistance: non-numeric is NaN", Number.isNaN(parseMaxDistance(["--max-distance=abc"])));
+  check("parseMaxDistance: absent returns null", parseMaxDistance([]) === null);
+
+  // validateBaselineProvenance
+  check("validateBaselineProvenance: invalid sha", validateBaselineProvenance("not-a-sha").code === "invalid-sha");
+  const missingCommitProv = validateBaselineProvenance("a".repeat(40), {
+    exec: () => {
+      throw new Error("missing");
+    },
+  });
+  check("validateBaselineProvenance: missing commit", missingCommitProv.code === "commit-not-found");
+  const notAncestorProv = validateBaselineProvenance("a".repeat(40), {
+    exec: (_cmd, args) => {
+      if (args.includes("merge-base")) throw new Error("not ancestor");
+      return "";
+    },
+  });
+  check("validateBaselineProvenance: not ancestor", notAncestorProv.code === "not-ancestor");
+  const distUnresProv = validateBaselineProvenance("a".repeat(40), {
+    exec: (_cmd, args) => {
+      if (args.includes("rev-list")) throw new Error("rev-list failed");
+      return "";
+    },
+  });
+  check("validateBaselineProvenance: distance unresolvable", distUnresProv.code === "distance-unresolvable");
+  const distExceededProv = validateBaselineProvenance("a".repeat(40), {
+    maxDistance: 5,
+    exec: (_cmd, args) => {
+      if (args.includes("rev-list")) return "12\n";
+      return "";
+    },
+  });
+  check("validateBaselineProvenance: distance exceeded", distExceededProv.code === "distance-exceeded");
+  const validProv = validateBaselineProvenance("a".repeat(40), {
+    maxDistance: 15,
+    exec: (_cmd, args) => {
+      if (args.includes("rev-list")) return "12\n";
+      return "";
+    },
+  });
+  check(
+    "validateBaselineProvenance: valid ancestor within distance",
+    validProv.valid === true && validProv.commitDistance === 12,
+  );
+
   if (failures.length > 0) {
     console.error("[bundle-budget] self-test FAILED:");
     for (const f of failures) console.error(`  - ${f}`);
@@ -805,8 +952,21 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
 
   const asJson = argv.includes("--json");
   const update = argv.includes("--update");
+  const refreshBaseline = argv.includes("--refresh-baseline");
+  const maxDistance = parseMaxDistance(argv);
+
+  if (Number.isNaN(maxDistance)) {
+    console.error("[bundle-budget] FAIL — invalid --max-distance value. Must be a non-negative integer.");
+    return 1;
+  }
 
   if (!existsSync(CHUNKS_DIR)) {
+    if (refreshBaseline) {
+      console.error(
+        `[bundle-budget] FAIL — no build output at ${path.relative(root, CHUNKS_DIR)}; cannot refresh baseline without a build. Run \`npm run build\` first.`,
+      );
+      return 1;
+    }
     console.log(
       `[bundle-budget] no build output at ${path.relative(root, CHUNKS_DIR)} — run \`npm run build\` first. Skipping.`,
     );
@@ -889,6 +1049,142 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
       `[bundle-budget] FAIL — configured route manifest(s) were not resolved: ${routeMeasurements.missing.join(", ")}.`,
     );
     return 1;
+  }
+
+  if (refreshBaseline) {
+    const baselineSource = resolveBaselineSource();
+    if (!baselineSource) {
+      console.error(
+        "[bundle-budget] FAIL — could not resolve a 40-character source SHA for the baseline refresh. " +
+          "Run inside a Git checkout or set BUNDLE_BUDGET_SOURCE_SHA / GITHUB_SHA.",
+      );
+      return 1;
+    }
+
+    const provenance = validateBaselineProvenance(baselineSource, {
+      cwd: root,
+      maxDistance,
+    });
+
+    if (!provenance.valid) {
+      console.error(`[bundle-budget] FAIL — baseline provenance check failed: ${provenance.message}`);
+      return 1;
+    }
+
+    const nowIso = new Date().toISOString();
+    const prevProduction = budget?.production?.gzipBytes ?? null;
+    const prevMockups = budget?.mockups?.gzipBytes ?? null;
+    const prevTotal = budget?.totalGzipBytes ?? null;
+
+    const next = {
+      ...budget,
+      production: { ...(budget.production ?? {}), gzipBytes: productionGzipBytes },
+      mockups: { ...(budget.mockups ?? {}), gzipBytes: mockupGzipBytes },
+      routes: Object.fromEntries(
+        Object.entries(budget.routes ?? {}).map(([route, config]) => [
+          route,
+          { ...config, gzipBytes: routeMeasurements.measured[route].gzipBytes },
+        ]),
+      ),
+      totalGzipBytes: current.totalGzipBytes,
+      updatedAt: nowIso,
+      baselineSource,
+    };
+    delete next.routeBaselinesUpdatedAt;
+    delete next.routeBaselinesSource;
+    writeFileSync(BUDGET_PATH, JSON.stringify(next, null, 2) + "\n");
+
+    const formatDiff = (currentBytes, prevBytes) => {
+      if (prevBytes == null) return "initial baseline";
+      const diff = currentBytes - prevBytes;
+      const pct = prevBytes === 0 ? 0 : (diff / prevBytes) * 100;
+      const sign = diff >= 0 ? "+" : "";
+      return `${sign}${kb(diff)} (${sign}${pct.toFixed(1)}%)`;
+    };
+
+    if (asJson) {
+      const response = {
+        refreshed: true,
+        updatedAt: nowIso,
+        baselineSource,
+        baselineCommitDistance: provenance.commitDistance,
+        production: {
+          gzipBytes: productionGzipBytes,
+          previousGzipBytes: prevProduction,
+          diffBytes: prevProduction != null ? productionGzipBytes - prevProduction : null,
+          diffPct:
+            prevProduction != null && prevProduction > 0
+              ? ((productionGzipBytes - prevProduction) / prevProduction) * 100
+              : 0,
+        },
+        mockups: {
+          gzipBytes: mockupGzipBytes,
+          previousGzipBytes: prevMockups,
+          diffBytes: prevMockups != null ? mockupGzipBytes - prevMockups : null,
+          diffPct: prevMockups != null && prevMockups > 0 ? ((mockupGzipBytes - prevMockups) / prevMockups) * 100 : 0,
+          chunks: mockupExclusive.size,
+          routes: mockupRouteCount,
+        },
+        routes: Object.fromEntries(
+          Object.entries(routeMeasurements.measured).map(([route, measurement]) => {
+            const prevRouteBytes = budget?.routes?.[route]?.gzipBytes ?? null;
+            return [
+              route,
+              {
+                ...measurement,
+                previousGzipBytes: prevRouteBytes,
+                diffBytes: prevRouteBytes != null ? measurement.gzipBytes - prevRouteBytes : null,
+                diffPct:
+                  prevRouteBytes != null && prevRouteBytes > 0
+                    ? ((measurement.gzipBytes - prevRouteBytes) / prevRouteBytes) * 100
+                    : 0,
+              },
+            ];
+          }),
+        ),
+        totalGzipBytes: current.totalGzipBytes,
+        totalRawBytes: current.totalRawBytes,
+        files: current.files,
+        ciGuidance: {
+          command: "npm run check:bundle-budget -- --refresh-baseline",
+          schedule: "nightly or post-merge",
+          purpose:
+            "Automated scheduled baseline refresh to record fresh production, route, and mockup baselines with verified git provenance, preventing gradual bundle accumulation from failing unrelated feature PRs.",
+        },
+      };
+      console.log(JSON.stringify(response, null, 2));
+    } else {
+      const distLabel = provenance.commitDistance === 0 ? "HEAD" : `${provenance.commitDistance} commit(s) behind HEAD`;
+      console.log("[bundle-budget] baseline refreshed successfully:");
+      console.log(`  - Source commit: ${baselineSource.slice(0, 12)} (${distLabel})`);
+      console.log(`  - Updated at: ${nowIso}`);
+      console.log(
+        `  - Production: ${kb(productionGzipBytes)} (was ${prevProduction != null ? kb(prevProduction) : "none"}, ${formatDiff(productionGzipBytes, prevProduction)})`,
+      );
+      console.log(
+        `  - ${MOCKUP_ROUTE_SEGMENT} scratch: ${kb(mockupGzipBytes)} (was ${prevMockups != null ? kb(prevMockups) : "none"}, ${formatDiff(mockupGzipBytes, prevMockups)})`,
+      );
+      for (const [route, measurement] of Object.entries(routeMeasurements.measured)) {
+        const prevRouteBytes = budget?.routes?.[route]?.gzipBytes ?? null;
+        console.log(
+          `  - Route ${route}: ${kb(measurement.gzipBytes)} (was ${prevRouteBytes != null ? kb(prevRouteBytes) : "none"}, ${formatDiff(measurement.gzipBytes, prevRouteBytes)})`,
+        );
+      }
+      console.log(
+        `  - Total: ${kb(current.totalGzipBytes)} gzip across ${current.files} chunk(s) (was ${prevTotal != null ? kb(prevTotal) : "none"}, ${formatDiff(current.totalGzipBytes, prevTotal)}).`,
+      );
+      console.log("");
+      console.log("[bundle-budget] CI integration guidance:");
+      console.log(
+        "  Scheduled baseline refresh workflows (e.g. nightly or post-merge GitHub Actions / cron jobs) can run:",
+      );
+      console.log("    1. npm run build");
+      console.log("    2. npm run check:bundle-budget -- --refresh-baseline");
+      console.log(
+        "  This automatically records fresh production, route, and mockup baselines with verified git provenance and timestamp, preventing gradual bundle accumulation from breaking unrelated feature PRs.",
+      );
+    }
+    return 0;
   }
 
   if (update) {

@@ -6,7 +6,7 @@ import { QuarantineList } from "@/components/developer-area/hub/quarantine-list"
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
 
 export const metadata: Metadata = {
-  title: "Test health · Developer · Clinical KB",
+  title: "Test health · Developer · PsychSift",
   description: "Quarantined tests, why each was quarantined, and when its quarantine lapses.",
 };
 

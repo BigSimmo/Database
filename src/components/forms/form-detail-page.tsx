@@ -306,7 +306,7 @@ function PathwayContextCard({
           aria-controls={panelPathwayId}
           onClick={() => setActiveTab("pathway")}
           className={cn(
-            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-compact-meta",
             activeTab === "pathway"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -322,7 +322,7 @@ function PathwayContextCard({
           aria-controls={panelSourceId}
           onClick={() => setActiveTab("source")}
           className={cn(
-            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9",
+            "min-h-tap rounded-md px-3 py-2 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-compact-meta",
             activeTab === "source"
               ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -501,7 +501,7 @@ function PathwayContextCard({
         href={form.source?.url ?? details?.officialRegisterUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs")}
+        className={cn(floatingControl, "mt-3 w-full rounded-lg px-3 text-xs")}
       >
         <Navigation className="h-4 w-4" aria-hidden />
         Open official source / pathway

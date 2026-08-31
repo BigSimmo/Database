@@ -2054,7 +2054,7 @@ async function main() {
   controller.attachSignals();
 
   const prereqs = await checkPythonPdfPrerequisites();
-  console.log(`Clinical KB worker started. worker=${workerId}`);
+  console.log(`PsychSift worker started. worker=${workerId}`);
   if (!prereqs.ok) {
     console.warn(`PDF/OCR prerequisite warning: ${prereqs.detail}`);
   }
@@ -2088,7 +2088,7 @@ async function main() {
     log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
     captureException: captureWorkerException,
   });
-  console.log("Clinical KB worker stopped gracefully");
+  console.log("PsychSift worker stopped gracefully");
   // Flush before exit so any buffered claim/process events are not dropped.
   await flushWorkerErrorTracking();
   process.exit(0);
@@ -2097,7 +2097,7 @@ async function main() {
 main().catch(async (error) => {
   const abort = error instanceof WorkerAbortError ? error : null;
   console.error(
-    abort ? "Clinical KB worker aborted" : "Clinical KB worker stopped unexpectedly",
+    abort ? "PsychSift worker aborted" : "PsychSift worker stopped unexpectedly",
     safeErrorLogDetails(error),
   );
   captureWorkerException(error, "fatal");
@@ -2107,7 +2107,7 @@ main().catch(async (error) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: `CRITICAL: Clinical KB worker ${abort ? "aborted" : "stopped unexpectedly"}. Error: ${error instanceof Error ? error.message : String(error)}`,
+          text: `CRITICAL: PsychSift worker ${abort ? "aborted" : "stopped unexpectedly"}. Error: ${error instanceof Error ? error.message : String(error)}`,
         }),
       });
     } catch (webhookError) {

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { actorId, pathwayVersionId, teamId } from "@/lib/caring-contacts/ids";
 import {
+  PATHWAY_VERSION_PROVENANCE_WORDING,
   REQUIRED_PATHWAY_APPROVAL_ROLES,
   applyPathwayVersionTransition,
+  pathwayVersionProvenanceWording,
   retirementPausesFutureContacts,
   type PathwayVersion,
 } from "@/lib/caring-contacts/pathway-versions";
@@ -135,5 +137,41 @@ describe("pathway version lifecycle", () => {
     expect(Object.isFrozen(published.snapshot)).toBe(true);
     expect(published.publishedAt).not.toBeNull();
     expect(published.publishedAt).toMatch(/\+08:00$/);
+  });
+});
+
+/**
+ * Ruling [126], round 2. The obvious spelling of this lookup at the call site —
+ * `provenance === undefined ? null : WORDING[provenance]` — fails in the unsafe direction, and the
+ * value that triggers it is one no fixture produces: the Postgres store reads the snapshot back
+ * with an unchecked cast, so an unrecognised string arrives with the type insisting it cannot. The
+ * map then yields `undefined`, a caller testing `=== null` sees false, and the screen renders an
+ * empty qualifier beside an approval that is left standing unqualified.
+ *
+ * Every value this field can hold is a WEAKENING claim. These cases hold the resolver to that for
+ * values that do not exist yet, which is the only place the invariant can actually break.
+ */
+describe("pathwayVersionProvenanceWording", () => {
+  it("claims nothing for a record that says nothing", () => {
+    expect(pathwayVersionProvenanceWording(undefined)).toBeNull();
+    expect(pathwayVersionProvenanceWording(null)).toBeNull();
+  });
+
+  it("gives a recognised provenance its own words", () => {
+    expect(pathwayVersionProvenanceWording("syntheticDemonstration")).toBe(
+      PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration,
+    );
+  });
+
+  it("falls back to the weakening claim for a value this build does not recognise", () => {
+    for (const unknown of ["trainingCopy", "", "constructor", "toString", "__proto__"]) {
+      const resolved = pathwayVersionProvenanceWording(unknown);
+      expect(resolved, `an unrecognised provenance (${unknown}) lost its qualifier`).toBe(
+        PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration,
+      );
+      // Never `undefined`: a caller testing `=== null` must be able to trust the two outcomes.
+      expect(resolved).not.toBeUndefined();
+      expect(typeof resolved).toBe("string");
+    }
   });
 });

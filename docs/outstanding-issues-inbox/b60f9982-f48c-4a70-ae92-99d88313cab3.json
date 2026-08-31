@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "b60f9982-f48c-4a70-ae92-99d88313cab3",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CI never runs the caring-contacts database suite, so its 193 tests and the PLAN_COLUMNS narrowing guard only fire on a developer's machine",
+    "detail": "Found while reviewing Phase 2B Task 6b on 2026-08-25. `grep -rn \"caring-contacts\" .github/workflows/` returns zero hits, and `tests/caring-contacts-postgres-repository.test.ts` sits in `caringContactsDbTestFiles`, unconditionally excluded from the offline `node` project in `vitest.config.mts`. So the entire Postgres store suite (193 tests, including every row-level-security and cross-team assertion the shared contract makes against real SQL) runs ONLY when a human happens to have the Docker Postgres on 54329 up. Task 6b installed its most important finding there before it was moved: a source scan proving `PLAN_COLUMNS` does not select a patient's clinical note, whose whole point is that all 192 database tests stayed green when the column WAS added, because `toPlanRecord` maps field by field and releases nothing. The narrowing lives in the query and only a source scan can hold it. Two separable questions: (1) should CI run the caring-contacts database suite at all, which needs a Postgres service container and is a real CI-cost decision; (2) independently of that, any guard that needs no database should not live in a database-only file. Task 6b's fix round moves that one guard to `tests/caring-contacts-domain-isolation.test.ts`; this row is about the other 193.",
+    "issueUlid": "01M0V3GSPKS0N2B6X37VSNRBTG"
+  }
+}

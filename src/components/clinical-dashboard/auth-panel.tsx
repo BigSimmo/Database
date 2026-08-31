@@ -150,7 +150,7 @@ export function AuthPanel() {
   return (
     <form
       onSubmit={submit}
-      className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]"
+      className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]"
     >
       <div className="border-b border-[color:var(--border)]/70 p-4 sm:p-5">
         <div className="flex items-center gap-3">

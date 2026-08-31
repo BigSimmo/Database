@@ -1,5 +1,5 @@
 /**
- * Authenticated, staging-only ward-round soak test for the Clinical KB app tier.
+ * Authenticated, staging-only ward-round soak test for the PsychSift app tier.
  *
  * The requests contain fixed synthetic, non-PHI queries. Search and answer
  * routes can still write normal telemetry/cache data, so this is not a

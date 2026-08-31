@@ -18,6 +18,7 @@ import { capacityBreakdown } from "@/components/ward-management/ward-bed-availab
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
+import { WARD_NAV } from "@/components/ward-management/ward-nav";
 import { NOW_ANCHOR, unitById } from "@/components/ward-management/ward-sites";
 
 /** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch — the same
@@ -189,6 +190,16 @@ describe("ward capacity headline (Task 7)", () => {
     expect(screen.getByTestId("ward-capacity-headline-predicted-today")).toHaveTextContent("Predicted today");
     expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent("Held");
     expect(screen.getByTestId("ward-capacity-headline-leave-usable")).toHaveTextContent("Leave (usable)");
+
+    // Spec D9 (#WG24JB): confirmed and predicted pending discharge cards link to the discharge
+    // board. Read the expected href from WARD_NAV (the single source of Ward Flow destinations)
+    // rather than pinning a duplicate literal, so a renamed/regrouped route fails this test
+    // instead of silently drifting from the rail.
+    const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
+    expect(dischargeHref).toBeTruthy();
+    expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveAttribute("href", dischargeHref);
+    expect(screen.getByTestId("ward-capacity-headline-predicted-today")).toHaveAttribute("href", dischargeHref);
+    expect(screen.getByTestId("ward-capacity-headline-available-now")).not.toHaveAttribute("href");
 
     // No card anywhere in the headline claims to be a total/sum of the other four.
     expect(within(headline).queryByText(/total/i)).not.toBeInTheDocument();

@@ -6,7 +6,7 @@ import { unsubmittedModeSearchTargetForSearchParams } from "@/lib/consolidated-m
 import { DifferentialsHomePage } from "@/components/differentials/differentials-home-page";
 
 export const metadata: Metadata = {
-  title: "Search differential diagnoses | Clinical KB",
+  title: "Search differential diagnoses | PsychSift",
   description: "Compare differential causes and clinical clues against the indexed library.",
 };
 

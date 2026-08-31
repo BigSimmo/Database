@@ -174,8 +174,8 @@ privacy/security review, and explicit approval to begin production implementatio
 Implementation must treat this specification together with the following records as one frozen
 design handoff:
 
-- [copy review](../../caring-contacts/copy-review.md);
-- [clinical-language trace](../../caring-contacts/clinical-language-trace.md);
+- [content style guide](../../caring-contacts/copy-review.md);
+- [clinical-language review](../../caring-contacts/clinical-language-trace.md);
 - [accessibility and responsive acceptance](../../caring-contacts/accessibility-acceptance.md); and
 - [interaction matrix](../../caring-contacts/interaction-matrix.md) — the binding 24-row modality and dismissal decisions.
 - [linked prototype handoff](../../caring-contacts/linked-prototype-handoff.md).

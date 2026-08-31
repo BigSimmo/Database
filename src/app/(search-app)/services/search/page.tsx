@@ -7,7 +7,7 @@ import { ServicesNavigatorPage } from "@/components/services/services-navigator-
 import ServicesLoading from "../loading";
 
 export const metadata: Metadata = {
-  title: "Search clinical services | Clinical KB",
+  title: "Search clinical services | PsychSift",
   description: "Search the private services registry by need, catchment, eligibility and referral route.",
 };
 

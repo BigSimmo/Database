@@ -15,6 +15,7 @@ import {
 import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import {
   AnswerSupportSummaryCard,
+  AnswerUtilityActions,
   answerSupportPriority,
   primaryVisualTable,
   SafetyFindingsListContent,
@@ -199,6 +200,11 @@ function StagedAnswerResultSurfaceImpl({
     // collapsed interactive disclosure is not part of the printed record.
     className: sourceOnly ? "hidden print:flex" : undefined,
   };
+  function openAnswerStateSource(sourceId: string, locator?: string) {
+    const href = citedDocumentHref(sourceId, locator, [...sources, ...(answer.sources ?? [])]);
+    if (href) router.push(href);
+  }
+
   const answerProse = (
     <NaturalLanguageAnswer
       text={answer.answer}
@@ -206,6 +212,8 @@ function StagedAnswerResultSurfaceImpl({
       preformatted={isPreformattedGroundedAnswer(answer)}
       sourceOnly={sourceOnly}
       sourceOnlyVerificationState={answerState.kind}
+      answerState={answerState}
+      onOpenStateSource={openAnswerStateSource}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}
@@ -219,17 +227,17 @@ function StagedAnswerResultSurfaceImpl({
       onOpenSource={openSourceFromClaim}
       onOpenRailSource={openSourceFromRail}
       openSourceIndex={openSourceIndex}
+      showCopyAction={false}
     />
   );
   /**
    * The support card is now the answer-level strip and nothing else: the safety
    * priority row (its trigger is the only route to the safety sheet), the
-   * evidence gaps that belong to the answer rather than to any one document, and
-   * the feedback control. Everything per-source moved to the rail and drawer.
-   * Mount when any of those rows would render — a clean high-trust answer still
-   * needs the "Report a problem" path.
+   * Everything per-source moved to the rail and drawer. Evidence gaps and
+   * feedback now sit beside Copy with sources as answer utilities, so this
+   * surface mounts only when there is an actual safety/priority row.
    */
-  const showInlineSupportCard = Boolean(priority || renderModel.warnings.length > 0 || onSubmitFeedback);
+  const showInlineSupportCard = Boolean(priority);
 
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
@@ -270,7 +278,13 @@ function StagedAnswerResultSurfaceImpl({
                 reader nothing. */}
             <UserQuestionBubble query={query} />
             {answerState.kind === "ready" ? (
-              <AnswerCard state={answerState} verification={answerVerification} support={answerSupport} frame="bare">
+              <AnswerCard
+                state={answerState}
+                verification={answerVerification}
+                support={answerSupport}
+                frame="bare"
+                retrievalStatePlacement="content"
+              >
                 {answerProse}
               </AnswerCard>
             ) : (
@@ -279,41 +293,41 @@ function StagedAnswerResultSurfaceImpl({
                 verification={answerVerification}
                 support={answerSupport}
                 frame="bare"
+                retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
                 // is labelled "Open <source>, p. N".
-                onOpenSource={(sourceId, locator) => {
-                  const href = citedDocumentHref(sourceId, locator, [...sources, ...(answer.sources ?? [])]);
-                  if (href) router.push(href);
-                }}
+                onOpenSource={openAnswerStateSource}
               >
                 {answerProse}
               </AnswerCard>
             )}
 
+            <AnswerUtilityActions
+              copied={copiedAnswer}
+              onCopy={onCopyAnswer}
+              warnings={renderModel.warnings}
+              pendingFeedback={pendingFeedback}
+              onSubmitFeedback={onSubmitFeedback}
+            />
+
             {showInlineSupportCard ? (
               <AnswerSupportSummaryCard
                 priority={priority}
-                warnings={renderModel.warnings}
                 safetyTriggerRef={safetyTriggerRef}
                 safetyFindingsCount={safetyFindings.length}
                 onOpenSafetyFindings={safetyFindings.length > 0 ? openSafetyFindings : undefined}
-                pendingFeedback={pendingFeedback}
-                onSubmitFeedback={onSubmitFeedback}
-                // Chat framing: safety keeps its row, the other two collapse to
-                // one line of buttons rather than two 56px stacked rows.
-                density="compact"
               />
             ) : null}
 
-            {/* Follow-ups first, and on every width. They were wrapped in
-                `hidden sm:block`, so the most likely next tap on this surface
-                was desktop-only — the phone got the two "where else does this
-                appear" panels and none of the questions. Asking the next
-                question is the clinical step; browsing the library is not, so
-                the questions lead and the matches collapse to one line beneath
-                them (owner decision, 2026-08-26, "direction B"). */}
+            {/* Related library context belongs with the answer's evidence and
+                safety stack. Keep it collapsed and place it before the next-turn
+                prompts so it is not stranded beneath the composer. */}
+            {crossModeQueries?.length && onCrossModeSearch ? (
+              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} variant="line" />
+            ) : null}
+
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
               <AnswerFollowUpSuggestions
                 suggestions={followUpSuggestions}
@@ -321,10 +335,6 @@ function StagedAnswerResultSurfaceImpl({
                 disabled={followUpSuggestionsDisabled}
                 layout="rows"
               />
-            ) : null}
-
-            {crossModeQueries?.length && onCrossModeSearch ? (
-              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} variant="line" />
             ) : null}
           </div>
         </div>
@@ -379,7 +389,14 @@ function StagedAnswerResultSurfaceImpl({
             titleClassName="text-base-minus leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
-            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            // No `flex flex-col` here. The Sheet body is the scrollport, and as a flex
+            // column its single child (the findings card) became a shrinkable flex
+            // item: it was compressed from its natural height to whatever was left,
+            // and because that card is `overflow-hidden` the findings below the fold
+            // were clipped rather than scrolled. The body then had nothing to scroll,
+            // so the gesture went to the page behind the sheet. A plain block
+            // scrollport keeps the list at its natural height and scrolls it.
+            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={safetyTriggerRef}
           >
             <SafetyFindingsListContent findings={safetyFindings} />

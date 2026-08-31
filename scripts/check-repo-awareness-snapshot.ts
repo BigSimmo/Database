@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
@@ -17,10 +18,26 @@ const FIX = "npm run snapshot:repo-awareness";
  * with nothing stale. The gate would then fail on every docs change, and `main`
  * would go red after each squash merge that touched a document.
  *
- * Excluding it fails safe: a lagging revision can only make a page report
- * itself as OLDER than it is, and every content difference is still caught.
+ * `review_state` is also deliberately NOT compared in check gates. Review
+ * records are dynamic and concurrent merges to `main` append new review records,
+ * which would cause feature branch staleness check failures and merge conflicts.
+ *
+ * Excluding them fails safe: every deterministic content difference in routes,
+ * documentation, and test health is still caught.
  */
-const COMPARED_CONTENT_KEYS = ["routes", "documentation", "test_health", "review_state"] as const;
+const COMPARED_CONTENT_KEYS = ["routes", "documentation", "test_health"] as const;
+
+export function isGitRepository(cwd = process.cwd()): boolean {
+  try {
+    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+      cwd,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function compareSnapshots(committed: unknown, regenerated: RepoAwarenessSnapshot): string[] {
   const differences: string[] = [];
@@ -54,6 +71,7 @@ export type CheckSnapshotOptions = {
   outputPath?: string;
   generateImpl?: () => RepoAwarenessSnapshot;
   readCommittedImpl?: (path: string) => unknown;
+  isGitRepoImpl?: () => boolean;
   log?: (msg: string) => void;
   error?: (msg: string) => void;
   exit?: (code: number) => void;
@@ -64,10 +82,18 @@ export function checkRepoAwarenessSnapshot(options: CheckSnapshotOptions = {}): 
     outputPath = OUTPUT_PATH,
     generateImpl = generate,
     readCommittedImpl = (p) => JSON.parse(readFileSync(p, "utf8")),
+    isGitRepoImpl = isGitRepository,
     log = console.log,
     error = console.error,
     exit = (code) => process.exit(code),
   } = options;
+
+  if (!isGitRepoImpl()) {
+    log(
+      "[repo-awareness] Git repository not available (git-less environment); skipping repo-awareness snapshot staleness check.",
+    );
+    return 0;
+  }
 
   let regenerated: RepoAwarenessSnapshot;
   try {

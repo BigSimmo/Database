@@ -71,7 +71,9 @@ import {
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
-import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+import { ClinicalAskAnswerSurface } from "@/components/clinical-dashboard/clinical-ask-answer-surface";
+import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
 
@@ -136,6 +138,7 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 const focusHydrationRetryDelayMs = 300;
 type GlobalSearchShellProps = {
   children: ReactNode;
+  clinicalAskAvailableModeIds?: readonly ClinicalAskModeId[];
   initialMode?: AppModeId;
   availableModeIds?: readonly AppModeId[];
   desktopSearchPlacement?: "default" | "hero";
@@ -195,7 +198,7 @@ function GlobalSearchShellRoute(props: GlobalSearchShellProps & { pathname: stri
           // fallback and resolved content briefly coexisted. A route-agnostic mode-home
           // skeleton (the same one `loading.tsx` shows during navigation) reserves the
           // layout so the first frame reads as "loading" instead of a blank background.
-          <div className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-dvh">
+          <div className="flex min-h-0 flex-col bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-dvh">
             <ModeHomeRouteLoading />
           </div>
         )
@@ -269,6 +272,7 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           // nothing submitted. Keystroke drafts must not auto-run there — same
           // contract as bare `/` — or every composer edit fires `/api/search`.
           autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
+          clinicalAskAvailableModeIds={props.clinicalAskAvailableModeIds}
         />
       </SettingsStateProvider>
     );
@@ -344,6 +348,7 @@ function GlobalStandaloneSearchShellBody({
   desktopSearchPlacement = "default",
   mobileHomeComposerPlacement = "hero",
   searchComposerVisible = true,
+  clinicalAskAvailableModeIds,
   hideDesktopSidebar = false,
   chromeVisible = true,
   mobileChromeVisible = true,
@@ -457,8 +462,10 @@ function GlobalStandaloneSearchShellBody({
   const therapyCompareAddonActive =
     searchMode === "therapy-compass" &&
     isTherapyPhoneDockRoute(pathname) &&
+    pathname !== "/therapy-compass/compare" &&
     readTherapyCompareSlugCount(searchParams) > 0;
-  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const clinicalAskMode =
+    isClinicalAskModeId(searchMode) && clinicalAskAvailableModeIds?.includes(searchMode) ? searchMode : null;
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -824,12 +831,32 @@ function GlobalStandaloneSearchShellBody({
     return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
   }, [mainElement, chromeVisible]);
 
-  const renderSearchShellChrome = ({ clinicalAskSession }: ClinicalAskShellBindings) => {
+  const renderSearchShellChrome = ({ clinicalAskSession, runModeClinicalAsk }: ClinicalAskShellBindings) => {
     const startNewChat = () => startNewAnswerChat(clinicalAskSession.clear);
     const stageClinicalAskDraft = (draft: string) => {
       setQuery(draft);
       focusComposerInput(inputRef);
     };
+    const submitSearchWithSmart = (queryOverride?: string) => {
+      const submittedQuery = (queryOverride ?? query).trim();
+      if (clinicalAskMode && resolveSmartSearchSubmissionIntent(clinicalAskMode, submittedQuery) === "clinical-ask") {
+        runModeClinicalAsk(submittedQuery);
+        return;
+      }
+      submitSearch(queryOverride);
+    };
+    const returnToSearch = () => {
+      clinicalAskSession.clear();
+      setQuery("");
+      const alreadyOnPrivateSearchUrl =
+        !searchParams.has("q") && !searchParams.has("query") && searchParams.get("run") !== "1";
+      if (!alreadyOnPrivateSearchUrl) router.replace(appModeHomeHref(searchMode, { focus: true }));
+      focusComposerInput(inputRef);
+    };
+    const clinicalAskFailure =
+      clinicalAskMode && clinicalAskSession.mode === clinicalAskMode && clinicalAskSession.response?.state === "failed"
+        ? clinicalAskSession.response
+        : null;
     if (!chromeVisible) {
       return (
         <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
@@ -920,7 +947,8 @@ function GlobalStandaloneSearchShellBody({
                 setMobileMenuOpen(false);
                 openAccountSetup("favourites");
               }}
-              onAsk={submitSearch}
+              onAsk={submitSearchWithSmart}
+              clinicalAskAvailable={Boolean(clinicalAskMode)}
               onClearQuery={() => {
                 setQuery("");
                 if (isStandaloneModeHome || searchMode === "calculators") {
@@ -1031,7 +1059,22 @@ function GlobalStandaloneSearchShellBody({
               // overflow-y: visible into an element scroller. Standalone mode
               // overrides this semantic surface to the bounded app scrollport.
               // sm+ keeps document ownership for sticky page descendants.
-              "phone-scroll-surface min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex-1 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:overflow-x-clip",
+              //
+              // `sm:grow`, not a `calc(100dvh - <chrome estimate>)` floor. This
+              // element is already a flex child of `.phone-viewport-frame`
+              // (`flex flex-col sm:min-h-dvh`), so growing into the frame's free
+              // space ends it exactly at the viewport bottom whatever chrome sits
+              // above it. A subtracted estimate cannot: `--shell-header-h` (4rem)
+              // covers the header's inner bar plus `pb-2` but NOT its own
+              // `pt-[max(0.5rem,var(--safe-area-top))]`, so the old floor
+              // overshot by 8px on every route — and by 57px on routes that also
+              // mount the `header-collapse-addon` nav row, whose height no static
+              // token knows. Both left a permanent sliver of scroll on pages with
+              // nothing to scroll. Growth is exact and cannot drift again.
+              // Default `flex-shrink` is safe here: `min-height: auto` on a flex
+              // item stops it compressing below its content, so tall pages still
+              // extend the frame and scroll the document as before.
+              "phone-scroll-surface min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex-1 sm:grow sm:overflow-x-clip",
               // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
               // can simulate insets without depending on env() in Chromium.
               !reservesFloatingComposer
@@ -1048,10 +1091,19 @@ function GlobalStandaloneSearchShellBody({
             padding on the scrollport itself is omitted from scrollHeight in some
             flex/overflow combinations. The inner block box includes padding in
             its height, so end-of-page content clears the visible dock.
+
+            At sm+ this pad is also the box page shells fill. `min-h-full`
+            resolves against #main-content — definite now that it grows into the
+            frame — and is border-box, so #main-content's own `sm:pb-8` stays
+            outside the 100%. Page shells therefore ask for `sm:grow` instead of
+            `calc(100dvh - var(--shell-header-h))`: that estimate knew neither the
+            header's top pad, nor the nav row on addon routes, nor this
+            scrollport's bottom padding, and over-reserved by 40-273px on a tall
+            window — scroll range on pages whose content had already ended.
           */}
             <div
               data-testid="mobile-composer-reserve-pad"
-              className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)]"
+              className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)] sm:flex sm:min-h-full sm:flex-col"
             >
               {shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue ? (
                 <DesktopComposerPortalSlot
@@ -1082,11 +1134,30 @@ function GlobalStandaloneSearchShellBody({
               {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
               <SearchCommandProvider value={searchCommandContextValue}>
-                {clinicalAskWorkspaceVisible(clinicalAskSession) ? (
-                  <ClinicalAskWorkspace onDraftChange={stageClinicalAskDraft} />
-                ) : null}
-                {pendingModeNavigation ? (
-                  <div aria-busy="true" aria-live="polite" data-testid="mode-navigation-loading">
+                {clinicalAskFailure ? (
+                  <section className="clinical-ask-workspace" aria-label="Clinical Ask workspace">
+                    <ClinicalAskAnswerSurface
+                      response={clinicalAskFailure}
+                      question={clinicalAskSession.submittedQuestion || clinicalAskSession.draft}
+                      onRetry={() =>
+                        runModeClinicalAsk(clinicalAskSession.submittedQuestion || clinicalAskSession.draft)
+                      }
+                      onReturnToSearch={returnToSearch}
+                    />
+                  </section>
+                ) : clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                  <ClinicalAskWorkspace
+                    onDraftChange={stageClinicalAskDraft}
+                    onRun={runModeClinicalAsk}
+                    onReturnToSearch={returnToSearch}
+                  />
+                ) : pendingModeNavigation ? (
+                  <div
+                    aria-busy="true"
+                    aria-live="polite"
+                    data-testid="mode-navigation-loading"
+                    className="sm:flex sm:min-h-0 sm:flex-1 sm:flex-col"
+                  >
                     <span className="sr-only">Loading {appModeDefinition(pendingModeNavigation.mode).label}</span>
                     <ModeHomeRouteLoading />
                   </div>

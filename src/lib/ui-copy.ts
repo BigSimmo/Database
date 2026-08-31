@@ -117,7 +117,7 @@ export const sharedHomePresentation = {
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */
 export function sharedHomeDocumentTitle(modeId: AppModeId) {
-  return `${sharedHomePresentation[modeId].title} | Clinical KB`;
+  return `${sharedHomePresentation[modeId].title} | PsychSift`;
 }
 
 export const sharedHomeEmptyState = {
@@ -256,7 +256,7 @@ export const emptyStates = {
 // components/privacy-input-notice.tsx.
 export const privacyCopy = {
   pageEyebrow: "Privacy",
-  pageTitle: "How Clinical KB handles your data",
+  pageTitle: "How PsychSift handles your data",
 } as const;
 
 // User-visible error / status messages.

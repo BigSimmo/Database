@@ -27,6 +27,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -53,6 +54,8 @@ import {
   chatComposerInput,
   chatComposerShellBase,
   chatSendButton,
+  fieldControlPlain,
+  fieldControlWithIcon,
   floatingControl,
   glassOverlaySurface,
   shellChip,
@@ -85,6 +88,7 @@ import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 
 // Shared between the composer input's aria-describedby and the rendered
 // PrivacyInputNotice id/testId so the wiring cannot drift apart.
@@ -210,6 +214,7 @@ export function MasterSearchHeader({
   queryInputRef,
   queryInputAutoFocus = false,
   composerPlaceholder,
+  clinicalAskAvailable = false,
   recentQueries = [],
   onPickRecent,
   onCrossModeSearch,
@@ -268,6 +273,8 @@ export function MasterSearchHeader({
   queryInputAutoFocus?: boolean;
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
+  /** Server-projected capability for governed Smart answers in this mode. */
+  clinicalAskAvailable?: boolean;
   recentQueries?: string[];
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
@@ -633,7 +640,13 @@ export function MasterSearchHeader({
   const activeLabelFilterCount = labelScopeFilterFields.filter((field) => scopeFilters[field.key]?.length).length;
   const activeQuickFilterCount =
     (scopeFilters.sourceStatuses?.length ? 1 : 0) + (scopeFilters.locality ? 1 : 0) + activeLabelFilterCount;
-  const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
+  const smartClinicalAsk =
+    clinicalAskAvailable && resolveSmartSearchSubmissionIntent(searchMode, trimmedQuery) === "clinical-ask";
+  const submitLabel = smartClinicalAsk
+    ? "Get Smart answer"
+    : trimmedQuery
+      ? selectedSearch.submitBusyLabel
+      : selectedSearch.submitIdleLabel;
   // One task-oriented placeholder per mode (PT-14): the follow-up composer must
   // not swap to brand copy that hides what the input actually does.
   const queryPlaceholder = composerPlaceholder ?? selectedSearch.placeholder;
@@ -1208,7 +1221,7 @@ export function MasterSearchHeader({
           ) : null}
         </span>
         {active && usesPhoneSearchLayout ? (
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)] shadow-[var(--e2)]">
             <Check aria-hidden="true" className="size-icon-sm" strokeWidth={2.5} />
           </span>
         ) : active ? (
@@ -1489,7 +1502,10 @@ export function MasterSearchHeader({
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className={cn(
+                fieldControlPlain,
+                "min-w-0 text-xs font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+              )}
             />
           </label>
         ))}
@@ -1499,7 +1515,7 @@ export function MasterSearchHeader({
 
   function renderDocumentScopeSection() {
     return (
-      <section className="min-w-0 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+      <section className="min-w-0 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)]">
         <div className="mb-3 grid min-h-[4.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--clinical-accent-soft)_72%,var(--surface-lux)_28%)_0%,var(--surface-lux)_72%)] p-3 shadow-[var(--shadow-inset)]">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
             <FileText className="h-4 w-4" aria-hidden="true" />
@@ -1529,7 +1545,10 @@ export function MasterSearchHeader({
               data-testid="document-scope-filter"
               aria-label="Filter document scope"
               placeholder="Filter documents by title or file"
-              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className={cn(
+                fieldControlWithIcon,
+                "font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+              )}
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
@@ -1634,7 +1653,7 @@ export function MasterSearchHeader({
     return (
       <div className="grid gap-3">
         {renderDocumentScopeSection()}
-        <details className="group min-w-0 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] sm:hidden">
+        <details className="group min-w-0 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)] sm:hidden">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
             <span>Refine search</span>
             <span className="flex items-center gap-2">
@@ -1656,7 +1675,10 @@ export function MasterSearchHeader({
                 value={queryMode}
                 onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
                 aria-label="Clinical query mode"
-                className="h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                className={cn(
+                  fieldControlPlain,
+                  "text-sm font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+                )}
               >
                 {queryModeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -1681,7 +1703,10 @@ export function MasterSearchHeader({
                         : [],
                     })
                   }
-                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className={cn(
+                    fieldControlPlain,
+                    "min-w-0 text-sm font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+                  )}
                 >
                   <option value="">Any status</option>
                   <option value="current">Current</option>
@@ -1703,7 +1728,10 @@ export function MasterSearchHeader({
                       locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
                     })
                   }
-                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className={cn(
+                    fieldControlPlain,
+                    "min-w-0 text-sm font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+                  )}
                 >
                   <option value="">Any locality</option>
                   <option value="local">Local only</option>
@@ -1727,7 +1755,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={() => onScopeFiltersChange({})}
-                className={cn(floatingControl, "px-3 text-xs lg:min-h-9")}
+                className={cn(floatingControl, "px-3 text-xs lg:min-h-compact-meta")}
               >
                 Clear refine filters
               </button>
@@ -1735,7 +1763,7 @@ export function MasterSearchHeader({
           </div>
         </details>
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
-          <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-8">
+          <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-compact-meta">
             <span className={eyebrowText}>Label filters</span>
             <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-muted)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
@@ -1750,7 +1778,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={() => onScopeFiltersChange({})}
-              className={cn(floatingControl, "w-fit px-3 text-xs lg:min-h-9")}
+              className={cn(floatingControl, "w-fit px-3 text-xs lg:min-h-compact-meta")}
             >
               Clear refine filters
             </button>
@@ -1973,6 +2001,7 @@ export function MasterSearchHeader({
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
           showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
+          clinicalAskAvailable={clinicalAskAvailable}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -2060,7 +2089,11 @@ export function MasterSearchHeader({
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
                 }}
-                aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
+                aria-label={
+                  clinicalAskAvailable
+                    ? `Search or ask a governed Smart question - ${selectedSearch.inputAriaLabel}`
+                    : `Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`
+                }
                 placeholder={queryPlaceholder}
                 className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
               />
@@ -2084,13 +2117,17 @@ export function MasterSearchHeader({
                   ? "Search setup not ready"
                   : trimmedQuery.length < 1
                     ? selectedSearch.emptyTitle
-                    : selectedSearch.readyTitle
+                    : smartClinicalAsk
+                      ? "Get a governed Smart answer"
+                      : selectedSearch.readyTitle
               }
               className={cn(chatSendButton, "answer-footer-search-send")}
-              aria-label={selectedSearch.submitAriaLabel}
+              aria-label={smartClinicalAsk ? "Get Smart answer" : selectedSearch.submitAriaLabel}
             >
               {loading ? (
                 <Loader2 aria-hidden="true" className="size-icon-lg animate-spin" />
+              ) : smartClinicalAsk ? (
+                <Sparkles aria-hidden="true" className="size-icon-lg" />
               ) : usesSendAffordance ? (
                 <Send aria-hidden="true" className="size-icon-lg" />
               ) : usesModeIdentityAffordance ? (
@@ -2261,13 +2298,24 @@ export function MasterSearchHeader({
           </button>
           {sharedHomeIdentity ? (
             <div data-testid="shared-home-brand" className="hidden min-w-0 items-center gap-3 lg:flex">
-              <BrandMark className="h-10 w-10" />
+              <BrandMark tone="emphasis" className="h-10 w-10" />
               <span className="min-w-0">
-                <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
-                  Clinical KB
+                {/* The name leads and the strapline supports, which is a weight and a
+                    colour apart, not just a size. The wordmark takes the display
+                    tracking the rest of the interface's headings use — at 18px/800 the
+                    untracked default reads loose. The strapline drops from 600 to 500:
+                    at 600 it sat almost level with the name and the two lines competed.
+                    The colour stays --text-muted and the size stays 12px, both measured
+                    rather than chosen — on this surface --text-soft composites to
+                    #8894a6 and gives 3.07:1 against the header, under the 4.5:1 floor,
+                    and 11px made the block bottom-light for no gain. Tracking stays on
+                    the ladder's zero step; positive tracking belongs to uppercase
+                    labels, and this is a sentence. */}
+                <span className="block truncate text-lg font-extrabold leading-5 tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+                  PsychSift
                 </span>
-                <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                  Source-backed clinical search
+                <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                  From question to source
                 </span>
               </span>
             </div>
