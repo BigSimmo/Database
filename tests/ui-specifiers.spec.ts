@@ -132,6 +132,14 @@ test("searches clinical language without provenance fields and carries a result 
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "depressed but racing thoughts" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
   await expect(page.getByText(/Results ranked by text relevance/i)).toHaveCount(0);
+  // Smart natural-language queries default to the full catalogue lane. This journey
+  // asserts curated guide cards (Top match → wording), so pin Search in → guides first.
+  {
+    const guidesUrl = new URL(page.url());
+    guidesUrl.searchParams.set("scope", "guides");
+    await page.goto(guidesUrl.toString());
+  }
+  await expect(page).toHaveURL(/scope=guides/);
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
   const filterTrigger = page.getByTestId("specifier-filter-trigger-desktop");
   await filterTrigger.click();
