@@ -84,7 +84,7 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
     <>
       <div className={sidebarStyles.phoneBar}>
         <Link href="/mockups/ward-flow" className={sidebarStyles.phoneBrand}>
-          <BrandMark className={sidebarStyles.brandGlyph} />
+          <BrandMark tone="emphasis" className={sidebarStyles.brandGlyph} />
           <span className={sidebarStyles.phoneBrandName}>Ward Flow</span>
         </Link>
         <button
@@ -117,7 +117,7 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         closeLabel="Close Ward Flow menu"
         placement="left"
         contentClassName={sidebarStyles.drawerHidden}
-        headerLeading={<BrandMark className={sidebarStyles.brandGlyph} />}
+        headerLeading={<BrandMark tone="emphasis" className={sidebarStyles.brandGlyph} />}
       >
         <div className={sidebarStyles.drawerBody}>
           <WardSidebarContent activeMode={activeMode} showBrandRow={false} onNavigate={() => setMenuOpen(false)} />
@@ -151,7 +151,7 @@ function WardIconRail({
           logo was the ninth and most prominent exit out of the sandbox, and it took looking at a
           screenshot rather than any amount of source reading to notice. */}
       <Link href="/mockups/ward-flow" className={shellStyles.railBrand} aria-label="Ward Flow home">
-        <BrandMark className={shellStyles.brandGlyph} />
+        <BrandMark tone="emphasis" className={shellStyles.brandGlyph} />
       </Link>
       <button
         type="button"
@@ -160,7 +160,7 @@ function WardIconRail({
         aria-label="Expand sidebar"
         title="Expand sidebar"
       >
-        <BrandMark className={shellStyles.railExpandBrand} />
+        <BrandMark tone="emphasis" className={shellStyles.railExpandBrand} />
         <PanelLeftOpen aria-hidden="true" className={shellStyles.railExpandIcon} />
       </button>
       <div className={shellStyles.railRule} aria-hidden="true" />

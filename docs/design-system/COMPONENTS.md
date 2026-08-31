@@ -1,4 +1,4 @@
-# Clinical KB design system — COMPONENTS
+# PsychSift design system — COMPONENTS
 
 **The public component contracts, their local publication state, and the remaining
 specifications.** Prop shapes are normative contracts; token references are roles only —

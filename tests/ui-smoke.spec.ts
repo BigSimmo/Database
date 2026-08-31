@@ -932,11 +932,20 @@ async function expectControlsBelowPhoneTopSafeArea(page: Page, controls: Locator
   }
 }
 
-async function expectAccountSettingsSurface(settings: Locator) {
+async function expectAccountSettingsSurface(settings: Locator, chrome: "desktop" | "phone") {
   await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
-  await expect(settings.getByText("Account and workspace preferences", { exact: true })).toBeVisible();
-  await expect(settings.getByRole("search")).toHaveCount(0);
-  await expect(settings.getByRole("navigation", { name: "Settings sections" })).toHaveCount(0);
+  const subtitle = settings.getByText("Account and workspace preferences", { exact: true });
+  const search = settings.getByRole("search");
+  const navigation = settings.getByRole("navigation", { name: "Settings sections" });
+  if (chrome === "desktop") {
+    await expect(subtitle).toBeHidden();
+    await expect(search).toBeVisible();
+    await expect(navigation).toBeVisible();
+  } else {
+    await expect(subtitle).toBeVisible();
+    await expect(search).toHaveCount(0);
+    await expect(navigation).toHaveCount(0);
+  }
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
@@ -950,6 +959,8 @@ async function expectAccountSettingsSurface(settings: Locator) {
 }
 
 async function expectMobileSettingsLayout(settings: Locator) {
+  await expect(settings.getByRole("search")).toHaveCount(0);
+  await expect(settings.getByRole("navigation", { name: "Settings sections" })).toHaveCount(0);
   const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
   // The row carries two labels for one control, deliberately. The visible row
   // text is a `<label htmlFor>` so clicking it focuses the select, and the DS
@@ -1492,7 +1503,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expectAccountSettingsSurface(settings, "desktop");
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
@@ -1512,9 +1523,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("desktop settings owns its scroll and keeps the simplified title bar reachable", async ({ page }) => {
-    // The section rail and search were removed, but the long settings body still
-    // needs one bounded scroll owner with a sticky close control.
+  test("desktop settings restores search and section navigation while keeping one scroll owner", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -1528,7 +1537,27 @@ test.describe("PsychSift UI smoke coverage", () => {
     const settings = accountSettingsDialog(page);
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expectAccountSettingsSurface(settings, "desktop");
+
+    for (const width of [768, 1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(settings.getByRole("search")).toBeVisible();
+      await expect(settings.getByRole("navigation", { name: "Settings sections" })).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    const rail = settings.getByRole("navigation", { name: "Settings sections" });
+    const search = settings.getByTestId("settings-search-input");
+    await search.fill("dark mode");
+    await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+    await expect(settings.getByTestId("settings-row-jurisdiction")).toHaveCount(0);
+    await expect(rail.getByRole("button", { name: "App preferences", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await search.press("Escape");
+    await expect(search).toHaveValue("");
+    await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
 
     const close = settings.getByRole("button", { name: "Close settings" });
     const port = settings.getByTestId("settings-scroll-port");
@@ -1542,14 +1571,16 @@ test.describe("PsychSift UI smoke coverage", () => {
         };
       });
 
-    // The settings column owns the overflow; its panel never becomes a second
-    // clipped scroll container.
+    // The settings column owns the overflow; the two-column panel never becomes
+    // a second clipped scroll container.
     expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
 
-    await port.evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
-    });
-    await expect(settings.getByRole("heading", { name: "Developer", exact: true })).toBeVisible();
+    await rail.getByRole("button", { name: "Help & About", exact: true }).click();
+    await expect(rail.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await expect(rail).toBeInViewport();
     await expect(close).toBeInViewport();
     expect((await scrollState()).panelClipped).toBe(false);
 
@@ -1571,7 +1602,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await menu.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(menu).toHaveCount(0);
     await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expectAccountSettingsSurface(settings, "phone");
     const settingsBox = await settings.boundingBox();
     const viewport = await page.evaluate(() => ({
       width: window.visualViewport?.width ?? window.innerWidth,
@@ -1595,6 +1626,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 430, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 639, height: 820 });
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 

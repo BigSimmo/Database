@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Clinical KB — orientation for AI assistants
+# PsychSift — orientation for AI assistants
 
 Private, local-first medical guideline RAG knowledge base for a psychiatrist in Perth,
 Australia. Clinical reference documents are uploaded to private Supabase Storage, indexed

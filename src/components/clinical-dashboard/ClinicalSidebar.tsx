@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
+import { BRAND_CATCHPHRASE, BRAND_MENU_DESCRIPTION } from "@/lib/brand";
 import {
   cn,
   fieldControlWithIcon,
@@ -132,6 +133,40 @@ const collapsedSidebarControl =
 const collapsedSidebarButton = `grid ${collapsedSidebarControl}`;
 const collapsedSidebarActiveButton =
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
+
+/* Phone drawer header (ClinicalMobileSidebar).
+ *
+ * The stock Sheet header is built for a dialog that has to explain itself: a
+ * 5-unit pad, an 18px title, and a `text-sm leading-6` description paragraph.
+ * On this drawer that combination spent roughly 160px — a third of the first
+ * screenful above the notch on a 390px phone — restating what the drawer is,
+ * to a user who has just tapped the menu button and can see it. The description
+ * also wrapped to two lines, because the title column is squeezed between the
+ * brand mark and a 48px close button, which is why the block was so tall.
+ *
+ * The header now reads as a brand lockup rather than a dialog preamble: mark,
+ * wordmark, one strapline that cannot wrap, and a close control that keeps its
+ * full 48px tap target while giving up the boxed chrome that made it the
+ * loudest thing in the header. The functional sentence moves to `sr-only`,
+ * where it is still the accessible description.
+ *
+ * These are overrides on the shared Sheet rather than edits to it: every other
+ * dialog in the app uses that header, and the case for a compact brand header
+ * is specific to a navigation drawer that is already showing its own contents. */
+const drawerHeader = "gap-x-2.5 px-4 py-3 sm:px-5 sm:py-3.5";
+const drawerHeaderTitle = "text-base leading-6 tracking-tight sm:text-lg";
+const drawerHeaderStrapline = "block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]";
+/* Ghost close control, matching the collapsed rail's idiom (transparent border
+ * that resolves on hover, so forced-colors still has an edge to paint) instead
+ * of the toolbar recipe's resting border, fill and inset shadow. The tap target
+ * is unchanged at h-tap/w-tap; only the chrome is quieter.
+ *
+ * The glyph is lifted to --spacing-icon-lg, the 20px "header / primary controls"
+ * step, via a child variant: Sheet hardcodes its X at 16px, which reads as a
+ * default-sized icon adrift once the surrounding box is removed. Scoped here
+ * rather than changed in Sheet, since that icon is shared by every dialog. */
+const drawerHeaderClose =
+  "grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] [&>svg]:size-icon-lg";
 
 function SidebarModesTrigger({
   variant,
@@ -587,10 +622,16 @@ export function ClinicalSidebarContent({
       {showHeader ? (
         <div className="flex shrink-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <BrandMark className="h-10 w-10" />
-            <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
-              Clinical Guide
-            </p>
+            <BrandMark tone="emphasis" className="h-10 w-10" />
+            {/* Same lockup as the phone drawer header: wordmark over strapline,
+                so the two entry points to the same navigation read as one brand
+                rather than two headers that happen to share a title. */}
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
+                Clinical Guide
+              </p>
+              <p className={drawerHeaderStrapline}>{BRAND_CATCHPHRASE}</p>
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -895,14 +936,14 @@ function ClinicalCollapsedRail({
       <div className="grid w-full shrink-0 justify-items-center gap-2 px-3">
         {collapseLocked ? (
           <span className={collapsedSidebarButton} aria-hidden="true">
-            <BrandMark className="h-7 w-7" />
+            <BrandMark tone="emphasis" className="h-7 w-7" />
           </span>
         ) : (
           <>
             {/* Tablet: the expanded panel does not exist below lg, so show a
                 static brand mark instead of a dead expand control. */}
             <span className={cn("hidden md:grid lg:hidden", collapsedSidebarControl)} aria-hidden="true">
-              <BrandMark className="h-7 w-7" />
+              <BrandMark tone="emphasis" className="h-7 w-7" />
             </span>
             <Button
               variant="ghost"
@@ -911,7 +952,7 @@ function ClinicalCollapsedRail({
               title="Expand sidebar"
               onClick={() => onCollapsedChange(false)}
             >
-              <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
+              <BrandMark tone="emphasis" className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
               <PanelLeftOpen
                 aria-hidden="true"
                 className="hidden size-icon-lg group-hover:block group-focus-visible:block"
@@ -1144,11 +1185,26 @@ export function ClinicalMobileSidebar({
       open={open}
       onClose={() => onOpenChange(false)}
       title="Clinical Guide"
-      description="Recent chats, navigation, and settings."
       closeLabel="Close Clinical Guide menu"
       placement="left"
       contentClassName={hiddenFrom === "lg" ? "lg:hidden" : "md:hidden"}
-      headerLeading={<BrandMark className="h-8 w-8" />}
+      headerLeading={<BrandMark tone="emphasis" className="h-7 w-7 sm:h-8 sm:w-8" />}
+      headerClassName={drawerHeader}
+      titleClassName={drawerHeaderTitle}
+      closeButtonClassName={drawerHeaderClose}
+      descriptionContent={
+        <>
+          {/* The functional sentence still reaches assistive technology, where
+              "what does this dialog contain" is the useful answer. The visible
+              line is the strapline, which is identity — the two audiences want
+              different sentences, so they get different sentences rather than one
+              compromise that serves neither. */}
+          <span className="sr-only">{BRAND_MENU_DESCRIPTION}</span>
+          <span aria-hidden="true" className={drawerHeaderStrapline}>
+            {BRAND_CATCHPHRASE}
+          </span>
+        </>
+      }
     >
       <ClinicalSidebarContent
         showHeader={false}
