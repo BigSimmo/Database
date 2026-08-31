@@ -153,7 +153,9 @@ describe("Caring Contact mockup route registration", () => {
       const pattern = new RegExp(
         `^${declared
           .split("/")
-          .map((segment) => (segment.startsWith("[") && segment.endsWith("]") ? "[^/]+" : segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
+          .map((segment) =>
+            segment.startsWith("[") && segment.endsWith("]") ? "[^/]+" : segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          )
           .join("/")}$`,
       );
       return pattern.test(registered);
