@@ -3344,7 +3344,12 @@ test.describe("PsychSift UI smoke coverage", () => {
       expect(statusBox).toBeTruthy();
       expect(sourceOnlyBox).toBeTruthy();
       expect(reviewDueBox).toBeTruthy();
-      expect(Math.abs(sourceOnlyBox!.y - reviewDueBox!.y)).toBeLessThanOrEqual(1);
+      // The source-only disclosure keeps the 40px compact touch target while
+      // Review due remains a denser tab. A shared row is therefore defined by
+      // their centres, not their unequal top edges.
+      const sourceOnlyCenter = sourceOnlyBox!.y + sourceOnlyBox!.height / 2;
+      const reviewDueCenter = reviewDueBox!.y + reviewDueBox!.height / 2;
+      expect(Math.abs(sourceOnlyCenter - reviewDueCenter)).toBeLessThanOrEqual(1);
       expect(statusBox!.height).toBeLessThanOrEqual(42);
       expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
       expect(reviewDueBox!.height).toBeLessThanOrEqual(42);
