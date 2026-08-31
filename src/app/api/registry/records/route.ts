@@ -49,7 +49,9 @@ const registryListQuerySchema = z.object({
 });
 
 function rankRecords(kind: RegistryRecordKind, records: ServiceRecord[], query: string, limit: number) {
-  return kind === "form" ? rankFormRecords(records, query, limit) : rankServiceRecords(records, query, limit);
+  return kind === "form"
+    ? rankFormRecords(records, query, limit, [], true)
+    : rankServiceRecords(records, query, limit, [], true);
 }
 
 function acceptsGzip(request: Request | undefined) {

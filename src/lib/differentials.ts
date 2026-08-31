@@ -1,4 +1,5 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { buildDiagnosisTitleSlugMap, buildTermLinkMap } from "@/lib/differential-diagnosis-links";
 import { cleanDifferentialItem, type DifferentialDetailContext } from "@/lib/differential-detail";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
@@ -566,7 +567,12 @@ export function rankDifferentialRecords(
   // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) composed onto the
   // catalogue's own symptom-alias expansion for the shared ranker's expanded lane.
   expansions: string[] = [],
+  interpretNaturalLanguage = false,
 ): DifferentialRecordMatch[] {
+  const interpretedExpansions = [
+    ...expansions,
+    ...(interpretNaturalLanguage ? smartSearchExpansions("differentials", query) : []),
+  ];
   return rankCatalogRecords(records, query, {
     fields: [
       { id: "title", weight: 8, text: (record) => normalizeSearchText(`${record.title} ${record.slug}`) },
@@ -584,7 +590,9 @@ export function rankDifferentialRecords(
     phraseBonus: 4,
     exactValues: (record) => [normalizeSearchText(record.title), normalizeSearchText(record.slug)],
     exactBonus: 10,
-    expandTokens: expansions.length ? (terms) => [...expandQueryTerms(terms), ...expansions] : expandQueryTerms,
+    expandTokens: interpretedExpansions.length
+      ? (terms) => [...expandQueryTerms(terms), ...interpretedExpansions]
+      : expandQueryTerms,
     limit,
     tieBreak: (left, right) =>
       differentialStatusRank[left.status] - differentialStatusRank[right.status] ||

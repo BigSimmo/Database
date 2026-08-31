@@ -27,7 +27,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
   X,
 } from "lucide-react";
 
@@ -88,7 +87,6 @@ import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
-import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 
 // Shared between the composer input's aria-describedby and the rendered
 // PrivacyInputNotice id/testId so the wiring cannot drift apart.
@@ -214,7 +212,6 @@ export function MasterSearchHeader({
   queryInputRef,
   queryInputAutoFocus = false,
   composerPlaceholder,
-  clinicalAskAvailable = false,
   recentQueries = [],
   onPickRecent,
   onCrossModeSearch,
@@ -273,8 +270,6 @@ export function MasterSearchHeader({
   queryInputAutoFocus?: boolean;
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
-  /** Server-projected capability for governed Smart answers in this mode. */
-  clinicalAskAvailable?: boolean;
   recentQueries?: string[];
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
@@ -640,13 +635,7 @@ export function MasterSearchHeader({
   const activeLabelFilterCount = labelScopeFilterFields.filter((field) => scopeFilters[field.key]?.length).length;
   const activeQuickFilterCount =
     (scopeFilters.sourceStatuses?.length ? 1 : 0) + (scopeFilters.locality ? 1 : 0) + activeLabelFilterCount;
-  const smartClinicalAsk =
-    clinicalAskAvailable && resolveSmartSearchSubmissionIntent(searchMode, trimmedQuery) === "clinical-ask";
-  const submitLabel = smartClinicalAsk
-    ? "Get Smart answer"
-    : trimmedQuery
-      ? selectedSearch.submitBusyLabel
-      : selectedSearch.submitIdleLabel;
+  const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
   // One task-oriented placeholder per mode (PT-14): the follow-up composer must
   // not swap to brand copy that hides what the input actually does.
   const queryPlaceholder = composerPlaceholder ?? selectedSearch.placeholder;
@@ -2002,7 +1991,6 @@ export function MasterSearchHeader({
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
           showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
-          clinicalAskAvailable={clinicalAskAvailable}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -2090,11 +2078,7 @@ export function MasterSearchHeader({
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canAsk) onAsk();
                 }}
-                aria-label={
-                  clinicalAskAvailable
-                    ? `Search or ask a governed Smart question - ${selectedSearch.inputAriaLabel}`
-                    : `Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`
-                }
+                aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
                 placeholder={queryPlaceholder}
                 className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
               />
@@ -2118,17 +2102,13 @@ export function MasterSearchHeader({
                   ? "Search setup not ready"
                   : trimmedQuery.length < 1
                     ? selectedSearch.emptyTitle
-                    : smartClinicalAsk
-                      ? "Get a governed Smart answer"
-                      : selectedSearch.readyTitle
+                    : selectedSearch.readyTitle
               }
               className={cn(chatSendButton, "answer-footer-search-send")}
-              aria-label={smartClinicalAsk ? "Get Smart answer" : selectedSearch.submitAriaLabel}
+              aria-label={selectedSearch.submitAriaLabel}
             >
               {loading ? (
                 <Loader2 aria-hidden="true" className="size-icon-lg animate-spin" />
-              ) : smartClinicalAsk ? (
-                <Sparkles aria-hidden="true" className="size-icon-lg" />
               ) : usesSendAffordance ? (
                 <Send aria-hidden="true" className="size-icon-lg" />
               ) : usesModeIdentityAffordance ? (

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "e3df71ece467ecdd3588c730a1ba1b89a3c1e226",
-    "committed_at": "2026-08-31T11:25:44+08:00"
+    "sha": "fede4029f3fe4976f20a2e59ec85351a674cc2ed",
+    "committed_at": "2026-08-31T15:13:42+08:00"
   },
   "routes": {
     "modes": [
@@ -4287,6 +4287,30 @@
         "checks": "13 focused DOM tests passed; targeted Chromium 1/1 passed; lint and typecheck passed; build passed 1998 routes; design contracts passed; production-readiness CI READY; offline RAG 628/628 and adversarial 25/25 passed; full unit 11656 passed with 6 unrelated Windows Claude Cloud harness exit-127 failures; no provider-backed checks run"
       },
       {
+        "date": "2026-08-31",
+        "ref": "codex/chat-smart-natural-mode-search-pr-2480-landed-verify",
+        "head": "f64762dd6b16bd90e94773b1dc892760180747e1",
+        "scope": "Smart natural-language catalogue search separation",
+        "outcome": "no P0/P1 findings; ready for PR",
+        "checks": "208 focused tests; 53 post-merge tests; production Chromium 4/4; typecheck; lint; docs links; diff check"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "core_rag_security_hub",
+        "head": "d39db0ec72583680f666078a4a366083bf37fcf9",
+        "scope": "PR Group 2: Core RAG, Security, DB Functions & Developer Hub (#DHAR98, #0JJ4RD, #2X46NY, #S4R2W3, #N8B176, #VKH7N1, #CJCH2E, #FDST2Q, #XKS6FD, #ZW43ZT, #G693BZ)",
+        "outcome": "PASS: All 11 Group 2 tasks verified clean against database guards, RAG quality gates, DOM component tests, full typecheck, and Prettier formatting with zero regressions.",
+        "checks": "npm run check:migration-role, npm run check:function-grants, npm run check:owner-scope, npm run typecheck, vitest run tests/developer-hub-components.dom.test.tsx tests/developer-ingestion-page.dom.test.tsx tests/documents-is-public.test.ts tests/supabase-schema.test.ts tests/extractive-answer-formatting.test.ts (247/247 passed), npm run format"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "gemini/pr-group-3-ui-a11y-caring-contacts-ward-flow (PR #2479)",
+        "head": "8ff3f26c6e4f5302c1883f940f4cc1b22fbeec5c",
+        "scope": "Run PR sweep: existing unresolved review threads",
+        "outcome": "0 → 2 threads resolved: useful-actions disclosure semantics, workspace route registration assertion",
+        "checks": "Focused Vitest 18/18; typecheck passed; no provider-backed checks run"
+      },
+      {
         "date": "2026-08-30",
         "ref": "codex/smart-natural-search-current-main",
         "head": "7190c2ccd87dfc25e49e488b22705fb6b7b60931",
@@ -4445,6 +4469,14 @@
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
         "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
         "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep",
+        "head": "19ee085b1cc952e8c40e893fb2fce99538415259",
+        "scope": "design-system",
+        "outcome": "Findings — 0 P0/P1; 4 structural P2 (disabled-send border jump, hero leading on composer, --leading-prose on chrome, stale conventions.md per-step type scale); residuals on specifier focus ring and leftover Lucide sizes",
+        "checks": "read-only origin/main...HEAD token/UI/docs inspection; ledger lookup NOT REVIEWED; no contract gate, browser, or providers"
       },
       {
         "date": "2026-08-27",
@@ -25496,8 +25528,8 @@
       }
     ],
     "counts": {
-      "records": 2652,
-      "refs": 1618
+      "records": 2656,
+      "refs": 1622
     }
   }
 }

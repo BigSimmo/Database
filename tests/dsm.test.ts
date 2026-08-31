@@ -12,6 +12,12 @@ import {
 } from "@/lib/dsm";
 
 describe("DSM clinical catalogue", () => {
+  it("interprets natural-language symptom phrases as diagnosis catalogue search", () => {
+    expect(rankDsmDiagnoses("Which diagnoses involve elevated mood?", 3, [], true)[0]?.diagnosis.slug).toBe(
+      "bipolar-i-disorder",
+    );
+  });
+
   it("loads every supplied diagnosis and keeps slugs unique", () => {
     expect(dsmDiagnoses).toHaveLength(146);
     expect(new Set(dsmDiagnoses.map((diagnosis) => diagnosis.slug)).size).toBe(146);

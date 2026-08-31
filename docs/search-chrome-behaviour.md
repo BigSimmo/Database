@@ -843,22 +843,22 @@ The indicator under test changed when the answer wait was redrawn as a single qu
 
 The motion preference contract in `src/components/clinical-dashboard/answer-status.tsx` and the corresponding stylesheet rules in `src/app/globals.css` must remain strictly intact across all breakpoints.
 
-## Governed Smart natural search
+## Smart natural-language mode search
 
-Clinical Ask remains disabled by default. The server search-app layout computes
-the enabled subset of the seven governed modes (Services, Forms,
-Differentials, Formulation, DSM-5 Diagnosis, Specifiers, and Therapy) and passes
-only that serializable capability into the shared client shell. Client code must
-not import server environment configuration or add a capability endpoint.
+Smart search is provider-free interpretation of the selected catalogue. It is
+available in Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
+Specifiers, and Therapy and does not depend on `CLINICAL_ASK_ENABLED`, a hosted
+provider, Supabase, or a server capability endpoint. The original query remains
+the visible composer value and URL value; controlled mode-specific aliases add
+only low-weight catalogue vocabulary to deterministic ranking.
 
-When a mode is unavailable, the composer keeps its normal placeholder, submit
-action, and deterministic search/filter behaviour and shows no Smart cue. When
-the server capability is present, the same composer resolves Enter without a
-provider call: explicit questions and developed clinical case/synthesis
-statements use governed Clinical Ask; terse catalogue phrases, compact codes,
-explicit lookup commands, unsupported modes, and empty input stay ordinary
-search. Terminal punctuation is stripped before compact-code matching, so
-`form 4A?` remains a Forms lookup.
+Enter always opens the selected mode's normal results surface. A question mark,
+question wording, or developed natural-language phrase never diverts the reader
+to Clinical Ask and never generates prose. Compact codes remain literal after
+terminal punctuation is stripped, so `form 4A?` remains a Forms lookup.
+Unsupported modes retain their existing search/filter behaviour and show no
+Smart promise. Clinical Ask is a separate dormant governed-answer workflow, not
+an implementation of Smart mode search.
 
 The phone home example ticker is not a Smart cue and does not follow the
 capability. Below 640px the desktop prompt rail is `display: none`, so the
@@ -866,28 +866,19 @@ ticker ("Try this … Tap to search") is the only worked example a phone home
 page carries, and it offers an ordinary search in every mode — governed or
 dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
 and nowhere else: a submitted result view, an answer thread, and a phone bottom
-dock all stay clear of it. Only the desktop `Smart search · Try "…"` line and
-the Smart intent cue are gated on the server capability, because only those name
-Smart. Owner decision 2026-08-30, restoring the behaviour #2459 withdrew.
+dock all stay clear of it. The desktop `Smart search · Try "…"` line appears in
+the seven supported catalogue modes; the intent cue appears only while the
+current query is being interpreted as natural language.
 
 There is still exactly one composer. No Ask rail, microphone control, duplicate
-input, or extra phone-dock reserve is mounted. Crossing from Search to Smart
-announces once; continued typing within Smart does not repeatedly update the
-live region.
+input, or extra phone-dock reserve is mounted. Crossing from literal Search to
+Smart search announces once; continued typing within Smart does not repeatedly
+update the live region. The send control retains the mode's ordinary Search
+name and action throughout.
 
-Offline and `mode_unavailable` outcomes fail in place. The raw question remains
-only in tab memory and is never automatically copied into recents, URL
-parameters, history, storage, telemetry, or feedback. Retry is explicit and
-appears only for retryable failures. “Return to search” clears the Smart session
-and clinical draft, removes any routed query, and focuses the empty ordinary
-composer without submitting the question as keywords. Clarification responses
-continue only through “Continue with confirmed context,” enabled after every
-required answer is non-empty.
-
-Coverage: `tests/clinical-ask-provider-contract.test.ts`,
-`tests/master-search-header.dom.test.tsx`, `tests/smart-search-intent.test.ts`,
-`tests/clinical-ask-runner.dom.test.tsx`, `tests/ui-clinical-ask.spec.ts`, and
-`tests/ui-overlap.spec.ts` for the phone home ticker and the desktop prompt rail.
+Coverage: `tests/master-search-header.dom.test.tsx`,
+`tests/smart-search-intent.test.ts`, the seven mode ranker suites, and
+`tests/ui-clinical-ask.spec.ts` for the one-composer routing boundary.
 
 ## Change checklist
 

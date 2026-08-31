@@ -88,7 +88,7 @@ function FormulationResults({ query }: { query: string }) {
     // Empty deferred while live query has text would score every mechanism —
     // treat that lag as "no results yet" instead of dumping the full catalogue.
     if (!deferredQuery.trim()) return [];
-    return searchFormulationMechanisms(deferredQuery, { domains });
+    return searchFormulationMechanisms(deferredQuery, { domains, interpretNaturalLanguage: true });
   }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
 
@@ -123,7 +123,10 @@ function FormulationResults({ query }: { query: string }) {
         options: formulationDomainsInUse.map((item) => {
           const withCandidate = pendingRanking
             ? 0
-            : searchFormulationMechanisms(searchQuery, { domains: new Set([...domains, item]) }).length;
+            : searchFormulationMechanisms(searchQuery, {
+                domains: new Set([...domains, item]),
+                interpretNaturalLanguage: true,
+              }).length;
           return {
             value: item,
             label: item,

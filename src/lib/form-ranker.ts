@@ -1,5 +1,6 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import type { ServiceRecord, ServiceSearchMatch } from "@/lib/service-ranker";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 export type FormRecord = ServiceRecord;
 export type FormSearchMatch = ServiceSearchMatch;
@@ -151,11 +152,16 @@ export function rankFormRecords(
   limit = records.length,
   // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
   expansions: string[] = [],
+  interpretNaturalLanguage = false,
 ): FormSearchMatch[] {
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
   // A bare "service(s)" query belongs to the services catalogue, not forms.
   if (/^services?$/.test(normalizedQuery)) return [];
+  const interpretedExpansions = [
+    ...expansions,
+    ...(interpretNaturalLanguage ? smartSearchExpansions("forms", query) : []),
+  ];
 
   return rankCatalogRecords(records, query, {
     fields: [
@@ -180,7 +186,7 @@ export function rankFormRecords(
       "assessment",
     ],
     broadBonus: 1,
-    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
+    expandTokens: interpretedExpansions.length ? (terms) => [...terms, ...interpretedExpansions] : undefined,
     limit,
     // No tieBreak: forms historically tie-break by catalogue (input) order, which is the
     // generic ranker's default.
