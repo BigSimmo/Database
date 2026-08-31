@@ -20,8 +20,10 @@ import {
   GitCompareArrows,
   Info,
   Plus,
+  Share2,
   ShieldAlert,
   Stethoscope,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
@@ -807,6 +809,71 @@ function MobilePrimaryActions({
   );
 }
 
+function DiagnosisDiscoveryActions({
+  sections,
+  onSelect,
+}: {
+  sections: ReturnType<typeof buildDifferentialSectionIndex>;
+  onSelect: (id: "map" | "related") => void;
+}) {
+  const actions = [
+    {
+      id: "map" as const,
+      label: "Map",
+      detail: sections.find((section) => section.id === "map")?.detail ?? "View links",
+      icon: Waypoints,
+    },
+    {
+      id: "related" as const,
+      label: "Related",
+      detail: sections.find((section) => section.id === "related")?.detail ?? "View items",
+      icon: Share2,
+    },
+  ];
+
+  return (
+    <nav
+      aria-label="Explore diagnosis"
+      data-testid="differential-discovery-actions"
+      className="grid gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--e2)] sm:hidden"
+    >
+      <div className="flex items-center justify-between gap-3 px-1 pt-0.5">
+        <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
+          Explore diagnosis
+        </p>
+        <span className="text-xs font-medium text-[color:var(--text-muted)]">Quick access</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => onSelect(action.id)}
+              className="group grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-2.5 text-left shadow-[var(--shadow-inset)] transition-colors hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              <span className="grid size-9 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-[color:var(--text-heading)]">{action.label}</span>
+                <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                  {action.detail}
+                </span>
+              </span>
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 function IconForDiagnosis(record: DifferentialRecord): LucideIcon {
   return record.slug === "delirium" ? BrainCircuit : Stethoscope;
 }
@@ -1054,11 +1121,6 @@ export function DifferentialDetailPage({
       />
       <div className={cn(pageContainer, "grid gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8")}>
         <PageHeader
-          breadcrumb={[
-            { label: "Differentials", href: "/differentials" },
-            { label: "Diagnosis", href: "/differentials/diagnoses" },
-            { label: record.title },
-          ]}
           title={record.title}
           description={record.subtitle}
           icon={IconForDiagnosis(record)}
@@ -1074,6 +1136,8 @@ export function DifferentialDetailPage({
           }
           actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />}
         />
+
+        <DiagnosisDiscoveryActions sections={sections} onSelect={changeTab} />
 
         {saveNotice ? (
           <p role="status" aria-live="polite" className="text-sm text-[color:var(--text-muted)]">
