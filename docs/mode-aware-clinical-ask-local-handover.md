@@ -82,9 +82,10 @@ dependency.
 
 ### Current local exact-tree evidence
 
-The current-main correction is based on `7f5aba1891db6916bc0306b79f17e362051aecd4`
-in the isolated `codex/chat-smart-natural-mode-search-pr-2480-landed-verify`
-worktree. It is locally modified and not committed or published.
+The current-main correction incorporates `origin/main` at
+`d29f70eff898d9da5b343d2c8b6d260970b127b9` through an ordinary merge in the
+isolated `codex/chat-smart-natural-mode-search-pr-2480-landed-verify` worktree.
+Publication evidence and the resulting PR are recorded at handoff.
 
 - 208 focused interpreter, ranker, route, API, DOM, and owner-contract tests
   pass across 13 files.
