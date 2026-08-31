@@ -93,6 +93,13 @@ type AnswerCardBase = {
    * around them goes. Adopted for the answer surface 2026-08-25.
    */
   frame?: "raised" | "bare";
+  /**
+   * Keeps the shared card safe by default while allowing the live answer
+   * surface to place source-currency controls beside its source-only disclosure.
+   * The content owner must render the same state and source route when it opts
+   * into `"content"`.
+   */
+  retrievalStatePlacement?: "header" | "content";
   className?: string;
 };
 
@@ -117,6 +124,7 @@ export function AnswerCard({
   actions,
   onOpenSource,
   frame = "raised",
+  retrievalStatePlacement = "header",
   className,
 }: AnswerCardProps) {
   const bare = frame === "bare";
@@ -194,7 +202,8 @@ export function AnswerCard({
          * `onOpenSource` stays required for every degraded state (DECISIONS §Q1): a
          * degraded answer must remain re-verifiable whether or not a banner renders.
          */}
-        {state.kind === "stale_evidence" || state.kind === "partial_retrieval" ? (
+        {retrievalStatePlacement === "header" &&
+        (state.kind === "stale_evidence" || state.kind === "partial_retrieval") ? (
           <div className={bare ? "w-full" : undefined}>
             <RetrievalStateBanner
               state={state}
