@@ -2446,24 +2446,13 @@ function derivedArtifactsContainProceduralFlowEdge(value: unknown) {
 function sourceBackedDocumentFallbackIntent(
   query: string,
   queryClass: RagQueryClass,
-  intent: AnswerIntent,
+  _intent: AnswerIntent,
   results: SearchResult[],
 ) {
   if (results.length === 0) return false;
   const strongestScore = Math.max(...results.map(scoreValue));
   if (strongestScore < 0.45) return false;
-  const normalized = normalizeSectionText(query).toLowerCase();
-  const sourceBackedProcedureQuery =
-    /\b(?:process|procedure|protocol|pathway|workflow|steps?|requirements?|criteria|guidance|document)\b/.test(
-      normalized,
-    );
-  if (!sourceBackedProcedureQuery) return false;
-  return (
-    intent === "document_lookup" ||
-    intent === "pathway_referral" ||
-    queryClass === "document_lookup" ||
-    queryClass === "broad_summary"
-  );
+  return documentSupportListIntent(query, queryClass);
 }
 
 /** Source-backed review intent for broad medication-management evidence that cannot be safely collapsed into facts. */
@@ -2485,10 +2474,11 @@ function sourceBackedManagementReviewIntent(
 }
 
 /** Document support list intent. */
-function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
+export function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
   return (
     classifyAnswerIntent(query, queryClass) === "document_lookup" &&
-    /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query)
+    /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query) &&
+    /\b(?:which|what|list|show|name|where|find|provide)\b/i.test(query)
   );
 }
 
@@ -3301,12 +3291,18 @@ export function hasInvalidModelEvidenceIds(answer: Pick<RagAnswer, "routingReaso
 
 /** Generated answer quality failure reason. */
 export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
+  if (isBareDocumentSupportListAnswer(answer.answer ?? "")) {
+    return documentSupportListIntent(query, queryClass) ? null : "bare_document_title_list";
+  }
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   if (!cleanedAnswer) return "empty_after_sanitize";
   // A citation-free source gap is a valid fail-closed terminal response. The
   // lifecycle defect is specifically a refusal whose nearby-source citations
   // make it look grounded and suppress recovery.
   if (hasCitedProviderSourceGap(answer)) return "provider_source_gap";
+  if (isBareDocumentSupportListAnswer(cleanedAnswer)) {
+    return documentSupportListIntent(query, queryClass) ? null : "bare_document_title_list";
+  }
   if (!hasCompleteOpeningSentence(cleanedAnswer)) return "incomplete_opening_sentence";
   if (hasBadFinalAnswerQuality(cleanedAnswer)) return "bad_final_answer_quality";
   if (hasClinicalAnswerQualityIssue(cleanedAnswer)) return "clinical_answer_quality_issue";
@@ -3342,6 +3338,13 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   if (isTemplateLikeGeneratedAnswer(answer)) return "template_like_answer";
   if (isOverExpandedSimpleGeneratedAnswer(query, queryClass, answer)) return "overexpanded_simple_answer";
   return null;
+}
+
+/**
+ * Detects whether an answer is a bare list of document titles rather than a substantive prose response.
+ */
+export function isBareDocumentSupportListAnswer(text: string): boolean {
+  return /^I found (?:\d+|one) indexed documents? that supports? this query:/i.test(text.trim());
 }
 
 /**

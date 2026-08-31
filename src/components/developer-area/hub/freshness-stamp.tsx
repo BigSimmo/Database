@@ -22,7 +22,16 @@ function formatDate(iso: string): string | null {
  * every Phase 1 call site is unchanged; a page rendering a different snapshot
  * must pass its own, or it will claim to be showing the task ledger.
  */
-export function FreshnessStamp({ freshness, label = "Ledger" }: { freshness: Freshness; label?: string }) {
+export function FreshnessStamp({
+  freshness,
+  label = "Ledger",
+  status,
+}: {
+  freshness: Freshness;
+  label?: string;
+  status?: "snapshot" | "live";
+}) {
+  const isLive = status === "live" || freshness.status === "live";
   const contentAt = freshness.contentAt === null ? null : formatDate(freshness.contentAt);
   const viewedAt = formatDate(freshness.viewedAt);
 
@@ -43,6 +52,10 @@ export function FreshnessStamp({ freshness, label = "Ledger" }: { freshness: Fre
           {label} content as of {contentAt}
           {viewedAt ? ` · viewed ${viewedAt}` : ""} · {freshness.ageHours} {freshness.ageHours === 1 ? "hour" : "hours"}{" "}
           old
+        </span>
+      ) : isLive ? (
+        <span>
+          {label} read live{viewedAt ? ` · viewed ${viewedAt}` : ""}
         </span>
       ) : (
         <span>

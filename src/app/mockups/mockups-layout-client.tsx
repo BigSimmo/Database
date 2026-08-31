@@ -129,7 +129,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
    * via the developer page, otherwise standalone app". A standalone app does not render inside
    * the shell of the application it stands apart from.
    */
-  if (isWardFlowMockup) {
+  const isDeveloperArea = pathname === "/mockups/development" || pathname.startsWith("/mockups/development/");
+
+  if (isWardFlowMockup || isDeveloperArea) {
     return <>{children}</>;
   }
 

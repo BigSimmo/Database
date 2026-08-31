@@ -24,7 +24,7 @@ export default function DeveloperIngestionPage() {
    * rendered by `IngestionPanel` itself (`CheckedAt`), next to the data it
    * describes, since only the client component ever knows that timestamp.
    */
-  const freshness = resolveFreshnessFrom(null, new Date());
+  const freshness = resolveFreshnessFrom(null, new Date(), { status: "live" });
 
   return (
     <PanelPageShell
