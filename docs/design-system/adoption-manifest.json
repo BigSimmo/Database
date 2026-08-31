@@ -1491,8 +1491,14 @@
       "source": "src/components/ui/retrieval-state-banner.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/answer-card.tsx"],
-      "productImportFiles": ["src/components/ui/answer-card.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
