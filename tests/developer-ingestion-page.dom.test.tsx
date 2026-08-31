@@ -72,10 +72,6 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     render(<DeveloperIngestionPage />);
 
     const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
-    // Falsifying edit: deleting the `resolveFreshnessFrom(fetchedAt, ...)` call
-    // (or the element it feeds) removes this node entirely, so the assertion
-    // above already falsifies an omission; asserting real content here also
-    // falsifies a component that renders the testid but leaves it empty.
     expect(checkedAt).toHaveTextContent(/checked/i);
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live on demand/i);
   });
@@ -158,6 +154,14 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     // separate.
     expect(errorState).not.toHaveTextContent(/could not reach/i);
     expect(errorState).not.toHaveTextContent(/No ingestion jobs/i);
+  });
+
+  it("unparseable response body: reports unparseable response body rather than network failure", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("<html><body>502 Bad Gateway</body></html>", { status: 200 }));
+    render(<DeveloperIngestionPage />);
+    const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent(/unparseable response body/i);
+    expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
   });
 });
 
