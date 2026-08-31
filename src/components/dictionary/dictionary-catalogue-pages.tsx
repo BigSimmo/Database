@@ -28,7 +28,13 @@ import { DictionaryResultRow } from "@/components/dictionary/dictionary-result-r
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import {
+  InformationPageFooter,
+  InformationPageHeader,
+  InformationPageShell,
+} from "@/components/information-page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn, searchShell, searchShellInput } from "@/components/ui-primitives";
 import {
   allDictionaryEntries,
@@ -282,42 +288,25 @@ export function DictionaryCataloguePage() {
     })),
   ];
 
-  /* Joined two-cell toggle: one border, no gap, sized to its own labels.
-     Each segment keeps the shared 48px tap target while compact text preserves
-     the row's visual density. `aria-label` keeps the accessible name
-     "Terms (2)" rather than concatenated "Terms2". Focus uses an inset outline
-     because the joined track clips an outset ring. */
+  /* One equal-layout rail: both catalogue scopes have identical geometry while
+     the shared primitive owns radio semantics, arrow-key navigation, focus and
+     the 48px tap target. Responsive compact widths give the longer
+     Abbreviations label enough room as the shared control's padding grows,
+     without letting either segment size itself from its text and leave the
+     control visually lopsided. */
   const scopeToggle = (
-    <div
-      role="group"
-      aria-label="Show"
-      data-testid="dictionary-scope-toggle"
-      className="inline-flex min-h-tap shrink-0 items-stretch overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)]"
-    >
-      {scopeOptions.map((option) => {
-        const active = params.scope === option.value;
-        const count = scopeCounts[option.value];
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            aria-label={`${option.label} (${count})`}
-            aria-controls="dictionary-catalogue-results"
-            onClick={() => setOne("view", option.value, "definitions")}
-            className={cn(
-              "inline-flex min-h-tap items-center gap-1 px-2 text-xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
-              active
-                ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "bg-transparent text-[color:var(--clinical-accent)] hover:bg-[color:var(--tone-purple-soft)]",
-            )}
-          >
-            <span>{option.label}</span>
-            <span className="nums font-medium tabular-nums">{count}</span>
-          </button>
-        );
-      })}
+    <div data-testid="dictionary-scope-toggle" className="w-56 shrink-0 min-[360px]:w-64 sm:w-72">
+      <SegmentedControl
+        label="Show"
+        value={params.scope}
+        onChange={(value) => setOne("view", value, "definitions")}
+        options={scopeOptions.map((option) => ({
+          ...option,
+          hint: String(scopeCounts[option.value]),
+        }))}
+        ariaControls="dictionary-catalogue-results"
+        layout="equal"
+      />
     </div>
   );
 
@@ -333,7 +322,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-0.5 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:hidden",
         focusRing,
       )}
     >
@@ -385,8 +374,8 @@ export function DictionaryCataloguePage() {
         />
         <h1 className="sr-only">Dictionary catalogue</h1>
         {/* The original Filter band stays on browse and search. Compact Terms /
-            Abbreviations and A–Z sit underneath on the right. */}
-        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 pb-2 sm:px-6 sm:pb-3">
+            Abbreviations and A–Z sit centred underneath it on phones. */}
+        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 pb-2 pt-3 sm:px-6 sm:pb-3 sm:pt-0">
           <SearchResultsHeaderBand
             modeId="dictionary"
             query={params.q}
@@ -406,7 +395,7 @@ export function DictionaryCataloguePage() {
             appliedFilters={appliedFilters}
             onClearFilters={activeCount ? clearFilters : undefined}
           />
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-1">
+          <div className="mt-2 flex flex-nowrap items-center justify-center gap-1.5">
             {scopeToggle}
             {letterChip}
           </div>
@@ -424,7 +413,7 @@ export function DictionaryCataloguePage() {
                   disabled={empty}
                   onClick={() => setOne("letter", value, "all")}
                   className={cn(
-                    "grid min-h-tap min-w-tap place-items-center rounded-md border text-xs font-extrabold sm:min-h-10 sm:min-w-10",
+                    "grid min-h-tap min-w-tap place-items-center rounded-md border text-xs font-semibold sm:min-h-10 sm:min-w-10",
                     params.letter === value
                       ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                       : empty
@@ -497,7 +486,7 @@ export function DictionaryCataloguePage() {
                   <button
                     type="button"
                     onClick={clearQuery}
-                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    className="min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                   >
                     Clear the search
                   </button>
@@ -506,7 +495,7 @@ export function DictionaryCataloguePage() {
                   <button
                     type="button"
                     onClick={() => setOne("letter", "all", "all")}
-                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    className="min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                   >
                     Show all letters
                   </button>
@@ -515,7 +504,7 @@ export function DictionaryCataloguePage() {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    className="min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                   >
                     Clear filters
                   </button>
@@ -604,14 +593,7 @@ export function DictionaryTopicsPage() {
           {/* A `div`, not a `main`: `InformationPageShell` already renders the
               route's `<main>`, and a nested one is a duplicate landmark. */}
           <div className="min-w-0">
-            <header>
-              <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
-                Governed collections
-              </p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-                Topics
-              </h1>
-            </header>
+            <InformationPageHeader eyebrow="Governed collections" title="Topics" />
             {/* The page-level topic search was removed: twelve collections fit on
                 one screen, and the universal composer already searches the whole
                 dictionary. Kind filtering and sort stay, as a compact toolbar. */}
@@ -623,7 +605,7 @@ export function DictionaryTopicsPage() {
               <button
                 type="button"
                 onClick={() => setFilterOpen(true)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
               >
                 <Filter className="size-icon-sm" aria-hidden="true" />
                 Filter
@@ -632,7 +614,7 @@ export function DictionaryTopicsPage() {
               <button
                 type="button"
                 onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="inline-flex min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
               >
                 {sort === "az" ? "A–Z" : "Z–A"}
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -690,7 +672,7 @@ export function DictionaryTopicsPage() {
                     <button
                       type="button"
                       onClick={clearTopicFilters}
-                      className="mt-4 min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                      className="mt-4 min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                     >
                       Show all collections
                     </button>
@@ -837,14 +819,14 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
           <div className="grid">
             <Link
               href="/dictionary/compare"
-              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-bold hover:bg-[color:var(--surface-subtle)]"
+              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-semibold hover:bg-[color:var(--surface-subtle)]"
             >
               <GitCompareArrows className="size-icon-sm text-[color:var(--clinical-accent)]" aria-hidden="true" />
               Compare terms
             </Link>
             <Link
               href="/dictionary/sources"
-              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-bold hover:bg-[color:var(--surface-subtle)]"
+              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-semibold hover:bg-[color:var(--surface-subtle)]"
             >
               <BookOpenText className="size-icon-sm text-[color:var(--clinical-accent)]" aria-hidden="true" />
               How sources are governed
@@ -855,17 +837,19 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topic-detail-main">
         <div className="mx-auto grid w-full max-w-[var(--content-width-catalogue)] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
           <div id="dictionary-topic-terms" className="min-w-0 scroll-mt-page-section">
-            <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-              {topic.title}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--text-muted)]">{topic.description}</p>
-            <p className="mt-2 inline-flex items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
-              <span>{topic.entrySlugs.length} terms</span>
-              <span className="inline-flex items-center gap-1 text-[color:var(--success)]">
-                <Check className="h-4 w-4" aria-hidden="true" />
-                Source linked
-              </span>
-            </p>
+            <PageHeader
+              title={topic.title}
+              description={topic.description}
+              meta={
+                <p className="inline-flex items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                  <span>{topic.entrySlugs.length} terms</span>
+                  <span className="inline-flex items-center gap-1 text-[color:var(--success)]">
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                    Source linked
+                  </span>
+                </p>
+              }
+            />
             <div className="mt-5 flex gap-2">
               <label className={cn(searchShell, "min-w-0 flex-1 sm:min-h-10")}>
                 <Search className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
@@ -880,7 +864,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
               <button
                 type="button"
                 onClick={() => setFilterOpen(true)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:min-h-10"
               >
                 <Filter className="size-icon-sm" aria-hidden="true" />
                 Filter{kinds.length ? ` ${kinds.length}` : ""}
@@ -888,7 +872,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
               <button
                 type="button"
                 onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="hidden min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:inline-flex sm:min-h-10"
+                className="hidden min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:inline-flex sm:min-h-10"
               >
                 {sort === "az" ? "A–Z" : "Z–A"}
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -919,7 +903,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
               className="mt-5 grid scroll-mt-page-section border-y border-[color:var(--border)] lg:hidden"
             >
               <details className="border-b border-[color:var(--border)]">
-                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-bold">
+                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-semibold">
                   About this collection
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </summary>
@@ -929,7 +913,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
                 </div>
               </details>
               <details className="border-b border-[color:var(--border)]">
-                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-bold">
+                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-semibold">
                   Related topics
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </summary>
@@ -948,7 +932,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
                 </div>
               </details>
               <details>
-                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-bold">
+                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-semibold">
                   Common comparisons
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </summary>

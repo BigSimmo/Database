@@ -3327,7 +3327,7 @@ CREATE OR REPLACE FUNCTION public.set_owner_id_from_auth_uid()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'auth', 'pg_temp'
+ SET search_path = public, auth, pg_temp
 AS $function$
 begin
   if new.owner_id is null then

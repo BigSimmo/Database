@@ -1,4 +1,4 @@
-# Clinical KB Production Readiness Checklist (Executable Today)
+# PsychSift Production Readiness Checklist (Executable Today)
 
 **Status: reusable release-candidate checklist, not an outstanding-task ledger.** Live/provider-gated
 action detail is indexed in [`operator-backlog.md`](operator-backlog.md); canonical task status is

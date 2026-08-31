@@ -30,14 +30,14 @@ export type GuideTopic = {
 export const guideTopics: readonly GuideTopic[] = [
   {
     id: "getting-started",
-    title: "Getting started with Clinical KB",
+    title: "Getting started with PsychSift",
     navLabel: "Getting started",
-    summary: "Understand what Clinical KB does and follow the evidence-first workflow from question to source.",
+    summary: "Understand what PsychSift does and follow the evidence-first workflow from question to source.",
     sections: [
       {
         heading: "Use it as a source-backed starting point",
         paragraphs: [
-          "Clinical KB helps you search indexed clinical documents, review a concise answer, and move quickly to the evidence behind it. It is designed to shorten the path to relevant guidance; it does not replace the original document, local policy, clinical assessment, or professional judgement.",
+          "PsychSift helps you search indexed clinical documents, review a concise answer, and move quickly to the evidence behind it. It is designed to shorten the path to relevant guidance; it does not replace the original document, local policy, clinical assessment, or professional judgement.",
           "Begin with one focused question. Add document scope only when the task should use particular guidance. Read the answer as a structured orientation, then follow its citations to the retrieved source passages and original document before applying it.",
         ],
       },
@@ -165,7 +165,7 @@ export const guideTopics: readonly GuideTopic[] = [
       {
         heading: "Meaning drives colour",
         paragraphs: [
-          "Clinical KB uses exactly six badge tones. The colour always reflects meaning — never the other way round. Green means current, reviewed, or source-backed; it does not mean clinically safe. Clinical blue means an action to carry out, not verified or trustworthy.",
+          "PsychSift uses exactly six badge tones. The colour always reflects meaning — never the other way round. Green means current, reviewed, or source-backed; it does not mean clinically safe. Clinical blue means an action to carry out, not verified or trustworthy.",
           "Badges highlight information for faster scanning. They supplement readable text and never replace contraindications, dosing detail, monitoring requirements, or source provenance.",
         ],
       },

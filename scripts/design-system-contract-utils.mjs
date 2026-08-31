@@ -1,5 +1,37 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import ts from "@typescript/typescript6";
 import postcss from "postcss";
+
+/** Public barrel after the DS-P2-21 split. Recipe bodies live under `primitive-recipes/`. */
+export const UI_PRIMITIVES_BARREL = "src/components/ui-primitives.tsx";
+export const PRIMITIVE_RECIPES_DIR = "src/components/primitive-recipes";
+
+/**
+ * Source-grep contracts must scan the barrel *and* every recipe module. The
+ * barrel is four `export *` lines; `controlDisabled`, composer recipes, and
+ * AsyncButton live in the sibling modules. Directory listing, not a hardcoded
+ * file list, so a new `primitive-recipes/*.ts(x)` is still visible.
+ */
+export function listPrimitiveRecipeSourcePaths(root = process.cwd()) {
+  const dir = path.join(root, PRIMITIVE_RECIPES_DIR);
+  const modules = fs
+    .readdirSync(dir)
+    .filter((name) => /\.(ts|tsx)$/.test(name))
+    .sort()
+    .map((name) => `${PRIMITIVE_RECIPES_DIR}/${name}`);
+  if (modules.length === 0) {
+    throw new Error(`${PRIMITIVE_RECIPES_DIR} has no .ts/.tsx modules to scan`);
+  }
+  return [UI_PRIMITIVES_BARREL, ...modules];
+}
+
+export function readPrimitiveRecipeSources(root = process.cwd()) {
+  return listPrimitiveRecipeSourcePaths(root)
+    .map((relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8"))
+    .join("\n");
+}
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
 const CSS_WHITESPACE = String.raw`(?:\s|\/\*[\s\S]*?\*\/)*`;
@@ -218,10 +250,35 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
  * own declared floor, so a value under the token is a lowered tap target by
  * construction.
  *
- * Unprefixed only. `min-h-12 sm:min-h-10` is the repo's correct pattern — 48px
- * on phones, 40px from `sm` up — so a variant-prefixed short value is a
- * deliberate desktop release, not a violation. An unprefixed `min-h-tap` or
- * `min-h-12`+ on the same element rescues it.
+ * Breakpoint-aware, NOT unprefixed-only. Reading the unprefixed token alone was
+ * a check that could not fail for the case TOKENS.md §2 names as the defect:
+ * `min-h-12 sm:min-h-9` is 48px on phones and 36px everywhere else, and the
+ * unprefixed read concludes it is fine. Two floors apply, because §2's density
+ * table sanctions exactly one step-down and bans the other:
+ *
+ * - Base band must be the full 48px tap floor (`--spacing-tap`), UNLESS the token
+ *   winning that band is `min-h-compact-meta` itself. That token is §2's named
+ *   compact role (metadata, disclosure, filter chips, table micro-actions,
+ *   catalogue chips), and the service owner ruled on 2026-08-29 that 40px is
+ *   acceptable for those roles rather than 48px everywhere. The licence is
+ *   attached to the documented role marker, not to the number: `min-h-10` and
+ *   `min-h-[2.5rem]` are also 40px and still fail at base band.
+ * - Any min-width breakpoint band may release to 40px — the named
+ *   `min-h-compact-meta` desktop step-down for metadata/disclosure roles — but
+ *   never below it. This includes both Tailwind's standard bands and every
+ *   named `--breakpoint-*` variant in `globals.css`. 36px is `--row-compact`,
+ *   and "never reuse `--row-compact` (36px) as tap; `sm:min-h-9` /
+ *   `lg:min-h-9` on an interactive control is the defect this rule exists to
+ *   close" is a hard ban with no breakpoint carve-out.
+ *
+ * So `min-h-12 sm:min-h-10` stays green (§2's sanctioned release) and
+ * `min-h-tap sm:min-h-9` goes red (§2's banned example, verbatim).
+ *
+ * Only min-width breakpoint variants are modelled. A token carrying any other
+ * variant (`hover:`, `dark:`, `max-sm:`, `group-*`, `data-*`, `print:`) neither
+ * raises nor lowers a band's effective height, exactly as before this change —
+ * widening to those is a separate question with its own false-positive surface,
+ * and no interactive control in `src` currently carries one.
  */
 const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea"]);
 const MAX_CLASS_ALTERNATIVES = 128;
@@ -301,9 +358,16 @@ function jsxClassAlternatives(attribute) {
   return classExpressionAlternatives(initializer.expression);
 }
 
-function minHeightPixels(token) {
+/**
+ * A `min-h-*` utility resolved to pixels, or `null` when this checker cannot
+ * resolve it. Exported so the two named tokens can be pinned against their own
+ * `@theme` declarations in `globals.css` — without that, "compact-meta is 40px"
+ * would be a number this file asserts about itself and no test could falsify.
+ */
+export function minHeightPixels(token) {
   const normalized = token.replace(/^!/, "");
   if (normalized === "min-h-tap") return 48;
+  if (normalized === "min-h-compact-meta") return COMPACT_META_PX;
   if (normalized === "min-h-px") return 1;
   const spacing = normalized.match(/^min-h-(\d+(?:\.\d+)?)$/);
   if (spacing) return Number(spacing[1]) * 4;
@@ -313,20 +377,166 @@ function minHeightPixels(token) {
   return arbitrary[2] === "rem" ? value * 16 : value;
 }
 
-function hasSubFloorEffectiveMinHeight(classText) {
-  const minHeightTokens = classText
-    .split(/\s+/)
-    .filter((token) => token && !token.includes(":"))
-    .map((token) => token.replace(/^!/, ""))
-    .filter((token) => token.startsWith("min-h-"));
-  if (minHeightTokens.length === 0) return false;
-  const pixels = minHeightPixels(minHeightTokens.at(-1));
-  return pixels !== null && pixels < 48;
+/** `--spacing-tap`. The floor on the base band, and on a primary at every band. */
+const TAP_FLOOR_PX = 48;
+/**
+ * `--spacing-compact-meta` as `globals.css` `@theme` resolves it: `2.5rem`.
+ * Previously unresolvable, which made the token invisible rather than legal:
+ * `minHeightPixels` returned `null` for it and every `sm:min-h-compact-meta`
+ * migrated by the round-1 tap-floor sweep was dropped before any floor applied.
+ * A gate that cannot read the token it sanctions is not measuring the token.
+ */
+const COMPACT_META_PX = 40;
+/**
+ * TOKENS.md §2 names `sm:min-h-compact-meta` / `lg:min-h-compact-meta` as the one
+ * sanctioned desktop step-down, so a prefixed band may sit at compact-meta — but
+ * 36px (`--row-compact`) is banned outright.
+ */
+const RESPONSIVE_STEP_DOWN_FLOOR_PX = COMPACT_META_PX;
+/**
+ * Tailwind min-width breakpoints in ascending order. Names sharing a threshold
+ * share a band so their declarations participate in the same cascade.
+ * `phone`/`tablet`/`desktop` and the two filter-label bands are generated from
+ * the repository's `@theme --breakpoint-*` declarations in `globals.css`.
+ */
+const MIN_WIDTH_BREAKPOINT_BANDS = [
+  ["filter-label-collapse"],
+  ["filter-label-restore"],
+  ["sm", "phone"],
+  ["md", "tablet"],
+  ["lg", "desktop"],
+  ["xl"],
+  ["2xl"],
+];
+
+/**
+ * Split a utility into its variant prefixes and the utility itself, on `:` at
+ * bracket depth zero. Depth matters: `min-h-[calc(100dvh-var(--x))]` and
+ * `data-[state=open]:` both carry a `:` that is not a variant separator.
+ */
+function splitVariantPrefixes(token) {
+  const segments = [];
+  let depth = 0;
+  let current = "";
+  for (const character of token) {
+    if (character === "[" || character === "(") depth += 1;
+    else if (character === "]" || character === ")") depth -= 1;
+    if (character === ":" && depth === 0) {
+      segments.push(current);
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  return { variants: segments, utility: current };
 }
+
+/**
+ * The band a `min-h-*` token establishes, or `null` when it establishes none.
+ * `0` is the base band; positive indices follow
+ * `MIN_WIDTH_BREAKPOINT_BANDS`. A token with any non-breakpoint variant returns
+ * `null` — it is conditional on state, not on viewport width.
+ */
+function minHeightBandIndex(variants) {
+  if (variants.length === 0) return 0;
+  if (variants.length > 1) return null;
+  const band = MIN_WIDTH_BREAKPOINT_BANDS.findIndex((names) => names.includes(variants[0]));
+  return band === -1 ? null : band + 1;
+}
+
+/**
+ * The declarations that can win at `band` are those made at the highest band
+ * at or below it. Important declarations exclude non-important declarations in
+ * that band. When more than one remains, keep all of them: Tailwind's generated
+ * CSS order, not JSX class order, decides same-band ties, and aliases such as
+ * `phone` and `sm` share a threshold. The gate must not certify an ambiguous
+ * set containing a sub-floor declaration merely because a safe token appears
+ * later in the class attribute.
+ */
+function effectiveDeclarationsAtBand(declarations, band) {
+  let winningBand = -1;
+  for (const declaration of declarations) {
+    if (declaration.band <= band && declaration.band > winningBand) winningBand = declaration.band;
+  }
+  if (winningBand === -1) return [];
+  const candidates = declarations.filter((declaration) => declaration.band === winningBand);
+  const important = candidates.filter((declaration) => declaration.important);
+  return important.length > 0 ? important : candidates;
+}
+
+function hasSubFloorEffectiveMinHeight(classText) {
+  const minHeights = [];
+  const pointerEvents = [];
+  for (const token of classText.split(/\s+/)) {
+    if (!token) continue;
+    const { variants, utility } = splitVariantPrefixes(token);
+    const normalized = utility.replace(/^!/, "");
+    const important = utility.startsWith("!");
+    const band = minHeightBandIndex(variants);
+    if (band === null) continue;
+    if (normalized === "pointer-events-none" || normalized === "pointer-events-auto") {
+      pointerEvents.push({ band, value: normalized === "pointer-events-none", important });
+      continue;
+    }
+    if (!normalized.startsWith("min-h-")) continue;
+    const pixels = minHeightPixels(normalized);
+    if (pixels === null) continue;
+    minHeights.push({ band, value: pixels, compactRole: normalized === "min-h-compact-meta", important });
+  }
+  if (minHeights.length === 0) return false;
+
+  for (let band = 0; band <= MIN_WIDTH_BREAKPOINT_BANDS.length; band += 1) {
+    const effectiveDeclarations = effectiveDeclarationsAtBand(minHeights, band);
+    if (effectiveDeclarations.length === 0) continue;
+    // A band that turns the element inert has no tap target to floor. This is
+    // the deliberate phone-only-disclosure shape — `sm:pointer-events-none
+    // sm:min-h-0` on a header that becomes static copy once the panel is always
+    // open — and padding it back to 48px would restore a dead 48px block on
+    // desktop. Narrow on purpose: it needs `pointer-events-none` winning in the
+    // SAME band, so an interactive band is never excused by a neighbour's.
+    const effectivePointerEvents = effectiveDeclarationsAtBand(pointerEvents, band);
+    if (effectivePointerEvents.length > 0 && effectivePointerEvents.every((declaration) => declaration.value)) continue;
+    // Which floor applies depends on which token won the band. `min-h-compact-meta`
+    // IS the named compact role — TOKENS.md §2 lists metadata, disclosure, filter
+    // chips, table micro-actions and catalogue chips, and the service owner ruled
+    // on 2026-08-29 that 40px is acceptable for exactly those roles rather than
+    // 48px everywhere. So the token carries a 40px floor on every band, including
+    // the base one. The *number* does not inherit that licence: a raw
+    // `min-h-10` / `min-h-[2.5rem]` at base band still fails, because the ruling
+    // attaches to the documented role marker, not to the value 40.
+    for (const effective of effectiveDeclarations) {
+      const floor = effective.compactRole ? COMPACT_META_PX : band === 0 ? TAP_FLOOR_PX : RESPONSIVE_STEP_DOWN_FLOOR_PX;
+      if (effective.value < floor) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Cheap prefilter for the tap-floor scan. Its invariant: it must admit every
+ * file holding a `min-h-*` token that `minHeightPixels` can resolve BELOW the
+ * highest floor (48px), because only such a token can produce a violation, and
+ * whether it actually does is decided by the band evaluation — not by this
+ * regex. That is the numeric scale, arbitrary values, `min-h-px` (1px), and
+ * `min-h-compact-meta` (40px). Only `min-h-tap` (48px) is safely omitted: it
+ * sits at or above every floor, so a file containing nothing else has nothing
+ * to find.
+ *
+ * Exported because both omissions this replaced were unfalsifiable rules rather
+ * than savings, and a comment could not have caught either. `min-h-px` made the
+ * 1px branch of `minHeightPixels` unreachable from the entry point below.
+ * `min-h-compact-meta` was worse: it exempted the token from measurement
+ * outright, so `bedside-sheet.tsx`'s two base-band compact-meta jump chips were
+ * never scanned, and the compact-role floor could not be proven by any test —
+ * a mutation removing that floor passed the suite green on 2026-08-29. The
+ * invariant is now asserted against `minHeightPixels` in
+ * `tests/design-system-contract-utils.test.ts`.
+ */
+export const SUB_TAP_MIN_HEIGHT_PREFILTER = /\bmin-h-(?:[0-9]|1[01]|px\b|\[|compact-meta\b)/;
 
 export function findInteractiveTapFloorDeclarationsInSource(relativePath, sourceText) {
   if (!relativePath.endsWith(".tsx")) return [];
-  if (!/\bmin-h-(?:[0-9]|1[01]|\[)/.test(sourceText)) return [];
+  if (!SUB_TAP_MIN_HEIGHT_PREFILTER.test(sourceText)) return [];
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const findings = [];
 
@@ -1388,6 +1598,148 @@ export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) 
   return analyzeClassContractsInSource(relativePath, sourceText).edgeOwnershipConflicts;
 }
 
+const COMMAND_FILL = "bg-[color:var(--command)]";
+const ELEVATION_TOKENS = [
+  { match: /--shadow-lux\b/, rank: 4, lux: true },
+  { match: /--e4\b/, rank: 4, lux: true },
+  { match: /--e3\b/, rank: 3, lux: false },
+  { match: /--e2\b/, rank: 2, lux: false },
+  { match: /--shadow-soft\b/, rank: 2, lux: false },
+  { match: /--e1\b/, rank: 1, lux: false },
+  { match: /--e0\b/, rank: 0, lux: false },
+  { match: /--shadow-inset\b/, rank: 0, lux: false },
+];
+
+function jsxOpening(node) {
+  if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) return node;
+  if (ts.isJsxElement(node)) return node.openingElement;
+  return null;
+}
+
+function jsxTagName(opening) {
+  return opening?.tagName?.getText?.() ?? "";
+}
+
+function jsxClassNameText(opening, source) {
+  if (!opening) return "";
+  const classAttribute = opening.attributes.properties.find(
+    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+  );
+  if (!classAttribute || !ts.isJsxAttribute(classAttribute)) return "";
+  return `${jsxClassText(classAttribute)} ${classAttribute.getText(source)}`;
+}
+
+function elevationFromClassText(classText) {
+  if (!classText) return null;
+  let rank = null;
+  let lux = false;
+  for (const token of classText.split(/\s+/)) {
+    if (/^(hover|focus-visible|forced-colors):/.test(token)) continue;
+    for (const entry of ELEVATION_TOKENS) {
+      if (entry.match.test(token)) {
+        if (rank === null || entry.rank > rank) rank = entry.rank;
+        if (entry.lux) lux = true;
+      }
+    }
+  }
+  return rank === null ? null : { rank, lux };
+}
+
+function elevationExcepted(classText, tag) {
+  const hay = `${tag} ${classText}`;
+  return /overlay|Sheet|glassOverlaySurface|\bpanel\b|shadow-lux|ring-highlight|lux/i.test(hay);
+}
+
+function isOutOfFlowClassText(classText) {
+  if (!classText) return false;
+  for (const token of classText.split(/\s+/)) {
+    if (/(^|:)(absolute|fixed)$/.test(token)) return true;
+  }
+  return false;
+}
+
+/**
+ * Advisory AST: a child in-flow surface whose resting elevation token is heavier
+ * than the nearest ancestor that also declares one. Overlays, Sheet, lux recipes,
+ * hover/focus-visible/forced-colors shadows, and out-of-flow (absolute/fixed
+ * positioned) surfaces such as popovers are excluded — an absolutely positioned
+ * child isn't really "nested inside" its DOM ancestor's stacking/elevation.
+ */
+export function findElevationInversionsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx") && !relativePath.endsWith(".ts")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function visit(node) {
+    const opening = jsxOpening(node);
+    if (opening && opening === node) {
+      const tag = jsxTagName(opening);
+      const classText = jsxClassNameText(opening, source);
+      const self = elevationFromClassText(classText);
+      if (self && !self.lux && !elevationExcepted(classText, tag) && !isOutOfFlowClassText(classText)) {
+        let ancestor = node.parent;
+        while (ancestor) {
+          const parentOpening = jsxOpening(ancestor);
+          if (parentOpening && parentOpening !== opening) {
+            const parentTag = jsxTagName(parentOpening);
+            const parentClass = jsxClassNameText(parentOpening, source);
+            const parent = elevationFromClassText(parentClass);
+            if (parent) {
+              if (!parent.lux && !elevationExcepted(parentClass, parentTag) && self.rank > parent.rank) {
+                const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+                findings.push(`${relativePath}:${line}`);
+              }
+              break;
+            }
+          }
+          ancestor = ancestor.parent;
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return [...new Set(findings)];
+}
+
+/**
+ * Intrinsic `<button>` nodes whose className paints `--command` without going
+ * through `primaryControl`. The `Button` primitive's own source file is exempt
+ * by path, not by matching the literal text "Button" in a className — an
+ * intrinsic `<button className="... Button">` is still hand-rolled.
+ */
+export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  if (relativePath === "src/components/ui/button.tsx") return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function visit(node) {
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      node.tagName.getText(source) === "button"
+    ) {
+      const classAttribute = node.attributes.properties.find(
+        (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+      );
+      const classText = classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassText(classAttribute) : "";
+      const classSource = classAttribute && ts.isJsxAttribute(classAttribute) ? classAttribute.getText(source) : "";
+      const hay = `${classText} ${classSource}`;
+      if (hay.includes(COMMAND_FILL) && !/\bprimaryControl\b/.test(hay)) {
+        const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+        findings.push(`${relativePath}:${line}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
 export function findDensityRecipeOverridesInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).densityOverrides;
 }
@@ -1548,6 +1900,21 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
 
 export function findTypeStepUsagesInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages;
+}
+
+/**
+ * Same-file mix of the live `text-sm` utility and the compact `text-sm-minus`
+ * notch (DS-P2-02). Canonical metadata is SPEC §4.5 `--text-sm`; the two
+ * utility names currently render the same size under `.ckb-v2` and will
+ * diverge when the 705 legacy steps retire. Mixing them in one component
+ * needs a named density reason — this finder does not judge that reason, it
+ * only counts the mix so the contract can warn and ratchet rather than
+ * hard-zero the existing debt.
+ */
+export function findSameFileTextSmMinusMix(relativePath, sourceText) {
+  const usages = new Set(analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages);
+  if (usages.has("sm") && usages.has("sm-minus")) return [relativePath];
+  return [];
 }
 
 /**

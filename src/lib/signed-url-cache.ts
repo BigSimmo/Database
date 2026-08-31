@@ -1,3 +1,5 @@
+"use client";
+
 type SignedUrlPayload = {
   url: string;
   caption?: string;

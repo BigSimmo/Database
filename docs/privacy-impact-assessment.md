@@ -3,7 +3,7 @@
 **Current status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This narrative explains the assessment; the versioned register separates code proof from provider configuration, legal approval, and clinical acceptance. Pending external items in that register are not completed by technical controls described here.
 
 **Status:** Draft for governance approval Â· **Date:** 2026-07-06 Â· **Revised:** 2026-08-23
-**Scope:** Clinical data flows through the Clinical KB app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
+**Scope:** Clinical data flows through the PsychSift app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
 **Author:** Automated code-level assessment (multi-agent audit of `src/app/api/**`, `src/lib/*`, `supabase/schema.sql`, `supabase/migrations/**`), cross-checked against the live database.
 
 **Repository last verified:** `1f193d7b633e9b45602bd39056a957811e62b521` on 2026-08-23.
@@ -72,7 +72,7 @@ material.
 | Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                                                    | Lowâ€“Medium                               | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                           |
 | Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) for retrieval embedding and, when selected, answer synthesis | **High (potential PHI)**                   | The primary incidental-PHI vector; embedding egress can occur even when the final answer is source-only.                           |
 | Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload`                                        | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available. |
-| Safety-plan working content                                               | React memory in the current browser tab; user-directed clipboard, print, or PDF output                                                                 | **High (sensitive health information)**    | No patient-identifier field; not sent to the application service or stored by Clinical KB. Exported copies leave this boundary.    |
+| Safety-plan working content                                               | React memory in the current browser tab; user-directed clipboard, print, or PDF output                                                                 | **High (sensitive health information)**    | No patient-identifier field; not sent to the application service or stored by PsychSift. Exported copies leave this boundary.      |
 | User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                                                  | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                    |
 | Audit trail                                                               | `audit_logs`                                                                                                                                           | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                   |
 | Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                                             | Lowâ€“Medium                               | Redacted query text; per-owner.                                                                                                    |
@@ -140,7 +140,7 @@ OpenAI as the only cross-border flow.
 The `/safety-plan` route has a separate local-only flow: form inputs update React state in the current
 browser tab, with no API request or browser-storage write. Clearing the plan, unmounting the component,
 or closing the tab discards that working state. Copy, print, and save-as-PDF are explicit user-directed
-exports; the exported copy is outside Clinical KB and must be handled under the organisation's approved
+exports; the exported copy is outside PsychSift and must be handled under the organisation's approved
 clinical-record process. The tool provides no patient name, date-of-birth, or record-number field and
 warns against putting patient identifiers into free text; any patient identifier must be added after
 export if local policy permits it. Support-contact names and phone details are accepted as sensitive
@@ -487,15 +487,17 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 
 ### Mode-aware Clinical Ask privacy boundary
 
-Clinical Ask is currently dormant with no user-visible composer entry point. If reactivated, it adds typed/dictated
-questions, editable transcripts, non-identifying Case Context, clarification answers,
-request-scoped external authority extracts, and cited answers. Draft, transcript, context, clarification, and response
-remain ephemeral and tab-scoped; audio is disposed after transcription, cancellation, clear, account change, or
-unmount. Identifier-shape detection is a blocking warning aid, not de-identification and not a guarantee that clinical
-text contains no personal information.
+Clinical Ask remains dormant by default. When the server enables a governed mode, the shared composer can route a
+clearly question-like typed input into Smart Clinical Ask. The current user interface has no microphone or dictation
+control. Typed questions, non-identifying Case Context, clarification answers, request-scoped external authority
+extracts, and cited answers remain ephemeral and tab-scoped. Identifier-shape detection is a blocking warning aid, not
+de-identification and not a guarantee that clinical text contains no personal information.
 
 Raw Clinical Ask question, transcript, Case Context, audio, answer, and external extracts are excluded from URLs,
 history, browser storage, logs, content-free telemetry, structured feedback, public errors, and default copy output.
+Offline and mode-unavailable outcomes retain the question only in tab memory; no automatic ordinary-search fallback
+may place it in recents or navigation state. Retry is manual, and returning to search clears the question before
+focusing the ordinary composer.
 External authority access remains server-only, allowlisted, redirect-checked, attributable, metered, and discarded
 after the request; citations and retrieval dates remain visible. These application controls do not prove provider zero
 retention, approved cross-border/region terms, hosted migration state, authority approval, clinical evaluation,

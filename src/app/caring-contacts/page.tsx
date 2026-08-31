@@ -9,7 +9,7 @@ import type { ServiceState } from "@/lib/caring-contacts/service-state";
 /**
  * The workspace's lazy route boundary (Ruling 13), present from its first commit.
  *
- * The Clinical KB dashboard must never download this workspace's client code.
+ * The PsychSift dashboard must never download this workspace's client code.
  * Two things hold that, and they are not equally load-bearing:
  *
  *  1. The module boundary, which is what actually gives the guarantee. Nothing

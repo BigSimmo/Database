@@ -18,7 +18,7 @@ const evidenceSchema = z
     retrievedAt: z.string().nullable(),
   })
   .strict();
-const claimSchema = z.object({ id: z.string(), text: z.string(), evidenceIds: z.array(z.string()) }).strict();
+const claimSchema = z.object({ id: z.string(), text: z.string(), evidenceIds: z.array(z.string()).min(1) }).strict();
 const suggestionSchema = z
   .object({
     id: z.string(),
@@ -46,48 +46,65 @@ const answeredSchema = z
     mode: z.enum(clinicalAskModeIds),
     lead: claimSchema,
     sections: z.array(z.object({ id: z.string(), title: z.string(), claims: z.array(claimSchema) }).strict()),
-    evidence: z.array(evidenceSchema),
+    evidence: z.array(evidenceSchema).min(1),
     conflicts: z.array(claimSchema),
     missingInformation: z.array(z.string()),
     followUps: z.array(z.string()),
     handoffs: z.array(handoffSchema),
   })
   .strict();
-const responseSchema = z.discriminatedUnion("state", [
-  clarificationRequiredSchema,
-  answeredSchema,
-  z
-    .object({
-      state: z.literal("evidence_gap"),
-      mode: z.enum(clinicalAskModeIds),
-      explanation: z.string(),
-      evidence: z.array(evidenceSchema),
-      missingInformation: z.array(z.string()),
-      nextActions: z.array(z.string()),
-    })
-    .strict(),
-  z
-    .object({
-      state: z.literal("failed"),
-      mode: z.enum(clinicalAskModeIds),
-      code: z.enum([
-        "invalid_request",
-        "identifiable_input_blocked",
-        "unauthorized",
-        "rate_limited",
-        "retrieval_unavailable",
-        "external_unavailable",
-        "synthesis_invalid",
-        "provider_unavailable",
-        "timeout",
-        "aborted",
-        "internal_error",
-      ]),
-      retryable: z.boolean(),
-      message: z.string(),
-    })
-    .strict(),
-]);
+const responseSchema = z
+  .discriminatedUnion("state", [
+    clarificationRequiredSchema,
+    answeredSchema,
+    z
+      .object({
+        state: z.literal("evidence_gap"),
+        mode: z.enum(clinicalAskModeIds),
+        explanation: z.string(),
+        evidence: z.array(evidenceSchema),
+        missingInformation: z.array(z.string()),
+        nextActions: z.array(z.string()),
+      })
+      .strict(),
+    z
+      .object({
+        state: z.literal("failed"),
+        mode: z.enum(clinicalAskModeIds),
+        code: z.enum([
+          "invalid_request",
+          "identifiable_input_blocked",
+          "mode_unavailable",
+          "unauthorized",
+          "rate_limited",
+          "retrieval_unavailable",
+          "external_unavailable",
+          "synthesis_invalid",
+          "provider_unavailable",
+          "timeout",
+          "aborted",
+          "internal_error",
+        ]),
+        retryable: z.boolean(),
+        message: z.string(),
+      })
+      .strict(),
+  ])
+  .superRefine((response, context) => {
+    if (response.state !== "answered") return;
+    const evidenceIds = new Set(response.evidence.map((item) => item.id));
+    const claims = [response.lead, ...response.sections.flatMap((section) => section.claims), ...response.conflicts];
+    for (const claim of claims) {
+      for (const evidenceId of claim.evidenceIds) {
+        if (evidenceIds.has(evidenceId)) continue;
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Claim ${claim.id} references unknown evidence.`,
+          path: ["evidence"],
+        });
+      }
+    }
+  });
 const progressSchema = z
   .object({
     type: z.literal("progress"),
@@ -130,6 +147,7 @@ const eventSchema = z.discriminatedUnion("type", [
       code: z.enum([
         "invalid_request",
         "identifiable_input_blocked",
+        "mode_unavailable",
         "unauthorized",
         "rate_limited",
         "retrieval_unavailable",
@@ -180,13 +198,14 @@ export class ClinicalAskSseEncoder {
 
   encode(event: ClinicalAskStreamEvent) {
     if (this.terminal) throw new Error("Clinical Ask stream already terminated.");
+    const frame = encodeClinicalAskSse(event);
     if (event.type === "progress") {
       const next = stageOrder.indexOf(event.stage);
       if (next < this.lastStage) throw new Error("Clinical Ask progress regressed.");
       this.lastStage = next;
     }
     if (event.type === "final" || event.type === "error") this.terminal = true;
-    return encodeClinicalAskSse(event);
+    return frame;
   }
 }
 

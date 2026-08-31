@@ -458,6 +458,20 @@ in-page navigation work defaults to the DocumentViewer template above.
     omit `source-images` when `visualCount === 0`, and do not require a "Tables and diagrams" sheet row in smoke for
     the empty-images lithium demo doc.
 23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
+24. **A page fills the box it is in; it never subtracts a chrome estimate from `100dvh`.**
+    At `sm`+ the shell's `#main-content` grows into `.phone-viewport-frame` (`sm:grow`), the
+    `mobile-composer-reserve-pad` inside it is the fill box (`sm:flex sm:min-h-full sm:flex-col`),
+    and page shells grow into that pad (`sm:grow`). The dashboard mirrors this: its content
+    wrapper is `sm:flex sm:min-h-full sm:flex-col` and the mode-home canvas is `sm:grow sm:shrink-0`.
+    Do not reintroduce a `min-h-[calc(100dvh - <chrome estimate>)]` page floor. Three things such an
+    estimate cannot know, each measured as real dead scroll before this contract landed:
+    `--shell-header-h` (4rem) covers the header's inner bar plus `pb-2` but **not** its own
+    `pt-[max(0.5rem,var(--safe-area-top))]` (8px on every route); the `header-collapse-addon` nav row
+    on topic routes adds 49px more; and `#main-content`'s own `sm:pb-8` adds 32px. Pages whose
+    content had already ended carried 8-273px of scroll range as a result — a scrollbar on a page
+    that fits, and a wheel notch that jolts into the bottom stop. Phone floors are unaffected:
+    below `sm` the document owns scrolling and there is no bounded box to fill. Guarded by the
+    "pages that fit the window have no scroll range" cases in `tests/ui-chrome-scroll.spec.ts`.
 
 The PWA notice rules that use `:has(#main-content ...)` are a deliberately
 bounded post-hydration exception. `#main-content` can disappear briefly while
@@ -817,24 +831,63 @@ The application supports explicit user motion preference overrides in addition t
 
 ### Physical iPhone acceptance rubric
 
-To prevent regressions of the phone/PWA answer-progress animation defect (where OS Reduce Motion froze animations and rendered the ECG trace invisible at `opacity: 0`), verify the following rubric on a physical iPhone in both Mobile Safari and the installed standalone PWA:
+To prevent regressions of the phone/PWA answer-progress animation defect (where OS Reduce Motion froze animations and rendered the then-current ECG trace invisible at `opacity: 0`), verify the following rubric on a physical iPhone in both Mobile Safari and the installed standalone PWA.
+
+The indicator under test changed when the answer wait was redrawn as a single quiet status line: the scrolling ECG strip and the five-circle stepper are gone, and what remains is one breathing dot (`.answer-progress-dot`, `data-slot="answer-progress-dot"`) at the head of the line. The rubric is otherwise unchanged, and the dot was chosen partly because it makes step 2 trivial to satisfy — its resting frame is a complete, correct bullet, where a stopped spinner is a fragment of a circle.
 
 1. **Motion=Full (`data-motion="full"`):**
-   - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the ECG strip (`.answer-activity-trace__sweep`) visibly travels continuously and the current-step spinner rotates, even if iOS system **Reduce Motion** is enabled in Accessibility settings.
+   - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the dot visibly breathes (a continuous opacity cycle, 2.4s) even if iOS system **Reduce Motion** is enabled in Accessibility settings.
 2. **Motion=System / Motion=Reduced:**
-   - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the ECG trace remains static and clearly visible at `opacity: 0.55` (`translateX(0)` aligned), rather than disappearing or rendering a blank box (`opacity: 0`).
-   - The current step spinner stops rotating and displays as a static marker without layout jumps.
+   - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the dot stops breathing and remains clearly visible at full opacity, rather than disappearing or rendering a blank box (`opacity: 0`).
+   - The status line beside it still reads out what is happening, and the arriving source rail appears without layout jumps. Its cards are staggered by `.answer-sources-arriving .stagger-item` when motion is allowed; under Reduce Motion every card must be present and fully opaque immediately, never held invisible for the length of the cascade.
 
 The motion preference contract in `src/components/clinical-dashboard/answer-status.tsx` and the corresponding stylesheet rules in `src/app/globals.css` must remain strictly intact across all breakpoints.
 
-## Clinical Ask composer chrome
+## Governed Smart natural search
 
-Clinical Ask remains a backend mode, but no search composer mounts an Ask /
-Dictate rail. `GlobalSearchShell` and `ClinicalDashboard` expose ordinary
-search only and reserve no extra phone-dock space for Clinical Ask controls.
+Clinical Ask remains disabled by default. The server search-app layout computes
+the enabled subset of the seven governed modes (Services, Forms,
+Differentials, Formulation, DSM-5 Diagnosis, Specifiers, and Therapy) and passes
+only that serializable capability into the shared client shell. Client code must
+not import server environment configuration or add a capability endpoint.
+
+When a mode is unavailable, the composer keeps its normal placeholder, submit
+action, and deterministic search/filter behaviour and shows no Smart cue. When
+the server capability is present, the same composer resolves Enter without a
+provider call: explicit questions and developed clinical case/synthesis
+statements use governed Clinical Ask; terse catalogue phrases, compact codes,
+explicit lookup commands, unsupported modes, and empty input stay ordinary
+search. Terminal punctuation is stripped before compact-code matching, so
+`form 4A?` remains a Forms lookup.
+
+The phone home example ticker is not a Smart cue and does not follow the
+capability. Below 640px the desktop prompt rail is `display: none`, so the
+ticker ("Try this … Tap to search") is the only worked example a phone home
+page carries, and it offers an ordinary search in every mode — governed or
+dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
+and nowhere else: a submitted result view, an answer thread, and a phone bottom
+dock all stay clear of it. Only the desktop `Smart search · Try "…"` line and
+the Smart intent cue are gated on the server capability, because only those name
+Smart. Owner decision 2026-08-30, restoring the behaviour #2459 withdrew.
+
+There is still exactly one composer. No Ask rail, microphone control, duplicate
+input, or extra phone-dock reserve is mounted. Crossing from Search to Smart
+announces once; continued typing within Smart does not repeatedly update the
+live region.
+
+Offline and `mode_unavailable` outcomes fail in place. The raw question remains
+only in tab memory and is never automatically copied into recents, URL
+parameters, history, storage, telemetry, or feedback. Retry is explicit and
+appears only for retryable failures. “Return to search” clears the Smart session
+and clinical draft, removes any routed query, and focuses the empty ordinary
+composer without submitting the question as keywords. Clarification responses
+continue only through “Continue with confirmed context,” enabled after every
+required answer is non-empty.
 
 Coverage: `tests/clinical-ask-provider-contract.test.ts`,
-`tests/master-search-header.dom.test.tsx`, `tests/ui-clinical-ask.spec.ts`.
+`tests/master-search-header.dom.test.tsx`, `tests/smart-search-intent.test.ts`,
+`tests/clinical-ask-runner.dom.test.tsx`, `tests/ui-clinical-ask.spec.ts`, and
+`tests/ui-overlap.spec.ts` for the phone home ticker and the desktop prompt rail.
 
 ## Change checklist
 

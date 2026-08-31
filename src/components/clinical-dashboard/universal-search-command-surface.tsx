@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -43,6 +44,7 @@ import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/u
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 
 // Domains whose live result totals a cross-mode chip should sum. Answer/favourites
 // chips have no countable domain; the
@@ -174,11 +176,14 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 function SmartRotatingHint({
   examples,
   modeLabel,
+  showSmartLine,
   showPhoneTicker,
   onPickExample,
 }: {
   examples: string[];
   modeLabel: string;
+  /** The desktop line names Smart search, so it follows the server capability. */
+  showSmartLine: boolean;
   showPhoneTicker: boolean;
   onPickExample: (example: string) => void;
 }) {
@@ -187,14 +192,17 @@ function SmartRotatingHint({
   const [isTickerHeld, setIsTickerHeld] = useState(false);
   const activeExample = examples[activeExampleIndex % examples.length];
 
+  const visible = showSmartLine || showPhoneTicker;
+
   useEffect(() => {
+    if (!visible) return;
     if (isTickerHeld) return;
     if (examples.length <= 1) return;
     const intervalId = window.setInterval(() => {
       setActiveExampleIndex((current) => (current + 1) % examples.length);
     }, SMART_HINT_ROTATION_MS);
     return () => window.clearInterval(intervalId);
-  }, [examples, isTickerHeld]);
+  }, [examples, isTickerHeld, visible]);
 
   const freezeTicker = useCallback(() => {
     setHeldTickerExample(activeExample);
@@ -208,17 +216,19 @@ function SmartRotatingHint({
     heldTickerExample && examples.includes(heldTickerExample) ? heldTickerExample : activeExample;
   const resolvedTickerExample = isTickerHeld ? currentHeldTickerExample : activeExample;
 
-  if (!activeExample) return null;
+  if (!activeExample || !visible) return null;
 
   return (
     <>
-      <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
-        <span>Smart search</span>
-        <span aria-hidden="true">·</span>
-        <span>
-          Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
-        </span>
-      </div>
+      {showSmartLine ? (
+        <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text">
+          <span>Smart search</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
+          </span>
+        </div>
+      ) : null}
       {showPhoneTicker ? (
         <button
           type="button"
@@ -248,6 +258,33 @@ function SmartRotatingHint({
           </span>
         </button>
       ) : null}
+    </>
+  );
+}
+
+function SmartIntentCue({ active, modeLabel }: { active: boolean; modeLabel: string }) {
+  const previouslyActiveRef = useRef(false);
+  const announcementRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const announcement = announcementRef.current;
+    if (active && !previouslyActiveRef.current) {
+      if (announcement) announcement.textContent = `Smart answer selected for ${modeLabel}.`;
+    } else if (!active) {
+      if (announcement) announcement.textContent = "";
+    }
+    previouslyActiveRef.current = active;
+  }, [active, modeLabel]);
+
+  return (
+    <>
+      {active ? (
+        <div className="smart-search-intent-cue" data-testid="smart-search-intent-cue" aria-hidden="true">
+          <Sparkles aria-hidden="true" className="size-icon-sm" />
+          Smart answer · governed sources
+        </div>
+      ) : null}
+      <span ref={announcementRef} className="sr-only" aria-live="polite" aria-atomic="true" />
     </>
   );
 }
@@ -391,7 +428,7 @@ function CommandDropdown({
             className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin text-[color:var(--decoration-soft)]" aria-hidden />
-            Searching across Clinical KB…
+            Searching across PsychSift…
           </div>
         ) : null}
         {!hasItems && !universalPending ? (
@@ -432,6 +469,7 @@ export function UniversalSearchCommandSurface({
   onListboxIdReady,
   onActiveItemIdChange,
   showPhoneSuggestionTicker = false,
+  clinicalAskAvailable = false,
   placement = "inline",
   children,
 }: {
@@ -454,6 +492,8 @@ export function UniversalSearchCommandSurface({
   onActiveItemIdChange?: (activeItemId: string | null) => void;
   /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
   showPhoneSuggestionTicker?: boolean;
+  /** Server-projected capability; false keeps the composer fully deterministic. */
+  clinicalAskAvailable?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -474,6 +514,8 @@ export function UniversalSearchCommandSurface({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
+  const smartClinicalAsk =
+    clinicalAskAvailable && resolveSmartSearchSubmissionIntent(modeId, trimmedQuery) === "clinical-ask";
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
@@ -752,7 +794,7 @@ export function UniversalSearchCommandSurface({
       });
     }
 
-    // Cross-entity typeahead ("Across Clinical KB"): live grouped matches from the universal
+    // Cross-entity typeahead ("Across PsychSift"): live grouped matches from the universal
     // search endpoint across every domain (including the active mode's own), rendered in the
     // server's intent-aware order. Selecting an item navigates straight to the record; each group
     // ends with a cross-mode "view all" that re-runs the query in the owning mode. Enter with
@@ -1071,15 +1113,26 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
-      <SmartRotatingHint
-        examples={config.examples}
-        modeLabel={mode.label}
-        showPhoneTicker={showPhoneSuggestionTicker}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          onFocusSearchInput?.();
-        }}
-      />
+      <SmartIntentCue active={smartClinicalAsk} modeLabel={mode.label} />
+      {smartClinicalAsk ? null : (
+        // Two different promises share this component. The desktop line names
+        // Smart search, so it stays tied to the server capability. The phone
+        // ticker is an ordinary example search — "Try this … Tap to search" —
+        // and is the only suggestion a phone home page has, because the desktop
+        // prompt rail is display:none below 640px. It therefore belongs on
+        // every phone home page, capability or not (owner decision 2026-08-30,
+        // restoring the pre-#2459 behaviour).
+        <SmartRotatingHint
+          examples={config.examples}
+          modeLabel={mode.label}
+          showSmartLine={clinicalAskAvailable}
+          showPhoneTicker={showPhoneSuggestionTicker}
+          onPickExample={(example) => {
+            onQueryChange(example);
+            onFocusSearchInput?.();
+          }}
+        />
+      )}
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {

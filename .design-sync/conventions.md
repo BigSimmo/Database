@@ -1,4 +1,4 @@
-# Clinical KB — build conventions
+# PsychSift — build conventions
 
 > The system of record is `docs/design-system/` (SPEC · TOKENS · COMPONENTS · DECISIONS ·
 > GATES). This file is the designer-facing build idiom; where it disagrees with that set,
@@ -66,12 +66,14 @@ glyphs). Label and caption **text** uses `--text-muted`.
 ## Opt-in v2 token layer
 
 `.ckb-v2` is an opt-in class that swaps in the v2 shell: white surfaces, a blue
-`--command`, a crisper `--e1`…`--e4` ladder, a 7-step type scale with per-step
-line-height and tracking, semantic spacing (`--gap-*`, `--pad-*`), density
-(`--tap-min`, `--chip-height`, `--row-*`), icon sizes (`--icon-*`) and motion
-durations. Add `ckb-v2` (plus `dark` for the dark ramp) to a subtree to adopt it;
-without the class nothing changes. Components that reference v2-only tokens carry
-a v1 fallback (`var(--pad-panel,1.5rem)`) so they render correctly either way.
+`--command`, a crisper `--e1`…`--e4` ladder, a 7-step type scale (size steps with
+shared `--leading-prose`; hero companions `--text-hero--line-height` /
+`--text-hero-tr` only — no per-step leading or tracking), semantic spacing
+(`--gap-*`, `--pad-*`), density (`--tap-min`, `--chip-height`, `--row-*`), icon
+sizes (`--icon-*`) and motion durations. Production puts `ckb-v2` on `<html>`
+(`src/app/layout.tsx`); subtree opt-in is no longer the production model.
+Components that reference v2-only tokens carry a v1 fallback
+(`var(--pad-panel,1.5rem)`) so they render correctly either way.
 
 ## Class-string vocabulary (exported constants)
 

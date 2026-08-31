@@ -56,6 +56,7 @@ import { formatInstant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
+import { WARD_NAV } from "@/components/ward-management/ward-nav";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -134,7 +135,7 @@ function ModeHeader({
   return (
     <header className={styles.modeHeader}>
       <div className={styles.modeIdentity}>
-        {/* Ward Flow's own identity, not the host application's. This read "Clinical KB /
+        {/* Ward Flow's own identity, not the host application's. This read "PsychSift /
             Source-backed clinical search" on every board of a sandboxed synthetic prototype that
             does no searching and is not source-backed. Found by looking at a screenshot — every
             measurement run against this codebase missed it, because nothing was structurally
@@ -411,10 +412,24 @@ function CapacityView() {
   // Five cards, named explicitly rather than derived from `Object.entries` — that keeps this
   // list exactly the five figures spec D6 names, in the order it names them, and makes a sixth
   // "total" card impossible to add by accident the way looping over a totals object invited.
-  const headlineCards: { key: string; label: string; value: number }[] = [
+  // Spec D9 (#WG24JB): confirmed and predicted pending discharge cards link directly to the discharge board.
+  // The href comes from WARD_NAV (the single source of Ward Flow destinations) so the rail and
+  // these cards cannot drift apart if the discharge route is ever renamed or regrouped.
+  const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
+  const headlineCards: { key: string; label: string; value: number; href?: string }[] = [
     { key: "available-now", label: "Available now", value: headline.availableNow },
-    { key: "confirmed-today", label: "Confirmed today", value: headline.confirmedToday },
-    { key: "predicted-today", label: "Predicted today", value: headline.predictedToday },
+    {
+      key: "confirmed-today",
+      label: "Confirmed today",
+      value: headline.confirmedToday,
+      href: dischargeHref,
+    },
+    {
+      key: "predicted-today",
+      label: "Predicted today",
+      value: headline.predictedToday,
+      href: dischargeHref,
+    },
     { key: "held", label: "Held", value: headline.held },
     { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
   ];
@@ -432,13 +447,33 @@ function CapacityView() {
         <span className={styles.prototypeBadge}>Synthetic counts</span>
       </header>
       <div className={styles.capacitySummary} data-testid="ward-capacity-headline">
-        {headlineCards.map(({ key, label, value }) => (
-          <article className={styles.summaryCard} key={key} data-testid={`ward-capacity-headline-${key}`}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-            <small>Across {units.length} synthetic units</small>
-          </article>
-        ))}
+        {headlineCards.map(({ key, label, value, href }) => {
+          const content = (
+            <>
+              <span>{label}</span>
+              <strong>{value}</strong>
+              <small>Across {units.length} synthetic units</small>
+            </>
+          );
+          if (href) {
+            return (
+              <Link
+                key={key}
+                href={href}
+                className={`${styles.summaryCard} ${styles.summaryLinkCard}`}
+                data-testid={`ward-capacity-headline-${key}`}
+                aria-label={`View discharges for ${label}: ${value} across ${units.length} synthetic units`}
+              >
+                {content}
+              </Link>
+            );
+          }
+          return (
+            <article className={styles.summaryCard} key={key} data-testid={`ward-capacity-headline-${key}`}>
+              {content}
+            </article>
+          );
+        })}
       </div>
       {excludedBeyondToday > 0 && (
         <p className={styles.excludedNotice} data-testid="ward-capacity-excluded-beyond-today">

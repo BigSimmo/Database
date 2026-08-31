@@ -210,7 +210,7 @@ export function PrivacyQuietSignalPage() {
             <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
               <PrivacyPageBackButton />
             </Suspense>
-            <BrandMark className="h-9 w-9 shrink-0 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
+            <BrandMark tone="emphasis" className="h-9 w-9 shrink-0 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
             <div className="min-w-0 flex-1">
               <p className={cn(eyebrowText, "shrink-0")}>{privacyCopy.pageEyebrow}</p>
               <p className="mt-0.5 truncate text-sm font-semibold tracking-display text-[color:var(--text-heading)] sm:text-base-minus lg:text-lg">
@@ -245,7 +245,7 @@ export function PrivacyQuietSignalPage() {
                     {privacyCopy.pageTitle}
                   </h1>
                   <p className="mt-3 max-w-[var(--measure)] text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-7">
-                    Understand what information Clinical KB handles, where it is processed, how long it is retained, and
+                    Understand what information PsychSift handles, where it is processed, how long it is retained, and
                     what you need to do before using it.
                   </p>
                 </div>
@@ -264,7 +264,7 @@ export function PrivacyQuietSignalPage() {
                       Coverage
                     </dt>
                     <dd className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">
-                      Applies to every Clinical KB mode
+                      Applies to every PsychSift mode
                     </dd>
                   </div>
                 </dl>
@@ -295,7 +295,7 @@ export function PrivacyQuietSignalPage() {
                     id="privacy-important-heading"
                     className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--warning-text)]"
                   >
-                    Before you use Clinical KB
+                    Before you use PsychSift
                   </h2>
                   <p className="mt-1 max-w-[var(--measure)] text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">
                     {PRIVACY_IMPORTANT_SHORT}

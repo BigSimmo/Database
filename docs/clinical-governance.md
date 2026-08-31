@@ -1,6 +1,6 @@
 # Clinical Governance Workstream
 
-Clinical KB is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
+PsychSift is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
 
 ## Deployment Classification
 
@@ -60,9 +60,11 @@ Authority must come from registered publisher codes or compatible canonical publ
 
 ## Mode-aware Clinical Ask governance
 
-Clinical Ask is currently dormant with no user-visible composer entry point. If reactivated, it serves seven
-exhaustive clinician-reference modes: Services, Forms, Differentials, Formulation,
-DSM-5 Diagnosis, Specifiers, and Therapy. Every request uses the same deterministic Evidence Ladder: local
+Clinical Ask remains dormant by default. When `CLINICAL_ASK_ENABLED=true`, the existing shared composer exposes a
+server-gated Smart entry point for seven exhaustive clinician-reference modes: Services, Forms, Differentials,
+Formulation, DSM-5 Diagnosis, Specifiers, and Therapy. Unsupported or denylisted modes and all deployments with the
+flag off retain deterministic search/filter behaviour and show no Smart promise. There is no microphone control or
+separate Ask rail. Every Smart request uses the same deterministic Evidence Ladder: local
 Catalogue first, authorised owner-scoped Indexed evidence second, and an allowlisted External Authority only when
 there is a deterministic evidence gap, unresolved conflict, stale material, or a `needs_review` source. An unsupported
 conclusion is rendered as an Evidence Gap; source conflict and review state remain visible, and clinically material
@@ -83,3 +85,8 @@ telemetry. Roll back generation with `CLINICAL_ASK_ENABLED=false`; disable only 
 `CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED=false`; use `CLINICAL_ASK_DISABLED_MODES` only as the emergency per-mode
 denylist. None of these flags removes the separately required hosted migration, provider, clinical-evaluation,
 protected-staging canary, contractual, or physical-device evidence.
+
+An `answered` stream payload fails closed unless it contains governed evidence and every visible lead, section, and
+conflict claim references evidence present in that payload. An Evidence Gap may still carry zero or partial evidence.
+Production activation remains separately gated by named human clinical and contractual/privacy approval plus physical
+iPhone Safari and installed-PWA acceptance of the enabled Smart path.

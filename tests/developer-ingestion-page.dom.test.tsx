@@ -52,10 +52,11 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     expect(screen.getByTestId("developer-ingestion")).toBeInTheDocument();
     expect(screen.getByTestId("developer-ingestion-back")).toHaveAttribute("href", "/mockups/development");
 
-    // The shell's own stamp is rendered with live status, stating that ingestion
-    // jobs are read live rather than reporting a misleading unknown revision.
+    // The shell's own stamp is rendered at server-render time, before the
+    // client panel has fetched anything — so it says "read live on demand" (#XKS6FD),
+    // not invent a build-time content date the way every Phase 1/2 panel does.
     const shellStamp = screen.getByTestId("developer-hub-freshness");
-    expect(shellStamp).toHaveTextContent(/Ingestion jobs read live/i);
+    expect(shellStamp).toHaveTextContent(/Ingestion jobs read live on demand/i);
 
     await screen.findByTestId("developer-ingestion-empty");
   });
@@ -72,7 +73,7 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
 
     const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
     expect(checkedAt).toHaveTextContent(/checked/i);
-    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live/i);
+    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live on demand/i);
   });
 });
 
@@ -128,6 +129,16 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Request failed." }, 500));
     render(<DeveloperIngestionPage />);
     expect(await screen.findByTestId("developer-ingestion-fetch-error")).toHaveTextContent(/could not be reached/i);
+  });
+
+  it("malformed JSON body on 200 response reports parse error rather than network failure", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("<html>Not JSON</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
+    );
+    render(<DeveloperIngestionPage />);
+    const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent(/could not be parsed as json/i);
+    expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
   });
 
   it("an unexpected payload shape degrades to the fetch-failed state rather than inventing zero jobs", async () => {

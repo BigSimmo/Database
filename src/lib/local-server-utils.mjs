@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 
-export const appName = "Clinical KB";
+export const appName = "PsychSift";
 export const projectPortStart = 3100;
 export const projectPortEnd = 4599;
 

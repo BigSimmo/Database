@@ -682,6 +682,34 @@ describe("AnswerCard", () => {
     expect(onOpenSource).toHaveBeenCalledWith("doc-1", "p. 12");
   });
 
+  it("allows the live content owner to relocate stale status without duplicating it", () => {
+    render(
+      <AnswerCard
+        support="strong"
+        state={{
+          kind: "stale_evidence",
+          sourceCount: 1,
+          overdue: [
+            {
+              sourceId: "doc-1",
+              title: "WA Clozapine Protocol",
+              reviewDueOn: "2025-11-01",
+              status: "review_due",
+            },
+          ],
+        }}
+        verification={{ state: "stale_evidence" }}
+        retrievalStatePlacement="content"
+        onOpenSource={vi.fn()}
+      >
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+
+    expect(screen.queryByTestId("retrieval-state-banner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("verification-notice")).toHaveAttribute("data-state", "stale_evidence");
+  });
+
   it("wires every declared action", async () => {
     const onActivate = vi.fn();
     render(
