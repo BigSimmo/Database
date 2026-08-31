@@ -2586,6 +2586,18 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;
     });
     expect(metricRows).toBe(1);
+    const metricValuesStayWithinCells = await safetyMetricItems.evaluateAll((items) => {
+      return items.every((item) => {
+        const value = item.querySelector('[data-testid="differential-safety-value"]');
+        if (!value) return false;
+        const valueRange = document.createRange();
+        valueRange.selectNodeContents(value);
+        const valueBounds = valueRange.getBoundingClientRect();
+        const itemBounds = item.getBoundingClientRect();
+        return valueBounds.left >= itemBounds.left - 0.5 && valueBounds.right <= itemBounds.right + 0.5;
+      });
+    });
+    expect(metricValuesStayWithinCells).toBe(true);
 
     const watchRowCenterSpread = await safetySnapshot
       .getByTestId("differential-safety-watchlist")
