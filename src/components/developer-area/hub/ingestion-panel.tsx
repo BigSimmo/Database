@@ -11,11 +11,7 @@ import {
   ROW_CLASS,
   SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
-<<<<<<< HEAD
 import { formatTimeDistance, resolveFreshnessFrom } from "@/lib/developer-area/freshness";
-=======
-import { formatRelativeAge } from "@/lib/developer-area/freshness";
->>>>>>> origin/main
 
 /**
  * `ingestion_jobs.status` is a plain `string` column
@@ -253,7 +249,7 @@ export function IngestionPanel() {
       setState({
         kind: "fetch-error",
         fetchedAt,
-        message: "The ingestion jobs endpoint returned an unparseable response body.",
+        message: "The ingestion jobs endpoint returned an unparseable response body that could not be parsed as JSON.",
       });
       return;
     }

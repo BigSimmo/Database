@@ -54,9 +54,7 @@ export function resolveFreshnessFrom(
   modeOrOptions?: FreshnessMode | { status?: FreshnessMode; mode?: FreshnessMode },
 ): Freshness {
   const mode: FreshnessMode =
-    typeof modeOrOptions === "string"
-      ? modeOrOptions
-      : (modeOrOptions?.mode ?? modeOrOptions?.status ?? "snapshot");
+    typeof modeOrOptions === "string" ? modeOrOptions : (modeOrOptions?.mode ?? modeOrOptions?.status ?? "snapshot");
   const viewedAt = now.toISOString();
   if (contentAt === null) {
     return { contentAt, viewedAt, ageHours: null, ageMinutes: null, mode, status: mode };
