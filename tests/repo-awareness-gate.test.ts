@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareSnapshots } from "../scripts/check-repo-awareness-snapshot";
+import { checkRepoAwarenessSnapshot, compareSnapshots } from "../scripts/check-repo-awareness-snapshot";
 import { generate } from "../scripts/generate-repo-awareness-snapshot";
 
 const regenerated = generate();
@@ -66,5 +66,45 @@ describe("compareSnapshots", () => {
   it("catches a key the generator no longer emits", () => {
     const committed = { ...structuredClone(regenerated), legacy_section: {} };
     expect(compareSnapshots(committed, regenerated).join(" ")).toMatch(/legacy_section/);
+  });
+});
+
+describe("checkRepoAwarenessSnapshot", () => {
+  it("skips gracefully with exit 0 when git is missing or fails in the environment", () => {
+    const logs: string[] = [];
+    const errors: string[] = [];
+    let exitCode: number | null = null;
+
+    const code = checkRepoAwarenessSnapshot({
+      generateImpl: () => {
+        throw new Error("spawnSync git ENOENT");
+      },
+      log: (msg) => logs.push(msg),
+      error: (msg) => errors.push(msg),
+      exit: (c) => {
+        exitCode = c;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(exitCode).toBeNull();
+    expect(logs.join(" ")).toContain("git is not available");
+    expect(errors).toHaveLength(0);
+  });
+
+  it("passes with exit 0 when committed snapshot matches generated snapshot", () => {
+    const logs: string[] = [];
+    const errors: string[] = [];
+
+    const code = checkRepoAwarenessSnapshot({
+      generateImpl: () => regenerated,
+      readCommittedImpl: () => structuredClone(regenerated),
+      log: (msg) => logs.push(msg),
+      error: (msg) => errors.push(msg),
+    });
+
+    expect(code).toBe(0);
+    expect(logs.join(" ")).toContain("in step with");
+    expect(errors).toHaveLength(0);
   });
 });
