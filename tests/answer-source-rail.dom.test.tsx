@@ -48,7 +48,7 @@ vi.mock("@/components/clinical-dashboard/signed-image", () => ({
   ),
 }));
 
-import { AnswerSupportSummaryCard } from "@/components/clinical-dashboard/evidence-panels";
+import { AnswerUtilityActions } from "@/components/clinical-dashboard/evidence-panels";
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
 import {
@@ -394,11 +394,12 @@ describe("answer source drawer", () => {
 });
 
 describe("evidence gaps stay answer-level", () => {
-  it("lists the answer's warnings on the card rather than against any one source", async () => {
+  it("lists the answer's warnings with the quiet answer utilities rather than against any one source", async () => {
     const user = userEvent.setup();
     render(
-      <AnswerSupportSummaryCard
-        priority={null}
+      <AnswerUtilityActions
+        copied={false}
+        onCopy={vi.fn()}
         warnings={["Retrieval confidence gate was blocked for low signal."]}
         onSubmitFeedback={vi.fn()}
       />,
