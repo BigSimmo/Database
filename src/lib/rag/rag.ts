@@ -2985,7 +2985,7 @@ async function answerQuestionWithScopeUncoalesced(
   }
 
   if (route.mode === "extractive") {
-    let relatedDocuments: Awaited<typeof relatedDocumentsPromise> = [];
+    let relatedDocuments: RelatedDocument[] = [];
     try {
       relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
     } catch (error) {
@@ -3926,7 +3926,7 @@ ${qualityRetryInstruction}`
       routeDeadline.dispose();
       throw error;
     }
-    let relatedDocuments: Awaited<typeof relatedDocumentsPromise> = [];
+    let relatedDocuments: RelatedDocument[] = [];
     try {
       relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
     } catch (relatedDocumentsError) {
