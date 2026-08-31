@@ -125,7 +125,7 @@ describe("extractive procedural comparator artifacts", () => {
     expect(finalized.supportedClaims?.flatMap((claim) => claim.supportingChunkIds) ?? []).toEqual([]);
   });
 
-  it("builds the document support fallback only from clean results when the set is mixed", () => {
+  it("fails closed instead of returning a bare document-title list when the clean result is only document-level", () => {
     const cleanDocument = ectResult({
       id: "ect-clean-document",
       document_id: "ect-clean-document-record",
@@ -139,12 +139,24 @@ describe("extractive procedural comparator artifacts", () => {
 
     const answer = extractiveAnswer([ectResult({}), cleanDocument]);
 
-    expect(answer.grounded).toBe(true);
-    expect(answer.answer).toContain("Current ECT Workflow Overview");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.answer).toBe("No current source with ECT referral criteria was found.");
+    expect(answer.answer).not.toContain("Current ECT Workflow Overview");
     expect(answer.answer).not.toContain("ECT Procedure (AKG)");
     expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([cleanDocument.id]);
     expect(answer.sources.map((source) => source.id)).toEqual([cleanDocument.id]);
     expect(answer.quoteCards?.map((quote) => quote.chunk_id) ?? []).not.toContain("ect-artifact");
+    expect(answer.answerSections).toEqual([]);
+
+    const finalized = finalizeRagAnswerQuality(answer, "What is the process for ECT procedure?", "document_lookup", [
+      ectResult({}),
+      cleanDocument,
+    ]);
+    expect(finalized.grounded).toBe(false);
+    expect(finalized.citations).toEqual([]);
+    expect(finalized.sources.map((source) => source.id)).toEqual([cleanDocument.id]);
+    expect(finalized.sources.map((source) => source.id)).not.toContain("ect-artifact");
   });
 
   it("rebuilds every user-visible derived artifact after removing a mixed-set flow edge", () => {
