@@ -44,6 +44,13 @@ const reviewedActionPins = new Map([
       // ALL_INPUTS env stripping, and a shell-quote CVE bump — no change to
       // permissions, secrets handling, or the action's trust boundary.
       ["dcb57747bfceeaa1fa72638cae52295d1d853d4a", "v1.0.199"],
+      // Reviewed 2026-08-31 for PR #2469 (Dependabot github-actions group):
+      // annotated tag v1.0.210 peels to this commit. Diff v1.0.199...v1.0.210
+      // is Claude Code/Agent SDK bumps plus fixes for delete_files prompt
+      // paths, parentheses in branch names, stalled download_job_log bound,
+      // encoded branch names in GitHub links, and .gitattributes — no change
+      // to permissions, secrets handling, or the action's trust boundary.
+      ["a874e9ecd7bb36efdad65429c6b35815f5a08f10", "v1.0.210"],
     ]),
   ],
   // Reviewed 2026-08-13 for the credential-isolated Run PR operator: annotated
