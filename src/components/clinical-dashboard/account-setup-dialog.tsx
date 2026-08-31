@@ -298,7 +298,10 @@ function ProviderButton({
       data-provider={provider.toLowerCase()}
       className={cn(
         floatingControl,
-        "min-h-12 w-full min-w-0 justify-center gap-2.5 bg-[color:var(--surface-lux)] px-3 shadow-[var(--shadow-inset)]",
+        // Absolute 48px floor wins over rem-based min-h-tap/min-h-12: Interface
+        // density can set the root to 15px (3rem → 45px), and ui-smoke asserts
+        // these provider controls at a hard 48px bounding box.
+        "!min-h-[48px] w-full min-w-0 justify-center gap-2.5 bg-[color:var(--surface-lux)] px-3 shadow-[var(--shadow-inset)]",
       )}
     >
       {pending ? (
