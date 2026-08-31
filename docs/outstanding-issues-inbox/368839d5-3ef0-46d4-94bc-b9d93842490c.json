@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "368839d5-3ef0-46d4-94bc-b9d93842490c",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#WP76E6",
+    "outcome": "Added Dismissal model section to docs/caring-contacts/interaction-matrix.md.",
+    "baseRowFingerprint": "65cc614bf14e8c4870e38772d8cfc19b0a86445fc867693d33175f85b4e40547"
+  }
+}

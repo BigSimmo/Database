@@ -232,4 +232,44 @@ describe("issues report", () => {
       rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
+
+  it("separates Ward Flow and core repository tasks with ward, core, and query filters", () => {
+    const markdown = [
+      "# Outstanding",
+      "<!-- issues:next-id=10 -->",
+      "## Recommended execution queue",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
+      "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
+      "| 1 | `#001` | A2 | Standard | Next | 1 hour | Core repo task outcome |",
+      "| 2 | `#002` | A3 | Standard | Next | 2 hours | Ward Flow: screen feature outcome |",
+      "## Open items",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
+      "| #001 | P2 | task | Infrastructure fix | Core details | src | 2026-01-01 |",
+      "| #002 | P3 | task | Ward Flow: role screens | Ward screen details | src | 2026-01-01 |",
+      "| #003 | P3 | rec | Ward Flow: roadmap enhancement | Enhancement details | src | 2026-01-01 |",
+      "## Resolved / archive",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #004 | task | old | done | 2026-01-01 |",
+    ].join("\n");
+
+    const wardReport = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true }, { ward: true });
+    expect(wardReport.counts).toEqual({ open: 2, recommended: 1 });
+    expect(wardReport.open.map((r: { id: string }) => r.id)).toEqual(["#002", "#003"]);
+    expect(wardReport.recommended.map((r: { ids: string[] }) => r.ids[0])).toEqual(["#002"]);
+
+    const coreReport = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true }, { core: true });
+    expect(coreReport.counts).toEqual({ open: 1, recommended: 1 });
+    expect(coreReport.open.map((r: { id: string }) => r.id)).toEqual(["#001"]);
+    expect(coreReport.recommended.map((r: { ids: string[] }) => r.ids[0])).toEqual(["#001"]);
+
+    const queryReport = buildIssuesReport(
+      markdown,
+      { ref: "origin/main", revalidated: true },
+      { filter: "enhancement" },
+    );
+    expect(queryReport.counts).toEqual({ open: 1, recommended: 0 });
+    expect(queryReport.open[0].id).toBe("#003");
+  });
 });

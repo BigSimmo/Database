@@ -83,4 +83,33 @@ describe("Caring Contact mockup route registration", () => {
       expect(source, `${file} imports mockup code`).not.toMatch(/caring-contacts\/mockups/);
     }
   });
+
+  it("enforces full screen registration parity between adoption-contract.json and ui-caring-contacts-workspace.spec.ts", () => {
+    const adoptionContract = JSON.parse(
+      readFileSync(resolve(process.cwd(), "docs/design-system/adoption-contract.json"), "utf8"),
+    );
+    const workspaceSurface = adoptionContract.productionSurfaces.find(
+      (surface: { id: string }) => surface.id === "caring-contacts-workspace",
+    );
+    expect(workspaceSurface).toBeDefined();
+    const declaredRoutes: string[] = workspaceSurface.routes;
+    expect(declaredRoutes.length).toBeGreaterThan(0);
+
+    const specSource = readFileSync(resolve(process.cwd(), "tests/ui-caring-contacts-workspace.spec.ts"), "utf8");
+
+    for (const routeFile of declaredRoutes) {
+      expect(existsSync(resolve(process.cwd(), routeFile)), `${routeFile} must exist on disk`).toBe(true);
+      const urlPath =
+        "/" +
+        routeFile
+          .replace(/^src\/app\//, "")
+          .replace(/\/page\.tsx$/, "")
+          .replace(/^page\.tsx$/, "");
+      expect(
+        specSource.includes(urlPath) ||
+          specSource.includes(`route: ${urlPath === "/caring-contacts" ? "WORKSPACE_ROUTE" : "PATIENTS_ROUTE"}`),
+        `Route ${urlPath} (${routeFile}) must be registered in WORKSPACE_SCREENS in tests/ui-caring-contacts-workspace.spec.ts`,
+      ).toBe(true);
+    }
+  });
 });

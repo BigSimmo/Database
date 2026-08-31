@@ -526,7 +526,11 @@ export function ShortlistPanel({
                   Parallel referral: {unit.name}
                 </span>
               ) : (
-                <span key={id} data-testid="ward-shortlist-referred-badge" className={styles.shortlistUnresolvedBadge}>
+                <span
+                  key={id}
+                  data-testid="ward-shortlist-unresolved-referred-badge"
+                  className={styles.shortlistUnresolvedBadge}
+                >
                   Parallel referral to an unresolved unit.
                 </span>
               ),

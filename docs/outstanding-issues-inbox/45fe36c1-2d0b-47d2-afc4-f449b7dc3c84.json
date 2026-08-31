@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "45fe36c1-2d0b-47d2-afc4-f449b7dc3c84",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#V27DZ1",
+    "outcome": "Disambiguated ward-diagram-unplaced-unit-${unit.id} and ward-shortlist-unresolved-referred-badge in flow-diagram.tsx and shortlist-panel.tsx.",
+    "baseRowFingerprint": "b88d3e7a0476fe25c1ec7bbd16793ea48260961d03b022b7b3972e37bea0d8a0"
+  }
+}
