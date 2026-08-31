@@ -91,6 +91,16 @@ function mergeLegacyAccessRows<T>(ownerRows: T[], publicRows: T[], matchCount: u
   return merged.slice(0, limit);
 }
 
+/**
+ * Executes a versioned Supabase retrieval RPC with transparent fallback to legacy RPCs and owner-scope merging.
+ *
+ * @param supabase - Authenticated or admin Supabase client
+ * @param versionedName - The modern v2 RPC function name
+ * @param legacyName - The legacy v1 RPC function name
+ * @param args - RPC arguments
+ * @param signal - Optional AbortSignal for query cancellation
+ * @returns Object with retrieved data rows or error
+ */
 export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>(
   supabase: ReturnType<typeof createAdminClient>,
   versionedName: string,
@@ -135,7 +145,13 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   };
 }
 
-/** Record hybrid rpc error. */
+/**
+ * Logs and attaches telemetry for Supabase hybrid retrieval RPC errors.
+ *
+ * @param telemetry - Telemetry bucket to record error into
+ * @param rpc - Name of the failing RPC
+ * @param error - Supabase RPC error object
+ */
 export function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: string, error: SupabaseRpcError) {
   if (!error) return;
   const code = error.code ?? "unknown";
@@ -169,7 +185,13 @@ function recordTextVariantFanout(
   if (earlyExit) telemetry.text_variant_early_exit = true;
 }
 
-/** Merge search results. */
+/**
+ * Merges primary and secondary search results, preserving the highest score per chunk ID.
+ *
+ * @param primary - Primary search results
+ * @param secondary - Secondary search results
+ * @returns Deduplicated array of merged search results
+ */
 export function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) {
   const merged = new Map<string, SearchResult>();
 
@@ -653,14 +675,26 @@ export async function searchDocumentLookupFastPath(args: {
     .slice(0, args.matchCount);
 }
 
-/** Memory card chunk score. */
+/**
+ * Computes the normalized score for a memory card candidate chunk.
+ *
+ * @param card - Document memory card with hybrid score or confidence
+ * @returns Number between 0 and 1
+ */
 export function memoryCardChunkScore(card: DocumentMemoryCard) {
   const hybridScore = Number(card.metadata?.memory_hybrid_score);
   if (Number.isFinite(hybridScore) && hybridScore > 0) return Math.min(1, hybridScore);
   return Math.min(1, card.confidence ?? 0.5);
 }
 
-/** Load chunks for memory cards. */
+/**
+ * Loads and attaches chunk content and document metadata for matched memory cards.
+ *
+ * @param supabase - Admin Supabase client
+ * @param cards - Array of memory cards to fetch chunks for
+ * @param accessScope - Current tenant / owner visibility scope
+ * @returns Search results corresponding to the memory cards
+ */
 export async function loadChunksForMemoryCards(
   supabase: ReturnType<typeof createAdminClient>,
   cards: DocumentMemoryCard[],
@@ -820,7 +854,12 @@ async function loadRowsWithCache<T extends { id: string }>(args: {
   return Promise.all(args.ids.map((id) => args.cache.get(cacheKey(id))!));
 }
 
-/** Load chunks for signal matches. */
+/**
+ * Hydrates full chunk records, document metadata, and images for signal matches (tables, embedding fields, index units).
+ *
+ * @param args - Object with supabase client, signal matches, access scope, and optional chunk cache
+ * @returns Fully hydrated SearchResult objects
+ */
 export async function loadChunksForSignalMatches(args: {
   supabase: ReturnType<typeof createAdminClient>;
   matches: ChunkSignalMatch[];
@@ -1036,7 +1075,12 @@ export async function searchTableFactCandidates(args: {
   });
 }
 
-/** Search embedding field candidates. */
+/**
+ * Retrieves candidate chunks by searching dense and sparse embedding fields.
+ *
+ * @param args - Search options with query, query embedding, owner/document filters, and limits
+ * @returns Array of SearchResult candidates enriched with section context
+ */
 export async function searchEmbeddingFieldCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1091,7 +1135,12 @@ export async function searchEmbeddingFieldCandidates(args: {
   });
 }
 
-/** Search index unit candidates. */
+/**
+ * Retrieves candidate chunks by searching structured document index units (tables, workflows, algorithms).
+ *
+ * @param args - Search options with query, vector embedding, scope filters, and limits
+ * @returns Array of SearchResult candidates matched against index units
+ */
 export async function searchIndexUnitCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1223,7 +1272,12 @@ export function applyMemoryBoostArtifacts(query: string, candidates: SearchResul
   };
 }
 
-/** With memory boosted candidates. */
+/**
+ * Enriches candidate search results with memory card boosts and associated memory chunks.
+ *
+ * @param args - Search arguments and candidate pool
+ * @returns Object with boosted search results and referenced memory cards
+ */
 export async function withMemoryBoostedCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
