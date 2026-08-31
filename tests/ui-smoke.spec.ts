@@ -2016,7 +2016,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
         origin: new URL(page.url()).origin,
       });
-      const copyWithSources = plainAnswer.getByRole("button", { name: "Copy answer with source status" });
+      const copyWithSources = page.getByRole("button", { name: "Copy answer with source status" });
       await expect(copyWithSources).toBeVisible();
       await expectMinTouchTarget(copyWithSources);
       await copyWithSources.click();
@@ -2027,13 +2027,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     }
     await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
 
-    // The support card is the answer-level strip now: priority/safety, evidence
-    // gaps, and feedback. Everything per-source moved to the rail and drawer, so
-    // the clinical-notes and evidence rows are gone rather than relocated.
+    // The support card is one focused priority/safety row. Answer-level utilities
+    // sit with Copy with sources instead of visually inheriting warning chrome.
     const supportCard = page.getByTestId("answer-support-card");
     await expect(supportCard).toBeVisible();
     await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
-    await expect(supportCard).toContainText("Report a problem");
+    await expect(supportCard).not.toContainText("Report a problem");
+    await expect(supportCard).not.toContainText("Evidence gaps");
     await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
     await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
     await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
@@ -2118,32 +2118,36 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
     // Document order on the answer surface: question, prose, the rail that cites
-    // it, then the answer-level support strip.
+    // it, the quiet utilities, then the focused support strip.
     const hierarchy = await page.evaluate(() => {
       const question = document.querySelector('[data-testid="user-question-bubble"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
       const rail = document.querySelector('[data-testid="answer-source-rail"]');
+      const utilities = document.querySelector('section[aria-label="Answer utilities"]');
       const support = document.querySelector('[data-testid="answer-support-card"]');
       return {
         questionTop: question?.getBoundingClientRect().top ?? 9999,
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
         railTop: rail?.getBoundingClientRect().top ?? 9999,
+        utilitiesTop: utilities?.getBoundingClientRect().top ?? 9999,
         supportTop: support?.getBoundingClientRect().top ?? 9999,
       };
     });
     expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
     expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.railTop);
-    expect(hierarchy.railTop).toBeLessThan(hierarchy.supportTop);
+    expect(hierarchy.railTop).toBeLessThan(hierarchy.utilitiesTop);
+    expect(hierarchy.utilitiesTop).toBeLessThan(hierarchy.supportTop);
 
-    // Evidence gaps and feedback are answer-level, so they stayed on the card
-    // rather than following the per-source content into the drawer.
-    const feedbackTrigger = supportCard.getByTestId("answer-feedback-trigger");
+    // Evidence gaps and feedback remain answer-level, but use the same quiet
+    // utility treatment as Copy with sources rather than the safety panel.
+    const utilities = page.getByLabel("Answer utilities");
+    const feedbackTrigger = utilities.getByTestId("answer-feedback-trigger");
     await expect(feedbackTrigger).toBeVisible();
     await expectMinTouchTarget(feedbackTrigger);
     await feedbackTrigger.click();
-    await expect(supportCard.getByTestId("answer-review-panel")).toBeVisible();
+    await expect(utilities.getByTestId("answer-review-panel")).toBeVisible();
     await feedbackTrigger.click();
-    await expect(supportCard.getByTestId("answer-review-panel")).toHaveCount(0);
+    await expect(utilities.getByTestId("answer-review-panel")).toHaveCount(0);
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
     await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
@@ -2208,7 +2212,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       await visibleAnswerSubmitButton(page).click();
       const answerSurface = page.getByTestId("plain-answer-response");
       await expect(answerSurface).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+      await page.getByRole("button", { name: "Copy answer with source status" }).click();
 
       const copiedText = await page.evaluate(() => navigator.clipboard.readText());
       expect(copiedText).toContain("toxicity safety-net review");
@@ -2300,8 +2304,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       expect(seenTables.sort()).toEqual(["ANC actions", "Metabolic monitoring"]);
       expect(sawCaveat).toBe(true);
 
-      const answerSurface = page.getByTestId("plain-answer-response");
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+      await page.getByRole("button", { name: "Copy answer with source status" }).click();
       const copiedText = await page.evaluate(() => navigator.clipboard.readText());
       expect(copiedText).toContain("ANC range | [header missing] | Action");
       expect(copiedText).toContain("1.0–1.5 × 10⁹/L | [blank] | Increase monitoring");
@@ -2683,9 +2686,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // The library matches are one collapsed line under the answer now (owner
-    // decision, 2026-08-26, "direction B"): the follow-up questions lead, and
-    // this opens on demand. Still asserted end to end rather than dropped —
+    // The library matches are one collapsed line in the answer's evidence stack
+    // and open on demand. Still asserted end to end rather than dropped —
     // open it and the same two links are there, at full tap size.
     const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
     const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
@@ -3012,9 +3014,9 @@ test.describe("PsychSift UI smoke coverage", () => {
       const followUpBox = await followUps.boundingBox();
       expect(stripBox).toBeTruthy();
       expect(followUpBox).toBeTruthy();
-      // Questions above matches, not below. Asking the next question is the
-      // clinical step; browsing the library is not.
-      expect(followUpBox!.y).toBeLessThan(stripBox!.y);
+      // Library context now closes the evidence/safety stack before the next
+      // conversational turn begins.
+      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
     }
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
@@ -3199,7 +3201,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
     expect(disclosureBox!.height).toBeLessThanOrEqual(42);
     expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
-    expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
+    const disclosureToRailGap = railBox!.y - (disclosureBox!.y + disclosureBox!.height);
+    expect(disclosureToRailGap).toBeGreaterThanOrEqual(3);
+    expect(disclosureToRailGap).toBeLessThanOrEqual(6);
 
     await page.emulateMedia({ reducedMotion: "reduce" });
     await sourceOnlyButton.focus();
@@ -3208,7 +3212,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(sourceOnlyDisclosure).toContainText(
       "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     );
-    await expect(page.locator("#source-only-disclosure-detail")).toHaveCSS("animation-name", "none");
+    const sourceOnlyDetailId = await sourceOnlyButton.getAttribute("aria-controls");
+    expect(sourceOnlyDetailId).toBeTruthy();
+    await expect(page.locator(`[id="${sourceOnlyDetailId}"]`)).toHaveCSS("animation-name", "none");
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await expect(sourceOnlyDisclosure).toBeVisible();
@@ -3248,13 +3254,14 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("review-due sources collapse into a compact expandable tab", async ({ page }, testInfo) => {
+  test("review-due source-only answers share one compact expandable status row", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page, {
       answerOverride: (query, documentId, documentIds) => {
         const base = demoAnswer(query, documentId, documentIds);
         return {
           ...base,
+          answerQualityTier: "source_only" as const,
           sources: base.sources.map((source, index) =>
             index === 0
               ? {
@@ -3276,21 +3283,58 @@ test.describe("PsychSift UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
     await visibleAnswerSubmitButton(page).click();
 
+    const statusRow = page.getByTestId("answer-source-status-row");
+    const sourceOnlyDisclosure = statusRow.getByTestId("source-only-disclosure");
     const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
+    await expect(statusRow).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(sourceOnlyDisclosure).toBeVisible();
     await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(reviewDueTab).toContainText("Review due");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
     const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
     await expect(reviewDuePanel).toBeHidden();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
-    await expectNoPageHorizontalOverflow(page);
+    for (const viewport of [
+      { width: 320, height: 844 },
+      { width: 390, height: 844 },
+      { width: 639, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const statusBox = await statusRow.boundingBox();
+      const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
+      const reviewDueBox = await reviewDueTab.boundingBox();
+      expect(statusBox).toBeTruthy();
+      expect(sourceOnlyBox).toBeTruthy();
+      expect(reviewDueBox).toBeTruthy();
+      expect(Math.abs(sourceOnlyBox!.y - reviewDueBox!.y)).toBeLessThanOrEqual(1);
+      expect(statusBox!.height).toBeLessThanOrEqual(42);
+      expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
+      expect(reviewDueBox!.height).toBeLessThanOrEqual(42);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
 
     await testInfo.attach("review-due-tab-phone", {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
     });
 
-    await reviewDueTab.click();
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
+    await sourceOnlyButton.focus();
+    await expect(sourceOnlyButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+
+    await reviewDueTab.focus();
+    await expect(reviewDueTab).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
     await expect(reviewDuePanel).toBeVisible();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
