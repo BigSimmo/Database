@@ -307,7 +307,7 @@ describe("getDifferentialDetailContext", () => {
   });
 });
 
-describe("Safety Snapshot phone metric labels", () => {
+describe("Safety Snapshot compact layout", () => {
   it("keeps the full fact label available to assistive tech when the compact label is shown", () => {
     const source = readFileSync(
       new URL("../src/components/differentials/differential-detail-page.tsx", import.meta.url),
@@ -315,5 +315,15 @@ describe("Safety Snapshot phone metric labels", () => {
     );
     expect(source).toContain("aria-label={fact.label}");
     expect(source).toMatch(/sm:hidden[^>]*>\s*\{[\s\S]*compactLabel/);
+  });
+
+  it("keeps four metrics on one row and omits the old review action", () => {
+    const source = readFileSync(
+      new URL("../src/components/differentials/differential-detail-page.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain('if (count >= 4) return "grid-cols-4"');
+    expect(source).not.toContain("Review must-not-miss causes");
+    expect(source).not.toContain('data-testid="differential-safety-cta"');
   });
 });

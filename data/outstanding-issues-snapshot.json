@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 55,
+    "pending": 39,
     "resolved": 431
   },
   "queue": [
@@ -873,12 +873,6 @@
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "368839d5-3ef0-46d4-94bc-b9d93842490c",
-      "action": "done",
-      "summary": "#WP76E6: Added Dismissal model section to docs/caring-contacts/interaction-matrix.md.",
-      "created_at": "2026-08-31"
-    },
-    {
       "request_id": "36b7dc6b-733e-4116-8a47-4ef35e86039f",
       "action": "done",
       "summary": "#WP76E6: Clarified automated supervisor queues vs manual intervention triggers in interaction-matrix.md and verified with caring-contacts-overlay-definitions.test.ts",
@@ -909,28 +903,10 @@
       "created_at": "2026-08-25"
     },
     {
-      "request_id": "44b322b0-0a87-4564-878a-9d5ac97bcdc3",
-      "action": "update",
-      "summary": "#WG24JB: summary → Ward Flow: spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
-      "created_at": "2026-08-31"
-    },
-    {
       "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
       "action": "done",
       "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
       "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "45fe36c1-2d0b-47d2-afc4-f449b7dc3c84",
-      "action": "done",
-      "summary": "#V27DZ1: Disambiguated ward-diagram-unplaced-unit-${unit.id} and ward-shortlist-unresolved-referred-badge in flow-diagram.tsx and shortlist-panel.tsx.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "461a406d-4937-41c2-afbb-64d1b75f4bcf",
-      "action": "done",
-      "summary": "#AGRAKQ: Fixed regex in tests/helpers/caring-contacts-prohibited-language.ts to exclude plural job titles like clinical leads.",
-      "created_at": "2026-08-31"
     },
     {
       "request_id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
@@ -981,22 +957,10 @@
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "932b96f8-6af8-48a2-aeac-d78d5bb506a9",
-      "action": "done",
-      "summary": "#HX1KSZ: Added component metric boundary prohibition table row and §3c rule to docs/design-system/GATES.md.",
-      "created_at": "2026-08-31"
-    },
-    {
       "request_id": "964e1147-56b2-4750-8794-4b8b1d8e4e04",
       "action": "add",
       "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
       "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "97bbfd51-435b-4e31-b956-7138753eb0a8",
-      "action": "done",
-      "summary": "#EG4Q7W: Modularized postgres-repository.ts into 5 cohesive domain modules (core, plans, contacts, referrals-pathways, assignments-services) with full test suite passing.",
-      "created_at": "2026-08-31"
     },
     {
       "request_id": "998e657c-4852-4572-a4f8-5cf919ea2fea",
@@ -1014,12 +978,6 @@
       "request_id": "9d654032-6e3d-439f-81ac-70d8314f4763",
       "action": "update",
       "summary": "#9GPWT3: summary → Ward Flow: bed-release state model is unvalidated by any ward clinician",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "9e88c6de-2225-4134-888c-aec117a116e7",
-      "action": "done",
-      "summary": "#S4K1GA: Documented Reduce Motion iPhone acceptance criteria in docs/search-chrome-behaviour.md.",
       "created_at": "2026-08-31"
     },
     {
@@ -1047,18 +1005,6 @@
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "b1630592-46f5-4e1a-aa03-97aa30e516af",
-      "action": "done",
-      "summary": "#0HYHTH: Verified static prohibited vocabulary checks in tests/caring-contacts-interface-vocabulary.test.ts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "b2d0158c-09c0-441e-97af-fac42cbe5f12",
-      "action": "done",
-      "summary": "#PDM6NG: Added screen registration parity test in tests/caring-contact-route-files.test.ts.",
-      "created_at": "2026-08-31"
-    },
-    {
       "request_id": "b2e5f3fc-ab2d-4a14-a055-6742d6446784",
       "action": "add",
       "summary": "CI never runs the caring-contacts Postgres suite, so every row-level-security and cross-team assertion it makes against real SQL fires only on a developer's machine",
@@ -1071,22 +1017,10 @@
       "created_at": "2026-08-25"
     },
     {
-      "request_id": "b6d16549-d2cb-4815-9386-9c38854e7c0b",
-      "action": "done",
-      "summary": "#61TZJA: Verified PR #2199 merged and AWAITING_BASELINE in tests/ui-visual-baseline.spec.ts is empty.",
-      "created_at": "2026-08-31"
-    },
-    {
       "request_id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",
       "action": "add",
       "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
       "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "c3cf6c59-298b-424e-90bf-9e2cdd9c559e",
-      "action": "done",
-      "summary": "#F5EYAJ: Verified BLOCK_REASON_WORDING in overlay-host.tsx and DOM tests in tests/caring-contacts-overlay-host.dom.test.tsx.",
-      "created_at": "2026-08-31"
     },
     {
       "request_id": "c4bc5cb3-442e-42ed-9af4-29ae72f02fb6",
@@ -1101,30 +1035,6 @@
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "c862828e-276c-4d90-829b-2c2b35e04274",
-      "action": "done",
-      "summary": "#59JT7W: Verified resolveClosingContactMessageBody and tests/caring-contacts-message-policy.test.ts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "d6e41550-1a6a-4f4f-aff5-d95004011942",
-      "action": "done",
-      "summary": "#PWZYY8: Added aria-hidden=\"true\" to icon call-sites and updated eslint-rules/require-lucide-icon-aria.mjs to cover Icon/ActiveIcon.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "dba6b1fc-cb98-49e6-a035-8ca83946232a",
-      "action": "done",
-      "summary": "#76GGRG: Implemented full WAI-ARIA Menu keyboard navigation with Arrow Up/Down/Left/Right/Home/End/Escape in search-pins-menu.tsx.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "dc26c333-1935-47e8-ab71-b5206c84e19b",
-      "action": "done",
-      "summary": "#1CYR4V: Verified 640-767px overlay modal responsive boundary contract in tests/caring-contacts-overlay-host.dom.test.tsx.",
-      "created_at": "2026-08-31"
-    },
-    {
       "request_id": "dc7ad7ef-1a27-4305-b1f5-326ee08985eb",
       "action": "add",
       "summary": "Caring Contacts: patient names now travel in the URL because caseload search is a server-side GET",
@@ -1135,12 +1045,6 @@
       "action": "done",
       "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
       "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "f3288efd-b1b6-492f-9a4a-8b316e35fe71",
-      "action": "update",
-      "summary": "#V27DZ1: summary → Ward Flow: role screens intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
-      "created_at": "2026-08-31"
     },
     {
       "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",

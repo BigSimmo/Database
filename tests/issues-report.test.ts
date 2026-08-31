@@ -5,7 +5,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { buildIssuesReport, classifyAgentSafeWins, loadRevalidatedLedger } from "../scripts/issues-report.mjs";
+import {
+  buildIssuesReport,
+  classifyAgentSafeWins,
+  loadRevalidatedLedger,
+  parseCliArgs,
+} from "../scripts/issues-report.mjs";
 
 const queueRows = [
   {
@@ -271,5 +276,45 @@ describe("issues report", () => {
     );
     expect(queryReport.counts).toEqual({ open: 1, recommended: 0 });
     expect(queryReport.open[0].id).toBe("#003");
+  });
+
+  it("validates CLI argument parsing and rejects malformed or missing --filter values", () => {
+    expect(parseCliArgs(["--json", "--ward"])).toEqual({
+      json: true,
+      winsOnly: false,
+      ward: true,
+      core: false,
+      filter: undefined,
+    });
+
+    expect(parseCliArgs(["--core", "--agent-safe-wins"])).toEqual({
+      json: false,
+      winsOnly: true,
+      ward: false,
+      core: true,
+      filter: undefined,
+    });
+
+    expect(parseCliArgs(["--filter", "myterm", "--json"])).toEqual({
+      json: true,
+      winsOnly: false,
+      ward: false,
+      core: false,
+      filter: "myterm",
+    });
+
+    expect(parseCliArgs(["--filter=myterm"])).toEqual({
+      json: false,
+      winsOnly: false,
+      ward: false,
+      core: false,
+      filter: "myterm",
+    });
+
+    expect(() => parseCliArgs(["--filter", "--json"])).toThrow("Option '--filter' requires a non-empty value");
+    expect(() => parseCliArgs(["--filter"])).toThrow("Option '--filter' requires a non-empty value");
+    expect(() => parseCliArgs(["--filter="])).toThrow("Option '--filter' requires a non-empty value");
+    expect(() => parseCliArgs(["--ward", "--core"])).toThrow("Cannot specify both --ward and --core");
+    expect(() => parseCliArgs(["--unknown"])).toThrow("Unknown option: --unknown");
   });
 });
