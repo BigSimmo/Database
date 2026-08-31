@@ -90,6 +90,7 @@ function governedRow(id: string, scope: SourceCorpusScope): SearchResult & Recor
       clinical_validation_status: "approved",
       extraction_quality: "good",
       corpus_scope: scope,
+      source_kind: scope === "clinical_kb_site" ? "registry_record" : "document",
       source_role: "clinical_guideline",
     },
     site_release_id: scope === "clinical_kb_site" ? RELEASE_ID : null,

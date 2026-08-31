@@ -10,6 +10,10 @@ const governedRetrievalV3 = readFileSync(
   new URL("../supabase/migrations/20260830122000_add_corpus_scoped_retrieval_v3.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const correctedGovernedRetrievalV3 = readFileSync(
+  new URL("../supabase/migrations/20260831120000_correct_governed_retrieval_v3.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const siteContentHealthMigration = readFileSync(
   new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
   "utf8",
@@ -94,6 +98,60 @@ describe("governed corpus retrieval v3 schema", () => {
       expect(sql).toContain("event.target_change_epoch > site_authority.change_epoch");
       expect(sql).toContain("where record.pending_event_sequence is not null");
     }
+  });
+
+  it("corrects uploaded-local admission through an exact immutable publication receipt", () => {
+    const start = correctedGovernedRetrievalV3.indexOf(
+      "create or replace function public.match_governed_candidate_chunks_v3(",
+    );
+    const end = correctedGovernedRetrievalV3.indexOf(
+      "revoke all on function public.match_governed_candidate_chunks_v3(",
+      start,
+    );
+    const candidateFunction = correctedGovernedRetrievalV3.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(candidateFunction).toContain("document.owner_id is null");
+    expect(candidateFunction).toContain("document.status = 'indexed'");
+    expect(candidateFunction).toContain(
+      "public.is_committed_document_generation(chunk.index_generation_id, document.index_generation_id)",
+    );
+    expect(candidateFunction).toContain("'uploaded_local', 'australian_public', 'international_supplementary'");
+    expect(candidateFunction).toContain("document.metadata->>'source_kind' = 'document'");
+    expect(candidateFunction).toContain("document.metadata->'public_corpus' = 'true'::jsonb");
+    expect(candidateFunction).toContain("document.metadata->>'content_mode' = 'indexed_content'");
+    expect(candidateFunction).toContain("document.metadata->>'document_status' = 'current'");
+    expect(candidateFunction).toContain("in ('changed', 'unchanged')");
+    expect(candidateFunction).toContain("document.metadata->>'licence_policy' = 'public_index_permitted'");
+    expect(candidateFunction).toContain("nullif(document.metadata->>'source_role', '') is not null");
+    expect(candidateFunction).toContain("nullif(document.metadata->>'source_catalogue_key', '') is not null");
+    expect(candidateFunction).toContain("nullif(document.metadata->>'source_policy_version', '') is not null");
+    expect(candidateFunction).toContain("from public.document_publication_approvals approval");
+    expect(candidateFunction).toContain("approval.id::text = document.metadata->>'publication_approval_id'");
+    expect(candidateFunction).toContain("approval.document_id = document.id");
+    expect(candidateFunction).toContain("approval.decision = 'approved'");
+    expect(candidateFunction).toContain("approval.manifest_digest = document.metadata->>'publication_manifest_digest'");
+    expect(candidateFunction).toContain(
+      "approval.reviewed_state_digest = document.metadata->>'publication_reviewed_state_digest'",
+    );
+  });
+
+  it("emits canonical registry metadata and mirrors the corrected function in the final schema", () => {
+    const migrationStart = correctedGovernedRetrievalV3.indexOf(
+      "create or replace function public.match_governed_candidate_chunks_v3(",
+    );
+    const migrationEnd = correctedGovernedRetrievalV3.indexOf(
+      "revoke all on function public.match_governed_candidate_chunks_v3(",
+      migrationStart,
+    );
+    const schemaStart = schema.lastIndexOf("create or replace function public.match_governed_candidate_chunks_v3(");
+    const schemaEnd = schema.indexOf("revoke all on function public.match_governed_candidate_chunks_v3(", schemaStart);
+
+    const migrationFunction = correctedGovernedRetrievalV3.slice(migrationStart, migrationEnd);
+    const schemaFunction = schema.slice(schemaStart, schemaEnd);
+    expect(migrationFunction).toContain("'source_kind', 'registry_record'");
+    expect(migrationFunction).not.toContain("'source_kind', 'site_content_release_record'");
+    expect(schemaFunction).toBe(migrationFunction);
   });
 });
 

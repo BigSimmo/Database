@@ -185,11 +185,9 @@ function sanitizeGovernedCandidateRows(args: {
   return (args.rows as GovernedCandidateRpcRow[]).flatMap((row) => {
     if (!governedCorpusScopes.has(row.corpus_scope) || !requestedScopes.has(row.corpus_scope)) return [];
     if (row.source_metadata?.corpus_scope !== row.corpus_scope) return [];
-    // No trusted uploaded-local activation boundary exists in this schema. Candidate admission
-    // remains closed until the separately reviewed ingestion activation RPC owns that proof.
-    if (row.corpus_scope === "uploaded_local") return [];
     if (row.corpus_scope === "clinical_kb_site") {
       if (
+        row.source_metadata?.source_kind !== "registry_record" ||
         !expectedReleaseId ||
         !expectedChangeEpoch ||
         row.site_release_id !== expectedReleaseId ||
@@ -200,7 +198,7 @@ function sanitizeGovernedCandidateRows(args: {
       ) {
         return [];
       }
-    } else if (row.site_content_domain !== null) {
+    } else if (row.source_metadata?.source_kind !== "document" || row.site_content_domain !== null) {
       return [];
     }
     const { site_release_id, site_change_epoch, pending_exclusion_exact, ...publicRow } = row;

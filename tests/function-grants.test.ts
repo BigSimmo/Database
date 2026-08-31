@@ -54,6 +54,17 @@ describe("check:function-grants", () => {
     expect(migration).not.toContain("grant execute on function public.match_governed_candidate_chunks_v3");
   });
 
+  it("preserves the corrected governed candidate helper as postgres-owned and non-executable", () => {
+    const migration = readFileSync("supabase/migrations/20260831120000_correct_governed_retrieval_v3.sql", "utf8");
+    const signature =
+      "match_governed_candidate_chunks_v3(\n  extensions.vector, text, integer, double precision, uuid[], uuid, boolean, text[], uuid, text, bigint, text[]\n)";
+    expect(migration).toContain(
+      `revoke all on function public.${signature} from public, anon, authenticated, service_role`,
+    );
+    expect(migration).toContain(`alter function public.${signature} owner to postgres`);
+    expect(migration).not.toContain(`grant execute on function public.${signature}`);
+  });
+
   it("keeps Task 4 health and invocation RPCs service-role-only and publication RPCs authenticated-only", () => {
     const migration = readFileSync("supabase/migrations/20260824123000_add_site_content_health_probe.sql", "utf8");
     for (const signature of [

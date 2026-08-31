@@ -54,6 +54,7 @@ function row(id: string, corpusScope: SourceCorpusScope): Record<string, unknown
     hybrid_score: 0.8,
     source_metadata: {
       corpus_scope: corpusScope,
+      source_kind: corpusScope === "clinical_kb_site" ? "registry_record" : "document",
       uploaded_by: "user-id-canary",
       public_source_steward_id: "administrator-id-canary",
     },
@@ -71,10 +72,7 @@ function harness() {
   const rpc = vi.fn((name: string, args: Record<string, unknown>) => {
     calls.push({ name, args });
     const scopes = args.corpus_scopes as SourceCorpusScope[];
-    const data = scopes.flatMap((scope) => {
-      if (scope === "uploaded_local") return [];
-      return [row(scope, scope)];
-    });
+    const data = scopes.map((scope) => row(scope, scope));
     return {
       abortSignal: vi.fn(async () => ({ data, error: null })),
     };
@@ -178,7 +176,7 @@ describe("governed public corpus retrieval", () => {
     expect(calls).toEqual(["match_document_chunks_text_v3"]);
   });
 
-  it("does not admit uploaded_local without a trusted atomic activation boundary", async () => {
+  it("admits an uploaded-local row returned by the receipt-gated SQL boundary", async () => {
     const { supabase } = harness();
     const results = await searchGovernedCorpora({
       supabase,
@@ -188,9 +186,45 @@ describe("governed public corpus retrieval", () => {
       components: { siteContent: true, australianAugmentation: true, australianCurrent: true },
       targetSiteDomains: [],
       internationalCoverageGap: false,
+      signal: new AbortController().signal,
     });
 
-    expect(results.some((candidate) => candidate.corpus_scope === "uploaded_local")).toBe(false);
+    const uploaded = results.find((candidate) => candidate.corpus_scope === "uploaded_local");
+    expect(uploaded?.source_metadata).toMatchObject({
+      corpus_scope: "uploaded_local",
+      source_kind: "document",
+      uploaded_by: null,
+    });
+  });
+
+  it("fails closed when a governed scope carries the wrong canonical source kind", async () => {
+    const rows = [
+      row("uploaded-wrong", "uploaded_local"),
+      row("australian-wrong", "australian_public"),
+      row("international-wrong", "international_supplementary"),
+    ].map((candidate) => ({
+      ...candidate,
+      source_metadata: {
+        ...(candidate.source_metadata as Record<string, unknown>),
+        source_kind: "registry_record",
+      },
+    }));
+    const supabase = {
+      rpc: vi.fn(() => ({ abortSignal: vi.fn(async () => ({ data: rows, error: null })) })),
+    };
+
+    const results = await searchGovernedCorpora({
+      supabase: supabase as never,
+      queryVariants: ["governed source"],
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: true,
+      signal: new AbortController().signal,
+    });
+
+    expect(results).toEqual([]);
   });
 
   it("spends the shared cap only on the original query and still-uncovered plan subquestions", async () => {
@@ -255,7 +289,7 @@ describe("governed public corpus retrieval", () => {
     });
 
     expect(calls[0]?.args.corpus_scopes).toEqual(["uploaded_local", "australian_public"]);
-    expect(results.map((result) => result.corpus_scope)).toEqual(["australian_public"]);
+    expect(results.map((result) => result.corpus_scope)).toEqual(["uploaded_local", "australian_public"]);
     expect(calls[0]?.args.expected_site_release_id).toBeNull();
   });
 

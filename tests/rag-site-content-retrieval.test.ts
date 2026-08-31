@@ -37,7 +37,19 @@ function siteRow(overrides: Record<string, unknown> = {}) {
     section_heading: "medications",
     content: "Current approved clozapine site content.",
     image_ids: [],
-    source_metadata: { corpus_scope: "clinical_kb_site" },
+    source_metadata: {
+      corpus_scope: "clinical_kb_site",
+      source_kind: "registry_record",
+      source_role: "supporting",
+      content_mode: "indexed_content",
+      source_title: "Clozapine",
+      version: "2026.08",
+      document_status: "current",
+      clinical_validation_status: "approved",
+      extraction_quality: "good",
+      content_hash: DIGEST,
+      site_content_lineage: [],
+    },
     similarity: 0.8,
     text_rank: 0.7,
     hybrid_score: 0.8,
@@ -73,6 +85,10 @@ describe("current first-party site retrieval", () => {
         siteRow({ id: "wrong-epoch", site_change_epoch: "8" }),
         siteRow({ id: "wrong-domain", site_content_domain: "services" }),
         siteRow({ id: "unproven-pending", pending_exclusion_exact: false }),
+        siteRow({
+          id: "wrong-source-kind",
+          source_metadata: { corpus_scope: "clinical_kb_site", source_kind: "document" },
+        }),
       ],
       error: null,
     }));
@@ -105,6 +121,7 @@ describe("current first-party site retrieval", () => {
     expect(results[0]).not.toHaveProperty("site_release_id");
     expect(results[0]).not.toHaveProperty("site_change_epoch");
     expect(results[0]).not.toHaveProperty("pending_exclusion_exact");
+    expect(results[0]?.source_metadata).toMatchObject({ source_kind: "registry_record" });
   });
 
   it("fails the site component closed while preserving independently enabled Australian retrieval", async () => {
