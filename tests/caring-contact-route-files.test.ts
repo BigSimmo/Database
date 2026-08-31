@@ -97,18 +97,79 @@ describe("Caring Contact mockup route registration", () => {
 
     const specSource = readFileSync(resolve(process.cwd(), "tests/ui-caring-contacts-workspace.spec.ts"), "utf8");
 
-    for (const routeFile of declaredRoutes) {
+    // Resolve route constant expressions used by WORKSPACE_SCREENS so each
+    // declared adoption-contract route is compared to its own registration,
+    // not a PATIENTS_ROUTE fallback that would pass for any non-root route.
+    const constValues = new Map<string, string>();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const match of specSource.matchAll(/^const\s+([A-Z0-9_]+)\s*=\s*"([^"]+)";/gm)) {
+        if (!constValues.has(match[1])) {
+          constValues.set(match[1], match[2]);
+          changed = true;
+        }
+      }
+      for (const match of specSource.matchAll(/^const\s+([A-Z0-9_]+)\s*=\s*`([^`]+)`;/gm)) {
+        const name = match[1];
+        const expr = match[2];
+        let ok = true;
+        const resolved = expr.replace(/\$\{([A-Z0-9_]+)\}/g, (_whole, ref: string) => {
+          if (!constValues.has(ref)) {
+            ok = false;
+            return "";
+          }
+          return constValues.get(ref)!;
+        });
+        if (ok && !constValues.has(name)) {
+          constValues.set(name, resolved);
+          changed = true;
+        }
+      }
+    }
+
+    const screensBlock = specSource.match(/const WORKSPACE_SCREENS = \[([\s\S]*?)\] as const;/);
+    expect(screensBlock, "WORKSPACE_SCREENS must be declared in ui-caring-contacts-workspace.spec.ts").not.toBeNull();
+    const registeredRoutes = new Set<string>();
+    for (const match of screensBlock![1].matchAll(/route:\s*([A-Z0-9_]+)/g)) {
+      const resolved = constValues.get(match[1]);
+      expect(resolved, `WORKSPACE_SCREENS route constant ${match[1]} must resolve`).toBeDefined();
+      registeredRoutes.add(resolved!);
+    }
+
+    const declaredUrlPaths = declaredRoutes.map((routeFile) => {
       expect(existsSync(resolve(process.cwd(), routeFile)), `${routeFile} must exist on disk`).toBe(true);
-      const urlPath =
+      return (
         "/" +
         routeFile
           .replace(/^src\/app\//, "")
           .replace(/\/page\.tsx$/, "")
-          .replace(/^page\.tsx$/, "");
+          .replace(/^page\.tsx$/, "")
+      );
+    });
+
+    const matchesDeclaredPattern = (registered: string, declared: string) => {
+      if (registered === declared) return true;
+      const pattern = new RegExp(
+        `^${declared
+          .split("/")
+          .map((segment) => (segment.startsWith("[") && segment.endsWith("]") ? "[^/]+" : segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
+          .join("/")}$`,
+      );
+      return pattern.test(registered);
+    };
+
+    for (const urlPath of declaredUrlPaths) {
       expect(
-        specSource.includes(urlPath) ||
-          specSource.includes(`route: ${urlPath === "/caring-contacts" ? "WORKSPACE_ROUTE" : "PATIENTS_ROUTE"}`),
-        `Route ${urlPath} (${routeFile}) must be registered in WORKSPACE_SCREENS in tests/ui-caring-contacts-workspace.spec.ts`,
+        [...registeredRoutes].some((registered) => matchesDeclaredPattern(registered, urlPath)),
+        `Route ${urlPath} must be registered in WORKSPACE_SCREENS in tests/ui-caring-contacts-workspace.spec.ts`,
+      ).toBe(true);
+    }
+
+    for (const registered of registeredRoutes) {
+      expect(
+        declaredUrlPaths.some((declared) => matchesDeclaredPattern(registered, declared)),
+        `WORKSPACE_SCREENS route ${registered} must correspond to a declared caring-contacts-workspace adoption-contract route`,
       ).toBe(true);
     }
   });

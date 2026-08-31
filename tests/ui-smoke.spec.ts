@@ -3233,7 +3233,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     // The compact disclosure now deliberately carries the 40px compact-meta
     // interaction floor. Its bordered container is 42px high in Chromium, so
     // preserve both the usable target and the compact one-row layout.
-    expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
+    // Tolerate sub-pixel rounding (CI saw 39.999969482421875 for a 40px target).
+    expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(39.5);
     expect(disclosureBox!.height).toBeLessThanOrEqual(42);
     expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
     const disclosureToRailGap = railBox!.y - (disclosureBox!.y + disclosureBox!.height);
@@ -3264,7 +3265,8 @@ test.describe("PsychSift UI smoke coverage", () => {
       await expect(sourceOnlyDisclosure).toBeVisible();
       const responsiveDisclosureButtonBox = await sourceOnlyButton.boundingBox();
       expect(responsiveDisclosureButtonBox).not.toBeNull();
-      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
+      // Same 40px compact-meta floor with sub-pixel tolerance as above.
+      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(39.5);
       await expectNoPageHorizontalOverflow(page);
     }
 

@@ -656,7 +656,7 @@ export function SearchPinsMenu({
         <SectionHeading variant="menu-kicker" headingLevel={3}>
           Useful actions
         </SectionHeading>
-        <div className="grid grid-cols-2 gap-1.5" role="menu" aria-label="Useful actions">
+        <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Useful actions">
           {actions.map((action, index) => {
             const Icon: LucideIcon = action.icon;
             return (
