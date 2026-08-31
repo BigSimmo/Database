@@ -158,12 +158,9 @@ function useRowVisible(rowId: string) {
 // that lands within it still answers as the clicked section.
 const scrollSettleTolerance = 2;
 
-// Sticky title bar clearance for focus-scroll into section content. The phone
-// bar now stacks three rows — title, the search field, and the section chip rail
-// — so the reserve is roughly 11rem there; above the rail seam the chips are
-// gone and the bar is title + search, which `scroll-mt-28` covers. Keyboard
-// focus must never land underneath the opaque bar.
-const settingsSectionScrollMarginClass = "scroll-mt-[max(11rem,calc(env(safe-area-inset-top)+10rem))] md:scroll-mt-28";
+// Phone keeps the compact one-row title bar. At the desktop rail seam the
+// header also carries search, so sections need the larger focus-scroll reserve.
+const settingsSectionScrollMarginClass = "scroll-mt-[max(6rem,calc(env(safe-area-inset-top)+5rem))] md:scroll-mt-28";
 
 /**
  * A section chosen from the rail, held while the scroll travels to it and until
@@ -318,6 +315,12 @@ export function SettingsDialog({
   const visibleSectionIds = useMemo(() => matchingSettingsSectionIds(filterMatches), [filterMatches]);
   const filtering = filterMatches !== null;
   const noMatches = filtering && filterMatches.size === 0;
+  // Filtering can remove the section that owns aria-current without moving
+  // the scroll port. Derive the rail selection from the surviving sections so
+  // the navigation stays truthful without a set-state-in-effect render cycle.
+  const activeRailSection = visibleSectionIds.includes(activeSection)
+    ? activeSection
+    : (visibleSectionIds[0] ?? activeSection);
 
   const jurisdictionLabel = useMemo(
     () =>
@@ -328,32 +331,6 @@ export function SettingsDialog({
   const refreshRecentQueryCount = useCallback(() => {
     setRecentQueryCount(readRecentQueryCount());
   }, []);
-
-  /**
-   * Keeps the highlighted chip inside the phone rail's scroll port as the reader
-   * scrolls the content, so the rail stays a live map rather than a row that
-   * silently highlights something off-screen.
-   *
-   * Scrolls the rail element itself rather than calling `scrollIntoView` on the
-   * chip: `scrollIntoView` walks every scrollable ancestor, and the settings
-   * scroll port is one of them — it would fight the vertical scroll that
-   * triggered this in the first place.
-   */
-  const setActiveChipRef = useCallback(
-    (node: HTMLButtonElement | null) => {
-      const rail = node?.parentElement;
-      // `scrollTo` is absent in jsdom and in a few older engines. Centring the
-      // chip is a nicety; losing it must never take the rail down with it.
-      if (!node || !rail || typeof rail.scrollTo !== "function") return;
-      const left = node.offsetLeft - (rail.clientWidth - node.offsetWidth) / 2;
-      const maxLeft = Math.max(0, rail.scrollWidth - rail.clientWidth);
-      rail.scrollTo({
-        left: Math.min(Math.max(0, left), maxLeft),
-        behavior: prefersReducedMotion(preferences.motion) ? "auto" : "smooth",
-      });
-    },
-    [preferences.motion],
-  );
 
   /**
    * Desktop scroll-spy: the rail highlights the last section whose heading has
@@ -397,7 +374,13 @@ export function SettingsDialog({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    settingsRailMqlRef.current = window.matchMedia(settingsRailMediaQuery);
+    const mediaQuery = window.matchMedia(settingsRailMediaQuery);
+    settingsRailMqlRef.current = mediaQuery;
+    const clearDesktopOnlyFilter = (event: MediaQueryListEvent) => {
+      if (!event.matches) setQuery("");
+    };
+    mediaQuery.addEventListener("change", clearDesktopOnlyFilter);
+    return () => mediaQuery.removeEventListener("change", clearDesktopOnlyFilter);
   }, []);
 
   useEffect(() => {
@@ -726,7 +709,7 @@ export function SettingsDialog({
             <nav aria-label="Settings sections" className="polished-scroll grid min-h-0 gap-1 overflow-y-auto">
               {SETTINGS_SECTIONS.map((item) => {
                 const Icon = item.icon;
-                const active = item.id === activeSection;
+                const active = item.id === activeRailSection;
                 // While a filter is running, a section with no surviving row is
                 // not reachable — dim it and take it off the tab order rather than
                 // offering a jump that lands nowhere.
@@ -764,9 +747,8 @@ export function SettingsDialog({
             data-testid="settings-scroll-port"
             className="relative min-h-0 w-full overflow-y-auto bg-[color:var(--background)] polished-scroll md:px-6 lg:bg-transparent lg:px-7"
           >
-            {/* Edge-to-edge glass header: full-bleed scrim covers the notch/status-bar
-              band, and it slides away on scroll-down (mobile only) so the top runs
-              edge-to-edge. On lg it stays pinned as a solid in-panel title bar. */}
+            {/* Phone keeps the elevated compact header from the simplified
+              surface. Search returns only at the desktop rail seam. */}
             <header
               ref={headerRef}
               className={cn(
@@ -789,22 +771,25 @@ export function SettingsDialog({
                 // partner controls with it. Between md and lg the panel is still
                 // fullscreen, so the pinned bar needs the page background rather
                 // than the floating panel's surface.
-                "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none md:translate-y-0 md:bg-[color:var(--background)] md:px-0 md:pb-3 md:pt-6 lg:bg-[color:var(--surface-lux)]",
+                "edge-glass-header sticky top-0 z-30 border-b border-[color:var(--border)]/70 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none md:translate-y-0 md:border-b-0 md:bg-[color:var(--background)] md:px-0 md:pb-3 md:pt-6 lg:bg-[color:var(--surface-lux)]",
                 headerHidden && "-translate-y-full",
               )}
             >
               <div className="edge-glass-header-backdrop md:hidden" aria-hidden="true" />
-              <div className="relative mx-auto flex w-full max-w-[34rem] items-center justify-between gap-3 md:max-w-none">
+              <div className="relative mx-auto flex w-full max-w-[38rem] items-center justify-between gap-3 md:max-w-none">
                 {closeButton}
                 <div className="order-last min-w-0 flex-1 md:order-first">
                   <h2
                     id="account-settings-title"
                     aria-label="Account & app"
-                    className="truncate text-xl font-semibold leading-tight tracking-display text-[color:var(--text-heading)] md:text-2xl md:leading-8"
+                    className="truncate text-2xl font-semibold leading-8 tracking-display text-[color:var(--text-heading)]"
                   >
                     <span className="md:hidden">Settings</span>
                     <span className="hidden md:inline">Account &amp; app</span>
                   </h2>
+                  <p className="mt-0.5 truncate text-xs font-medium leading-5 text-[color:var(--text-muted)] md:hidden">
+                    Account and workspace preferences
+                  </p>
                 </div>
               </div>
 
@@ -812,7 +797,7 @@ export function SettingsDialog({
                 works, and the words a reader reaches for ("text size", "dark
                 mode") are usually not the words on the row — the search index
                 in settings-sections.ts carries those synonyms. */}
-              <div role="search" className="relative mx-auto mt-2 w-full max-w-[34rem] md:mt-3 md:max-w-none">
+              <div role="search" className="relative mx-auto mt-3 hidden w-full md:block md:max-w-none">
                 <TextField
                   ref={searchInputRef}
                   label="Search settings"
@@ -860,51 +845,12 @@ export function SettingsDialog({
                   </button>
                 ) : null}
               </div>
-
-              {/* Phone and small-tablet section navigation. Deliberately inside
-                this header rather than a second sticky bar of its own — the
-                phone-chrome contract allows one collapse owner per surface, and
-                this header already is it. Above the rail seam the vertical rail
-                takes over and this is hidden. */}
-              {filtering ? null : (
-                <nav
-                  aria-label="Settings sections"
-                  data-testid="settings-section-chips"
-                  className="polished-scroll -mx-4 mt-2 flex gap-1.5 overflow-x-auto overscroll-x-contain px-4 pb-0.5 md:hidden"
-                >
-                  {SETTINGS_SECTIONS.map((item) => {
-                    const active = item.id === activeSection;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        ref={active ? setActiveChipRef : undefined}
-                        onClick={() => scrollToSection(item.id)}
-                        aria-current={active ? "true" : undefined}
-                        className={cn(
-                          // `min-h-tap`, not a smaller chip height: this rail is
-                          // phone-only, so it is a production tap target and the
-                          // 48px floor applies (see cross-mode-links for the same
-                          // phone-rail shape).
-                          "inline-flex min-h-tap shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                          active
-                            ? "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-                        )}
-                      >
-                        <item.icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-                        {item.navLabel}
-                      </button>
-                    );
-                  })}
-                </nav>
-              )}
             </header>
 
             {/* `max-w-[34rem]` rather than a fixed 520px: the column is meant to
               stay a comfortable measure, and a rem-based cap tracks Interface
               density instead of shrinking the text inside a fixed band. */}
-            <div className="mx-auto w-full max-w-[34rem] px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2 md:max-w-none md:px-0 md:pb-8 md:pt-2">
+            <div className="mx-auto w-full max-w-[38rem] px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-3 md:max-w-none md:px-0 md:pb-8 md:pt-2">
               {/* One persistent live region rather than a `role="status"` attached
                 to the message only while it exists. A live region created at the
                 moment it first has content is announced unreliably — the
@@ -950,6 +896,7 @@ export function SettingsDialog({
                 {filterMatches !== null && !filterMatches.has("settings-account-card") ? null : (
                   <section
                     data-testid="settings-account-card"
+                    data-settings-search-row="settings-account-card"
                     className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[var(--shadow-inset)] md:bg-[color:var(--surface)] md:p-4"
                   >
                     <div className="flex items-center gap-3">
@@ -1354,6 +1301,7 @@ export function SettingsDialog({
                     type="button"
                     onClick={() => handleResetPreferences("section")}
                     data-testid="settings-row-reset-app-preferences-only"
+                    data-settings-search-row="settings-row-reset-app-preferences-only"
                     className={cn(floatingControl, "mt-2 min-h-tap w-full gap-2 text-sm md:w-auto md:px-4")}
                   >
                     <RotateCcw aria-hidden="true" className="h-4 w-4" />
@@ -1494,11 +1442,14 @@ function SettingsSection({
       id={sectionDomId(id)}
       data-settings-section={id}
       aria-labelledby={headingId}
-      className={cn(settingsSectionScrollMarginClass, "pt-4 first:pt-0 md:pt-6")}
+      className={cn(settingsSectionScrollMarginClass, "pt-5 first:pt-0 md:pt-7")}
     >
       <h3
         id={headingId}
-        className={cn("px-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]", !note && "mb-2")}
+        className={cn(
+          "px-1 text-xs font-semibold leading-5 tracking-normal text-[color:var(--text-muted)]",
+          !note && "mb-2",
+        )}
       >
         {title}
       </h3>
@@ -1532,6 +1483,7 @@ function SettingsCard({ rowId, padded = false, children }: { rowId: string; padd
   return (
     <div
       data-testid={`${rowId}-card`}
+      data-settings-search-row={rowId}
       className={cn(
         "overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2),var(--shadow-inset)] md:bg-[color:var(--surface)] md:shadow-[var(--shadow-inset)]",
         padded && "p-4",
@@ -1580,6 +1532,7 @@ function PreferenceSyncRow({ state, onRetry }: { state: PreferenceSyncState; onR
   return (
     <div
       data-testid="settings-row-preference-sync"
+      data-settings-search-row="settings-row-preference-sync"
       data-sync-state={state}
       className="mt-2 flex items-center gap-3 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3.5 py-3 shadow-[var(--shadow-inset)] md:bg-[color:var(--surface)]"
     >
@@ -1703,6 +1656,7 @@ function SettingsField({
   return (
     <div
       data-testid={rowId}
+      data-settings-search-row={rowId}
       className={cn(
         "flex border-b border-[color:var(--border)]/70 px-3.5 last:border-b-0",
         stacked ? "flex-col gap-2.5 py-3" : "flex-col gap-3 py-3.5 md:flex-row md:items-center md:justify-between",
@@ -1802,6 +1756,7 @@ function SettingsToggleField({
   return (
     <div
       data-testid={rowId}
+      data-settings-search-row={rowId}
       className="flex items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3.5 last:border-b-0"
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -1892,6 +1847,7 @@ function SettingsActionRow({
       disabled={disabled}
       aria-label={actionLabel}
       data-testid={rowId}
+      data-settings-search-row={rowId}
       className={cn(
         settingsSectionScrollMarginClass,
         "flex w-full items-center gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-55 md:hover:bg-[color:var(--surface-lux)]/55",

@@ -11,6 +11,7 @@ import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import { AppAnnouncements } from "@/components/app-announcements";
 import { OverlayRoot } from "@/components/ui/overlay-root";
 import { PRIVATE_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
+import { BRAND_DESCRIPTION, BRAND_NAME } from "@/lib/brand";
 import "./globals.css";
 
 /**
@@ -58,13 +59,13 @@ const geistMono = localFont({
 });
 
 const baseMetadata: Metadata = {
-  applicationName: "PsychSift",
-  title: "PsychSift",
-  description: "Private medical guideline RAG knowledge base",
+  applicationName: BRAND_NAME,
+  title: BRAND_NAME,
+  description: BRAND_DESCRIPTION,
   robots: PRIVATE_APP_ROBOTS_METADATA,
   appleWebApp: {
     capable: true,
-    title: "PsychSift",
+    title: BRAND_NAME,
     statusBarStyle: "black-translucent",
   },
 };

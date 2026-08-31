@@ -8,6 +8,7 @@ import {
   progressLabel,
   type AnswerMap,
 } from "@/components/calculators/calculator-ui";
+import { missingValuePhrase } from "@/components/ui/missing-value";
 
 /*
  * Scoring guard for the eight validated instruments in the calculators mode.
@@ -109,7 +110,7 @@ describe("calculator band tables", () => {
       expect(bands[bands.length - 1].max).toBe(calc.maxScore);
 
       for (let index = 1; index < bands.length; index += 1) {
-        // A gap leaves a score with no band ("—"); an overlap makes the
+        // A gap leaves a score with no band at all; an overlap makes the
         // reported severity depend on declaration order.
         expect(bands[index].min, `band ${index} of ${calc.id} must start one above the previous band`).toBe(
           bands[index - 1].max + 1,
@@ -243,7 +244,10 @@ describe("band suppression for scales that cannot read zero", () => {
     const partial = deriveCalculator(k10, { k1: 4, k2: 4 });
     expect(partial.complete).toBe(false);
     expect(partial.band).toBeUndefined();
-    expect(partial.result.label).toBe("—");
+    // The dash this used to assert was the incidental rendering of the same
+    // withholding the line above pins; the phrase now says it in words, and is
+    // read from the primitive so the two cannot drift apart.
+    expect(partial.result.label).toBe(missingValuePhrase("withheld_until_complete"));
 
     const complete = deriveCalculator(k10, answersForScore(k10, 30));
     expect(complete.complete).toBe(true);

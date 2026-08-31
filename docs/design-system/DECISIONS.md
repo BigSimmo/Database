@@ -1,4 +1,4 @@
-# Clinical KB design system — DECISIONS
+# PsychSift design system — DECISIONS
 
 **The six conflicts resolved — what was chosen, what was rejected, and why — plus the
 clinical Q&A that shaped the component specs, the assumptions register, and the blocked

@@ -1,11 +1,13 @@
 "use client";
 
-import { Fragment, memo, useState } from "react";
+import { Fragment, memo, useId, useState } from "react";
 import { CircleAlert, ChevronDown, Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { chatActionRow, chatAnswerText, chatMicroAction, cn, textMuted } from "@/components/ui-primitives";
 import { compactVerificationWordingFor, type VerificationState } from "@/components/ui/verification-notice";
+import type { AnswerState } from "@/components/ui/answer-state";
+import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import {
   cleanDisplayTitle,
   comparableAnswerText,
@@ -384,6 +386,8 @@ export function NaturalLanguageAnswer({
   preformatted = false,
   sourceOnly,
   sourceOnlyVerificationState = "source_only",
+  answerState,
+  onOpenStateSource,
   bestSource,
   sources,
   sourceLinks,
@@ -394,6 +398,7 @@ export function NaturalLanguageAnswer({
   onOpenSource,
   onOpenRailSource,
   openSourceIndex = null,
+  showCopyAction = true,
 }: {
   // Raw answer text (server bold intact); this component owns display
   // sanitization so <SafeBoldText> can render the high-yield emphasis.
@@ -402,6 +407,10 @@ export function NaturalLanguageAnswer({
   preformatted?: boolean;
   sourceOnly: boolean;
   sourceOnlyVerificationState?: VerificationState;
+  /** The answer-level state shown beside Source-only when source currency is degraded. */
+  answerState?: AnswerState;
+  /** Direct route used by expanded source-currency detail. */
+  onOpenStateSource?: (sourceId: string, locator?: string) => void;
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
   sourceLinks: SourceLink[];
@@ -435,8 +444,11 @@ export function NaturalLanguageAnswer({
   onOpenRailSource?: (index: number) => void;
   /** Which rail row the drawer is showing, so the mark and its sentence can light up. */
   openSourceIndex?: number | null;
+  /** Historical turns keep their local copy action; the live turn renders the combined utility row outside. */
+  showCopyAction?: boolean;
 }) {
   const [sourceOnlyNoticeOpen, setSourceOnlyNoticeOpen] = useState(false);
+  const sourceOnlyDetailId = useId();
   const { preferences } = useAppPreferences();
   const fragments = primaryAnswerDisplayFragments(text, { preformatted, preserveBold: true });
   if (!fragments.length) return null;
@@ -499,47 +511,66 @@ export function NaturalLanguageAnswer({
         {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
             heading used to carry a top border — the two collided and drew a rule
             straight through the Source-only pill. */}
-        <div className={cn("space-y-1", sourceOnly && "py-1")}>
-          {sourceOnly ? (
-            <section
-              data-testid="source-only-disclosure"
-              role="note"
-              className={cn(
-                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-2xs transition-[border-radius] duration-[var(--duration-quick)] print:hidden",
-                sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
-                textMuted,
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                // Compact-meta disclosure (not a primary CTA). Copy below already uses tap.
-                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-                aria-expanded={sourceOnlyNoticeOpen}
-                aria-controls="source-only-disclosure-detail"
+        {sourceOnly || (answerState?.kind === "stale_evidence" && onOpenStateSource) ? (
+          <div data-testid="answer-source-status-row" className="flex min-w-0 flex-wrap items-start gap-1 print:hidden">
+            {sourceOnly ? (
+              <section
+                data-testid="source-only-disclosure"
+                role="note"
+                className={cn(
+                  "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-2xs transition-[border-radius] duration-[var(--duration-quick)]",
+                  sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
+                  textMuted,
+                )}
               >
-                <CircleAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
-                <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-                <span className="shrink-0 text-[color:var(--text-muted)]">· verify passages</span>
-                <ChevronDown
-                  className={cn(
-                    "ml-auto h-3 w-3 shrink-0 text-[color:var(--text-muted)] transition-transform",
-                    sourceOnlyNoticeOpen && "rotate-180",
-                  )}
-                  aria-hidden
-                />
-              </button>
-              {sourceOnlyNoticeOpen ? (
-                <div
-                  id="source-only-disclosure-detail"
-                  className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                <button
+                  type="button"
+                  onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
+                  // Compact-meta disclosure (not a primary CTA), TOKENS.md §2 "disclosure"
+                  // row: 40px `--spacing-compact-meta`, the floor the service owner ruled
+                  // acceptable for named compact roles on 2026-08-29. It was `min-h-7`
+                  // (28px), 12px under even that floor. The `::before` hit-expansion its
+                  // DocumentTagCloud siblings use is unavailable here: the wrapping
+                  // `<section>` is `overflow-hidden` (it clips the detail block to the
+                  // pill radius), and overflow clipping removes the expanded region from
+                  // hit testing as well as from paint — the classes would have read as
+                  // compliant while expanding nothing.
+                  className="inline-flex min-h-compact-meta w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+                  aria-expanded={sourceOnlyNoticeOpen}
+                  aria-controls={sourceOnlyDetailId}
                 >
-                  <p>{compactVerificationWordingFor(sourceOnlyVerificationState, "extractive")}</p>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
+                  <CircleAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                  <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
+                  <span className="hidden shrink-0 text-[color:var(--text-muted)] min-[360px]:inline">
+                    · verify passages
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "ml-auto h-3 w-3 shrink-0 text-[color:var(--text-muted)] transition-transform",
+                      sourceOnlyNoticeOpen && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                </button>
+                {sourceOnlyNoticeOpen ? (
+                  <div
+                    id={sourceOnlyDetailId}
+                    className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                  >
+                    <p>{compactVerificationWordingFor(sourceOnlyVerificationState, "extractive")}</p>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+            {answerState?.kind === "stale_evidence" && onOpenStateSource ? (
+              <RetrievalStateBanner
+                state={answerState}
+                onOpenSource={onOpenStateSource}
+                className="w-fit min-w-0 max-w-full flex-none"
+              />
+            ) : null}
+          </div>
+        ) : null}
         <AnswerSourceRail
           sources={railSources}
           query={query}
@@ -547,17 +578,19 @@ export function NaturalLanguageAnswer({
           activeIndex={openSourceIndex}
           compact={preferences.compactCitations}
         />
-        <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">
-          <button
-            type="button"
-            onClick={onCopy}
-            className={chatMicroAction}
-            aria-label="Copy answer with source status"
-          >
-            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-            {copied ? "Copied with sources" : "Copy with sources"}
-          </button>
-        </div>
+        {showCopyAction ? (
+          <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">
+            <button
+              type="button"
+              onClick={onCopy}
+              className={chatMicroAction}
+              aria-label="Copy answer with source status"
+            >
+              <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+              {copied ? "Copied with sources" : "Copy with sources"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   );

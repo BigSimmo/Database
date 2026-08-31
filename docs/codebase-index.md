@@ -1,4 +1,4 @@
-# Clinical KB — Codebase Index
+# PsychSift — Codebase Index
 
 Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run docs:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
 
@@ -36,7 +36,7 @@ Smaller top-level directories that are easy to miss:
 
 | Path               | Purpose                                                                                                                                                                                                                                                                                                             |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `caring-contacts/` | Isolated Caring Contacts module migrations and local database-test runner. These migrations are deliberately separate from `supabase/migrations/` and must never target the Clinical KB project.                                                                                                                    |
+| `caring-contacts/` | Isolated Caring Contacts module migrations and local database-test runner. These migrations are deliberately separate from `supabase/migrations/` and must never target the `Clinical KB Database` Supabase project.                                                                                                |
 | `data/`            | Committed clinical **snapshot exports** loaded at runtime by `src/lib/` (differentials, forms, medications, services, specifiers). Regenerate via the matching `scripts/import-*-export.ts` / `build-*-index.mjs`; do not hand-edit. Distinct from `src/data/`, which holds hand-authored static content.           |
 | `eval/`            | Isolated evaluation labs, outside the product/runtime dependency graph. `eval/docling/` is the sandboxed, dispatch-only Docling extraction benchmark (own hashed Python lock + venvs, egress-blocked Docker run, synthetic fixtures + hostile corpus, aggregate-only reports; `docs/rag-improvement/README.md` §B3) |
 | `eslint-rules/`    | Repo-specific lint rules enforced by `npm run lint` (button wiring, hardcoded hex, type/icon scale, z-index ladder)                                                                                                                                                                                                 |
@@ -211,7 +211,7 @@ relative imports within its directory, provides deny-by-default team-scoped perm
 privacy-safe audit records, and is exercised against both in-memory and local Postgres
 repositories. `src/lib/caring-contacts-server/` is the server-side seam for the demo session
 and optional separate database connection. It must fail closed in production and must never
-connect to the Clinical KB Supabase project. The standalone `src/app/caring-contacts/` workspace
+connect to the `Clinical KB Database` Supabase project. The standalone `src/app/caring-contacts/` workspace
 is noindex, visibly marked synthetic, and has a single inbound entry from the Tools catalogue.
 
 Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
@@ -447,7 +447,7 @@ sequenceDiagram
     API-->>U: response (cached in rag_response_cache)
 ```
 
-### Clinical KB surface
+### PsychSift surface
 
 - 15 app modes with unified search shell
 - Documents mode: browse indexed guidelines, search, scope, and inspect cited answers; document uploads remain in the administrator backend

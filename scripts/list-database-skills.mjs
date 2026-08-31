@@ -369,10 +369,64 @@ export const userFacingPluginMetadata = [
   "plugins/clinical-kb/README.md",
 ];
 
-/** The product's retired name. `Clinical KB Database` is the live Supabase
- *  project and is excluded by the negative lookahead — it is the database's
- *  real name, pinned by AGENTS.md, not a product name. */
-const RETIRED_PRODUCT_NAME = /Clinical KB(?! Database)/g;
+/** The product's retired name. `Clinical KB Database` and `Clinical KB
+ *  Staging` are the live Supabase projects and are excluded by the negative
+ *  lookaheads — those are the databases' real names, pinned by AGENTS.md, not
+ *  product names. */
+const RETIRED_PRODUCT_NAME = /Clinical KB(?! Database)(?! Staging)/g;
+
+/** Repository surfaces outside the plugin whose *user-facing* text names the
+ *  product: the repo front page, the security policy, BOTH container images'
+ *  published OCI labels, and the living reference docs a person reads to learn
+ *  what this is. Every living surface this rename touched is listed — a partial
+ *  list is what let the app `Dockerfile` be renamed while `Dockerfile.worker`
+ *  kept shipping the retired name in `org.opencontainers.image.title`.
+ *
+ *  Dated reports, plans, specs, ledgers and archives are deliberately NOT
+ *  covered — they record what was true when they were written, and rewriting
+ *  history to match a later name makes the record less accurate, not more.
+ *  `LICENSE` is also excluded on purpose: its protected-names clause keeps the
+ *  former name alongside the current one, because the former name still needs
+ *  the same no-endorsement protection.
+ *
+ *  `Clinical KB Database` and `Clinical KB Staging` stay wherever they appear:
+ *  those are the live Supabase projects' real names, pinned by AGENTS.md. */
+export const userFacingProductSurfaces = [
+  ".design-sync/NOTES.md",
+  ".design-sync/conventions.md",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "CONTEXT.md",
+  "Dockerfile",
+  "Dockerfile.worker",
+  "README.md",
+  "SECURITY.md",
+  "docs/README.md",
+  "docs/clinical-badge-system-guide.md",
+  "docs/clinical-governance.md",
+  "docs/codebase-index.md",
+  "docs/codex-prompt-playbook.md",
+  "docs/deployment-architecture.md",
+  "docs/design-system-contract.md",
+  "docs/design-system.md",
+  "docs/design-system/ADOPTION.md",
+  "docs/design-system/COMPONENTS.md",
+  "docs/design-system/DECISIONS.md",
+  "docs/design-system/FIX-GUIDE.md",
+  "docs/design-system/GATES.md",
+  "docs/design-system/README.md",
+  "docs/design-system/SPEC.md",
+  "docs/design-system/TOKENS.md",
+  "docs/observability-slos.md",
+  "docs/performance.md",
+  "docs/privacy-impact-assessment.md",
+  "docs/production-readiness-checklist.md",
+  "docs/productivity-workflows.md",
+  "docs/pwa.md",
+  "docs/ward-management-mode-map.md",
+  "docs/worker-deploy-runbook.md",
+  "mockups/README.md",
+];
 
 export function validatePluginProductName(files = userFacingPluginMetadata) {
   const errors = [];
@@ -399,7 +453,13 @@ function run(argv = process.argv.slice(2)) {
   const validation = validateSkillCatalog(catalog);
   const repositoryValidation = validateRepositorySkillPolicies();
   const productName = validatePluginProductName();
-  const errors = [...validation.errors, ...repositoryValidation.errors, ...productName.errors];
+  const productSurfaces = validatePluginProductName(userFacingProductSurfaces);
+  const errors = [
+    ...validation.errors,
+    ...repositoryValidation.errors,
+    ...productName.errors,
+    ...productSurfaces.errors,
+  ];
   if (errors.length) {
     console.error(errors.map((error) => `- ${error}`).join("\n"));
     process.exitCode = 1;

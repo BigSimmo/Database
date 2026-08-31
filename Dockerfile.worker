@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Clinical KB ingestion worker (Node pipeline + Python OCR stack).
+# PsychSift ingestion worker (Node pipeline + Python OCR stack).
 # See docs/deployment-architecture.md for why the worker ships as a
 # container instead of completing the edge-agent migration.
 #
@@ -109,8 +109,8 @@ USER node
 # before the image is promoted. It never calls Supabase/OpenAI or claims jobs.
 RUN node dist/worker/validate-runtime.mjs
 LABEL org.opencontainers.image.source="https://github.com/BigSimmo/Database"
-LABEL org.opencontainers.image.title="Clinical KB ingestion worker"
-LABEL org.opencontainers.image.description="Node + Python OCR ingestion worker for the Clinical KB medical guideline RAG knowledge base"
+LABEL org.opencontainers.image.title="PsychSift ingestion worker"
+LABEL org.opencontainers.image.description="Node + Python OCR ingestion worker for the PsychSift medical guideline RAG knowledge base"
 LABEL org.opencontainers.image.licenses="UNLICENSED"
 STOPSIGNAL SIGTERM
 # Long-poll worker; WORKER_* env vars control claim batch size, concurrency,

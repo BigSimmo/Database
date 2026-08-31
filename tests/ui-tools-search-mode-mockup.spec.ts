@@ -45,8 +45,15 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(categoryRail.getByRole("radio", { name: "Assess (1)" })).toHaveAttribute("aria-checked", "true");
     await expect(categoryRail.getByRole("radio", { name: "Treat (0)" })).toBeDisabled();
 
-    await page.locator('[data-testid="global-search-input"]:visible').fill("Safety");
+    const searchInput = page.locator('[data-testid="global-search-input"]:visible');
+    await searchInput.fill("Safety");
     await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
+    // Filling the universal composer opens its suggestions over the category
+    // rail. Dismiss that owned surface and wait for its explicit state change
+    // before asking Playwright to click a control behind it.
+    await searchInput.press("Escape");
+    await expect(searchInput).toHaveValue("Safety");
+    await expect(searchInput).toHaveAttribute("aria-expanded", "false");
     const treatmentFilter = categoryRail.getByRole("radio", { name: "Treat (2)" });
     await treatmentFilter.click();
     await expect(treatmentFilter).toHaveAttribute("aria-checked", "true");

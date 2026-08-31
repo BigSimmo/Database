@@ -36,6 +36,56 @@ export const BRAND_GLYPH_TRANSFORM_SMALL = "translate(122.7103 51.2) scale(4.080
  *  mark therefore occupies exactly the slot the tiled version used to. */
 export const BRAND_GLYPH_TRANSFORM_BARE = "translate(114.8907 0) scale(5.1006)";
 
+/** The bare glyph's small-size placement — the counterpart of
+ *  BRAND_GLYPH_TRANSFORM_SMALL for the untiled, in-app mark.
+ *
+ *  Not a new measurement. The brand doc fixes the two ink boxes: the primary
+ *  glyph spans 0 to 55.33 horizontally, the small variant 0 to 65.33, and both
+ *  span the same 0 to 100.38 vertically. Every placement here centres that box
+ *  in the 512 viewBox, which is verifiable against the three transforms above —
+ *  each lands its centre on 256.000 to within 0.003, the rounding of a
+ *  two-decimal box figure.
+ *
+ *  Two consequences, and both are why this is a derivation rather than a redraw:
+ *
+ *  The vertical extent is identical between the variants (the point slides
+ *  sideways; its cy and r do not move), so the scale is unchanged at 5.1006 —
+ *  100.3813 x 5.1006 = 512.0, the bare variant's whole point.
+ *
+ *  The point moves exactly 10 units out and is the box's right edge, so the box
+ *  widens by exactly 10 and its centre by exactly 5. The placement therefore
+ *  shifts left by 5 glyph units at this scale: 114.8907 - 5 x 5.1006 = 89.3877.
+ *  The same arithmetic reproduces the committed tiled pair (143.1125 - 5 x
+ *  4.0804 = 122.7103, as shipped), which is the check that the rule is the one
+ *  actually used rather than one that merely fits.
+ *
+ *  It travels with BRAND_STROKE_PATH_SMALL and BRAND_POINT_SMALL as a set. The
+ *  doc is explicit that mixing one variant's point with the other's placement
+ *  puts the glyph off-centre; `brandMarkOptics()` below is the only supported
+ *  way to pick, so a caller cannot half-apply the variant. */
+export const BRAND_GLYPH_TRANSFORM_BARE_SMALL = "translate(89.3877 0) scale(5.1006)";
+
+/** The two optical variants of the bare glyph, as whole sets.
+ *
+ *  `display` is the primary construction. `chrome` is the small-size cut: the
+ *  4.2-unit gap between the strokes opened to 7.2, and the point slid 10 units
+ *  out of its cradle so the crescent opens from 7.26 to 11.55.
+ *
+ *  The threshold is 32px, from the brand doc's own "at 32 px and below two
+ *  things close up" - below it the cut and the crescent both fall under two
+ *  pixels and the dot fuses into the S, which reads as a heavy blob at the top
+ *  of a mark whose lower stroke is already the thinner one. That fusion is what
+ *  made the mark look top-heavy in app chrome; the deeper `--brand-mark-emphasis`
+ *  ink compensates for it, and this fixes it.
+ *
+ *  Below about 20px the crescent is under two pixels whatever is done. That is
+ *  the size, not the placement, and no variant rescues it. */
+export function brandMarkOptics(variant: "display" | "chrome") {
+  return variant === "chrome"
+    ? { transform: BRAND_GLYPH_TRANSFORM_BARE_SMALL, stroke: BRAND_STROKE_PATH_SMALL, point: BRAND_POINT_SMALL }
+    : { transform: BRAND_GLYPH_TRANSFORM_BARE, stroke: BRAND_STROKE_PATH, point: BRAND_POINT };
+}
+
 /** The upper stroke. Four arcs and the straight cut, meeting at two cusps. */
 export const BRAND_STROKE_PATH =
   "M41.3675 2.6554 A17.7232 17.7232 0 0 0 29.0679 28.0493 A13 13 0 0 1 28.8667 40.1963 " +

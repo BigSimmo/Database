@@ -20,7 +20,7 @@
 // HTTP boundary: `route.ts` imports `server-only` and `next/headers`, and it has its own suite in
 // `tests/caring-contacts-contact-route.test.ts`, which asserts the same refusals against the real
 // handler.
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -328,8 +328,7 @@ describe("moving one contact within its day", () => {
     await waitFor(() => expect(outcomeText()).toContain("11:30 AWST"));
 
     // The second move, with no server render in between.
-    await userEvent.clear(timeField());
-    await userEvent.type(timeField(), "15:45");
+    fireEvent.change(timeField(), { target: { value: "15:45" } });
     await openOverlay();
     await userEvent.click(overlayAction());
     await waitFor(() => expect(outcomeText()).not.toBe(""));
@@ -374,8 +373,7 @@ describe("moving one contact within its day", () => {
     expect(toAwstParts((await contactUnderTest(store)).planned.sendAt)).toMatchObject({ hour: 11, minute: 30 });
     const afterFirst = await contactUnderTest(store);
 
-    await userEvent.clear(timeField());
-    await userEvent.type(timeField(), "15:45");
+    fireEvent.change(timeField(), { target: { value: "15:45" } });
     await openOverlay();
     const beforeSecond = requested.length;
     await userEvent.click(overlayAction());
@@ -697,8 +695,8 @@ describe("a time this service may not send at", () => {
     act(() => window.history.back());
     await waitFor(() => expect(openOverlayId()).toBeNull());
 
-    await userEvent.clear(timeField());
-    await userEvent.type(timeField(), "18:00");
+    // A time control emits one completed browser change; typing partial values makes jsdom sanitise it to "".
+    fireEvent.change(timeField(), { target: { value: "18:00" } });
     await openOverlay();
     expect(openOverlayId()).toBe("outside-window-warning");
   });

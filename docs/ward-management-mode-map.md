@@ -15,7 +15,7 @@ diagram and explainable shortlist in one view — and absorbs the working-surfac
 used to carry; the table below is corrected to drop the Constellation row. The eight remaining
 mode links (Command, Network, Priority queue, Capacity, Movements, Exceptions, Transport,
 Governance) moved out of the horizontal mode strip and into the left `ClinicalRail`, per the
-owner's direction that Ward Flow is its own application inside the Clinical KB shell and free to
+owner's direction that Ward Flow is its own application inside the PsychSift shell and free to
 use that rail for its own navigation. See "Navigation" below.
 
 **Status:** Synthetic product wireframe. The routes below model a WA mental-health patient-flow coordination layer; they do not claim to reproduce an internal WA Health system or current allocation policy.
@@ -49,10 +49,10 @@ The public WA sources used to ground the wireframes establish five important con
 | Transport      | `/mockups/ward-flow/transport`  | Is the legal/document/booking chain ready for safe transfer?                | Transport readiness board and metro/country pathway cues               | ED / Flow coordinator |
 | Governance     | `/mockups/ward-flow/governance` | Why did the system recommend this, who confirmed it, and what is synthetic? | AI assurance, audit trail, data boundary and source register           | Authorised reviewers  |
 
-**Navigation:** the left `ClinicalRail` carries both the global Clinical KB application switcher
+**Navigation:** the left `ClinicalRail` carries both the global PsychSift application switcher
 and, below it, Ward Flow's own eight mode links (icon-only, each with its own accessible name) —
 there is no separate horizontal mode strip. This follows from Ward Flow being its own application
-inside the Clinical KB shell, free to use that rail as its own local navigation, and it also gives
+inside the PsychSift shell, free to use that rail as its own local navigation, and it also gives
 the coordinator screen back the vertical space the horizontal strip used to take. The rail stays
 visible and reachable down to 320px; on a short viewport the mode-link section scrolls
 independently of the pinned app-switcher icons above it and the pinned favourites/settings/avatar

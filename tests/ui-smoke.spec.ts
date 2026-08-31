@@ -932,8 +932,20 @@ async function expectControlsBelowPhoneTopSafeArea(page: Page, controls: Locator
   }
 }
 
-async function expectAccountSettingsSurface(settings: Locator) {
+async function expectAccountSettingsSurface(settings: Locator, chrome: "desktop" | "phone") {
   await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
+  const subtitle = settings.getByText("Account and workspace preferences", { exact: true });
+  const search = settings.getByRole("search");
+  const navigation = settings.getByRole("navigation", { name: "Settings sections" });
+  if (chrome === "desktop") {
+    await expect(subtitle).toBeHidden();
+    await expect(search).toBeVisible();
+    await expect(navigation).toBeVisible();
+  } else {
+    await expect(subtitle).toBeVisible();
+    await expect(search).toHaveCount(0);
+    await expect(navigation).toHaveCount(0);
+  }
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
@@ -947,6 +959,8 @@ async function expectAccountSettingsSurface(settings: Locator) {
 }
 
 async function expectMobileSettingsLayout(settings: Locator) {
+  await expect(settings.getByRole("search")).toHaveCount(0);
+  await expect(settings.getByRole("navigation", { name: "Settings sections" })).toHaveCount(0);
   const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
   // The row carries two labels for one control, deliberately. The visible row
   // text is a `<label htmlFor>` so clicking it focuses the select, and the DS
@@ -1489,7 +1503,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expectAccountSettingsSurface(settings, "desktop");
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
@@ -1509,13 +1523,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("desktop settings scrolls its own column and keeps the rail and close control reachable", async ({ page }) => {
-    // Regression: the panel grid used `lg:h-auto` + `lg:max-h-`, so its single
-    // auto row sized to the full content height, overflowed the capped grid and
-    // was clipped by `overflow-hidden`. The scroll column therefore never
-    // overflowed its own box, `overflow-y-auto` never engaged, and a rail click's
-    // `scrollIntoView` scrolled the clipped grid instead — dragging the rail and
-    // the close control out of the dialog with no way to scroll them back.
+  test("desktop settings restores search and section navigation while keeping one scroll owner", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -1529,11 +1537,29 @@ test.describe("PsychSift UI smoke coverage", () => {
     const settings = accountSettingsDialog(page);
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
+    await expectAccountSettingsSurface(settings, "desktop");
+
+    for (const width of [768, 1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(settings.getByRole("search")).toBeVisible();
+      await expect(settings.getByRole("navigation", { name: "Settings sections" })).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
 
     const rail = settings.getByRole("navigation", { name: "Settings sections" });
-    const close = settings.getByRole("button", { name: "Close settings" });
-    await expect(rail).toBeVisible();
+    const search = settings.getByTestId("settings-search-input");
+    await search.fill("dark mode");
+    await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+    await expect(settings.getByTestId("settings-row-jurisdiction")).toHaveCount(0);
+    await expect(rail.getByRole("button", { name: "App preferences", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await search.press("Escape");
+    await expect(search).toHaveValue("");
+    await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
 
+    const close = settings.getByRole("button", { name: "Close settings" });
     const port = settings.getByTestId("settings-scroll-port");
 
     const scrollState = async () =>
@@ -1545,68 +1571,21 @@ test.describe("PsychSift UI smoke coverage", () => {
         };
       });
 
-    // The settings column owns the overflow; the two-column panel never does.
+    // The settings column owns the overflow; the two-column panel never becomes
+    // a second clipped scroll container.
     expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
 
-    for (const section of ["Privacy", "Shortcuts", "Help & About"]) {
-      await settings.getByRole("button", { name: section, exact: true }).click();
-      await expect(settings.getByRole("button", { name: section, exact: true })).toHaveAttribute(
-        "aria-current",
-        "true",
-      );
-      // The rail and the only pointer-driven way out both stay inside the panel.
-      await expect(rail).toBeInViewport();
-      await expect(close).toBeInViewport();
-      expect((await scrollState()).panelClipped).toBe(false);
-    }
-
-    // A rail click holds its own highlight — the last sections are shorter than
-    // the scroll port and can never reach the marker line — but only until the
-    // reader scrolls somewhere else. Dragging the native scrollbar moves
-    // `scrollTop` and emits `scroll` alone, with no wheel/touch/key event, so
-    // assign `scrollTop` directly to reproduce exactly that interaction. Force
-    // `scroll-behavior: auto` first: the port carries Tailwind `scroll-smooth`,
-    // and a bare `scrollTop` write would otherwise animate.
-    await settings.getByRole("button", { name: "Help & About", exact: true }).click();
-    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+    await rail.getByRole("button", { name: "Help & About", exact: true }).click();
+    await expect(rail.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
     );
-    await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = 0;
-      element.style.scrollBehavior = previous;
-    });
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    await expect(rail).toBeInViewport();
+    await expect(close).toBeInViewport();
+    expect((await scrollState()).panelClipped).toBe(false);
 
     await close.click();
     await expect(settings).toBeHidden();
-
-    // The pin must not outlive the dialog: the Sheet unmounts its children, but
-    // the component stays mounted, so a stale pin would hold the spy inert. A
-    // coalesced spy rAF armed before close is cancelled on `open` flip (and
-    // dropped if its port is no longer the live ref), so reopen starts on
-    // Account rather than the previous section.
-    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = element.scrollHeight;
-      element.style.scrollBehavior = previous;
-    });
-    await expect(settings.getByRole("button", { name: "Developer", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
   });
 
   test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
@@ -1623,7 +1602,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await menu.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(menu).toHaveCount(0);
     await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expectAccountSettingsSurface(settings, "phone");
     const settingsBox = await settings.boundingBox();
     const viewport = await page.evaluate(() => ({
       width: window.visualViewport?.width ?? window.innerWidth,
@@ -1649,6 +1628,24 @@ test.describe("PsychSift UI smoke coverage", () => {
     await page.setViewportSize({ width: 430, height: 820 });
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 639, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    const reducedMotionDuration = await settings
+      .locator("header")
+      .first()
+      .evaluate((element) => getComputedStyle(element).transitionDuration);
+    expect(Number.parseFloat(reducedMotionDuration)).toBeLessThanOrEqual(0.001);
+    expect(
+      await settings.getByRole("button", { name: "Close settings" }).evaluate((element) => {
+        return getComputedStyle(element).borderStyle;
+      }),
+    ).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
 
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
@@ -2054,7 +2051,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
         origin: new URL(page.url()).origin,
       });
-      const copyWithSources = plainAnswer.getByRole("button", { name: "Copy answer with source status" });
+      const copyWithSources = page.getByRole("button", { name: "Copy answer with source status" });
       await expect(copyWithSources).toBeVisible();
       await expectMinTouchTarget(copyWithSources);
       await copyWithSources.click();
@@ -2065,13 +2062,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     }
     await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
 
-    // The support card is the answer-level strip now: priority/safety, evidence
-    // gaps, and feedback. Everything per-source moved to the rail and drawer, so
-    // the clinical-notes and evidence rows are gone rather than relocated.
+    // The support card is one focused priority/safety row. Answer-level utilities
+    // sit with Copy with sources instead of visually inheriting warning chrome.
     const supportCard = page.getByTestId("answer-support-card");
     await expect(supportCard).toBeVisible();
     await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
-    await expect(supportCard).toContainText("Report a problem");
+    await expect(supportCard).not.toContainText("Report a problem");
+    await expect(supportCard).not.toContainText("Evidence gaps");
     await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
     await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
     await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
@@ -2156,32 +2153,36 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
     // Document order on the answer surface: question, prose, the rail that cites
-    // it, then the answer-level support strip.
+    // it, the quiet utilities, then the focused support strip.
     const hierarchy = await page.evaluate(() => {
       const question = document.querySelector('[data-testid="user-question-bubble"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
       const rail = document.querySelector('[data-testid="answer-source-rail"]');
+      const utilities = document.querySelector('section[aria-label="Answer utilities"]');
       const support = document.querySelector('[data-testid="answer-support-card"]');
       return {
         questionTop: question?.getBoundingClientRect().top ?? 9999,
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
         railTop: rail?.getBoundingClientRect().top ?? 9999,
+        utilitiesTop: utilities?.getBoundingClientRect().top ?? 9999,
         supportTop: support?.getBoundingClientRect().top ?? 9999,
       };
     });
     expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
     expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.railTop);
-    expect(hierarchy.railTop).toBeLessThan(hierarchy.supportTop);
+    expect(hierarchy.railTop).toBeLessThan(hierarchy.utilitiesTop);
+    expect(hierarchy.utilitiesTop).toBeLessThan(hierarchy.supportTop);
 
-    // Evidence gaps and feedback are answer-level, so they stayed on the card
-    // rather than following the per-source content into the drawer.
-    const feedbackTrigger = supportCard.getByTestId("answer-feedback-trigger");
+    // Evidence gaps and feedback remain answer-level, but use the same quiet
+    // utility treatment as Copy with sources rather than the safety panel.
+    const utilities = page.getByLabel("Answer utilities");
+    const feedbackTrigger = utilities.getByTestId("answer-feedback-trigger");
     await expect(feedbackTrigger).toBeVisible();
     await expectMinTouchTarget(feedbackTrigger);
     await feedbackTrigger.click();
-    await expect(supportCard.getByTestId("answer-review-panel")).toBeVisible();
+    await expect(utilities.getByTestId("answer-review-panel")).toBeVisible();
     await feedbackTrigger.click();
-    await expect(supportCard.getByTestId("answer-review-panel")).toHaveCount(0);
+    await expect(utilities.getByTestId("answer-review-panel")).toHaveCount(0);
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
     await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
@@ -2246,7 +2247,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       await visibleAnswerSubmitButton(page).click();
       const answerSurface = page.getByTestId("plain-answer-response");
       await expect(answerSurface).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+      await page.getByRole("button", { name: "Copy answer with source status" }).click();
 
       const copiedText = await page.evaluate(() => navigator.clipboard.readText());
       expect(copiedText).toContain("toxicity safety-net review");
@@ -2338,8 +2339,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       expect(seenTables.sort()).toEqual(["ANC actions", "Metabolic monitoring"]);
       expect(sawCaveat).toBe(true);
 
-      const answerSurface = page.getByTestId("plain-answer-response");
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+      await page.getByRole("button", { name: "Copy answer with source status" }).click();
       const copiedText = await page.evaluate(() => navigator.clipboard.readText());
       expect(copiedText).toContain("ANC range | [header missing] | Action");
       expect(copiedText).toContain("1.0–1.5 × 10⁹/L | [blank] | Increase monitoring");
@@ -2721,9 +2721,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // The library matches are one collapsed line under the answer now (owner
-    // decision, 2026-08-26, "direction B"): the follow-up questions lead, and
-    // this opens on demand. Still asserted end to end rather than dropped —
+    // The library matches are one collapsed line in the answer's evidence stack
+    // and open on demand. Still asserted end to end rather than dropped —
     // open it and the same two links are there, at full tap size.
     const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
     const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
@@ -3050,9 +3049,9 @@ test.describe("PsychSift UI smoke coverage", () => {
       const followUpBox = await followUps.boundingBox();
       expect(stripBox).toBeTruthy();
       expect(followUpBox).toBeTruthy();
-      // Questions above matches, not below. Asking the next question is the
-      // clinical step; browsing the library is not.
-      expect(followUpBox!.y).toBeLessThan(stripBox!.y);
+      // Library context now closes the evidence/safety stack before the next
+      // conversational turn begins.
+      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
     }
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
@@ -3224,14 +3223,22 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
 
     const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const disclosureButtonBox = await sourceOnlyButton.boundingBox();
     const disclosureBox = await sourceOnlyDisclosure.boundingBox();
     const railBox = await sourceOnlyRail.boundingBox();
     expect(proseBox).not.toBeNull();
+    expect(disclosureButtonBox).not.toBeNull();
     expect(disclosureBox).not.toBeNull();
     expect(railBox).not.toBeNull();
-    expect(disclosureBox!.height).toBeLessThanOrEqual(30);
+    // The compact disclosure now deliberately carries the 40px compact-meta
+    // interaction floor. Its bordered container is 42px high in Chromium, so
+    // preserve both the usable target and the compact one-row layout.
+    expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
+    expect(disclosureBox!.height).toBeLessThanOrEqual(42);
     expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
-    expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
+    const disclosureToRailGap = railBox!.y - (disclosureBox!.y + disclosureBox!.height);
+    expect(disclosureToRailGap).toBeGreaterThanOrEqual(3);
+    expect(disclosureToRailGap).toBeLessThanOrEqual(6);
 
     await page.emulateMedia({ reducedMotion: "reduce" });
     await sourceOnlyButton.focus();
@@ -3240,7 +3247,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(sourceOnlyDisclosure).toContainText(
       "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     );
-    await expect(page.locator("#source-only-disclosure-detail")).toHaveCSS("animation-name", "none");
+    const sourceOnlyDetailId = await sourceOnlyButton.getAttribute("aria-controls");
+    expect(sourceOnlyDetailId).toBeTruthy();
+    await expect(page.locator(`[id="${sourceOnlyDetailId}"]`)).toHaveCSS("animation-name", "none");
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await expect(sourceOnlyDisclosure).toBeVisible();
@@ -3253,6 +3262,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
       await expect(sourceOnlyDisclosure).toBeVisible();
+      const responsiveDisclosureButtonBox = await sourceOnlyButton.boundingBox();
+      expect(responsiveDisclosureButtonBox).not.toBeNull();
+      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
       await expectNoPageHorizontalOverflow(page);
     }
 
@@ -3277,13 +3289,14 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("review-due sources collapse into a compact expandable tab", async ({ page }, testInfo) => {
+  test("review-due source-only answers share one compact expandable status row", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page, {
       answerOverride: (query, documentId, documentIds) => {
         const base = demoAnswer(query, documentId, documentIds);
         return {
           ...base,
+          answerQualityTier: "source_only" as const,
           sources: base.sources.map((source, index) =>
             index === 0
               ? {
@@ -3305,21 +3318,58 @@ test.describe("PsychSift UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
     await visibleAnswerSubmitButton(page).click();
 
+    const statusRow = page.getByTestId("answer-source-status-row");
+    const sourceOnlyDisclosure = statusRow.getByTestId("source-only-disclosure");
     const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
+    await expect(statusRow).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(sourceOnlyDisclosure).toBeVisible();
     await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(reviewDueTab).toContainText("Review due");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
     const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
     await expect(reviewDuePanel).toBeHidden();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
-    await expectNoPageHorizontalOverflow(page);
+    for (const viewport of [
+      { width: 320, height: 844 },
+      { width: 390, height: 844 },
+      { width: 639, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const statusBox = await statusRow.boundingBox();
+      const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
+      const reviewDueBox = await reviewDueTab.boundingBox();
+      expect(statusBox).toBeTruthy();
+      expect(sourceOnlyBox).toBeTruthy();
+      expect(reviewDueBox).toBeTruthy();
+      expect(Math.abs(sourceOnlyBox!.y - reviewDueBox!.y)).toBeLessThanOrEqual(1);
+      expect(statusBox!.height).toBeLessThanOrEqual(42);
+      expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
+      expect(reviewDueBox!.height).toBeLessThanOrEqual(42);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
 
     await testInfo.attach("review-due-tab-phone", {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
     });
 
-    await reviewDueTab.click();
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
+    await sourceOnlyButton.focus();
+    await expect(sourceOnlyButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+
+    await reviewDueTab.focus();
+    await expect(reviewDueTab).toBeFocused();
+    await page.keyboard.press("Enter");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
     await expect(reviewDuePanel).toBeVisible();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);

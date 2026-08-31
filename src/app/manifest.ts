@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { BRAND_DESCRIPTION, BRAND_NAME } from "@/lib/brand";
+
 // PWA manifest — makes the app installable with a proper icon. Icons derive from
 // the single brand-mark source: the SVG for modern browsers, plus generated PNG
 // "any" and "maskable" sets from app/icons/[variant]. Theme colours stay on
@@ -7,9 +9,9 @@ import type { MetadataRoute } from "next";
 // so light/dark can update without a static PWA manifest colour lock.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "PsychSift",
-    short_name: "PsychSift",
-    description: "Private medical guideline RAG knowledge base",
+    name: BRAND_NAME,
+    short_name: BRAND_NAME,
+    description: BRAND_DESCRIPTION,
     id: "/",
     start_url: "/",
     scope: "/",
@@ -35,7 +37,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Ask PsychSift",
+        name: `Ask ${BRAND_NAME}`,
         short_name: "Ask",
         description: "Open a source-backed clinical question",
         url: "/?mode=answer&focus=1",

@@ -1,4 +1,4 @@
-# Clinical KB design system — SPEC
+# PsychSift design system — SPEC
 
 **The complete design system: roles, rules, rationale. Never values.** Token values live in
 `src/app/ckb-v2-tokens.css` (branch copy) and `src/app/globals.css` (live layer) only — a value
@@ -612,11 +612,28 @@ identifier or drug name.
 **Errors, three parts:** what happened · what that means · what action is available. _"Search
 could not be completed. No result count is available. Retry or browse indexed sources."_
 
-**Missing values — four phrases, never a bare dash:** `Not recorded` · `Not applicable` ·
-`Unknown` · `Unable to extract`. A dash cannot distinguish them, and in clinical data reads
-as a negative result. **[assumed:** "Withheld" is excluded — single-user product with no
-redaction pipeline; add it as a fifth phrase only when a redaction path exists.**]**
-Owned by `MissingValue` (COMPONENTS §3).
+**Missing values — six phrases, never a bare dash:** `Not recorded` · `Not applicable` ·
+`Unknown` · `Unable to extract` · `Not yet calculated` · `Withheld until complete`. A dash
+cannot distinguish them, and in clinical data reads as a negative result. Owned by
+`MissingValue` (COMPONENTS §3).
+
+The first four describe a **record**. The last two describe a value that is absent only for
+now, and they were added (owner decision, 29 Aug 2026) because both situations occur in this
+codebase and forcing either into one of the first four asserts something false:
+
+- `Not yet calculated` — the value is derived and the user has not finished supplying what it
+  is derived from, so it does not exist yet. It makes no claim about the record, and is an
+  instruction as much as a statement. **Never** where the input is complete: an absent value
+  after complete input is one of the first four.
+- `Withheld until complete` — the surface **can** produce a value from what has been entered
+  and is deliberately not publishing it, because a partial reading would be clinically
+  misleading (the worked case is a half-ticked checkbox-only screen that must never read
+  "negative"). The release condition is inside the phrase deliberately: a clinician told only
+  that a value is "withheld" goes hunting for it, so the phrase must say how to get it.
+
+**[assumed:** "Withheld" as a general redaction phrase is still excluded — single-user product
+with no redaction pipeline. `Withheld until complete` is suppression pending completion, which
+is a different thing; add a redaction phrase only when a redaction path exists.**]**
 
 **Truncation.** Acceptable for secondary metadata in dense rows. **Not** for page titles,
 dialog titles, drug names, source review warnings, or a current breadcrumb with no other
