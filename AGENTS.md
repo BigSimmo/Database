@@ -422,9 +422,9 @@ Output-style plugins such as caveman mode may compress prose. They must never co
 - **Always paste the decisive line.** Report gates with real output, not a summary. Under heavy-lock
   contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and, if still
   blocked at the deadline, exits `75` with a `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker
-  (`run-playwright.mjs`) — a distinct non-zero code from an ordinary test failure, so tooling can
-  tell "blocked, retry" apart from "red", but it never soft-skips green either way. When the gate
-  does run, grep for the "N passed" line; exit 0 alone is not proof.
+  (`run-playwright.mjs`). On test failure it propagates Playwright's non-zero exit code, and on
+  wrapper/build error it exits `1`. Tooling and callers must check both the exit code and the decisive
+  output line (such as "N passed"); neither code 0 alone nor a raw exit code is sufficient proof.
 - **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
   read, and what is inferred. Do not drop uncertainty to save tokens.
 - **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed

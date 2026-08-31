@@ -9,6 +9,12 @@
     "gzipBytes": 627814,
     "tolerancePct": 25
   },
+  "serverPages": {
+    "/mockups/development/review-state": {
+      "rawBytesCeiling": 2500000,
+      "gzipBytesCeiling": 350000
+    }
+  },
   "routes": {
     "/": {
       "gzipBytes": 285184,

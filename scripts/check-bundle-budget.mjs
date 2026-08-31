@@ -409,6 +409,86 @@ export function measureBudgetRoutes(measuredFiles, routeChunks, routeBudgets) {
   return { measured, missing };
 }
 
+/**
+ * @typedef {object} ServerHtmlPayloadMeasurement
+ * @property {boolean} found
+ * @property {string} [file]
+ * @property {number} rawBytes
+ * @property {number} gzipBytes
+ * @property {number} [rawBytesCeiling]
+ * @property {number} [gzipBytesCeiling]
+ * @property {"ok" | "fail" | "missing" | "error"} status
+ * @property {string} [reason]
+ */
+
+/**
+ * Measure static / server HTML page payloads generated in .next/server/app.
+ * Guards large server pages such as /mockups/development/review-state against unchecked growth.
+ *
+ * @param {string} serverAppDir
+ * @param {Record<string, { rawBytesCeiling?: number; gzipBytesCeiling?: number; maxRawBytes?: number; maxGzipBytes?: number }>} [serverPagesConfig]
+ * @param {{ existsSync?: (p: string) => boolean; readFileSync?: (p: string) => Buffer }} [fsOptions]
+ * @returns {Record<string, ServerHtmlPayloadMeasurement>}
+ */
+export function measureServerHtmlPayloads(serverAppDir, serverPagesConfig, fsOptions = {}) {
+  const fileExists = fsOptions.existsSync ?? existsSync;
+  const fileRead = fsOptions.readFileSync ?? readFileSync;
+  /** @type {Record<string, ServerHtmlPayloadMeasurement>} */
+  const results = {};
+  const defaults = {
+    "/mockups/development/review-state": {
+      rawBytesCeiling: 2_500_000,
+      gzipBytesCeiling: 350_000,
+    },
+  };
+  const configs = serverPagesConfig ?? defaults;
+
+  for (const [route, config] of Object.entries(configs)) {
+    const rawCeiling = config.rawBytesCeiling ?? config.maxRawBytes ?? 2_500_000;
+    const gzipCeiling = config.gzipBytesCeiling ?? config.maxGzipBytes ?? 350_000;
+
+    const normalizedRoute = route.startsWith("/") ? route.slice(1) : route;
+    const candidates = [
+      path.join(serverAppDir, `${normalizedRoute}.html`),
+      path.join(serverAppDir, normalizedRoute, "page.html"),
+      path.join(serverAppDir, `${normalizedRoute}.rsc`),
+      path.join(serverAppDir, normalizedRoute, "page.rsc"),
+    ];
+
+    const match = candidates.find((cand) => fileExists(cand));
+    if (!match) {
+      results[route] = { found: false, rawBytes: 0, gzipBytes: 0, status: "missing" };
+      continue;
+    }
+
+    try {
+      const buffer = fileRead(match);
+      const rawBytes = buffer.length;
+      const gzipBytes = gzipSync(buffer).length;
+      const exceededRaw = rawBytes > rawCeiling;
+      const exceededGzip = gzipBytes > gzipCeiling;
+      results[route] = {
+        found: true,
+        file: match,
+        rawBytes,
+        gzipBytes,
+        rawBytesCeiling: rawCeiling,
+        gzipBytesCeiling: gzipCeiling,
+        status: exceededRaw || exceededGzip ? "fail" : "ok",
+        reason: exceededRaw
+          ? `HTML payload (${kb(rawBytes)}) exceeds raw ceiling (${kb(rawCeiling)})`
+          : exceededGzip
+            ? `HTML gzip payload (${kb(gzipBytes)}) exceeds gzip ceiling (${kb(gzipCeiling)})`
+            : "within ceiling",
+      };
+    } catch {
+      results[route] = { found: false, rawBytes: 0, gzipBytes: 0, status: "error" };
+    }
+  }
+
+  return results;
+}
+
 /** Identify large fixture payloads from stable groups of serialized keys/slugs.
  * Requiring every marker in a group avoids failing on ordinary UI copy that
  * happens to mention one fixture term. */
@@ -956,11 +1036,27 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
         `[bundle-budget] WARN (stale baseline) — baseline commit ${baselineSource.slice(0, 12)} is ${baselineCommitDistance} commits behind HEAD (staleness threshold: ${STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD}). Consider refreshing with \`npm run check:bundle-budget -- --update\`.`,
       );
     }
+    const serverHtmlMeasurements = measureServerHtmlPayloads(SERVER_APP_DIR, budget?.serverPages);
+    for (const [route, measurement] of Object.entries(serverHtmlMeasurements)) {
+      if (measurement.found) {
+        console.log(
+          `[bundle-budget] server page HTML ${route}: ${kb(measurement.gzipBytes)} gzip (${kb(measurement.rawBytes)} raw) — ceiling ${kb(measurement.gzipBytesCeiling)} gzip (${kb(measurement.rawBytesCeiling)} raw), ${measurement.reason}.`,
+        );
+      }
+    }
     console.log("[bundle-budget] largest chunks (gzip):");
     for (const c of current.largest) console.log(`  ${kb(c.gzipBytes).padStart(12)}  ${c.name}`);
     console.log(
       `[bundle-budget] initial dashboard fixture assertion passed (${initialDashboardChunks.length} chunks).`,
     );
+  }
+
+  const serverHtmlMeasurements = measureServerHtmlPayloads(SERVER_APP_DIR, budget?.serverPages);
+  for (const [route, measurement] of Object.entries(serverHtmlMeasurements)) {
+    if (measurement.found && enforce && measurement.status === "fail") {
+      console.error(`[bundle-budget] FAIL — server page ${route} ${measurement.reason}.`);
+      failed = true;
+    }
   }
 
   let failed = false;

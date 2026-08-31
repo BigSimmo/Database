@@ -334,6 +334,10 @@ try {
   });
   const buildExitCode = childProcessExitCode(buildResult);
   if (buildExitCode !== 0) {
+    const memory = process.memoryUsage();
+    console.error(
+      `[playwright] build diagnostics: status=${buildResult.status}, signal=${buildResult.signal ?? "none"}, error=${buildResult.error?.message ?? "none"}, memory(rss=${Math.round(memory.rss / (1024 * 1024))}MB, heapTotal=${Math.round(memory.heapTotal / (1024 * 1024))}MB, heapUsed=${Math.round(memory.heapUsed / (1024 * 1024))}MB)`,
+    );
     throw new Error(`Playwright production build failed (${childProcessFailureSummary(buildResult)}).`);
   }
 

@@ -2273,7 +2273,7 @@ is worse than the red job it replaces. When neither path works, the error names 
 _Superseded by the 2026-08-20 window section below: the migration was already applied on production
 before the window opened, and D4 is no longer treated as OFF. Kept as the pre-window record._
 
-The migration is **not deployed**. D4 is OFF, so merging does not apply it, and until it is applied
+The migration is **not deployed**. D4 is OFF _(superseded: see §D4 — SETTLED 2026-08-21; deploy-on-merge is ON)_, so merging does not apply it, and until it is applied
 `check:drift` will report `migration_history_versions` as a missing function — i.e. merging before the
 window trades one red for another. **Deploy from the branch first, then merge**, which is the order
 Phase 4 used (§Phase 4 completion). Staging needs the same migration by the Phase 2 method to hold the

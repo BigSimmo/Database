@@ -13,9 +13,10 @@ import {
   findFixtureSnapshotsInChunks,
   gzipBytesOf,
   initialDashboardChunkNames,
+  measureBudgetRoutes,
   measureChunkPaths,
   measureChunks,
-  measureBudgetRoutes,
+  measureServerHtmlPayloads,
   MOCKUP_ROUTE_SEGMENT,
   normalizeManifestRoute,
   partitionRouteClientChunks,
@@ -640,5 +641,59 @@ describe("production vs mockup chunk attribution", () => {
     expect(result.mockupRouteCount).toBe(1);
     // Caller must fail before trusting mockupExclusive; do not compute budgets from this.
     expect(result.unparseable.length).toBeGreaterThan(0);
+  });
+});
+
+describe("measureServerHtmlPayloads", () => {
+  it("returns missing status when server page file is absent", () => {
+    const results = measureServerHtmlPayloads("app", undefined, {
+      existsSync: () => false,
+      readFileSync: () => Buffer.alloc(0),
+    });
+    expect(results["/mockups/development/review-state"]).toMatchObject({
+      found: false,
+      status: "missing",
+    });
+  });
+
+  it("measures server page HTML within ceiling as ok", () => {
+    const results = measureServerHtmlPayloads(
+      "app",
+      {
+        "/mockups/development/review-state": {
+          rawBytesCeiling: 1000,
+          gzipBytesCeiling: 200,
+        },
+      },
+      {
+        existsSync: () => true,
+        readFileSync: () => Buffer.from("<html><body>Review state content</body></html>"),
+      },
+    );
+    const measurement = results["/mockups/development/review-state"];
+    expect(measurement.found).toBe(true);
+    expect(measurement.status).toBe("ok");
+    expect(measurement.rawBytes).toBeGreaterThan(0);
+    expect(measurement.gzipBytes).toBeGreaterThan(0);
+  });
+
+  it("fails when server page HTML exceeds raw or gzip ceiling", () => {
+    const results = measureServerHtmlPayloads(
+      "app",
+      {
+        "/mockups/development/review-state": {
+          rawBytesCeiling: 10,
+          gzipBytesCeiling: 5,
+        },
+      },
+      {
+        existsSync: () => true,
+        readFileSync: () => Buffer.from("<html><body>Very long repetitive HTML payload content here</body></html>"),
+      },
+    );
+    const measurement = results["/mockups/development/review-state"];
+    expect(measurement.found).toBe(true);
+    expect(measurement.status).toBe("fail");
+    expect(measurement.reason).toContain("exceeds");
   });
 });

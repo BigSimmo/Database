@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "cde22671-6a31-4f56-972a-5166c2efb60b",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#Y0BDBJ",
+    "outcome": "Added measureServerHtmlPayloads() in scripts/check-bundle-budget.mjs and serverPages ceiling configuration in bundle-budget.json to guard unpaginated server-rendered HTML payloads (e.g. /mockups/development/review-state); verified in tests/bundle-budget.test.ts.",
+    "baseRowFingerprint": "eb1b1c0c3e96a890a4359edfbe9f2a6a85feb431a4fef4f3cf79a6cf88030028"
+  }
+}
