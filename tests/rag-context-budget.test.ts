@@ -851,6 +851,77 @@ describe("coverage and source-role evidence merge", () => {
     expect(selection?.sourcePolicyReview).toBe("verified_conflict");
   });
 
+  it("preserves exact canonical conflict chunks over earlier same-family siblings", () => {
+    const localFamilyHash = "c".repeat(64);
+    const australianFamilyHash = "d".repeat(64);
+    const localSibling = governedEvidence({
+      id: "local-monitoring-sibling",
+      documentId: "local-sibling-doc",
+      corpusScope: "uploaded_local",
+      content: "Lithium monitoring interval is reviewed in the local service.",
+      role: "local_guideline",
+      contentHash: localFamilyHash,
+    });
+    const local = governedEvidence({
+      id: "local-monitoring-canonical",
+      documentId: "local-canonical-doc",
+      corpusScope: "uploaded_local",
+      content: "Lithium monitoring interval is every six months.",
+      role: "local_guideline",
+      contentHash: localFamilyHash,
+    });
+    const australianSibling = governedEvidence({
+      id: "au-monitoring-sibling",
+      documentId: "au-sibling-doc",
+      corpusScope: "australian_public",
+      content: "Lithium monitoring interval is reviewed in Australian guidance.",
+      role: "clinical_guideline",
+      contentHash: "e".repeat(64),
+      metadata: { site_content_logical_id: "guidance:lithium-monitoring" },
+    });
+    const australian = governedEvidence({
+      id: "au-monitoring-canonical",
+      documentId: "au-canonical-doc",
+      corpusScope: "australian_public",
+      content: "Lithium monitoring interval is every three months.",
+      role: "clinical_guideline",
+      contentHash: australianFamilyHash,
+      metadata: { site_content_logical_id: "guidance:lithium-monitoring" },
+    });
+    const plan = queryPlan([{ id: "monitoring", question: "lithium monitoring interval" }]);
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan,
+      candidates: [localSibling, local, australianSibling, australian],
+      claimRole: "dose_or_monitoring",
+      sourcePolicyConflicts: [canonicalConflict(local, australian)],
+    });
+
+    expect(selection?.orderedEvidence.map((item) => item.id)).toEqual([
+      "local-monitoring-canonical",
+      "au-monitoring-canonical",
+    ]);
+    expect(selection?.conflicts).toHaveLength(1);
+    expect(selection?.sourcePolicyReview).toBe("verified_conflict");
+    expect(selection?.sourcePolicyConflictOmitted).toBe(false);
+
+    const coverage = answerCoverageFromSelections({
+      plan,
+      selectedEvidence: selection!.orderedEvidence,
+      selections: [selection!],
+    });
+    const answer = { conflictsOrGaps: [] } as unknown as RagAnswer;
+    reconcileAnswerSourcePolicyConflicts(answer, [selection!], coverage);
+
+    expect(coverage.conflicts).toHaveLength(1);
+    expect(coverage.coverage[0]?.reasonCodes).not.toContain("source_policy_not_evaluated");
+    expect(answer.conflictsOrGaps).toContainEqual(
+      expect.objectContaining({
+        type: "conflict",
+        source_chunk_ids: ["local-monitoring-canonical", "au-monitoring-canonical"],
+      }),
+    );
+  });
+
   it("displaces a same-document singleton to keep a late canonical conflict pair atomic", () => {
     const plan = queryPlan([
       { id: "baseline", question: "clozapine baseline assessment" },

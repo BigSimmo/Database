@@ -301,7 +301,22 @@ function orderedByPolicy(args: {
   };
 }
 
-function collapseEvidenceFamilies(results: SearchResult[]) {
+function collapseEvidenceFamilies(results: SearchResult[], conflicts: readonly SourcePolicyConflict[]) {
+  const protectedIds = new Set<string>();
+  for (const conflict of conflicts) {
+    const local = results.find((result) => conflict.local.supportingChunkIds.includes(result.id));
+    const australian = results.find((result) => conflict.australian.supportingChunkIds.includes(result.id));
+    if (local) protectedIds.add(local.id);
+    if (australian) protectedIds.add(australian.id);
+  }
+  const protectedResults = results.filter((result) => protectedIds.has(result.id));
+  const reservedFamilies = new Set(protectedResults.flatMap(candidateFamilyIds));
+  const reservedLogicalIds = new Set(
+    protectedResults.flatMap((result) => {
+      const logicalId = metadataRecord(result).site_content_logical_id;
+      return typeof logicalId === "string" && logicalId ? [logicalId] : [];
+    }),
+  );
   const seenFamilies = new Set<string>();
   const seenLogicalIds = new Set<string>();
   const orderedEvidence: SearchResult[] = [];
@@ -310,8 +325,16 @@ function collapseEvidenceFamilies(results: SearchResult[]) {
     const families = candidateFamilyIds(result);
     const newFamilies = families.filter((family) => !seenFamilies.has(family));
     const logicalId = metadataRecord(result).site_content_logical_id;
-    if (newFamilies.length === 0) continue;
-    if (typeof logicalId === "string" && logicalId && seenLogicalIds.has(logicalId)) continue;
+    const protectedConflictMember = protectedIds.has(result.id);
+    if (
+      !protectedConflictMember &&
+      (families.some((family) => reservedFamilies.has(family)) ||
+        (typeof logicalId === "string" && logicalId && reservedLogicalIds.has(logicalId)))
+    )
+      continue;
+    if (!protectedConflictMember && newFamilies.length === 0) continue;
+    if (!protectedConflictMember && typeof logicalId === "string" && logicalId && seenLogicalIds.has(logicalId))
+      continue;
     newFamilies.forEach((family) => seenFamilies.add(family));
     if (typeof logicalId === "string" && logicalId) seenLogicalIds.add(logicalId);
     orderedEvidence.push(result);
@@ -436,7 +459,7 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
       candidates: relevant,
       claimRole,
     });
-    const collapsed = collapseEvidenceFamilies(ordered);
+    const collapsed = collapseEvidenceFamilies(ordered, conflicts);
     const supplementaryBounded = selectAustralianClinicalContext(collapsed.orderedEvidence, {
       limit: collapsed.orderedEvidence.length,
       maxPerDocument: collapsed.orderedEvidence.length,
