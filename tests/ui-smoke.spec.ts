@@ -1063,7 +1063,10 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
   expect(boxes.every(Boolean)).toBe(true);
   const [apple, google, microsoft] = boxes as NonNullable<(typeof boxes)[number]>[];
 
-  expect(boxes.every((box) => box!.height >= 48)).toBe(true);
+  // Chromium can report a CSS-enforced 48px minimum as 47.999… after layout
+  // rounding. Keep the clinical touch-target contract while ignoring that
+  // sub-hundredth-pixel measurement noise.
+  expect(boxes.every((box) => box!.height >= 47.99)).toBe(true);
   if (layout === "row") {
     expect(Math.max(apple.y, google.y, microsoft.y) - Math.min(apple.y, google.y, microsoft.y)).toBeLessThanOrEqual(1);
     expect(apple.x + apple.width).toBeLessThanOrEqual(google.x);
@@ -3264,7 +3267,9 @@ test.describe("PsychSift UI smoke coverage", () => {
       await expect(sourceOnlyDisclosure).toBeVisible();
       const responsiveDisclosureButtonBox = await sourceOnlyButton.boundingBox();
       expect(responsiveDisclosureButtonBox).not.toBeNull();
-      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
+      // See the same Chromium layout-rounding tolerance used for the 48px
+      // provider controls above. The CSS minimum remains exactly 40px.
+      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(39.99);
       await expectNoPageHorizontalOverflow(page);
     }
 
