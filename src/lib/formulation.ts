@@ -1,4 +1,5 @@
 import formulationContentJson from "@/data/formulation-content.json";
+import { expandedSmartSearchQuery } from "@/lib/smart-search-intent";
 
 export type FormulationMechanism = {
   id: string;
@@ -221,9 +222,11 @@ export function searchFormulationMechanisms(
   // them on average, so asking for Affect OR Risk must widen rather than
   // intersect. Empty means no constraint. `domain` is the older one-of-N form,
   // still used by the builder page's own select.
-  options: { domain?: string; domains?: ReadonlySet<string> } = {},
+  options: { domain?: string; domains?: ReadonlySet<string>; interpretNaturalLanguage?: boolean } = {},
 ) {
-  const normalizedQuery = normalize(query);
+  const normalizedQuery = normalize(
+    options.interpretNaturalLanguage ? expandedSmartSearchQuery("formulation", query) : query,
+  );
   const queryTokens = normalizedQuery.split(" ").filter(Boolean);
   const domainFacets = options.domains;
 

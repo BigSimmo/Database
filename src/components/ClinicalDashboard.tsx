@@ -566,7 +566,7 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession, clinicalAskMode, runModeClinicalAsk, submitSmartSearch } = useClinicalAskDashboardChrome({
+  const { clinicalAskSession, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
     accountId: auth.session?.user.id,
     searchMode,
     query,
@@ -2191,7 +2191,6 @@ function ClinicalDashboardContent({
       run: true,
       ...navigationContext,
     });
-    if (submitSmartSearch(trimmedQuery, () => setModeSearchSubmitted(true))) return;
     if (trimmedQuery && !isDashboardModeHref(modeDestination)) {
       rememberRecentQuery(trimmedQuery);
       router.push(modeDestination);
@@ -3338,7 +3337,6 @@ function ClinicalDashboardContent({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
-          clinicalAskAvailable={Boolean(clinicalAskMode)}
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);

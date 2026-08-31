@@ -138,7 +138,7 @@ function SpecifierResults({ query }: { query: string }) {
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const allGuideMatches = useMemo(() => searchSpecifiers(query, { family: "all", diagnosis: "" }), [query]);
-  const allCatalogueMatches = useMemo(() => searchSpecifierCatalog(query), [query]);
+  const allCatalogueMatches = useMemo(() => searchSpecifierCatalog(query, {}, true), [query]);
   const defaultScope: SpecifierResultScope = allGuideMatches.length > 0 ? "guides" : "catalogue";
   const scope = readResultFilterValue(searchParams, "scope", specifierScopeValues, defaultScope);
   const familyValues = useMemo(() => new Set(specifierFamilies.map((option) => option.id)), []);

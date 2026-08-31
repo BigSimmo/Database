@@ -60,11 +60,12 @@ Authority must come from registered publisher codes or compatible canonical publ
 
 ## Mode-aware Clinical Ask governance
 
-Clinical Ask remains dormant by default. When `CLINICAL_ASK_ENABLED=true`, the existing shared composer exposes a
-server-gated Smart entry point for seven exhaustive clinician-reference modes: Services, Forms, Differentials,
-Formulation, DSM-5 Diagnosis, Specifiers, and Therapy. Unsupported or denylisted modes and all deployments with the
-flag off retain deterministic search/filter behaviour and show no Smart promise. There is no microphone control or
-separate Ask rail. Every Smart request uses the same deterministic Evidence Ladder: local
+Clinical Ask remains dormant by default and is separate from Smart mode search. The shared mode composer never
+routes a natural-language query to Clinical Ask: Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
+Specifiers, and Therapy interpret natural language locally and show their ordinary deterministic catalogue results.
+`CLINICAL_ASK_ENABLED` governs only the dormant answer workflow; it does not enable, disable, or alter Smart search.
+There is no microphone control or separate Ask rail. If Clinical Ask is exposed through a dedicated governed-answer
+surface in future, every request must use the same deterministic Evidence Ladder: local
 Catalogue first, authorised owner-scoped Indexed evidence second, and an allowlisted External Authority only when
 there is a deterministic evidence gap, unresolved conflict, stale material, or a `needs_review` source. An unsupported
 conclusion is rendered as an Evidence Gap; source conflict and review state remain visible, and clinically material
@@ -88,5 +89,6 @@ protected-staging canary, contractual, or physical-device evidence.
 
 An `answered` stream payload fails closed unless it contains governed evidence and every visible lead, section, and
 conflict claim references evidence present in that payload. An Evidence Gap may still carry zero or partial evidence.
-Production activation remains separately gated by named human clinical and contractual/privacy approval plus physical
-iPhone Safari and installed-PWA acceptance of the enabled Smart path.
+Clinical Ask production activation remains separately gated by named human clinical and contractual/privacy approval
+plus physical iPhone Safari and installed-PWA acceptance. These answer-workflow gates do not block provider-free Smart
+catalogue search.
