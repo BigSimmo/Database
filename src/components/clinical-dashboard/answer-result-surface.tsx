@@ -36,8 +36,22 @@ import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, S
 /** The header status chips share one shape so they read as one status line. */
 const chipShape =
   "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs font-semibold uppercase tracking-eyebrow";
-const focusRingChip =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+/**
+ * An interactive chip is a small pill inside a full-size button, not a small
+ * button. `before:-inset-y-*` hit expansion draws the same 48px region and is
+ * what DocumentTagCloud uses, but it is invisible to `boundingBox()` and so to
+ * every tap-target check in the suite — and the safety chip is the only route to
+ * the safety-critical findings sheet, which is the last control on this surface
+ * that should rest on a target no gate can see. The button carries the height,
+ * the inner pill carries the look.
+ */
+const chipButton =
+  // `-my-3` keeps the 48px box a real box — `boundingBox()` still measures 48 —
+  // while contributing only the pill's own 24px to the line, so the status line
+  // does not become 96px of chrome above a clinical answer on a phone.
+  "inline-flex min-h-12 shrink-0 items-center -my-3 focus-visible:outline-none";
+const chipFocus =
+  "group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)]";
 
 function StagedAnswerResultSurfaceImpl({
   answer,
@@ -205,19 +219,19 @@ function StagedAnswerResultSurfaceImpl({
         data-testid="answer-safety-findings-trigger"
         type="button"
         onClick={openSafetyFindings}
-        // `before:-inset-y-*` is the repo's hit-expansion idiom (DocumentTagCloud):
-        // the chip reads at its drawn height while the touch target it answers to
-        // is the full 48px. Nothing here clips overflow, so unlike the source-only
-        // disclosure the expanded region is really hit-testable.
-        className={cn(
-          chipShape,
-          "relative border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)] transition before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] hover:bg-[color:var(--warning-soft)]/70",
-          focusRingChip,
-        )}
+        className={cn("group", chipButton)}
         aria-label={`Open safety-critical source findings — ${safetyFindings.length} ${safetyFindings.length === 1 ? "note" : "notes"}`}
       >
-        <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
-        {safetyFindings.length} {safetyFindings.length === 1 ? "safety note" : "safety notes"}
+        <span
+          className={cn(
+            chipShape,
+            "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)] transition group-hover:bg-[color:var(--warning-soft)]/70",
+            chipFocus,
+          )}
+        >
+          <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
+          {safetyFindings.length} {safetyFindings.length === 1 ? "safety note" : "safety notes"}
+        </span>
       </button>
     ) : null;
   /**
@@ -235,16 +249,20 @@ function StagedAnswerResultSurfaceImpl({
           data-testid="answer-evidence-gaps-trigger"
           type="button"
           onClick={() => setEvidenceGapsOpen((current) => !current)}
-          className={cn(
-            chipShape,
-            "relative border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] transition before:absolute before:-inset-x-1 before:-inset-y-3 before:content-[''] hover:bg-[color:var(--surface-subtle)]",
-            focusRingChip,
-          )}
+          className={cn("group", chipButton)}
           aria-expanded={evidenceGapsOpen}
           aria-controls={evidenceGapsOpen ? "answer-evidence-gaps-detail" : undefined}
         >
-          <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
-          {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+          <span
+            className={cn(
+              chipShape,
+              "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] transition group-hover:bg-[color:var(--surface-subtle)]",
+              chipFocus,
+            )}
+          >
+            <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
+            {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+          </span>
         </button>
       </>
     ) : (
