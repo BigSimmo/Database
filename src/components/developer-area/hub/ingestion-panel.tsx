@@ -11,7 +11,7 @@ import {
   ROW_CLASS,
   SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
-import { formatRelativeAge } from "@/lib/developer-area/freshness";
+import { formatTimeDistance, resolveFreshnessFrom } from "@/lib/developer-area/freshness";
 
 /**
  * `ingestion_jobs.status` is a plain `string` column
@@ -186,16 +186,17 @@ function JobSection({
  * unknown" for this page and stays that way. This is the honest, live number.
  */
 function CheckedAt({ fetchedAt }: { fetchedAt: string }) {
-  const parsed = new Date(fetchedAt);
-  if (Number.isNaN(parsed.getTime())) return null;
-  const time = parsed.toLocaleTimeString("en-AU", {
+  const freshness = resolveFreshnessFrom(fetchedAt, new Date(), { status: "live" });
+  if (freshness.contentAt === null) return null;
+  const time = new Date(freshness.contentAt).toLocaleTimeString("en-AU", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   });
+  const timeDistance = formatTimeDistance(freshness.ageHours, freshness.ageMinutes);
   return (
     <p data-testid="developer-ingestion-checked-at" className={META_CLASS}>
-      Job data last checked at {time} ({formatRelativeAge(0)}).
+      Job data last checked at {time} ({timeDistance}).
     </p>
   );
 }
@@ -248,7 +249,7 @@ export function IngestionPanel() {
       setState({
         kind: "fetch-error",
         fetchedAt,
-        message: "The ingestion jobs endpoint returned an invalid response body that could not be parsed as JSON.",
+        message: "The ingestion jobs endpoint returned an unparseable response body that could not be parsed as JSON.",
       });
       return;
     }
