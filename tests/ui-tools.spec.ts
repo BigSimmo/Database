@@ -2583,6 +2583,31 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(sectionTrigger).toBeVisible();
     await expect(sectionTrigger).toContainText("Overview");
     await expectMinTouchTarget(sectionTrigger);
+
+    // The page title already has a dedicated back control in the in-page
+    // header, so the old three-part breadcrumb is intentionally absent. Map
+    // and Related are useful enough to remain visible without opening the
+    // section sheet on a phone.
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+    const discoveryActions = detailPage.getByRole("navigation", { name: "Explore diagnosis" });
+    await expect(discoveryActions).toBeVisible();
+    const mapAction = discoveryActions.getByRole("button", { name: /^Map/ });
+    const relatedAction = discoveryActions.getByRole("button", { name: /^Related/ });
+    await expectMinTouchTarget(mapAction);
+    await expectMinTouchTarget(relatedAction);
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await expect(discoveryActions).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
+    await mapAction.focus();
+    await expect(mapAction).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sectionTrigger).toContainText("Map");
+    await expect(page).toHaveURL(/[?&]tab=map/);
+    await relatedAction.click();
+    await expect(sectionTrigger).toContainText("Related");
+    await expect(page).toHaveURL(/[?&]tab=related/);
+
     await sectionTrigger.click();
     const sectionSheet = page.getByTestId("differential-section-sheet");
     await expect(sectionSheet).toBeVisible();
