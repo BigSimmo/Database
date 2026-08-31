@@ -13,7 +13,6 @@ import {
   ExternalLink,
   FileText,
   Loader2,
-  MessageSquareWarning,
   Plus,
   Quote,
   RefreshCw,
@@ -22,6 +21,8 @@ import {
   ShieldCheck,
   Table2,
   Target,
+  ThumbsDown,
+  ThumbsUp,
 } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
@@ -182,78 +183,71 @@ export function answerSupportPriority(
 export function AnswerUtilityActions({
   copied,
   onCopy,
-  warnings = [],
   pendingFeedback = null,
   onSubmitFeedback,
 }: {
   copied: boolean;
   onCopy: () => void;
-  /** Answer-level evidence gaps (`renderModel.warnings`); they belong to no single source. */
-  warnings?: string[];
   pendingFeedback?: AnswerFeedbackType | null;
   onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
 }) {
-  const [gapsOpen, setGapsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   return (
     <section className="max-w-[68ch]" aria-label="Answer utilities">
-      <div className={chatActionRow} aria-label="Answer actions">
+      {/* Copy sits left; the two verdict controls sit right, as the approved
+          specimen draws them. The verdicts are icon-only because their meaning
+          is the icon — a thumb — and a word beside each one would take the whole
+          390px row on its own. Each carries a full sentence as its accessible
+          name rather than "Thumbs up". Evidence gaps are NOT here: they are a
+          statement about the answer's evidence and belong with the safety chip
+          in the header, which is also what keeps this row to one line. */}
+      <div className={cn(chatActionRow, "flex-nowrap")} aria-label="Answer actions">
         <button type="button" onClick={onCopy} className={chatMicroAction} aria-label="Copy answer with source status">
-          <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-          {copied ? "Copied with sources" : "Copy with sources"}
+          <Copy aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{copied ? "Copied with sources" : "Copy with sources"}</span>
         </button>
-        {warnings.length > 0 ? (
-          <button
-            id="answer-evidence-gaps-trigger"
-            data-testid="answer-evidence-gaps-trigger"
-            type="button"
-            onClick={() => setGapsOpen((current) => !current)}
-            className={chatMicroAction}
-            aria-expanded={gapsOpen}
-            aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
-          >
-            <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--warning)]" />
-            Evidence gaps
-            {/* Neutral, not amber. A count painted with a status colour is a
-                status-coloured numeral, and the icon beside it already says
-                which state the row is in — the treatment the approved specimen
-                draws (`answer-chat-perfected-v2-mockups.tsx`, "Seven") and the
-                one the sibling count on the safety row above already uses. */}
-            <span className="nums inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-1.5 text-2xs text-[color:var(--text-muted)]">
-              {warnings.length}
-            </span>
-          </button>
-        ) : null}
         {onSubmitFeedback ? (
-          <button
-            id="answer-feedback-trigger"
-            data-testid="answer-feedback-trigger"
-            type="button"
-            onClick={() => setFeedbackOpen((current) => !current)}
-            className={chatMicroAction}
-            aria-expanded={feedbackOpen}
-            aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
-          >
-            <MessageSquareWarning aria-hidden="true" className="size-icon-sm shrink-0" />
-            Report a problem
-          </button>
+          <span className="ms-auto flex shrink-0 items-center gap-1">
+            {/* One tap records the product's existing positive verdict rather
+                than opening a panel to choose the only affirmative option in
+                it. `verified` is that option, and the panel's own question —
+                "Is the answer supported?" — is what a thumb up answers. */}
+            <button
+              data-testid="answer-feedback-useful"
+              type="button"
+              disabled={Boolean(pendingFeedback)}
+              onClick={() => onSubmitFeedback("verified")}
+              className={cn(chatMicroAction, "min-w-12 justify-center px-2 disabled:opacity-60")}
+              aria-label="This answer is supported by its sources"
+            >
+              {pendingFeedback === "verified" ? (
+                <Loader2 aria-hidden="true" className="size-icon-sm shrink-0 animate-spin" />
+              ) : (
+                <ThumbsUp aria-hidden="true" className="size-icon-sm shrink-0" />
+              )}
+            </button>
+            {/* The thumb down IS the way in to "report a problem": it opens the
+                list of problem types rather than recording an unlabelled
+                negative, because an unlabelled negative tells a reviewer
+                nothing about which claim failed. */}
+            <button
+              id="answer-feedback-trigger"
+              data-testid="answer-feedback-trigger"
+              type="button"
+              onClick={() => setFeedbackOpen((current) => !current)}
+              className={cn(chatMicroAction, "min-w-12 justify-center px-2")}
+              aria-expanded={feedbackOpen}
+              aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
+              aria-label="Report a problem with this answer"
+            >
+              <ThumbsDown aria-hidden="true" className="size-icon-sm shrink-0" />
+            </button>
+          </span>
         ) : null}
       </div>
-      {warnings.length > 0 && gapsOpen ? (
-        <div id="answer-evidence-gaps-detail" className="grid gap-2 px-2 pb-2">
-          {warnings.map((warning, index) => (
-            <p
-              key={`${warning}:${index}`}
-              className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
-            >
-              {warning}
-            </p>
-          ))}
-        </div>
-      ) : null}
       {onSubmitFeedback && feedbackOpen ? (
         <div id="answer-feedback-detail" className="px-2 pb-2">
-          <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
+          <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" />
         </div>
       ) : null}
     </section>
@@ -1176,22 +1170,38 @@ function feedbackToneClass(tone: "success" | "warning" | "danger" | "neutral") {
 export function AnswerFeedbackPanel({
   pending,
   onSubmit,
+  tone = "full",
 }: {
   pending: AnswerFeedbackType | null;
   onSubmit: (feedbackType: AnswerFeedbackType) => void;
+  /**
+   * `"problems"` drops the affirmative option and asks the narrower question.
+   * The thumb down is the only way into this panel on the answer surface, and
+   * offering "Verified" inside a list a reader opened to report a fault is a
+   * mis-click waiting to record the opposite of what they meant.
+   */
+  tone?: "full" | "problems";
 }) {
+  const problemsOnly = tone === "problems";
+  const options = problemsOnly
+    ? answerFeedbackOptions.filter((item) => item.tone !== "success")
+    : answerFeedbackOptions;
   return (
     <section
       data-testid="answer-review-panel"
+      data-tone={tone}
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-      aria-label="Answer review"
+      aria-label={problemsOnly ? "Report a problem" : "Answer review"}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Is the answer supported?</p>
+          <p className="text-sm font-semibold text-[color:var(--text)]">
+            {problemsOnly ? "What is wrong with this answer?" : "Is the answer supported?"}
+          </p>
           <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Record whether the linked evidence supports the answer. This sends feedback for review; it does not change
-            the answer.
+            {problemsOnly
+              ? "Name the fault so a reviewer can find it. This sends feedback for review; it does not change the answer."
+              : "Record whether the linked evidence supports the answer. This sends feedback for review; it does not change the answer."}
           </p>
         </div>
         {pending ? (
@@ -1202,7 +1212,7 @@ export function AnswerFeedbackPanel({
         ) : null}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        {answerFeedbackOptions.map((item) => {
+        {options.map((item) => {
           const Icon = item.icon;
           return (
             <button

@@ -1070,6 +1070,6 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Tooltip`                | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `VerificationNotice`     | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `VerificationNotice`     | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 
 <!-- adoption-manifest:maturity:end -->

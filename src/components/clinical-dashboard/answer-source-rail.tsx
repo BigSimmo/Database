@@ -115,7 +115,7 @@ export function AnswerSourceRail({
             textMuted,
           )}
         >
-          <span>Sources</span>
+          <span>Cited documents</span>
           <span className="nums font-normal normal-case tracking-normal">
             {citedCount === sources.length
               ? `${sources.length} cited`
