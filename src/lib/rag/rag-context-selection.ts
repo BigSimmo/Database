@@ -79,20 +79,83 @@ function selectLegacyModelContextResults(args: ModelContextSelectionArgs) {
   return results;
 }
 
+type ContextSelectionUnit = { results: SearchResult[]; conflict: boolean };
+
+function firstConflictPair(selection: CoverageEvidenceSelection, resultId: string) {
+  const conflict = selection.conflicts.find((candidate) =>
+    [...candidate.local.supportingChunkIds, ...candidate.australian.supportingChunkIds].includes(resultId),
+  );
+  if (!conflict) return null;
+  const local = selection.orderedEvidence.find((result) => conflict.local.supportingChunkIds.includes(result.id));
+  const australian = selection.orderedEvidence.find((result) =>
+    conflict.australian.supportingChunkIds.includes(result.id),
+  );
+  return local && australian ? [local, australian] : null;
+}
+
 function flattenCoverageSelections(selections: CoverageEvidenceSelection[], limit: number) {
-  const selected: SearchResult[] = [];
-  const seen = new Set<string>();
+  let units: ContextSelectionUnit[] = [];
+  const omittedConflictSubquestionIds = new Set<string>();
+  const selectedIds = () => new Set(units.flatMap((unit) => unit.results.map((result) => result.id)));
+  const selectedCount = () => units.reduce((count, unit) => count + unit.results.length, 0);
+  const documentCount = (documentId: string) =>
+    units.flatMap((unit) => unit.results).filter((result) => result.document_id === documentId).length;
+  const removeLastSingleton = (documentId?: string) => {
+    const index = units.findLastIndex(
+      (unit) =>
+        !unit.conflict && unit.results.length === 1 && (!documentId || unit.results[0]?.document_id === documentId),
+    );
+    if (index < 0) return false;
+    units = units.filter((_, unitIndex) => unitIndex !== index);
+    return true;
+  };
+  const addConflictPair = (pair: SearchResult[], subquestionId: string) => {
+    const workingUnits = units;
+    const pairIds = new Set(pair.map((result) => result.id));
+    units = units.map((unit) =>
+      unit.results.some((result) => pairIds.has(result.id)) ? { ...unit, conflict: true } : unit,
+    );
+    const existingIds = selectedIds();
+    const missingPair = pair.filter(
+      (result, index) => !existingIds.has(result.id) && pair.findIndex((item) => item.id === result.id) === index,
+    );
+    for (const result of missingPair) {
+      while (
+        documentCount(result.document_id) +
+          missingPair.filter((item) => item.document_id === result.document_id).length >
+        maxContextChunksPerDocument
+      ) {
+        if (!removeLastSingleton(result.document_id)) {
+          units = workingUnits;
+          omittedConflictSubquestionIds.add(subquestionId);
+          return;
+        }
+      }
+    }
+    while (selectedCount() + missingPair.length > limit) {
+      if (!removeLastSingleton()) {
+        units = workingUnits;
+        omittedConflictSubquestionIds.add(subquestionId);
+        return;
+      }
+    }
+    if (missingPair.length) units.push({ results: missingPair, conflict: true });
+  };
   const maxDepth = Math.max(0, ...selections.map((selection) => selection.orderedEvidence.length));
-  for (let depth = 0; depth < maxDepth && selected.length < limit; depth += 1) {
+  for (let depth = 0; depth < maxDepth; depth += 1) {
     for (const selection of selections) {
       const result = selection.orderedEvidence[depth];
-      if (!result || seen.has(result.id)) continue;
-      seen.add(result.id);
-      selected.push(result);
-      if (selected.length >= limit) break;
+      if (!result || selectedIds().has(result.id)) continue;
+      const conflictPair = firstConflictPair(selection, result.id);
+      if (conflictPair) {
+        addConflictPair(conflictPair, selection.subquestionId);
+        continue;
+      }
+      if (selectedCount() >= limit || documentCount(result.document_id) >= maxContextChunksPerDocument) continue;
+      units.push({ results: [result], conflict: false });
     }
   }
-  return selected;
+  return { results: units.flatMap((unit) => unit.results), omittedConflictSubquestionIds };
 }
 
 export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
@@ -117,7 +180,8 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
     args.queryClass !== "broad_summary";
   const highRiskNumericQuery = args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold";
   const limit = fastRoutineQuery ? fastRoutineModelContextLimit : highRiskNumericQuery ? 6 : args.results.length;
-  const results = capPerDocumentCrowding(flattenCoverageSelections(coverageSelections, limit));
+  const flattened = flattenCoverageSelections(coverageSelections, limit);
+  const results = flattened.results;
   const retainedIds = new Set(results.map((result) => result.id));
   const reconciledSelections = coverageSelections.map((selection) => {
     const orderedEvidence = selection.orderedEvidence.filter((result) => retainedIds.has(result.id));
@@ -138,7 +202,8 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
       conflicts,
       sourcePolicyReview: conflicts.length
         ? ("verified_conflict" as const)
-        : selection.sourcePolicyReview === "not_evaluated" && hasDirectLocal && hasDirectAustralian
+        : flattened.omittedConflictSubquestionIds.has(selection.subquestionId) ||
+            (selection.sourcePolicyReview === "not_evaluated" && hasDirectLocal && hasDirectAustralian)
           ? ("not_evaluated" as const)
           : ("not_applicable" as const),
     };

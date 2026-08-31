@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { capPerDocumentCrowding, packedContextCacheKey, selectModelContextResults } from "../src/lib/rag/rag";
+import { selectModelContextEvidence } from "../src/lib/rag/rag-context-selection";
 import {
   adaptSmartAnswerPlanForCoverage,
   answerCoverageFromSelections,
@@ -786,6 +787,61 @@ describe("coverage and source-role evidence merge", () => {
       reviewTargetDocumentId: "local-doc",
     });
     expect(selection?.sourcePolicyReview).toBe("verified_conflict");
+  });
+
+  it("keeps a late canonical conflict pair atomic inside the six-chunk high-risk budget", () => {
+    const plan = queryPlan([
+      { id: "baseline", question: "clozapine baseline assessment" },
+      { id: "adverse", question: "clozapine adverse effects" },
+      { id: "follow-up", question: "clozapine follow up review" },
+      { id: "monitoring", question: "lithium renal monitoring interval", purpose: "monitoring" },
+    ]);
+    const local = governedEvidence({
+      id: "late-local-conflict",
+      corpusScope: "uploaded_local",
+      content: "Lithium renal monitoring interval is every six months.",
+      role: "local_guideline",
+    });
+    const australian = governedEvidence({
+      id: "late-au-conflict",
+      corpusScope: "australian_public",
+      content: "Lithium renal monitoring interval is every three months.",
+      role: "clinical_guideline",
+    });
+    const candidates = [
+      governedEvidence({ id: "baseline-1", corpusScope: "uploaded_local", content: "Clozapine baseline assessment." }),
+      governedEvidence({
+        id: "baseline-2",
+        corpusScope: "uploaded_local",
+        content: "Clozapine baseline assessment checklist.",
+      }),
+      governedEvidence({ id: "adverse-1", corpusScope: "uploaded_local", content: "Clozapine adverse effects." }),
+      governedEvidence({
+        id: "adverse-2",
+        corpusScope: "uploaded_local",
+        content: "Clozapine adverse effects review.",
+      }),
+      governedEvidence({ id: "follow-up-1", corpusScope: "uploaded_local", content: "Clozapine follow up review." }),
+      local,
+      australian,
+    ];
+
+    const selection = selectModelContextEvidence({
+      routeMode: "strong",
+      queryClass: "medication_dose_risk",
+      crossDocument: false,
+      results: candidates,
+      queryPlan: plan,
+      sourcePolicyConflicts: [canonicalConflict(local, australian)],
+    });
+    const monitoring = selection.coverageSelections.find((item) => item.subquestionId === "monitoring");
+
+    expect(selection.results).toHaveLength(6);
+    expect(selection.results.map((result) => result.id)).toEqual(
+      expect.arrayContaining(["late-local-conflict", "late-au-conflict"]),
+    );
+    expect(monitoring?.conflicts).toHaveLength(1);
+    expect(monitoring?.sourcePolicyReview).toBe("verified_conflict");
   });
 
   it("fails closed to a bounded review state when direct local and Australian evidence has no canonical verdict", () => {

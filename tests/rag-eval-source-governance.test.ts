@@ -291,5 +291,31 @@ describe("Australian RAG evaluation diagnostics", () => {
     expect(answerWithRetainedConflict.conflictsOrGaps).toEqual([
       expect.objectContaining({ type: "conflict", source_chunk_ids: [local.id, australian.id] }),
     ]);
+
+    const notEvaluatedCoverage = {
+      ...coverage,
+      coverage: coverage.coverage.map((item) => ({
+        ...item,
+        reasonCodes: [...item.reasonCodes, "source_policy_not_evaluated"],
+      })),
+    };
+    const answerWithReviewGap = answer([local], [citationFor(local)]);
+    reconcileAnswerSourcePolicyConflicts(
+      answerWithReviewGap,
+      [
+        {
+          subquestionId: "monitoring",
+          orderedEvidence: [local],
+          collapsedEvidenceFamilyIds: [],
+          conflicts: [],
+          sourcePolicyReview: "not_evaluated",
+          coverageReason: "direct",
+        },
+      ],
+      notEvaluatedCoverage,
+    );
+    expect(answerWithReviewGap.conflictsOrGaps).toEqual([
+      expect.objectContaining({ type: "gap", source_chunk_ids: [local.id] }),
+    ]);
   });
 });

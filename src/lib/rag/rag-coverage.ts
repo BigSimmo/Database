@@ -430,7 +430,20 @@ export function reconcileAnswerSourcePolicyConflicts(
       source_chunk_ids: [...new Set(sourceChunkIds)].slice(0, 4),
     };
   });
-  answer.conflictsOrGaps = [...nonPolicyFlags, ...retainedPolicyFlags];
+  const unevaluatedCoverage = (coveragePlan?.coverage ?? []).filter((item) =>
+    item.reasonCodes.includes("source_policy_not_evaluated"),
+  );
+  const reviewGap = unevaluatedCoverage.length
+    ? [
+        {
+          type: "gap" as const,
+          message:
+            "Directly relevant local and Australian evidence was found, but their source-policy relationship has not been canonically reviewed.",
+          source_chunk_ids: [...new Set(unevaluatedCoverage.flatMap((item) => item.chunkIds))].slice(0, 4),
+        },
+      ]
+    : [];
+  answer.conflictsOrGaps = [...nonPolicyFlags, ...retainedPolicyFlags, ...reviewGap];
 }
 
 function boundedPromptToken(value: string, maxLength = 64) {
