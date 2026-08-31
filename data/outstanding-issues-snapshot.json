@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 41,
+    "pending": 39,
     "resolved": 431
   },
   "queue": [
@@ -903,12 +903,6 @@
       "created_at": "2026-08-25"
     },
     {
-      "request_id": "44b322b0-0a87-4564-878a-9d5ac97bcdc3",
-      "action": "update",
-      "summary": "#WG24JB: summary → Ward Flow: spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
-      "created_at": "2026-08-31"
-    },
-    {
       "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
       "action": "done",
       "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
@@ -1051,12 +1045,6 @@
       "action": "done",
       "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
       "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "f3288efd-b1b6-492f-9a4a-8b316e35fe71",
-      "action": "update",
-      "summary": "#V27DZ1: summary → Ward Flow: role screens intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
-      "created_at": "2026-08-31"
     },
     {
       "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",

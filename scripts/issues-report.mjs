@@ -207,7 +207,7 @@ function render(report, winsOnly) {
     console.log(`${row.order}. ${row.ids.join(", ")} · ${row.acuity} · ${row.estimate} · ${row.outcome}`);
 }
 
-function parseCliArgs(argv) {
+export function parseCliArgs(argv) {
   const flags = new Set();
   let filter = undefined;
   for (let i = 0; i < argv.length; i += 1) {
@@ -215,10 +215,18 @@ function parseCliArgs(argv) {
     if (["--json", "--agent-safe-wins", "--ward", "--core"].includes(arg)) {
       flags.add(arg);
     } else if (arg === "--filter") {
-      filter = argv[i + 1];
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith("-")) {
+        throw new Error("Option '--filter' requires a non-empty value");
+      }
+      filter = next;
       i += 1;
     } else if (arg.startsWith("--filter=")) {
-      filter = arg.slice("--filter=".length);
+      const val = arg.slice("--filter=".length);
+      if (!val) {
+        throw new Error("Option '--filter' requires a non-empty value");
+      }
+      filter = val;
     } else {
       throw new Error(`Unknown option: ${arg}`);
     }
