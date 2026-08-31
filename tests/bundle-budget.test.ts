@@ -961,4 +961,23 @@ describe("measureServerHtmlPayloads", () => {
     expect(measurement.status).toBe("fail");
     expect(measurement.reason).toContain("exceeds");
   });
+
+  it("finds server page artifact when only page.js candidate exists", () => {
+    const results = measureServerHtmlPayloads(
+      "app",
+      {
+        "/mockups/development/review-state": {
+          rawBytesCeiling: 5000,
+          gzipBytesCeiling: 1000,
+        },
+      },
+      {
+        existsSync: (p) => p.endsWith("page.js"),
+        readFileSync: () => Buffer.from("export default function Page() { return null; }"),
+      },
+    );
+    const measurement = results["/mockups/development/review-state"];
+    expect(measurement.found).toBe(true);
+    expect(measurement.status).toBe("ok");
+  });
 });

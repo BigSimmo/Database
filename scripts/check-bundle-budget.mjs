@@ -453,11 +453,19 @@ export function measureServerHtmlPayloads(serverAppDir, serverPagesConfig, fsOpt
       path.join(serverAppDir, normalizedRoute, "page.html"),
       path.join(serverAppDir, `${normalizedRoute}.rsc`),
       path.join(serverAppDir, normalizedRoute, "page.rsc"),
+      path.join(serverAppDir, `${normalizedRoute}.js`),
+      path.join(serverAppDir, normalizedRoute, "page.js"),
     ];
 
     const match = candidates.find((cand) => fileExists(cand));
     if (!match) {
-      results[route] = { found: false, rawBytes: 0, gzipBytes: 0, status: "missing" };
+      results[route] = {
+        found: false,
+        rawBytes: 0,
+        gzipBytes: 0,
+        status: "missing",
+        reason: "no build artifact found for configured server page",
+      };
       continue;
     }
 
@@ -1347,15 +1355,21 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     );
   }
 
+  let failed = false;
   const serverHtmlMeasurements = measureServerHtmlPayloads(SERVER_APP_DIR, budget?.serverPages);
   for (const [route, measurement] of Object.entries(serverHtmlMeasurements)) {
-    if (measurement.found && enforce && measurement.status === "fail") {
+    const config = budget?.serverPages?.[route];
+    if (enforce && config?.required && measurement.status === "missing") {
+      console.error(
+        `[bundle-budget] FAIL — server page ${route} ${measurement.reason ?? "is missing required build output"}.`,
+      );
+      failed = true;
+    } else if (measurement.found && enforce && measurement.status === "fail") {
       console.error(`[bundle-budget] FAIL — server page ${route} ${measurement.reason}.`);
       failed = true;
     }
   }
 
-  let failed = false;
   if (productionVerdict.status === "fail") {
     console.error(
       `[bundle-budget] FAIL — production bundle ${productionVerdict.reason}. This is user-facing weight; find the regression before refreshing the baseline.`,
