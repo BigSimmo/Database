@@ -133,6 +133,10 @@ function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
   return args.queryMode ?? "auto";
 }
 
+function internationalCoverageGapCacheToken(args: Pick<SearchChunksArgs, "governedInternationalCoverageGap">) {
+  return `international-gap:${args.governedInternationalCoverageGap ? "on" : "off"}`;
+}
+
 export function governedCorpusComponentCacheNamespace(
   base: string,
   components: SearchChunksArgs["governedCorpusComponents"],
@@ -200,13 +204,14 @@ export function sharedAnswerNormalizedQuery(
     | "ragQueryPlanVersion"
     | "ragQueryPlanMode"
     | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
   >,
 ) {
   const query = normalizedCacheQuery(`${modeKey(args)} ${args.query}`);
   const snapshotCacheKey = requestSnapshotCacheKey(args);
   return queryCacheKeyForStorage(
     governedCorpusComponentCacheNamespace(
-      `${query}|generation:${answerGenerationFingerprint()}|queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}|queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
+      `${query}|generation:${answerGenerationFingerprint()}|queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}|queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}|${internationalCoverageGapCacheToken(args)}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
       args.governedCorpusComponents,
     ),
   );
@@ -227,6 +232,7 @@ export function scopedAnswerCacheKey(
     | "ragQueryPlanKind"
     | "ragSubquestionCount"
     | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
   >,
 ) {
   const snapshotCacheKey = requestSnapshotCacheKey(args);
@@ -239,6 +245,7 @@ export function scopedAnswerCacheKey(
     `generation:${answerGenerationFingerprint()}`,
     args.query.trim().toLowerCase().replace(/\s+/g, " "),
     governedCorpusComponentCacheNamespace("corpora", args.governedCorpusComponents),
+    internationalCoverageGapCacheToken(args),
   ];
   if (snapshotCacheKey) {
     identity.push(`snapshot:${snapshotCacheKey}`);
@@ -483,6 +490,8 @@ type SiteAwareWriteArgs = Pick<
   | "ragQueryPlanMode"
   | "ragQueryPlanKind"
   | "ragSubquestionCount"
+  | "governedCorpusComponents"
+  | "governedInternationalCoverageGap"
 >;
 
 type SiteAwareWriteDescriptor = Readonly<{
@@ -519,6 +528,9 @@ function captureSiteAwareWriteArgs(args: SiteAwareWriteArgs): Readonly<SiteAware
   const documentIds = args.documentIds ? ([...args.documentIds] as string[]) : undefined;
   if (documentIds) Object.freeze(documentIds);
   const accessScope = Object.freeze(retrievalAccessScopeForArgs(args));
+  const governedCorpusComponents = args.governedCorpusComponents
+    ? Object.freeze({ ...args.governedCorpusComponents })
+    : undefined;
   return Object.freeze({
     query: args.query,
     documentId: args.documentId,
@@ -537,6 +549,8 @@ function captureSiteAwareWriteArgs(args: SiteAwareWriteArgs): Readonly<SiteAware
     ragQueryPlanMode: args.ragQueryPlanMode,
     ragQueryPlanKind: args.ragQueryPlanKind,
     ragSubquestionCount: args.ragSubquestionCount,
+    governedCorpusComponents,
+    governedInternationalCoverageGap: args.governedInternationalCoverageGap,
   });
 }
 
@@ -585,6 +599,7 @@ export async function getCachedAnswer(
     | "ragQueryPlanVersion"
     | "ragQueryPlanMode"
     | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
     | "ragQueryPlanKind"
     | "ragSubquestionCount"
   >,
@@ -658,6 +673,8 @@ export async function setCachedAnswer(
     | "ragQueryPlanMode"
     | "ragQueryPlanKind"
     | "ragSubquestionCount"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
   >,
   answer: RagAnswer,
   options?: { indexingVersionAtRetrievalStart?: string | null; publicCacheWriteProof?: RagPublicCacheWriteProof },
@@ -761,6 +778,7 @@ export function retrievalPlanCacheQuery(
     | "ragQueryPlanVersion"
     | "ragQueryPlanMode"
     | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -775,6 +793,7 @@ export function retrievalPlanCacheQuery(
     `queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}`,
     `queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}`,
     governedCorpusComponentCacheNamespace("corpora", args.governedCorpusComponents),
+    internationalCoverageGapCacheToken(args),
     `mode:${modeKey(args)}`,
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
@@ -1181,6 +1200,8 @@ export async function getSharedCachedAnswer(
     | "ragRequestContext"
     | "ragQueryPlanVersion"
     | "ragQueryPlanMode"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
   >,
   startedAt: number,
   options?: { indexingVersionAtRequestStart?: string | null },
@@ -1381,6 +1402,8 @@ async function setSharedCachedAnswer(
     | "ragQueryPlanMode"
     | "ragQueryPlanKind"
     | "ragSubquestionCount"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
   >,
   answer: RagAnswer,
   indexingVersion: string,
@@ -1460,6 +1483,8 @@ async function deleteSharedCachedAnswerRow(
     | "ragRequestContext"
     | "ragQueryPlanVersion"
     | "ragQueryPlanMode"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
   >,
   indexingVersion: string,
 ) {

@@ -3411,9 +3411,8 @@ ${qualityRetryInstruction}`
           ...fallbackArtifacts.smartPanel,
           relevance: fallbackArtifacts.relevance,
           bestSource: fallbackBestSource,
-          relatedDocuments,
         }
-      : { ...emptyPanel, relevance: fallbackArtifacts.relevance, relatedDocuments };
+      : { ...emptyPanel, relevance: fallbackArtifacts.relevance };
 
     return {
       answer: boldHighYieldClinicalText(
@@ -3496,6 +3495,13 @@ ${qualityRetryInstruction}`
   const strongRetryContextResults = strongRetryContextSelection.results;
   coverageSelections = modelContextSelection.coverageSelections;
   const generationFallbackResults = strongRetryContextResults;
+  let responseContextResults = answerInputResults;
+  let responseContextArtifacts = {
+    relevance,
+    memoryCardsUsed,
+    indexingQuality,
+    scoreExplanations: answerScoreExplanations,
+  };
   const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
   await args.onProgress?.({
     stage: "ranking",
@@ -3551,8 +3557,6 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
-      // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
       coverageSelections = strongRetryContextSelection.coverageSelections;
       packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
@@ -3644,8 +3648,6 @@ ${qualityRetryInstruction}`
       });
       coverageSelections = strongRetryContextSelection.coverageSelections;
       packedContextResults = await packContextForGeneration(strongRetryContextResults);
-      // Strong spends more reasoning tokens than the fast attempt it is replacing, so it needs
-      // the boosted cap to avoid truncating (and degrading to unsupported) on the escalation.
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         maxOutputTokensOverride: strongRetryMaxOutputTokens,
@@ -3757,31 +3759,26 @@ ${qualityRetryInstruction}`
       total_latency_ms: Date.now() - startedAt,
     };
 
-    // B5: a structured_parse_fallback answer now fails closed with zero
-    // citations, so we can no longer gate extractive recovery on the parsed
-    // answer's citations. buildExtractiveAnswer derives its own source-backed
-    // citations from the retrieved results, so trigger recovery whenever the
-    // generated answer is unusable and we have retrieved results to extract from.
     const canRecoverExtractively = !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
-    // Numeric faithfulness at finalize time must verify against the packed context the model
-    // actually generated from, not the unpacked answer.sources — otherwise a figure copied from
-    // a neighbour chunk's adjacent_context reads as unverified and blanks a correct dose/threshold
-    // answer. Only the model path needs this; the extractive branch verifies against its own sources.
+    // Verify model numeric claims against the packed context; extractive recovery verifies its own sources.
     let numericVerificationSources: SearchResult[] | undefined;
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       coverageSelections = strongRetryContextSelection.coverageSelections;
+      responseContextResults = generationFallbackResults;
+      const recoveryArtifacts = buildContextDerivedArtifacts(answerFocusQuery, responseContextResults);
+      responseContextArtifacts = recoveryArtifacts;
       answer = buildExtractiveAnswer({
         query: args.query,
         queryClass,
-        results: answerInputResults,
-        quoteCards,
-        documentBreakdown,
-        evidenceSummary,
-        sourceCoverage,
-        conflictsOrGaps,
-        visualEvidence,
-        bestSource,
-        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+        results: responseContextResults,
+        quoteCards: recoveryArtifacts.quoteCards,
+        documentBreakdown: recoveryArtifacts.documentBreakdown,
+        evidenceSummary: recoveryArtifacts.evidenceSummary,
+        sourceCoverage: recoveryArtifacts.sourceCoverage,
+        conflictsOrGaps: recoveryArtifacts.conflictsOrGaps,
+        visualEvidence: recoveryArtifacts.visualEvidence,
+        bestSource: recoveryArtifacts.bestSource,
+        smartPanel: recoveryArtifacts.smartPanel,
         relatedDocuments,
         routeReason: `${routingReason}; structured_output_fallback`,
         timings: answerTimings,
@@ -3809,16 +3806,18 @@ ${qualityRetryInstruction}`
     answer.openAIRequestIds = openAIRequestIds;
     answer.openAIUsage = hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined;
     answer.latencyTimings = answerTimings;
-    answer.memoryCardsUsed = memoryCardsUsed;
+    answer.memoryCardsUsed = responseContextArtifacts.memoryCardsUsed;
     answer.indexingVersion = ragDeepMemoryVersion;
-    answer.indexingQuality = indexingQuality;
-    answer.smartApiPlan = buildCurrentSmartApiPlan(answer.routingMode, answer.routingReason);
+    answer.indexingQuality = responseContextArtifacts.indexingQuality;
+    answer.smartApiPlan = buildCurrentSmartApiPlan(answer.routingMode, answer.routingReason, responseContextResults);
     answer.responseMode = answer.smartApiPlan.displayMode;
     answer.comparisonMatrix = comparisonEvaluation?.matrix;
     answer.comparisonEvaluationState = comparisonEvaluation?.evaluationState;
-    answer.scoreExplanations = answerScoreExplanations;
-    answer.relevance = relevance;
-    answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
+    answer.scoreExplanations = responseContextArtifacts.scoreExplanations;
+    answer.relevance = responseContextArtifacts.relevance;
+    answer.smartPanel = answer.smartPanel
+      ? { ...answer.smartPanel, relevance: responseContextArtifacts.relevance }
+      : answer.smartPanel;
 
     answer = annotateAnswerWithDiagnostics(answer, {
       ...retrievalDiagnostics,
@@ -3984,7 +3983,6 @@ ${qualityRetryInstruction}`
               ...generationFallbackArtifacts.smartPanel,
               relevance: generationFallbackArtifacts.relevance,
               bestSource: generationFallbackArtifacts.bestSource,
-              relatedDocuments,
             },
             relatedDocuments,
             routeReason: `${route.reason}; generation_fallback:${sanitizedReason}`,
@@ -4032,7 +4030,6 @@ ${qualityRetryInstruction}`
             ...candidateArtifacts.smartPanel,
             relevance: candidateArtifacts.relevance,
             bestSource: candidateArtifacts.bestSource,
-            relatedDocuments,
           },
           relatedDocuments,
           routeReason: extractiveFallbackRouteReason,
@@ -4137,7 +4134,6 @@ ${qualityRetryInstruction}`
             ...generationFallbackArtifacts.smartPanel,
             relevance: generationFallbackArtifacts.relevance,
             bestSource: generationFallbackArtifacts.bestSource,
-            relatedDocuments,
           },
           openAIRequestIds,
           openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,

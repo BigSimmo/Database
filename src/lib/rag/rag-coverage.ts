@@ -93,6 +93,9 @@ export type CoverageEvidenceSelection = {
 
 type CandidateWithOrder = { result: SearchResult; inputIndex: number };
 
+type CoverageBudgetLane = Pick<CoverageEvidenceSelection, "subquestionId" | "orderedEvidence" | "conflicts">;
+type CoverageBudgetUnit = { results: SearchResult[]; conflict: boolean };
+
 function metadataRecord(result: SearchResult): Record<string, unknown> {
   return result.source_metadata && typeof result.source_metadata === "object"
     ? (result.source_metadata as unknown as Record<string, unknown>)
@@ -145,14 +148,26 @@ function candidateFamilyIds(result: SearchResult) {
 function productIntent(plan: RagQueryPlan, question: string, result: SearchResult) {
   if (result.corpus_scope !== "clinical_kb_site" || !result.site_content_domain) return false;
   if (plan.targetSiteDomains.length > 0 && !plan.targetSiteDomains.includes(result.site_content_domain)) return false;
-  const intent = `${plan.originalQuery} ${question}`;
-  return (
-    /\bclinical\s+kb\b/i.test(intent) ||
-    /\bcatalog(?:ue)?\b/i.test(intent) ||
-    /\b(?:medication|differential|specifier|service|form|therapy|dictionary|calculator|tool)\s+(?:record|page)\b/i.test(
-      intent,
-    )
-  );
+  const queryClass = classifyRagQuery(question).queryClass;
+  const doseIntent = medicationDoseEvidenceQueryIntent(question);
+  const explicitProductTarget =
+    /\b(?:medication|differential|specifier|service|form|therapy|dictionary|calculator|tool)\s+(?:record|page)\b|\bcatalog(?:ue)?\b/i.test(
+      question,
+    );
+  const explicitLookupAction =
+    queryClass === "document_lookup" ||
+    /\b(?:which|find|search|lookup|open|show|where)\b/i.test(question) ||
+    /\bcatalog(?:ue)?\b/i.test(question) ||
+    /\b(?:record|page|catalog(?:ue)?)\b.{0,40}\b(?:available|exists?)\b/i.test(question);
+  const clinicalClaimIntent =
+    doseIntent.asksAmount ||
+    doseIntent.asksFrequency ||
+    doseIntent.asksRoute ||
+    queryClass === "table_threshold" ||
+    /\b(?:monitor(?:ed|ing)?|recommend(?:ed|ation)?|prescrib(?:e|ed|ing)|treat(?:ment|ed|ing)?|how\s+should)\b/i.test(
+      question,
+    );
+  return explicitProductTarget && explicitLookupAction && !clinicalClaimIntent;
 }
 
 function legacySiteCandidateRejected(result: SearchResult) {
@@ -314,6 +329,90 @@ function retainedSelectionConflicts(conflicts: SourcePolicyConflict[], results: 
   );
 }
 
+function conflictPairForResult(lane: CoverageBudgetLane, resultId: string) {
+  const conflict = lane.conflicts.find((candidate) =>
+    [...candidate.local.supportingChunkIds, ...candidate.australian.supportingChunkIds].includes(resultId),
+  );
+  if (!conflict) return null;
+  const local = lane.orderedEvidence.find((result) => conflict.local.supportingChunkIds.includes(result.id));
+  const australian = lane.orderedEvidence.find((result) => conflict.australian.supportingChunkIds.includes(result.id));
+  return local && australian ? [local, australian] : null;
+}
+
+/** Apply hard and per-document context bounds while treating canonical conflict pairs as atomic evidence units. */
+export function selectConflictAwareCoverageEvidence(
+  lanes: readonly CoverageBudgetLane[],
+  options: { limit: number; maxPerDocument: number },
+) {
+  let units: CoverageBudgetUnit[] = [];
+  const omittedConflictSubquestionIds = new Set<string>();
+  const selectedResults = () => units.flatMap((unit) => unit.results);
+  const selectedIds = () => new Set(selectedResults().map((result) => result.id));
+  const documentCount = (documentId: string) =>
+    selectedResults().filter((result) => result.document_id === documentId).length;
+  const removeLastSingleton = (documentId?: string, protectedIds = new Set<string>()) => {
+    const index = units.findLastIndex(
+      (unit) =>
+        !unit.conflict &&
+        unit.results.length === 1 &&
+        !protectedIds.has(unit.results[0]!.id) &&
+        (!documentId || unit.results[0]!.document_id === documentId),
+    );
+    if (index < 0) return false;
+    units = units.filter((_, unitIndex) => unitIndex !== index);
+    return true;
+  };
+  const addConflictPair = (pair: SearchResult[], subquestionId: string) => {
+    const snapshot = units.map((unit) => ({ ...unit, results: [...unit.results] }));
+    const pairIds = new Set(pair.map((result) => result.id));
+    units = units.map((unit) =>
+      unit.results.some((result) => pairIds.has(result.id)) ? { ...unit, conflict: true } : unit,
+    );
+    const existingIds = selectedIds();
+    const missingPair = pair.filter(
+      (result, index) => !existingIds.has(result.id) && pair.findIndex((item) => item.id === result.id) === index,
+    );
+    const missingByDocument = new Map<string, number>();
+    for (const result of missingPair) {
+      missingByDocument.set(result.document_id, (missingByDocument.get(result.document_id) ?? 0) + 1);
+    }
+    for (const [documentId, missingCount] of missingByDocument) {
+      while (documentCount(documentId) + missingCount > options.maxPerDocument) {
+        if (!removeLastSingleton(documentId, pairIds)) {
+          units = snapshot;
+          omittedConflictSubquestionIds.add(subquestionId);
+          return;
+        }
+      }
+    }
+    while (selectedResults().length + missingPair.length > options.limit) {
+      if (!removeLastSingleton(undefined, pairIds)) {
+        units = snapshot;
+        omittedConflictSubquestionIds.add(subquestionId);
+        return;
+      }
+    }
+    if (missingPair.length) units.push({ results: missingPair, conflict: true });
+  };
+  const maxDepth = Math.max(0, ...lanes.map((lane) => lane.orderedEvidence.length));
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    for (const lane of lanes) {
+      const result = lane.orderedEvidence[depth];
+      if (!result || selectedIds().has(result.id)) continue;
+      const conflictPair = conflictPairForResult(lane, result.id);
+      if (conflictPair) {
+        addConflictPair(conflictPair, lane.subquestionId);
+      } else if (
+        selectedResults().length < options.limit &&
+        documentCount(result.document_id) < options.maxPerDocument
+      ) {
+        units.push({ results: [result], conflict: false });
+      }
+    }
+  }
+  return { results: selectedResults(), omittedConflictSubquestionIds };
+}
+
 /** Merge eligible evidence in policy order without numeric authority or locality score boosts. */
 export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput): CoverageEvidenceSelection[] {
   const indexed = input.candidates.map((result, inputIndex) => ({ result, inputIndex }));
@@ -338,16 +437,18 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
       claimRole,
     });
     const collapsed = collapseEvidenceFamilies(ordered);
-    const selectedIds = new Set(
-      selectAustralianClinicalContext(collapsed.orderedEvidence, {
-        limit: input.maxPerSubquestion ?? 6,
-        maxPerDocument: input.maxPerDocument ?? 2,
-        sufficientAustralianChunks: 4,
-        omitSupplementaryPadding: true,
-        preserveInputPolicyOrder: true,
-      }).map((result) => result.id),
+    const supplementaryBounded = selectAustralianClinicalContext(collapsed.orderedEvidence, {
+      limit: collapsed.orderedEvidence.length,
+      maxPerDocument: collapsed.orderedEvidence.length,
+      sufficientAustralianChunks: 4,
+      omitSupplementaryPadding: true,
+      preserveInputPolicyOrder: true,
+    });
+    const preliminaryBudget = selectConflictAwareCoverageEvidence(
+      [{ subquestionId: subquestion.id, orderedEvidence: supplementaryBounded, conflicts }],
+      { limit: input.maxPerSubquestion ?? 6, maxPerDocument: input.maxPerDocument ?? 2 },
     );
-    const orderedEvidence = collapsed.orderedEvidence.filter((result) => selectedIds.has(result.id));
+    const orderedEvidence = preliminaryBudget.results;
     const direct = orderedEvidence.some((result) => result.relevance?.verdict === "direct");
     const partial = orderedEvidence.some((result) => result.relevance?.verdict === "partial");
     const coverageReason: CoverageEvidenceSelection["coverageReason"] = direct
@@ -367,6 +468,7 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
       collapsedEvidenceFamilyIds: collapsed.collapsedEvidenceFamilyIds,
       conflicts: retainedSelectionConflicts(conflicts, orderedEvidence),
       sourcePolicyReview,
+      sourcePolicyConflictOmitted: preliminaryBudget.omittedConflictSubquestionIds.has(subquestion.id),
       coverageReason,
     };
   });

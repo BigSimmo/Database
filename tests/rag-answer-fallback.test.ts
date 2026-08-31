@@ -2319,6 +2319,113 @@ describe("RAG structured-output fallback", () => {
     expect(fastOverflow.conflictsOrGaps).toContainEqual(expect.objectContaining({ type: "gap" }));
   });
 
+  it("keeps unusable-fast-response recovery artifacts inside the exact strong context pack", async () => {
+    const pairs = [1, 2, 3, 4].map((index) => {
+      const local = source({
+        id: `recovery-local-${index}`,
+        document_id: `recovery-local-doc-${index}`,
+        title: `Local patient safety planning source ${index}`,
+        file_name: `recovery-local-${index}.pdf`,
+        content: "Patient safety planning is collaborative and reviewed when clinical status changes.",
+        similarity: 0.99 - index * 0.01,
+        hybrid_score: 0.99 - index * 0.01,
+        corpus_scope: "uploaded_local",
+        site_content_domain: null,
+        source_metadata: {
+          ...source().source_metadata!,
+          source_kind: "document",
+          source_title: `Local patient safety planning source ${index}`,
+          publisher_code: null,
+          publisher: "WA Health",
+          jurisdiction: "Australia/WA",
+          publication_date: "2024-01-01",
+          effective_date: "2024-01-01",
+          corpus_scope: "uploaded_local",
+          source_role: "local_guideline",
+          content_mode: "indexed_content",
+          source_catalogue_key: `uploaded_local:recovery-local-doc-${index}`,
+        },
+      });
+      const australian = source({
+        id: `recovery-au-${index}`,
+        document_id: `recovery-au-doc-${index}`,
+        title: `Australian patient safety planning source ${index}`,
+        file_name: `recovery-au-${index}.pdf`,
+        content: "Patient safety planning is collaborative and reviewed when clinical status changes.",
+        similarity: 0.985 - index * 0.01,
+        hybrid_score: 0.985 - index * 0.01,
+        corpus_scope: "australian_public",
+        site_content_domain: null,
+        source_metadata: {
+          ...source().source_metadata!,
+          source_kind: "document",
+          source_title: `Australian patient safety planning source ${index}`,
+          publisher_code: "OCPWA",
+          publisher: "Office of the Chief Psychiatrist WA",
+          jurisdiction: "Australia/WA",
+          publication_date: "2026-01-01",
+          effective_date: "2026-01-01",
+          corpus_scope: "australian_public",
+          source_role: "clinical_guideline",
+          content_mode: "indexed_content",
+          source_catalogue_key: `australian_public:recovery-au-doc-${index}`,
+          source_policy_version: "australian-source-policy-v1",
+          licence_policy: "public_index_permitted",
+        },
+      });
+      return {
+        local,
+        australian,
+        conflict: {
+          ...canonicalPolicyConflict(local, australian),
+          id: `recovery-conflict-${index}`,
+          topicKey: `patient-safety-planning-${index}`,
+          claimRole: "treatment" as const,
+        },
+      };
+    });
+    const answer = await answerFromTextSources(
+      "How is patient safety planning handled?",
+      pairs.flatMap((pair) => [pair.local, pair.australian]),
+      {
+        answer: "No current source with specific guidance for this query was found.",
+        grounded: false,
+        confidence: "unsupported",
+        answerSections: [],
+        citations: [],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+      { sourcePolicyConflicts: pairs.map((pair) => pair.conflict) },
+    );
+    const strongPackIds = new Set((answer.sources ?? []).map((result) => result.id));
+    const excludedIds = pairs
+      .flatMap((pair) => [pair.local.id, pair.australian.id])
+      .filter((id) => !strongPackIds.has(id));
+    const servedIds = [
+      ...answer.citations.map((citation) => citation.chunk_id),
+      ...(answer.quoteCards ?? []).map((quote) => quote.chunk_id),
+      ...(answer.conflictsOrGaps ?? []).flatMap((item) => item.source_chunk_ids ?? []),
+    ];
+    const servedRecoverySurface = {
+      citations: answer.citations,
+      quoteCards: answer.quoteCards,
+      documentBreakdown: answer.documentBreakdown,
+      evidenceSummary: answer.evidenceSummary,
+      sourceCoverage: answer.sourceCoverage,
+      conflictsOrGaps: answer.conflictsOrGaps,
+      visualEvidence: answer.visualEvidence,
+      bestSource: answer.bestSource,
+      smartPanel: answer.smartPanel,
+    };
+
+    expect(strongPackIds.size).toBe(4);
+    expect(excludedIds).toHaveLength(4);
+    expect(servedIds.length).toBeGreaterThan(0);
+    expect([...new Set(servedIds.filter((id) => !strongPackIds.has(id)))]).toEqual([]);
+    for (const excludedId of excludedIds) expect(JSON.stringify(servedRecoverySurface)).not.toContain(excludedId);
+  });
+
   it("preserves grounded source-backed answers when only the overlap heuristic is recoverable", async () => {
     const answer = await answerFromTextSources(
       "What is the long acting injectable pathway?",

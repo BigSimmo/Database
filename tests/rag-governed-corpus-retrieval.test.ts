@@ -9,6 +9,8 @@ import {
   governedCorpusComponentCacheNamespace,
   retrievalPlanCacheQuery,
   scopedAnswerCacheKey,
+  scopedSearchCacheKey,
+  sharedAnswerNormalizedQuery,
 } from "../src/lib/rag/rag-cache";
 import { governedCorpusComponentState } from "../src/lib/rag/rag-contracts";
 import type { RagContextSnapshot } from "../src/lib/site-content/site-content-contracts";
@@ -294,5 +296,24 @@ describe("governed public corpus retrieval", () => {
       siteContent: "enabled",
       australianAugmentation: "disabled",
     });
+  });
+
+  it("partitions every retrieval and answer cache identity on the international coverage gap", () => {
+    const cacheArgs = {
+      query: "lithium monitoring",
+      ragQueryPlanMode: "canary" as const,
+      governedCorpusComponents: {
+        siteContent: true,
+        australianAugmentation: true,
+        australianCurrent: true,
+      },
+    };
+    const withoutGap = { ...cacheArgs, governedInternationalCoverageGap: false };
+    const withGap = { ...cacheArgs, governedInternationalCoverageGap: true };
+
+    expect(retrievalPlanCacheQuery(withoutGap)).not.toBe(retrievalPlanCacheQuery(withGap));
+    expect(scopedSearchCacheKey(withoutGap)).not.toBe(scopedSearchCacheKey(withGap));
+    expect(scopedAnswerCacheKey(withoutGap)).not.toBe(scopedAnswerCacheKey(withGap));
+    expect(sharedAnswerNormalizedQuery(withoutGap)).not.toBe(sharedAnswerNormalizedQuery(withGap));
   });
 });

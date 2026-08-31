@@ -681,10 +681,10 @@ describe("RAG request site-content snapshot", () => {
     expect(legacy.ragRequestContext.snapshot.publicSiteContent.state).toBe("disabled");
     expect(legacy.ragRequestContext.snapshotCacheKey).toBe("");
     expect(ragCacheModule.scopedAnswerCacheKey(legacy)).toBe(
-      `rag-cache-v21|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring`,
+      `rag-cache-v21|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring|corpora|international-gap:off`,
     );
     expect(ragCacheModule.retrievalPlanCacheQuery(legacy, "table_threshold", ["clozapine anc"])).toBe(
-      "redacted-cache:1dc4b0888f8c0c097fd1d3eaab011a6ec0af81e9c342a7e9f3bc844d4dc303c5",
+      "redacted-cache:8fe5e7d2c1c9343df92017c8b1188a4813883c64973e0e306bb0b470769720b7",
     );
     const cache = ragCacheModule as CacheModule;
     expect(cache.sharedAnswerNormalizedQuery).toBeTypeOf("function");
@@ -694,7 +694,7 @@ describe("RAG request site-content snapshot", () => {
       .trim();
     expect(cache.sharedAnswerNormalizedQuery?.(legacy)).toBe(
       queryCacheKeyForStorage(
-        `${normalizedSharedQuery}|generation:${generation}|queryPlan:rag-query-plan-v1|queryPlanMode:legacy`,
+        `${normalizedSharedQuery}|generation:${generation}|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|international-gap:off`,
       ),
     );
   });
@@ -1099,6 +1099,8 @@ describe("site-aware RAG cache isolation", () => {
       documentIds: ["document-original"],
       queryMode: "auto" as const,
       forceEmbedding: false,
+      governedCorpusComponents: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+      governedInternationalCoverageGap: true,
       signal: originalAbort.signal,
       ragContextSnapshotInput: currentInput,
     };
@@ -1152,6 +1154,12 @@ describe("site-aware RAG cache isolation", () => {
     request.documentIds = ["document-mutated"];
     request.queryMode = "compare_guidance";
     request.forceEmbedding = true;
+    request.governedCorpusComponents = {
+      siteContent: false,
+      australianAugmentation: false,
+      australianCurrent: false,
+    };
+    request.governedInternationalCoverageGap = false;
     request.ragRequestContext = replacementContext.ragRequestContext;
     harness.documentGate.resolve();
 
@@ -1200,6 +1208,8 @@ describe("site-aware RAG cache isolation", () => {
       documentId: "document-original",
       queryMode: "auto" as const,
       forceEmbedding: false,
+      governedCorpusComponents: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+      governedInternationalCoverageGap: true,
       ragContextSnapshotInput: currentInput,
     };
     const request = withRagRequestContext(requestInput);
@@ -1241,6 +1251,12 @@ describe("site-aware RAG cache isolation", () => {
     request.documentId = "document-mutated";
     request.queryMode = "compare_guidance";
     request.forceEmbedding = true;
+    request.governedCorpusComponents = {
+      siteContent: false,
+      australianAugmentation: false,
+      australianCurrent: false,
+    };
+    request.governedInternationalCoverageGap = false;
     request.ragRequestContext = withRagRequestContext({
       query: "new context",
       ragContextSnapshotInput: { ...currentInput, publicSiteChangeEpoch: "8" },

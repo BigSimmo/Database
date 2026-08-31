@@ -631,6 +631,66 @@ describe("coverage and source-role evidence merge", () => {
     expect(selection?.coverageReason).toBe("direct");
   });
 
+  it("does not treat a Clinical KB medication record citation as product lookup for dose guidance", () => {
+    const uploaded = governedEvidence({
+      id: "uploaded-lithium-dose",
+      corpusScope: "uploaded_local",
+      content: "Lithium is prescribed at a dose and frequency defined by the current local guideline.",
+    });
+    const site = governedEvidence({
+      id: "site-lithium-dose",
+      corpusScope: "clinical_kb_site",
+      content: "The Clinical KB lithium medication record summarizes dose and frequency.",
+      role: "clinical_reference",
+    });
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan(
+        [
+          {
+            id: "dose",
+            question:
+              "According to the Clinical KB lithium medication record, what dose and frequency are recommended?",
+          },
+        ],
+        ["medications"],
+      ),
+      candidates: [site, uploaded],
+      claimRole: "dose_or_monitoring",
+    });
+
+    expect(selection?.orderedEvidence[0]?.id).toBe("uploaded-lithium-dose");
+  });
+
+  it("does not treat a Clinical KB mention as product lookup for monitoring guidance", () => {
+    const uploaded = governedEvidence({
+      id: "uploaded-lithium-monitoring",
+      corpusScope: "uploaded_local",
+      content: "Lithium should be monitored with renal and thyroid tests under the current local guideline.",
+    });
+    const site = governedEvidence({
+      id: "site-lithium-monitoring",
+      corpusScope: "clinical_kb_site",
+      content: "Clinical KB lithium monitoring summary with renal and thyroid tests.",
+      role: "clinical_reference",
+    });
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan(
+        [
+          {
+            id: "monitoring",
+            question: "How should lithium be monitored according to Clinical KB?",
+            purpose: "monitoring",
+          },
+        ],
+        ["medications"],
+      ),
+      candidates: [site, uploaded],
+      claimRole: "dose_or_monitoring",
+    });
+
+    expect(selection?.orderedEvidence[0]?.id).toBe("uploaded-lithium-monitoring");
+  });
+
   it("keeps uploaded guidance ahead when record is a clinical verb rather than Clinical KB product intent", () => {
     const uploaded = governedEvidence({
       id: "uploaded-clozapine",
@@ -864,11 +924,11 @@ describe("coverage and source-role evidence merge", () => {
     expect(monitoring?.sourcePolicyReview).toBe("verified_conflict");
   });
 
-  it("keeps fitted conflict pairs atomic and exposes a review gap when another pair cannot fit", () => {
+  it("keeps exactly three complete unique-document conflict pairs inside the strong six-chunk bound", () => {
     const plan = queryPlan([
       { id: "monitoring", question: "lithium renal monitoring interval", purpose: "monitoring" },
     ]);
-    const pairs = [1, 2, 3].map((index) => {
+    const pairs = [1, 2, 3, 4].map((index) => {
       const local = governedEvidence({
         id: `overflow-local-${index}`,
         corpusScope: "uploaded_local",
@@ -889,7 +949,7 @@ describe("coverage and source-role evidence merge", () => {
       return { local, australian, conflict };
     });
     const selection = selectModelContextEvidence({
-      routeMode: "fast",
+      routeMode: "strong",
       queryClass: "medication_dose_risk",
       crossDocument: false,
       results: pairs.flatMap((pair) => [pair.local, pair.australian]),
@@ -899,8 +959,8 @@ describe("coverage and source-role evidence merge", () => {
     const monitoring = selection.coverageSelections[0]!;
     const retainedIds = new Set(selection.results.map((result) => result.id));
 
-    expect(selection.results).toHaveLength(4);
-    expect(monitoring.conflicts).toHaveLength(2);
+    expect(selection.results).toHaveLength(6);
+    expect(monitoring.conflicts).toHaveLength(3);
     for (const conflict of monitoring.conflicts) {
       expect(conflict.local.supportingChunkIds.some((id) => retainedIds.has(id))).toBe(true);
       expect(conflict.australian.supportingChunkIds.some((id) => retainedIds.has(id))).toBe(true);
@@ -919,7 +979,7 @@ describe("coverage and source-role evidence merge", () => {
     reconcileAnswerSourcePolicyConflicts(answer, selection.coverageSelections, coverage);
 
     expect(coverage.coverage[0]?.reasonCodes).toContain("source_policy_not_evaluated");
-    expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict")).toHaveLength(2);
+    expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict")).toHaveLength(3);
     expect(answer.conflictsOrGaps).toContainEqual(expect.objectContaining({ type: "gap" }));
   });
 
