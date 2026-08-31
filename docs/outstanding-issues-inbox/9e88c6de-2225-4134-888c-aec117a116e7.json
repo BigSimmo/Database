@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9e88c6de-2225-4134-888c-aec117a116e7",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#S4K1GA",
+    "outcome": "Documented Reduce Motion iPhone acceptance criteria in docs/search-chrome-behaviour.md.",
+    "baseRowFingerprint": "5676f5d83976cd86d804f66feba4e70edcd2a356c4d43a215f3aa642b1e5c7a0"
+  }
+}

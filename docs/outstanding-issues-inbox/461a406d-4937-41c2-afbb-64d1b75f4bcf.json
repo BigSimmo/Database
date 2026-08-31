@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "461a406d-4937-41c2-afbb-64d1b75f4bcf",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#AGRAKQ",
+    "outcome": "Fixed regex in tests/helpers/caring-contacts-prohibited-language.ts to exclude plural job titles like clinical leads.",
+    "baseRowFingerprint": "44aac365c59873fd32faa0503d08df87d1e7b15cfc430b7e49b431d45441758b"
+  }
+}

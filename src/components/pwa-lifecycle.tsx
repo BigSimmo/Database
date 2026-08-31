@@ -138,7 +138,7 @@ function NoticeIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: "accent" | "
       className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] ${toneClassName}`}
       aria-hidden="true"
     >
-      <Icon className="h-5 w-5" />
+      <Icon aria-hidden="true" className="h-5 w-5" />
     </span>
   );
 }

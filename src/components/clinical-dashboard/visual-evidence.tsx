@@ -582,7 +582,7 @@ export function MobileEvidenceSheetContent({
                     : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon aria-hidden="true" className="h-3.5 w-3.5" />
                 {tab}
                 {count ? <span className="nums text-2xs opacity-80">{count}</span> : null}
               </button>
