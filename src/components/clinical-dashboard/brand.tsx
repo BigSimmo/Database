@@ -1,11 +1,5 @@
 import { cn } from "@/components/ui-primitives";
-import {
-  BRAND_COUNTER_TRANSFORM,
-  BRAND_GLYPH_TRANSFORM_BARE,
-  BRAND_POINT,
-  BRAND_STROKE_PATH,
-  BRAND_VIEWBOX,
-} from "@/lib/brand-mark";
+import { BRAND_COUNTER_TRANSFORM, BRAND_VIEWBOX, brandMarkOptics } from "@/lib/brand-mark";
 
 /**
  * Site brand mark: the PsychSift S — two counter-turning strokes divided by one
@@ -47,7 +41,34 @@ const BRAND_MARK_INK: Record<BrandMarkTone, string> = {
   contrast: "var(--brand-mark-contrast)",
 };
 
-export function BrandMark({ className, tone = "resting" }: { className?: string; tone?: BrandMarkTone }) {
+/**
+ * Which optical cut of the glyph to draw. The mark is a construction, not a
+ * bitmap, so it does not simply get smaller — two pieces of its negative space
+ * close up before anything else does.
+ *
+ * - `display` — the primary construction. Correct above 32px.
+ * - `chrome` — the small-size cut, for 32px and below: a wider gap between the
+ *   strokes and the point slid out of its cradle. Both are the brand's own
+ *   committed geometry, not a redraw.
+ *
+ * Sized by className, so the component cannot measure itself and this cannot be
+ * inferred. State it at the call site, matched to the height you are setting.
+ */
+export type BrandMarkOptical = "display" | "chrome";
+
+export function BrandMark({
+  className,
+  tone = "resting",
+  optical = "display",
+}: {
+  className?: string;
+  tone?: BrandMarkTone;
+  optical?: BrandMarkOptical;
+}) {
+  // One call, so the stroke, the point and the centring transform can only be
+  // taken as a set — the brand doc is explicit that mixing one variant's point
+  // with the other's placement puts the glyph off-centre in its box.
+  const { transform, stroke, point } = brandMarkOptics(optical);
   return (
     <svg
       viewBox={BRAND_VIEWBOX}
@@ -56,10 +77,10 @@ export function BrandMark({ className, tone = "resting" }: { className?: string;
       focusable="false"
       className={cn("shrink-0", className)}
     >
-      <g transform={BRAND_GLYPH_TRANSFORM_BARE} fill={BRAND_MARK_INK[tone]}>
-        <path d={BRAND_STROKE_PATH} />
-        <path d={BRAND_STROKE_PATH} transform={BRAND_COUNTER_TRANSFORM} />
-        <circle cx={BRAND_POINT.cx} cy={BRAND_POINT.cy} r={BRAND_POINT.r} />
+      <g transform={transform} fill={BRAND_MARK_INK[tone]}>
+        <path d={stroke} />
+        <path d={stroke} transform={BRAND_COUNTER_TRANSFORM} />
+        <circle cx={point.cx} cy={point.cy} r={point.r} />
       </g>
     </svg>
   );
