@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { AnswerSupportSummaryCard, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
+import { AnswerUtilityActions, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
 import type { AnswerState } from "@/components/ui/answer-state";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { RagAnswer } from "@/lib/types";
@@ -134,26 +134,27 @@ describe("answerSupportPriority · Review source match", () => {
   });
 });
 
-describe("AnswerSupportSummaryCard · feedback on a clean answer", () => {
-  it("still hosts Report a problem when priority and warnings are both empty", () => {
+describe("AnswerUtilityActions · feedback on a clean answer", () => {
+  it("keeps Report a problem beside Copy with sources when priority and warnings are both empty", () => {
     render(
-      <AnswerSupportSummaryCard
-        priority={null}
+      <AnswerUtilityActions
+        copied={false}
+        onCopy={() => undefined}
         warnings={[]}
         pendingFeedback={null}
         onSubmitFeedback={() => undefined}
       />,
     );
+    expect(screen.getByRole("button", { name: "Copy answer with source status" })).toBeInTheDocument();
     expect(screen.getByTestId("answer-feedback-trigger")).toBeInTheDocument();
   });
 
-  it("the answer surface mounts that card for feedback even without priority or warnings", () => {
+  it("the answer surface mounts utilities independently and reserves the support card for a real priority", () => {
     const surface = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
       "utf8",
     );
-    expect(surface).toMatch(
-      /showInlineSupportCard = Boolean\(priority \|\| renderModel\.warnings\.length > 0 \|\| onSubmitFeedback\)/,
-    );
+    expect(surface).toContain("<AnswerUtilityActions");
+    expect(surface).toMatch(/showInlineSupportCard = Boolean\(priority\)/);
   });
 });
