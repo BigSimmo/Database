@@ -120,6 +120,16 @@ describe("MasterSearchHeader DOM", () => {
     expect(props.onAsk).toHaveBeenCalledOnce();
   });
 
+  it("ignores form and keyboard submission while the composer is loading", () => {
+    const props = { ...defaultHeaderProps(), query: "bipolar", loading: true };
+    render(<MasterSearchHeader {...props} searchMode="dsm" />);
+
+    fireEvent.submit(screen.getByRole("search"));
+    fireEvent.keyDown(screen.getByTestId("global-search-input"), { key: "Enter", ctrlKey: true });
+
+    expect(props.onAsk).not.toHaveBeenCalled();
+  });
+
   it("shows a governed Smart cue only when the server capability and intent both allow it", () => {
     const props = {
       ...defaultHeaderProps(),
