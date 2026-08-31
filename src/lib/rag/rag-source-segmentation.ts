@@ -17,7 +17,12 @@ const wrappedAgitationConsultantLeadPattern =
   /\bDosing\s+frequencies\s+outside\s+the\s+recommended\s+guidelines\s+require\s+Consultant\s*$/i;
 const wrappedAgitationConsultantContinuationPattern = /^Psychiatrist\s+approval\.\s*$/i;
 
-/** Rejoin a PDF visual wrap that separates an escalation action from its clinical recipient. */
+/**
+ * Rejoins a PDF visual wrap that separates an escalation action from its clinical recipient.
+ *
+ * @param value - Raw text containing potentially broken escalation lines
+ * @returns Reflowed text with escalation directives reunited with recipients
+ */
 export function reflowWrappedEscalationRecipientLines(value: string) {
   const reflowed: string[] = [];
   for (const rawLine of value.replace(/\r\n?/g, "\n").split("\n")) {
@@ -37,7 +42,12 @@ export function reflowWrappedEscalationRecipientLines(value: string) {
   return reflowed.join("\n");
 }
 
-/** Rejoin the observed FSH ECT booking-system name when PDF wrapping splits its governing directive. */
+/**
+ * Rejoins the observed FSH ECT booking-system name when PDF wrapping splits its governing directive.
+ *
+ * @param value - Raw text containing broken ECT booking sentences
+ * @returns Reflowed text with BASE scheduling system name attached to lead directive
+ */
 export function reflowWrappedEctBookingSystemLines(value: string) {
   const reflowed: string[] = [];
   for (const rawLine of value.replace(/\r\n?/g, "\n").split("\n")) {
@@ -57,7 +67,12 @@ export function reflowWrappedEctBookingSystemLines(value: string) {
   return reflowed.join("\n");
 }
 
-/** Rejoin the observed EMHS agitation-dose bullet continuations without crossing bullet boundaries. */
+/**
+ * Rejoins the observed EMHS agitation-dose bullet continuations without crossing bullet boundaries.
+ *
+ * @param value - Raw text containing broken agitation bullet continuations
+ * @returns Reflowed text with dose limits and doctor approval clauses restored
+ */
 export function reflowWrappedAgitationDoseLines(value: string) {
   const reflowed: string[] = [];
   for (const rawLine of value.replace(/\r\n?/g, "\n").split("\n")) {
