@@ -431,7 +431,7 @@ function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; ter
               <div key={fact.id} className="min-w-0 text-center sm:text-left" role="listitem">
                 <p
                   className={cn(
-                    "min-w-0 text-[0.6875rem] font-extrabold leading-tight tracking-tight tabular-nums [overflow-wrap:anywhere] min-[360px]:text-xs sm:text-base sm:leading-none sm:tracking-normal",
+                    "min-w-0 text-2xs font-extrabold leading-tight tracking-tight tabular-nums [overflow-wrap:anywhere] min-[360px]:text-xs sm:text-base sm:leading-none sm:tracking-normal",
                     theme.accentText,
                   )}
                   data-testid="differential-safety-value"
