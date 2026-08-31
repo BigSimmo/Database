@@ -202,7 +202,6 @@ const apiDescriptions: Record<string, string> = {
   "/api/documents/[id]/table-facts": "Document table facts.",
   "/api/documents/bulk": "Bulk document operations.",
   "/api/documents/bulk/reindex": "Bulk reindex operation.",
-  "/api/documents/signed-urls": "Bulk private document signed URLs.",
   "/api/eval-cases": "Evaluation case data.",
   "/api/health": "Health check.",
   "/api/health/ready": "Readiness health check.",
