@@ -785,6 +785,9 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await waitForReactEventHandler(dsmMode);
     await dsmMode.click();
     await expect(page).toHaveURL(/\/\?mode=dsm\b/, { timeout: 20_000 });
+    const dsmModeButton = page.getByRole("button", { name: "Mode DSM-5 Diagnosis" });
+    await expect(dsmModeButton).toBeVisible();
+    await expect(dsmModeButton).toBeFocused();
 
     // Submitting is the only thing that leaves home.
     await visibleGlobalSearchInput(page).fill("bipolar");

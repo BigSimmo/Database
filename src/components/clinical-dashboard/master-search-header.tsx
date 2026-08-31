@@ -1481,6 +1481,7 @@ export function MasterSearchHeader({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canAsk) return;
     setActionMenuOpen(false);
     setCommandDropdownOpen(false);
     onAsk();
@@ -2087,7 +2088,7 @@ export function MasterSearchHeader({
                 // controlled-state work on a large parent tree.
                 onChange={(event) => onQueryChange(event.target.value)}
                 onKeyDown={(event) => {
-                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
+                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canAsk) onAsk();
                 }}
                 aria-label={
                   clinicalAskAvailable
