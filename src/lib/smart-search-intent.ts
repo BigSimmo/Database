@@ -38,7 +38,7 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
       pattern: /\b(?:involuntary admission|detain|detention|compulsory admission)\b/i,
       terms: ["involuntary", "admission", "detention", "assessment"],
     },
-    { pattern: /\b(?:move|moving|transport|transfer)\b/i, terms: ["transfer", "transport", "movement"] },
+    { pattern: /\b(?:move|moving)\b/i, terms: ["transfer", "transport", "movement"] },
     { pattern: /\b(?:extend(?:s|ed|ing)?|extension|continue detention)\b/i, terms: ["extension", "detention"] },
     { pattern: /\b(?:revoke|revocation|cancel an order)\b/i, terms: ["revocation", "order"] },
   ],

@@ -2078,7 +2078,7 @@ export function MasterSearchHeader({
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canAsk) onAsk();
                 }}
-                aria-label={`Search by question or keyword - ${selectedSearch.inputAriaLabel}`}
+                aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
                 placeholder={queryPlaceholder}
                 className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
               />
