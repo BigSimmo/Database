@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d6e41550-1a6a-4f4f-aff5-d95004011942",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#PWZYY8",
+    "outcome": "Added aria-hidden=\"true\" to icon call-sites and updated eslint-rules/require-lucide-icon-aria.mjs to cover Icon/ActiveIcon.",
+    "baseRowFingerprint": "da667e76e2022fb63e3ea55f8621433bde734f2367f1ce8eb62fe373ca5de62e"
+  }
+}

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "f340cd0b9052459a438ab8ae8d52de19c88dd55e",
-    "committed_at": "2026-08-29T12:26:43+08:00"
+    "sha": "e3df71ece467ecdd3588c730a1ba1b89a3c1e226",
+    "committed_at": "2026-08-31T11:25:44+08:00"
   },
   "routes": {
     "modes": [
@@ -4279,12 +4279,52 @@
   "review_state": {
     "records": [
       {
+        "date": "2026-08-31",
+        "ref": "codex/answer-surface-compact-20260830",
+        "head": "705561dd1f9b1ac8f72c7a4858e3819b9ee5a40e",
+        "scope": "compact answer source safety and library UI",
+        "outcome": "No P0-P2 findings; compact source status, answer utilities, safety row, and library placement ready for PR",
+        "checks": "13 focused DOM tests passed; targeted Chromium 1/1 passed; lint and typecheck passed; build passed 1998 routes; design contracts passed; production-readiness CI READY; offline RAG 628/628 and adversarial 25/25 passed; full unit 11656 passed with 6 unrelated Windows Claude Cloud harness exit-127 failures; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "7190c2ccd87dfc25e49e488b22705fb6b7b60931",
+        "scope": "Smart natural search CI reconciliation exact-tree review",
+        "outcome": "No open P0/P1/P2 findings; maintainability blocker fixed by cohesive extraction",
+        "checks": "maintainability budgets; 86 focused Vitest; provider-free Chromium Smart suite; lint; typecheck; formatting; diff check"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "8de6dae0e541166dad23523ca3a4e2340eb6c217",
+        "scope": "Smart natural search exact-tree implementation and review",
+        "outcome": "P2 findings fixed; no open P0/P1/P2 findings",
+        "checks": "105 focused contracts; enabled Chromium 6 passed/1 skipped; default-off Chromium 1 passed; production build passed; PR-local 11616 passed with 6 exact-main Windows Bash failures"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "b762e1363b9bbb993f0f74a9e00a2c2ccb1f56be",
+        "scope": "Smart natural search final CI test correction review",
+        "outcome": "No open P0/P1/P2 findings; stale extracted-owner tests corrected",
+        "checks": "6 focused Vitest; DSM production Chromium; formatting; diff check"
+      },
+      {
         "date": "2026-08-29",
         "ref": "PR-2454",
         "head": "9e27b7b779443eb9d140c5eaf562af578f5ec6e4",
         "scope": "CI triage and unresolved review findings",
         "outcome": "Confirmed PR-specific repo-awareness drift and two P2 documentation findings; corrected the generated snapshot, Windows LCP delta, and Linux-only qualification. Main coverage/browser failures did not reproduce on the PR head.",
         "checks": "PR/base Actions logs; repo-awareness check; outstanding-issues check; docs links; targeted Prettier; arithmetic verification"
+      },
+      {
+        "date": "2026-08-29",
+        "ref": "PR-2457",
+        "head": "0e5631ba6a98b22ef1ddf5557e6ce38b824e78b2",
+        "scope": "PR #2457 review-and-fix",
+        "outcome": "Fixed repository breakpoint coverage, conservative same-band Tailwind cascade handling, and the stale compact-disclosure UI assertion; no other material PR-introduced defects confirmed.",
+        "checks": "57 focused Vitest tests passed; design-system contract/adoption/sync passed; typecheck passed; local Playwright unavailable because pinned Chromium is not installed, with exact-head Actions reproducing the corrected 42px assertion."
       },
       {
         "date": "2026-08-27",
@@ -25456,8 +25496,8 @@
       }
     ],
     "counts": {
-      "records": 2647,
-      "refs": 1615
+      "records": 2652,
+      "refs": 1618
     }
   }
 }

@@ -758,6 +758,7 @@ export function ClinicalSidebarContent({
                   )}
                 >
                   <Icon
+                    aria-hidden="true"
                     className={cn(
                       "h-4 w-4 shrink-0",
                       active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
@@ -808,6 +809,7 @@ export function ClinicalSidebarContent({
                     )}
                   >
                     <Icon
+                      aria-hidden="true"
                       className={cn(
                         "h-4 w-4 shrink-0",
                         active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
@@ -997,7 +999,7 @@ function ClinicalCollapsedRail({
                 title={item.label}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon className="h-4 w-4" />
+                <Icon aria-hidden="true" className="h-4 w-4" />
               </Link>
             );
           })}
@@ -1026,7 +1028,7 @@ function ClinicalCollapsedRail({
                     title={item.label}
                     aria-current={active ? "page" : undefined}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon aria-hidden="true" className="h-4 w-4" />
                   </Link>
                 );
               })}

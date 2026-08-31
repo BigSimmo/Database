@@ -74,7 +74,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
               aria-expanded={expanded}
             >
               <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white shadow-[var(--e1)]">
-                <ActiveIcon className="h-3.5 w-3.5" />
+                <ActiveIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
@@ -84,7 +84,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                   {activeMode.label}
                 </span>
               </span>
-              <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" />
+              <ChevronDown aria-hidden="true" className="h-4 w-4 text-[color:var(--text-soft)]" />
             </button>
 
             {expanded ? (
@@ -114,7 +114,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
                         ].join(" ")}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon aria-hidden="true" className="h-4 w-4" />
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{mode.label}</span>
@@ -122,7 +122,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                           {mode.description}
                         </span>
                       </span>
-                      {mode.active ? <Check className="h-4 w-4" /> : null}
+                      {mode.active ? <Check aria-hidden="true" className="h-4 w-4" /> : null}
                     </button>
                   );
                 })}

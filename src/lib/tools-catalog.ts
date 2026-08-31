@@ -1,4 +1,4 @@
-import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { appModeHomeHref, canAccessFavouritesMode } from "@/lib/app-modes";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
@@ -83,7 +83,11 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Build and compare diagnostic possibilities with source-aware prompts.",
     bestFor: "Broad or complex presentations",
     detail: "Compare diagnostic possibilities, supporting features, red flags, and next-step questions.",
-    href: "/differentials",
+    // Tools is in-app navigation, so go straight to the canonical shared home.
+    // The bare namespace is only a compatibility redirect for old bookmarks;
+    // sending a client transition through it can briefly retain the Tools route
+    // shell and its phone geometry before the second navigation settles.
+    href: appModeHomeHref("differentials"),
     area: "assessment",
     status: "recent",
     sourceBacked: true,
@@ -120,7 +124,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     bestFor: "Terminology and abbreviation lookup",
     detail:
       "Open concise definitions, resolve ambiguous abbreviations, compare terms, and review their direct sources.",
-    href: "/dictionary",
+    href: appModeHomeHref("dictionary"),
     area: "reference",
     status: "ready",
     sourceBacked: true,
@@ -200,7 +204,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Open source-backed service records, referral routes, and eligibility.",
     bestFor: "Referrals and coordination",
     detail: "Open service records with referral routes, eligibility, source status, and access pathways.",
-    href: "/services",
+    href: appModeHomeHref("services"),
     area: "coordination",
     status: "ready",
     sourceBacked: true,
@@ -217,7 +221,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Find clinical forms and source-backed readiness pathways.",
     bestFor: "Forms and workflows",
     detail: "Open form search, readiness checks, pathway tasks, and source-backed records.",
-    href: "/forms",
+    href: appModeHomeHref("forms"),
     area: "coordination",
     status: "ready",
     sourceBacked: true,
@@ -287,7 +291,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     bestFor: "Bedside scoring and severity banding",
     detail:
       "Search and complete clinical calculators (PHQ-9, GAD-7, CSSRS, and related scales). Scores support clinical judgement and cite their source — they never replace a full assessment.",
-    href: "/calculators",
+    href: appModeHomeHref("calculators"),
     area: "assessment",
     status: "ready",
     sourceBacked: true,

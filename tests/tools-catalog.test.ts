@@ -5,6 +5,7 @@ import {
   toolCatalogRecords,
   toolCatalogRecordsForSession,
 } from "../src/lib/tools-catalog";
+import { appModeHomeHref, type AppModeId } from "../src/lib/app-modes";
 import { tools as mockupToolFixtures } from "../src/components/tools-page-mockups/tool-fixtures";
 
 describe("tools catalog", () => {
@@ -23,8 +24,19 @@ describe("tools catalog", () => {
     }
   });
 
-  it("links calculators to the production calculators page", () => {
-    expect(toolCatalogRecordById("calculators").href).toBe("/calculators");
+  it("links shared-home tools directly to their canonical mode homes", () => {
+    const sharedHomeTools = [
+      ["differentials", "differentials"],
+      ["clinical-dictionary", "dictionary"],
+      ["services", "services"],
+      ["forms", "forms"],
+      ["calculators", "calculators"],
+    ] as const satisfies readonly (readonly [Parameters<typeof toolCatalogRecordById>[0], AppModeId])[];
+
+    for (const [toolId, modeId] of sharedHomeTools) {
+      expect(toolCatalogRecordById(toolId).href).toBe(appModeHomeHref(modeId));
+      expect(toolCatalogRecordById(toolId).href).toBe(`/?mode=${modeId}`);
+    }
   });
 
   // Ward Flow is deliberately absent from this catalogue — see
