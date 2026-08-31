@@ -3343,6 +3343,13 @@ test.describe("PsychSift UI smoke coverage", () => {
       { width: 1920, height: 1080 },
     ]) {
       await page.setViewportSize(viewport);
+      // Reading boundingBox() immediately after a resize can race the
+      // reflow — Chromium sometimes reports one sibling's box mid-transition
+      // (seen ~10px short) while the other has already settled. Two rAF
+      // round-trips let layout finish before we measure.
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+      );
       const statusBox = await statusRow.boundingBox();
       const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
       const reviewDueBox = await reviewDueTab.boundingBox();
