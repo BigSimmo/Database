@@ -2576,6 +2576,41 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 320, height: 700 });
     await expect(detailPage).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+    const safetySnapshot = detailPage.getByTestId("differential-safety-snapshot");
+    await expect(safetySnapshot).toBeVisible();
+    await expect(safetySnapshot.getByTestId("differential-safety-cta")).toHaveCount(0);
+
+    const safetyMetricItems = safetySnapshot.getByRole("list", { name: "Safety metrics" }).getByRole("listitem");
+    await expect(safetyMetricItems).toHaveCount(4);
+    const metricRows = await safetyMetricItems.evaluateAll((items) => {
+      return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;
+    });
+    expect(metricRows).toBe(1);
+    const metricValuesStayWithinCells = await safetyMetricItems.evaluateAll((items) => {
+      return items.every((item) => {
+        const value = item.querySelector('[data-testid="differential-safety-value"]');
+        if (!value) return false;
+        const valueRange = document.createRange();
+        valueRange.selectNodeContents(value);
+        const valueBounds = valueRange.getBoundingClientRect();
+        const itemBounds = item.getBoundingClientRect();
+        return valueBounds.left >= itemBounds.left - 0.5 && valueBounds.right <= itemBounds.right + 0.5;
+      });
+    });
+    expect(metricValuesStayWithinCells).toBe(true);
+
+    const watchRowCenterSpread = await safetySnapshot
+      .getByTestId("differential-safety-watchlist")
+      .evaluate((watchlist) => {
+        const centers = Array.from(watchlist.children).map((item) => {
+          const bounds = item.getBoundingClientRect();
+          return bounds.top + bounds.height / 2;
+        });
+        return Math.max(...centers) - Math.min(...centers);
+      });
+    expect(watchRowCenterSpread).toBeLessThan(1);
+    const safetySnapshotBox = await safetySnapshot.boundingBox();
+    expect(safetySnapshotBox?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(250);
     await expect(detailPage.getByRole("tab", { name: "Overview" })).toBeHidden();
     // The header is portaled into the universal collapse row on phones, so it
     // lives outside the page root that `detailPage` scopes to.
@@ -2649,6 +2684,17 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       return lines;
     });
     expect(overviewLineCount).toBe(1);
+
+    await overviewTab.click();
+    await expect(safetySnapshot).toBeVisible();
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.setViewportSize({ width: 320, height: 700 });
+    await expect(safetySnapshot).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const forcedColorsMetricRows = await safetyMetricItems.evaluateAll((items) => {
+      return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;
+    });
+    expect(forcedColorsMetricRows).toBe(1);
   });
 
   test("diagnosis map keeps labels contained and the selected inspector out of the canvas", async ({ page }) => {
