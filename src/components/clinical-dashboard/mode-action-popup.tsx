@@ -892,7 +892,7 @@ export function ModeActionPopup({
                 className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
               >
                 <span className="mode-action-mode-option-icon">
-                  <Icon className="h-4 w-4" />
+                  <Icon aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-extrabold">{mode.label}</span>

@@ -3988,7 +3988,7 @@ function ClinicalDashboardContent({
                               )}
                             >
                               <span className="flex items-center gap-1.5 text-xs font-bold">
-                                <Icon className="h-3.5 w-3.5" />
+                                <Icon aria-hidden="true" className="h-3.5 w-3.5" />
                                 {tab.label}
                               </span>
                               <span

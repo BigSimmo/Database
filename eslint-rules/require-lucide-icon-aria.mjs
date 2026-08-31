@@ -47,7 +47,9 @@ const rule = {
       },
       JSXOpeningElement(node) {
         if (node.name.type !== "JSXIdentifier") return;
-        if (!lucideValueImports.has(node.name.name)) return;
+        const isLucide = lucideValueImports.has(node.name.name);
+        const isIconIdentifier = node.name.name === "Icon" || node.name.name === "ActiveIcon";
+        if (!isLucide && !isIconIdentifier) return;
         // A spread ({...props}) may inject aria-* dynamically — don't flag.
         if (node.attributes.some((attr) => attr.type === "JSXSpreadAttribute")) return;
         const declaresIntent = node.attributes.some(
