@@ -11,10 +11,48 @@ import { buildRagQueryPlan } from "@/lib/rag/rag-query-plan";
 import { buildRagRetrievalVariantPlan, fetchEnabledRagAliases } from "@/lib/rag/rag-retrieval-variants";
 import { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
 import { selectRetrievalEvidence } from "@/lib/retrieval-selection";
+import {
+  classifyClaimRoleForSubquestion,
+  retainCanonicalSourcePolicyConflicts,
+  searchResultEligibilityForClaim,
+} from "@/lib/source-role-policy";
 import type { createAdminClient } from "@/lib/supabase/admin";
-import type { ClinicalQueryAnalysis, RagQueryClass, RagQueryPlan, SearchResult } from "@/lib/types";
+import type {
+  ClinicalQueryAnalysis,
+  RagQueryClass,
+  RagQueryPlan,
+  SearchResult,
+  SourcePolicyConflict,
+} from "@/lib/types";
 
 type GovernedModeResult = { candidateResults: SearchResult[]; results: SearchResult[]; served: boolean };
+
+function prevalidatedConflictGroups(args: {
+  candidates: SearchResult[];
+  conflicts: readonly SourcePolicyConflict[];
+  queryPlan: RagQueryPlan;
+}) {
+  const groups: string[][] = [];
+  const seen = new Set<string>();
+  for (const subquestion of args.queryPlan.subquestions) {
+    const claimRole = classifyClaimRoleForSubquestion(subquestion);
+    const eligible = args.candidates.filter(
+      (candidate) => searchResultEligibilityForClaim(candidate, claimRole).eligible,
+    );
+    const canonical = retainCanonicalSourcePolicyConflicts({
+      conflicts: args.conflicts,
+      local: eligible.filter((candidate) => candidate.corpus_scope === "uploaded_local"),
+      australian: eligible.filter((candidate) => candidate.corpus_scope === "australian_public"),
+      claimRole,
+    });
+    for (const conflict of canonical) {
+      if (seen.has(conflict.id)) continue;
+      seen.add(conflict.id);
+      groups.push([...new Set([...conflict.local.supportingChunkIds, ...conflict.australian.supportingChunkIds])]);
+    }
+  }
+  return groups;
+}
 
 /** Build the candidate plan from public-only analysis and aliases, independently of a shadow control. */
 export async function planGovernedCandidateSearch(input: {
@@ -106,12 +144,18 @@ export async function routeGovernedSearch(input: {
   }
 
   const hydrated = await attachDocumentRankingMetadata(supabase, candidateResults, undefined, undefined, args.signal);
+  const conflictGroups = prevalidatedConflictGroups({
+    candidates: hydrated,
+    conflicts: args.sourcePolicyConflicts ?? [],
+    queryPlan,
+  });
   const selection = selectRetrievalEvidence({
     query,
     queryClass,
     results: rankClinicalResults(query, hydrated),
     topK: args.topK ?? 8,
     maxResultsPerDocument: queryClass === "comparison" ? 2 : 4,
+    prevalidatedAtomicGroups: conflictGroups,
   });
   telemetry.retrieval_intent = selection.intent;
   telemetry.retrieval_selection = selection.summary;

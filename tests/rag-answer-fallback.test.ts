@@ -2193,7 +2193,7 @@ describe("RAG structured-output fallback", () => {
         licence_policy: "public_index_permitted",
       },
     });
-    const conflict = { ...canonicalPolicyConflict(local, australian), claimRole: "treatment" as const };
+    const conflict = canonicalPolicyConflict(local, australian);
     const capturedInputs: string[] = [];
     const capturedProgress: Array<{ smartApiPlan?: unknown }> = [];
     const generated = {
@@ -2237,11 +2237,11 @@ describe("RAG structured-output fallback", () => {
     expect(JSON.stringify(publicPlan ?? null)).not.toContain("canonical-lithium-monitoring-conflict");
 
     const dropped = await answerFromTextSources(
-      "According to the local lithium guideline, what renal monitoring is required?",
+      "According to the local lithium guideline, what treatment is required?",
       [local, australian],
       {
         ...generated,
-        answer: "The current local lithium guideline requires renal monitoring.",
+        answer: "The current local lithium guideline describes the required treatment.",
         citations: [{ chunk_id: local.id }],
         conflictsOrGaps: [],
       },
@@ -2284,7 +2284,7 @@ describe("RAG structured-output fallback", () => {
           ...canonicalPolicyConflict(pairLocal, pairAustralian),
           id: `fast-conflict-${index}`,
           topicKey: `patient-safety-planning-${index}`,
-          claimRole: "treatment" as const,
+          claimRole: "safety" as const,
         },
       };
     });
@@ -2380,7 +2380,7 @@ describe("RAG structured-output fallback", () => {
           ...canonicalPolicyConflict(local, australian),
           id: `recovery-conflict-${index}`,
           topicKey: `patient-safety-planning-${index}`,
-          claimRole: "treatment" as const,
+          claimRole: "safety" as const,
         },
       };
     });
@@ -5496,5 +5496,115 @@ describe("budget-aware generation deadlines", () => {
     ]);
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
     expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+  });
+
+  it("fails a source-only treatment answer closed when the only direct hit is link-only service content", async () => {
+    const ineligibleSiteSource = source({
+      id: "site-service-link-only",
+      document_id: "site-service-record",
+      title: "Acute psychosis service directory",
+      file_name: "service-directory",
+      content: "Acute psychosis should be treated with urgent specialist assessment and antipsychotic treatment.",
+      corpus_scope: "clinical_kb_site",
+      site_content_domain: "services",
+      source_metadata: {
+        ...source().source_metadata!,
+        source_kind: "registry_record",
+        source_title: "Acute psychosis service directory",
+        publisher: "Clinical KB",
+        jurisdiction: "Australia/WA",
+        publication_date: "2026-01-01",
+        effective_date: "2026-01-01",
+        corpus_scope: "clinical_kb_site",
+        source_role: "service_directory",
+        content_mode: "link_only",
+        source_catalogue_key: "clinical_kb_site:services:acute-psychosis",
+      },
+    });
+
+    const answer = await answerFromTextSources(
+      "How should acute psychosis be treated?",
+      [ineligibleSiteSource],
+      undefined,
+      { sourceOnly: true },
+    );
+
+    expect(answer.routingMode).toBe("unsupported");
+    expect(answer.sources).toEqual([]);
+    expect(answer.citations).toEqual([]);
+    expect(JSON.stringify(answer)).not.toContain(ineligibleSiteSource.id);
+  });
+
+  it("keeps every visible source artifact inside the exact eligible pack when a higher site hit is ineligible", async () => {
+    const eligibleGuideline = source({
+      id: "eligible-local-guideline",
+      document_id: "eligible-local-guideline-doc",
+      title: "Local acute psychosis treatment guideline",
+      file_name: "acute-psychosis-guideline.pdf",
+      content: "Acute psychosis treatment requires urgent assessment and an individualized antipsychotic plan.",
+      similarity: 0.78,
+      hybrid_score: 0.78,
+      corpus_scope: "uploaded_local",
+      site_content_domain: null,
+      source_metadata: {
+        ...source().source_metadata!,
+        source_kind: "document",
+        source_title: "Local acute psychosis treatment guideline",
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+        publication_date: "2025-01-01",
+        effective_date: "2025-01-01",
+        corpus_scope: "uploaded_local",
+        source_role: "local_guideline",
+        content_mode: "indexed_content",
+        source_catalogue_key: "uploaded_local:acute-psychosis-guideline",
+      },
+    });
+    const ineligibleSiteSource = source({
+      id: "higher-ineligible-site-service",
+      document_id: "higher-ineligible-site-service-doc",
+      title: "Acute psychosis service directory",
+      file_name: "service-directory",
+      content: "Acute psychosis treatment requires urgent assessment and an individualized antipsychotic plan.",
+      similarity: 0.99,
+      hybrid_score: 0.99,
+      corpus_scope: "clinical_kb_site",
+      site_content_domain: "services",
+      source_metadata: {
+        ...source().source_metadata!,
+        source_kind: "registry_record",
+        source_title: "Acute psychosis service directory",
+        publisher: "Clinical KB",
+        jurisdiction: "Australia/WA",
+        publication_date: "2026-01-01",
+        effective_date: "2026-01-01",
+        corpus_scope: "clinical_kb_site",
+        source_role: "service_directory",
+        content_mode: "link_only",
+        source_catalogue_key: "clinical_kb_site:services:acute-psychosis",
+      },
+    });
+
+    const answer = await answerFromTextSources(
+      "How should acute psychosis be treated?",
+      [ineligibleSiteSource, eligibleGuideline],
+      undefined,
+      { sourceOnly: true },
+    );
+    const visibleArtifact = {
+      sources: answer.sources,
+      citations: answer.citations,
+      quoteCards: answer.quoteCards,
+      bestSource: answer.bestSource,
+      documentBreakdown: answer.documentBreakdown,
+      evidenceSummary: answer.evidenceSummary,
+      sourceCoverage: answer.sourceCoverage,
+      conflictsOrGaps: answer.conflictsOrGaps,
+      smartPanel: answer.smartPanel,
+    };
+
+    expect(answer.sources.map((result) => result.id)).toEqual([eligibleGuideline.id]);
+    expect(JSON.stringify(visibleArtifact)).toContain(eligibleGuideline.id);
+    expect(JSON.stringify(visibleArtifact)).not.toContain(ineligibleSiteSource.id);
   });
 });

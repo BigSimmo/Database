@@ -6,14 +6,108 @@ import {
   medicationDoseQuerySubjectTokens,
   medicationMonitoringQuerySubjectTokens,
 } from "@/lib/clinical-search";
+import { buildCrossDocumentSynthesisPlan } from "@/lib/cross-document-synthesis";
+import {
+  buildDocumentBreakdown,
+  buildEvidenceSummary,
+  buildSmartPanel,
+  buildSourceCoverage,
+  buildVisualEvidence,
+  detectConflictsOrGaps,
+  extractQuoteCards,
+  reconcileQuoteCards,
+  selectBestSourceRecommendation,
+} from "@/lib/evidence";
+import { buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { buildAnswerScoreExplanations, buildIndexingQuality, collectMemoryCards } from "@/lib/rag/rag-answer-support";
+import { selectModelContextEvidence } from "@/lib/rag/rag-context-selection";
 import type {
+  RagAnswer,
+  RagQueryPlan,
   RagQueryClass,
+  RelatedDocument,
   RetrievalCandidate,
   RetrievalChunkType,
   RetrievalIntent,
   RetrievalSelectionSummary,
   SearchResult,
+  SiteContentPartitionState,
+  SourcePolicyConflict,
 } from "@/lib/types";
+
+export function selectAnswerRouteEvidence(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+  queryPlan?: RagQueryPlan;
+  siteContentState?: SiteContentPartitionState;
+  sourcePolicyConflicts?: readonly SourcePolicyConflict[];
+}) {
+  const selectionArgs = { ...args, routeMode: "strong" as const, crossDocument: false };
+  const eligible = selectModelContextEvidence(selectionArgs);
+  const crossDocumentPlan = buildCrossDocumentSynthesisPlan(args.query, eligible.results, args.queryClass);
+  const rawResults = crossDocumentPlan.enabled ? crossDocumentPlan.results : eligible.results;
+  const routeSelection = selectModelContextEvidence({
+    ...selectionArgs,
+    results: rawResults,
+    crossDocument: crossDocumentPlan.enabled,
+  });
+  return { crossDocumentPlan, rawResults, routeSelection };
+}
+
+export function buildSelectedEvidenceArtifacts(query: string, results: SearchResult[]) {
+  const quoteCards = extractQuoteCards(results, query);
+  const memoryCardsUsed = collectMemoryCards(results);
+  return {
+    relevance: buildEvidenceRelevance(query, results),
+    quoteCards,
+    documentBreakdown: buildDocumentBreakdown(results, quoteCards),
+    smartPanel: buildSmartPanel(query, results),
+    evidenceSummary: buildEvidenceSummary(results, quoteCards),
+    sourceCoverage: buildSourceCoverage(results),
+    conflictsOrGaps: detectConflictsOrGaps(results),
+    visualEvidence: buildVisualEvidence(results),
+    bestSource: selectBestSourceRecommendation(results, quoteCards),
+    memoryCardsUsed,
+    indexingQuality: buildIndexingQuality(results, memoryCardsUsed),
+    scoreExplanations: buildAnswerScoreExplanations(results),
+  };
+}
+
+export function retainRelatedDocumentsForResults(documents: RelatedDocument[], results: SearchResult[]) {
+  const chunkIds = new Set(results.map((result) => result.id));
+  const documentIds = new Set(results.map((result) => result.document_id));
+  return documents.flatMap((document) => {
+    if (!documentIds.has(document.document_id)) return [];
+    const bestChunkIds = document.best_chunk_ids.filter((id) => chunkIds.has(id));
+    return bestChunkIds.length ? [{ ...document, best_chunk_ids: bestChunkIds }] : [];
+  });
+}
+
+export function applySelectedEvidenceArtifacts(args: {
+  answer: RagAnswer;
+  query: string;
+  results: SearchResult[];
+  relatedDocuments: RelatedDocument[];
+  artifacts: ReturnType<typeof buildSelectedEvidenceArtifacts>;
+}) {
+  const { answer, query, results, relatedDocuments, artifacts } = args;
+  answer.sources = results;
+  answer.quoteCards = reconcileQuoteCards(answer.quoteCards, results, query);
+  answer.documentBreakdown = artifacts.documentBreakdown;
+  answer.evidenceSummary = artifacts.evidenceSummary;
+  answer.sourceCoverage = artifacts.sourceCoverage;
+  answer.conflictsOrGaps = answer.conflictsOrGaps?.length ? answer.conflictsOrGaps : artifacts.conflictsOrGaps;
+  answer.visualEvidence = artifacts.visualEvidence;
+  answer.bestSource = selectBestSourceRecommendation(results, answer.quoteCards) ?? artifacts.bestSource;
+  answer.relatedDocuments = relatedDocuments;
+  answer.smartPanel = {
+    ...artifacts.smartPanel,
+    relevance: artifacts.relevance,
+    bestSource: answer.bestSource,
+    relatedDocuments,
+  };
+}
 
 const emptyChunkTypeCounts = (): Record<RetrievalChunkType, number> => ({
   text: 0,
@@ -600,6 +694,8 @@ export function selectRetrievalEvidence(args: {
   results: SearchResult[];
   topK: number;
   maxResultsPerDocument: number;
+  /** Request-local, fully validated candidate IDs that must survive retrieval caps atomically. */
+  prevalidatedAtomicGroups?: readonly (readonly string[])[];
 }): {
   results: SearchResult[];
   intent: RetrievalIntent;
@@ -624,25 +720,78 @@ export function selectRetrievalEvidence(args: {
       return (right.contentCoverageScore ?? 0) - (left.contentCoverageScore ?? 0);
     return left.chunkId.localeCompare(right.chunkId);
   });
-  const selectedCandidates: RetrievalCandidate[] = [];
-  const perDocument = new Map<string, number>();
-
-  for (const candidate of sortedCandidates) {
-    const currentDocumentCount = perDocument.get(candidate.documentId) ?? 0;
-    if (currentDocumentCount >= args.maxResultsPerDocument) continue;
-    selectedCandidates.push(candidate);
-    perDocument.set(candidate.documentId, currentDocumentCount + 1);
-    if (selectedCandidates.length >= args.topK) break;
+  const candidateById = new Map(candidates.map((candidate) => [candidate.chunkId, candidate]));
+  const atomicGroupByCandidateId = new Map<string, RetrievalCandidate[]>();
+  for (const rawGroup of args.prevalidatedAtomicGroups ?? []) {
+    const groupIds = [...new Set(rawGroup)];
+    if (groupIds.length < 2 || groupIds.some((id) => !candidateById.has(id) || atomicGroupByCandidateId.has(id)))
+      continue;
+    const group = groupIds.map((id) => candidateById.get(id)!);
+    group.forEach((candidate) => atomicGroupByCandidateId.set(candidate.chunkId, group));
   }
 
-  const selectedResults = selectedCandidates
+  type SelectionUnit = { candidates: RetrievalCandidate[]; atomic: boolean };
+  let selectionUnits: SelectionUnit[] = [];
+  const selectedCandidates = () => selectionUnits.flatMap((unit) => unit.candidates);
+  const selectedIds = () => new Set(selectedCandidates().map((candidate) => candidate.chunkId));
+  const documentCount = (documentId: string) =>
+    selectedCandidates().filter((candidate) => candidate.documentId === documentId).length;
+  const removeLastSingleton = (documentId?: string) => {
+    const index = selectionUnits.findLastIndex(
+      (unit) => !unit.atomic && (!documentId || unit.candidates[0]?.documentId === documentId),
+    );
+    if (index < 0) return false;
+    selectionUnits = selectionUnits.filter((_, unitIndex) => unitIndex !== index);
+    return true;
+  };
+  const addAtomicGroup = (group: RetrievalCandidate[]) => {
+    const snapshot = selectionUnits.map((unit) => ({ ...unit, candidates: [...unit.candidates] }));
+    const missing = group.filter((candidate) => !selectedIds().has(candidate.chunkId));
+    const requiredByDocument = new Map<string, number>();
+    for (const candidate of missing) {
+      requiredByDocument.set(candidate.documentId, (requiredByDocument.get(candidate.documentId) ?? 0) + 1);
+    }
+    for (const [documentId, required] of requiredByDocument) {
+      if (required > args.maxResultsPerDocument) return false;
+      while (documentCount(documentId) + required > args.maxResultsPerDocument) {
+        if (!removeLastSingleton(documentId)) {
+          selectionUnits = snapshot;
+          return false;
+        }
+      }
+    }
+    while (selectedCandidates().length + missing.length > args.topK) {
+      if (!removeLastSingleton()) {
+        selectionUnits = snapshot;
+        return false;
+      }
+    }
+    if (missing.length) selectionUnits.push({ candidates: missing, atomic: true });
+    return true;
+  };
+
+  for (const candidate of sortedCandidates) {
+    if (selectedIds().has(candidate.chunkId)) continue;
+    const atomicGroup = atomicGroupByCandidateId.get(candidate.chunkId);
+    if (atomicGroup) {
+      addAtomicGroup(atomicGroup);
+      continue;
+    }
+    if (selectedCandidates().length >= args.topK || documentCount(candidate.documentId) >= args.maxResultsPerDocument)
+      continue;
+    selectionUnits.push({ candidates: [candidate], atomic: false });
+  }
+
+  const retainedCandidates = selectedCandidates();
+
+  const selectedResults = retainedCandidates
     .map((candidate) => {
       const result = byId.get(candidate.chunkId);
       if (!result) return null;
       return annotateResultWithSelection(result, candidate, originalScoreById.get(candidate.chunkId) ?? 0, intent);
     })
     .filter((result): result is SearchResult => Boolean(result));
-  const rescueApplied = selectedCandidates.some(
+  const rescueApplied = retainedCandidates.some(
     (candidate) => candidate.score > (originalScoreById.get(candidate.chunkId) ?? 0) + 0.04,
   );
 
@@ -652,7 +801,7 @@ export function selectRetrievalEvidence(args: {
     candidates,
     summary: summarizeSelection({
       intent,
-      selectedCandidates,
+      selectedCandidates: retainedCandidates,
       candidateCount: candidates.length,
       rescueApplied,
     }),

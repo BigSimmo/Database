@@ -940,3 +940,64 @@ describe("saturated-score tie-breaking", () => {
     expect(tiedSelection.results.map((item) => item.id)).toEqual(["chunk-c", "chunk-d"]);
   });
 });
+
+describe("prevalidated atomic retrieval groups", () => {
+  it("displaces lower-priority singletons so a late cross-document conflict survives the unchanged caps", () => {
+    const sameDocumentSingles = [1, 2, 3, 4].map((index) =>
+      source({
+        id: `local-singleton-${index}`,
+        document_id: "local-guideline",
+        content: `Lithium monitoring background ${index}.`,
+        hybrid_score: 0.99 - index * 0.01,
+      }),
+    );
+    const localConflict = source({
+      id: "late-local-conflict",
+      document_id: "local-guideline",
+      content: "The local lithium guideline requires renal monitoring every month.",
+      hybrid_score: 0.61,
+    });
+    const australianConflict = source({
+      id: "late-australian-conflict",
+      document_id: "australian-guideline",
+      content: "The Australian lithium guideline requires renal monitoring every three months.",
+      hybrid_score: 0.6,
+    });
+
+    const selection = selectRetrievalEvidence({
+      query: "Compare local and Australian lithium renal monitoring guidance",
+      queryClass: "comparison",
+      results: [...sameDocumentSingles, localConflict, australianConflict],
+      topK: 4,
+      maxResultsPerDocument: 4,
+      prevalidatedAtomicGroups: [[localConflict.id, australianConflict.id]],
+    });
+
+    const selectedIds = selection.results.map((result) => result.id);
+    expect(selectedIds).toHaveLength(4);
+    expect(selectedIds).toEqual(expect.arrayContaining([localConflict.id, australianConflict.id]));
+  });
+
+  it("does not pin any candidate from an incomplete prevalidated group", () => {
+    const localConflict = source({
+      id: "stale-local-conflict",
+      document_id: "local-guideline",
+      content: "Lithium monitoring background only.",
+      hybrid_score: 0.2,
+    });
+    const selection = selectRetrievalEvidence({
+      query: "Compare local and Australian lithium renal monitoring guidance",
+      queryClass: "comparison",
+      results: [
+        source({ id: "strong-1", document_id: "strong-doc-1", hybrid_score: 0.95 }),
+        source({ id: "strong-2", document_id: "strong-doc-2", hybrid_score: 0.94 }),
+        localConflict,
+      ],
+      topK: 2,
+      maxResultsPerDocument: 2,
+      prevalidatedAtomicGroups: [[localConflict.id, "missing-australian-conflict"]],
+    });
+
+    expect(selection.results.map((result) => result.id)).toEqual(["strong-1", "strong-2"]);
+  });
+});

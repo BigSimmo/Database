@@ -10,6 +10,7 @@ import type { RetrievalAccessScope } from "@/lib/owner-scope";
 import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
 import type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
 import type { SiteContentDomain, SiteContentPartitionState } from "@/lib/types";
+import type { SourcePolicyConflict } from "@/lib/types";
 
 export type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
 export type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
@@ -86,6 +87,8 @@ export type SearchChunksArgs = {
   governedCorpusComponents?: GovernedCorpusComponents;
   /** Internal explicit coverage decision; supplementary retrieval is forbidden unless true. */
   governedInternationalCoverageGap?: boolean;
+  /** Request-local canonical policy inputs; never serialized into cache or telemetry identity. */
+  sourcePolicyConflicts?: readonly SourcePolicyConflict[];
   /** Request-local handoff of the exact served plan; never persisted in cache identity or telemetry. */
   captureRagQueryPlan?: (plan: RagQueryPlan) => void;
 };
