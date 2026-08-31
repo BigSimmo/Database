@@ -682,10 +682,13 @@ function matchesDiagnosisFilter(record: SpecifierRecord, diagnosis: string) {
 
 export function searchSpecifiers(
   query: string,
-  options: { family?: "all" | SpecifierFamily; diagnosis?: string } = {},
+  options: { family?: "all" | SpecifierFamily; diagnosis?: string; expansions?: readonly string[] } = {},
 ) {
   const normalizedQuery = normalizeSearchText(query);
   const tokens = searchTokens(query);
+  const expansionTokens = Array.from(
+    new Set((options.expansions ?? []).flatMap((expansion) => searchTokens(expansion))),
+  );
   const diagnosis = normalizeSearchText(options.diagnosis ?? "");
 
   return specifierRecords
@@ -703,6 +706,11 @@ export function searchSpecifiers(
         if (title.includes(token)) score += 18;
         if (keywords.includes(token)) score += 10;
         if (haystack.includes(token)) score += 3;
+      }
+      for (const token of expansionTokens) {
+        if (title.includes(token)) score += 6;
+        if (keywords.includes(token)) score += 4;
+        if (haystack.includes(token)) score += 1;
       }
 
       return { record, score };

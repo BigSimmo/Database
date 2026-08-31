@@ -3322,9 +3322,11 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const statusRow = page.getByTestId("answer-source-status-row");
     const sourceOnlyDisclosure = statusRow.getByTestId("source-only-disclosure");
+    const reviewDueSurface = statusRow.getByTestId("retrieval-state-banner");
     const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
     await expect(statusRow).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(reviewDueSurface).toBeVisible();
     await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(reviewDueTab).toContainText("Review due");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
@@ -3342,13 +3344,19 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.setViewportSize(viewport);
       const statusBox = await statusRow.boundingBox();
       const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
+      const reviewDueSurfaceBox = await reviewDueSurface.boundingBox();
       const reviewDueBox = await reviewDueTab.boundingBox();
       expect(statusBox).toBeTruthy();
       expect(sourceOnlyBox).toBeTruthy();
+      expect(reviewDueSurfaceBox).toBeTruthy();
       expect(reviewDueBox).toBeTruthy();
-      expect(Math.abs(sourceOnlyBox!.y - reviewDueBox!.y)).toBeLessThanOrEqual(1);
+      // Compare the two direct flex items. The review-due tab is nested inside
+      // its wrapper, so comparing it with the source-only surface would measure
+      // internal chrome rather than the shared row alignment.
+      expect(Math.abs(sourceOnlyBox!.y - reviewDueSurfaceBox!.y)).toBeLessThanOrEqual(1);
       expect(statusBox!.height).toBeLessThanOrEqual(42);
       expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
+      expect(reviewDueSurfaceBox!.height).toBeLessThanOrEqual(42);
       expect(reviewDueBox!.height).toBeLessThanOrEqual(42);
       await expectNoPageHorizontalOverflow(page);
     }
