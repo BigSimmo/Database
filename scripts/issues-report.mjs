@@ -69,10 +69,17 @@ export function classifyAgentSafeWins(rows) {
   });
 }
 
-export function buildIssuesReport(markdown, source) {
+export function isWardFlowRow(row) {
+  if (!row) return false;
+  const summary = String(row.summary ?? "");
+  const outcome = String(row.outcome ?? "");
+  return /^ward flow\b/i.test(summary) || /^ward flow\b/i.test(outcome);
+}
+
+export function buildIssuesReport(markdown, source, options = {}) {
   const parsed = parseIssues(markdown);
   const queue = queueRows(markdown);
-  const openRows = parsed.rows
+  let openRows = parsed.rows
     .filter((row) => row.table === "open")
     .map((row) => {
       const cells = splitCells(row.raw);
@@ -97,13 +104,39 @@ export function buildIssuesReport(markdown, source) {
   // removed at the point of use instead. Order, acuity, capability, when and
   // estimate stay from the queue, which is the only place they exist.
   const detailById = new Map(openRows.map((row) => [row.id, row.detail]));
-  const derived = queue.map((row) => {
+  let derived = queue.map((row) => {
     // A composite ID(s) cell has no single row to speak for it; keep the queue
     // text there rather than arbitrarily picking one of the cited rows.
     if (row.ids.length !== 1) return row;
     const detail = detailById.get(row.ids[0]);
     return detail ? { ...row, outcome: detail } : row;
   });
+
+  if (options.ward) {
+    const isWard = (row) => isWardFlowRow(row);
+    const wardOpenIds = new Set(openRows.filter(isWard).map((r) => r.id));
+    openRows = openRows.filter(isWard);
+    derived = derived.filter((row) => isWard(row) || (row.ids && row.ids.some((id) => wardOpenIds.has(id))));
+  } else if (options.core) {
+    const isWard = (row) => isWardFlowRow(row);
+    const wardOpenIds = new Set(openRows.filter(isWard).map((r) => r.id));
+    openRows = openRows.filter((r) => !isWard(r));
+    derived = derived.filter((row) => !isWard(row) && !(row.ids && row.ids.some((id) => wardOpenIds.has(id))));
+  } else if (options.filter) {
+    const term = String(options.filter).toLowerCase();
+    const matches = (r) =>
+      Boolean(
+        (r.summary && String(r.summary).toLowerCase().includes(term)) ||
+        (r.detail && String(r.detail).toLowerCase().includes(term)) ||
+        (r.outcome && String(r.outcome).toLowerCase().includes(term)) ||
+        (r.id && String(r.id).toLowerCase().includes(term)) ||
+        (r.ids && r.ids.some((id) => String(id).toLowerCase().includes(term))),
+      );
+    const matchingOpenIds = new Set(openRows.filter(matches).map((r) => r.id));
+    openRows = openRows.filter(matches);
+    derived = derived.filter((row) => matches(row) || (row.ids && row.ids.some((id) => matchingOpenIds.has(id))));
+  }
+
   return {
     source,
     counts: { open: openRows.length, recommended: derived.length },
@@ -174,14 +207,40 @@ function render(report, winsOnly) {
     console.log(`${row.order}. ${row.ids.join(", ")} · ${row.acuity} · ${row.estimate} · ${row.outcome}`);
 }
 
+function parseCliArgs(argv) {
+  const flags = new Set();
+  let filter = undefined;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (["--json", "--agent-safe-wins", "--ward", "--core"].includes(arg)) {
+      flags.add(arg);
+    } else if (arg === "--filter") {
+      filter = argv[i + 1];
+      i += 1;
+    } else if (arg.startsWith("--filter=")) {
+      filter = arg.slice("--filter=".length);
+    } else {
+      throw new Error(`Unknown option: ${arg}`);
+    }
+  }
+  if (flags.has("--ward") && flags.has("--core")) {
+    throw new Error("Cannot specify both --ward and --core");
+  }
+  return {
+    json: flags.has("--json"),
+    winsOnly: flags.has("--agent-safe-wins"),
+    ward: flags.has("--ward"),
+    core: flags.has("--core"),
+    filter,
+  };
+}
+
 function main() {
-  const args = new Set(process.argv.slice(2));
-  const unknown = [...args].filter((arg) => !["--json", "--agent-safe-wins"].includes(arg));
-  if (unknown.length) throw new Error(`Unknown option: ${unknown[0]}`);
+  const options = parseCliArgs(process.argv.slice(2));
   const { markdown, source } = loadRevalidatedLedger();
-  const report = buildIssuesReport(markdown, source);
-  if (args.has("--json")) console.log(JSON.stringify(report, null, 2));
-  else render(report, args.has("--agent-safe-wins"));
+  const report = buildIssuesReport(markdown, source, options);
+  if (options.json) console.log(JSON.stringify(report, null, 2));
+  else render(report, options.winsOnly);
 }
 
 const isDirectRun =
