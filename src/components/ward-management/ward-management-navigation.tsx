@@ -84,7 +84,7 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
     <>
       <div className={sidebarStyles.phoneBar}>
         <Link href="/mockups/ward-flow" className={sidebarStyles.phoneBrand}>
-          <BrandMark tone="emphasis" className={sidebarStyles.brandGlyph} />
+          <BrandMark tone="emphasis" optical="chrome" className={sidebarStyles.brandGlyph} />
           <span className={sidebarStyles.phoneBrandName}>Ward Flow</span>
         </Link>
         <button
@@ -117,7 +117,7 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         closeLabel="Close Ward Flow menu"
         placement="left"
         contentClassName={sidebarStyles.drawerHidden}
-        headerLeading={<BrandMark tone="emphasis" className={sidebarStyles.brandGlyph} />}
+        headerLeading={<BrandMark tone="emphasis" optical="chrome" className={sidebarStyles.brandGlyph} />}
       >
         <div className={sidebarStyles.drawerBody}>
           <WardSidebarContent activeMode={activeMode} showBrandRow={false} onNavigate={() => setMenuOpen(false)} />

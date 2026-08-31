@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "10743a6e-53e4-45e9-b71a-468bf54682f2",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#S4R2W3",
+    "outcome": "Added isBareDocumentSupportListAnswer and guarded documentSupportListIntent so clinical questions do not return bare title lists without substantive prose.",
+    "baseRowFingerprint": "c33e41089ed9939bef3cf8baa2cb3e748eed79e7501c51d8632a3098d9e080b4"
+  }
+}
