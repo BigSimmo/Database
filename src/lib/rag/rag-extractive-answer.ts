@@ -2918,6 +2918,15 @@ function sourceBackedFallbackSubject(query: string) {
   const normalized = normalizeSectionText(canonicalQuery)
     .replace(/[?!.]+$/, "")
     .trim();
+  // Do not echo a requested governance status into the source-only fallback.
+  // "Is this protocol approved for use?" must become a neutral topic rather
+  // than prose that appears to affirm the unverified status.
+  const governanceStatusQuestion = normalized.match(
+    /^(?:is|are|was|were)\s+(.+?)\s+(?:approved|authori[sz]ed|validated|verified|current)\b/i,
+  );
+  if (governanceStatusQuestion?.[1]) {
+    return lowerFirst(governanceStatusQuestion[1]);
+  }
   const subject = normalized
     .replace(/^summari[sz]e\s+(?:the\s+)?/i, "")
     .replace(/^what\s+(?:is|are)\s+(?:the\s+)?(?:process|requirements?)\s+for\s+/i, "")
