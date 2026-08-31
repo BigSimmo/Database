@@ -7,12 +7,14 @@ import {
   evaluateAnswerCoverage,
   formatAnswerCoveragePromptLine,
   mergeEvidenceByCoverageAndSourceRole,
+  reconcileAnswerSourcePolicyConflicts,
 } from "../src/lib/rag/rag-coverage";
 import { answerCacheAllowedForSourcePolicyConflicts } from "../src/lib/rag/rag-cache";
 import { buildSmartRagApiPlan } from "../src/lib/smart-rag-api";
 import type {
   AnswerCoveragePlan,
   ClinicalSourceRole,
+  RagAnswer,
   RagQueryClass,
   RagQueryPlan,
   SearchResult,
@@ -842,6 +844,65 @@ describe("coverage and source-role evidence merge", () => {
     );
     expect(monitoring?.conflicts).toHaveLength(1);
     expect(monitoring?.sourcePolicyReview).toBe("verified_conflict");
+  });
+
+  it("keeps fitted conflict pairs atomic and exposes a review gap when another pair cannot fit", () => {
+    const plan = queryPlan([
+      { id: "monitoring", question: "lithium renal monitoring interval", purpose: "monitoring" },
+    ]);
+    const pairs = [1, 2, 3].map((index) => {
+      const local = governedEvidence({
+        id: `overflow-local-${index}`,
+        corpusScope: "uploaded_local",
+        content: `Lithium renal monitoring interval local recommendation ${index}.`,
+        role: "local_guideline",
+      });
+      const australian = governedEvidence({
+        id: `overflow-au-${index}`,
+        corpusScope: "australian_public",
+        content: `Lithium renal monitoring interval Australian recommendation ${index}.`,
+        role: "clinical_guideline",
+      });
+      const conflict = {
+        ...canonicalConflict(local, australian),
+        id: `overflow-conflict-${index}`,
+        topicKey: `lithium-monitoring-${index}`,
+      };
+      return { local, australian, conflict };
+    });
+    const selection = selectModelContextEvidence({
+      routeMode: "fast",
+      queryClass: "medication_dose_risk",
+      crossDocument: false,
+      results: pairs.flatMap((pair) => [pair.local, pair.australian]),
+      queryPlan: plan,
+      sourcePolicyConflicts: pairs.map((pair) => pair.conflict),
+    });
+    const monitoring = selection.coverageSelections[0]!;
+    const retainedIds = new Set(selection.results.map((result) => result.id));
+
+    expect(selection.results).toHaveLength(4);
+    expect(monitoring.conflicts).toHaveLength(2);
+    for (const conflict of monitoring.conflicts) {
+      expect(conflict.local.supportingChunkIds.some((id) => retainedIds.has(id))).toBe(true);
+      expect(conflict.australian.supportingChunkIds.some((id) => retainedIds.has(id))).toBe(true);
+    }
+    expect(monitoring).toMatchObject({
+      sourcePolicyReview: "verified_conflict",
+      sourcePolicyConflictOmitted: true,
+    });
+
+    const coverage = answerCoverageFromSelections({
+      plan,
+      selectedEvidence: selection.results,
+      selections: selection.coverageSelections,
+    });
+    const answer = { conflictsOrGaps: [] } as unknown as RagAnswer;
+    reconcileAnswerSourcePolicyConflicts(answer, selection.coverageSelections, coverage);
+
+    expect(coverage.coverage[0]?.reasonCodes).toContain("source_policy_not_evaluated");
+    expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict")).toHaveLength(2);
+    expect(answer.conflictsOrGaps).toContainEqual(expect.objectContaining({ type: "gap" }));
   });
 
   it("fails closed to a bounded review state when direct local and Australian evidence has no canonical verdict", () => {

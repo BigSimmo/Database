@@ -200,6 +200,8 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
       ...selection,
       orderedEvidence,
       conflicts,
+      sourcePolicyConflictOmitted:
+        selection.sourcePolicyConflictOmitted || flattened.omittedConflictSubquestionIds.has(selection.subquestionId),
       sourcePolicyReview: conflicts.length
         ? ("verified_conflict" as const)
         : flattened.omittedConflictSubquestionIds.has(selection.subquestionId) ||

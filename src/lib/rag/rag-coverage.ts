@@ -85,6 +85,8 @@ export type CoverageEvidenceSelection = {
   collapsedEvidenceFamilyIds: string[];
   conflicts: SourcePolicyConflict[];
   sourcePolicyReview: "not_applicable" | "not_evaluated" | "verified_conflict";
+  /** True when at least one verified conflict pair could not fit atomically inside the hard context budget. */
+  sourcePolicyConflictOmitted?: boolean;
   coverageReason:
     "direct" | "partial" | "not_in_corpus" | "site_content_updating" | "site_content_stale" | "source_role_mismatch";
 };
@@ -388,7 +390,9 @@ export function answerCoverageFromSelections(args: {
       support: selection.coverageReason === "direct" ? "direct" : "partial",
       reasonCodes: [
         selection.coverageReason,
-        ...(selection.sourcePolicyReview === "not_evaluated" ? ["source_policy_not_evaluated"] : []),
+        ...(selection.sourcePolicyReview === "not_evaluated" || selection.sourcePolicyConflictOmitted
+          ? ["source_policy_not_evaluated"]
+          : []),
       ],
       insufficiencyReason:
         selection.coverageReason === "direct" || selection.coverageReason === "partial"
@@ -417,18 +421,21 @@ export function reconcileAnswerSourcePolicyConflicts(
         );
       }),
   );
-  const retainedPolicyFlags = (coveragePlan?.conflicts ?? []).slice(0, 4).map((conflict) => {
-    const sourceChunkIds = [
-      conflict.local.supportingChunkIds[0],
-      conflict.australian.supportingChunkIds[0],
-      ...conflict.local.supportingChunkIds.slice(1),
-      ...conflict.australian.supportingChunkIds.slice(1),
-    ].filter((id): id is string => Boolean(id));
-    return {
-      type: "conflict" as const,
-      message: `Current local-primary and Australian sources have a reviewed ${conflict.materialDifferenceReason.replaceAll("_", " ")} difference. Review the local-primary source before acting.`,
-      source_chunk_ids: [...new Set(sourceChunkIds)].slice(0, 4),
-    };
+  const finalCitedChunkIds = new Set((coveragePlan?.coverage ?? []).flatMap((item) => item.chunkIds));
+  const retainedPolicyFlags = (coveragePlan?.conflicts ?? []).slice(0, 4).flatMap((conflict) => {
+    const localIds = conflict.local.supportingChunkIds.filter((id) => finalCitedChunkIds.has(id));
+    const australianIds = conflict.australian.supportingChunkIds.filter((id) => finalCitedChunkIds.has(id));
+    if (!localIds.length || !australianIds.length) return [];
+    const sourceChunkIds = [localIds[0], australianIds[0], ...localIds.slice(1), ...australianIds.slice(1)].filter(
+      (id): id is string => Boolean(id),
+    );
+    return [
+      {
+        type: "conflict" as const,
+        message: `Current local-primary and Australian sources have a reviewed ${conflict.materialDifferenceReason.replaceAll("_", " ")} difference. Review the local-primary source before acting.`,
+        source_chunk_ids: [...new Set(sourceChunkIds)].slice(0, 4),
+      },
+    ];
   });
   const unevaluatedCoverage = (coveragePlan?.coverage ?? []).filter((item) =>
     item.reasonCodes.includes("source_policy_not_evaluated"),

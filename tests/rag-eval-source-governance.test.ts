@@ -292,6 +292,50 @@ describe("Australian RAG evaluation diagnostics", () => {
       expect.objectContaining({ type: "conflict", source_chunk_ids: [local.id, australian.id] }),
     ]);
 
+    const uncitedLocal = { ...local, id: "local-uncited" };
+    const uncitedAustralian = { ...australian, id: "au-uncited" };
+    const multiChunkConflict: SourcePolicyConflict = {
+      ...conflict,
+      id: "conflict-multi-chunk",
+      local: { ...conflict.local, supportingChunkIds: [uncitedLocal.id, local.id] },
+      australian: { ...conflict.australian, supportingChunkIds: [uncitedAustralian.id, australian.id] },
+    };
+    const citedMultiChunkCoverage = evaluateAnswerCoverage({
+      plan,
+      selectedEvidence: [uncitedLocal, local, uncitedAustralian, australian],
+      evidenceBySubquestion: [
+        {
+          subquestionId: "monitoring",
+          selectedChunkIds: [uncitedLocal.id, local.id, uncitedAustralian.id, australian.id],
+          citedChunkIds: [local.id, australian.id],
+          eligibleChunkIds: [uncitedLocal.id, local.id, uncitedAustralian.id, australian.id],
+          support: "direct",
+        },
+      ],
+      conflicts: [multiChunkConflict],
+    });
+    const answerWithMultiChunkConflict = answer(
+      [uncitedLocal, local, uncitedAustralian, australian],
+      [citationFor(local), citationFor(australian)],
+    );
+    reconcileAnswerSourcePolicyConflicts(
+      answerWithMultiChunkConflict,
+      [
+        {
+          subquestionId: "monitoring",
+          orderedEvidence: [uncitedLocal, local, uncitedAustralian, australian],
+          collapsedEvidenceFamilyIds: [],
+          conflicts: [multiChunkConflict],
+          sourcePolicyReview: "verified_conflict",
+          coverageReason: "direct",
+        },
+      ],
+      citedMultiChunkCoverage,
+    );
+    expect(answerWithMultiChunkConflict.conflictsOrGaps).toEqual([
+      expect.objectContaining({ type: "conflict", source_chunk_ids: [local.id, australian.id] }),
+    ]);
+
     const notEvaluatedCoverage = {
       ...coverage,
       coverage: coverage.coverage.map((item) => ({
