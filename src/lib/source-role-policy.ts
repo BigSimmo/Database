@@ -6,6 +6,7 @@ import type {
   ClinicalSourceMetadata,
   ClinicalSourceRole,
   EvidencePrimaryDecision,
+  RagSubquestionPurpose,
   SearchResult,
   SourceEligibilityDecision,
   SourcePolicyConflict,
@@ -60,6 +61,36 @@ const eligibleRolesByClaim: Record<ClinicalClaimRole, ReadonlySet<ClinicalSource
     "local_guideline",
   ]),
 };
+
+/** Deterministically route a request-local subquestion to the narrow source-role policy it can use. */
+export function classifyClaimRoleForSubquestion(args: {
+  question: string;
+  purpose: RagSubquestionPurpose;
+}): ClinicalClaimRole {
+  const question = args.question.normalize("NFKC");
+
+  if (
+    /\bPBS\b|\bpharmaceutical benefits scheme\b|\bsubsid(?:y|ies|ised|ized|isation|ization)\b|\bauthority[\s-]+restriction\b|\b(?:medicine|medication|drug|item)\b.{0,40}\b(?:listed|listing)\b|\b(?:listed|listing)\b.{0,40}\b(?:medicine|medication|drug|item)\b/i.test(
+      question,
+    )
+  )
+    return "subsidy";
+  if (/\b(?:legislation|statutory|legal)\b|\bmental health act\b/i.test(question)) return "legal";
+  if (/\bNSQHS\b|\baccreditation\b|\bquality[\s-]+standards?\b/i.test(question)) return "quality";
+  if (
+    /\breferral\b|\bservice[\s-]+directory\b|\bworkflow\b|\bnavigation\b|\b(?:which|what|find|open|submit|complete|use)\s+(?:the\s+)?forms?\b|\bforms?\s+(?:for|to|required|needed)\b/i.test(
+      question,
+    )
+  )
+    return "service_workflow";
+
+  if (args.purpose === "monitoring") return "dose_or_monitoring";
+  if (args.purpose === "risk") return "safety";
+  if (/\b(?:dose|doses|dosage|dosing|threshold|thresholds)\b|\bmonitor(?:ing|ed|s)?\b/i.test(question))
+    return "dose_or_monitoring";
+  if (/\b(?:risk|risks|safety)\b|\bescalat(?:e|es|ed|ing|ion)\b/i.test(question)) return "safety";
+  return "treatment";
+}
 
 function isInactive(source: ClinicalSourceMetadata, authority: ReturnType<typeof classifySourceAuthority>) {
   return (

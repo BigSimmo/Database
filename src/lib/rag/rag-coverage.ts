@@ -7,6 +7,7 @@ import { evidenceFamilyKeys, siteContentClaimPolicy } from "@/lib/site-content/s
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { normalizeClinicalSourceMetadata } from "@/lib/source-metadata";
 import {
+  classifyClaimRoleForSubquestion,
   resolveLocalAndAustralianEvidence,
   retainCanonicalSourcePolicyConflicts,
   searchResultEligibilityForClaim,
@@ -180,10 +181,8 @@ function legacySiteCandidateRejected(result: SearchResult) {
   );
 }
 
-function claimRoleForSubquestion(input: CoverageMergeInput, purpose: RagQueryPlan["subquestions"][number]["purpose"]) {
-  if (purpose === "monitoring") return "dose_or_monitoring" as const;
-  if (purpose === "risk") return "safety" as const;
-  return input.claimRole ?? "treatment";
+function claimRoleForSubquestion(input: CoverageMergeInput, subquestion: RagQueryPlan["subquestions"][number]) {
+  return input.claimRole ?? classifyClaimRoleForSubquestion(subquestion);
 }
 
 function eligibilityForCandidate(args: {
@@ -440,7 +439,7 @@ export function selectConflictAwareCoverageEvidence(
 export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput): CoverageEvidenceSelection[] {
   const indexed = input.candidates.map((result, inputIndex) => ({ result, inputIndex }));
   return input.plan.subquestions.map((subquestion) => {
-    const claimRole = claimRoleForSubquestion(input, subquestion.purpose);
+    const claimRole = claimRoleForSubquestion(input, subquestion);
     let roleMismatch = false;
     const eligible = indexed.flatMap((candidate) => {
       const decision = eligibilityForCandidate({

@@ -17,6 +17,7 @@ import type {
   RagAnswer,
   RagQueryClass,
   RagQueryPlan,
+  RagSubquestionPurpose,
   SearchResult,
   SourceCorpusScope,
   SourcePolicyConflict,
@@ -116,7 +117,7 @@ function bmjSupplementarySource(index: number) {
 const results = Array.from({ length: 12 }, (_, index) => source(index + 1));
 
 function queryPlan(
-  subquestions: Array<{ id: string; question: string; purpose?: "primary" | "monitoring" }>,
+  subquestions: Array<{ id: string; question: string; purpose?: RagSubquestionPurpose }>,
   targetSiteDomains: RagQueryPlan["targetSiteDomains"] = [],
 ): RagQueryPlan {
   return {
@@ -583,6 +584,75 @@ describe("RAG model context budgeting", () => {
 });
 
 describe("coverage and source-role evidence merge", () => {
+  it.each([
+    ["pbs", "Is lithium listed on the PBS with an authority restriction?", "subsidy"],
+    ["legal", "What does the Mental Health Act legislation require?", "legal"],
+    ["quality", "Which NSQHS accreditation quality standard applies?", "quality_standard"],
+    ["workflow", "Which referral form and service-directory workflow should I use?", "service_directory"],
+    ["dose", "What lithium dose threshold applies?", "regulatory"],
+  ] satisfies Array<[string, string, ClinicalSourceRole]>)(
+    "reaches %s evidence from the runtime subquestion when no claim-role override is provided",
+    (id, question, role) => {
+      const matching = governedEvidence({
+        id: `runtime-${id}`,
+        corpusScope: "uploaded_local",
+        content: question,
+        role,
+      });
+
+      const [selection] = mergeEvidenceByCoverageAndSourceRole({
+        plan: queryPlan([{ id, question }]),
+        candidates: [matching],
+      });
+
+      expect(selection?.orderedEvidence.map((item) => item.id)).toEqual([`runtime-${id}`]);
+      expect(selection?.coverageReason).toBe("direct");
+    },
+  );
+
+  it("keeps ordinary and ambiguous treatment questions on treatment evidence without admitting specialized roles", () => {
+    const treatment = governedEvidence({
+      id: "runtime-treatment",
+      corpusScope: "uploaded_local",
+      content: "Which authority recommends this standard treatment for quality of life in the local service?",
+      role: "local_guideline",
+    });
+    const specializedRoles: ClinicalSourceRole[] = ["subsidy", "legal", "quality_standard", "service_directory"];
+    const specialized = specializedRoles.map((role, index) =>
+      governedEvidence({
+        id: `runtime-specialized-${index}`,
+        corpusScope: "uploaded_local",
+        content: treatment.content,
+        role,
+      }),
+    );
+
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan([{ id: "treatment", question: treatment.content }]),
+      candidates: [...specialized, treatment],
+    });
+
+    expect(selection?.orderedEvidence.map((item) => item.id)).toEqual(["runtime-treatment"]);
+  });
+
+  it("preserves an explicit claim-role override for deterministic tests and callers", () => {
+    const subsidy = governedEvidence({
+      id: "runtime-subsidy-override",
+      corpusScope: "uploaded_local",
+      content: "Is lithium listed on the PBS?",
+      role: "subsidy",
+    });
+
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan([{ id: "pbs", question: subsidy.content }]),
+      candidates: [subsidy],
+      claimRole: "treatment",
+    });
+
+    expect(selection?.orderedEvidence).toEqual([]);
+    expect(selection?.coverageReason).toBe("source_role_mismatch");
+  });
+
   it("keeps directly relevant current uploaded guidance primary while Australian evidence fills monitoring", () => {
     const plan = queryPlan([
       { id: "treatment", question: "lithium relapse treatment" },

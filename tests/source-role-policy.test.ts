@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { resolveLocalAndAustralianEvidence, sourceEligibilityForClaim } from "../src/lib/source-role-policy";
-import type { ClinicalSourceMetadata, SearchResult } from "../src/lib/types";
+import {
+  classifyClaimRoleForSubquestion,
+  resolveLocalAndAustralianEvidence,
+  sourceEligibilityForClaim,
+} from "../src/lib/source-role-policy";
+import type { ClinicalClaimRole, ClinicalSourceMetadata, RagSubquestionPurpose, SearchResult } from "../src/lib/types";
 
 const australianPolicy = {
   source_kind: "document",
@@ -83,6 +87,30 @@ function result(
     ...overrides,
   };
 }
+
+describe("classifyClaimRoleForSubquestion", () => {
+  it.each([
+    ["Is lithium listed on the PBS and what authority restriction applies?", "monitoring", "subsidy"],
+    ["Is this medication listed?", "primary", "subsidy"],
+    ["What does the Mental Health Act legislation require?", "risk", "legal"],
+    ["Which NSQHS accreditation quality standard applies?", "primary", "quality"],
+    ["Which referral form and service-directory workflow should I use?", "primary", "service_workflow"],
+    ["Review the follow-up requirements", "monitoring", "dose_or_monitoring"],
+    ["Review the follow-up requirements", "risk", "safety"],
+    ["What lithium dose threshold applies?", "primary", "dose_or_monitoring"],
+    ["When should risk escalation occur for this safety concern?", "primary", "safety"],
+    ["What treatment is recommended by the local service?", "primary", "treatment"],
+    ["Which authority recommends this standard treatment?", "primary", "treatment"],
+    ["How can treatment improve quality of life?", "primary", "treatment"],
+    ["Which formulation is the standard treatment?", "primary", "treatment"],
+    ["Are the adverse effects listed in the guideline?", "primary", "treatment"],
+  ] satisfies Array<[string, RagSubquestionPurpose, ClinicalClaimRole]>)(
+    "classifies %s with %s purpose as %s",
+    (question, purpose, expected) => {
+      expect(classifyClaimRoleForSubquestion({ question, purpose })).toBe(expected);
+    },
+  );
+});
 
 describe("sourceEligibilityForClaim", () => {
   it("does not let PBS or legislation answer treatment claims", () => {
