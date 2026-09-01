@@ -264,6 +264,28 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByTestId("tools-hub")).toBeVisible();
   });
 
+  it("uses one guest-safe ranked collection for Smart Tools cards and mobile rows", () => {
+    render(
+      <ApplicationsLauncherWorkspace
+        query="where can I check medication interactions?"
+        canAccessFavourites={false}
+      />,
+    );
+
+    expect(screen.getAllByTestId(/^application-card-/)[0]).toHaveAttribute(
+      "data-testid",
+      "application-card-medication-prescribing",
+    );
+    expect(screen.getAllByTestId(/^application-row-/)[0]).toHaveAttribute(
+      "data-testid",
+      "application-row-medication-prescribing",
+    );
+    expect(screen.getByTestId("application-card-medication-prescribing")).toBeInTheDocument();
+    expect(screen.getByTestId("application-row-medication-prescribing")).toBeInTheDocument();
+    expect(screen.queryByTestId("application-card-favourites")).toBeNull();
+    expect(screen.queryByTestId("application-row-favourites")).toBeNull();
+  });
+
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {
     render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
 

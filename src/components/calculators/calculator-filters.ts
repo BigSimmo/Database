@@ -1,3 +1,5 @@
+import { normalizeSearchText } from "@/lib/catalog-search";
+
 import { domainLabels, type CalculatorDomain, type CalculatorFixture } from "./calculator-fixtures";
 import type { DerivedCalculator } from "./calculator-ui";
 
@@ -16,16 +18,18 @@ export type CalculatorFilterRecord = {
 };
 
 export function normalizeCalculatorQuery(query: string) {
-  return query.trim().toLowerCase();
+  return normalizeSearchText(query);
 }
 
-export function calculatorMatchesQuery(calc: CalculatorFixture, query: string) {
+export function calculatorMatchesQuery(calc: CalculatorFixture, query: string, expansions: readonly string[] = []) {
   const normalized = normalizeCalculatorQuery(query);
   if (!normalized) return true;
-  const haystack = [calc.abbrev, calc.name, calc.indication, calc.summary, domainLabels[calc.domain]]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(normalized) || calc.items.some((item) => item.text.toLowerCase().includes(normalized));
+  const haystack = normalizeSearchText(
+    [calc.abbrev, calc.name, calc.indication, calc.summary, domainLabels[calc.domain], ...calc.items.map((item) => item.text)].join(
+      " ",
+    ),
+  );
+  return haystack.includes(normalized) || expansions.some((term) => haystack.includes(normalizeSearchText(term)));
 }
 
 export function calculatorMatchesProgress(derived: DerivedCalculator, progress: CalculatorProgressFilter) {
@@ -46,9 +50,10 @@ export function calculatorMatchesFilters(
   record: CalculatorFilterRecord,
   query: string,
   filters: CalculatorFilterState,
+  expansions: readonly string[] = [],
 ) {
   return (
-    calculatorMatchesQuery(record.calc, query) &&
+    calculatorMatchesQuery(record.calc, query, expansions) &&
     (filters.domains.size === 0 || filters.domains.has(record.calc.domain)) &&
     calculatorMatchesProgress(record.derived, filters.progress) &&
     calculatorMatchesTime(record.calc, filters.time)
@@ -59,8 +64,9 @@ export function filterCalculatorRecords(
   records: readonly CalculatorFilterRecord[],
   query: string,
   filters: CalculatorFilterState,
+  expansions: readonly string[] = [],
 ) {
-  return records.filter((record) => calculatorMatchesFilters(record, query, filters));
+  return records.filter((record) => calculatorMatchesFilters(record, query, filters, expansions));
 }
 
 export function calculatorDomainCandidateCount(
@@ -68,11 +74,12 @@ export function calculatorDomainCandidateCount(
   query: string,
   filters: CalculatorFilterState,
   candidate: CalculatorDomain,
+  expansions: readonly string[] = [],
 ) {
   const domains = new Set(filters.domains);
   if (domains.has(candidate)) domains.delete(candidate);
   else domains.add(candidate);
-  return filterCalculatorRecords(records, query, { ...filters, domains }).length;
+  return filterCalculatorRecords(records, query, { ...filters, domains }, expansions).length;
 }
 
 export function calculatorProgressCandidateCount(
@@ -80,8 +87,9 @@ export function calculatorProgressCandidateCount(
   query: string,
   filters: CalculatorFilterState,
   candidate: CalculatorProgressFilter,
+  expansions: readonly string[] = [],
 ) {
-  return filterCalculatorRecords(records, query, { ...filters, progress: candidate }).length;
+  return filterCalculatorRecords(records, query, { ...filters, progress: candidate }, expansions).length;
 }
 
 export function calculatorTimeCandidateCount(
@@ -89,6 +97,7 @@ export function calculatorTimeCandidateCount(
   query: string,
   filters: CalculatorFilterState,
   candidate: CalculatorTimeFilter,
+  expansions: readonly string[] = [],
 ) {
-  return filterCalculatorRecords(records, query, { ...filters, time: candidate }).length;
+  return filterCalculatorRecords(records, query, { ...filters, time: candidate }, expansions).length;
 }

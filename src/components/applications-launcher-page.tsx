@@ -33,12 +33,14 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn, EmptyState, eyebrowText, searchShellInput } from "@/components/ui-primitives";
 import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
-import { TOOL_AREA_LABEL, toolIdentity } from "@/lib/category-identity";
+import { toolIdentity } from "@/lib/category-identity";
 import { categoryGlyph } from "@/lib/category-identity-icons";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
+  rankToolRecords,
   toolCatalogRecordsForSession,
   type ToolCatalogArea,
   type ToolCatalogId,
@@ -60,8 +62,6 @@ function launcherAppMatchesFilter(app: LauncherApp, filter: LauncherFilter): boo
   if (filter === "more") return app.area === "coordination" || app.area === "saved";
   return app.area === filter;
 }
-
-const areaLabels = TOOL_AREA_LABEL;
 
 const statusLabels: Record<LauncherStatus, string> = {
   ready: "Ready",
@@ -131,20 +131,6 @@ const mobileFilters: Array<{ id: LauncherFilter; label: string }> = [
 
 function appById(id: ToolCatalogId, apps: LauncherApp[]) {
   return apps.find((app) => app.id === id) ?? apps[0];
-}
-
-function initialToolId(query: string | undefined, apps: LauncherApp[]): ToolCatalogId {
-  const normalized = query?.trim().toLowerCase();
-  if (!normalized) return "risk-safety";
-  return (
-    apps.find((app) =>
-      [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, app.area, ...app.keywords]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized),
-    )?.id ?? "risk-safety"
-  );
 }
 
 function quickActionsForSession(canAccessFavourites: boolean) {
@@ -742,26 +728,19 @@ export function ApplicationsLauncherWorkspace({
   const desktopFilters = useMemo(() => desktopFiltersForSession(canAccessFavourites), [canAccessFavourites]);
   const query = controlledQuery ?? searchCommand?.query ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
-  const queryDerivedId = useMemo(() => initialToolId(query, launcherApps), [launcherApps, query]);
-  const [selection, setSelection] = useState(() => ({
-    queryKey: (controlledQuery ?? "").trim().toLowerCase(),
-    id: initialToolId(controlledQuery, launcherAppsForSession(canAccessFavourites)),
-  }));
-  const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
+  const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
+  const [selectedId, setSelectedId] = useState<ToolCatalogId>("risk-safety");
   const effectiveFilter: LauncherFilter = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
 
   const queryMatchedApps = useMemo(
     () =>
-      launcherApps.filter(
-        (app) =>
-          !normalizedQuery ||
-          [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(normalizedQuery),
-      ),
-    [launcherApps, normalizedQuery],
+      normalizedQuery
+        ? rankToolRecords(query, undefined, smartExpansions, {
+            authenticated: canAccessFavourites,
+            demoMode: false,
+          }).map((match) => match.tool)
+        : launcherApps,
+    [canAccessFavourites, launcherApps, normalizedQuery, query, smartExpansions],
   );
   const filterCounts = Object.fromEntries(
     desktopFilters.map((filter) => [
@@ -770,19 +749,10 @@ export function ApplicationsLauncherWorkspace({
     ]),
   );
 
-  const filteredApps = useMemo(() => {
-    return launcherApps.filter((app) => {
-      const matchesFilter = launcherAppMatchesFilter(app, effectiveFilter);
-      const matchesQuery =
-        !normalizedQuery ||
-        [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery);
-      return matchesFilter && matchesQuery;
-    });
-  }, [effectiveFilter, launcherApps, normalizedQuery]);
+  const filteredApps = useMemo(
+    () => queryMatchedApps.filter((app) => launcherAppMatchesFilter(app, effectiveFilter)),
+    [effectiveFilter, queryMatchedApps],
+  );
 
   const effectiveSelectedId = filteredApps.some((app) => app.id === selectedId)
     ? selectedId
@@ -803,7 +773,7 @@ export function ApplicationsLauncherWorkspace({
   }
 
   function openTool(id: ToolCatalogId) {
-    setSelection({ queryKey: normalizedQuery, id });
+    setSelectedId(id);
     setDetailOpen(true);
   }
 
