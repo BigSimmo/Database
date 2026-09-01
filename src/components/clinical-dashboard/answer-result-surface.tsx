@@ -46,9 +46,14 @@ const chipShape =
  * the inner pill carries the look.
  */
 const chipButton =
-  // Negative vertical margin is forbidden because wrapped chips overflow into
-  // answer prose and steal clicks from citations. Keep the full min-h-12 (48px)
-  // hitbox in layout so status chips cannot cover the answer body.
+  // Negative vertical margin is forbidden here. `-my-3` keeps `boundingBox()`
+  // honest while moving the hit region outside the element's own layout box, so
+  // the chip silently sits on top of its neighbours. Measured in Chromium at
+  // 390px before that was removed: the safety chip covered a 133x9px band of the
+  // support chip beside it and a 133x2px band of the answer prose below, and a
+  // tap in either band opened the chip instead of doing nothing. Keep the full
+  // 48px hitbox in layout; `AnswerCard` gives these chips a row of their own so
+  // the honest height costs nothing.
   "inline-flex min-h-12 shrink-0 items-center focus-visible:outline-none";
 const chipFocus =
   "group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)]";
