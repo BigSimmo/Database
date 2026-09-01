@@ -261,11 +261,12 @@ function StagedAnswerResultSurfaceImpl({
           onClick={() => setEvidenceGapsOpen((current) => !current)}
           className={cn("group", chipButton)}
           aria-expanded={evidenceGapsOpen}
-          // Unconditional, because the panel is mounted whether or not it is
-          // open. Pointing `aria-controls` at an id that only exists while
-          // expanded is the shape that breaks assistive technology, and the
-          // conditional attribute that used to be here was working around
-          // exactly that.
+          // Unconditional, because the panel below is mounted whether or not it
+          // is open. The conditional attribute this replaces was well formed —
+          // attribute and target appeared and disappeared together, which is
+          // what the feedback trigger in `evidence-panels.tsx` still does, and
+          // correctly. It is only redundant here now that the target is always
+          // present.
           aria-controls="answer-evidence-gaps-detail"
         >
           <span

@@ -418,9 +418,13 @@ describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
       expect(suggestion.slice(0, -1)).not.toMatch(/[.;]/);
       expect(suggestion.endsWith("?")).toBe(true);
     }
-    // The gap is still surfaced — by the template authored for it, which is
-    // gated on the same reported-gap evidence.
-    expect(suggestions).toContain("What does the indexed guidance not cover for lithium?");
+    // The gap is not silently dropped: the reader still sees its exact words as
+    // a caveat on the answer itself (`answer-render-policy`), and the authored
+    // question is offered whenever a slot is free — see the spare-slot test
+    // below. Here the four dosing chips fill every slot, and a concrete dosing
+    // question outranks a meta-question about coverage.
+    expect(suggestions).toHaveLength(4);
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
   });
 
   it("offers a gap's own words when the gap is already a question", () => {
@@ -438,7 +442,12 @@ describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
     expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
   });
 
-  it("respects the four-chip cap", () => {
+  it("never displaces a concrete menu chip with the gap question", () => {
+    // The gap question is offered last and only into a spare slot. Put it first
+    // and a gapped medication_dose_risk answer trades the renal/hepatic dosing
+    // chip — a concrete, evidence-backed question — for a meta-question about
+    // coverage. The gap's own words are already on screen as a caveat, so the
+    // chip is the cheaper of the two things to lose.
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",
       {
@@ -448,8 +457,75 @@ describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
       ["lithium dosing"],
     );
 
+    expect(suggestions).toEqual([
+      "What monitoring is required for lithium?",
+      "What cautions or contraindications apply to lithium?",
+      "What should trigger stopping or escalating lithium?",
+      "How is lithium dosed in renal or hepatic impairment?",
+    ]);
+  });
+
+  it("offers the gap question in a spare slot on a menu that has no gap item", () => {
+    // `source_gap` lives only in the `management` menu, so before this a reported
+    // gap on any other query class went unmentioned entirely.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium dosing"],
+    );
+
     expect(suggestions.length).toBeLessThanOrEqual(4);
-    expect(suggestions).toContain("What monitoring is required for lithium?");
+    if (suggestions.length < 4) {
+      expect(suggestions.at(-1)).toBe("What does the indexed guidance not cover for lithium?");
+    }
+  });
+
+  it("stays silent about a gap the answer already has a Source gap section for", () => {
+    // The menu loop drops its own `source_gap` template when a section of that
+    // kind was emitted; the direct offer has to apply the same rule, or the chip
+    // asks what the guidance does not cover directly beneath a section that
+    // just said. `source_gap` is a real emitted kind — `rag.ts` maps
+    // gap/unsupported/missing/unclear headings onto it.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium management",
+      {
+        ...answerFor({
+          query: "lithium management",
+          intent: "general",
+          answer: "Review the plan at each visit.",
+          sections: [
+            {
+              heading: "Caveat",
+              kind: "source_gap",
+              body: "The guidance does not cover paediatric use.",
+              citation_chunk_ids: [],
+            },
+          ],
+        }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium management"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("offers no gap question when the topic is not supported by the evidence", () => {
+    // `reportedGapQuestion` interpolates the topic, so offering it past this gate
+    // would name a subject the corpus never mentioned.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "quetiapine dosing",
+      {
+        ...answerFor({ query: "quetiapine dosing" }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["quetiapine dosing"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for quetiapine?");
   });
 
   it("avoids repeating questions already asked in the thread", () => {

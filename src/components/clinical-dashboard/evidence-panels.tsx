@@ -1030,19 +1030,25 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
                 <SafetyFindingRowIcon kind={finding.kind} />
                 <span className="truncate text-3xs font-semibold uppercase tracking-eyebrow">{finding.label}</span>
               </span>
-              {safetyFindingGovernanceLabels(finding.citation).map((label) => (
-                <span
-                  key={label}
-                  data-testid="safety-finding-governance"
-                  // Scaled to the severity eyebrow beside it rather than above
-                  // it: at text-2xs the governance chip was the largest thing in
-                  // the row, so "Not locally validated" read as louder than "Red
-                  // flag".
-                  className={cn(subtleStatusPill, "ms-auto min-h-6 px-2 text-3xs", toneWarning)}
-                >
-                  {label}
-                </span>
-              ))}
+              {/* One `ms-auto` on the group, not on each chip. A citation can
+                  carry two governance labels — a currency label and "not locally
+                  validated" — and an auto margin on both splits the free space
+                  between them, so neither ends up flush right. */}
+              <span className="ms-auto flex items-center gap-2">
+                {safetyFindingGovernanceLabels(finding.citation).map((label) => (
+                  <span
+                    key={label}
+                    data-testid="safety-finding-governance"
+                    // Scaled to the severity eyebrow beside it rather than above
+                    // it: at text-2xs the governance chip was the largest thing
+                    // in the row, so "Not locally validated" read as louder than
+                    // "Red flag".
+                    className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneWarning)}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </span>
             </div>
             <p className="text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
             <Link

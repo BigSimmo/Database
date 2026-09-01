@@ -246,7 +246,6 @@ export function AnswerCard({
             it. The row costs nothing: the status line already wrapped to two
             lines on a phone, so the height is the same and the overlap is gone. */}
         {bare && metaChips ? <div className="flex w-full flex-wrap items-center gap-x-2">{metaChips}</div> : null}
-        {bare && metaDetail ? <div className="w-full">{metaDetail}</div> : null}
         {/*
          * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
          * every degraded state, on the reasoning that an adoption failure here is
@@ -278,6 +277,13 @@ export function AnswerCard({
             />
           </div>
         ) : null}
+        {/* After the retrieval banner, not before it. `stale_evidence` and
+            `partial_retrieval` banners name WHICH sources are overdue and HOW
+            MUCH was missed, and a governed caution that specific should not be
+            pushed down the page by an expanded disclosure — three open gaps
+            move it roughly 200px at 390px. The disclosure is the reader's own
+            request; the banner is the one they did not ask for and most need. */}
+        {bare && metaDetail ? <div className="w-full">{metaDetail}</div> : null}
       </div>
       <div
         className={cn(

@@ -521,13 +521,6 @@ export function buildAnswerFollowUpSuggestions(
 
   if (!topicSupported) return suggestions;
 
-  // Reported gaps still come first, as they always did — the gap is now asked
-  // by its authored wording instead of by wrapping the gap's own prose. Doing it
-  // here rather than leaving it to the menu keeps two properties the menu loop
-  // cannot: every menu key gets it, and it is never crowded out of the four
-  // slots by templates that matched earlier in menu order.
-  if (hasReportedGap && !gapAskedItself) push(reportedGapQuestion(topic));
-
   const menuKey = resolveMenuKey(anchorQuery, answer);
   for (const template of templatesForMenuKey(menuKey, answer)) {
     if (suggestions.length >= maxFollowUpSuggestions) break;
@@ -543,6 +536,32 @@ export function buildAnswerFollowUpSuggestions(
     if (template.kind === "source_gap" && gapAskedItself) continue;
     if (template.answeredTerms.some((term) => answerText.includes(term))) continue;
     push(template.question(topic));
+  }
+
+  /**
+   * The authored gap question, for the menus that carry no `source_gap` item of
+   * their own — only `management` does, so before this a reported gap on a
+   * dosing, escalation, threshold or comparison query went unmentioned.
+   *
+   * Offered LAST, and only into a spare slot. A question about what the evidence
+   * does not cover is worth less than a concrete evidence-backed one when the
+   * four slots are contested: put it first and a gapped `medication_dose_risk`
+   * answer trades "How is lithium dosed in renal or hepatic impairment?" for a
+   * meta-question. It also costs the reader little to lose, because the gap's
+   * own words are already on screen as a caveat (`answer-render-policy.ts`).
+   *
+   * The `emittedSectionKinds` check is the menu loop's rule 3 applied here:
+   * `source_gap` is a real emitted section kind (`rag.ts` maps gap/unsupported
+   * headings onto it), so without this the chip could ask what the guidance does
+   * not cover directly beneath a Source gap section that just said.
+   */
+  if (
+    hasReportedGap &&
+    !gapAskedItself &&
+    !emittedSectionKinds.has("source_gap") &&
+    suggestions.length < maxFollowUpSuggestions
+  ) {
+    push(reportedGapQuestion(topic));
   }
 
   return suggestions;

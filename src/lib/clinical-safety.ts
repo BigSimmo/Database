@@ -115,6 +115,24 @@ function hasQueryConceptOverlap(text: string, terms: string[]) {
  * cannot reintroduce the double count.
  */
 export function collapseDuplicateSafetyFindings(findings: SafetyFinding[]): SafetyFinding[] {
+  // A single pass is order-greedy: it merges into the FIRST passage-key match,
+  // so a finding that contains two already-kept ones lands on the first and
+  // leaves the second nested inside it. That matters because this runs twice on
+  // the same data — server-side into the payload, then again on the client — and
+  // a pass that has not reached a fixed point can return a different count each
+  // time, so the chip reads "2 safety notes" before hydration and "1" after.
+  // Every iteration that changes anything removes at least one finding, so the
+  // input length bounds the loop.
+  let current = findings;
+  for (let pass = 0; pass < findings.length; pass += 1) {
+    const next = collapseSafetyFindingsOnce(current);
+    if (next.length === current.length) return next;
+    current = next;
+  }
+  return current;
+}
+
+function collapseSafetyFindingsOnce(findings: SafetyFinding[]): SafetyFinding[] {
   const kept: SafetyFinding[] = [];
   const normalized = new Map<SafetyFinding, string>();
   const passageKey = (finding: SafetyFinding) =>
@@ -124,14 +142,25 @@ export function collapseDuplicateSafetyFindings(findings: SafetyFinding[]): Safe
     const text = normalizeText(finding.text).toLowerCase();
     normalized.set(finding, text);
     const duplicateIndex = kept.findIndex((candidate) => {
-      if (passageKey(candidate) !== passageKey(finding)) return false;
       const other = normalized.get(candidate) ?? "";
-      if (other === text) return true;
-      // Containment only counts when the shorter side is long enough to identify
-      // a passage. A stray fragment is a substring of almost anything.
+      if (other === text && passageKey(candidate) === passageKey(finding)) return true;
+      const contains = other.includes(text) || text.includes(other);
+      if (!contains) return false;
+      // Same chunk is not a heuristic: a quote card and the source it was cut
+      // from carry the same `chunk_id`, so containment there is proof of one
+      // passage however short the extract. The length floor below exists only
+      // for the cross-chunk case, and applying it here would let a quote under
+      // 40 characters double-count against its own parent — the exact defect
+      // this function was written for.
+      const sameChunk =
+        Boolean(candidate.citation.chunk_id) && candidate.citation.chunk_id === finding.citation.chunk_id;
+      if (sameChunk) return true;
+      if (passageKey(candidate) !== passageKey(finding)) return false;
+      // Across chunks, containment only counts when the shorter side is long
+      // enough to identify a passage. A stray fragment is a substring of almost
+      // anything.
       const shorter = other.length < text.length ? other : text;
-      if (shorter.length < minPassageOverlap) return false;
-      return other.includes(text) || text.includes(other);
+      return shorter.length >= minPassageOverlap;
     });
 
     if (duplicateIndex === -1) {
@@ -143,7 +172,18 @@ export function collapseDuplicateSafetyFindings(findings: SafetyFinding[]): Safe
     const existingText = normalized.get(existing) ?? "";
     const fuller = text.length > existingText.length ? finding : existing;
     const severest = safetyKindPriority[finding.kind] < safetyKindPriority[existing.kind] ? finding : existing;
-    kept[duplicateIndex] = fuller === severest ? fuller : { ...fuller, kind: severest.kind, label: severest.label };
+    // The id encodes the kind, so a merge that takes one finding's text and
+    // another's severity has to rebuild it rather than keep a `monitoring:` id
+    // on a row now labelled "Red flag".
+    kept[duplicateIndex] =
+      fuller === severest
+        ? fuller
+        : {
+            ...fuller,
+            id: `${severest.kind}:${fuller.citation.chunk_id}`,
+            kind: severest.kind,
+            label: severest.label,
+          };
     normalized.set(kept[duplicateIndex], normalizeText(kept[duplicateIndex].text).toLowerCase());
   }
 

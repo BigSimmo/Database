@@ -295,6 +295,74 @@ describe("safety findings are counted once per passage", () => {
     expect(extractSafetyFindings({ ...duplicatedAnswer, safetyWarnings: doubled })).toHaveLength(precomputed.length);
   });
 
+  it("collapses a short quote against its own parent chunk, under the length floor", () => {
+    // The floor exists for the cross-chunk case. A quote card carries its parent
+    // chunk's id, so containment there is proof of one passage however short the
+    // extract — and applying the floor to it let a short quote double-count
+    // against the very chunk it was cut from.
+    const fromChunk = (id: string, chunkId: string, text: string, kind: SafetyFinding["kind"]): SafetyFinding => ({
+      id,
+      kind,
+      label: kind === "red_flag" ? "Red flag" : "Monitoring",
+      text,
+      citation: {
+        chunk_id: chunkId,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: "/documents/doc-a?page=1",
+    });
+
+    const findings = collapseDuplicateSafetyFindings([
+      fromChunk("monitoring:chunk-a", "chunk-a", "Monitor ANC weekly.", "monitoring"),
+      fromChunk("red_flag:chunk-a", "chunk-a", "Monitor ANC weekly. Urgent review if fever develops.", "red_flag"),
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].text).toContain("Urgent review");
+    expect(findings[0].label).toBe("Red flag");
+    // The id encodes the kind, so a merge that takes one finding's text and the
+    // other's severity has to rebuild it.
+    expect(findings[0].id).toBe("red_flag:chunk-a");
+  });
+
+  it("reaches a fixed point, so the server and client counts cannot disagree", () => {
+    // One pass merges into the FIRST passage-key match, so a finding containing
+    // two already-kept ones lands on the first and leaves the second nested
+    // inside it. This function runs server-side into the payload and again on
+    // the client; a pass short of a fixed point would render "2" then "1".
+    const at = (id: string, text: string): SafetyFinding => ({
+      id,
+      kind: "monitoring",
+      label: "Monitoring",
+      text,
+      citation: {
+        chunk_id: id,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: "/documents/doc-a?page=1",
+    });
+
+    const first = "Monitor full blood count and absolute neutrophil count every week for the first eighteen weeks.";
+    const second =
+      "Review metabolic parameters at baseline, three months, and then annually thereafter for this patient.";
+    const both = `${second} ${first}`;
+
+    const once = collapseDuplicateSafetyFindings([at("a", first), at("b", second), at("c", both)]);
+    expect(once).toHaveLength(1);
+    // Idempotent: collapsing the output again changes nothing.
+    expect(collapseDuplicateSafetyFindings(once)).toEqual(once);
+  });
+
   it("does not merge two short findings that merely share words", () => {
     const short = (id: string, page: number, text: string): SafetyFinding => ({
       id,
