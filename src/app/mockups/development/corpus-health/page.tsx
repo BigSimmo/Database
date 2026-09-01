@@ -142,8 +142,9 @@ export default async function DeveloperCorpusHealthPage() {
        * read what that does not prove.
        */}
       <p className={META_CLASS}>
-        Read live from your own library: row-level security scopes both tables to the account you are signed in as, so
-        these are your documents rather than the database&rsquo;s. Every figure describes what indexing{" "}
+        Read live from your own library: every query is scoped to the account you are signed in as via an explicit owner
+        filter on the server-only admin path, so these are your documents rather than the database&rsquo;s. Every figure
+        describes what indexing{" "}
         <em>produced</em> — whether a document finished, and whether it left anything behind. Nothing here reads answer
         quality, retrieval accuracy, or whether the extracted text is correct, so an empty page below means indexing ran
         to completion, not that the answers are good.
@@ -274,8 +275,8 @@ export default async function DeveloperCorpusHealthPage() {
           These rows come from the index-quality table, which the indexer writes one row per document into. Its score
           column defaults to <strong className="font-extrabold">0</strong> and its label to{" "}
           <strong className="font-extrabold">unknown</strong>, so a row carrying those values may never have been scored
-          at all rather than having scored badly. Its owner column is also nullable while the read policy matches on it,
-          so a row written without an owner is invisible here — which is one honest reason this total can sit below the
+          at all rather than having scored badly. Its owner column is also nullable while this panel filters on it, so a
+          row written without an owner is invisible here — which is one honest reason this total can sit below the
           indexed count without anything being wrong.
         </p>
 
