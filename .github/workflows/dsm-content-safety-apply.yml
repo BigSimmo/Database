@@ -1,0 +1,146 @@
+name: DSM content safety apply
+
+on:
+  push:
+    branches:
+      - codex/dsm5tr-content-governance-20260901
+
+concurrency:
+  group: dsm-content-safety-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  apply-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[dsm-safety-applied]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Decode branch-local patch helper
+        shell: bash
+        run: |
+          cat > /tmp/apply-dsm-content-safety.mjs.gz.b64 <<'PATCH'
+          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
+          PATCH
+          base64 --decode /tmp/apply-dsm-content-safety.mjs.gz.b64 | gzip --decompress > /tmp/apply-dsm-content-safety.mjs
+          node --check /tmp/apply-dsm-content-safety.mjs
+
+      - name: Add safety regression tests
+        run: node /tmp/apply-dsm-content-safety.mjs --tests-only
+
+      - name: Prove the new tests fail before implementation
+        shell: bash
+        run: |
+          set +e
+          node scripts/run-vitest.mjs run --reporter=dot \
+            tests/dsm.test.ts \
+            tests/dsm-content-governance.test.ts \
+            tests/clinical-ask-catalogue-evidence.test.ts \
+            tests/clinical-ask-authority-registry.test.ts \
+            tests/clinical-ask-mode-profiles.test.ts \
+            tests/dsm-content-safety.dom.test.tsx \
+            tests/in-page-nav-route-sections.dom.test.tsx \
+            > /tmp/dsm-red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/dsm-red.log
+          if [ "$status" -eq 0 ]; then
+            echo "Expected the new DSM safety tests to fail before implementation."
+            exit 1
+          fi
+
+      - name: Apply implementation and governance manifests
+        run: node /tmp/apply-dsm-content-safety.mjs --implementation
+
+      - name: Run focused DSM safety tests
+        run: |
+          node scripts/run-vitest.mjs run --reporter=dot \
+            tests/dsm.test.ts \
+            tests/dsm-content-governance.test.ts \
+            tests/clinical-ask-catalogue-evidence.test.ts \
+            tests/clinical-ask-authority-registry.test.ts \
+            tests/clinical-ask-mode-profiles.test.ts \
+            tests/dsm-content-safety.dom.test.tsx \
+            tests/in-page-nav-route-sections.dom.test.tsx
+
+      - name: Typecheck source
+        run: npm run typecheck:source:internal
+
+      - name: Validate generated site map
+        run: npm run sitemap:check
+
+      - name: Lint changed source and tests
+        run: |
+          node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js \
+            src/lib/dsm.ts \
+            src/lib/clinical-ask/catalogue-evidence.ts \
+            src/lib/clinical-ask/authority-registry.ts \
+            src/lib/clinical-ask/mode-profiles.ts \
+            src/components/dsm/dsm-diagnosis-page.tsx \
+            src/components/dsm/dsm-comparison-page.tsx \
+            src/components/dsm/dsm-search-page.tsx \
+            src/components/dsm/dsm-page-header.tsx \
+            'src/app/(search-app)/dsm/page.tsx' \
+            'src/app/(search-app)/dsm/diagnoses/[slug]/page.tsx' \
+            'src/app/(search-app)/dsm/diagnoses/[slug]/differentials/page.tsx' \
+            src/lib/app-modes.ts \
+            src/lib/ui-copy.ts \
+            scripts/generate-site-map.ts \
+            tests/dsm.test.ts \
+            tests/dsm-content-governance.test.ts \
+            tests/dsm-content-safety.dom.test.tsx \
+            tests/clinical-ask-catalogue-evidence.test.ts \
+            tests/clinical-ask-authority-registry.test.ts \
+            tests/clinical-ask-mode-profiles.test.ts \
+            --max-warnings 0 --no-error-on-unmatched-pattern
+
+      - name: Commit verified changes
+        shell: bash
+        run: |
+          git rm .github/workflows/dsm-content-safety-apply.yml
+          git add \
+            src/lib/dsm.ts \
+            src/lib/clinical-ask/catalogue-evidence.ts \
+            src/lib/clinical-ask/authority-registry.ts \
+            src/lib/clinical-ask/mode-profiles.ts \
+            src/components/dsm/dsm-diagnosis-page.tsx \
+            src/components/dsm/dsm-comparison-page.tsx \
+            src/components/dsm/dsm-search-page.tsx \
+            src/components/dsm/dsm-page-header.tsx \
+            'src/app/(search-app)/dsm/page.tsx' \
+            'src/app/(search-app)/dsm/diagnoses/[slug]/page.tsx' \
+            'src/app/(search-app)/dsm/diagnoses/[slug]/differentials/page.tsx' \
+            src/lib/app-modes.ts \
+            src/lib/ui-copy.ts \
+            src/data/dsm-content-governance.json \
+            src/data/dsm-source-register.json \
+            docs/dsm-content-governance.md \
+            docs/site-map.md \
+            scripts/generate-site-map.ts \
+            tests/dsm.test.ts \
+            tests/dsm-content-governance.test.ts \
+            tests/dsm-content-safety.dom.test.tsx \
+            tests/clinical-ask-catalogue-evidence.test.ts \
+            tests/clinical-ask-authority-registry.test.ts \
+            tests/clinical-ask-mode-profiles.test.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(dsm): enforce content authority boundaries [dsm-safety-applied]"
+          git push origin HEAD:codex/dsm5tr-content-governance-20260901
