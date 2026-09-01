@@ -48,6 +48,18 @@ vi.mock("@/lib/developer-area/environment-facts", () => ({
 }));
 
 /**
+ * The band is the whole reason the panel was built: the same facts already sit
+ * in the ledger this page renders, buried among eighty-odd open items. Mocked
+ * here so both the present and absent branches are reachable regardless of what
+ * the committed ledger happens to hold today.
+ */
+const clinicalAnswerFailures = vi.hoisted(() => ({ value: [] as { item: { id: string } }[] }));
+
+vi.mock("@/lib/developer-area/clinical-answer-failures", () => ({
+  resolveClinicalAnswerFailures: () => clinicalAnswerFailures.value,
+}));
+
+/**
  * Only `counts.p1` is overridden, and only on top of the *real* committed
  * snapshot — so the band is exercised against the shape the route actually
  * loads rather than a hand-built fixture that could drift from it. `null` means
@@ -354,5 +366,37 @@ describe("developer hub page — environment strip", () => {
     environment.value = { ...environment.value, email: null };
     render(await DeveloperHubPage());
     expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("account unknown");
+  });
+});
+
+describe("developer hub page — clinical answer failure band", () => {
+  afterEach(() => {
+    clinicalAnswerFailures.value = [];
+  });
+
+  it("links recorded clinical answer problems straight to their panel", async () => {
+    clinicalAnswerFailures.value = [{ item: { id: "#J8SJQ9" } }, { item: { id: "#S4R2W3" } }];
+    render(await DeveloperHubPage());
+
+    const band = screen.getByTestId("developer-hub-clinical-answer-failures-band");
+    expect(band).toHaveTextContent("2 recorded problems against a named clinical question.");
+    expect(band).toHaveAttribute("href", "/mockups/development/clinical-answer-failures");
+  });
+
+  it("says problem, not problems, for a single one", async () => {
+    clinicalAnswerFailures.value = [{ item: { id: "#J8SJQ9" } }];
+    render(await DeveloperHubPage());
+
+    expect(screen.getByTestId("developer-hub-clinical-answer-failures-band")).toHaveTextContent(
+      "1 recorded problem against a named clinical question.",
+    );
+  });
+
+  it("renders nothing rather than a reassuring all-clear when none are recorded", async () => {
+    // Same rule the blocking band follows. An explicit "none recorded" here
+    // would read as "answers are fine", which this data cannot support.
+    render(await DeveloperHubPage());
+
+    expect(screen.queryByTestId("developer-hub-clinical-answer-failures-band")).toBeNull();
   });
 });

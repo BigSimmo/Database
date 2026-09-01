@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 
 import { DeveloperHubNavHeader } from "@/components/developer-area/developer-hub-nav-header";
 import { EnvironmentStrip } from "@/components/developer-area/hub/environment-strip";
 import { PanelCard } from "@/components/developer-area/hub/panel-card";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { resolveClinicalAnswerFailures } from "@/lib/developer-area/clinical-answer-failures";
 import { resolveHubEnvironmentFacts } from "@/lib/developer-area/environment-facts";
 import { panelsInGroup, type HubPanelGroup } from "@/lib/developer-area/hub-panels";
 import { loadLedgerSnapshot } from "@/lib/developer-area/ledger-snapshot";
@@ -52,6 +54,7 @@ const GROUPS: { id: HubPanelGroup; anchor: string; label: string }[] = [
 export default async function DeveloperHubPage() {
   const snapshot = loadLedgerSnapshot();
   const environment = await resolveHubEnvironmentFacts();
+  const clinicalAnswerFailures = resolveClinicalAnswerFailures(snapshot);
 
   return (
     <>
@@ -111,6 +114,25 @@ export default async function DeveloperHubPage() {
           >
             {snapshot.counts.p1} blocking {snapshot.counts.p1 === 1 ? "item" : "items"} in the task ledger.
           </p>
+        ) : null}
+
+        {/*
+         * Warning, not danger: these are recorded problems against named
+         * clinical questions, and today they are P2/P3 rather than blocking.
+         * Painting them the same red as the blocking band would teach the reader
+         * to discount both. The band exists at all because the same facts sit
+         * unread inside an 81-item ledger, which is the whole reason this panel
+         * was built.
+         */}
+        {clinicalAnswerFailures.length > 0 ? (
+          <Link
+            href="/mockups/development/clinical-answer-failures"
+            data-testid="developer-hub-clinical-answer-failures-band"
+            className="rounded-xl border border-[color:var(--warning)]/40 bg-[color:var(--warning-soft)] px-4 py-3 text-sm text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            {clinicalAnswerFailures.length} recorded {clinicalAnswerFailures.length === 1 ? "problem" : "problems"}{" "}
+            against a named clinical question.
+          </Link>
         ) : null}
 
         {GROUPS.map((group) => {
