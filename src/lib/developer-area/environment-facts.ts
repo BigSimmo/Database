@@ -34,18 +34,31 @@ export type HubEnvironmentFacts = {
  */
 export async function resolveHubEnvironmentFacts(): Promise<HubEnvironmentFacts> {
   const demoMode = isDemoMode();
+  const unread: HubEnvironmentFacts = { demoMode, documentCount: null, email: null };
+
   const supabase = await createSupabaseServerClient();
-  if (!supabase) return { demoMode, documentCount: null, email: null };
+  if (!supabase) return unread;
 
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
-  if (!user) return { demoMode, documentCount: null, email: null };
+  // Both awaits are wrapped, and a returned `{ error }` is only half of what can
+  // go wrong. An aborted request or one that exhausts its network retries makes
+  // the client *reject* rather than resolve with an error, and an unhandled
+  // rejection here would fail the whole page rather than degrade one line of it
+  // — the opposite of this module's contract, and worst during exactly the
+  // Supabase outage that makes the hub worth opening. `demoMode` survives either
+  // way, because it never depended on the network.
+  try {
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user) return unread;
 
-  const { count, error } = await supabase.from("documents").select("id", { count: "exact", head: true });
+    const { count, error } = await supabase.from("documents").select("id", { count: "exact", head: true });
 
-  return {
-    demoMode,
-    documentCount: error ? null : (count ?? null),
-    email: user.email ?? null,
-  };
+    return {
+      demoMode,
+      documentCount: error ? null : (count ?? null),
+      email: user.email ?? null,
+    };
+  } catch {
+    return unread;
+  }
 }
