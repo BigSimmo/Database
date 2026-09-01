@@ -473,6 +473,15 @@ export function ScorePanel({
           <Info className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
           {calc.scoringNote}
         </p>
+        {/* A standing scope line, not a per-instrument one: `caution` is set on one
+            of the five released instruments, and the sheet is a modal, so the
+            catalogue's "Scores support clinical judgement" note sits on the page
+            behind it. Without this, four of the five show a score and its severity
+            label as the only things in view at the moment they are read. */}
+        <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          Clinical reference — not validated decision support. Confirm scoring and interpretation against the source
+          instrument.
+        </p>
         <div className="flex items-center justify-between gap-2">
           <CopyResultButton calc={calc} state={derived} />
           <ResetButton onReset={onReset} disabled={!derived.started} />

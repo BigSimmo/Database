@@ -16,7 +16,7 @@ import {
 } from "@/components/calculators/calculator-fixtures";
 import { actionsForBand } from "@/components/calculators/calculator-pathways";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
-import { NextActionsPanel } from "@/components/calculators/search-detail";
+import { NextActionsPanel, ScorePanel } from "@/components/calculators/search-detail";
 import { CopyResultButton, deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
@@ -183,6 +183,28 @@ describe("calculator mode copy", () => {
     expect(sharedHomePresentation.calculators.subtitle).toBe(
       "Psychiatry assessment and monitoring tools with scoring guidance, limitations, safety prompts, and source-linked clinical considerations.",
     );
+  });
+
+  it("carries a standing scope line with every score, whether or not the instrument sets a caution", () => {
+    // The scoring sheet is a modal, so the catalogue's "Scores support clinical
+    // judgement" note sits on the page behind it, and `caution` is set on only one
+    // of the released instruments. Without a standing line, four of the five show a
+    // score and a severity label as the only things in view when they are read.
+    const withoutCaution = calculators.filter((calculator) => !calculator.caution);
+    expect(withoutCaution.length, "most released instruments carry no per-instrument caution").toBeGreaterThan(0);
+
+    for (const calculator of withoutCaution) {
+      const { unmount } = render(
+        <ScorePanel calc={calculator} derived={deriveCalculator(calculator, {})} onReset={() => {}} />,
+      );
+      expect(
+        screen.getByText(
+          /Clinical reference — not validated decision support\. Confirm scoring and interpretation against the source instrument\./,
+        ),
+        `${calculator.abbrev} renders a score with no scope line`,
+      ).toBeInTheDocument();
+      unmount();
+    }
   });
 
   it("states the calculator interface privacy boundary on the live catalogue", () => {
