@@ -13,8 +13,25 @@ const smartModes = [
   ["therapy-compass", "/therapy-compass/search", "Which therapy helps with emotion regulation?"],
 ] as const;
 
+const localOnlySmartModes = [
+  ["prescribing", "/", "medicine that needs regular blood tests", "Warfarin"],
+  ["tools", "/tools", "where can I check medication interactions?", "Medication Prescribing"],
+  ["calculators", "/calculators/search", "screen depression severity", "PHQ-9"],
+  [
+    "factsheets",
+    "/factsheets/search",
+    "information for someone who worries all the time",
+    "Generalised anxiety disorder",
+  ],
+  ["dictionary", "/dictionary/search", "term for hearing a voice that is not there", "Hallucination"],
+] as const;
+
 function composer(page: Page) {
   return visibleByTestId(page, "global-search-input");
+}
+
+function searchOwner(page: Page, mode: (typeof localOnlySmartModes)[number][0]) {
+  return mode === "tools" ? page.getByRole("textbox", { name: "Search tools" }) : composer(page);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -54,6 +71,49 @@ test("@critical keeps natural-language Smart search inside all seven selected mo
   expect(clinicalAskRequests).toBe(0);
 });
 
+test("@critical keeps local-only Smart search within five catalogue modes", async ({ page }) => {
+  let clinicalAskRequests = 0;
+  let universalSearchRequests = 0;
+  await page.route("**/api/clinical-ask/stream", async (route) => {
+    clinicalAskRequests += 1;
+    await route.abort("blockedbyclient");
+  });
+  await page.route("**/api/search/universal**", async (route) => {
+    universalSearchRequests += 1;
+    await route.abort("blockedbyclient");
+  });
+
+  for (const [mode, pathname, query, expectedResult] of localOnlySmartModes) {
+    await page.goto(`/?mode=${mode}`);
+    const input = searchOwner(page, mode);
+    await input.fill(query);
+    if (mode === "tools") {
+      for (const excludedMode of ["Documents", "Answer", "Favourites"]) {
+        await expect(page.getByRole("option", { name: excludedMode, exact: true })).toHaveCount(0);
+      }
+    } else {
+      await expect(page.getByTestId("smart-search-intent-cue")).toContainText("Smart search");
+      await expect(page.getByRole("listbox")).toBeVisible();
+      for (const excludedMode of ["Documents", "Answer", "Favourites"]) {
+        await expect(page.getByRole("option", { name: excludedMode, exact: true })).toHaveCount(0);
+      }
+    }
+    await input.press("Enter");
+
+    await expect(page).toHaveURL((url) => {
+      return (
+        url.pathname === pathname &&
+        url.searchParams.get("q") === query &&
+        url.searchParams.get("run") === "1" &&
+        (mode !== "prescribing" || url.searchParams.get("mode") === "prescribing")
+      );
+    });
+    await expect(page.getByText(expectedResult, { exact: true }).first()).toBeVisible();
+    expect(clinicalAskRequests).toBe(0);
+    expect(universalSearchRequests).toBe(0);
+  }
+});
+
 test("@critical keeps compact codes literal and uses the ordinary Forms result route", async ({ page }) => {
   let clinicalAskRequests = 0;
   await page.route("**/api/clinical-ask/stream", async (route) => {
@@ -73,11 +133,13 @@ test("@critical keeps compact codes literal and uses the ordinary Forms result r
 });
 
 test("@critical keeps unsupported modes free of a Smart promise", async ({ page }) => {
-  await page.goto("/?mode=documents");
-  const input = composer(page);
-  await input.fill("Which document should I read for this presentation?");
-  await expect(page.getByTestId("smart-search-intent-cue")).toHaveCount(0);
-  await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
+  for (const mode of ["documents", "answer", "favourites"]) {
+    await page.goto(`/?mode=${mode}`);
+    const input = composer(page);
+    await input.fill("Which document should I read for this presentation?");
+    await expect(page.getByTestId("smart-search-intent-cue")).toHaveCount(0);
+    await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
+  }
 });
 
 test("@critical keeps the one-composer Smart cue accessible across phone and desktop", async ({ page }, testInfo) => {

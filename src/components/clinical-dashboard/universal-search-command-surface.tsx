@@ -35,6 +35,7 @@ import {
   commandDropdownPointerMediaQuery,
   commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
+  filterCommandSurfaceCrossModesForSmartSearch,
   filteredSuggestions,
   isFormCodeQuery,
   searchCommandSurfaceConfig,
@@ -495,24 +496,28 @@ export function UniversalSearchCommandSurface({
   children: ReactNode;
 }) {
   const config = searchCommandSurfaceConfig(modeId);
-  const crossModes = useMemo(
-    () =>
-      config
-        ? filterCrossModesForSession(config.crossModes, {
-            // Hosts pass the precomputed session decision; do not OR demoMode again.
-            authenticated: canAccessFavourites,
-            demoMode: false,
-          })
-        : [],
-    [canAccessFavourites, config],
-  );
-  const listboxId = useId();
-  const router = useRouter();
-  const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
   const smartInterpretation = interpretSmartSearch(modeId, trimmedQuery);
   const smartNaturalSearch = smartInterpretation.naturalLanguage;
+  const crossModes = useMemo(
+    () =>
+      config
+        ? filterCommandSurfaceCrossModesForSmartSearch(
+            modeId,
+            trimmedQuery,
+            filterCrossModesForSession(config.crossModes, {
+              // Hosts pass the precomputed session decision; do not OR demoMode again.
+              authenticated: canAccessFavourites,
+              demoMode: false,
+            }),
+          )
+        : [],
+    [canAccessFavourites, config, modeId, trimmedQuery],
+  );
+  const listboxId = useId();
+  const router = useRouter();
+  const [activeIndex, setActiveIndex] = useState(-1);
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
@@ -531,7 +536,7 @@ export function UniversalSearchCommandSurface({
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId),
+    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId, smartNaturalSearch),
     contextMode: modeId,
   });
   const savedRegistryFavourites = useSavedRegistryFavourites().items;

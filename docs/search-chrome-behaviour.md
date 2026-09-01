@@ -847,10 +847,15 @@ The motion preference contract in `src/components/clinical-dashboard/answer-stat
 
 Smart search is provider-free interpretation of the selected catalogue. It is
 available in Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
-Specifiers, and Therapy and does not depend on `CLINICAL_ASK_ENABLED`, a hosted
-provider, Supabase, or a server capability endpoint. The original query remains
-the visible composer value and URL value; controlled mode-specific aliases add
-only low-weight catalogue vocabulary to deterministic ranking.
+Specifiers, Therapy, Medication, Tools, Calculators, Factsheets, and Dictionary
+and does not depend on `CLINICAL_ASK_ENABLED`, a hosted provider, Supabase, or a
+server capability endpoint. The original query remains the visible composer value
+and URL value; controlled mode-specific aliases add only low-weight catalogue
+vocabulary to deterministic ranking. Medication, Tools, Calculators, Factsheets,
+and Dictionary are local-only Smart matchers: natural-language interpretation in
+those states suppresses universal-search requests and Document, Answer, and
+Favourites cross-mode actions, while literal searches retain their configured
+cross-mode behaviour.
 
 Enter always opens the selected mode's normal results surface. A question mark,
 question wording, or developed natural-language phrase never diverts the reader
@@ -867,7 +872,7 @@ page carries, and it offers an ordinary search in every mode — governed or
 dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
 and nowhere else: a submitted result view, an answer thread, and a phone bottom
 dock all stay clear of it. The desktop `Smart search · Try "…"` line appears in
-the seven supported catalogue modes; the intent cue appears only while the
+the twelve supported catalogue modes; the intent cue appears only while the
 current query is being interpreted as natural language.
 
 There is still exactly one composer. No Ask rail, microphone control, duplicate
@@ -877,8 +882,9 @@ update the live region. The send control retains the mode's ordinary Search
 name and action throughout.
 
 Coverage: `tests/master-search-header.dom.test.tsx`,
-`tests/smart-search-intent.test.ts`, the seven mode ranker suites, and
-`tests/ui-clinical-ask.spec.ts` for the one-composer routing boundary.
+`tests/smart-search-intent.test.ts`, the mode ranker suites, and
+`tests/ui-clinical-ask.spec.ts` for the one-composer routing and five-mode
+local-only request boundary.
 
 ## Change checklist
 

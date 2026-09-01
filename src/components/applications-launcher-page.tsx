@@ -728,7 +728,7 @@ export function ApplicationsLauncherWorkspace({
   const copy = toolsLauncherCopy;
   const launcherApps = useMemo(() => launcherAppsForSession(canAccessFavourites), [canAccessFavourites]);
   const desktopFilters = useMemo(() => desktopFiltersForSession(canAccessFavourites), [canAccessFavourites]);
-  const query = controlledQuery ?? localQuery ?? searchCommand?.query ?? "";
+  const query = localQuery ?? controlledQuery ?? searchCommand?.query ?? "";
   const normalizedQuery = query.trim().toLowerCase();
   const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
   const [selectedId, setSelectedId] = useState<ToolCatalogId>("risk-safety");
@@ -771,7 +771,7 @@ export function ApplicationsLauncherWorkspace({
       : copy.allSectionLabel;
 
   function updateQuery(nextQuery: string) {
-    if (controlledQuery === undefined) setLocalQuery(nextQuery);
+    setLocalQuery(nextQuery);
   }
 
   function openTool(id: ToolCatalogId) {

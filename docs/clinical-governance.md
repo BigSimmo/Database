@@ -62,7 +62,10 @@ Authority must come from registered publisher codes or compatible canonical publ
 
 Clinical Ask remains dormant by default and is separate from Smart mode search. The shared mode composer never
 routes a natural-language query to Clinical Ask: Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
-Specifiers, and Therapy interpret natural language locally and show their ordinary deterministic catalogue results.
+Specifiers, Therapy, Medication, Tools, Calculators, Factsheets, and Dictionary interpret natural language locally
+and show their ordinary deterministic catalogue results. Medication Smart search is retrieval-only: it does not infer
+suitability, dose, or treatment. In the Medication, Tools, Calculators, Factsheets, and Dictionary Smart states,
+universal-search, Document, and Answer requests are suppressed; literal searches retain their existing behaviour.
 `CLINICAL_ASK_ENABLED` governs only the dormant answer workflow; it does not enable, disable, or alter Smart search.
 There is no microphone control or separate Ask rail. If Clinical Ask is exposed through a dedicated governed-answer
 surface in future, every request must use the same deterministic Evidence Ladder: local

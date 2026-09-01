@@ -300,7 +300,7 @@ describe("favourites auth gate DOM", () => {
   ])("lets the Tools owner replace an empty shared command and submit %s", async (query, expectedCard) => {
     const user = userEvent.setup();
     searchCommand.value = { query: "", modeId: "tools" };
-    render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
+    render(<ApplicationsLauncherWorkspace query="" canAccessFavourites={false} />);
 
     const input = screen.getByRole("textbox", { name: "Search tools" });
     await user.type(input, query);
@@ -346,6 +346,20 @@ describe("favourites auth gate DOM", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Show all tools" })).toHaveAttribute("href", "/tools");
+  });
+
+  it("uses the Tools Smart matcher for the submitted medication-interactions query", () => {
+    render(
+      <ToolsSearchResultsPage initialQuery="where can I check medication interactions?" canAccessFavourites={false} />,
+    );
+
+    expect(
+      within(screen.getByRole("region", { name: "Tool results" })).getByRole("heading", {
+        level: 2,
+        name: "Medication Prescribing",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 2, name: "Favourites" })).toBeNull();
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

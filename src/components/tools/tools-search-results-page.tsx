@@ -31,13 +31,13 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
-import { normalizeSearchText } from "@/lib/catalog-search";
 import { toolIdentity } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
+  rankToolRecords,
   toolCatalogRecordsForSession,
-  toolSearchText,
   type ToolCatalogArea,
   type ToolCatalogRecord,
 } from "@/lib/tools-catalog";
@@ -370,11 +370,18 @@ export function ToolsSearchResultsPage({
     [canAccessFavourites],
   );
   const effectiveActiveFilter: FilterId = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
+  const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
 
-  const queryMatchedTools = useMemo(() => {
-    const normalized = normalizeSearchText(query);
-    return accessibleTools.filter((tool) => !normalized || toolSearchText(tool).includes(normalized));
-  }, [accessibleTools, query]);
+  const queryMatchedTools = useMemo(
+    () =>
+      query.trim()
+        ? rankToolRecords(query, undefined, smartExpansions, {
+            authenticated: canAccessFavourites,
+            demoMode: false,
+          }).map((match) => match.tool)
+        : accessibleTools,
+    [accessibleTools, canAccessFavourites, query, smartExpansions],
+  );
 
   const filterCounts = useMemo<Record<FilterId, number>>(
     () => ({
