@@ -45,7 +45,7 @@ import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/u
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
-import { interpretSmartSearch, isSmartNaturalSearchMode } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, isSmartLocalOnlyMode, isSmartNaturalSearchMode } from "@/lib/smart-search-intent";
 
 // Domains whose live result totals a cross-mode chip should sum. Answer/favourites
 // chips have no countable domain; the
@@ -500,6 +500,7 @@ export function UniversalSearchCommandSurface({
   const mode = appModeDefinition(modeId);
   const smartInterpretation = interpretSmartSearch(modeId, trimmedQuery);
   const smartNaturalSearch = smartInterpretation.naturalLanguage;
+  const suppressLocalOnlySmartActions = smartNaturalSearch && isSmartLocalOnlyMode(modeId);
   const crossModes = useMemo(
     () =>
       config
@@ -646,7 +647,7 @@ export function UniversalSearchCommandSurface({
 
     const visibleFavouriteMatches =
       modeId === "favourites" ? favouriteMatches : favouriteMatches.filter((match) => match.standalone);
-    if (canAccessFavourites && trimmedQuery && visibleFavouriteMatches.length) {
+    if (!suppressLocalOnlySmartActions && canAccessFavourites && trimmedQuery && visibleFavouriteMatches.length) {
       built.push({
         key: "local-favourites",
         heading: `${modeId === "favourites" ? "Current mode" : "Also in Favourites"} · ${visibleFavouriteMatches.length}`,
@@ -895,7 +896,7 @@ export function UniversalSearchCommandSurface({
                           ? "dictionary"
                           : null;
 
-    if (actionSetId) {
+    if (actionSetId && !suppressLocalOnlySmartActions) {
       const actions = modeActionItemsFor(actionSetId).slice(0, 3);
       if (actions.length) {
         built.push({
@@ -996,6 +997,7 @@ export function UniversalSearchCommandSurface({
     router,
     savedHrefs,
     showFormCodeHint,
+    suppressLocalOnlySmartActions,
     trimmedQuery,
     universalGroups,
     orderedUniversalGroups,

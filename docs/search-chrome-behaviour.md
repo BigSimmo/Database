@@ -872,8 +872,11 @@ page carries, and it offers an ordinary search in every mode — governed or
 dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
 and nowhere else: a submitted result view, an answer thread, and a phone bottom
 dock all stay clear of it. The desktop `Smart search · Try "…"` line appears in
-the twelve supported catalogue modes; the intent cue appears only while the
-current query is being interpreted as natural language.
+the eleven shared-composer catalogue modes. Tools is the standalone-owner
+exception: its accessible `Search tools` control does not render that shared
+line or intent cue, while its deterministic local matching and ordinary
+`q`/`run=1` route remain the same. The intent cue appears only while a
+shared-composer query is being interpreted as natural language.
 
 There is still exactly one composer. No Ask rail, microphone control, duplicate
 input, or extra phone-dock reserve is mounted. Crossing from literal Search to

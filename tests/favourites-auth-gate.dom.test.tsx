@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import userEvent from "@testing-library/user-event";
 
@@ -10,7 +10,9 @@ import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/fa
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ApplicationsLauncherWorkspace } from "@/components/applications-launcher-page";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { UniversalSearchCommandSurface } from "@/components/clinical-dashboard/universal-search-command-surface";
 import { ToolsSearchResultsPage } from "@/components/tools/tools-search-results-page";
+import { favouriteItems, type FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { filterCrossModesForSession, visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
 import { toolCatalogRecordsForSession } from "@/lib/tools-catalog";
 
@@ -35,6 +37,10 @@ const searchCommand = vi.hoisted(() => ({
   value: null as { query: string; modeId: "tools" } | null,
 }));
 
+const savedRegistry = vi.hoisted(() => ({
+  items: [] as FavouriteItem[],
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => authSession,
 }));
@@ -45,7 +51,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
   useSavedRegistryFavourites: () => ({
-    items: [],
+    items: savedRegistry.items,
     status: "ready",
     registryStatus: "ready",
     refetch: () => undefined,
@@ -98,6 +104,34 @@ function headerProps(canAccessFavourites: boolean) {
   };
 }
 
+function CommandSurfaceFixture({
+  canAccessFavourites,
+  modeId,
+  query,
+}: {
+  canAccessFavourites: boolean;
+  modeId: "prescribing";
+  query: string;
+}) {
+  return (
+    <UniversalSearchCommandSurface
+      demoMode={false}
+      canAccessFavourites={canAccessFavourites}
+      modeId={modeId}
+      query={query}
+      recentQueries={[]}
+      dropdownOpen
+      onDropdownOpenChange={() => undefined}
+      onQueryChange={() => undefined}
+      onSearch={() => undefined}
+      onPickRecent={() => undefined}
+      onCrossMode={() => undefined}
+    >
+      <input data-testid="global-search-input" />
+    </UniversalSearchCommandSurface>
+  );
+}
+
 describe("favourites auth gate DOM", () => {
   beforeEach(() => {
     authSession.status = "signed_out";
@@ -105,9 +139,12 @@ describe("favourites auth gate DOM", () => {
     authSession.error = null;
     authSession.notice = null;
     searchCommand.value = null;
+    savedRegistry.items = [];
     window.localStorage.clear();
     vi.clearAllMocks();
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("keeps the six canonical navigation entries separate from conditional Favourites", () => {
     const { rerender } = render(<ClinicalSidebarContent {...sidebarProps(false)} />);
@@ -323,6 +360,62 @@ describe("favourites auth gate DOM", () => {
     expect(filterCrossModesForSession(["favourites", "forms"], { authenticated: false, demoMode: false })).toEqual([
       "forms",
     ]);
+  });
+
+  it("hides authenticated saved matches only for natural Prescribing Smart search", async () => {
+    savedRegistry.items = [
+      {
+        ...favouriteItems[0],
+        id: "saved-prescribing-monitoring-query",
+        title: "Sertraline monitoring saved search",
+        primaryAction: "Run",
+        href: "/favourites?q=sertraline-monitoring&run=1",
+        keywords: "sertraline medicine that needs regular blood tests monitoring",
+      },
+    ];
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+
+    const { rerender } = render(
+      <CommandSurfaceFixture
+        canAccessFavourites
+        modeId="prescribing"
+        query="medicine that needs regular blood tests"
+      />,
+    );
+
+    await screen.findByRole("listbox");
+    expect(screen.queryByText("Sertraline monitoring saved search")).toBeNull();
+
+    rerender(<CommandSurfaceFixture canAccessFavourites modeId="prescribing" query="sertraline" />);
+    expect(await screen.findByText("Sertraline monitoring saved search")).toBeVisible();
+  });
+
+  it("hides document mode actions only for natural Prescribing Smart search", async () => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+
+    const { rerender } = render(
+      <CommandSurfaceFixture
+        canAccessFavourites={false}
+        modeId="prescribing"
+        query="medicine that needs regular blood tests"
+      />,
+    );
+
+    await screen.findByRole("listbox");
+    expect(screen.queryByText("Browse library")).toBeNull();
+    expect(screen.queryByText("Scope sources")).toBeNull();
+    expect(screen.queryByText("Recent documents")).toBeNull();
+
+    rerender(<CommandSurfaceFixture canAccessFavourites={false} modeId="prescribing" query="sertraline" />);
+    expect(await screen.findByText("Browse library")).toBeVisible();
   });
 
   it("applies the same Favourites access gate to the all-tools results directory", () => {

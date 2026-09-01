@@ -97,6 +97,11 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
       for (const excludedMode of ["Documents", "Answer", "Favourites"]) {
         await expect(page.getByRole("option", { name: excludedMode, exact: true })).toHaveCount(0);
       }
+      if (mode === "prescribing") {
+        for (const documentAction of ["Browse library", "Scope sources", "Recent documents"]) {
+          await expect(page.getByText(documentAction, { exact: true })).toHaveCount(0);
+        }
+      }
     }
     await input.press("Enter");
 
