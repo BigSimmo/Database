@@ -3408,7 +3408,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("review-due source-only answers share one compact expandable status row", async ({ page }, testInfo) => {
+  test("review-due source-only answers keep the overdue detail behind the evidence-gaps chip", async ({
+    page,
+  }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page, {
       answerOverride: (query, documentId, documentIds) => {
@@ -3439,15 +3441,37 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const statusRow = page.getByTestId("answer-source-status-row");
     const sourceOnlyDisclosure = statusRow.getByTestId("source-only-disclosure");
-    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
     await expect(statusRow).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    // Owner decision (2026-09-01): the per-source overdue detail is a statement
+    // about this answer's evidence, so it lives with the other such statements
+    // behind the evidence-gaps chip, not as a second control in the answer body.
+    // The worded caution stays on the default view — only the detail is a tap
+    // away — so the status row must now carry the Source-only disclosure alone.
+    await expect(statusRow.getByTestId("retrieval-state-stale-toggle")).toHaveCount(0);
+
+    const gapsChip = page.getByTestId("answer-evidence-gaps-trigger");
+    await expect(gapsChip).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(gapsChip).toHaveAttribute("aria-controls", "answer-evidence-gaps-detail");
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
+    const gapsDetail = page.locator("#answer-evidence-gaps-detail");
+    await expect(gapsDetail).toBeHidden();
+
+    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
+    await expect(reviewDueTab).toBeHidden();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+
+    await gapsChip.click();
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
+    await expect(gapsDetail).toBeVisible();
+    // The banner is inside the disclosure, not merely somewhere on the page.
+    await expect(gapsDetail.getByTestId("retrieval-state-stale-toggle")).toBeVisible();
     await expect(reviewDueTab).toContainText("Review due");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
     const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
     await expect(reviewDuePanel).toBeHidden();
-    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+
     for (const viewport of [
       { width: 320, height: 844 },
       { width: 390, height: 844 },
@@ -3466,22 +3490,24 @@ test.describe("PsychSift UI smoke coverage", () => {
       );
       const statusBox = await statusRow.boundingBox();
       const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
-      const reviewDueBox = await reviewDueTab.boundingBox();
       expect(statusBox).toBeTruthy();
       expect(sourceOnlyBox).toBeTruthy();
-      expect(reviewDueBox).toBeTruthy();
-      // The controls have deliberately different touch-target densities, so
-      // their top edges and centres may differ. Both must still be contained
-      // by the single compact status row rather than wrapping onto a second
-      // line.
+      // The status row is a single compact line holding the one disclosure, at
+      // every width — it must not grow a second line or a second control.
       const statusBottom = statusBox!.y + statusBox!.height;
       expect(sourceOnlyBox!.y).toBeGreaterThanOrEqual(statusBox!.y - 1);
       expect(sourceOnlyBox!.y + sourceOnlyBox!.height).toBeLessThanOrEqual(statusBottom + 1);
-      expect(reviewDueBox!.y).toBeGreaterThanOrEqual(statusBox!.y - 1);
-      expect(reviewDueBox!.y + reviewDueBox!.height).toBeLessThanOrEqual(statusBottom + 1);
       expect(statusBox!.height).toBeLessThanOrEqual(42);
       expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
-      expect(reviewDueBox!.height).toBeLessThanOrEqual(42);
+      // The overdue detail stays reachable and inside the disclosure, however
+      // narrow the viewport gets.
+      const gapsDetailBox = await gapsDetail.boundingBox();
+      const reviewDueBox = await reviewDueTab.boundingBox();
+      expect(gapsDetailBox).toBeTruthy();
+      expect(reviewDueBox).toBeTruthy();
+      expect(reviewDueBox!.y).toBeGreaterThanOrEqual(gapsDetailBox!.y - 1);
+      expect(reviewDueBox!.x).toBeGreaterThanOrEqual(gapsDetailBox!.x - 1);
+      expect(reviewDueBox!.x + reviewDueBox!.width).toBeLessThanOrEqual(gapsDetailBox!.x + gapsDetailBox!.width + 1);
       await expectNoPageHorizontalOverflow(page);
     }
 
@@ -3500,6 +3526,17 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "true");
     await page.keyboard.press("Enter");
     await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+
+    // Both disclosures — the chip and the banner inside it — stay operable from
+    // the keyboard in forced colors with motion reduced.
+    await gapsChip.focus();
+    await expect(gapsChip).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
+    await expect(gapsDetail).toBeHidden();
+    await page.keyboard.press("Enter");
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
+    await expect(gapsDetail).toBeVisible();
 
     await reviewDueTab.focus();
     await expect(reviewDueTab).toBeFocused();
