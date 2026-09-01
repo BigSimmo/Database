@@ -429,6 +429,23 @@ function dedupeRelatedDocuments(documents: RelatedDocument[], primarySources: So
   return output;
 }
 
+/**
+ * The two warnings that report a source's CURRENCY rather than a gap in the
+ * evidence. They are exported because the answer surface has to be able to tell
+ * them apart from the rest: a source being due for review is not a missing
+ * piece of evidence, and a summary that counts it as one both overstates the
+ * gaps and — since the same fact also drives the stale-evidence state — says the
+ * one thing twice while naming it wrongly.
+ */
+export const currencyReviewWarnings = {
+  supporting: "A supporting source is due for review.",
+  retrieved: "A retrieved source is due for review.",
+} as const;
+
+export function isCurrencyReviewWarning(warning: string): boolean {
+  return Object.values(currencyReviewWarnings).some((message) => message === warning);
+}
+
 function buildWarnings(answer: RagAnswer, trust: AnswerRenderTrust) {
   const warnings: string[] = [];
   if (trust === "unsupported")
@@ -452,12 +469,12 @@ function buildWarnings(answer: RagAnswer, trust: AnswerRenderTrust) {
   const assessments = Object.entries(answer.evidenceAssessments ?? {});
   const materialAssessments = assessments.filter(([chunkId]) => materialChunkIds.has(chunkId));
   if (materialAssessments.some(([, assessment]) => assessment.currency === "review_due")) {
-    warnings.push("A supporting source is due for review.");
+    warnings.push(currencyReviewWarnings.supporting);
   } else if (
     materialChunkIds.size === 0 &&
     assessments.some(([, assessment]) => assessment.currency === "review_due" && assessment.relevance !== "none")
   ) {
-    warnings.push("A retrieved source is due for review.");
+    warnings.push(currencyReviewWarnings.retrieved);
   }
   for (const gap of answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []) {
     if (gap.message) warnings.push(gap.message);

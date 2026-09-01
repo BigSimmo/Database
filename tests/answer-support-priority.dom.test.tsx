@@ -212,6 +212,21 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     // banner in here would delete it outright rather than relocate it.
     expect(surface).toContain("renderModel.warnings.length > 0 || overdueSourcesBanner");
     // And the chip that opens it must exist for that answer too.
-    expect(surface).toContain('renderModel.warnings.length > 0 || answerState.kind === "stale_evidence"');
+    expect(surface).toContain('const answerReviewDue = answerState.kind === "stale_evidence";');
+    expect(surface).toContain("renderModel.warnings.length > 0 || answerReviewDue");
+
+    // The chip's label must keep BOTH halves. On a source-only answer it is the
+    // only thing on the default view that says a cited source is overdue —
+    // `VerificationNotice` is `hidden print:flex` there and the collapsed
+    // Source-only pill reads "Source-only · verify passages" — so a warning
+    // count must never replace "Review due", and a currency warning must never
+    // be counted as one of the gaps.
+    expect(surface).toContain('"Review due"');
+    expect(surface).toContain("isCurrencyReviewWarning");
+    const labelStart = surface.indexOf("const answerEvidenceChipLabel");
+    expect(labelStart).toBeGreaterThan(-1);
+    const label = surface.slice(labelStart, labelStart + 400);
+    expect(label).toContain('"Review due"');
+    expect(label).toContain("answerGapWarningCount");
   });
 });

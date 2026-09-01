@@ -3418,6 +3418,13 @@ test.describe("PsychSift UI smoke coverage", () => {
         return {
           ...base,
           answerQualityTier: "source_only" as const,
+          // The combination that matters: source-only AND overdue AND carrying a
+          // render warning. The governed verification line is print-only on a
+          // source-only answer and the collapsed Source-only pill says only
+          // "Source-only · verify passages", so the evidence chip is the one
+          // thing on the default view that can state the answer is overdue — and
+          // a warning must not displace it there.
+          faithfulnessWarning: "One sentence could not be matched to a cited passage.",
           sources: base.sources.map((source, index) =>
             index === 0
               ? {
@@ -3453,6 +3460,11 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const gapsChip = page.getByTestId("answer-evidence-gaps-trigger");
     await expect(gapsChip).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    // Both halves, not one: the gap count does not displace "Review due". On a
+    // source-only answer this chip is the only thing on the default view that
+    // says a cited source is overdue, so losing that word here loses the fact.
+    await expect(gapsChip).toContainText("Review due");
+    await expect(gapsChip).toContainText(/\d+ evidence gaps?/);
     await expect(gapsChip).toHaveAttribute("aria-controls", "answer-evidence-gaps-detail");
     await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
     const gapsDetail = page.locator("#answer-evidence-gaps-detail");
@@ -3465,6 +3477,16 @@ test.describe("PsychSift UI smoke coverage", () => {
     await gapsChip.click();
     await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
     await expect(gapsDetail).toBeVisible();
+    // And the count is of gaps only. A source being due for review is a
+    // statement about that source's currency, not a missing piece of evidence,
+    // and it is already the other half of this label — counting it again would
+    // both overstate the gaps and report one fact twice under the wrong name.
+    // Derived from what the panel actually renders, so the assertion holds when
+    // the demo corpus changes how many warnings it produces.
+    const panelWarnings = await gapsDetail.locator("> p").allInnerTexts();
+    const gapWarnings = panelWarnings.filter((text) => !/\bdue for review\.$/.test(text.trim()));
+    expect(panelWarnings.length).toBeGreaterThan(0);
+    await expect(gapsChip).toContainText(`${gapWarnings.length} evidence ${gapWarnings.length === 1 ? "gap" : "gaps"}`);
     // The banner is inside the disclosure, not merely somewhere on the page.
     await expect(gapsDetail.getByTestId("retrieval-state-stale-toggle")).toBeVisible();
     await expect(reviewDueTab).toContainText("Review due");

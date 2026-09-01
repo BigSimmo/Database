@@ -509,10 +509,13 @@ export function NaturalLanguageAnswer({
             2026-09-01). It names WHICH sources are overdue, which is a statement
             about this answer's evidence, so it now lives inside the
             evidence-gaps disclosure alongside the other such statements rather
-            than sitting in the answer body above it. The worded caution stays on
-            the default view — `VerificationNotice` still reads "some cited
-            sources are overdue", so nothing about the answer's standing is
-            hidden behind a tap; only the per-source detail moved. */}
+            than sitting in the answer body above it. Only the per-source detail
+            moved: that a source is overdue at all is still stated on the default
+            view, by `VerificationNotice` on a model-written answer and by the
+            evidence chip's `Review due` label on every answer — including the
+            source-only ones this row belongs to, where that notice is
+            `hidden print:flex` and this row's pill says only
+            "Source-only · verify passages". */}
         {sourceOnly ? (
           <div data-testid="answer-source-status-row" className="flex min-w-0 flex-wrap items-start gap-1 print:hidden">
             {sourceOnly ? (
