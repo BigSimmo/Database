@@ -513,7 +513,17 @@ export function buildAnswerFollowUpSuggestions(
   // that a gap has to already be a question to qualify, that test would suppress
   // the authored `source_gap` item whenever any earlier menu template matched.
   const gapAskedItself = suggestions.length > 0;
-  const hasReportedGap = (answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []).length > 0;
+  const reportedGapsOrConflicts = answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? [];
+  const hasReportedGap = reportedGapsOrConflicts.length > 0;
+  /**
+   * A conflict is not a gap, and the authored gap question says the wrong thing
+   * about one. `detectConflictsOrGaps` writes `type: "conflict"` when sources
+   * disagree on a withholding threshold — that answer HAS coverage, from several
+   * sources; the problem is that they contradict each other. Offering "What does
+   * the indexed guidance not cover for X?" there misstates the evidence and
+   * points the clinician at the wrong follow-up.
+   */
+  const hasMissingCoverage = reportedGapsOrConflicts.some((item) => item.type === "gap");
   const answerText = (answer.answer ?? "").toLowerCase();
   const emittedSectionKinds = new Set(
     (answer.answerSections ?? []).map((section) => section.kind).filter((kind): kind is AnswerSectionKind => !!kind),
@@ -556,7 +566,7 @@ export function buildAnswerFollowUpSuggestions(
    * not cover directly beneath a Source gap section that just said.
    */
   if (
-    hasReportedGap &&
+    hasMissingCoverage &&
     !gapAskedItself &&
     !emittedSectionKinds.has("source_gap") &&
     suggestions.length < maxFollowUpSuggestions

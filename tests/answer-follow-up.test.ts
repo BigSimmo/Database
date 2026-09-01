@@ -483,6 +483,48 @@ describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
     }
   });
 
+  it("does not call a conflict a coverage gap", () => {
+    // `detectConflictsOrGaps` writes `type: "conflict"` when sources disagree on
+    // a withholding threshold. That answer HAS coverage, from several sources —
+    // the problem is that they contradict each other — so "What does the indexed
+    // guidance not cover?" misstates the evidence and points the clinician at
+    // the wrong follow-up.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [
+          {
+            type: "conflict",
+            message:
+              "Sources disagree on the ANC withholding threshold (1.5 vs 2.0). Confirm the correct cut-off against the primary guideline before acting on any single source.",
+          },
+        ],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("still offers the gap question when a gap accompanies a conflict", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [
+          { type: "conflict", message: "Sources disagree on the ANC withholding threshold (1.5 vs 2.0)." },
+          { type: "gap", message: "Paediatric dosing is not covered." },
+        ],
+      },
+      ["lithium dosing"],
+    );
+
+    if (suggestions.length < 4) {
+      expect(suggestions).toContain("What does the indexed guidance not cover for lithium?");
+    }
+  });
+
   it("stays silent about a gap the answer already has a Source gap section for", () => {
     // The menu loop drops its own `source_gap` template when a section of that
     // kind was emitted; the direct offer has to apply the same rule, or the chip
