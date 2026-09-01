@@ -83,16 +83,13 @@ describe("interpretSmartSearch", () => {
     expect(interpretSmartSearch(mode, query)).toMatchObject({ naturalLanguage: false, expansions: [] });
   });
 
-  it.each(["documents", "answer", "favourites"] as const)(
-    "does not support Smart expansions in %s",
-    (mode) => {
-      expect(isSmartNaturalSearchMode(mode)).toBe(false);
-      expect(interpretSmartSearch(mode, "Which option fits this presentation?")).toMatchObject({
-        naturalLanguage: false,
-        expansions: [],
-      });
-    },
-  );
+  it.each(["documents", "answer", "favourites"] as const)("does not support Smart expansions in %s", (mode) => {
+    expect(isSmartNaturalSearchMode(mode)).toBe(false);
+    expect(interpretSmartSearch(mode, "Which option fits this presentation?")).toMatchObject({
+      naturalLanguage: false,
+      expansions: [],
+    });
+  });
 
   it("does not leak a mode-scoped rule into another mode", () => {
     const query = "where can I check medication interactions?";

@@ -501,21 +501,6 @@ export function UniversalSearchCommandSurface({
   const smartInterpretation = interpretSmartSearch(modeId, trimmedQuery);
   const smartNaturalSearch = smartInterpretation.naturalLanguage;
   const suppressLocalOnlySmartActions = smartNaturalSearch && isSmartLocalOnlyMode(modeId);
-  const crossModes = useMemo(
-    () =>
-      config
-        ? filterCommandSurfaceCrossModesForSmartSearch(
-            modeId,
-            trimmedQuery,
-            filterCrossModesForSession(config.crossModes, {
-              // Hosts pass the precomputed session decision; do not OR demoMode again.
-              authenticated: canAccessFavourites,
-              demoMode: false,
-            }),
-          )
-        : [],
-    [canAccessFavourites, config, modeId, trimmedQuery],
-  );
   const listboxId = useId();
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -591,6 +576,15 @@ export function UniversalSearchCommandSurface({
 
   const sections = useMemo(() => {
     if (!config) return [];
+    const crossModes = filterCommandSurfaceCrossModesForSmartSearch(
+      modeId,
+      trimmedQuery,
+      filterCrossModesForSession(config.crossModes, {
+        // Hosts pass the precomputed session decision; do not OR demoMode again.
+        authenticated: canAccessFavourites,
+        demoMode: false,
+      }),
+    );
     const built: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }> = [];
     let counter = 0;
     const nextId = () => `${listboxId}-item-${counter++}`;
@@ -982,7 +976,6 @@ export function UniversalSearchCommandSurface({
   }, [
     canAccessFavourites,
     config,
-    crossModes,
     favouriteMatches,
     listboxId,
     mode,
