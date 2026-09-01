@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "76e9f901-cb17-4ea1-bc83-fc9d20c2969a",
+  "createdOn": "2026-09-01",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The scope-statement footer contradicts itself: an audit says mount it on every mode home, the code says it was deliberately removed from all of them",
+    "detail": "#PM9SP1's FIX text said to 'relabel to Clinical reference - not validated decision support and mount the footer on the other mode homes'. The relabel half landed (PRs #2497, #2499). The mount half conflicts with a recorded decision in the code: src/components/mode-home-template.tsx:216-219 states 'No mode home renders this any more: the line under the composer was removed from every home page. The sole remaining call site is the therapy-compass page footer, which sits at the bottom of the sub-routes and is explicitly not rendered on the therapy home (showFooter={!isHome} in workspace.tsx).' So one source says mount it everywhere and the other says it was deliberately taken off everywhere. NEXT ACTION: owner ruling on which is current, then make the other match. If the footer stays off mode homes, amend the #PM9SP1 fix text so a future session does not re-add it; if it should return, that is a deliberate reversal of the recorded decision and the comment at mode-home-template.tsx:216-219 must be updated in the same change. Not urgent: every surface that renders retrieved clinical content already carries its own scope line (verified by a repo-wide sweep 2026-09-01) - the open question is the shared mode-home composer footer only.",
+    "source": "Design-system + app review session 2026-09-01; conflict found while fixing #PM9SP1, verified against mode-home-template.tsx and therapy-compass/workspace.tsx",
+    "issueUlid": "01M1EFPB05MPZTBR8X1KFRQBT8"
+  }
+}
