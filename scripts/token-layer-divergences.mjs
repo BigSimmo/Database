@@ -133,11 +133,32 @@ const THEMES = {
   },
 };
 
+/**
+ * Declarations for one theme, from blocks whose CONDITION matches that theme.
+ *
+ * The base themes take unconditional blocks only. An earlier version tested just
+ * `/forced-colors/`, which let any OTHER `@media` block into the base map, where a
+ * later responsive override silently replaced the base value — `globals.css` has
+ * three such `:root` blocks today (`--mode-home-copy-reserve` twice,
+ * `--spacing-mode-home-composer-wide` once). Comparing a narrow-viewport override
+ * against an unconditional v2 declaration is comparing two different contexts, and
+ * it reports identical when they diverge everywhere the condition does not apply.
+ *
+ * Conditional non-forced-colors blocks are therefore excluded rather than merged.
+ * That is the conservative direction: a token declared ONLY under such a condition
+ * goes uncompared instead of being compared wrongly. `unconditionalOnly` is not a
+ * synonym for "no media" in the forced-colours case, which is itself a condition and
+ * is modelled as its own theme.
+ */
 function collect(blocks, matches, wantForcedColors) {
   const map = new Map();
   for (const block of blocks) {
     const inForcedColors = /forced-colors/.test(block.media);
-    if (inForcedColors !== wantForcedColors) continue;
+    if (wantForcedColors) {
+      if (!inForcedColors) continue;
+    } else if (block.media !== "") {
+      continue;
+    }
     if (!matches(block.selectors)) continue;
     for (const [name, value] of declarations(block.body)) map.set(name, value);
   }
@@ -147,12 +168,16 @@ function collect(blocks, matches, wantForcedColors) {
 /**
  * Both layers, per theme. An empty map for any side is a hard error rather than a
  * quiet "no divergence": an empty comparison would pass loudly-green.
+ *
+ * @typedef {{ compat: Map<string, string>, v2: Map<string, string> }} LayerPair
+ * @returns {Record<string, LayerPair>} keyed by the theme names in `THEMES`
  */
 export function readLayers() {
   const globalsBlocks = ruleBlocks(readFileSync(GLOBALS, "utf8"));
   const v2Blocks = ruleBlocks(readFileSync(V2, "utf8"));
   // Tailwind's `@theme` is an at-rule by syntax but declares tokens like `:root`.
   const themeBlock = readFileSync(GLOBALS, "utf8").match(/@theme\s*\{([\s\S]*?)\n\}/);
+  /** @type {Record<string, LayerPair>} */
   const out = {};
   for (const [theme, spec] of Object.entries(THEMES)) {
     const compat = collect(globalsBlocks, spec.compat, spec.forcedColors);
