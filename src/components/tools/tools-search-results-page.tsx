@@ -33,7 +33,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { toolIdentity } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
-import { smartSearchExpansions } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, smartSearchExpansions } from "@/lib/smart-search-intent";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
   rankToolRecords,
@@ -60,6 +60,8 @@ const filterOptions = [
 
 type FilterId = (typeof filterOptions)[number]["id"];
 type DetailSectionId = "check-first" | "needed-input" | "output";
+
+const localSmartExcludedToolIds = new Set(["clinical-kb-search", "documents", "favourites"]);
 
 function subscribeNoop() {
   return () => undefined;
@@ -370,6 +372,7 @@ export function ToolsSearchResultsPage({
     [canAccessFavourites],
   );
   const effectiveActiveFilter: FilterId = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
+  const naturalSmartSearch = useMemo(() => interpretSmartSearch("tools", query).naturalLanguage, [query]);
   const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
 
   const queryMatchedTools = useMemo(
@@ -378,9 +381,11 @@ export function ToolsSearchResultsPage({
         ? rankToolRecords(query, undefined, smartExpansions, {
             authenticated: canAccessFavourites,
             demoMode: false,
-          }).map((match) => match.tool)
+          })
+            .map((match) => match.tool)
+            .filter((tool) => !naturalSmartSearch || !localSmartExcludedToolIds.has(tool.id))
         : accessibleTools,
-    [accessibleTools, canAccessFavourites, query, smartExpansions],
+    [accessibleTools, canAccessFavourites, naturalSmartSearch, query, smartExpansions],
   );
 
   const filterCounts = useMemo<Record<FilterId, number>>(

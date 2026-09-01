@@ -327,8 +327,35 @@ describe("favourites auth gate DOM", () => {
     );
     expect(screen.getByTestId("application-card-medication-prescribing")).toBeInTheDocument();
     expect(screen.getByTestId("application-row-medication-prescribing")).toBeInTheDocument();
-    expect(screen.queryByTestId("application-card-favourites")).toBeNull();
-    expect(screen.queryByTestId("application-row-favourites")).toBeNull();
+    for (const toolId of ["clinical-kb-search", "documents", "favourites"]) {
+      expect(screen.queryByTestId(`tool-shortcut-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-card-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-row-${toolId}`)).toBeNull();
+    }
+  });
+
+  it("suppresses local-only Tools Smart actions for authenticated users but keeps literal tool access", () => {
+    const { rerender } = render(
+      <ApplicationsLauncherWorkspace query="where can I check medication interactions?" canAccessFavourites />,
+    );
+
+    for (const toolId of ["clinical-kb-search", "documents", "favourites"]) {
+      expect(screen.queryByTestId(`tool-shortcut-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-card-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-row-${toolId}`)).toBeNull();
+    }
+
+    for (const [query, toolId] of [
+      ["PsychSift Search", "clinical-kb-search"],
+      ["Documents", "documents"],
+      ["Favourites", "favourites"],
+    ]) {
+      rerender(<ApplicationsLauncherWorkspace query={query} canAccessFavourites />);
+
+      expect(screen.getAllByTestId(`tool-shortcut-${toolId}`)).toHaveLength(toolId === "favourites" ? 1 : 2);
+      expect(screen.getByTestId(`application-card-${toolId}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`application-row-${toolId}`)).toBeInTheDocument();
+    }
   });
 
   it.each([
@@ -453,6 +480,22 @@ describe("favourites auth gate DOM", () => {
       }),
     ).toBeVisible();
     expect(screen.queryByRole("heading", { level: 2, name: "Favourites" })).toBeNull();
+  });
+
+  it("keeps local-only Tools Smart results free of escape tools while literal titles still open them", () => {
+    const { rerender } = render(
+      <ToolsSearchResultsPage initialQuery="where can I check medication interactions?" canAccessFavourites />,
+    );
+    const results = screen.getByRole("region", { name: "Tool results" });
+
+    for (const title of ["PsychSift Search", "Documents", "Favourites"]) {
+      expect(within(results).queryByRole("heading", { level: 2, name: title })).toBeNull();
+      expect(within(results).queryByRole("link", { name: `Open ${title}` })).toBeNull();
+    }
+
+    rerender(<ToolsSearchResultsPage initialQuery="Documents" canAccessFavourites />);
+    expect(within(results).getByRole("heading", { level: 2, name: "Documents" })).toBeVisible();
+    expect(within(results).getByRole("link", { name: "Open Documents" })).toBeVisible();
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

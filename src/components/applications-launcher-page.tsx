@@ -38,7 +38,7 @@ import { toolIdentity } from "@/lib/category-identity";
 import { categoryGlyph } from "@/lib/category-identity-icons";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
-import { smartSearchExpansions } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, smartSearchExpansions } from "@/lib/smart-search-intent";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
   rankToolRecords,
@@ -113,6 +113,8 @@ const quickActionsBase = [
   { label: "Saved", desktopLabel: "Favourites", id: "favourites" },
 ] as const satisfies ReadonlyArray<{ label: string; desktopLabel: string; id: ToolCatalogId }>;
 
+const localSmartExcludedToolIds = new Set<ToolCatalogId>(["clinical-kb-search", "documents", "favourites"]);
+
 const desktopFiltersBase: Array<{ id: LauncherFilter; label: string }> = [
   { id: "all", label: "All tools" },
   { id: "assessment", label: "Assess" },
@@ -134,8 +136,12 @@ function appById(id: ToolCatalogId, apps: LauncherApp[]) {
   return apps.find((app) => app.id === id) ?? apps[0];
 }
 
-function quickActionsForSession(canAccessFavourites: boolean) {
-  return canAccessFavourites ? quickActionsBase : quickActionsBase.filter((action) => action.id !== "favourites");
+function quickActionsForSession(canAccessFavourites: boolean, naturalSmartSearch: boolean) {
+  return quickActionsBase.filter(
+    (action) =>
+      (canAccessFavourites || action.id !== "favourites") &&
+      (!naturalSmartSearch || !localSmartExcludedToolIds.has(action.id)),
+  );
 }
 
 function desktopFiltersForSession(canAccessFavourites: boolean) {
@@ -266,13 +272,15 @@ function QuickActions({
   mobile,
   apps,
   canAccessFavourites,
+  naturalSmartSearch,
 }: {
   onSelect: (id: ToolCatalogId) => void;
   mobile?: boolean;
   apps: LauncherApp[];
   canAccessFavourites: boolean;
+  naturalSmartSearch: boolean;
 }) {
-  const quickActions = quickActionsForSession(canAccessFavourites);
+  const quickActions = quickActionsForSession(canAccessFavourites, naturalSmartSearch);
   return (
     <section
       aria-label="Quick tool shortcuts"
@@ -730,6 +738,7 @@ export function ApplicationsLauncherWorkspace({
   const desktopFilters = useMemo(() => desktopFiltersForSession(canAccessFavourites), [canAccessFavourites]);
   const query = localQuery ?? controlledQuery ?? searchCommand?.query ?? "";
   const normalizedQuery = query.trim().toLowerCase();
+  const naturalSmartSearch = useMemo(() => interpretSmartSearch("tools", query).naturalLanguage, [query]);
   const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
   const [selectedId, setSelectedId] = useState<ToolCatalogId>("risk-safety");
   const effectiveFilter: LauncherFilter = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
@@ -740,9 +749,11 @@ export function ApplicationsLauncherWorkspace({
         ? rankToolRecords(query, undefined, smartExpansions, {
             authenticated: canAccessFavourites,
             demoMode: false,
-          }).map((match) => match.tool)
+          })
+            .map((match) => match.tool)
+            .filter((app) => !naturalSmartSearch || !localSmartExcludedToolIds.has(app.id))
         : launcherApps,
-    [canAccessFavourites, launcherApps, normalizedQuery, query, smartExpansions],
+    [canAccessFavourites, launcherApps, naturalSmartSearch, normalizedQuery, query, smartExpansions],
   );
   const filterCounts = Object.fromEntries(
     desktopFilters.map((filter) => [
@@ -837,10 +848,21 @@ export function ApplicationsLauncherWorkspace({
 
         <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
           <div className="hidden sm:block">
-            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} />
+            <QuickActions
+              onSelect={openTool}
+              apps={launcherApps}
+              canAccessFavourites={canAccessFavourites}
+              naturalSmartSearch={naturalSmartSearch}
+            />
           </div>
           <div className="sm:hidden">
-            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} mobile />
+            <QuickActions
+              onSelect={openTool}
+              apps={launcherApps}
+              canAccessFavourites={canAccessFavourites}
+              naturalSmartSearch={naturalSmartSearch}
+              mobile
+            />
           </div>
         </div>
       </section>

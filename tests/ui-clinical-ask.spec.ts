@@ -88,6 +88,16 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
     const input = searchOwner(page, mode);
     await input.fill(query);
     if (mode === "tools") {
+      for (const [toolId, actionLabel] of [
+        ["clinical-kb-search", "Ask evidence"],
+        ["documents", "Documents"],
+        ["favourites", "Favourites"],
+      ]) {
+        await expect(page.getByTestId(`tool-shortcut-${toolId}`)).toHaveCount(0);
+        await expect(page.getByTestId(`application-card-${toolId}`)).toHaveCount(0);
+        await expect(page.getByTestId(`application-row-${toolId}`)).toHaveCount(0);
+        await expect(page.getByRole("button", { name: `Open ${actionLabel}`, exact: true })).toHaveCount(0);
+      }
       for (const excludedMode of ["Documents", "Answer", "Favourites"]) {
         await expect(page.getByRole("option", { name: excludedMode, exact: true })).toHaveCount(0);
       }
@@ -114,6 +124,13 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
       );
     });
     await expect(page.getByText(expectedResult, { exact: true }).first()).toBeVisible();
+    if (mode === "tools") {
+      for (const title of ["PsychSift Search", "Documents", "Favourites"]) {
+        await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+        await expect(page.getByRole("link", { name: `Open ${title}`, exact: true })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: `View details for ${title}`, exact: true })).toHaveCount(0);
+      }
+    }
     expect(clinicalAskRequests).toBe(0);
     expect(universalSearchRequests).toBe(0);
   }
