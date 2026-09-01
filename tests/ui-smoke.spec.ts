@@ -2096,6 +2096,51 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
 
+    // The status chips carry a real 48px tap target inside a 24px-tall pill. The
+    // first shape did that with `-my-3`, which keeps `boundingBox()` honest while
+    // moving the hit region outside the element's layout box — so the chip
+    // quietly sat on top of its neighbours. Measured here before the fix: the
+    // safety chip covered a 133x9px band of the support chip and a 133x2px band
+    // of the prose, and a tap in either band opened the chip. Geometry is the
+    // only thing that catches this — every DOM assertion above passes with the
+    // overlap in place — and 320px is the width where the chip row wraps.
+    for (const statusWidth of [390, 320]) {
+      await page.setViewportSize({ width: statusWidth, height: 820 });
+      await expect(safetyFindingsTrigger).toBeVisible();
+      await expectMinTouchTarget(safetyFindingsTrigger);
+      const collisions = await page.evaluate(() => {
+        const box = (selector: string) => {
+          const node = document.querySelector(selector);
+          return node ? { id: selector, ...node.getBoundingClientRect().toJSON() } : null;
+        };
+        const chips = [
+          box('[data-testid="answer-safety-findings-trigger"]'),
+          box('[data-testid="answer-evidence-gaps-trigger"]'),
+        ].filter((entry) => entry !== null);
+        const neighbours = [
+          box('[data-testid="answer-card-support"]'),
+          box('[data-testid="answer-cited-count"]'),
+          box('[data-testid="plain-answer-prose"]'),
+          ...chips,
+        ].filter((entry) => entry !== null);
+        const overlaps: string[] = [];
+        for (const chip of chips) {
+          for (const other of neighbours) {
+            if (other.id === chip.id) continue;
+            const width = Math.min(chip.right, other.right) - Math.max(chip.left, other.left);
+            const height = Math.min(chip.bottom, other.bottom) - Math.max(chip.top, other.top);
+            // Sub-pixel rounding, not a real collision.
+            if (width > 0.5 && height > 0.5) {
+              overlaps.push(`${chip.id} over ${other.id} by ${width.toFixed(1)}x${height.toFixed(1)}`);
+            }
+          }
+        }
+        return overlaps;
+      });
+      expect(collisions, `status chip hit regions overlap at ${statusWidth}px`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 390, height: 820 });
+
     // Decision 2 (2026-08-24): tables fold into the source drawer, so they are no
     // longer on the answer surface at all — reaching one goes through a rail row.
     await expect(page.getByLabel("Inline table preview")).toHaveCount(0);
