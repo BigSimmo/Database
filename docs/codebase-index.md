@@ -601,12 +601,12 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `scripts/check-outstanding-issues-snapshot.mjs` regenerates the snapshot in memory and compares
   its content keys (`queue`, `open`, `pending`) against the committed file, failing with the fix
   command on any mismatch — this is what makes a stale snapshot impossible to ship.
-- **Corpus health data:** `src/lib/developer-area/corpus-health.ts` (`resolveCorpusHealth`,
-  `resolveQualitySpread`) reads `public.documents` and `public.document_index_quality` through
-  `createSupabaseServerClient`, never `createAdminClient` — row-level security (`documents owner
-read`, `index quality owner read`) is what scopes every count to the caller's own library, and a
-  source assertion in `tests/developer-corpus-health.test.ts` fails if the admin client is ever
-  substituted. Every failure reports as `null` and never as `0`, and each read is guarded
+  `resolveQualitySpread`) verifies the signed-in administrator through `createSupabaseServerClient`,
+  then reads `public.documents` and `public.document_index_quality` through the server-only
+  `createAdminClient`. `authenticated` has no table `SELECT` privilege on either table, so every
+  service-role query explicitly filters `owner_id` to that verified user. The admin client bypasses
+  RLS, making that application-enforced filter the access boundary; tests cover non-administrator
+  denial and fail if any recorded query omits it. Every failure reports as `null` and never as `0`, and each read is guarded
   separately, because on this panel `0` is the reassuring answer and a rejected request must not be
   able to impersonate it. Counts are computed in Postgres (`head: true`) rather than by counting
   fetched rows, which PostgREST would cap. `resolveQualitySpread` is the pure derivation that tells
@@ -639,9 +639,9 @@ read`, `index quality owner read`) is what scopes every count to the caller's ow
   repository's clinical eval questions by case id, presented as references rather than as verdicts.
   `/mockups/development/corpus-health` (`corpus-health/page.tsx`, Server Component) — the library at
   rest rather than in flight: counts by status, documents that finished `indexed` with zero chunks,
-  failures with the recorded reason, and the extraction-quality distribution, all read live through
-  the user-session client. Every page in this directory inherits `DeveloperAreaGate` from
-  `layout.tsx`.
+  failures with the recorded reason, and the extraction-quality distribution. It authenticates via
+  the user-session client, then reads through the server-only, owner-filtered admin path. Every page
+  in this directory inherits `DeveloperAreaGate` from `layout.tsx`.
 - **Components:** `src/components/developer-area/developer-hub-nav-header.tsx` (`"use client"`,
   owns the hub's in-page section table and mounts `InPageNavHeader`) and
   `src/components/developer-area/hub/` — `freshness-stamp.tsx`, `environment-strip.tsx`,
