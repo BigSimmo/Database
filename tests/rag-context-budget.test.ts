@@ -6,10 +6,14 @@ import {
   answerCoverageFromSelections,
   evaluateAnswerCoverage,
   formatAnswerCoveragePromptLine,
+  evaluateShadowCandidateMatchCounts,
   mergeEvidenceByCoverageAndSourceRole,
   reconcileAnswerSourcePolicyConflicts,
+  uncoveredRagSubquestions,
 } from "../src/lib/rag/rag-coverage";
 import { answerCacheAllowedForSourcePolicyConflicts } from "../src/lib/rag/rag-cache";
+import { buildEvidenceRelevance } from "../src/lib/evidence-relevance";
+import { searchResultEligibilityForClaim } from "../src/lib/source-role-policy";
 import { buildSmartRagApiPlan } from "../src/lib/smart-rag-api";
 import type {
   AnswerCoveragePlan,
@@ -584,6 +588,41 @@ describe("RAG model context budgeting", () => {
 });
 
 describe("coverage and source-role evidence merge", () => {
+  it("keeps a required treatment subquestion uncovered until role-eligible evidence exists", () => {
+    const plan = queryPlan([{ id: "treatment", question: "catatonia urgent assessment" }]);
+    const wrongRole = governedEvidence({
+      id: "treatment-form",
+      corpusScope: "uploaded_local",
+      content: "Catatonia urgent assessment guidance.",
+      role: "form_reference",
+    });
+    const eligible = governedEvidence({
+      id: "treatment-guideline",
+      corpusScope: "uploaded_local",
+      content: "Catatonia urgent assessment guidance.",
+      role: "local_guideline",
+    });
+
+    expect(searchResultEligibilityForClaim(eligible, "treatment")).toEqual({
+      eligible: true,
+      reason: "eligible",
+    });
+    expect(buildEvidenceRelevance("catatonia urgent assessment", [eligible]).verdict).toBe("direct");
+    expect(mergeEvidenceByCoverageAndSourceRole({ plan, candidates: [eligible] })[0]?.coverageReason).toBe("direct");
+    expect(uncoveredRagSubquestions(plan, [wrongRole]).map(({ id }) => id)).toEqual(["treatment"]);
+    expect(evaluateShadowCandidateMatchCounts(plan, [wrongRole])).toEqual({
+      matched: 0,
+      partial_match: 0,
+      absent: 1,
+    });
+    expect(uncoveredRagSubquestions(plan, [eligible])).toEqual([]);
+    expect(evaluateShadowCandidateMatchCounts(plan, [eligible])).toEqual({
+      matched: 1,
+      partial_match: 0,
+      absent: 0,
+    });
+  });
+
   it.each([
     ["pbs", "Is lithium listed on the PBS with an authority restriction?", "subsidy"],
     ["legal", "What does the Mental Health Act legislation require?", "legal"],

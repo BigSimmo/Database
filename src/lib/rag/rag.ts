@@ -2575,7 +2575,6 @@ async function answerQuestionWithScopeUncoalesced(
         ragQueryPlanVersion: args.ragQueryPlanVersion,
         ragQueryPlanMode: args.ragQueryPlanMode,
         governedCorpusComponents: args.governedCorpusComponents,
-        governedInternationalCoverageGap: args.governedInternationalCoverageGap,
         sourcePolicyConflicts: args.sourcePolicyConflicts,
         captureRagQueryPlan: (plan) => void (requestQueryPlan = plan),
       }),

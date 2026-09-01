@@ -108,7 +108,7 @@ export function retrievalCorpusScopes(policy: RetrievalCorpusScopePolicy): Gover
   const phases: GovernedCorpusRetrievalPhase[] = [
     { corpusScopes: primary, accessScope: governedPublicRetrievalAccessScope(), phase: "primary" },
   ];
-  if (policy.australianAugmentationEnabled && policy.internationalCoverageGap) {
+  if (policy.australianAugmentationEnabled && policy.australianCurrent) {
     phases.push({
       corpusScopes: ["international_supplementary"],
       accessScope: governedPublicRetrievalAccessScope(),
@@ -222,7 +222,8 @@ export async function searchGovernedCorpora(args: {
   snapshot: RagContextSnapshot;
   components: GovernedCorpusComponents;
   targetSiteDomains: SiteContentDomain[];
-  internationalCoverageGap: boolean;
+  /** @deprecated Supplementary retrieval derives from eligible uncovered subquestions. */
+  internationalCoverageGap?: boolean;
   signal?: AbortSignal;
   maxRpcCalls?: number;
   onRpcCall?: () => void;
@@ -234,13 +235,13 @@ export async function searchGovernedCorpora(args: {
     siteContentState: args.snapshot.publicSiteContent.state,
     australianAugmentationEnabled: args.components.australianAugmentation,
     australianCurrent: args.components.australianCurrent,
-    internationalCoverageGap: args.internationalCoverageGap,
   });
   const originalQuery = args.queryVariants[0];
   if (!originalQuery) return [];
   const retrievalMode = args.retrievalMode ?? "text";
   let remainingRpcCalls = Math.max(1, Math.min(args.maxRpcCalls ?? maxTextRpcQueryVariants, maxTextRpcQueryVariants));
   let results: SearchResult[] = [];
+  const rpcLanes: SearchResult[][] = [];
   const sharedArgs = (corpusScopes: SourceCorpusScope[]) => ({
     match_count: Math.max(1, Math.min(args.matchCount, 96)),
     owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
@@ -273,6 +274,7 @@ export async function searchGovernedCorpora(args: {
           snapshot: args.snapshot,
         })
       : [];
+    if (rows.length > 0) rpcLanes.push(rows);
     results = mergeSearchResults(results, rows);
     return { error, rows };
   };
@@ -342,24 +344,52 @@ export async function searchGovernedCorpora(args: {
   };
 
   const primary = phases.find(({ phase }) => phase === "primary");
+  const supplementary = phases.find(({ phase }) => phase === "supplementary");
   if (primary) {
     await runQuery(primary, originalQuery);
-    const reserveSupplementary = phases.some(({ phase }) => phase === "supplementary") ? 1 : 0;
     const primarySubquestionId = args.queryPlan?.subquestions[0]?.id;
-    const uncovered = args.queryPlan
-      ? uncoveredRagSubquestions(args.queryPlan, results).filter(({ id }) => id !== primarySubquestionId)
-      : [];
-    for (const subquestion of uncovered) {
+    const attemptedSubquestionIds = new Set(primarySubquestionId ? [primarySubquestionId] : []);
+    const attemptedQueries = new Set([buildClinicalTextSearchQuery(originalQuery)]);
+    while (args.queryPlan) {
+      const subquestion = uncoveredRagSubquestions(args.queryPlan, results).find(
+        ({ id, question }) =>
+          !attemptedSubquestionIds.has(id) && !attemptedQueries.has(buildClinicalTextSearchQuery(question)),
+      );
+      if (!subquestion) break;
+      const reserveSupplementary = supplementary ? 1 : 0;
       if (remainingRpcCalls <= reserveSupplementary) break;
-      await runQuery(primary, buildClinicalTextSearchQuery(subquestion.question));
+      attemptedSubquestionIds.add(subquestion.id);
+      const queryText = buildClinicalTextSearchQuery(subquestion.question);
+      attemptedQueries.add(queryText);
+      await runQuery(primary, queryText);
     }
   }
-  const supplementary = phases.find(({ phase }) => phase === "supplementary");
   if (supplementary && remainingRpcCalls > 0) {
     const uncovered = args.queryPlan ? uncoveredRagSubquestions(args.queryPlan, results) : [];
-    await runQuery(supplementary, buildClinicalTextSearchQuery(uncovered[0]?.question ?? originalQuery));
+    const subquestion = uncovered[0];
+    if (subquestion) await runQuery(supplementary, buildClinicalTextSearchQuery(subquestion.question));
   }
-  return results.slice(0, Math.max(1, Math.min(args.matchCount, 96)));
+  return boundedRpcLaneResults(rpcLanes, results, Math.max(1, Math.min(args.matchCount, 96)));
+}
+
+function boundedRpcLaneResults(lanes: readonly SearchResult[][], pool: SearchResult[], limit: number) {
+  const betterById = new Map(pool.map((result) => [result.id, result]));
+  const selected: SearchResult[] = [];
+  const selectedIds = new Set<string>();
+  const add = (result: SearchResult | undefined) => {
+    const better = result ? betterById.get(result.id) : undefined;
+    if (!better || selectedIds.has(better.id) || selected.length >= limit) return;
+    selectedIds.add(better.id);
+    selected.push(better);
+  };
+  for (const lane of lanes) {
+    add(lane.find((result) => !selectedIds.has(result.id)));
+  }
+  const maxDepth = Math.max(0, ...lanes.map((lane) => lane.length));
+  for (let depth = 0; depth < maxDepth && selected.length < limit; depth += 1) {
+    for (const lane of lanes) add(lane[depth]);
+  }
+  return selected;
 }
 
 function legacyRankFields(versionedName: string) {

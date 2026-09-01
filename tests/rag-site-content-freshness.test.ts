@@ -681,10 +681,10 @@ describe("RAG request site-content snapshot", () => {
     expect(legacy.ragRequestContext.snapshot.publicSiteContent.state).toBe("disabled");
     expect(legacy.ragRequestContext.snapshotCacheKey).toBe("");
     expect(ragCacheModule.scopedAnswerCacheKey(legacy)).toBe(
-      `rag-cache-v21|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring|corpora|international-gap:off`,
+      `rag-cache-v21|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring|corpora`,
     );
     expect(ragCacheModule.retrievalPlanCacheQuery(legacy, "table_threshold", ["clozapine anc"])).toBe(
-      "redacted-cache:8fe5e7d2c1c9343df92017c8b1188a4813883c64973e0e306bb0b470769720b7",
+      "redacted-cache:1de2f7b951c4ddf8ca480b93420c38820db35d9acb051c0a71c0364b2dba8188",
     );
     const cache = ragCacheModule as CacheModule;
     expect(cache.sharedAnswerNormalizedQuery).toBeTypeOf("function");
@@ -694,7 +694,7 @@ describe("RAG request site-content snapshot", () => {
       .trim();
     expect(cache.sharedAnswerNormalizedQuery?.(legacy)).toBe(
       queryCacheKeyForStorage(
-        `${normalizedSharedQuery}|generation:${generation}|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|international-gap:off`,
+        `${normalizedSharedQuery}|generation:${generation}|queryPlan:rag-query-plan-v1|queryPlanMode:legacy`,
       ),
     );
   });

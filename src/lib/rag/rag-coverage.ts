@@ -657,19 +657,34 @@ export function adaptSmartAnswerPlanForCoverage(
   };
 }
 
-function subquestionCandidateStatus(question: string, selectedEvidence: readonly SearchResult[]) {
-  const candidates = selectedEvidence
-    .filter(candidateHasKnownServerScope)
+function subquestionCandidateStatus(
+  plan: RagQueryPlan,
+  subquestion: RagQueryPlan["subquestions"][number],
+  selectedEvidence: readonly SearchResult[],
+) {
+  const claimRole = classifyClaimRoleForSubquestion(subquestion);
+  const roleEligible = selectedEvidence.filter(
+    (candidate) =>
+      candidateHasKnownServerScope(candidate) && searchResultEligibilityForClaim(candidate, claimRole).eligible,
+  );
+  const [selection] = mergeEvidenceByCoverageAndSourceRole({
+    plan: { ...plan, subquestions: [subquestion] },
+    candidates: roleEligible,
+    claimRole,
+    maxPerSubquestion: Math.max(1, roleEligible.length),
+    maxPerDocument: Math.max(1, roleEligible.length),
+  });
+  const candidates = (selection?.orderedEvidence ?? [])
     .map((candidate) => {
       const candidateForSubquestion = { ...candidate };
       delete candidateForSubquestion.relevance;
       return candidateForSubquestion;
     })
-    .filter((candidate) => buildEvidenceRelevance(question, [candidate]).isSourceBacked);
+    .filter((candidate) => buildEvidenceRelevance(subquestion.question, [candidate]).isSourceBacked);
   if (candidates.length === 0) return "absent" as const;
 
-  const relevance = buildEvidenceRelevance(question, candidates);
-  const gate = evaluateEvidenceCoverageGate(question, candidates);
+  const relevance = buildEvidenceRelevance(subquestion.question, candidates);
+  const gate = evaluateEvidenceCoverageGate(subquestion.question, candidates);
   if (gate.reason !== "coverage_gate_not_applicable" && !gate.accepted) return "absent" as const;
   if (relevance.verdict === "direct") return "matched" as const;
   if (relevance.verdict === "partial") return "partial_match" as const;
@@ -679,7 +694,8 @@ function subquestionCandidateStatus(question: string, selectedEvidence: readonly
 /** Candidate variants are spent only on required subquestions that remain below direct coverage. */
 export function uncoveredRagSubquestions(plan: RagQueryPlan, selectedEvidence: readonly SearchResult[]) {
   return plan.subquestions.filter(
-    (subquestion) => subquestionCandidateStatus(subquestion.question, selectedEvidence) !== "matched",
+    (subquestion) =>
+      subquestion.required && subquestionCandidateStatus(plan, subquestion, selectedEvidence) !== "matched",
   );
 }
 
@@ -689,7 +705,7 @@ export function evaluateShadowCandidateMatchCounts(
 ): RagCandidateMatchCounts {
   return plan.subquestions.reduce<RagCandidateMatchCounts>(
     (counts, subquestion) => {
-      const status = subquestionCandidateStatus(subquestion.question, selectedEvidence);
+      const status = subquestionCandidateStatus(plan, subquestion, selectedEvidence);
       return { ...counts, [status]: counts[status] + 1 };
     },
     { matched: 0, partial_match: 0, absent: 0 },

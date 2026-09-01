@@ -14419,7 +14419,7 @@ as $$
       and public.is_committed_document_generation(chunk.index_generation_id, document.index_generation_id)
       and (document_filters is null or document.id = any(document_filters))
       and document.metadata->>'corpus_scope' = any(corpus_scopes)
-      and document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')
+      and document.metadata->>'corpus_scope' = 'australian_public'
       and document.metadata->>'source_kind' = 'document'
       and document.metadata->'public_corpus' = 'true'::jsonb
       and document.metadata->>'content_mode' = 'indexed_content'

@@ -89,9 +89,12 @@ function governedRow(id: string, scope: SourceCorpusScope): SearchResult & Recor
       document_status: "current",
       clinical_validation_status: "approved",
       extraction_quality: "good",
+      content_mode: "indexed_content",
+      licence_policy: "public_index_permitted",
       corpus_scope: scope,
       source_kind: scope === "clinical_kb_site" ? "registry_record" : "document",
       source_role: "clinical_guideline",
+      source_catalogue_key: `${scope}:${id}`,
     },
     site_release_id: scope === "clinical_kb_site" ? RELEASE_ID : null,
     site_change_epoch: scope === "clinical_kb_site" ? "7" : null,
@@ -106,6 +109,7 @@ async function loadHarness(
     divergentCorpusGrounding?: boolean;
     hybridError?: boolean;
     missingV3?: boolean;
+    candidateRows?: Array<SearchResult & Record<string, unknown>>;
   } = {},
 ) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -135,7 +139,9 @@ async function loadHarness(
       if (name === "match_document_chunks_hybrid_v3" && options.hybridError) {
         return { data: null, error: { code: "XX000", message: "hybrid unavailable" } };
       }
-      if (name.endsWith("_v3")) return { data: [governedRow("governed-row", "clinical_kb_site")], error: null };
+      if (name.endsWith("_v3")) {
+        return { data: options.candidateRows ?? [governedRow("governed-row", "uploaded_local")], error: null };
+      }
       return { data: [], error: null };
     })();
     return Object.assign(Promise.resolve(response), { abortSignal: vi.fn(async () => response) });
@@ -222,7 +228,14 @@ describe("governed retrieval production entrypoint", () => {
 
     expect(resultIds[1]).toEqual(resultIds[0]);
     expect(resultIds[2]).toEqual(resultIds[0]);
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(6);
+    expect(calls.map(({ args }) => args.query_text)).toEqual(Array(6).fill("clozapine"));
+    expect(calls.map(({ args }) => args.corpus_scopes)).toEqual(
+      Array.from({ length: 3 }, () => [
+        ["uploaded_local", "clinical_kb_site", "australian_public"],
+        ["international_supplementary"],
+      ]).flat(),
+    );
     expect(calls.every(({ name }) => name === "match_document_chunks_hybrid_v3")).toBe(true);
     expect(calls.every(({ args }) => args.owner_filter === "00000000-0000-0000-0000-000000000000")).toBe(true);
     expect(calls.every(({ args }) => args.include_public === true)).toBe(true);
@@ -416,5 +429,86 @@ describe("governed retrieval production entrypoint", () => {
     ).rejects.toBe(reason);
 
     expect(attachDocumentRankingMetadata).toHaveBeenCalledOnce();
+  });
+
+  it("applies claim-role eligibility before final governed top-K", async () => {
+    const wrongRole = Array.from({ length: 4 }, (_, index) => {
+      const candidate = governedRow(`form-${index}`, "uploaded_local");
+      return {
+        ...candidate,
+        content: "Clozapine maintenance treatment guidance.",
+        hybrid_score: 0.99 - index * 0.01,
+        similarity: 0.99 - index * 0.01,
+        source_metadata: { ...candidate.source_metadata, source_role: "form_reference" },
+      };
+    });
+    const guideline = governedRow("eligible-guideline", "uploaded_local");
+    guideline.content = "Clozapine maintenance treatment guidance.";
+    guideline.hybrid_score = 0.2;
+    guideline.similarity = 0.2;
+    guideline.source_metadata = { ...guideline.source_metadata, source_role: "local_guideline" };
+    const { searchChunksWithTelemetry } = await loadHarness({ candidateRows: [...wrongRole, guideline] });
+
+    const response = await searchChunksWithTelemetry({
+      query: "What is clozapine maintenance treatment?",
+      topK: 2,
+      allowGlobalSearch: true,
+      skipCache: true,
+      lexicalOnly: true,
+      ragQueryPlanMode: "canary",
+      ragContextSnapshotInput: snapshotInput,
+      governedCorpusComponents: { siteContent: false, australianAugmentation: false, australianCurrent: false },
+    });
+
+    expect(response.results.map(({ id }) => id)).toContain("eligible-guideline");
+    expect(response.results.map(({ id }) => id)).not.toContain("form-0");
+  });
+
+  it("collapses derivative lineage families before final governed top-K", async () => {
+    const parentHash = "d".repeat(64);
+    const derivatives = Array.from({ length: 3 }, (_, index) => {
+      const candidate = governedRow(`derivative-${index}`, "clinical_kb_site");
+      return {
+        ...candidate,
+        content: "Clinical KB clozapine medication record and product navigation.",
+        hybrid_score: 0.99 - index * 0.01,
+        similarity: 0.99 - index * 0.01,
+        source_metadata: {
+          ...candidate.source_metadata,
+          source_role: "clinical_reference",
+          content_hash: String(index + 1).repeat(64),
+          site_content_logical_id: `medications:clozapine-${index}`,
+          site_content_lineage: [
+            { sourceId: "canonical-clozapine", sourceHash: parentHash, relationship: "derived_from" },
+          ],
+        },
+      };
+    });
+    const independent = governedRow("independent-record", "clinical_kb_site");
+    independent.content = "Clinical KB clozapine medication record and independent product navigation.";
+    independent.hybrid_score = 0.2;
+    independent.similarity = 0.2;
+    independent.source_metadata = {
+      ...independent.source_metadata,
+      source_role: "clinical_reference",
+      content_hash: "e".repeat(64),
+      site_content_logical_id: "medications:clozapine-independent",
+    };
+    const { searchChunksWithTelemetry } = await loadHarness({ candidateRows: [...derivatives, independent] });
+
+    const response = await searchChunksWithTelemetry({
+      query: "Which Clinical KB clozapine medication record is available?",
+      topK: 2,
+      allowGlobalSearch: true,
+      skipCache: true,
+      lexicalOnly: true,
+      ragQueryPlanMode: "canary",
+      ragContextSnapshotInput: snapshotInput,
+      governedCorpusComponents: { siteContent: true, australianAugmentation: false, australianCurrent: false },
+    });
+
+    expect(response.results).toHaveLength(2);
+    expect(response.results.map(({ id }) => id)).toContain("independent-record");
+    expect(response.results.filter(({ id }) => id.startsWith("derivative-"))).toHaveLength(1);
   });
 });

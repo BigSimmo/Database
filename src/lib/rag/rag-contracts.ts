@@ -85,7 +85,7 @@ export type SearchChunksArgs = {
   ragCandidateMatchCounts?: RagCandidateMatchCounts;
   /** Internal default-off candidate-lane policy. Absence disables all governed v3 work. */
   governedCorpusComponents?: GovernedCorpusComponents;
-  /** Internal explicit coverage decision; supplementary retrieval is forbidden unless true. */
+  /** @deprecated Supplementary retrieval derives from request-local eligible coverage gaps. */
   governedInternationalCoverageGap?: boolean;
   /** Request-local canonical policy inputs; never serialized into cache or telemetry identity. */
   sourcePolicyConflicts?: readonly SourcePolicyConflict[];
@@ -120,7 +120,8 @@ export type RetrievalCorpusScopePolicy = Readonly<{
   siteContentState: SiteContentPartitionState;
   australianAugmentationEnabled: boolean;
   australianCurrent: boolean;
-  internationalCoverageGap: boolean;
+  /** @deprecated Retained for call-site compatibility; it has no retrieval effect. */
+  internationalCoverageGap?: boolean;
 }>;
 
 export type GovernedCorpusRetrievalPhase = Readonly<{

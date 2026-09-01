@@ -2,7 +2,11 @@ import { rankClinicalResults } from "@/lib/clinical-search";
 import { governedPublicRetrievalAccessScope } from "@/lib/owner-scope";
 import { embedTextWithTelemetry } from "@/lib/openai";
 import { searchGovernedCorpora } from "@/lib/rag/rag-candidate-sources";
-import { evaluateShadowCandidateMatchCounts } from "@/lib/rag/rag-coverage";
+import {
+  evaluateShadowCandidateMatchCounts,
+  mergeEvidenceByCoverageAndSourceRole,
+  selectConflictAwareCoverageEvidence,
+} from "@/lib/rag/rag-coverage";
 import { governedCorpusComponentState, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { attachDocumentRankingMetadata, attachPageVisualEvidence } from "@/lib/rag/rag-hydration";
 import { isSourceOnlyMode, SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag/rag-provider";
@@ -124,7 +128,6 @@ export async function routeGovernedSearch(input: {
     snapshot: args.ragRequestContext.snapshot,
     components: args.governedCorpusComponents,
     targetSiteDomains: queryPlan.targetSiteDomains,
-    internationalCoverageGap: Boolean(args.governedInternationalCoverageGap),
     signal: args.signal,
     maxRpcCalls: shadow ? 1 : 3,
     onRpcCall: () => {
@@ -144,17 +147,31 @@ export async function routeGovernedSearch(input: {
   }
 
   const hydrated = await attachDocumentRankingMetadata(supabase, candidateResults, undefined, undefined, args.signal);
-  const conflictGroups = prevalidatedConflictGroups({
+  const topK = args.topK ?? 8;
+  const maxResultsPerDocument = queryClass === "comparison" ? 2 : 4;
+  const coverageSelections = mergeEvidenceByCoverageAndSourceRole({
+    plan: queryPlan,
     candidates: hydrated,
+    siteContentState: args.ragRequestContext.snapshot.publicSiteContent.state,
+    sourcePolicyConflicts: args.sourcePolicyConflicts,
+    maxPerSubquestion: topK,
+    maxPerDocument: maxResultsPerDocument,
+  });
+  const policyPool = selectConflictAwareCoverageEvidence(coverageSelections, {
+    limit: topK,
+    maxPerDocument: maxResultsPerDocument,
+  }).results;
+  const conflictGroups = prevalidatedConflictGroups({
+    candidates: policyPool,
     conflicts: args.sourcePolicyConflicts ?? [],
     queryPlan,
   });
   const selection = selectRetrievalEvidence({
     query,
     queryClass,
-    results: rankClinicalResults(query, hydrated),
-    topK: args.topK ?? 8,
-    maxResultsPerDocument: queryClass === "comparison" ? 2 : 4,
+    results: rankClinicalResults(query, policyPool),
+    topK,
+    maxResultsPerDocument,
     prevalidatedAtomicGroups: conflictGroups,
   });
   telemetry.retrieval_intent = selection.intent;
@@ -164,7 +181,7 @@ export async function routeGovernedSearch(input: {
     queryClass,
     results,
     telemetry,
-    topK: args.topK ?? 8,
+    topK,
   });
   telemetry.retrieval_strategy =
     retrievalMode === "text" ? "text_fast_path" : retrievalMode === "vector" ? "vector_fallback" : "hybrid";

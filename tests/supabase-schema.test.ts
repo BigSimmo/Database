@@ -21,6 +21,10 @@ const failClosedGovernedRetrievalV3 = readFileSync(
   ),
   "utf8",
 ).replace(/\s+/g, " ");
+const failClosedInternationalGovernedRetrievalV3 = readFileSync(
+  new URL("../supabase/migrations/20260901130000_fail_closed_unactivated_international_retrieval.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const siteContentHealthMigration = readFileSync(
   new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
   "utf8",
@@ -75,9 +79,6 @@ describe("governed corpus retrieval v3 schema", () => {
         expect(documentProjection).not.toContain(`'${privateKey}'`);
       }
       expect(sql).toContain("document.metadata->>'source_kind' = 'document'");
-      expect(sql).toContain(
-        "document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')",
-      );
       expect(candidateFunction).toContain("vector_ranked as (");
       expect(candidateFunction).toContain("text_ranked as (");
       expect(candidateFunction).toContain("select * from vector_ranked union all select * from text_ranked");
@@ -93,6 +94,9 @@ describe("governed corpus retrieval v3 schema", () => {
       expect(scoreProjection).not.toContain("row_number()");
       expect(candidateFunction).not.toContain("source_kind' = 'registry_record'");
     }
+    expect(governedRetrievalV3).toContain(
+      "document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')",
+    );
   });
 
   it("uses the current head only to exclude a pending logical ID above the served snapshot", () => {
@@ -152,8 +156,6 @@ describe("governed corpus retrieval v3 schema", () => {
       start,
     );
     const candidateFunction = failClosedGovernedRetrievalV3.slice(start, end);
-    const schemaStart = schema.lastIndexOf("create or replace function public.match_governed_candidate_chunks_v3(");
-    const schemaEnd = schema.indexOf("revoke all on function public.match_governed_candidate_chunks_v3(", schemaStart);
 
     expect(start).toBeGreaterThanOrEqual(0);
     expect(candidateFunction).toContain(
@@ -164,21 +166,44 @@ describe("governed corpus retrieval v3 schema", () => {
     );
     expect(candidateFunction).not.toContain("from public.document_publication_approvals approval");
     expect(candidateFunction).not.toContain("'uploaded_local', 'australian_public', 'international_supplementary'");
+  });
+
+  it("keeps international request-compatible while failing document retrieval closed until P16 activation", () => {
+    const start = failClosedInternationalGovernedRetrievalV3.indexOf(
+      "create or replace function public.match_governed_candidate_chunks_v3(",
+    );
+    const end = failClosedInternationalGovernedRetrievalV3.indexOf(
+      "revoke all on function public.match_governed_candidate_chunks_v3(",
+      start,
+    );
+    const candidateFunction = failClosedInternationalGovernedRetrievalV3.slice(start, end);
+    const schemaStart = schema.lastIndexOf("create or replace function public.match_governed_candidate_chunks_v3(");
+    const schemaEnd = schema.indexOf("revoke all on function public.match_governed_candidate_chunks_v3(", schemaStart);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(candidateFunction).toContain(
+      "'uploaded_local', 'clinical_kb_site', 'australian_public', 'international_supplementary'",
+    );
+    expect(candidateFunction).toContain("document.metadata->>'corpus_scope' = 'australian_public'");
+    expect(candidateFunction).not.toContain(
+      "document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')",
+    );
+    expect(candidateFunction).not.toContain("from public.document_publication_approvals approval");
     expect(schema.slice(schemaStart, schemaEnd)).toBe(candidateFunction);
   });
 
   it("emits canonical registry metadata and mirrors the effective function in the final schema", () => {
-    const migrationStart = failClosedGovernedRetrievalV3.indexOf(
+    const migrationStart = failClosedInternationalGovernedRetrievalV3.indexOf(
       "create or replace function public.match_governed_candidate_chunks_v3(",
     );
-    const migrationEnd = failClosedGovernedRetrievalV3.indexOf(
+    const migrationEnd = failClosedInternationalGovernedRetrievalV3.indexOf(
       "revoke all on function public.match_governed_candidate_chunks_v3(",
       migrationStart,
     );
     const schemaStart = schema.lastIndexOf("create or replace function public.match_governed_candidate_chunks_v3(");
     const schemaEnd = schema.indexOf("revoke all on function public.match_governed_candidate_chunks_v3(", schemaStart);
 
-    const migrationFunction = failClosedGovernedRetrievalV3.slice(migrationStart, migrationEnd);
+    const migrationFunction = failClosedInternationalGovernedRetrievalV3.slice(migrationStart, migrationEnd);
     const schemaFunction = schema.slice(schemaStart, schemaEnd);
     expect(migrationFunction).toContain("'source_kind', 'registry_record'");
     expect(migrationFunction).not.toContain("'source_kind', 'site_content_release_record'");

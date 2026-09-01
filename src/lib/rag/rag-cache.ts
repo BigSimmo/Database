@@ -133,10 +133,6 @@ function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
   return args.queryMode ?? "auto";
 }
 
-function internationalCoverageGapCacheToken(args: Pick<SearchChunksArgs, "governedInternationalCoverageGap">) {
-  return `international-gap:${args.governedInternationalCoverageGap ? "on" : "off"}`;
-}
-
 export function governedCorpusComponentCacheNamespace(
   base: string,
   components: SearchChunksArgs["governedCorpusComponents"],
@@ -211,7 +207,7 @@ export function sharedAnswerNormalizedQuery(
   const snapshotCacheKey = requestSnapshotCacheKey(args);
   return queryCacheKeyForStorage(
     governedCorpusComponentCacheNamespace(
-      `${query}|generation:${answerGenerationFingerprint()}|queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}|queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}|${internationalCoverageGapCacheToken(args)}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
+      `${query}|generation:${answerGenerationFingerprint()}|queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}|queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
       args.governedCorpusComponents,
     ),
   );
@@ -245,7 +241,6 @@ export function scopedAnswerCacheKey(
     `generation:${answerGenerationFingerprint()}`,
     args.query.trim().toLowerCase().replace(/\s+/g, " "),
     governedCorpusComponentCacheNamespace("corpora", args.governedCorpusComponents),
-    internationalCoverageGapCacheToken(args),
   ];
   if (snapshotCacheKey) {
     identity.push(`snapshot:${snapshotCacheKey}`);
@@ -550,7 +545,6 @@ function captureSiteAwareWriteArgs(args: SiteAwareWriteArgs): Readonly<SiteAware
     ragQueryPlanKind: args.ragQueryPlanKind,
     ragSubquestionCount: args.ragSubquestionCount,
     governedCorpusComponents,
-    governedInternationalCoverageGap: args.governedInternationalCoverageGap,
   });
 }
 
@@ -793,7 +787,6 @@ export function retrievalPlanCacheQuery(
     `queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}`,
     `queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}`,
     governedCorpusComponentCacheNamespace("corpora", args.governedCorpusComponents),
-    internationalCoverageGapCacheToken(args),
     `mode:${modeKey(args)}`,
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,

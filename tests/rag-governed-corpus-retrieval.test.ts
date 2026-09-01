@@ -57,6 +57,13 @@ function row(id: string, corpusScope: SourceCorpusScope): Record<string, unknown
       source_kind: corpusScope === "clinical_kb_site" ? "registry_record" : "document",
       uploaded_by: "user-id-canary",
       public_source_steward_id: "administrator-id-canary",
+      source_role: corpusScope === "clinical_kb_site" ? "clinical_reference" : "clinical_guideline",
+      content_mode: "indexed_content",
+      licence_policy: "public_index_permitted",
+      document_status: "current",
+      clinical_validation_status: "approved",
+      extraction_quality: "good",
+      source_catalogue_key: `${corpusScope}:${id}`,
     },
     corpus_scope: corpusScope,
     site_content_domain: corpusScope === "clinical_kb_site" ? "medications" : null,
@@ -81,7 +88,7 @@ function harness() {
 }
 
 describe("governed public corpus retrieval", () => {
-  it("builds ordered public-only primary and explicit-gap supplementary phases", () => {
+  it("builds ordered public-only primary and internally eligible supplementary phases", () => {
     expect(
       retrievalCorpusScopes({
         siteContentEnabled: true,
@@ -95,6 +102,11 @@ describe("governed public corpus retrieval", () => {
         accessScope: { includePublic: true },
         corpusScopes: ["uploaded_local", "clinical_kb_site", "australian_public"],
         phase: "primary",
+      },
+      {
+        accessScope: { includePublic: true },
+        corpusScopes: ["international_supplementary"],
+        phase: "supplementary",
       },
     ]);
 
@@ -274,6 +286,184 @@ describe("governed public corpus retrieval", () => {
     expect(calls.map(({ args }) => args.query_text)).not.toContain("unallocated legacy poison");
   });
 
+  it("preserves a later required-subquestion lane when the original lane saturates the result bound", async () => {
+    const calls: string[] = [];
+    const supabase = {
+      rpc: vi.fn((_name: string, args: Record<string, unknown>) => {
+        const query = String(args.query_text);
+        calls.push(query);
+        const data =
+          query === "primary question"
+            ? [
+                { ...row("primary-a", "uploaded_local"), content: "Primary treatment evidence." },
+                { ...row("primary-b", "uploaded_local"), content: "Additional treatment evidence." },
+              ]
+            : [
+                {
+                  ...row("monitoring-lane", "uploaded_local"),
+                  content: "Lithium monitoring interval guidance.",
+                },
+              ];
+        return Promise.resolve({ data, error: null });
+      }),
+    } as never;
+    const plan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "decomposed",
+      originalQuery: "primary question",
+      interpretation: "lane preservation",
+      subquestions: [
+        { id: "primary", question: "primary question", purpose: "primary", required: true },
+        { id: "monitoring", question: "lithium monitoring interval", purpose: "monitoring", required: true },
+      ],
+      targetSiteDomains: [],
+      siteDomainDecision: "none",
+      reasonCodes: [],
+    };
+
+    const results = await searchGovernedCorpora({
+      supabase,
+      queryVariants: ["primary question"],
+      queryPlan: plan,
+      matchCount: 2,
+      snapshot: snapshot(),
+      components: { siteContent: false, australianAugmentation: false, australianCurrent: false },
+      targetSiteDomains: [],
+      internationalCoverageGap: false,
+      maxRpcCalls: 2,
+    });
+
+    expect(calls).toEqual(["primary question", "lithium monitoring interval"]);
+    expect(results).toHaveLength(2);
+    expect(results.map(({ id }) => id)).toContain("monitoring-lane");
+  });
+
+  it("preserves a later supplementary lane when the original lane saturates the result bound", async () => {
+    const calls: Array<{ query: string; scopes: SourceCorpusScope[] }> = [];
+    const supabase = {
+      rpc: vi.fn((_name: string, args: Record<string, unknown>) => {
+        const scopes = args.corpus_scopes as SourceCorpusScope[];
+        const query = String(args.query_text);
+        calls.push({ query, scopes });
+        const data = scopes.includes("international_supplementary")
+          ? [
+              {
+                ...row("supplementary-lane", "international_supplementary"),
+                content: "Lithium monitoring interval guidance.",
+              },
+            ]
+          : [
+              { ...row("primary-a", "uploaded_local"), content: "Primary question treatment evidence." },
+              { ...row("primary-b", "uploaded_local"), content: "Additional primary question evidence." },
+            ];
+        return Promise.resolve({ data, error: null });
+      }),
+    } as never;
+    const plan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "decomposed",
+      originalQuery: "primary question",
+      interpretation: "supplementary lane preservation",
+      subquestions: [
+        { id: "primary", question: "primary question", purpose: "primary", required: true },
+        { id: "monitoring", question: "lithium monitoring interval", purpose: "monitoring", required: true },
+      ],
+      targetSiteDomains: [],
+      siteDomainDecision: "none",
+      reasonCodes: [],
+    };
+
+    const results = await searchGovernedCorpora({
+      supabase,
+      queryVariants: ["primary question"],
+      queryPlan: plan,
+      matchCount: 2,
+      snapshot: snapshot(),
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: false,
+      maxRpcCalls: 2,
+    });
+
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual({ query: "lithium monitoring interval", scopes: ["international_supplementary"] });
+    expect(results).toHaveLength(2);
+    expect(results.map(({ id }) => id)).toContain("supplementary-lane");
+  });
+
+  it("derives supplementary retrieval from eligible remaining gaps instead of the caller flag", async () => {
+    const plan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "decomposed",
+      originalQuery: "catatonia urgent assessment",
+      interpretation: "internal gap decision",
+      subquestions: [
+        { id: "assessment", question: "catatonia urgent assessment", purpose: "primary", required: true },
+        { id: "relapse", question: "catatonia relapse prevention", purpose: "primary", required: true },
+      ],
+      targetSiteDomains: [],
+      siteDomainDecision: "none",
+      reasonCodes: [],
+    };
+    const run = async (callerFlag: boolean, primaryVariantEligible: boolean, directCoverage: boolean) => {
+      const calls: Array<{ query: string; scopes: SourceCorpusScope[] }> = [];
+      const supabase = {
+        rpc: vi.fn((_name: string, args: Record<string, unknown>) => {
+          const scopes = args.corpus_scopes as SourceCorpusScope[];
+          const query = String(args.query_text);
+          calls.push({ query, scopes });
+          if (scopes.includes("international_supplementary")) {
+            return Promise.resolve({
+              data: [
+                {
+                  ...row("international", "international_supplementary"),
+                  content: "Catatonia relapse prevention guidance.",
+                },
+              ],
+              error: null,
+            });
+          }
+          if (query === "catatonia urgent assessment") {
+            const primary = { ...row("primary", "uploaded_local"), content: "Catatonia urgent assessment guidance." };
+            return Promise.resolve({
+              data: directCoverage
+                ? [{ ...primary, content: "Catatonia urgent assessment and catatonia relapse prevention guidance." }]
+                : [primary],
+              error: null,
+            });
+          }
+          const candidate = {
+            ...row("variant", "uploaded_local"),
+            content: "Catatonia relapse prevention guidance.",
+          };
+          if (!primaryVariantEligible) {
+            candidate.source_metadata = { ...candidate.source_metadata, source_role: "form_reference" };
+          }
+          return Promise.resolve({ data: [candidate], error: null });
+        }),
+      } as never;
+      await searchGovernedCorpora({
+        supabase,
+        queryVariants: ["catatonia urgent assessment"],
+        queryPlan: plan,
+        matchCount: 6,
+        snapshot: snapshot(),
+        components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+        targetSiteDomains: [],
+        internationalCoverageGap: callerFlag,
+        maxRpcCalls: 3,
+      });
+      return calls;
+    };
+
+    const direct = await run(true, false, true);
+    expect(direct.filter(({ scopes }) => scopes.includes("international_supplementary"))).toHaveLength(0);
+    const closedByVariant = await run(true, true, false);
+    expect(closedByVariant.filter(({ scopes }) => scopes.includes("international_supplementary"))).toHaveLength(0);
+    const genuineGap = await run(false, false, false);
+    expect(genuineGap.filter(({ scopes }) => scopes.includes("international_supplementary"))).toHaveLength(1);
+  });
+
   it("removes site candidates from caller-disabled retrieval without changing Australian retrieval", async () => {
     const { calls, supabase } = harness();
 
@@ -332,7 +522,7 @@ describe("governed public corpus retrieval", () => {
     });
   });
 
-  it("partitions every retrieval and answer cache identity on the international coverage gap", () => {
+  it("keeps the deprecated caller gap flag out of every retrieval and answer cache identity", () => {
     const cacheArgs = {
       query: "lithium monitoring",
       ragQueryPlanMode: "canary" as const,
@@ -345,9 +535,9 @@ describe("governed public corpus retrieval", () => {
     const withoutGap = { ...cacheArgs, governedInternationalCoverageGap: false };
     const withGap = { ...cacheArgs, governedInternationalCoverageGap: true };
 
-    expect(retrievalPlanCacheQuery(withoutGap)).not.toBe(retrievalPlanCacheQuery(withGap));
-    expect(scopedSearchCacheKey(withoutGap)).not.toBe(scopedSearchCacheKey(withGap));
-    expect(scopedAnswerCacheKey(withoutGap)).not.toBe(scopedAnswerCacheKey(withGap));
-    expect(sharedAnswerNormalizedQuery(withoutGap)).not.toBe(sharedAnswerNormalizedQuery(withGap));
+    expect(retrievalPlanCacheQuery(withoutGap)).toBe(retrievalPlanCacheQuery(withGap));
+    expect(scopedSearchCacheKey(withoutGap)).toBe(scopedSearchCacheKey(withGap));
+    expect(scopedAnswerCacheKey(withoutGap)).toBe(scopedAnswerCacheKey(withGap));
+    expect(sharedAnswerNormalizedQuery(withoutGap)).toBe(sharedAnswerNormalizedQuery(withGap));
   });
 });
