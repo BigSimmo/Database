@@ -526,11 +526,20 @@ export function CopyResultButton({
   );
 }
 
-/** One-line result summary used by every copy-to-clipboard affordance. */
+/**
+ * Result summary used by every copy-to-clipboard affordance.
+ *
+ * The score line carries a scope caveat because this text LEAVES THE APP: pasted
+ * into a note or a letter, a bare "PHQ-9 18/27 — Moderately severe" reads as an
+ * assessment result the software stands behind, with no instrument attribution and
+ * none of the surrounding interface's framing. Same reasoning as the differential
+ * summary in `src/lib/differential-detail.ts`, which carried the same defect.
+ */
 export function formatResultSummary(calc: CalculatorFixture, state: DerivedCalculator): string {
-  return `${calc.abbrev} ${state.score}/${calc.maxScore} — ${state.result.label}${
+  const score = `${calc.abbrev} ${state.score}/${calc.maxScore} — ${state.result.label}${
     state.complete ? "" : ` (${progressLabel(state)})`
   }`;
+  return `${score}\nClinical reference — not validated decision support. Confirm scoring and interpretation against the source instrument.`;
 }
 
 /**
