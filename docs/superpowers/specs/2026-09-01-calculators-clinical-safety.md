@@ -37,16 +37,16 @@ The presentation order is:
 
 ## Current tool dispositions
 
-| Tool | Disposition |
-|---|---|
-| PHQ-9 | Retain after safer interpretation and completion gating |
-| GAD-7 | Retain after safer interpretation and completion gating |
-| K10 | Retain with Australian distress wording |
-| CAGE | Retain but de-emphasise and describe as a lifetime/problem-drinking screen |
-| AUDIT-C | Retain with Australian standard-drink context and threshold qualification |
-| MDQ | Quarantine until completion semantics and digital-use rights are approved |
-| SAD PERSONS | Remove from active clinical decision support |
-| Y-BOCS | Quarantine; current generic anchors are not a valid Y-BOCS implementation |
+| Tool        | Disposition                                                                |
+| ----------- | -------------------------------------------------------------------------- |
+| PHQ-9       | Retain after safer interpretation and completion gating                    |
+| GAD-7       | Retain after safer interpretation and completion gating                    |
+| K10         | Retain with Australian distress wording                                    |
+| CAGE        | Retain but de-emphasise and describe as a lifetime/problem-drinking screen |
+| AUDIT-C     | Retain with Australian standard-drink context and threshold qualification  |
+| MDQ         | Quarantine until completion semantics and digital-use rights are approved  |
+| SAD PERSONS | Remove from active clinical decision support                               |
+| Y-BOCS      | Quarantine; current generic anchors are not a valid Y-BOCS implementation  |
 
 ## Completion policy
 

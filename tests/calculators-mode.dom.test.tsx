@@ -116,7 +116,9 @@ describe("calculator mode routing", () => {
     expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Clinical Calculators" })).toBeInTheDocument();
     expect(
-      screen.getByText("Validated psychiatry scores with the indication, items, and next actions in one place."),
+      screen.getByText(
+        "Psychiatry assessment and monitoring tools with scoring guidance, limitations, safety prompts, and source-linked clinical considerations.",
+      ),
     ).toBeInTheDocument();
 
     const showAll = screen.getByTestId("calculators-show-all");
@@ -163,9 +165,9 @@ describe("calculator filter predicates", () => {
     const idsFor = (time: "quick" | "standard" | "extended") =>
       filterCalculatorRecords(records, "", { ...emptyFilters(), time }).map(({ calc }) => calc.id);
 
-    expect(idsFor("quick")).toEqual(["gad7", "cage", "auditc", "sadpersons"]);
-    expect(idsFor("standard")).toEqual(["phq9", "k10", "mdq"]);
-    expect(idsFor("extended")).toEqual(["ybocs"]);
+    expect(idsFor("quick")).toEqual(["gad7", "cage", "auditc"]);
+    expect(idsFor("standard")).toEqual(["phq9", "k10"]);
+    expect(idsFor("extended")).toEqual([]);
   });
 
   it("derives candidate counts from the same predicates", () => {
@@ -176,7 +178,7 @@ describe("calculator filter predicates", () => {
       time: "all",
     };
 
-    expect(calculatorDomainCandidateCount(records, "", filters, "anxiety")).toBe(4);
+    expect(calculatorDomainCandidateCount(records, "", filters, "anxiety")).toBe(2);
     expect(calculatorProgressCandidateCount(records, "", filters, "in-progress")).toBe(1);
     expect(calculatorTimeCandidateCount(records, "", filters, "quick")).toBe(0);
   });
@@ -199,7 +201,7 @@ describe("calculator results surface", () => {
     const { container } = render(<CalculatorsSearchPage initialQuery="depression" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "depression" })).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("2 calculators");
+    expect(screen.getByRole("status")).toHaveTextContent("1 calculator");
     expect(container.querySelector('[data-testid="calculators-phone-dock"]')).toBeNull();
     const showAll = screen.getByTestId("calculators-show-all");
     expect(showAll).toHaveAttribute("href", "/calculators/search");

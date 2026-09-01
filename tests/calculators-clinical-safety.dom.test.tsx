@@ -1,7 +1,11 @@
 /** @vitest-environment jsdom */
 
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 import {
   allCalculatorFixtures,
@@ -11,6 +15,8 @@ import {
   type CalculatorFixture,
 } from "@/components/calculators/calculator-fixtures";
 import { actionsForBand } from "@/components/calculators/calculator-pathways";
+import { CalculatorsSearchPage } from "@/components/calculators/search-page";
+import { NextActionsPanel } from "@/components/calculators/search-detail";
 import { CopyResultButton, deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
@@ -42,7 +48,7 @@ describe("calculator clinical catalogue", () => {
       expect(calc.instrumentVersion).toBeTruthy();
       expect(calc.sourceIds.length).toBeGreaterThan(0);
       expect(calc.claimIds.length).toBeGreaterThan(0);
-      expect(calc.rights.status).not.toBe("permission_review_required");
+      expect(calc.rights.status).toBe("available");
       expect(calc.lastReviewed).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(calc.nextReview).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(calc.releaseStatus).toBe("available");
@@ -61,6 +67,15 @@ describe("calculator clinical catalogue", () => {
     for (const claim of calculatorEvidence.claims) {
       expect(claim.sourceIds.length).toBeGreaterThan(0);
       for (const sourceId of claim.sourceIds) expect(sourceIds.has(sourceId)).toBe(true);
+    }
+
+    for (const source of calculatorEvidence.sources) {
+      expect(source.type).toBeTruthy();
+      expect(source.version).toBeTruthy();
+      expect(source.url).toMatch(/^https:\/\//);
+      expect(source.claimsSupported.length).toBeGreaterThan(0);
+      expect(source.limitations.length).toBeGreaterThan(0);
+      for (const claimId of source.claimsSupported) expect(claimIds.has(claimId)).toBe(true);
     }
   });
 
@@ -94,6 +109,12 @@ describe("completion is not inferred from a partial score", () => {
     expect(partial.flags).toContain(
       "Item 9 endorsed — directly assess suicidal thoughts, self-harm thoughts and immediate safety now.",
     );
+    expect(calc.items.find((item) => item.id === "p9")?.flagClaimId).toBe("claim:phq9:safety-flag");
+
+    render(<NextActionsPanel calc={calc} derived={partial} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Item 9 endorsed — directly assess suicidal thoughts, self-harm thoughts and immediate safety now.",
+    );
   });
 
   it("does not publish a final GAD-7 band from six answers", () => {
@@ -114,6 +135,21 @@ describe("completion is not inferred from a partial score", () => {
     expect(partial.result.label).toBe("Incomplete");
   });
 
+  it.each([
+    ["a symptom response", "m1"],
+    ["the co-occurrence response", "mco"],
+    ["the impairment response", "mimp"],
+  ])("does not complete MDQ when %s is missing", (_label, omittedItemId) => {
+    const calc = fixture("mdq");
+    const answers = explicitAnswers(calc, 0);
+    delete answers[omittedItemId];
+
+    const partial = deriveCalculator(calc, answers);
+    expect(partial.complete).toBe(false);
+    expect(partial.band).toBeUndefined();
+    expect(partial.result.label).toBe("Incomplete");
+  });
+
   it("allows a completed explicit-negative MDQ result in the quarantined fixture", () => {
     const calc = fixture("mdq");
     const answers = explicitAnswers(calc, 0);
@@ -130,6 +166,16 @@ describe("completion is not inferred from a partial score", () => {
 
     expect(screen.getByRole("button", { name: "Copy result" })).toBeDisabled();
   });
+
+  it("renders a completed clinical consideration with its source link", () => {
+    const calc = fixture("phq9");
+    const complete = deriveCalculator(calc, explicitAnswers(calc));
+
+    render(<NextActionsPanel calc={calc} derived={complete} />);
+    expect(
+      screen.getByRole("link", { name: "The PHQ-9: Validity of a Brief Depression Severity Measure" }),
+    ).toHaveAttribute("href", "https://pmc.ncbi.nlm.nih.gov/articles/PMC1495268/");
+  });
 });
 
 describe("calculator mode copy", () => {
@@ -137,5 +183,15 @@ describe("calculator mode copy", () => {
     expect(sharedHomePresentation.calculators.subtitle).toBe(
       "Psychiatry assessment and monitoring tools with scoring guidance, limitations, safety prompts, and source-linked clinical considerations.",
     );
+  });
+
+  it("states the calculator interface privacy boundary on the live catalogue", () => {
+    render(<CalculatorsSearchPage />);
+
+    for (const notice of screen.getAllByText(/Calculator answers remain in this browser session/)) {
+      expect(notice).toHaveTextContent(
+        "Calculator answers remain in this browser session and are not intentionally submitted by this calculator interface. Application telemetry and clinical-record documentation are governed separately.",
+      );
+    }
   });
 });
