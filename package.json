@@ -141,6 +141,7 @@
     "check:cross-mode-index": "node scripts/build-cross-mode-differentials-index.mjs --check",
     "check:mha-act-sections": "node scripts/build-mha-act-sections.mjs --check",
     "check:runtime": "node scripts/run-tsx.mjs scripts/check-runtime.ts",
+    "check:source-catalogue": "node scripts/run-tsx.mjs scripts/check-source-catalogue.ts",
     "check:installed-lock-parity": "node scripts/check-installed-lock-parity.mjs",
     "check:upload-limit-parity": "node scripts/check-upload-limit-parity.mjs --self-test && node scripts/check-upload-limit-parity.mjs",
     "check:codex-cloud": "node scripts/check-codex-cloud-setup.mjs",

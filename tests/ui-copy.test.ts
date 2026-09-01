@@ -105,6 +105,11 @@ const EXPECTED_MODE_TITLES: Record<
     standaloneTitle: "Dictionary",
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
   },
+  sources: {
+    sharedTitle: "Sources",
+    standaloneTitle: "Sources",
+    subtitle: "Clinical source catalogue.",
+  },
 };
 
 describe("ui-copy", () => {
@@ -112,7 +117,7 @@ describe("ui-copy", () => {
     it("covers every declared app mode exactly once", () => {
       const definedModes = Object.keys(sharedHomePresentation) as AppModeId[];
       expect(definedModes.sort()).toEqual([...appModeIds].sort());
-      expect(definedModes).toHaveLength(15);
+      expect(definedModes).toHaveLength(16);
     });
 
     it.each(appModeIds)("provides non-empty title and subtitle for %s", (modeId) => {
@@ -147,6 +152,14 @@ describe("ui-copy", () => {
 
     it("pins Therapy title to 'Therapy' (not 'Therapy Compass')", () => {
       expect(sharedHomePresentation["therapy-compass"].title).toBe("Therapy");
+    });
+
+    it("publishes the exact Sources starter suggestions", () => {
+      expect(sharedHomePresentation.sources.suggestions).toEqual([
+        "Australian guidelines",
+        "RANZCP",
+        "review required",
+      ]);
     });
   });
 

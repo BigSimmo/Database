@@ -101,6 +101,7 @@ describe("production Clinical Guide sidebar", () => {
     const editor = screen.getByRole("dialog", { name: "More modes" });
 
     expect(within(editor).queryByText(/\d+ pinned/i)).not.toBeInTheDocument();
+    expect(within(editor).getByRole("button", { name: "Pin Sources" })).toBeVisible();
     await user.click(within(editor).getByRole("button", { name: "Unpin Documents" }));
     await user.click(within(editor).getByRole("button", { name: "Pin Forms" }));
     await user.click(within(editor).getByRole("button", { name: "Move Forms up" }));

@@ -76,4 +76,13 @@ describe("searchShellPropsForPathname", () => {
       desktopSearchPlacement: "hero",
     });
   });
+
+  it("keeps one Sources composer on catalogue views and hides it on method and detail pages", () => {
+    const visible = { initialMode: "sources", desktopSearchPlacement: "hero" } as const;
+    expect(searchShellPropsForPathname("/sources")).toEqual(visible);
+    expect(searchShellPropsForPathname("/sources/topics")).toEqual(visible);
+    expect(searchShellPropsForPathname("/sources/publishers")).toEqual(visible);
+    expect(searchShellPropsForPathname("/sources/method")).toEqual({ ...visible, searchComposerVisible: false });
+    expect(searchShellPropsForPathname("/sources/src_example")).toEqual({ ...visible, searchComposerVisible: false });
+  });
 });

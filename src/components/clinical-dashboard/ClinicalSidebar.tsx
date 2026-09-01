@@ -106,6 +106,7 @@ const sidebarMoreModeIds = [
   "calculators",
   "therapy-compass",
   "dictionary",
+  "sources",
 ] as const satisfies readonly AppModeId[];
 
 const sidebarModeItems = [

@@ -242,13 +242,15 @@ export function searchMedicationCatalog(
   records: MedicationRecord[],
   query: string,
   limit = 50,
+  rankingExpansions: readonly string[] = [],
 ): {
   matches: MedicationSearchMatch[];
   analysis: MedicationCatalogQueryAnalysis;
 } {
   const analysis = analyzeMedicationCatalogQuery(query, records);
+  const rankExpansions = [...new Set([...analysis.expansions, ...rankingExpansions])];
   const matches = analysis.correctedQuery
-    ? rankMedicationRecords(records, analysis.correctedQuery, limit, analysis.expansions)
+    ? rankMedicationRecords(records, analysis.correctedQuery, limit, rankExpansions)
     : [];
   return { matches, analysis };
 }

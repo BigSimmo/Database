@@ -102,6 +102,39 @@ describe("medication catalog query understanding", () => {
     expect(matches[0]?.reasons.some((reason) => reason === "brand" || reason === "name")).toBe(true);
   });
 
+  it("uses Prescribing expansions for ranking without exposing them as query analysis", () => {
+    const records = loadMedicationSnapshot();
+    const { matches, analysis } = searchMedicationCatalog(records, "medicine that needs regular blood tests", 10, [
+      "monitoring",
+      "blood tests",
+      "monitoring",
+    ]);
+
+    expect(matches.map((match) => match.medication.slug)).toContain("warfarin-vka");
+    expect(analysis.corrections).toEqual([]);
+    expect(analysis.expansions).toEqual([]);
+  });
+
+  it("keeps exact generic and brand identities first when ranking expansions are supplied", () => {
+    const records = loadMedicationSnapshot();
+    const rankingExpansions = ["monitoring", "blood tests"];
+
+    expect(searchMedicationCatalog(records, "sertraline", 5, rankingExpansions).matches[0]?.medication.slug).toBe(
+      "sertraline",
+    );
+    expect(searchMedicationCatalog(records, "Zoloft", 5, rankingExpansions).matches[0]?.medication.slug).toBe(
+      "sertraline",
+    );
+    expect(
+      searchMedicationCatalog(records, "lithium medicine that needs regular blood tests", 5, rankingExpansions)
+        .matches[0]?.medication.slug,
+    ).toBe("lithium-carbonate-ir-sr");
+    expect(
+      searchMedicationCatalog(records, "valproate medicine that needs regular blood tests", 5, rankingExpansions)
+        .matches[0]?.medication.slug,
+    ).toBe("sodium-valproate-oral-iv");
+  });
+
   it("applies conservative unique edit-distance-1 corrections only", () => {
     expect(isEditDistanceOne("sertaline", "sertraline")).toBe(true);
     expect(isEditDistanceOne("sertralne", "sertraline")).toBe(true);
