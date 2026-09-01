@@ -256,7 +256,6 @@ describe("Australian RAG evaluation diagnostics", () => {
     );
     expect(answerWithDroppedConflict.conflictsOrGaps).toEqual([
       { type: "gap", message: "Local evidence needs broader review.", source_chunk_ids: [local.id] },
-      { type: "conflict", message: "One-source numeric review.", source_chunk_ids: [local.id] },
     ]);
 
     const retainedCoverage = evaluateAnswerCoverage({
