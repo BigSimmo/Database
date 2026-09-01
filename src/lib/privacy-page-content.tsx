@@ -8,9 +8,10 @@ import type { ReactNode } from "react";
  * `<strong>` spacing on "not a patient-record system" must not drift.
  *
  * Everything here is a claim about *configured application behaviour* that a
- * reader can check against the repository. Contractual posture — data-processing
- * agreements, provider retention terms, zero-retention arrangements — is an
- * operator matter this page deliberately does not assert. See
+ * reader can check against the repository, or expressly qualified, time-stamped
+ * provider-account evidence. Contractual posture — data-processing agreements,
+ * provider retention terms, zero-retention arrangements — is an operator matter
+ * this page deliberately does not assert. See
  * `docs/privacy-impact-assessment.md` and `docs/openai-cross-border-basis.md`.
  */
 
@@ -22,7 +23,7 @@ export const PRIVACY_DRAFT_DISCLAIMER =
  * "describes configured behaviour as of …" — deliberately not "reviewed", which
  * would imply a governance sign-off that PIA-5 records as still outstanding.
  */
-export const PRIVACY_CONTENT_AS_OF = "2026-08-27";
+export const PRIVACY_CONTENT_AS_OF = "2026-09-01";
 
 export const PRIVACY_IMPORTANT_SHORT =
   "Do not enter identifiable patient details. Processing may include Singapore and the OpenAI API.";
@@ -119,9 +120,10 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
         question and selected source excerpts are also sent. This processing may occur outside Australia. The operator
         must verify provider regions, retention terms, contracts, and cross-border obligations.
       </>,
-      "The requests the app sends carry deliberate limits: it asks the provider not to retain the response in the provider's own stored-response history, it never sends your raw account identifier — a keyed pseudonym is used instead when the operator configures one — and it asks for the shortest prompt-cache lifetime the model supports. A requested cache lifetime is a minimum the provider may exceed, not a deletion deadline.",
+      "The requests the app sends carry deliberate limits: it asks the provider not to retain the response in the provider's own stored-response history, it never sends your raw account identifier — a keyed pseudonym is used instead when the operator configures one — and it asks for the shortest prompt-cache lifetime the model supports. OpenAI states that prompt-cache data may remain on its local GPU machines for up to 24 hours; the app's requested 30-minute lifetime is a minimum cache lifetime, not that maximum or a deletion deadline.",
+      "As an interim provider control, the OpenAI organisation inspected on 1 September 2026 has API data sharing and API call logging disabled, and its hosted MCP, web search, file search, image generation, code interpreter, and container-network access disabled. The operator has submitted a Zero Data Retention request, but OpenAI has not yet approved it, and the operator has not yet proved that the production key targets the inspected project. Until approved and configured, OpenAI's standard API controls may retain customer content in abuse-monitoring logs for up to 30 days. These controls reduce optional provider-side processing but do not establish Zero Data Retention, endpoint coverage, or a data-processing agreement.",
       "Those are application settings, and they are the limit of what this page can tell you. Whether a data-processing agreement, a zero-retention arrangement, or a particular storage region is in place for the provider account is an operator and legal matter that the application cannot observe or promise.",
-      "Clinical Ask may use server-side external authority search only for an evidence gap, unresolved conflict, staleness, or a source marked needs review. Returned authority extracts are discarded after the request; the answer retains attributable citations and retrieval dates. This does not mean an authority, source, answer, or feature has received clinical or governance approval.",
+      "Clinical Ask supports server-side external authority search only for an evidence gap, unresolved conflict, staleness, or a source marked needs review. That hosted-search path is disabled in the inspected provider project while governance review is incomplete. If an operator enables it later, returned authority extracts are discarded after the request; the answer retains attributable citations and retrieval dates. This does not mean an authority, source, answer, or feature has received clinical or governance approval.",
     ],
   },
   {
