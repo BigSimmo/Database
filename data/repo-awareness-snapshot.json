@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "fdb93a1e9a233a9f508be23e91cf3f8485611f51",
-    "committed_at": "2026-09-01T17:53:44+08:00"
+    "sha": "9237461d1f16ed03b3cb052be5350c45a1d17c9d",
+    "committed_at": "2026-09-01T18:35:13+08:00"
   },
   "routes": {
     "modes": [
@@ -3335,6 +3335,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/services-mode-governance.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/site-map.md",
         "section": "root",
         "catalogued": true
@@ -3566,6 +3571,16 @@
       },
       {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3851,6 +3866,16 @@
       },
       {
         "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4286,9 +4311,9 @@
       }
     ],
     "counts": {
-      "documents": 557,
+      "documents": 562,
       "catalogued": 111,
-      "uncatalogued": 446,
+      "uncatalogued": 451,
       "sections": 21
     }
   },

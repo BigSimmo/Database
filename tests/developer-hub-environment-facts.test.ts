@@ -19,21 +19,36 @@ type LoadOptions = {
   count?: number | null;
   error?: { message: string } | null;
   demoMode?: boolean;
+  /** The client rejects instead of resolving, as it does on an aborted request. */
+  rejectCount?: boolean;
+  rejectAuth?: boolean;
 };
 
 const selectCalls: { columns: string; options: unknown }[] = [];
 
-async function load({ user = null, count = null, error = null, demoMode = false }: LoadOptions = {}) {
+async function load({
+  user = null,
+  count = null,
+  error = null,
+  demoMode = false,
+  rejectCount = false,
+  rejectAuth = false,
+}: LoadOptions = {}) {
   selectCalls.length = 0;
   vi.doMock("server-only", () => ({}));
   vi.doMock("@/lib/env", () => ({ isDemoMode: () => demoMode }));
   vi.doMock("@/lib/supabase/server", () => ({
     createSupabaseServerClient: vi.fn(async () => ({
-      auth: { getUser: vi.fn(async () => ({ data: { user } })) },
+      auth: {
+        getUser: vi.fn(async () => {
+          if (rejectAuth) throw new Error("fetch failed");
+          return { data: { user } };
+        }),
+      },
       from: vi.fn(() => ({
         select: vi.fn((columns: string, options: unknown) => {
           selectCalls.push({ columns, options });
-          return Promise.resolve({ count, error });
+          return rejectCount ? Promise.reject(new Error("fetch failed")) : Promise.resolve({ count, error });
         }),
       })),
     })),
@@ -105,6 +120,40 @@ describe("resolveHubEnvironmentFacts", () => {
     const { resolveHubEnvironmentFacts } = await load({ user: { id: "user-1" }, count: 3 });
 
     await expect(resolveHubEnvironmentFacts()).resolves.toMatchObject({ email: null, documentCount: 3 });
+  });
+
+  /**
+   * A returned `{ error }` is only half of what can go wrong. The client rejects
+   * rather than resolves when a request is aborted or exhausts its network
+   * retries, and an unhandled rejection would fail the entire developer hub page
+   * instead of degrading one line of it — during exactly the Supabase outage
+   * that makes the page worth opening. Raised in review of PR #2495.
+   */
+  it("degrades to unavailable when the count read rejects instead of returning an error", async () => {
+    const { resolveHubEnvironmentFacts } = await load({
+      user: { id: "user-1", email: "clinician@example.com" },
+      rejectCount: true,
+      demoMode: false,
+    });
+
+    // Not merely "does not throw": the facts that were already read must survive.
+    await expect(resolveHubEnvironmentFacts()).resolves.toEqual({
+      demoMode: false,
+      documentCount: null,
+      email: null,
+    });
+  });
+
+  it("degrades to unavailable when the auth read itself rejects", async () => {
+    const { resolveHubEnvironmentFacts } = await load({ rejectAuth: true, demoMode: true });
+
+    // `demoMode` never touched the network, so it must still be reported: an
+    // outage should not make the page claim it cannot tell demo from live.
+    await expect(resolveHubEnvironmentFacts()).resolves.toEqual({
+      demoMode: true,
+      documentCount: null,
+      email: null,
+    });
   });
 
   /**
