@@ -1214,7 +1214,7 @@ export function DifferentialDetailPage({
 
         <MobilePrimaryActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
         <p className="rounded-lg border border-transparent px-1 text-xs leading-5 text-[color:var(--text-muted)]">
-          Clinical decision support only. Review before use.
+          Clinical reference — not validated decision support. Review before use.
         </p>
       </div>
     </main>
