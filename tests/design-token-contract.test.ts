@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { diffAgainstPin } from "../scripts/token-layer-divergences.mjs";
+import { computeDivergences, diffAgainstPin, readPin } from "../scripts/token-layer-divergences.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 /**
@@ -566,6 +566,15 @@ describe("compat layer agrees with the v2 layer", () => {
   // figures did. Refresh with `npm run design-system:token-divergence:update`.
   it("has no unreviewed divergence between globals.css and ckb-v2-tokens.css", () => {
     expect(diffAgainstPin()).toEqual([]);
+  });
+
+  it("rejects a pin whose counts metadata disagrees with divergences", () => {
+    const pin = readPin();
+    const bad = structuredClone(pin);
+    bad.counts = { ...pin.counts, light: 0, dark: 999 };
+    const problems = diffAgainstPin(computeDivergences(), bad);
+    expect(problems.some((problem) => problem.includes("counts.light"))).toBe(true);
+    expect(problems.some((problem) => problem.includes("counts.dark"))).toBe(true);
   });
 
   // These four are asserted identical on top of the pin. They are the non-colour

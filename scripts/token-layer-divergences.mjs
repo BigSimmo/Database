@@ -134,6 +134,17 @@ export function writePin(divergences) {
 /** Human-readable drift between the pinned set and the stylesheets, or []. */
 export function diffAgainstPin(divergences = computeDivergences(), pin = readPin()) {
   const problems = [];
+  const derivedCounts = Object.fromEntries(
+    Object.entries(pin.divergences ?? {}).map(([theme, roles]) => [theme, Object.keys(roles).length]),
+  );
+  const pinCounts = pin.counts ?? {};
+  for (const theme of new Set([...Object.keys(derivedCounts), ...Object.keys(pinCounts)])) {
+    if (pinCounts[theme] !== derivedCounts[theme]) {
+      problems.push(
+        `counts.${theme} is ${JSON.stringify(pinCounts[theme])} but divergences.${theme} has ${derivedCounts[theme] ?? 0} roles; refresh the pin so counts match.`,
+      );
+    }
+  }
   for (const theme of Object.keys(divergences)) {
     const actual = divergences[theme];
     const pinned = pin.divergences?.[theme] ?? {};
