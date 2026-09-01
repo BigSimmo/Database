@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { calculators, type CalculatorFixture, type CalculatorItem } from "@/components/calculators/calculator-fixtures";
+import {
+  allCalculatorFixtures,
+  calculators,
+  type CalculatorFixture,
+  type CalculatorItem,
+} from "@/components/calculators/calculator-fixtures";
 import {
   deriveCalculator,
   formatResultSummary,
@@ -8,10 +13,9 @@ import {
   progressLabel,
   type AnswerMap,
 } from "@/components/calculators/calculator-ui";
-import { missingValuePhrase } from "@/components/ui/missing-value";
 
 /*
- * Scoring guard for the eight validated instruments in the calculators mode.
+ * Scoring guard for the active calculator catalogue and quarantined MDQ fixture.
  *
  * `calculator-ui.tsx` held the band lookup, the MDQ three-criterion rule and the
  * band-suppression rules with no executing test — the only calculator test in the
@@ -24,7 +28,7 @@ import { missingValuePhrase } from "@/components/ui/missing-value";
  */
 
 function fixture(id: string): CalculatorFixture {
-  const calc = calculators.find((entry) => entry.id === id);
+  const calc = allCalculatorFixtures.find((entry) => entry.id === id);
   if (!calc) throw new Error(`calculator fixture "${id}" not found`);
   return calc;
 }
@@ -203,17 +207,20 @@ describe("PHQ-9 severity banding", () => {
 
   it("raises the item-9 self-harm flag only when that item scores above zero", () => {
     const flagged = deriveCalculator(phq9, { ...baselineAnswers(phq9), p9: 1 });
-    expect(flagged.flags).toEqual(["Item 9 endorsed — complete a structured suicide-risk assessment now."]);
+    expect(flagged.flags).toEqual([
+      "Item 9 endorsed — directly assess suicidal thoughts, self-harm thoughts and immediate safety now.",
+    ]);
 
     const unflagged = deriveCalculator(phq9, { ...baselineAnswers(phq9), p9: 0 });
     expect(unflagged.flags).toEqual([]);
   });
 
-  it("publishes a provisional band while a zero-floor scale is still filling in", () => {
+  it("withholds a PHQ-9 band while the scale is still filling in", () => {
     const partial = deriveCalculator(phq9, { p1: 3, p2: 3 });
     expect(partial.complete).toBe(false);
     expect(partial.started).toBe(true);
-    expect(partial.band?.label).toBe("Mild");
+    expect(partial.band).toBeUndefined();
+    expect(partial.result.label).toBe("Incomplete");
   });
 });
 
@@ -247,7 +254,7 @@ describe("band suppression for scales that cannot read zero", () => {
     // The dash this used to assert was the incidental rendering of the same
     // withholding the line above pins; the phrase now says it in words, and is
     // read from the primitive so the two cannot drift apart.
-    expect(partial.result.label).toBe(missingValuePhrase("withheld_until_complete"));
+    expect(partial.result.label).toBe("Incomplete");
 
     const complete = deriveCalculator(k10, answersForScore(k10, 30));
     expect(complete.complete).toBe(true);
@@ -332,12 +339,12 @@ describe("result summary text", () => {
   it("appends progress while the scale is incomplete", () => {
     const state = deriveCalculator(phq9, { p1: 3, p2: 3 });
     expect(state.complete).toBe(false);
-    expect(formatResultSummary(phq9, state)).toBe("PHQ-9 6/27 — Mild (2 of 9 answered)");
+    expect(formatResultSummary(phq9, state)).toBe("PHQ-9 6/27 — Incomplete (2 of 9 answered)");
   });
 
   it("counts endorsements rather than answers for checkbox-only scales", () => {
     const cage = fixture("cage");
     const state = deriveCalculator(cage, { c1: 1, c2: 1, c3: 0, c4: 0 });
-    expect(progressLabel(state)).toBe("2 of 4 endorsed");
+    expect(progressLabel(state)).toBe("4 of 4 answered · 2 endorsed");
   });
 });

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "f328372f39ead3501c8a4ba09db4cbef492d4788",
-    "committed_at": "2026-09-01T01:52:31Z"
+    "sha": "42e9eeb910925345619ab2f76dc3ef4983b27d55",
+    "committed_at": "2026-09-01T17:18:39+08:00"
   },
   "routes": {
     "modes": [
@@ -3565,6 +3565,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
         "section": "superpowers",
         "catalogued": false
@@ -3846,6 +3851,11 @@
       },
       {
         "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4281,9 +4291,9 @@
       }
     ],
     "counts": {
-      "documents": 557,
+      "documents": 559,
       "catalogued": 111,
-      "uncatalogued": 446,
+      "uncatalogued": 448,
       "sections": 21
     }
   },
