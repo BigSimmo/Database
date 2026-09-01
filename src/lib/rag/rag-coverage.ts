@@ -459,13 +459,25 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
       claimRole,
     });
     const collapsed = collapseEvidenceFamilies(ordered, conflicts);
-    const supplementaryBounded = selectAustralianClinicalContext(collapsed.orderedEvidence, {
+    const eligibleProductRecordIds = new Set(
+      collapsed.orderedEvidence.flatMap((result) => {
+        const metadata = normalizeClinicalSourceMetadata(result.source_metadata);
+        return productIntent(input.plan, subquestion.question, result) && metadata.source_kind === "registry_record"
+          ? [result.id]
+          : [];
+      }),
+    );
+    const australianBounded = selectAustralianClinicalContext(collapsed.orderedEvidence, {
       limit: collapsed.orderedEvidence.length,
       maxPerDocument: collapsed.orderedEvidence.length,
       sufficientAustralianChunks: 4,
       omitSupplementaryPadding: true,
       preserveInputPolicyOrder: true,
     });
+    const australianBoundedIds = new Set(australianBounded.map((result) => result.id));
+    const supplementaryBounded = collapsed.orderedEvidence.filter(
+      (result) => australianBoundedIds.has(result.id) || eligibleProductRecordIds.has(result.id),
+    );
     const preliminaryBudget = selectConflictAwareCoverageEvidence(
       [{ subquestionId: subquestion.id, orderedEvidence: supplementaryBounded, conflicts }],
       { limit: input.maxPerSubquestion ?? 6, maxPerDocument: input.maxPerDocument ?? 2 },
@@ -663,16 +675,13 @@ function subquestionCandidateStatus(
   selectedEvidence: readonly SearchResult[],
 ) {
   const claimRole = classifyClaimRoleForSubquestion(subquestion);
-  const roleEligible = selectedEvidence.filter(
-    (candidate) =>
-      candidateHasKnownServerScope(candidate) && searchResultEligibilityForClaim(candidate, claimRole).eligible,
-  );
+  const knownScopeCandidates = selectedEvidence.filter(candidateHasKnownServerScope);
   const [selection] = mergeEvidenceByCoverageAndSourceRole({
     plan: { ...plan, subquestions: [subquestion] },
-    candidates: roleEligible,
+    candidates: knownScopeCandidates,
     claimRole,
-    maxPerSubquestion: Math.max(1, roleEligible.length),
-    maxPerDocument: Math.max(1, roleEligible.length),
+    maxPerSubquestion: Math.max(1, knownScopeCandidates.length),
+    maxPerDocument: Math.max(1, knownScopeCandidates.length),
   });
   const candidates = (selection?.orderedEvidence ?? [])
     .map((candidate) => {

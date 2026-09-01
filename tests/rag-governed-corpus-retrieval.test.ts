@@ -479,6 +479,76 @@ describe("governed public corpus retrieval", () => {
     expect(genuineGap.filter(({ scopes }) => scopes.includes("international_supplementary"))).toHaveLength(1);
   });
 
+  it.each([
+    {
+      domain: "services" as const,
+      question: "Which Clinical KB service page is available?",
+      registryKind: "service",
+    },
+    {
+      domain: "forms" as const,
+      question: "Which Clinical KB form page is available?",
+      registryKind: "form",
+    },
+    {
+      domain: "tools" as const,
+      question: "Which Clinical KB tool page is available?",
+      registryKind: "tool",
+    },
+  ])(
+    "does not open an international gap for an eligible $domain product lookup",
+    async ({ domain, question, registryKind }) => {
+      const calls: SourceCorpusScope[][] = [];
+      const site = {
+        ...row(`site-${domain}`, "clinical_kb_site"),
+        content: `${question} The matching Clinical KB ${registryKind} record is available.`,
+        site_content_domain: domain,
+      };
+      site.source_metadata = {
+        ...site.source_metadata,
+        registry_record_kind: registryKind,
+        source_role: "clinical_reference",
+      };
+      const supabase = {
+        rpc: vi.fn((_name: string, args: Record<string, unknown>) => {
+          const scopes = args.corpus_scopes as SourceCorpusScope[];
+          calls.push(scopes);
+          return Promise.resolve({
+            data: scopes.includes("international_supplementary")
+              ? [row(`international-${domain}`, "international_supplementary")]
+              : [site],
+            error: null,
+          });
+        }),
+      } as never;
+      const plan: RagQueryPlan = {
+        version: "rag-query-plan-v1",
+        kind: "single",
+        originalQuery: question,
+        interpretation: "explicit Clinical KB product lookup",
+        subquestions: [{ id: "product", question, purpose: "primary", required: true }],
+        targetSiteDomains: [domain],
+        siteDomainDecision: "explicit",
+        reasonCodes: [],
+      };
+
+      await searchGovernedCorpora({
+        supabase,
+        queryVariants: [question],
+        queryPlan: plan,
+        retrievalMode: "text",
+        matchCount: 6,
+        snapshot: snapshot(),
+        components: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+        targetSiteDomains: [domain],
+        internationalCoverageGap: true,
+        maxRpcCalls: 2,
+      });
+
+      expect(calls).toEqual([["uploaded_local", "clinical_kb_site", "australian_public"]]);
+    },
+  );
+
   it("removes site candidates from caller-disabled retrieval without changing Australian retrieval", async () => {
     const { calls, supabase } = harness();
 

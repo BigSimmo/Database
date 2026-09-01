@@ -740,6 +740,35 @@ describe("coverage and source-role evidence merge", () => {
     expect(selection?.coverageReason).toBe("direct");
   });
 
+  it("keeps an eligible product record ahead of sufficient Australian clinical padding", () => {
+    const question = "Which Clinical KB lithium medication record is available?";
+    const site = governedEvidence({
+      id: "site-lithium-product",
+      corpusScope: "clinical_kb_site",
+      content: "The Clinical KB lithium medication record is available with product navigation.",
+      role: "clinical_reference",
+      metadata: { site_content_logical_id: "medications:lithium" },
+    });
+    const australian = Array.from({ length: 4 }, (_, index) =>
+      governedEvidence({
+        id: `au-lithium-${index}`,
+        corpusScope: "australian_public",
+        documentId: `au-lithium-document-${index % 2}`,
+        content: "The Clinical KB lithium medication record is available with Australian clinical context.",
+        role: "clinical_guideline",
+      }),
+    );
+
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan([{ id: "product", question }], ["medications"]),
+      candidates: [site, ...australian],
+      claimRole: "treatment",
+    });
+
+    expect(selection?.orderedEvidence[0]?.id).toBe("site-lithium-product");
+    expect(selection?.orderedEvidence.map(({ id }) => id)).toContain("site-lithium-product");
+  });
+
   it("does not treat a Clinical KB medication record citation as product lookup for dose guidance", () => {
     const uploaded = governedEvidence({
       id: "uploaded-lithium-dose",
