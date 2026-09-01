@@ -112,10 +112,10 @@ Two separate image faults produce this, and the second is why the obvious fix lo
 2. **The image's Node is too old to run `npm ci`.** `jsdom@30.0.1` requires `^22.22.2 || ^24.15.0 || >=26.0.0`; images have shipped v24.13.0, so `npm ci --include=dev` dies on `EBADENGINE` under `engine-strict=true`. Never bypass with `--force`, `--legacy-peer-deps`, or `--engine-strict=false`.
 
 ```bash
-# 1. Node >= 24.15.0 (satisfies both the repo's 24.x engine and jsdom's floor).
-curl -sSL -o /tmp/node24.tar.xz https://nodejs.org/dist/v24.19.0/node-v24.19.0-linux-x64.tar.xz
-mkdir -p /root/.node24 && tar -xf /tmp/node24.tar.xz -C /root/.node24/
-export PATH=/root/.node24/node-v24.19.0-linux-x64/bin:$PATH   # node v24.19.0, npm 11.17.0
+# 1. Node 26.x (satisfies the repository engine and jsdom's floor).
+curl -sSL -o /tmp/node26.tar.xz https://nodejs.org/dist/v26.8.1/node-v26.8.1-linux-x64.tar.xz
+mkdir -p /root/.node26 && tar -xf /tmp/node26.tar.xz -C /root/.node26/
+export PATH=/root/.node26/node-v26.8.1-linux-x64/bin:$PATH   # node v26.8.1, npm 11.x
 
 # 2. Real install. Expect exit 0; then parity prints all seven pinned packages.
 npm ci --include=dev && npm run check:installed-lock-parity
@@ -125,7 +125,7 @@ unset PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
 npx playwright install chromium chromium-headless-shell   # installs into PLAYWRIGHT_BROWSERS_PATH
 ```
 
-Costs roughly 5 minutes and ~330 MB (184 MB chromium + 115 MB headless shell + 32 MB node), needs a few GB free, and is paid **per session** because the container is ephemeral. The durable fix is still an image that ships Node ≥ 24.15.0, a complete `npm ci`, and the locked Chromium revision.
+Costs roughly 5 minutes and ~330 MB (184 MB chromium + 115 MB headless shell + 32 MB node), needs a few GB free, and is paid **per session** because the container is ephemeral. The durable fix is still an image that ships Node 26.x, a complete `npm ci`, and the locked Chromium revision.
 
 Codex Cloud agents remain provider-free. Run authenticated Supabase tests through the
 manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires the

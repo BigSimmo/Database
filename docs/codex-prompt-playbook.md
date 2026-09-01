@@ -7,7 +7,7 @@ Before using any prompt, keep these project defaults in mind:
 
 - Start from `AGENTS.md`, `README.md`, `package.json`, and current `git status`.
 - Preserve unrelated staged, unstaged, and untracked work.
-- Use Node 24.x and npm 11.x. Do not switch package managers.
+- Use Node 26.x and npm 11.x. Do not switch package managers.
 - For Next.js source changes, read the relevant guide under
   `node_modules/next/dist/docs/` before editing.
 - Use `npm run ensure` before browser/UI work and use the URL it prints.

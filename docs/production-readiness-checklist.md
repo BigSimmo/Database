@@ -20,7 +20,7 @@ This is the runbook to make the app publishable in one focused pass.
 
 Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
 
-- Runtime target: Next.js 16.2.11, Node 24.x, npm 11.x.
+- Runtime target: Next.js 16.2.11, Node 26.x, npm 11.x.
 - Supabase target: `sjrfecxgysukkwxsowpy` (`Clinical KB Database`).
 
 ## Immediate completion targets
@@ -44,7 +44,7 @@ Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
   - used in CI and non-blocking on local-only secret absence.
 - [x] Added strict runtime release gate:
   - `npm run check:runtime`
-  - enforces Node 24.x and npm 11.x before broad local and release verification.
+  - enforces Node 26.x and npm 11.x before broad local and release verification.
 
 ## Remaining high-priority publish items (same day)
 

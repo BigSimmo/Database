@@ -822,15 +822,15 @@ export function validateCodexCloudSetup() {
   const mcp = read(".mcp.json");
   const codexProjectConfig = read(".codex/config.toml");
 
-  // engines.node declares a minor-level floor (">=24.15.0 <25") rather than a
-  // bare major, because dev dependencies carry a floor a "24.x" range cannot
+  // engines.node declares a complete supported range (">=26.0.0 <27") rather
+  // than a bare major, so the runtime contract retains both its floor and ceiling.
   // express. Validate the shape and that its major still tracks .node-version.
   const engineRange = String(packageJson.engines?.node ?? "");
   const engineFloor = engineRange.match(/>=\s*(\d+)\.(\d+)\.(\d+)/);
   const engineCeiling = engineRange.match(/<\s*(\d+)/);
   if (!engineFloor || !engineCeiling) {
     errors.push(
-      `package.json engines.node must declare a floor and an exclusive major ceiling, e.g. ">=${nodeVersion}.15.0 <${Number(nodeVersion) + 1}". Found "${engineRange}".`,
+      `package.json engines.node must declare a floor and an exclusive major ceiling, e.g. ">=${nodeVersion}.0.0 <${Number(nodeVersion) + 1}". Found "${engineRange}".`,
     );
   } else if (engineFloor[1] !== nodeVersion || Number(engineCeiling[1]) !== Number(nodeVersion) + 1) {
     errors.push(`package.json engines.node major must match .node-version (${nodeVersion}).`);

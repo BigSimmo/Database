@@ -7,7 +7,7 @@ questions with source citations that link back to the original PDF/document.
 
 ## Setup
 
-1. Use Node.js 24.x with npm 11.x. CI runs on Node 24, and `.nvmrc` /
+1. Use Node.js 26.x with npm 11.x. CI runs on Node 26, and `.nvmrc` /
    `.node-version` pin the same runtime for local version managers. CI also runs
    `npm run check:edge:functions`, which requires Deno v2.x.
 2. Install dependencies:

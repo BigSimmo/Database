@@ -17,7 +17,7 @@ duplicate those rules, so it cannot drift from them.
 
 ## Human quickstart
 
-- Node 24.x / npm 11.x are hard requirements (`engine-strict`); the app is
+- Node 26.x / npm 11.x are hard requirements (`engine-strict`); the app is
   Next.js 16 + Supabase + OpenAI.
 - Copy `.env.example` to `.env.local` and fill in values (never commit
   secrets). Without Supabase/OpenAI values the app runs in demo mode on a

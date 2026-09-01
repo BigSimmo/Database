@@ -32,7 +32,7 @@ export const workerBuildOptions = {
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node24",
+  target: "node26",
   packages: "external",
   sourcemap: true,
   logLevel: "info",

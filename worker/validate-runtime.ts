@@ -72,8 +72,8 @@ export async function validateRuntime(options: ValidateRuntimeOptions = {}): Pro
     errors,
   };
 
-  if (nodeMajor() !== 24) {
-    errors.push(`Expected Node 24.x, got ${process.versions.node}`);
+  if (nodeMajor() !== 26) {
+    errors.push(`Expected Node 26.x, got ${process.versions.node}`);
   }
 
   const npmMaj = npmMajor();

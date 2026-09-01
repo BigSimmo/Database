@@ -36,9 +36,9 @@ _"apply before worker redeploy"_) for the ordered apply plan.
 Confirm the gate before continuing:
 
 ```bash
-node -v                  # must report >= 24.15.0 < 25 (Node 24 engine floor)
+node -v                  # must report >= 26.0.0 < 27 (Node 26 engine floor)
 npm -v                   # must report >= 11.0.0 < 12 (npm 11)
-npm run check:runtime    # validates Node 24 and npm 11 engines
+npm run check:runtime    # validates Node 26 and npm 11 engines
 npm run reindex:health   # ok:true, and the RPC signatures accept p_worker_id
 ```
 
@@ -88,7 +88,7 @@ docker build -f Dockerfile.worker -t clinical-kb-worker .
 
 ### What ships in the image
 
-- **Node 24** (`node:24-bookworm-slim`) + **production-only** `node_modules`
+- **Node 26** (`node:26-bookworm-slim`) + **production-only** `node_modules`
   (`npm ci --omit=dev`): the worker runs as a prebuilt esbuild bundle
   (`dist/worker/index.mjs`, built in a separate image stage by
   `scripts/build-worker.mjs`), so tsx and the rest of the dev toolchain never
@@ -555,16 +555,16 @@ The second Gate B caveat is already load-bearing above: docling's eager-mode lat
 
 ## 5. Troubleshooting & environment notes
 
-- **Strict Node 24 web container engines (#334):** Package manifests enforce
-  strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container
+- **Strict Node 26 web container engines (#334):** Package manifests enforce
+  strict Node 26 (`>=26.0.0 <27`) and npm 11 engines. If a web container
   environment boots with Node 22 on `PATH`, `npm ci` fails `EBADENGINE` before
-  work starts. Do not drop engine-strict; export `/opt/node24/bin` at the front of
+  work starts. Do not drop engine-strict; export `/opt/node26/bin` at the front of
   `PATH` to satisfy repository engine contracts before running `npm ci` or building
   the worker:
 
   ```bash
-  export PATH="/opt/node24/bin:$PATH"
-  node -v # must report v24.x
+  export PATH="/opt/node26/bin:$PATH"
+  node -v # must report v26.x
   ```
 
 ---

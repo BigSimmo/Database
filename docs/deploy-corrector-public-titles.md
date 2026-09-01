@@ -80,7 +80,7 @@ records the blocker; it does not itself authorize or implement the database clea
 
 ## Prerequisites
 
-- The repo cloned locally, Node 24.x / npm 11.x.
+- The repo cloned locally, Node 26.x / npm 11.x.
 - Your **production** secrets in `.env.local` (the same ones the live app uses):
   `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy`,
   `SUPABASE_PROJECT_NAME=Clinical KB Database`, `SUPABASE_SERVICE_ROLE_KEY`.

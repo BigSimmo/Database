@@ -6,24 +6,22 @@ import packageJson from "../package.json";
 import { NODE_MINIMUM_VERSION, checkNodeRuntime, checkNpmRuntime } from "../scripts/check-runtime";
 
 describe("runtime release gate", () => {
-  it("accepts the Node 24 release target", () => {
-    expect(checkNodeRuntime("24.15.0")).toMatchObject({
+  it("accepts the Node 26 release target", () => {
+    expect(checkNodeRuntime("26.8.1")).toMatchObject({
       ok: true,
-      expectedMajor: 24,
+      expectedMajor: 26,
     });
   });
 
   it("rejects older and newer major runtimes", () => {
-    expect(checkNodeRuntime("23.7.0")).toMatchObject({ ok: false });
-    expect(checkNodeRuntime("25.0.0")).toMatchObject({ ok: false });
+    expect(checkNodeRuntime("25.7.0")).toMatchObject({ ok: false });
+    expect(checkNodeRuntime("27.0.0")).toMatchObject({ ok: false });
   });
 
-  // A matching major used to be sufficient, so 24.13.0 passed every gate and
-  // then failed `npm ci` with an opaque EBADENGINE for jsdom.
-  it("rejects a matching major that is below the dependency floor", () => {
-    const result = checkNodeRuntime("24.13.0");
+  it("rejects a matching major below an explicitly supplied floor", () => {
+    const result = checkNodeRuntime("26.0.0", 26, "26.0.1");
     expect(result.ok).toBe(false);
-    expect(result.message).toContain(NODE_MINIMUM_VERSION);
+    expect(result.message).toContain("26.0.1");
     expect(result.message).toContain("Claude Code remote");
     expect(result.message).toContain("export PATH=");
     expect(result.message).toContain("current shell");
@@ -31,7 +29,7 @@ describe("runtime release gate", () => {
 
   it("accepts runtimes at or above the floor", () => {
     expect(checkNodeRuntime(NODE_MINIMUM_VERSION)).toMatchObject({ ok: true });
-    expect(checkNodeRuntime("24.19.0")).toMatchObject({ ok: true });
+    expect(checkNodeRuntime("26.8.1")).toMatchObject({ ok: true });
   });
 
   it("keeps the floor equal to the package.json engines.node declaration", () => {
@@ -78,13 +76,13 @@ describe("runtime release gate", () => {
   });
 
   it("accepts the npm 11 release package manager", () => {
-    expect(checkNpmRuntime("npm/11.12.1 node/v24.15.0 win32 x64")).toMatchObject({
+    expect(checkNpmRuntime("npm/11.12.1 node/v26.8.1 win32 x64")).toMatchObject({
       ok: true,
       expectedMajor: 11,
     });
   });
 
   it("rejects newer npm majors for release verification", () => {
-    expect(checkNpmRuntime("npm/12.0.0 node/v24.15.0 win32 x64")).toMatchObject({ ok: false });
+    expect(checkNpmRuntime("npm/12.0.0 node/v26.8.1 win32 x64")).toMatchObject({ ok: false });
   });
 });

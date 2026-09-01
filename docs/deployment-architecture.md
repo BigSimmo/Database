@@ -77,7 +77,7 @@ Railway's private network — see §2.1). Both Railway services deploy from
 
 ### Decision
 
-Run the Next.js app as a **single long-lived container** (Node 24, image built
+Run the Next.js app as a **single long-lived container** (Node 26, image built
 from `Dockerfile`) on **Railway**, pinned to the **Southeast Asia (Singapore)**
 region — the closest Railway region to the Supabase project's ap-southeast-2
 (Sydney) home. Keep one warm replica (no scale-to-zero).
@@ -206,7 +206,7 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
 
 ### Image contract (`Dockerfile`)
 
-- `node:24-bookworm-slim` is pinned by multi-platform SHA-256 digest in a
+- `node:26-bookworm-slim` is pinned by multi-platform SHA-256 digest in a
   shared `node-base` stage and used by every stage. Dependency installs use
   ordinary Docker layer caching. The shared Dockerfiles deliberately avoid
   BuildKit cache mounts because Railway requires hard-coded, service-specific
@@ -283,7 +283,7 @@ check and watch patterns rather than relying on dashboard defaults.
 
 ### Decision: containerized worker (recommended) over completing the edge-agent migration
 
-Ship the existing worker as a container (`Dockerfile.worker`: pinned Node 24 +
+Ship the existing worker as a container (`Dockerfile.worker`: pinned Node 26 +
 a prebuilt esbuild bundle over production-only `node_modules` +
 Tesseract + a Python venv with a hashed `worker/python/requirements.txt` +
 a provider-free `dist/worker/validate-runtime.mjs` gate) and run **one

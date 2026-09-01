@@ -45,7 +45,7 @@ function runtimeResult(runtimeName: string, version: string, expectedMajor: numb
 
 // Must stay equal to the floor declared by package.json engines.node, which is
 // the single source of truth. tests/check-runtime.test.ts pins the two together.
-export const NODE_MINIMUM_VERSION = "24.15.0";
+export const NODE_MINIMUM_VERSION = "26.0.0";
 
 function isBelow(version: string, minimum: string): boolean {
   const actual = version.split(".").map(Number);
@@ -60,15 +60,15 @@ function isBelow(version: string, minimum: string): boolean {
 
 export function checkNodeRuntime(
   version: string,
-  expectedMajor = 24,
+  expectedMajor = 26,
   minimumVersion = NODE_MINIMUM_VERSION,
 ): RuntimeCheckResult {
   const result = runtimeResult("Node", version, expectedMajor);
   if (!result.ok) return result;
 
-  // A matching major is not sufficient: dev dependencies (jsdom) carry a
-  // minor-level floor, and a too-old 24.x otherwise passes every gate and then
-  // fails at install with an opaque EBADENGINE for a transitive package.
+  // Keep the complete range check even though the Node 26 floor begins at .0.0:
+  // future dependency floors can tighten within the supported major without
+  // weakening the release gate's error message.
   if (isBelow(version, minimumVersion)) {
     return {
       ok: false,

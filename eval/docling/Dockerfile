@@ -7,7 +7,7 @@
 #
 # Same digest-pinned base as Dockerfile / Dockerfile.worker (Debian bookworm:
 # python3 is 3.11, matching both hashed locks consumed below).
-FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7
+FROM node:26-bookworm-slim@sha256:367679cf9792759492a486e4aa4b421764d71a9546a6dae8aab81a99eb797b3e
 
 # libgl1 + libglib2.0-0: OpenCV's runtime shared libraries. docling's rapidocr
 # stage imports cv2 during `docling-tools models download` (and again at run
