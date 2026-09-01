@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
+import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -206,7 +206,14 @@ function StagedAnswerResultSurfaceImpl({
   };
   /**
    * The header status line the approved specimen draws: the support chip (owned
-   * by AnswerCard), the safety-notes control, and the cited count.
+   * by AnswerCard) and the safety-notes control.
+   *
+   * The cited count is deliberately NOT here. It was, and at 390px it rendered
+   * "2 cited" twice within one screen — once beside the support chip and again
+   * on the source rail's own heading 160px below, which already reads
+   * "2 cited · 1 also found" and is the only place that explains why an uncited
+   * card carries a dash instead of a number. Two spellings of one number in one
+   * glance invite the reader to look for a difference between them.
    *
    * The safety chip is the ONLY route to the safety-critical findings sheet now
    * that the support card is gone, so it is a real button whenever there are
@@ -214,8 +221,6 @@ function StagedAnswerResultSurfaceImpl({
    * safety notes" survives forced-colors and greyscale print, where a coloured
    * chip alone would not.
    */
-  const citedSourceCount = railSources.filter((row) => row.cited !== false).length || renderModel.primarySources.length;
-  const retrievedSourceCount = Math.max(citedSourceCount, sourceCount, sources.length);
   const answerMetaChips =
     safetyFindings.length > 0 ? (
       <button
@@ -256,30 +261,62 @@ function StagedAnswerResultSurfaceImpl({
           onClick={() => setEvidenceGapsOpen((current) => !current)}
           className={cn("group", chipButton)}
           aria-expanded={evidenceGapsOpen}
-          aria-controls={evidenceGapsOpen ? "answer-evidence-gaps-detail" : undefined}
+          // Unconditional, because the panel below is mounted whether or not it
+          // is open. The conditional attribute this replaces was well formed —
+          // attribute and target appeared and disappeared together, which is
+          // what the feedback trigger in `evidence-panels.tsx` still does, and
+          // correctly. It is only redundant here now that the target is always
+          // present.
+          aria-controls="answer-evidence-gaps-detail"
         >
           <span
             className={cn(
               chipShape,
-              "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] transition group-hover:bg-[color:var(--surface-subtle)]",
+              evidenceGapsOpen
+                ? "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] group-hover:bg-[color:var(--surface-subtle)]",
+              "transition",
               chipFocus,
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
             {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+            {/* The chip looked identical open and closed, so on a phone the only
+                way to tell was to find the panel. */}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("size-icon-xs shrink-0 transition-transform", evidenceGapsOpen && "rotate-180")}
+            />
           </span>
         </button>
       </>
     ) : (
       answerMetaChips
     );
-  const answerMetaTrailing =
-    citedSourceCount > 0 ? (
-      <span className="nums text-3xs text-[color:var(--text-muted)]" data-testid="answer-cited-count">
-        {citedSourceCount === retrievedSourceCount
-          ? `${citedSourceCount} cited`
-          : `${citedSourceCount} of ${retrievedSourceCount} cited`}
-      </span>
+
+  /**
+   * The gaps themselves, mounted whether or not the chip is expanded so
+   * `aria-controls` above always resolves, and rendered by `AnswerCard`
+   * immediately under the chip row rather than below the whole answer.
+   */
+  const answerEvidenceGapsDetail =
+    renderModel.warnings.length > 0 ? (
+      <div
+        id="answer-evidence-gaps-detail"
+        hidden={!evidenceGapsOpen}
+        // Display comes from the class only while open, so the `hidden`
+        // attribute is never fighting a `grid` display it cannot override.
+        className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
+      >
+        {renderModel.warnings.map((warning, index) => (
+          <p
+            key={`${warning}:${index}`}
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            {warning}
+          </p>
+        ))}
+      </div>
     ) : null;
 
   function openAnswerStateSource(sourceId: string, locator?: string) {
@@ -360,7 +397,7 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement="content"
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
+                metaDetail={answerEvidenceGapsDetail}
               >
                 {answerProse}
               </AnswerCard>
@@ -373,7 +410,7 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
+                metaDetail={answerEvidenceGapsDetail}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -383,19 +420,6 @@ function StagedAnswerResultSurfaceImpl({
                 {answerProse}
               </AnswerCard>
             )}
-
-            {renderModel.warnings.length > 0 && evidenceGapsOpen ? (
-              <div id="answer-evidence-gaps-detail" className="grid max-w-[68ch] gap-2">
-                {renderModel.warnings.map((warning, index) => (
-                  <p
-                    key={`${warning}:${index}`}
-                    className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
-                  >
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            ) : null}
 
             <AnswerUtilityActions
               copied={copiedAnswer}
