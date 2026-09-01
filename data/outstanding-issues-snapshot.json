@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 79,
+    "pending": 82,
     "resolved": 431
   },
   "queue": [
@@ -873,6 +873,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "184404de-c45e-43e3-8048-2825799b349e",
+      "action": "add",
+      "summary": "Nothing compares the replayed migration chain against supabase/schema.sql, so a migration that changes a function body without a matching schema.sql edit passes every pre-merge gate and only surfaces post-merge in live-drift",
+      "created_at": "2026-09-01"
+    },
+    {
       "request_id": "2166a980-bac5-4565-b009-f7f4ea530e5c",
       "action": "done",
       "summary": "#GQ5X8T: NOT REPRODUCED ON PINNED LINUX; WINDOWS-SPECIFIC CAUSE UNRESOLVED. Eleven retained PR #2313 ubuntu-24.04 Lighthouse artifacts used Lighthouse 12.8.2 and pinned HeadlessChrome/151.0.0.0. In the nine-run synchronized-baseline subset, mobile-root LCP was 2260.791-2300.923ms with median 2287.574ms versus 2274.017ms baseline (+13.557ms, +0.60%); TBT median was 430.602ms versus 436.600ms baseline (-1.37%); CLS was 0 throughout. Across all eleven heads LCP was 2221.675-2300.923ms, never reproducing the Windows 7422-8032ms state. The exact local 883f1007 control / 7cf37b53 treatment snapshots had identical lock hashes, but the local host stayed at 42.3-62.9% CPU and the control build hit the 10-minute Linux cap after compiling, before measurement; that attempt is environment-blocked and was not rerun. This excludes a repeatable cross-platform regression but cannot distinguish Windows host noise from a Windows-specific client regression. No product, budget, tolerance, request-count, or proven CLS change was made. Reopen if a pinned Linux exact-head run breaches repeatably or a synchronized quiet-host Windows control reproduces the slowdown. Evidence: docs/evidence/mobile-root-timing-control-2026-08-26.md.",
@@ -1027,6 +1033,12 @@
       "action": "update",
       "summary": "#EFETZT: detail → UPDATE 2026-08-27 (PR #2413, second and third occurrences): this is not only a staleness problem, it also produces hard git merge conflicts that block auto-merge. data/repo-awareness-snapshot.json conflicted twice in fifteen minutes on one PR head — first when main advanced to be65b8a, again when main advanced to fb88b47 — each time setting mergeable_state=dirty, which suppresses refs/pull/<n>/merge so pull_request CI (CI, Gitleaks, Semgrep) does not run at all and the check list reads empty rather than red. Both were resolved identically: git merge origin/main, git checkout --theirs the snapshot, npm run snapshot:repo-awareness, commit, push. The staleness half also reproduced: check:repo-awareness-snapshot failed Static PR checks with 'review_state differs from the repository'. Cost per occurrence is one full CI round trip plus a push, and it scales with how many PRs are open, since every merge to main regenerates the file for all of them. Reinforces the fix direction already proposed on this row: exclude docs/branch-review-records/ from the compared content the way captured_revision already is, or compare a narrower key set. Adding .gitattributes merge guidance for this path would blunt the conflict half but not the CI-staleness half.",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "86ba753c-f2fd-4be7-92f4-df3d54cf4a04",
+      "action": "update",
+      "summary": "#QCNE6N: detail → generate-drift-manifest.ts replays supabase/schema.sql and embeds ITS sha256; CI's db-reset-verify runs supabase migration up --local, proving the chain APPLIES but never diffing the result against schema.sql. A migration whose function or policy body diverges from the mirror passes every gate. Object-NAME parity does hold today (all create targets across 211 migrations resolve into schema.sql) but it is enforced by hand-written per-object tests, not systematically. FIX: after migration up --local, replay schema.sql into a second scratch database and diff schema_drift_snapshot() between the two. Fully offline and containerised, no provider access. DEMONSTRATED 2026-09-01, no longer theoretical: live-drift run 33484535655 (red on main at d3074946a) reported its sole unexpected finding as public.correct_clinical_query_terms(text,real) def_hash manifest e2356565 vs live 2ebaf978. Cause was exactly this gap - migration 20260831100000 (PR #2477) redefined that function with a duplicated 'and length(canonical) between 4 and 40' predicate and supabase/schema.sql was never updated to match, so the manifest disagreed with live while every pre-merge gate stayed green. The db-reset-verify assertion that did run is committed.schema_sha256 === generated.schema_sha256 (.github/workflows/ci.yml ~L1082-1095), which only catches an unrefreshed manifest, not a chain/mirror divergence. Behaviour impact of that instance was nil (the duplicate predicate is a boolean no-op) but it cost a red daily alarm and a remediation PR, and it is the second occurrence of this failure class after the #316 root cause (SET work_mem absent from schema.sql). Strengthens the case for scheduling the containerised two-database diff above.; source → repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f; demonstrated by live-drift run 33484535655, classified by the database coordination chat 2026-09-01",
+      "created_at": "2026-09-01"
     },
     {
       "request_id": "870d4673-65da-40b8-94ba-15ba3c6ec6db",
@@ -1189,6 +1201,12 @@
       "action": "add",
       "summary": "An agent push rewrote tests/ui-smoke.spec.ts from 6,019 lines to 1,081, deleting 74 of 82 UI journey tests, and only a merge conflict stopped it auto-merging",
       "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "cbe7c359-b8e1-4218-a4df-59e869133e0a",
+      "action": "cancel",
+      "summary": "Cancel request 184404de-c45e-43e3-8048-2825799b349e: Duplicate of the existing open row #QCNE6N, which already records that CI never diffs the replayed migration chain against supabase/schema.sql and already proposes the same containerised two-database fix. Retracted the same session it was queued; the new 2026-09-01 evidence was reissued as an update to #QCNE6N instead (request 86ba753c-f2fd-4be7-92f4-df3d54cf4a04).",
+      "created_at": "2026-09-01"
     },
     {
       "request_id": "cd767916-0034-4e5a-b2db-276609d0deec",
