@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-30T20:26:03.416Z",
+  "generated_at": "2026-09-01T00:50:53.580Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "ee64a7eeef0454a7260e53798b9c58f67885e7d66e859e4bc474db4cc96a4bd5",
-  "replay_seconds": 17,
+  "schema_sha256": "b8cf8d5b2db1a4f3335cd35849b5866820f48037a5c7829ac49a0f3a1688a5d6",
+  "replay_seconds": 49,
   "snapshot": {
     "views": [
       {
@@ -8482,7 +8482,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "57b12a31c3466115f1c75db38de9701f",
+        "def_hash": "9e89bd2b3102edd71111532b46f5dff6",
         "signature": "public.match_governed_candidate_chunks_v3(extensions.vector,text,integer,double precision,uuid[],uuid,boolean,text[],uuid,text,bigint,text[])"
       },
       {

@@ -14201,7 +14201,7 @@ alter function public.rollback_site_content_release(uuid, uuid, text, jsonb) own
 alter function public.read_site_content_health() owner to postgres;
 
 commit;
-+-- Correct governed candidate admission without changing the v3 wrapper surface.
+-- Correct governed candidate admission without changing the v3 wrapper surface.
 
 begin;
 
