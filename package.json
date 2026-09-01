@@ -177,7 +177,6 @@
     "check:m13-migration": "node scripts/run-tsx.mjs scripts/archive/check-m13-migration.ts",
     "check:july8-live-batch": "node scripts/run-tsx.mjs scripts/archive/check-july8-live-batch.ts",
     "backfill:gold-labels": "node scripts/run-tsx.mjs scripts/backfill-gold-document-labels.ts",
-    "backfill:smart-v2-labels": "npm run classify:documents -- --all-owners --limit 5000 --only-missing-smart-v2",
     "tags:backfill": "node scripts/run-tsx.mjs scripts/archive/backfill-document-tags.ts",
     "index:backfill": "node scripts/run-tsx.mjs scripts/backfill-smart-index.ts",
     "visual:backfill": "node scripts/run-tsx.mjs scripts/backfill-visual-intelligence.ts",
@@ -190,10 +189,12 @@
     "check:type-scale": "node scripts/check-type-scale.mjs --strict",
     "check:icon-scale": "node scripts/check-icon-scale.mjs --strict",
     "design-system:adoption:update": "node scripts/generate-design-system-adoption.mjs --write",
+    "design-system:token-divergence:update": "node scripts/token-layer-divergences.mjs --write",
+    "design-system:gates-figures:update": "node scripts/generate-gates-figures.mjs --write",
     "design-system:design-sync:update": "node scripts/generate-design-sync-contract.mjs --write",
     "check:design-system-adoption": "node scripts/generate-design-system-adoption.mjs --check",
     "check:design-sync-contract": "node scripts/check-design-sync-contract.mjs",
-    "check:design-system-contract": "node scripts/check-design-system-contract.mjs && npm run check:design-system-adoption && npm run check:design-sync-contract",
+    "check:design-system-contract": "node scripts/check-design-system-contract.mjs && node scripts/generate-gates-figures.mjs && node scripts/token-layer-divergences.mjs && npm run check:design-system-adoption && npm run check:design-sync-contract",
     "check:migration-role": "node scripts/check-hosted-migration-role.mjs",
     "check:function-grants": "node scripts/check-function-grants.mjs",
     "check:owner-scope": "node scripts/check-owner-scope-api.mjs",
@@ -289,7 +290,8 @@
     "check:assets": "node scripts/check-assets.mjs",
     "check:pr-mergeability": "node scripts/pr-mergeability.mjs --self-test && node scripts/check-pr-mergeability-workflow.mjs",
     "design-system:baselines:adopt": "node scripts/adopt-visual-baselines.mjs",
-    "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs"
+    "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs",
+    "check:stale-docs": "node scripts/check-stale-docs.mjs"
   },
   "dependencies": {
     "@next/env": "16.3.3",

@@ -2036,7 +2036,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await firstRailRow.click();
     const sourceDrawer = page.getByTestId("answer-source-drawer");
     await expect(sourceDrawer).toBeVisible();
-    await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toContainText("Opened from the source list");
+    // Opened from a rail card rather than a claim, so the drawer makes no
+    // support statement at all — it used to spend its first line saying there
+    // was no claim, above a front-page thumbnail of a page it was not showing.
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-cover")).toHaveCount(0);
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
     // Paging is the drawer's whole navigation model; at two sources it is numbered.
     const pager = sourceDrawer.getByTestId("answer-source-drawer-pager");
@@ -2095,6 +2100,50 @@ test.describe("PsychSift UI smoke coverage", () => {
     await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
+
+    // The status chips carry a real 48px tap target inside a 24px-tall pill. The
+    // first shape did that with `-my-3`, which keeps `boundingBox()` honest while
+    // moving the hit region outside the element's layout box — so the chip
+    // quietly sat on top of its neighbours. Measured here before the fix: the
+    // safety chip covered a 133x9px band of the support chip and a 133x2px band
+    // of the prose, and a tap in either band opened the chip. Geometry is the
+    // only thing that catches this — every DOM assertion above passes with the
+    // overlap in place — and 320px is the width where the chip row wraps.
+    for (const statusWidth of [390, 320]) {
+      await page.setViewportSize({ width: statusWidth, height: 820 });
+      await expect(safetyFindingsTrigger).toBeVisible();
+      await expectMinTouchTarget(safetyFindingsTrigger);
+      const collisions = await page.evaluate(() => {
+        const box = (selector: string) => {
+          const node = document.querySelector(selector);
+          return node ? { id: selector, ...node.getBoundingClientRect().toJSON() } : null;
+        };
+        const chips = [
+          box('[data-testid="answer-safety-findings-trigger"]'),
+          box('[data-testid="answer-evidence-gaps-trigger"]'),
+        ].filter((entry) => entry !== null);
+        const neighbours = [
+          box('[data-testid="answer-card-support"]'),
+          box('[data-testid="plain-answer-prose"]'),
+          ...chips,
+        ].filter((entry) => entry !== null);
+        const overlaps: string[] = [];
+        for (const chip of chips) {
+          for (const other of neighbours) {
+            if (other.id === chip.id) continue;
+            const width = Math.min(chip.right, other.right) - Math.max(chip.left, other.left);
+            const height = Math.min(chip.bottom, other.bottom) - Math.max(chip.top, other.top);
+            // Sub-pixel rounding, not a real collision.
+            if (width > 0.5 && height > 0.5) {
+              overlaps.push(`${chip.id} over ${other.id} by ${width.toFixed(1)}x${height.toFixed(1)}`);
+            }
+          }
+        }
+        return overlaps;
+      });
+      expect(collisions, `status chip hit regions overlap at ${statusWidth}px`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 390, height: 820 });
 
     // Decision 2 (2026-08-24): tables fold into the source drawer, so they are no
     // longer on the answer surface at all — reaching one goes through a rail row.
@@ -2420,6 +2469,47 @@ test.describe("PsychSift UI smoke coverage", () => {
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("privacy sticky chrome is an opaque bar on phones and glass from sm", async ({ page }) => {
+    // Proven in a browser, not by class presence: tailwind-merge keeps both the
+    // base and the `sm:` utility, so stylesheet order — not the class list —
+    // decides which one wins, and jsdom cannot resolve either.
+    //
+    // The phone case is the one that matters. This band carried translucent
+    // glass at every width, so scrolled content ghosted through the title; it
+    // was visible against the amber obligation band, whose fill read straight
+    // through "Data handling". The repo's own header rule for phones
+    // (`.edge-glass-header` / `.universal-header` in globals.css) is an opaque
+    // bar with no blur, and this page now follows it.
+    const chrome = page.getByTestId("privacy-sticky-chrome");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+    await expect(chrome).toBeVisible();
+
+    const phone = await chrome.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, blur: style.backdropFilter };
+    });
+    // Fully opaque: no alpha channel at all, so nothing can read through.
+    expect(phone.background).not.toMatch(/\/\s*0?\.\d+|rgba?\([^)]*,\s*0?\.\d+\s*\)/);
+    expect(phone.blur).toBe("none");
+
+    // Scrolled, the band must actually hide what passes behind it.
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(chrome).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /handles your data/i })).not.toBeInViewport();
+
+    // From sm the shared glass treatment is correct again.
+    await page.setViewportSize({ width: 900, height: 900 });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+    const wide = await chrome.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, blur: style.backdropFilter };
+    });
+    expect(wide.blur).toContain("blur(");
+    expect(wide.background).not.toBe(phone.background);
+  });
 
   test("privacy trust brief remains operable with reduced motion and forced colours", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -3454,7 +3544,10 @@ test.describe("PsychSift UI smoke coverage", () => {
       await railRow.click();
       const drawer = page.getByTestId("answer-source-drawer");
       await expect(drawer).toBeVisible();
-      await expect(drawer.getByTestId("answer-source-drawer-support")).toBeVisible();
+      // No claim opened this drawer, so it carries no support sentence; the
+      // passage and the route to the PDF are what it must show.
+      await expect(drawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+      await expect(drawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
       await expectMinTouchTarget(drawer.getByRole("link", { name: "View original PDF" }));
       const drawerPager = drawer.getByTestId("answer-source-drawer-pager");
       if (await drawerPager.count()) {

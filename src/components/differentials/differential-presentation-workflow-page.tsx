@@ -271,7 +271,8 @@ function DesktopComparisonTable({
         </table>
       </div>
       <p className="mt-3 text-xs font-medium text-[color:var(--text-muted)]">
-        Scroll horizontally to review more candidate differentials. Clinical decision support only. Review before use.
+        Scroll horizontally to review more candidate differentials. Clinical reference — not validated decision support.
+        Review before use.
       </p>
     </section>
   );
@@ -723,7 +724,7 @@ export function DifferentialPresentationWorkflowPage({
 
         <div className="mx-auto mt-5 max-w-[94rem] xl:hidden">
           <p className="text-center text-xs font-medium text-[color:var(--text-muted)]">
-            Clinical decision support only. Review before use.
+            Clinical reference — not validated decision support. Review before use.
           </p>
         </div>
       </main>

@@ -2,13 +2,16 @@
 
 **Current status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This narrative explains the assessment; the versioned register separates code proof from provider configuration, legal approval, and clinical acceptance. Pending external items in that register are not completed by technical controls described here.
 
-**Status:** Draft for governance approval Â· **Date:** 2026-07-06 Â· **Revised:** 2026-08-23
+**Status:** Draft for governance approval Â· **Date:** 2026-07-06 Â· **Revised:** 2026-09-01
 **Scope:** Clinical data flows through the PsychSift app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
 **Author:** Automated code-level assessment (multi-agent audit of `src/app/api/**`, `src/lib/*`, `supabase/schema.sql`, `supabase/migrations/**`), cross-checked against the live database.
 
-**Repository last verified:** `1f193d7b633e9b45602bd39056a957811e62b521` on 2026-08-23.
-Provider, contractual, and legal claims retain their individual evidence dates. This revision does not
-claim a new Railway/OpenAI contract review, legal approval, or provider configuration change.
+**Repository last verified:** `d3074946a917cac378de64284c67cbc1d4dc58fa` on 2026-09-01.
+Provider, contractual, and legal claims retain their individual evidence dates. This revision
+reconciles the repository's OpenAI DPA/ZDR claims against the external-evidence boundary and records
+current names-only provider checks; it does
+not claim a Railway contract, whole-of-flow legal approval, or clinical acceptance. See the
+[2026-09-01 closeout record](governance/privacy-closeout-2026-09-01.md).
 
 > **This is not legal advice.** It is a technical privacy assessment written to be handed to a
 > privacy officer / legal reviewer. Statements about the _Privacy Act 1988_ (Cth), the Australian
@@ -53,15 +56,15 @@ material.
 
 **Top gaps (full register in Â§10):**
 
-| ID    | Risk      | One-line                                                                                                                                                                                    |
-| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PIA-1 | High      | Overseas processing occurs in Railway Singapore and OpenAI US; the applicable processor/APP 8 basis and final notice wording require governance approval.                                   |
-| PIA-2 | Mitigated | Production fails closed without `RAG_QUERY_HASH_SECRET`; names-only presence in Railway and GitHub was recorded on 2026-07-27. Value equality was not exposed read-only.                    |
-| PIA-3 | Mitigated | Generated answer text is omitted from `rag_queries` by default. `RAG_PERSIST_ANSWER_TEXT=true` is explicit opt-in and blocked by production readiness.                                      |
-| PIA-4 | Mitigated | Query-miss and bounded response-cache purges were verified active live on 2026-07-14; the duplicate unbounded cache job was removed.                                                        |
-| PIA-5 | Medium    | Draft point-of-entry collection notices and a `/privacy` data-processing page ship, but no governance-approved final privacy policy exists (APP 1, APP 5).                                  |
-| PIA-6 | Low-Med   | GPT-5.6-and-later models use `prompt_cache_options.ttl="30m"` by default; gpt-5.5 forces the legacy 24h field. Provider controls may retain cached data longer than the configured minimum. |
-| PIA-7 | Low       | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                                       |
+| ID    | Risk      | One-line                                                                                                                                                                                                                                 |
+| ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PIA-1 | High      | Overseas processing occurs in Railway Singapore and OpenAI US; the applicable processor/APP 8 basis and final notice wording require governance approval.                                                                                |
+| PIA-2 | Mitigated | Production fails closed without `RAG_QUERY_HASH_SECRET`; names-only presence in Railway and GitHub was recorded on 2026-07-27. Value equality was not exposed read-only.                                                                 |
+| PIA-3 | Mitigated | Generated answer text is omitted from `rag_queries` by default. `RAG_PERSIST_ANSWER_TEXT=true` is explicit opt-in and blocked by production readiness.                                                                                   |
+| PIA-4 | Mitigated | Query-miss and bounded response-cache purges were verified active live on 2026-07-14; the duplicate unbounded cache job was removed.                                                                                                     |
+| PIA-5 | Medium    | Draft point-of-entry collection notices and a `/privacy` data-processing page ship, but no governance-approved final privacy policy exists (APP 1, APP 5).                                                                               |
+| PIA-6 | Low-Med   | GPT-5.6-and-later models use `prompt_cache_options.ttl="30m"` by default; gpt-5.5 forces the legacy 24h field. OpenAI documents up to 24 hours of prompt-cache application state; the configured TTL is only the minimum cache lifetime. |
+| PIA-7 | Low       | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                                                                                    |
 
 ---
 
@@ -192,12 +195,16 @@ configuration, optional HMAC safety identifier, no ZDR header).
 It **cannot** tell us the contractual posture. The following are **operator/legal actions**, not code
 facts, and must be confirmed:
 
-- Whether a **Data Processing Addendum (DPA)** / OpenAI Business/Enterprise agreement is in place for
-  the account behind `OPENAI_API_KEY`.
-- Whether **Zero Data Retention (ZDR)** has been granted for the org and how it applies to the
-  configured prompt-cache lifetime.
-- OpenAI's standard API commitment (no training on API data by default; limited abuse-monitoring
-  retention) â€” this needs to be pinned to the specific contract, not assumed.
+- The production OpenAI project's **Data Processing Addendum (DPA)** and **Zero Data Retention (ZDR)**
+  posture are external account/legal facts rather than code facts. Ledger `#053` records them as
+  verified on 2026-08-18. An authenticated Platform owner review on 2026-09-01 found API data
+  sharing disabled and changed API call logging and optional hosted-tool classes to `Disabled`, but found no visible ZDR entitlement or configured
+  retention type. OpenAI acknowledged receipt of the ZDR sales request on 2026-09-01, but receipt is
+  not approval. The privacy-readiness register therefore keeps ZDR and the DPA pending.
+- The accountable owners must attach sanitized external evidence and periodically revalidate account
+  controls before the register evidence expires.
+- OpenAI's no-training and retention commitments must remain pinned to the specific account/contract,
+  not inferred from client code.
 
 Under **APP 8 (cross-border disclosure)**, the app operator remains accountable for OpenAI's handling
 of the disclosed information unless an APP 8.2 exception applies. The corresponding processor/legal
@@ -353,20 +360,22 @@ the operative framework for a WA private clinician. (The WA _Privacy and Respons
 Act 2024_ targets WA **public-sector** entities and may apply to public-health deployments â€” confirm
 with counsel if this is deployed inside a WA Health service.)
 
-| APP                                         | Obligation                                                                         | Status in this app                                                                                                                                                                                                                                                         | Gap              |
-| ------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **APP 1** â€” open & transparent management | Have a clear, up-to-date APP privacy policy                                        | A draft `/privacy` data-processing page ships, but it is explicitly governance-review-required and is not represented as the final approved APP privacy policy                                                                                                             | PIA-5            |
-| **APP 3** â€” collection of sensitive info  | Collect health info only with consent + where reasonably necessary                 | App does not solicit PHI; incidental entry remains possible. â€œDo not enter patient-identifiable informationâ€ notices now appear beside query/upload controls, but no governance-approved consent framework is claimed                                                   | PIA-5            |
-| **APP 5** â€” notification of collection    | Tell individuals what's collected & disclosed (incl. overseas)                     | Draft point-of-entry notices and the `/privacy` page disclose Singapore application processing and model-provider use; final wording and legal/governance approval remain outstanding                                                                                      | PIA-1, PIA-5     |
-| **APP 6** â€” use/disclosure                | Use only for the primary purpose or a permitted secondary purpose                  | Query used for answer generation (primary). Log retention = quality/eval (secondary) â€” defensible but should be documented                                                                                                                                               | PIA-5            |
-| **APP 8** â€” cross-border disclosure       | Discloser stays accountable for the overseas recipient unless an exception applies | Railway processing in Singapore and OpenAI processing in the US require documented contractual/legal assessment; OpenAI has no code-visible DPA/ZDR                                                                                                                        | **PIA-1**        |
-| **APP 11** â€” security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney data residency, RLS, private storage, query hashing, default-null answer logs, and live-verified query/log/cache purges. Remaining gaps are operator secret placement, secondary-environment schedule parity, and exceptional answer-persistence governance | PIA-2/4          |
-| **NDB scheme** (Pt IIIC)                    | Notify OAIC + individuals of eligible breaches of health info                      | No documented breach-response runbook tied to these tables                                                                                                                                                                                                                 | Recommend adding |
+| APP                                         | Obligation                                                                         | Status in this app                                                                                                                                                                                                                                                                                                       | Gap              |
+| ------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| **APP 1** â€” open & transparent management | Have a clear, up-to-date APP privacy policy                                        | A draft `/privacy` data-processing page ships, but it is explicitly governance-review-required and is not represented as the final approved APP privacy policy                                                                                                                                                           | PIA-5            |
+| **APP 3** â€” collection of sensitive info  | Collect health info only with consent + where reasonably necessary                 | App does not solicit PHI; incidental entry remains possible. â€œDo not enter patient-identifiable informationâ€ notices now appear beside query/upload controls, but no governance-approved consent framework is claimed                                                                                                 | PIA-5            |
+| **APP 5** â€” notification of collection    | Tell individuals what's collected & disclosed (incl. overseas)                     | Draft point-of-entry notices and the `/privacy` page disclose Singapore application processing and model-provider use; final wording and legal/governance approval remain outstanding                                                                                                                                    | PIA-1, PIA-5     |
+| **APP 6** â€” use/disclosure                | Use only for the primary purpose or a permitted secondary purpose                  | Query used for answer generation (primary). Log retention = quality/eval (secondary) â€” defensible but should be documented                                                                                                                                                                                             | PIA-5            |
+| **APP 8** â€” cross-border disclosure       | Discloser stays accountable for the overseas recipient unless an exception applies | Current Platform evidence confirms OpenAI API sharing, API call logging, and optional hosted tools are disabled but does not substantiate ZDR; the executed DPA reference is also missing. Railway's Singapore processor contract remains unresolved, so the privacy adviser cannot close the whole-of-flow APP 8 basis. | **PIA-1**        |
+| **APP 11** â€” security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney data residency, RLS, private storage, query hashing, default-null answer logs, owner-attested production HMAC evidence, and owner-attested production/staging query/log/cache purge schedules.                                                                                                            | PIA-2/4          |
+| **NDB scheme** (Pt IIIC)                    | Notify OAIC + individuals of eligible breaches of health info                      | No documented breach-response runbook tied to these tables                                                                                                                                                                                                                                                               | Recommend adding |
 
 **Overall:** the _engineering_ controls for data-at-rest are strong and largely APP-11-aligned. The
-material shortfalls are **governance/contractual** (APP 8 cross-border terms and final approval of the
-draft APP 1/5 policy/notice wording) plus the **hardening** items of operator HMAC-secret placement and
-retention-schedule parity in any secondary environment that stores real data. Answer prose is omitted by
+material shortfalls are **governance/contractual** (Railway's APP 8 cross-border terms and final approval
+of the draft APP 1/5 policy/notice wording). Production HMAC evidence and production/staging
+retention-schedule parity were owner-attested on 2026-09-01. OpenAI data sharing, API call logging,
+and optional hosted tools are disabled, but DPA/ZDR remain pending current secure evidence.
+Answer prose is omitted by
 default; enabling its persistence is an exceptional, non-production mode requiring governance approval.
 Anonymous answer caching is disabled. The tenancy review found **zero** confirmed cross-tenant leaks; the
 remaining items are compliance-posture and PHI-minimisation gaps.
@@ -380,25 +389,30 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 - **Risk:** Health/PHI in requests, queries, excerpts, and ingestion material is processed by Railway
   in Singapore. Query text can reach OpenAI in the US for retrieval embedding even when the final
   answer is source-only; model-backed synthesis additionally sends the query and selected excerpts.
-  OpenAI has no code-visible contractual data-processing terms. A draft in-product provider disclosure now exists, reducing the
+  OpenAI's contract remains deliberately non-code-visible. Repository ledger `#053` says its DPA and
+  production-project ZDR were verified on 2026-08-18, but a 2026-09-01 authenticated Platform review
+  found no visible ZDR entitlement or configured retention type. A draft in-product provider
+  disclosure now exists, reducing the
   point-of-entry visibility gap, but it is not governance-approved legal wording â†’ APP 8 accountability
   exposure and a residual APP 5 governance gap.
 - **Evidence:** the live app and worker are recorded in Railway Singapore
   ([deployment-architecture.md](deployment-architecture.md)); the OpenAI client uses
   `api.openai.com` ([openai.ts](../src/lib/openai.ts)); raw query + excerpts are sent by the RAG pipeline.
-- **Fix (ranked):** (1) Record Railway's processor/contractual basis and obtain the applicable APP 8
-  determination; execute an OpenAI DPA and, ideally, obtain **ZDR** for the org. (2) Obtain
+- **Fix (ranked):** (1) Attach sanitized secure references for the OpenAI production project's ZDR
+  settings/coverage and countersigned DPA. (2) Obtain a countersigned Railway DPA or enterprise schedule that expressly covers
+  the actual incidental sensitive-health-data flow, then record the complete APP 8 determination. The
+  standard Railway DPA's current Exhibit A lists sensitive/special-category data as `None`. (3) Obtain
   governance/legal approval for the shipped draft APP-5 collection/provider
-  disclosure and final privacy policy. (3) Retain the shipped on-query/upload PHI reminder.
-  (4) Optionally, add a lightweight PHI-scrub / entity-strip on the outbound query as defence-in-depth.
-- **Progress (2026-07-13):** fixes (2)+(3) are **live on `main`** via PR #513
+  disclosure and final privacy policy. (4) Retain the shipped on-query/upload PHI reminder.
+  (5) Optionally, add a lightweight PHI-scrub / entity-strip on the outbound query as defence-in-depth.
+- **Progress (2026-07-13):** fixes (3)+(4) are **live on `main`** via PR #513
   ([src/app/privacy/page.tsx](../src/app/privacy/page.tsx), composer notice), as draft wording pending
-  governance approval. Fix (1),
-  the contractual basis, is captured decision-ready
+  governance approval. The remaining Railway contractual basis is captured decision-ready
   in **[docs/openai-cross-border-basis.md](openai-cross-border-basis.md)**, which also records that
   the app's egress endpoints (`/v1/responses`, `/v1/embeddings`) are **ZDR-eligible** and that OpenAI now
-  offers **Australia data residency** (storage) â€” an option that postdates this PIA. The remaining step
-  (execute DPA / apply ZDR / counsel sign-off) is operator/legal, not code.
+  offers **Australia data residency** (storage) â€” an option that postdates this PIA. The OpenAI
+  DPA/ZDR steps are repository claims pending secure external references; Railway execution and
+  whole-of-flow privacy-adviser sign-off also remain operator/legal, not code.
 
 ### PIA-2 â€” Query-hash HMAC silently downgrades without the secret **(Mitigated)**
 
@@ -467,8 +481,10 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 ### PIA-6 â€” OpenAI prompt-cache lifetime requires contractual confirmation **(Low-Medium)**
 
 - **Risk:** Query + retrieved excerpts can enter OpenAI prompt caches even with `store:false`.
-  GPT-5.6 requests a 30-minute TTL by default, but that value is a minimum and is not a contractual
-  deletion deadline. Explicit pre-5.6 models can still request the legacy 24-hour retention mode.
+  OpenAI documents prompt-cache application state on local GPU machines with a maximum 24-hour
+  expiration. GPT-5.6 requests a 30-minute TTL by default, but that value controls the minimum cache
+  lifetime rather than the maximum or a contractual deletion deadline. Explicit pre-5.6 models can
+  still request the legacy 24-hour retention mode.
 - **Evidence:** [openai.ts](../src/lib/openai.ts), [.env.example](../.env.example).
 - **Fix:** Confirm the effective cache/deletion behavior under the production project's **ZDR** and
   data-residency terms. Keep `OPENAI_PROMPT_CACHE_TTL=off` available when governance requires the app
@@ -504,11 +520,14 @@ retention, approved cross-border/region terms, hosted migration state, authority
 protected-staging canary acceptance, production readiness, or physical-device acceptance. Those remain separate
 operator/governance evidence gates.
 
-Before the app is used with real patients in a WA clinical setting, close **PIA-1** (record the Railway
-Singapore processor/APP 8 basis, execute the OpenAI DPA/ZDR basis, and approve the shipped draft APP 5
-wording) as the remaining privacy governance launch blocker. **PIA-2** is technically mitigated by
-the fail-closed boot guard plus names-only production secret presence, subject to periodic operational
-revalidation. **PIA-3** is mitigated (the durable `rag_queries.answer` log is no
+Before the app is used with real patients in a WA clinical setting, close the six release-blocking
+requirements in [`privacy-readiness.v1.json`](governance/privacy-readiness.v1.json): OpenAI ZDR and
+countersigned-DPA evidence, Railway sensitive-health-data terms, the whole-of-flow APP 8 decision,
+APP 1/APP 5 notice approval, and clinical PHI-minimisation acceptance. The production HMAC and
+retention-schedule owner attestations were completed on 2026-09-01. **PIA-2** is technically mitigated
+by the fail-closed boot guard plus owner-attested names-only production secret presence, subject to
+periodic operational revalidation. **PIA-3** is
+mitigated (the durable `rag_queries.answer` log is no
 longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4** is mitigated by the
 committed query-miss and bounded response-cache purges, verified live on 2026-07-14. Complete the
 **PIA-5** residual data-handling documentation. The data-at-rest security posture (Sydney residency,

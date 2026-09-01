@@ -150,7 +150,7 @@ const routeDescriptions: Record<string, string> = {
   "/formulation/map": "Formulation mechanism domain map.",
   "/medications": "Medication mode home.",
   "/medications/[slug]": "Medication detail.",
-  "/privacy": "Privacy and data-processing governance draft.",
+  "/privacy": "Public privacy and data-processing transparency notice; governance approval pending.",
   "/reference/colour-coding": "Clinical domain and category colour-coding palette reference.",
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",

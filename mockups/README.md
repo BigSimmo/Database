@@ -132,9 +132,10 @@ drafts, no recorded winner.
 ### Answer / chat
 
 `answer-chat-perfected`, `answer-chat-perfected-v2`, `answer-chat-redesign`,
-`answer-home-proposal`, `answer-evidence-popups` — parallel drafts. `answer-chat-perfected-v2`
-looks by name like it replaces `answer-chat-perfected`, but nothing in the repo says so in
-writing, so both are kept — worth a quick human check rather than a removal in this pass.
+`answer-home-proposal`, `answer-evidence-popups`, `answer-loading-redesign` — parallel drafts.
+`answer-chat-perfected-v2` looks by name like it replaces `answer-chat-perfected`, but nothing
+in the repo says so in writing, so both are kept — worth a quick human check rather than a
+removal in this pass.
 
 ### Factsheets
 

@@ -116,13 +116,27 @@ type AnswerCardBase = {
    */
   verificationPlacement?: "header" | "content";
   /**
-   * Chips rendered on the header meta line, after the support chip. The answer
-   * surface puts its safety-notes control here; the card keeps ownership of the
-   * support word beside it so the two read as one status line.
+   * Chips rendered under the header status line. The answer surface puts its
+   * safety-notes control here; the card keeps ownership of the support word
+   * above so the two read as one status block.
+   *
+   * The card gives these their own full-width row, so a chip that needs a 48px
+   * tap target should simply be 48px tall. **Do not shrink one back into the
+   * line with a negative margin or a `before:-inset-y-*` pseudo-element** — both
+   * leave the hit region outside the element's layout box, where it covers its
+   * neighbours; `ui-smoke` measures the chip rectangles for exactly that.
    */
   metaChips?: ReactNode;
-  /** Trailing meta, right-aligned on the header line — the surface's cited count. */
-  metaTrailing?: ReactNode;
+  /**
+   * A disclosure the chips open, rendered directly beneath them.
+   *
+   * It belongs here rather than under the answer because a disclosure has to
+   * appear where it was tapped. The evidence-gaps panel used to render after the
+   * whole card — prose, marks and source rail included — which at 390px put it
+   * ~450px below the chip that opened it, far enough off-screen that tapping the
+   * chip read as doing nothing at all.
+   */
+  metaDetail?: ReactNode;
   className?: string;
 };
 
@@ -150,7 +164,7 @@ export function AnswerCard({
   retrievalStatePlacement = "header",
   verificationPlacement = "header",
   metaChips,
-  metaTrailing,
+  metaDetail,
   className,
 }: AnswerCardProps) {
   const bare = frame === "bare";
@@ -224,8 +238,14 @@ export function AnswerCard({
           <span className="sr-only">Evidence support: </span>
           {ANSWER_SUPPORT_WORDING[support]}
         </p>
-        {bare ? metaChips : null}
-        {bare && metaTrailing ? <span className="ms-auto shrink-0">{metaTrailing}</span> : null}
+        {/* The interactive chips take a full-width row of their own rather than
+            sharing the baseline-aligned status line. They carry a real 48px tap
+            target, and a 48px control inside a 24px line can only be bought with
+            a negative margin — which puts the hit region outside the element's
+            layout box, where it silently covers whatever sits beside or below
+            it. The row costs nothing: the status line already wrapped to two
+            lines on a phone, so the height is the same and the overlap is gone. */}
+        {bare && metaChips ? <div className="flex w-full flex-wrap items-center gap-x-2">{metaChips}</div> : null}
         {/*
          * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
          * every degraded state, on the reasoning that an adoption failure here is
@@ -257,6 +277,13 @@ export function AnswerCard({
             />
           </div>
         ) : null}
+        {/* After the retrieval banner, not before it. `stale_evidence` and
+            `partial_retrieval` banners name WHICH sources are overdue and HOW
+            MUCH was missed, and a governed caution that specific should not be
+            pushed down the page by an expanded disclosure — three open gaps
+            move it roughly 200px at 390px. The disclosure is the reader's own
+            request; the banner is the one they did not ask for and most need. */}
+        {bare && metaDetail ? <div className="w-full">{metaDetail}</div> : null}
       </div>
       <div
         className={cn(

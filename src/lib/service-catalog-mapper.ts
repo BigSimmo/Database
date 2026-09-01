@@ -64,7 +64,12 @@ function acuityLabel(flag: string) {
 }
 
 function sourceStatusForService(service: CatalogService): string {
-  if (service.confidence === "High" && service.verification_flags.length === 0) {
+  if (
+    service.confidence === "High" &&
+    service.public_source_urls.length > 0 &&
+    Boolean(service.web_review_status.trim()) &&
+    service.verification_flags.length === 0
+  ) {
     return "Source checked";
   }
   if (service.verification_flags.length > 0 || service.confidence === "Medium" || service.confidence === "Low") {
@@ -258,10 +263,6 @@ function buildCriteria(service: CatalogService): ServiceCriterion[] {
     if (seen.has(key)) continue;
     seen.add(key);
     criteria.push({ label: clause, tone: "reject" });
-  }
-
-  if (service.tags.acuity_flags.includes("crisis_high")) {
-    criteria.push({ label: "Non-crisis routine referral only", tone: "reject" });
   }
 
   for (const flag of service.verification_flags) {

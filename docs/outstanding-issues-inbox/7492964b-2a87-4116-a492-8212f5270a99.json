@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "7492964b-2a87-4116-a492-8212f5270a99",
+  "createdOn": "2026-09-01",
+  "action": "cancel",
+  "payload": {
+    "requestId": "eaa89aeb-c7a4-47d8-b81f-7ef8a6689c4e",
+    "reason": "Owner approvals closed the HMAC and retention items; replace with a six-blocker request."
+  }
+}

@@ -173,8 +173,15 @@ export function sourceSupportLabel(source: AnswerSourceRow) {
 }
 
 /**
- * The drawer's support clause. `index === null` means the drawer was opened from
- * the source list rather than from a claim, so there is no claim to speak about.
+ * The drawer's support clause, or `null` when there is no claim to speak about.
+ *
+ * `index === null` means the drawer was opened from the source list rather than
+ * from a claim. That case used to print "Opened from the source list, so this is
+ * the document, not a claim." — a sentence whose whole content is the absence of
+ * a claim, sitting where the passage should be. Returning `null` says the same
+ * thing by saying nothing: the drawer asserts support only when a claim is what
+ * opened it, and otherwise goes straight to the passage. Nothing is lost from
+ * the safety side, because the removed wording made no support claim either.
  *
  * When a claim opened the drawer, `claimSupport` is that claim's recorded
  * status — not the row's document-level `sourceStrength`. Those fields are
@@ -185,8 +192,8 @@ export function sourceSupportSentence(
   source: AnswerSourceRow | null,
   index: number | null,
   claimSupport?: "direct" | "partial" | "unsupported" | null,
-) {
-  if (!source || index === null) return "Opened from the source list, so this is the document, not a claim.";
+): string | null {
+  if (!source || index === null) return null;
   const support =
     claimSupport === "direct"
       ? "Direct"

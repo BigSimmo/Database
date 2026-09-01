@@ -201,7 +201,15 @@ export function PrivacyQuietSignalPage() {
         data-sticky={chromeSticky ? "true" : "false"}
         className={cn(
           chromeSticky && "sticky top-0",
-          "z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)]/95 shadow-[var(--e1)] backdrop-blur-xl",
+          "z-30 border-b border-[color:var(--border-strong)] shadow-[var(--e2)]",
+          // Phone baseline: a full-width opaque bar with no blur, matching the
+          // `.edge-glass-header` / `.universal-header` phone rule in globals.css.
+          // This page had carried translucent glass at every width, so scrolled
+          // content ghosted straight through the title — visible against the
+          // amber obligation band, which showed through the header text.
+          "bg-[color:var(--surface)] backdrop-blur-none",
+          // From sm the shared glass treatment is correct again.
+          "sm:bg-[color-mix(in_srgb,var(--surface)_72%,transparent)] sm:backdrop-blur-xl",
           "print:hidden",
         )}
       >
