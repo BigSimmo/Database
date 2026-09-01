@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * of its rules are the reason it exists as a module rather than as queries
  * inlined into the page, and each is pinned below:
  *
- *  1. Both tables are read through the cookie-bound user client, so row-level
- *     security scopes every count to the caller's own documents.
+ *  1. Table reads go through the service-role admin client, with an explicit
+ *     `owner_id` filter on every query (the authenticated role has no SELECT).
  *  2. Every failure — a returned `{ error }` and a rejected promise alike —
  *     reports as `null` and never as `0`. On this panel `0` is the reassuring
  *     answer ("nothing failed"), so a read that did not happen must not be able
@@ -24,7 +24,6 @@ afterEach(() => {
 });
 
 type Call = {
-  client: "session" | "admin";
   table: string;
   columns: string;
   options: { count?: string; head?: boolean } | undefined;
@@ -80,13 +79,16 @@ const HAPPY: Plan = {
   highest: { data: [{ quality_score: 0.9 }] },
 };
 
+const ADMIN_USER = {
+  id: "user-1",
+  app_metadata: { site_role: "administrator" },
+};
+
 async function load({
-  user = { id: "user-1", app_metadata: { site_role: "administrator" } } as {
-    id: string;
-    app_metadata: Record<string, unknown>;
-  } | null,
+  user = ADMIN_USER as { id: string; app_metadata?: Record<string, unknown> } | null,
   plan = {} as Plan,
   configured = true,
+  adminConfigured = true,
   rejectAuth = false,
 }) {
   calls.length = 0;
@@ -132,22 +134,21 @@ async function load({
                 return { data: { user } };
               }),
             },
-            from: (table: string) => ({
-              select: (columns: string, options?: { count?: string; head?: boolean }) =>
-                builder({ client: "session", table, columns, options, filters: [], order: null, limit: null }),
-            }),
           }
         : null,
     ),
   }));
 
   vi.doMock("@/lib/supabase/admin", () => ({
-    createAdminClient: vi.fn(() => ({
-      from: (table: string) => ({
-        select: (columns: string, options?: { count?: string; head?: boolean }) =>
-          builder({ client: "admin", table, columns, options, filters: [], order: null, limit: null }),
-      }),
-    })),
+    createAdminClient: vi.fn(() => {
+      if (!adminConfigured) throw new Error("Missing server environment variables");
+      return {
+        from: (table: string) => ({
+          select: (columns: string, options?: { count?: string; head?: boolean }) =>
+            builder({ table, columns, options, filters: [], order: null, limit: null }),
+        }),
+      };
+    }),
   }));
 
   return import("../src/lib/developer-area/corpus-health");
@@ -168,24 +169,33 @@ describe("resolveCorpusHealth", () => {
     const { resolveCorpusHealth } = await load({ user: null });
     const health = await resolveCorpusHealth();
 
-    // Not merely "returns nulls". Row-level security would correctly answer an
-    // anonymous caller with `0` for every count, and rendering that would state
-    // that the library is empty when the true statement is about the session.
+    // Not merely "returns nulls". Without an owner id the admin client would
+    // report every account's library, so the reads do not run at all.
     expect(calls).toHaveLength(0);
     expect(health.read).toBe(false);
   });
 
-  it("issues no query when the signed-in user is not an administrator", async () => {
-    const { resolveCorpusHealth } = await load({ user: { id: "user-1", app_metadata: {} } });
+  it("issues no query for a signed-in non-administrator", async () => {
+    const { resolveCorpusHealth } = await load({
+      user: { id: "user-1", app_metadata: { site_role: "member" } },
+    });
+    const health = await resolveCorpusHealth();
 
-    await expect(resolveCorpusHealth()).resolves.toMatchObject({ read: false });
     expect(calls).toHaveLength(0);
+    expect(health.read).toBe(false);
   });
 
   it("degrades to an unread reading when the auth call itself rejects", async () => {
     const { resolveCorpusHealth } = await load({ rejectAuth: true });
 
     await expect(resolveCorpusHealth()).resolves.toMatchObject({ read: false });
+  });
+
+  it("degrades to unread when the admin client cannot be constructed", async () => {
+    const { resolveCorpusHealth } = await load({ adminConfigured: false });
+
+    await expect(resolveCorpusHealth()).resolves.toMatchObject({ read: false });
+    expect(calls).toHaveLength(0);
   });
 
   it("reports the owner's status counts, broken documents and failures", async () => {
@@ -212,11 +222,6 @@ describe("resolveCorpusHealth", () => {
       extractionQuality: "poor",
       issues: ["no_text"],
     });
-    expect(calls).toHaveLength(11);
-    expect(calls.every((call) => call.client === "admin")).toBe(true);
-    for (const call of calls) {
-      expect(call.filters).toContainEqual(["owner_id", "user-1"]);
-    }
   });
 
   it("takes the failed count from the failed list rather than reading the same predicate twice", async () => {
@@ -301,20 +306,37 @@ describe("resolveCorpusHealth", () => {
   });
 
   /**
-   * The admin client is safe here only because the data boundary independently
-   * verifies the administrator claim and applies the verified user's owner id
-   * to every query. Neither requirement can be delegated to the page layout:
-   * this module is the boundary that holds the service-role credential.
+   * Owner scoping is application-enforced on the admin client: every query must
+   * filter `owner_id`, because the service role bypasses RLS. The behavioural
+   * mock alone cannot catch a missing filter (it would still answer), so this
+   * assertion walks every recorded call.
    */
-  it("uses the administrator-gated, owner-scoped admin boundary", () => {
+  it("scopes every admin query to the signed-in owner's id", async () => {
+    const { resolveCorpusHealth } = await load({});
+    await resolveCorpusHealth();
+
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      expect(
+        call.filters.some(([column, value]) => column === "owner_id" && value === "user-1"),
+        `${keyOf(call)} must filter owner_id to the signed-in user`,
+      ).toBe(true);
+    }
+  });
+
+  /**
+   * The privilege posture is structural: table reads must use the service-role
+   * admin client (authenticated has no SELECT), while auth still goes through
+   * the cookie-bound user client. A source assertion catches a silent swap.
+   */
+  it("reads tables through the admin client after authenticating via the user-session client", () => {
     const source = readFileSync(new URL("../src/lib/developer-area/corpus-health.ts", import.meta.url), "utf8");
     const imports = source.split("\n").filter((line) => line.startsWith("import "));
 
     expect(imports.some((line) => line.includes('"@/lib/supabase/server"'))).toBe(true);
     expect(imports.some((line) => line.includes('"@/lib/supabase/admin"'))).toBe(true);
-    expect(imports.some((line) => line.includes('"@/lib/authorization"'))).toBe(true);
-    expect(source).toContain("isAdministratorUser(user)");
-    expect(source).toContain('eq("owner_id", user.id)');
+    expect(imports.some((line) => line.includes("createAdminClient"))).toBe(true);
+    expect(source).toContain('.eq("owner_id", owner)');
   });
 });
 
