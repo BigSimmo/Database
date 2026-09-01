@@ -21,79 +21,163 @@ const GLOBALS = fileURLToPath(new URL("../src/app/globals.css", import.meta.url)
 const V2 = fileURLToPath(new URL("../src/app/ckb-v2-tokens.css", import.meta.url));
 export const PIN_PATH = fileURLToPath(new URL("../docs/design-system/token-layer-divergences.json", import.meta.url));
 
-/** Slice from `marker` to the first line-initial `}` that closes it. */
-function block(source, marker) {
-  const start = source.indexOf(marker);
-  if (start === -1) return null;
-  const end = source.indexOf("\n}", start);
-  if (end === -1) return null;
-  return source.slice(start, end);
-}
-
-/** Every block for one selector, including grouped (`.sel,`) openers, concatenated. */
-function allBlocks(source, selector) {
-  const opener = `\n${selector} {`;
-  const grouped = `\n${selector},`;
-  let start = source.indexOf(opener);
-  if (start === -1) start = source.indexOf(grouped);
-  let combined = "";
-  while (start > -1) {
-    const end = source.indexOf("\n}", start);
-    // A missing terminator would restart the scan at 0 and loop forever.
-    if (end === -1) break;
-    combined += source.slice(start, end);
-    const nextOpener = source.indexOf(opener, end + 1);
-    const nextGrouped = source.indexOf(grouped, end + 1);
-    if (nextOpener === -1) start = nextGrouped;
-    else if (nextGrouped === -1) start = nextOpener;
-    else start = Math.min(nextOpener, nextGrouped);
+/**
+ * Every rule block in a stylesheet, as {media, selectors, body}, using real brace
+ * matching rather than "slice to the next line-initial `}`". Brace matching is what
+ * lets an `@media (forced-colors: active) { … }` wrapper be seen as context rather
+ * than terminating the block early.
+ */
+function ruleBlocks(rawSource) {
+  // Strip comments first: otherwise a comment preceding a selector is accumulated
+  // into that selector's prelude and the match fails. Replaced with a space rather
+  // than removed so `a/**/b` cannot become one token.
+  const source = rawSource.replace(/\/\*[\s\S]*?\*\//g, " ");
+  const blocks = [];
+  const stack = [];
+  let index = 0;
+  let pending = "";
+  while (index < source.length) {
+    const character = source[index];
+    if (character === "{") {
+      const prelude = pending.trim();
+      pending = "";
+      if (prelude.startsWith("@media") || prelude.startsWith("@supports")) {
+        stack.push({ kind: "at", prelude });
+        index += 1;
+        continue;
+      }
+      // A rule block: capture its body by matching braces from here.
+      let depth = 1;
+      let cursor = index + 1;
+      while (cursor < source.length && depth > 0) {
+        if (source[cursor] === "{") depth += 1;
+        else if (source[cursor] === "}") depth -= 1;
+        cursor += 1;
+      }
+      blocks.push({
+        media: stack
+          .filter((frame) => frame.kind === "at")
+          .map((frame) => frame.prelude)
+          .join(" "),
+        selectors: prelude
+          .split(",")
+          .map((selector) => selector.trim())
+          .filter(Boolean),
+        body: source.slice(index + 1, cursor - 1),
+      });
+      index = cursor;
+      continue;
+    }
+    if (character === "}") {
+      stack.pop();
+      pending = "";
+      index += 1;
+      continue;
+    }
+    if (character === ";") pending = "";
+    else pending += character;
+    index += 1;
   }
-  return combined;
+  return blocks;
 }
 
-function declarations(source) {
+/**
+ * Custom-property declarations in a block body. Indentation-insensitive on purpose:
+ * an earlier version required exactly two leading spaces, so re-indenting a
+ * declaration — a change with no rendered effect — silently dropped it from the
+ * comparison and the tool then reported the divergence as resolved.
+ */
+function declarations(body) {
   const map = new Map();
-  if (!source) return map;
-  for (const [, name, value] of source.matchAll(/^ {2}(--[a-z0-9-]+)\s*:\s*([^;]+);/gim)) {
+  if (!body) return map;
+  for (const [, name, value] of body.matchAll(/(?:^|;)\s*(--[a-zA-Z0-9-]+)\s*:\s*([^;]+)/g)) {
     map.set(name, value.trim().replace(/\s+/g, " "));
   }
   return map;
 }
 
 /**
- * Both layers, per theme. Missing a block is a hard error rather than an empty
- * comparison: an empty map would report "no divergence" and pass loudly-green.
+ * Resolve `var(--x)` chains inside one layer. Two layers can declare the SAME alias
+ * text and still paint different colours when the alias itself diverges — dark
+ * `--clinical-chat-document` is `var(--surface-inset)` on both sides while
+ * `--surface-inset` differs, so a raw string comparison called it identical.
+ */
+function resolveValue(tokens, value, seen = new Set()) {
+  const alias = /^var\(\s*(--[a-zA-Z0-9-]+)\s*\)$/.exec(value ?? "");
+  if (!alias) return value;
+  const name = alias[1];
+  if (seen.has(name) || !tokens.has(name)) return value;
+  seen.add(name);
+  return resolveValue(tokens, tokens.get(name), seen);
+}
+
+const THEMES = {
+  light: {
+    forcedColors: false,
+    compat: (selectors) => selectors.some((s) => s === ":root" || s === "@theme"),
+    v2: (selectors) => selectors.some((s) => s === ".ckb-v2.ckb-v2"),
+  },
+  dark: {
+    forcedColors: false,
+    compat: (selectors) => selectors.some((s) => s === ".dark"),
+    v2: (selectors) => selectors.some((s) => s === ".dark .ckb-v2.ckb-v2" || s === ".ckb-v2.dark.ckb-v2"),
+  },
+  // Forced colours (Windows High Contrast) is a third theme both files declare, and
+  // the same specificity trap applies there. It went unmonitored until 2026-09-01,
+  // and four roles were already silently dead in it.
+  forcedColors: {
+    forcedColors: true,
+    compat: (selectors) => selectors.some((s) => s === ":root" || s === ".dark"),
+    v2: (selectors) =>
+      selectors.some((s) => s === ".ckb-v2.ckb-v2" || s === ".dark .ckb-v2.ckb-v2" || s === ".ckb-v2.dark.ckb-v2"),
+  },
+};
+
+function collect(blocks, matches, wantForcedColors) {
+  const map = new Map();
+  for (const block of blocks) {
+    const inForcedColors = /forced-colors/.test(block.media);
+    if (inForcedColors !== wantForcedColors) continue;
+    if (!matches(block.selectors)) continue;
+    for (const [name, value] of declarations(block.body)) map.set(name, value);
+  }
+  return map;
+}
+
+/**
+ * Both layers, per theme. An empty map for any side is a hard error rather than a
+ * quiet "no divergence": an empty comparison would pass loudly-green.
  */
 export function readLayers() {
-  const globals = readFileSync(GLOBALS, "utf8");
-  const v2 = readFileSync(V2, "utf8");
-  // `@theme` and `:root` both land at (0,1,0) on <html>, so within globals.css the
-  // later block wins — `:root` follows `@theme`, so `:root` is overlaid second.
-  // `@theme` carries the structural roles (radius, spacing, type scale), which is
-  // exactly where a silent mismatch is most expensive, so it cannot be skipped.
-  const themeConfig = block(globals, "\n@theme {");
-  const root = block(globals, "\n:root {");
-  const darkRoot = block(globals, "\n.dark {");
-  if (!themeConfig) throw new Error("globals.css is missing its @theme block");
-  if (!root) throw new Error("globals.css is missing its :root block");
-  if (!darkRoot) throw new Error("globals.css is missing its .dark block");
-
-  const lightCompat = declarations(themeConfig);
-  for (const [name, value] of declarations(root)) lightCompat.set(name, value);
-
-  const themes = {
-    light: [lightCompat, allBlocks(v2, ".ckb-v2.ckb-v2")],
-    dark: [declarations(darkRoot), allBlocks(v2, ".dark .ckb-v2.ckb-v2")],
-  };
+  const globalsBlocks = ruleBlocks(readFileSync(GLOBALS, "utf8"));
+  const v2Blocks = ruleBlocks(readFileSync(V2, "utf8"));
+  // Tailwind's `@theme` is an at-rule by syntax but declares tokens like `:root`.
+  const themeBlock = readFileSync(GLOBALS, "utf8").match(/@theme\s*\{([\s\S]*?)\n\}/);
   const out = {};
-  for (const [theme, [compat, v2Source]] of Object.entries(themes)) {
-    if (!v2Source) throw new Error(`ckb-v2-tokens.css is missing its ${theme} token block`);
-    out[theme] = { compat, v2: declarations(v2Source) };
+  for (const [theme, spec] of Object.entries(THEMES)) {
+    const compat = collect(globalsBlocks, spec.compat, spec.forcedColors);
+    if (theme === "light" && themeBlock) {
+      // `:root` follows `@theme` in source order, so `:root` overlays it.
+      const merged = declarations(themeBlock[1]);
+      for (const [name, value] of compat) merged.set(name, value);
+      out[theme] = { compat: merged, v2: collect(v2Blocks, spec.v2, spec.forcedColors) };
+    } else {
+      out[theme] = { compat, v2: collect(v2Blocks, spec.v2, spec.forcedColors) };
+    }
+    if (out[theme].compat.size === 0)
+      throw new Error(`globals.css declares no ${theme} tokens — parser or file changed`);
+    if (out[theme].v2.size === 0)
+      throw new Error(`ckb-v2-tokens.css declares no ${theme} tokens — parser or file changed`);
   }
   return out;
 }
 
-/** `{ light: { "--surface": { compat, v2 } }, dark: {...} }` for every shared, differing role. */
+/**
+ * `{ <theme>: { "--surface": { compat, v2 } } }` for every role both layers declare
+ * whose RESOLVED value differs. Resolution matters in both directions: identical
+ * alias text over a diverging alias is a real divergence, and different text that
+ * resolves to the same value is not one.
+ */
 export function computeDivergences() {
   const layers = readLayers();
   const result = {};
@@ -102,12 +186,13 @@ export function computeDivergences() {
     for (const [name, compatValue] of compat) {
       if (!v2.has(name)) continue;
       const v2Value = v2.get(name);
-      if (v2Value !== compatValue) diverging[name] = { compat: compatValue, v2: v2Value };
+      if (resolveValue(compat, compatValue) === resolveValue(v2, v2Value)) continue;
+      diverging[name] = { compat: compatValue, v2: v2Value };
     }
     result[theme] = Object.fromEntries(
       Object.keys(diverging)
         .sort()
-        .map((k) => [k, diverging[k]]),
+        .map((key) => [key, diverging[key]]),
     );
   }
   return result;
