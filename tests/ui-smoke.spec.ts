@@ -2033,7 +2033,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await firstRailRow.click();
     const sourceDrawer = page.getByTestId("answer-source-drawer");
     await expect(sourceDrawer).toBeVisible();
-    await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toContainText("Opened from the source list");
+    // Opened from a rail card rather than a claim, so the drawer makes no
+    // support statement at all — it used to spend its first line saying there
+    // was no claim, above a front-page thumbnail of a page it was not showing.
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-cover")).toHaveCount(0);
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
     // Paging is the drawer's whole navigation model; at two sources it is numbered.
     const pager = sourceDrawer.getByTestId("answer-source-drawer-pager");
@@ -3367,7 +3372,10 @@ test.describe("PsychSift UI smoke coverage", () => {
       await railRow.click();
       const drawer = page.getByTestId("answer-source-drawer");
       await expect(drawer).toBeVisible();
-      await expect(drawer.getByTestId("answer-source-drawer-support")).toBeVisible();
+      // No claim opened this drawer, so it carries no support sentence; the
+      // passage and the route to the PDF are what it must show.
+      await expect(drawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+      await expect(drawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
       await expectMinTouchTarget(drawer.getByRole("link", { name: "View original PDF" }));
       const drawerPager = drawer.getByTestId("answer-source-drawer-pager");
       if (await drawerPager.count()) {
