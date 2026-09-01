@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "6496bead671a0ade91914a59a476e089deadc57e",
-    "committed_at": "2026-09-01T21:27:08+08:00"
+    "sha": "7198a20ab53058e4c3a60e2f138c0f169a971d1e",
+    "committed_at": "2026-09-01T21:36:28+08:00"
   },
   "routes": {
     "modes": [
@@ -4284,6 +4284,14 @@
         "head": "7cd20b1ea121d9cf9f66efa04971f8fefee63f05",
         "scope": "Run PR sweep: Node 26 container CI compatibility",
         "outcome": "Fixed the Node 26 Docker-image versus Node 24 engine-contract mismatch; no review threads were open.",
+        "checks": "npm ci; 41 focused runtime, hook, Cloud, and worker tests passed; lint and typecheck passed; offline static, docs, workflow, lockfile, and ledger gates passed; full unit suite stopped before completion after a protected Supabase call; no provider-backed checks completed."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2470",
+        "head": "ddc42a13bf3ecab29e15f511d0165db266eafd46",
+        "scope": "Run PR sweep: final Node 26 lockfile alignment",
+        "outcome": "Aligned package-lock runtime metadata with the Node 26 engine contract after the container CI repair; no review threads were open.",
         "checks": "npm ci; 41 focused runtime, hook, Cloud, and worker tests passed; lint and typecheck passed; offline static, docs, workflow, lockfile, and ledger gates passed; full unit suite stopped before completion after a protected Supabase call; no provider-backed checks completed."
       },
       {
@@ -25496,7 +25504,7 @@
       }
     ],
     "counts": {
-      "records": 2652,
+      "records": 2653,
       "refs": 1618
     }
   }
