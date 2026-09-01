@@ -24,6 +24,7 @@ afterEach(() => {
 });
 
 type Call = {
+  client: "session" | "admin";
   table: string;
   columns: string;
   options: { count?: string; head?: boolean } | undefined;
@@ -80,7 +81,10 @@ const HAPPY: Plan = {
 };
 
 async function load({
-  user = { id: "user-1" } as { id: string } | null,
+  user = { id: "user-1", app_metadata: { site_role: "administrator" } } as {
+    id: string;
+    app_metadata: Record<string, unknown>;
+  } | null,
   plan = {} as Plan,
   configured = true,
   rejectAuth = false,
@@ -130,11 +134,20 @@ async function load({
             },
             from: (table: string) => ({
               select: (columns: string, options?: { count?: string; head?: boolean }) =>
-                builder({ table, columns, options, filters: [], order: null, limit: null }),
+                builder({ client: "session", table, columns, options, filters: [], order: null, limit: null }),
             }),
           }
         : null,
     ),
+  }));
+
+  vi.doMock("@/lib/supabase/admin", () => ({
+    createAdminClient: vi.fn(() => ({
+      from: (table: string) => ({
+        select: (columns: string, options?: { count?: string; head?: boolean }) =>
+          builder({ client: "admin", table, columns, options, filters: [], order: null, limit: null }),
+      }),
+    })),
   }));
 
   return import("../src/lib/developer-area/corpus-health");
@@ -160,6 +173,13 @@ describe("resolveCorpusHealth", () => {
     // that the library is empty when the true statement is about the session.
     expect(calls).toHaveLength(0);
     expect(health.read).toBe(false);
+  });
+
+  it("issues no query when the signed-in user is not an administrator", async () => {
+    const { resolveCorpusHealth } = await load({ user: { id: "user-1", app_metadata: {} } });
+
+    await expect(resolveCorpusHealth()).resolves.toMatchObject({ read: false });
+    expect(calls).toHaveLength(0);
   });
 
   it("degrades to an unread reading when the auth call itself rejects", async () => {
@@ -192,6 +212,11 @@ describe("resolveCorpusHealth", () => {
       extractionQuality: "poor",
       issues: ["no_text"],
     });
+    expect(calls).toHaveLength(11);
+    expect(calls.every((call) => call.client === "admin")).toBe(true);
+    for (const call of calls) {
+      expect(call.filters).toContainEqual(["owner_id", "user-1"]);
+    }
   });
 
   it("takes the failed count from the failed list rather than reading the same predicate twice", async () => {
@@ -276,25 +301,20 @@ describe("resolveCorpusHealth", () => {
   });
 
   /**
-   * The owner-scoping guarantee is structural, not behavioural: it holds because
-   * this module uses the cookie-bound user client, which row-level security
-   * scopes to `owner_id = auth.uid()` on both tables. The service-role admin
-   * client bypasses RLS entirely, so importing it here would silently turn one
-   * account's library into every account's — with no failing assertion anywhere,
-   * because the mock above would answer either client identically. A source
-   * assertion is the only thing that can catch that substitution.
+   * The admin client is safe here only because the data boundary independently
+   * verifies the administrator claim and applies the verified user's owner id
+   * to every query. Neither requirement can be delegated to the page layout:
+   * this module is the boundary that holds the service-role credential.
    */
-  it("reads through the user-session client and never the service-role client", () => {
+  it("uses the administrator-gated, owner-scoped admin boundary", () => {
     const source = readFileSync(new URL("../src/lib/developer-area/corpus-health.ts", import.meta.url), "utf8");
-    // Import statements only: the module's own comment names `createAdminClient`
-    // to explain why it is wrong here, so a whole-file substring search for that
-    // identifier would fail on the documentation rather than on the code.
     const imports = source.split("\n").filter((line) => line.startsWith("import "));
 
     expect(imports.some((line) => line.includes('"@/lib/supabase/server"'))).toBe(true);
-    expect(imports.some((line) => line.includes("supabase/admin"))).toBe(false);
-    // Catches a dynamic import or a re-export that no import line would show.
-    expect(source).not.toContain("supabase/admin");
+    expect(imports.some((line) => line.includes('"@/lib/supabase/admin"'))).toBe(true);
+    expect(imports.some((line) => line.includes('"@/lib/authorization"'))).toBe(true);
+    expect(source).toContain("isAdministratorUser(user)");
+    expect(source).toContain('eq("owner_id", user.id)');
   });
 });
 
