@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bb121cd3-235b-45f1-817e-a82d7c6c5a31",
+  "createdOn": "2026-09-01",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Close remaining privacy provider, legal, and clinical approvals",
+    "detail": "The PsychSift owner approved the production HMAC control and verified retention schedules on 2026-09-01. Release remains blocked on six items: OpenAI ZDR and countersigned DPA evidence, Railway sensitive-health terms, APP 8 and APP 1/5 privacy-adviser approval, and clinical PHI-minimisation acceptance. Evidence authority: docs/governance/privacy-readiness.v1.json and docs/governance/privacy-closeout-2026-09-01.md.",
+    "source": "session 2026-09-01 owner attestation closeout",
+    "issueUlid": "01M1E5NQ99BS3SN9BBC46RYD5R"
+  }
+}

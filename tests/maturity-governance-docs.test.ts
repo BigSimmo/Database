@@ -12,7 +12,7 @@ describe("maturity governance documentation", () => {
     expect(pia).toContain("Revised:** 2026-09-01");
     expect(pia).toMatch(/\| PIA-2 \| Mitigated \|/);
     expect(pia).toContain("PIA-1");
-    expect(pia).toContain("close the eight release-blocking");
+    expect(pia).toContain("close the six release-blocking");
     expect(pia).toContain("clinical PHI-minimisation acceptance");
     expect(pia).not.toMatch(/PIA-1[^\n]*and \*\*PIA-2\*\*[^\n]*launch-blockers/);
   });

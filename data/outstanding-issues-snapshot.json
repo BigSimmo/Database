@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 82,
+    "pending": 84,
     "resolved": 431
   },
   "queue": [
@@ -1023,6 +1023,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "7492964b-2a87-4116-a492-8212f5270a99",
+      "action": "cancel",
+      "summary": "Cancel request eaa89aeb-c7a4-47d8-b81f-7ef8a6689c4e: Owner approvals closed the HMAC and retention items; replace with a six-blocker request.",
+      "created_at": "2026-09-01"
+    },
+    {
       "request_id": "7ab6b272-d913-43f5-bf08-a34dcb362f9a",
       "action": "add",
       "summary": "Caring Contacts: carry the retention clearance instant on Episode so a screen stops inferring clearance from a blank patient name",
@@ -1153,6 +1159,12 @@
       "action": "done",
       "summary": "#61TZJA: Verified PR #2199 merged and AWAITING_BASELINE in tests/ui-visual-baseline.spec.ts is empty.",
       "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "bb121cd3-235b-45f1-817e-a82d7c6c5a31",
+      "action": "add",
+      "summary": "Close remaining privacy provider, legal, and clinical approvals",
+      "created_at": "2026-09-01"
     },
     {
       "request_id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",
