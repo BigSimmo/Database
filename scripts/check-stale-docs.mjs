@@ -27,9 +27,10 @@
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 
 // Directories that are deliberately append-only or archival — staleness there is the point,
 // not a problem. Keep this list in sync with AGENTS.md's "immutable ledger" conventions.
@@ -48,6 +49,30 @@ const EXCLUDED_PREFIXES = [
 
 function sh(args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" });
+}
+
+/** Resolve a Markdown link destination to a repo-relative posix path, or null if external. */
+export function resolveMarkdownLink(fromFile, linkDest) {
+  const dest = String(linkDest || "")
+    .replace(/^<|>$/g, "")
+    .split("#")[0]
+    .split("?")[0]
+    .trim();
+  if (!dest || /^(https?:|mailto:|file:)/i.test(dest)) return null;
+  if (dest.startsWith("/")) return dest.replace(/^\/+/, "");
+
+  const fromDir = dirname(fromFile).replace(/\\/g, "/");
+  const parts = [...fromDir.split("/").filter(Boolean), ...dest.replace(/\\/g, "/").split("/")];
+  const stack = [];
+  for (const part of parts) {
+    if (part === "." || part === "") continue;
+    if (part === "..") {
+      stack.pop();
+      continue;
+    }
+    stack.push(part);
+  }
+  return stack.join("/");
 }
 
 export function historyIsComplete() {
@@ -88,6 +113,8 @@ const GENERATED_CATALOGS = new Set([
   "data/outstanding-issues-snapshot.json",
 ]);
 
+const MARKDOWN_LINK_RE = /\[[^\]]*\]\(([^)\s]+)\)/g;
+
 export function isReferencedElsewhere(path, allTrackedFiles, fileCache) {
   for (const other of allTrackedFiles) {
     if (other === path) continue;
@@ -114,6 +141,16 @@ export function isReferencedElsewhere(path, allTrackedFiles, fileCache) {
       fileCache.set(other, body);
     }
     if (body.includes(path)) return true;
+
+    // Relative Markdown links like `(testing.md)` from `docs/process-hardening.md`.
+    if (other.endsWith(".md")) {
+      MARKDOWN_LINK_RE.lastIndex = 0;
+      let match;
+      while ((match = MARKDOWN_LINK_RE.exec(body)) !== null) {
+        const resolved = resolveMarkdownLink(other, match[1]);
+        if (resolved === path) return true;
+      }
+    }
   }
   return false;
 }
@@ -174,6 +211,6 @@ function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }
