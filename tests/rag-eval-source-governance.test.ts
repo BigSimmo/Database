@@ -245,6 +245,7 @@ describe("Australian RAG evaluation diagnostics", () => {
       [
         {
           subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
           orderedEvidence: [local, australian],
           collapsedEvidenceFamilyIds: [],
           conflicts: [conflict],
@@ -278,6 +279,7 @@ describe("Australian RAG evaluation diagnostics", () => {
       [
         {
           subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
           orderedEvidence: [local, australian],
           collapsedEvidenceFamilyIds: [],
           conflicts: [conflict],
@@ -322,6 +324,7 @@ describe("Australian RAG evaluation diagnostics", () => {
       [
         {
           subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
           orderedEvidence: [uncitedLocal, local, uncitedAustralian, australian],
           collapsedEvidenceFamilyIds: [],
           conflicts: [multiChunkConflict],
@@ -348,6 +351,7 @@ describe("Australian RAG evaluation diagnostics", () => {
       [
         {
           subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
           orderedEvidence: [local],
           collapsedEvidenceFamilyIds: [],
           conflicts: [],

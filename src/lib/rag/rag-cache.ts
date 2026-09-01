@@ -6,12 +6,11 @@ import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { env } from "@/lib/env";
 import { queryCacheKeyForStorage } from "@/lib/query-privacy";
 import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
+import { ragContextPackVersion } from "@/lib/rag/rag-context-pack";
 import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
-import { compactContextText } from "@/lib/rag/rag-source-block";
 import { assertRagRequestContextIntegrity } from "@/lib/rag/rag-context-snapshot";
 import { governedCorpusComponentState, sanitizeRagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
 import { sanitizeRagQueryPlanDiagnostics } from "@/lib/rag/rag-retrieval-variants";
-import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import {
   retrievalPlanForQueryClass,
@@ -155,6 +154,7 @@ export type AnswerGenerationFingerprintInput = {
   maxOutputTokens: number;
   providerMode: string;
   promptVersion: string;
+  contextPackVersion: string;
   schemaVersion: string;
   classifierPromptVersion: string;
   retrievalVersion: string;
@@ -182,6 +182,7 @@ export function answerGenerationFingerprint() {
     maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
     providerMode: env.RAG_PROVIDER_MODE,
     promptVersion: ragAnswerPromptVersion,
+    contextPackVersion: ragContextPackVersion,
     schemaVersion: ragAnswerSchemaVersion,
     classifierPromptVersion: ragQueryClassifierPromptVersion,
     retrievalVersion: ragDeepMemoryVersion,
@@ -1573,123 +1574,9 @@ export function invalidateRagCachesForDocumentMutation(
   if (options.affectsPublicCorpus !== false) invalidateAnonymousSharedRagCaches();
 }
 
-function sourceContextPackLimit(queryClass: RagQueryClass, options: { crossDocument?: boolean } = {}) {
-  return options.crossDocument || queryClass === "comparison" || queryClass === "broad_summary" ? 8 : 5;
-}
-
-export function packedContextCacheKey(
-  results: SearchResult[],
-  queryClass: RagQueryClass,
-  options: { crossDocument?: boolean; documentIds?: string[] } = {},
-) {
-  const contextLimit = sourceContextPackLimit(queryClass, options);
-  const scopeKey = options.documentIds?.length
-    ? stableHash([...new Set(options.documentIds)].sort().join("|"))
-    : "all-documents";
-  return [
-    queryClass,
-    options.crossDocument ? "cross-document" : "single-document",
-    `scope:${scopeKey}`,
-    contextLimit,
-    ...results
-      .slice(0, contextLimit)
-      .map((result) => `${result.id}:${result.document_id}:${result.chunk_index}:${result.page_number ?? "na"}`),
-  ].join("|");
-}
-
-export async function packAdjacentSourceContext(
-  supabase: ReturnType<typeof createAdminClient>,
-  results: SearchResult[],
-  queryClass: RagQueryClass,
-  options: { crossDocument?: boolean } = {},
-) {
-  const contextLimit = sourceContextPackLimit(queryClass, options);
-  const targetResults = results.slice(0, contextLimit);
-  const documentIds = Array.from(new Set(targetResults.map((result) => result.document_id)));
-  const chunkIndexes = Array.from(
-    new Set(
-      targetResults.flatMap((result) => [result.chunk_index - 1, result.chunk_index + 1]).filter((index) => index >= 0),
-    ),
-  );
-  if (documentIds.length === 0 || chunkIndexes.length === 0) return results;
-
-  try {
-    const { data, error } = await supabase
-      .from("document_chunks")
-      .select("id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,index_generation_id")
-      .in("document_id", documentIds)
-      .in("chunk_index", chunkIndexes)
-      .order("chunk_index", { ascending: true })
-      .limit(80);
-
-    if (error || !data?.length) return results;
-
-    const chunksByDocumentAndIndex = new Map<
-      string,
-      { id: string; section_heading: string | null; content: string; retrieval_synopsis?: string | null }
-    >();
-    const committedGenerationByDocument = new Map(
-      targetResults.map((result) => [result.document_id, committedIndexGeneration(result.source_metadata)] as const),
-    );
-    for (const chunk of data) {
-      const committedGeneration = committedGenerationByDocument.get(chunk.document_id);
-      if (chunk.index_generation_id && chunk.index_generation_id !== committedGeneration) continue;
-      chunksByDocumentAndIndex.set(`${chunk.document_id}:${chunk.chunk_index}`, {
-        id: chunk.id,
-        section_heading: chunk.section_heading,
-        content: chunk.content,
-        retrieval_synopsis: chunk.retrieval_synopsis ?? null,
-      });
-    }
-
-    const targetIds = new Set(targetResults.map((result) => result.id));
-    return results.map((result) => {
-      if (!targetIds.has(result.id)) return result;
-      const adjacent = [result.chunk_index - 1, result.chunk_index + 1]
-        .map((index) => chunksByDocumentAndIndex.get(`${result.document_id}:${index}`))
-        .filter(
-          (
-            chunk,
-          ): chunk is {
-            id: string;
-            section_heading: string | null;
-            content: string;
-            retrieval_synopsis?: string | null;
-          } => Boolean(chunk && chunk.id !== result.id && chunk.content.trim()),
-        )
-        .map((chunk) => {
-          const heading = chunk.section_heading ? `${chunk.section_heading}: ` : "";
-          return compactContextText(`${heading}${chunk.retrieval_synopsis || chunk.content}`, 520);
-        });
-
-      if (adjacent.length === 0) return result;
-      return {
-        ...result,
-        adjacent_context: adjacent.join(" "),
-      };
-    });
-  } catch {
-    return results;
-  }
-}
-
-// The numeric-faithfulness gate must verify answer figures against the SAME text
-// the model was shown. Generation runs on the packed context (packAdjacentSourceContext
-// merges neighbour-chunk text into adjacent_context), but answer.sources is the
-// unpacked answer-input set — so a dose/threshold the model faithfully copied from a
-// neighbour chunk would be absent from the finalize-time verification corpus and wrongly
-// flagged unverified, blanking a correct answer. Overlay the packed adjacent_context onto
-// the answer-input results (by chunk id) to rebuild the exact verification corpus, WITHOUT
-// mutating answer.sources itself (the route-boundary client trim and eval byte-identity
-// both depend on answer.sources staying unpacked — see answer-client-payload.ts).
-export function attachAdjacentContext(results: SearchResult[], packed: SearchResult[]): SearchResult[] {
-  const adjacentById = new Map<string, string>();
-  for (const source of packed) {
-    if (source.adjacent_context) adjacentById.set(source.id, source.adjacent_context);
-  }
-  if (adjacentById.size === 0) return results;
-  return results.map((result) => {
-    const adjacent = adjacentById.get(result.id);
-    return adjacent && adjacent !== result.adjacent_context ? { ...result, adjacent_context: adjacent } : result;
-  });
-}
+export {
+  attachAdjacentContext,
+  packAdjacentSourceContext,
+  packedContextCacheKey,
+  sourceContextPackLimit,
+} from "@/lib/rag/rag-context-pack";

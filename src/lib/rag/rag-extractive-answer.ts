@@ -3929,7 +3929,10 @@ export function finalizeRagAnswerQuality(
 ): RagAnswer {
   const coherenceChecked = enforceLabelledNumericBandCoherence(answer, { query, verificationSources });
   const qualityChecked = finalizeRagAnswerQualityCore(coherenceChecked, query, queryClass);
-  const verified = applyNumericVerification(assessAndEnforceClaimSupport(qualityChecked), verificationSources);
+  const verified = applyNumericVerification(
+    assessAndEnforceClaimSupport(qualityChecked, verificationSources),
+    verificationSources,
+  );
   return applyProviderLabels(retainDeliveredExtractiveFallbackEvidence(verified, query, queryClass));
 }
 

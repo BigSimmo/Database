@@ -66,6 +66,17 @@ function answer(text: string, sources: SearchResult[], citations = sources.map((
 }
 
 describe("deterministic claim support", () => {
+  it("uses the exact packed verification corpus instead of a wider unpacked source corpus", () => {
+    const unpacked = source("packed-corpus", "See the selected management passage.");
+    const packed = { ...unpacked, content: "Stop clozapine when ANC is below 1.0 x10^9/L." };
+    const input = answer("Stop clozapine when ANC is below 1.0 x10^9/L.", [unpacked]);
+
+    expect(assessAndEnforceClaimSupport(input).responseMode).toBe("evidence_gap");
+    const verified = assessAndEnforceClaimSupport(input, [packed]);
+    expect(verified.responseMode).not.toBe("evidence_gap");
+    expect(verified.supportedClaims?.[0]?.supportingChunkIds).toEqual(["packed-corpus"]);
+  });
+
   it("keeps an ordinal repeat-dose interval atomic when matching the observed wrapped source", () => {
     const claim =
       "Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the first dose if required — Total of 3 doses or 30mg maximum in 24 hours (10mg maximum in 24 hours for older adults over 65 years) whichever occurs first.";

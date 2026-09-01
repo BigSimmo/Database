@@ -62,6 +62,13 @@ const eligibleRolesByClaim: Record<ClinicalClaimRole, ReadonlySet<ClinicalSource
   ]),
 };
 
+export function sourceRoleEligibleForClaim(
+  sourceRole: ClinicalSourceRole | null | undefined,
+  claimRole: ClinicalClaimRole,
+) {
+  return Boolean(sourceRole && eligibleRolesByClaim[claimRole].has(sourceRole));
+}
+
 /** Deterministically route a request-local subquestion to the narrow source-role policy it can use. */
 export function classifyClaimRoleForSubquestion(args: {
   question: string;
@@ -119,7 +126,7 @@ export function sourceEligibilityForClaim(args: {
   if (source.document_status !== "current") return { eligible: false, reason: "not_current" };
   if (!isClaimEvidenceGovernanceEligible(source)) return { eligible: false, reason: "governance_block" };
   if (catalogueMismatch(source, authority)) return { eligible: false, reason: "catalogue_mismatch" };
-  if (!source.source_role || !eligibleRolesByClaim[args.claimRole].has(source.source_role)) {
+  if (!sourceRoleEligibleForClaim(source.source_role, args.claimRole)) {
     return { eligible: false, reason: "role_mismatch" };
   }
   return { eligible: true, reason: "eligible" };

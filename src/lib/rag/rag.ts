@@ -4,7 +4,7 @@ import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-d
 import { answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
-import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
+import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
   createChunkLoadCache,
@@ -131,14 +131,11 @@ import {
   cacheIndexingVersion,
   cloneAnswer,
   getCachedAnswer,
-  attachAdjacentContext,
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
   isSearchCacheEnabled,
   isSearchCacheLookupEnabled,
-  packAdjacentSourceContext,
-  packedContextCacheKey,
   scopedAnswerCacheKey,
   setCachedAnswer,
   setCachedSearch,
@@ -149,9 +146,14 @@ import { withRagRequestContext } from "@/lib/rag/rag-context-snapshot";
 export {
   invalidateRagCachesForDocumentMutation,
   invalidateRagCachesForOwner,
-  packedContextCacheKey,
   retrievalPlanCacheQuery,
 } from "@/lib/rag/rag-cache";
+import {
+  buildContextSourceBlock,
+  createGenerationContextPacker,
+  packAdjacentSourceContext,
+} from "@/lib/rag/rag-context-pack";
+export { packedContextCacheKey } from "@/lib/rag/rag-context-pack";
 import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
 import {
   recordAnswerOrigination,
@@ -3247,7 +3249,7 @@ ${interpretedTask}
 
 Sources:
 ${crossDocumentContext ? `${crossDocumentContext}\n\n` : ""}
-${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`;
+${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`;
   }
 
   let generationLatencyMs = 0;
@@ -3260,28 +3262,20 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   let contextPackCacheHits = 0;
   let answerRetryCount = 0;
   const answerRetryReasons: string[] = [];
-  const contextPackOptions = { crossDocument: crossDocumentPlan.enabled };
-  const packedContextCache = new Map<string, SearchResult[]>();
-
-  async function packContextForGeneration(contextResults: SearchResult[]) {
-    const cacheKey = packedContextCacheKey(contextResults, queryClass, {
-      ...contextPackOptions,
-      documentIds: args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : undefined,
-    });
-    const cached = packedContextCache.get(cacheKey);
-    if (cached) {
-      contextPackCacheHits += 1;
-      return cached;
-    }
-
-    const contextPackStartedAt = Date.now();
-    const packed = await routeDeadline.race(
-      packAdjacentSourceContext(createAdminClient(), contextResults, queryClass, contextPackOptions),
-    );
-    contextPackLatencyMs += Date.now() - contextPackStartedAt;
-    packedContextCache.set(cacheKey, packed);
-    return packed;
-  }
+  const contextPackAccessScope = retrievalAccessScopeForArgs(args);
+  const contextPackOptions = { crossDocument: crossDocumentPlan.enabled, accessScope: contextPackAccessScope };
+  const packContextForGeneration = createGenerationContextPacker({
+    queryClass,
+    crossDocument: contextPackOptions.crossDocument,
+    documentIds: args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : undefined,
+    planVersion: requestQueryPlan?.version,
+    snapshotIdentity: args.ragRequestContext?.snapshotCacheKey,
+    accessScope: retrievalAccessScopeKey(contextPackAccessScope),
+    loadLegacy: (results) =>
+      routeDeadline.race(packAdjacentSourceContext(createAdminClient(), results, queryClass, contextPackOptions)),
+    onCacheHit: () => void (contextPackCacheHits += 1),
+    onDuration: (durationMs) => void (contextPackLatencyMs += durationMs),
+  });
 
   async function generateWithModel(
     model: string,
@@ -3524,7 +3518,7 @@ ${qualityRetryInstruction}`
       model: route.model,
       reason: route.reason,
     });
-    let packedContextResults = await packContextForGeneration(modelContextResults);
+    let packedContextResults = await packContextForGeneration(modelContextSelection);
     let generated = await generateWithModel(route.model!, packedContextResults, {
       strong: route.mode === "strong",
     });
@@ -3557,7 +3551,7 @@ ${qualityRetryInstruction}`
       coverageSelections = strongRetryContextSelection.coverageSelections;
       responseContextResults = strongRetryContextResults;
       responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
-      packedContextResults = await packContextForGeneration(strongRetryContextResults);
+      packedContextResults = await packContextForGeneration(strongRetryContextSelection);
       // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
       // reasoning (strong) just re-truncates. This is the truncation self-heal.
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
@@ -3648,7 +3642,7 @@ ${qualityRetryInstruction}`
       coverageSelections = strongRetryContextSelection.coverageSelections;
       responseContextResults = strongRetryContextResults;
       responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
-      packedContextResults = await packContextForGeneration(strongRetryContextResults);
+      packedContextResults = await packContextForGeneration(strongRetryContextSelection);
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         maxOutputTokensOverride: strongRetryMaxOutputTokens,
@@ -3791,13 +3785,13 @@ ${qualityRetryInstruction}`
       answer.modelUsed = modelUsed;
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
-      numericVerificationSources = attachAdjacentContext(responseContextResults, packedContextResults);
+      numericVerificationSources = packedContextResults;
       applySelectedEvidenceArtifacts({
         answer,
         query: args.query,
-        results: responseContextResults,
+        results: packedContextResults,
         relatedDocuments,
-        artifacts: responseContextArtifacts,
+        artifacts: buildSelectedEvidenceArtifacts(answerFocusQuery, packedContextResults),
       });
       answer.routingMode = retriedWithStrong ? "strong" : route.mode;
       answer.routingReason = routingReason;

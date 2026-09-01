@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types";
 import { selectAustralianClinicalContext } from "@/lib/australian-source-priority";
 import {
+  answerCoverageFromSelections,
   mergeEvidenceByCoverageAndSourceRole,
   selectConflictAwareCoverageEvidence,
   type CoverageEvidenceSelection,
@@ -96,7 +97,7 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
 } {
   const legacyResults = selectLegacyModelContextResults(args);
   if (!args.queryPlan || !args.results.some((result) => result.corpus_scope)) {
-    return { results: legacyResults, coverageSelections: [] };
+    return { results: legacyResults, coverageSelections: [], coverage: null };
   }
   const coverageSelections = mergeEvidenceByCoverageAndSourceRole({
     plan: args.queryPlan,
@@ -142,7 +143,15 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): {
           : ("not_applicable" as const),
     };
   });
-  return { results, coverageSelections: reconciledSelections };
+  return {
+    results,
+    coverageSelections: reconciledSelections,
+    coverage: answerCoverageFromSelections({
+      plan: args.queryPlan,
+      selectedEvidence: results,
+      selections: reconciledSelections,
+    }),
+  };
 }
 
 export function selectModelContextResults(args: ModelContextSelectionArgs) {

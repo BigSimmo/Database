@@ -1131,8 +1131,8 @@ function evidenceAssessment(source: SearchResult, claims: SupportedClaim[], inpu
   };
 }
 
-function assessClaimSupportDetails(answer: RagAnswer) {
-  const sourceById = new Map(answer.sources.map((source) => [source.id, source]));
+function assessClaimSupportDetails(answer: RagAnswer, verificationSources: SearchResult[] = answer.sources) {
+  const sourceById = new Map(verificationSources.map((source) => [source.id, source]));
   const documentLookupAnswer =
     answer.responseMode === "document_lookup" ||
     answer.queryClass === "document_lookup" ||
@@ -1145,25 +1145,32 @@ function assessClaimSupportDetails(answer: RagAnswer) {
     claimAssessment(input, index, sourceById, Boolean(documentLookupAnswer || sourceBackedReviewAnswer)),
   );
   const evidenceAssessments = Object.fromEntries(
-    answer.sources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
+    verificationSources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
   );
   return { claims, evidenceAssessments, inputs, unassessedClaims };
 }
 
-export function assessClaimSupport(answer: RagAnswer) {
-  const { claims, evidenceAssessments } = assessClaimSupportDetails(answer);
+export function assessClaimSupport(answer: RagAnswer, verificationSources?: SearchResult[]) {
+  const { claims, evidenceAssessments } = assessClaimSupportDetails(answer, verificationSources);
   return { claims, evidenceAssessments };
 }
 
-function enforceUnassessedNumericClaims(answer: RagAnswer, unassessedClaims: string[]): RagAnswer {
+function enforceUnassessedNumericClaims(
+  answer: RagAnswer,
+  unassessedClaims: string[],
+  verificationSources?: SearchResult[],
+): RagAnswer {
   const unassessedNumericClaims = unassessedClaims.filter((claim) => extractClinicalValueAtoms(claim).length > 0);
   return unassessedNumericClaims.length > 0
-    ? applyNumericVerification(answer, undefined, { unassessedClaimTexts: unassessedNumericClaims })
+    ? applyNumericVerification(answer, verificationSources, { unassessedClaimTexts: unassessedNumericClaims })
     : answer;
 }
 
-export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
-  const { claims, evidenceAssessments, inputs, unassessedClaims } = assessClaimSupportDetails(answer);
+export function assessAndEnforceClaimSupport(answer: RagAnswer, verificationSources?: SearchResult[]): RagAnswer {
+  const { claims, evidenceAssessments, inputs, unassessedClaims } = assessClaimSupportDetails(
+    answer,
+    verificationSources,
+  );
   if (!answer.grounded || answer.confidence === "unsupported" || answer.responseMode === "evidence_gap") {
     return { ...answer, supportedClaims: claims, evidenceAssessments };
   }
@@ -1227,7 +1234,7 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
       ],
       routingReason: appendRoutingReason(answer.routingReason, "claim_support_unsupported_sections_withheld"),
     };
-    const retained = assessClaimSupportDetails(retainedAnswer);
+    const retained = assessClaimSupportDetails(retainedAnswer, verificationSources);
     const retainedRoutineGap = retained.claims.some((claim) => claim.supportStatus !== "direct");
     return enforceUnassessedNumericClaims(
       {
@@ -1237,6 +1244,7 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
         evidenceAssessments: retained.evidenceAssessments,
       },
       retained.unassessedClaims,
+      verificationSources,
     );
   }
   const routineGap = claims.some((claim) => claim.supportStatus !== "direct");
@@ -1248,5 +1256,6 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
       evidenceAssessments,
     },
     unassessedClaims,
+    verificationSources,
   );
 }

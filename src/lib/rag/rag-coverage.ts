@@ -85,6 +85,7 @@ export type CoverageMergeInput = {
 
 export type CoverageEvidenceSelection = {
   subquestionId: string;
+  claimRole: ClinicalClaimRole;
   orderedEvidence: SearchResult[];
   collapsedEvidenceFamilyIds: string[];
   conflicts: SourcePolicyConflict[];
@@ -115,7 +116,7 @@ function stableTextHash(value: string) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-function candidateFamilyIds(result: SearchResult) {
+export function evidenceFamilyIdsForResult(result: SearchResult) {
   const metadata = metadataRecord(result);
   const contentHash = typeof metadata.content_hash === "string" && metadata.content_hash ? metadata.content_hash : null;
   const lineage: SiteContentRecord["sourceLineage"] = Array.isArray(metadata.site_content_lineage)
@@ -317,7 +318,7 @@ function collapseEvidenceFamilies(results: SearchResult[], conflicts: readonly S
     if (australian) protectedIds.add(australian.id);
   }
   const protectedResults = results.filter((result) => protectedIds.has(result.id));
-  const reservedFamilies = new Set(protectedResults.flatMap(candidateFamilyIds));
+  const reservedFamilies = new Set(protectedResults.flatMap(evidenceFamilyIdsForResult));
   const reservedLogicalIds = new Set(
     protectedResults.flatMap((result) => {
       const logicalId = metadataRecord(result).site_content_logical_id;
@@ -329,7 +330,7 @@ function collapseEvidenceFamilies(results: SearchResult[], conflicts: readonly S
   const orderedEvidence: SearchResult[] = [];
   const collapsedEvidenceFamilyIds: string[] = [];
   for (const result of results) {
-    const families = candidateFamilyIds(result);
+    const families = evidenceFamilyIdsForResult(result);
     const newFamilies = families.filter((family) => !seenFamilies.has(family));
     const logicalId = metadataRecord(result).site_content_logical_id;
     const protectedConflictMember = protectedIds.has(result.id);
@@ -506,6 +507,7 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
               : "not_in_corpus";
     return {
       subquestionId: subquestion.id,
+      claimRole,
       orderedEvidence,
       collapsedEvidenceFamilyIds: collapsed.collapsedEvidenceFamilyIds,
       conflicts: retainedSelectionConflicts(conflicts, orderedEvidence),

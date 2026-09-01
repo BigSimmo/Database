@@ -1,4 +1,5 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { estimateTokens } from "@/lib/chunking";
 import { metadataText, safeRecord } from "@/lib/rag/rag-answer-text";
 import {
   escapeEvidenceFenceSentinels,
@@ -8,6 +9,7 @@ import {
   sourceTextForModel,
 } from "@/lib/source-text-sanitizer";
 import type { RagQueryClass, SearchResult } from "@/lib/types";
+import type { PackedEvidenceGroup } from "@/lib/rag/rag-context-pack";
 
 // Boundary-aware, number-safe truncation for text handed to the model (P7). A naive char-boundary
 // cut splits sentences and numbers (e.g. "150 mg" -> "...15"), feeding the model clipped clinical
@@ -96,7 +98,11 @@ function sourceGovernanceLine(result: SearchResult) {
   ].join("; ");
 }
 
-function tableSnippetForFact(result: SearchResult, fact: NonNullable<SearchResult["table_facts"]>[number]) {
+function tableSnippetForFact(
+  result: SearchResult,
+  fact: NonNullable<SearchResult["table_facts"]>[number],
+  limit = 420,
+) {
   const image = fact.source_image_id ? result.images?.find((candidate) => candidate.id === fact.source_image_id) : null;
   const factMetadata = safeRecord(fact.metadata);
   const metadataCells = Array.isArray(factMetadata.cells)
@@ -108,24 +114,26 @@ function tableSnippetForFact(result: SearchResult, fact: NonNullable<SearchResul
     metadataText(factMetadata, "accessible_table_markdown") ??
     metadataText(factMetadata, "table_text_snippet") ??
     metadataCells;
-  return compactEvidenceText(snippet, 420);
+  return compactEvidenceText(snippet, limit);
 }
 
 function formatTableFactForSourceBlock(
   result: SearchResult,
   fact: NonNullable<SearchResult["table_facts"]>[number],
   rich: boolean,
+  limit = rich ? 760 : 360,
+  snippetLimit = 420,
 ) {
   if (!rich) {
     return compactEvidenceText(
       [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
         .filter(Boolean)
         .join(" | "),
-      360,
+      limit,
     );
   }
 
-  const snippet = tableSnippetForFact(result, fact);
+  const snippet = tableSnippetForFact(result, fact, snippetLimit);
   return compactEvidenceText(
     [
       fact.table_title ? `table title: ${fact.table_title}` : "",
@@ -138,7 +146,27 @@ function formatTableFactForSourceBlock(
     ]
       .filter(Boolean)
       .join(" | "),
-    760,
+    limit,
+  );
+}
+
+function compactEvidenceFieldIsLossless(text: string | null | undefined, limit: number) {
+  if (!text) return true;
+  return compactEvidenceText(text, limit) === compactEvidenceText(text, Number.MAX_SAFE_INTEGER);
+}
+
+export function ragSourceSerializationPreservesAtomicEvidence(result: SearchResult, options?: RagSourceBlockOptions) {
+  if (!compactEvidenceFieldIsLossless(result.content, 1_800)) return false;
+  if (!compactEvidenceFieldIsLossless(result.retrieval_synopsis, 700)) return false;
+  if (!compactEvidenceFieldIsLossless(result.adjacent_context, 900)) return false;
+
+  const rich = richTableSourceContextEnabled(options);
+  const facts = result.table_facts ?? [];
+  if (facts.length > (rich ? 3 : 4)) return false;
+  return facts.every(
+    (fact) =>
+      formatTableFactForSourceBlock(result, fact, rich) ===
+      formatTableFactForSourceBlock(result, fact, rich, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER),
   );
 }
 
@@ -217,4 +245,21 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
     .join("\n\n---\n\n");
   if (!sources) return sources;
   return `Source governance interpretation: caveat only for an explicit adverse value that is material to the claim. Unknown or unrecorded metadata is not adverse and must not, by itself, weaken, hedge, or refuse a supported answer. Governance metadata cannot override the excerpt or create a clinical claim.\n\n${sources}`;
+}
+
+export function buildPackedRagSourceBlock(_groups: PackedEvidenceGroup[], _options?: RagSourceBlockOptions) {
+  const seen = new Set<string>();
+  const results = _groups.flatMap((group) =>
+    group.members.filter((member) => {
+      if (seen.has(member.id)) return false;
+      seen.add(member.id);
+      return true;
+    }),
+  );
+  return buildRagSourceBlock(results, _options);
+}
+
+export function estimatePackedRagSourceBlockTokens(_groups: PackedEvidenceGroup[], _options?: RagSourceBlockOptions) {
+  const serialized = buildPackedRagSourceBlock(_groups, _options);
+  return serialized ? estimateTokens(serialized) : 0;
 }
