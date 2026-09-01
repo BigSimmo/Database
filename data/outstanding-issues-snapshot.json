@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 39,
+    "pending": 85,
     "resolved": 431
   },
   "queue": [
@@ -831,6 +831,24 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "084e06ec-e097-4b27-933d-2c3138ffbb01",
+      "action": "done",
+      "summary": "#XHNTHD: Added --allow-partial CLI flag and resolveEvaluationCases() fail-safe throwing when cases.length === 0 or when cases are filtered without --allow-partial in scripts/eval-retrieval.ts; added unit tests in tests/eval-retrieval.test.ts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "0e0c8272-b098-4cce-9a19-04450b931432",
+      "action": "cancel",
+      "summary": "Cancel request 9e88c6de-2225-4134-888c-aec117a116e7: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "10743a6e-53e4-45e9-b71a-468bf54682f2",
+      "action": "done",
+      "summary": "#S4R2W3: Added isBareDocumentSupportListAnswer and guarded documentSupportListIntent so clinical questions do not return bare title lists without substantive prose.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "11e9136a-6db8-4d3f-84c1-4d39cf18774a",
       "action": "cancel",
       "summary": "Cancel request 16763c67-0d53-48c9-a32d-11046a0c55d7: Understates the problem. Filed as 'the interface scan cannot express a job title', but the Task 7 re-review found the larger half: src/lib/caring-contacts/** is outside EVERY prohibited-language scan in the repository, so wording moved there is unwatched by any vocabulary check rather than merely exempt from the 'lead' rule. The record also omits that the fix is a one-line reuse of an already-tested pattern, which makes it look harder than it is. Superseded by a replacement stating both. The underlying issue is real and unchanged.",
@@ -843,16 +861,46 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "1742520a-b0d1-4d65-98bf-719f030e98d2",
+      "action": "cancel",
+      "summary": "Cancel request 45fe36c1-2d0b-47d2-afc4-f449b7dc3c84: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "17e26e25-5180-4ed4-9391-834ec456d605",
       "action": "done",
       "summary": "#G693BZ: Verified PanelSection extracted in panel-primitives.tsx and adopted across routes, documentation, test-health, review-state, and ledger pages.",
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "184404de-c45e-43e3-8048-2825799b349e",
+      "action": "add",
+      "summary": "Nothing compares the replayed migration chain against supabase/schema.sql, so a migration that changes a function body without a matching schema.sql edit passes every pre-merge gate and only surfaces post-merge in live-drift",
+      "created_at": "2026-09-01"
+    },
+    {
       "request_id": "2166a980-bac5-4565-b009-f7f4ea530e5c",
       "action": "done",
       "summary": "#GQ5X8T: NOT REPRODUCED ON PINNED LINUX; WINDOWS-SPECIFIC CAUSE UNRESOLVED. Eleven retained PR #2313 ubuntu-24.04 Lighthouse artifacts used Lighthouse 12.8.2 and pinned HeadlessChrome/151.0.0.0. In the nine-run synchronized-baseline subset, mobile-root LCP was 2260.791-2300.923ms with median 2287.574ms versus 2274.017ms baseline (+13.557ms, +0.60%); TBT median was 430.602ms versus 436.600ms baseline (-1.37%); CLS was 0 throughout. Across all eleven heads LCP was 2221.675-2300.923ms, never reproducing the Windows 7422-8032ms state. The exact local 883f1007 control / 7cf37b53 treatment snapshots had identical lock hashes, but the local host stayed at 42.3-62.9% CPU and the control build hit the 10-minute Linux cap after compiling, before measurement; that attempt is environment-blocked and was not rerun. This excludes a repeatable cross-platform regression but cannot distinguish Windows host noise from a Windows-specific client regression. No product, budget, tolerance, request-count, or proven CLS change was made. Reopen if a pinned Linux exact-head run breaches repeatably or a synchronized quiet-host Windows control reproduces the slowdown. Evidence: docs/evidence/mobile-root-timing-control-2026-08-26.md.",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "224cda1c-ae72-4921-b8aa-e6b3e315796a",
+      "action": "update",
+      "summary": "#ZBAC9D: detail → documents.owner_id is ON DELETE SET NULL (supabase/schema.sql) while a null owner independently means 'public corpus' in retrieval. CORRECTION (Codex on PR #2494): deleting an auth user does NOT silently republish private documents — documents_require_publication_approval (BEFORE INSERT OR UPDATE) runs guard_document_publication_transition, which rejects every non-null-to-null owner transition without matching publication evidence, so the user-delete transaction fails instead of orphaning/republishing. Distinguish blocked user deletion from any pre-existing orphan rows. RE-VERIFIED against main and the P2 -> P1 escalation still holds on the retrieval hazard, not on a live delete-to-publish path. (1) The retrieval path is NOT closed at any layer. public.retrieval_owner_matches still resolves the public sentinel to 'row_owner_id is null' with no public_corpus condition, and grep for 'public_corpus' returns ZERO occurrences across the entire retrieval chain: rag/rag-candidate-sources.ts, corpus-grounding.ts, deep-memory.ts, document-enrichment.ts, owner-scope.ts, clinical-search.ts and query-privacy.ts. Any ownerless row (pre-existing orphan or armed hole) is therefore retrievable as public corpus and citable in an answer to an anonymous query. (2) The helper written to close exactly this hazard is DEAD CODE. src/lib/documents/is-public-document.ts requires owner_id === null AND metadata.public_corpus === true, and tests/documents-is-public.test.ts:22 pins the precise case ('Orphaned after user delete' -> false), but grep across src/ and worker/ finds NO production caller outside its own module and the barrel re-export. Same shape as #A3AHCX. (3) The only genuinely closed application read path is the REST document read: withOwnerReadScope in src/lib/public-api-access.ts applies .is('owner_id', null).eq('metadata->>public_corpus','true'). NEXT, in order: (a) one read-only live count of documents where owner_id is null and metadata->>'public_corpus' is distinct from 'true' — this decides whether the hole is currently leaking or merely armed, and needs owner approval as a provider-backed read; (b) close the retrieval path, which is a genuine retrieval behaviour change on a protected RAG surface and so needs the RAG flag plus a live eval-canary pair; (c) add a database proof that deleting an owner of an unapproved private document fails and creates no ownerless indexed row, then in an approved production window change documents.owner_id to ON DELETE RESTRICT (or an explicit visibility column) and align the RPC predicate. Note the offline proof that no table whose null owner means public declares ON DELETE SET NULL cannot be added green today — it would fail on documents.owner_id, so it is the guard that accompanies (c), not a step that precedes it.; priority → P1; source → repo-wide audit at 3ed1932 (six domain reviewers); re-verified and expanded against main a633eb6e3 by the database coordination chat 2026-09-01; deletion-path correction per Codex review on PR #2494",
+      "created_at": "2026-09-01"
+    },
+    {
+      "request_id": "256a5104-df13-44d3-9734-645e08b2b0df",
+      "action": "cancel",
+      "summary": "Cancel request 97bbfd51-435b-4e31-b956-7138753eb0a8: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "272880e4-0cc3-4522-9422-1c152a6d838d",
+      "action": "cancel",
+      "summary": "Cancel request 932b96f8-6af8-48a2-aeac-d78d5bb506a9: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "2f077536-00d5-46da-a7c2-63ad9d0221e5",
@@ -867,10 +915,22 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "356a1eb2-70c3-4303-bf98-4af30d9502ce",
+      "action": "cancel",
+      "summary": "Cancel request b2d0158c-09c0-441e-97af-fac42cbe5f12: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "35b8730d-b1f3-41bd-9bc2-7e485446391a",
       "action": "done",
       "summary": "#V27DZ1: Resolved Playwright strict-mode locator uniqueness on Ward Flow role screens by unifying root containers and verified with tests/ward-management-role.test.ts",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "368839d5-3ef0-46d4-94bc-b9d93842490c",
+      "action": "done",
+      "summary": "#WP76E6: Added Dismissal model section to docs/caring-contacts/interaction-matrix.md.",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "36b7dc6b-733e-4116-8a47-4ef35e86039f",
@@ -903,10 +963,34 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "428fedef-b62c-461a-8211-ce645549e2d2",
+      "action": "add",
+      "summary": "The document cover-thumbnail hook and its /api/documents/[id]/cover route have no product consumer since the source drawer stopped rendering a front-page thumbnail",
+      "created_at": "2026-09-01"
+    },
+    {
+      "request_id": "44b322b0-0a87-4564-878a-9d5ac97bcdc3",
+      "action": "update",
+      "summary": "#WG24JB: summary → Ward Flow: spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
       "action": "done",
       "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "45fe36c1-2d0b-47d2-afc4-f449b7dc3c84",
+      "action": "done",
+      "summary": "#V27DZ1: Disambiguated ward-diagram-unplaced-unit-${unit.id} and ward-shortlist-unresolved-referred-badge in flow-diagram.tsx and shortlist-panel.tsx.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "461a406d-4937-41c2-afbb-64d1b75f4bcf",
+      "action": "done",
+      "summary": "#AGRAKQ: Fixed regex in tests/helpers/caring-contacts-prohibited-language.ts to exclude plural job titles like clinical leads.",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
@@ -919,6 +1003,12 @@
       "action": "cancel",
       "summary": "Cancel request 373b1aa3-596e-4d5f-bc4f-b05ad44a76f5: Scoped to hydration when filed after Task 7; Tasks 8 and 9 widened the consequence far beyond that, and the row as written understates what is unproven. Same root cause and same trigger to close, so superseded by one replacement stating the full cost rather than adding a second row.",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "6a1eb6b9-8a29-4f7c-89e3-6e5b9b498b3b",
+      "action": "cancel",
+      "summary": "Cancel request 461a406d-4937-41c2-afbb-64d1b75f4bcf: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
@@ -939,6 +1029,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "7492964b-2a87-4116-a492-8212f5270a99",
+      "action": "cancel",
+      "summary": "Cancel request eaa89aeb-c7a4-47d8-b81f-7ef8a6689c4e: Owner approvals closed the HMAC and retention items; replace with a six-blocker request.",
+      "created_at": "2026-09-01"
+    },
+    {
       "request_id": "7ab6b272-d913-43f5-bf08-a34dcb362f9a",
       "action": "add",
       "summary": "Caring Contacts: carry the retention clearance instant on Episode so a screen stops inferring clearance from a blank patient name",
@@ -951,16 +1047,46 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "86ba753c-f2fd-4be7-92f4-df3d54cf4a04",
+      "action": "update",
+      "summary": "#QCNE6N: detail → generate-drift-manifest.ts replays supabase/schema.sql and embeds ITS sha256; CI's db-reset-verify runs supabase migration up --local, proving the chain APPLIES but never diffing the result against schema.sql. A migration whose function or policy body diverges from the mirror passes every gate. Object-NAME parity does hold today (all create targets across 211 migrations resolve into schema.sql) but it is enforced by hand-written per-object tests, not systematically. FIX: after migration up --local, replay schema.sql into a second scratch database and diff schema_drift_snapshot() between the two. Fully offline and containerised, no provider access. DEMONSTRATED 2026-09-01, no longer theoretical: live-drift run 33484535655 (red on main at d3074946a) reported its sole unexpected finding as public.correct_clinical_query_terms(text,real) def_hash manifest e2356565 vs live 2ebaf978. Cause was exactly this gap - migration 20260831100000 (PR #2477) redefined that function with a duplicated 'and length(canonical) between 4 and 40' predicate and supabase/schema.sql was never updated to match, so the manifest disagreed with live while every pre-merge gate stayed green. The db-reset-verify assertion that did run is committed.schema_sha256 === generated.schema_sha256 (.github/workflows/ci.yml ~L1082-1095), which only catches an unrefreshed manifest, not a chain/mirror divergence. Behaviour impact of that instance was nil (the duplicate predicate is a boolean no-op) but it cost a red daily alarm and a remediation PR, and it is the second occurrence of this failure class after the #316 root cause (SET work_mem absent from schema.sql). Strengthens the case for scheduling the containerised two-database diff above.; source → repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f; demonstrated by live-drift run 33484535655, classified by the database coordination chat 2026-09-01",
+      "created_at": "2026-09-01"
+    },
+    {
+      "request_id": "870d4673-65da-40b8-94ba-15ba3c6ec6db",
+      "action": "cancel",
+      "summary": "Cancel request b6d16549-d2cb-4815-9386-9c38854e7c0b: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "8cf62eef-79a8-4b23-83cc-9290eb71dff3",
       "action": "add",
       "summary": "mode-home-page-skeleton still subtracts a chrome estimate from 100dvh, the pattern invariant 24 retired everywhere else",
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "8d78d861-64cc-4e96-ad68-8dd7560cafad",
+      "action": "done",
+      "summary": "#2X46NY: Added comprehensive JSDoc docstrings across exported and internal functions in src/lib/rag/ to raise answer-source coverage above 80%.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "932b96f8-6af8-48a2-aeac-d78d5bb506a9",
+      "action": "done",
+      "summary": "#HX1KSZ: Added component metric boundary prohibition table row and §3c rule to docs/design-system/GATES.md.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "964e1147-56b2-4750-8794-4b8b1d8e4e04",
       "action": "add",
       "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "97bbfd51-435b-4e31-b956-7138753eb0a8",
+      "action": "done",
+      "summary": "#EG4Q7W: Modularized postgres-repository.ts into 5 cohesive domain modules (core, plans, contacts, referrals-pathways, assignments-services) with full test suite passing.",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "998e657c-4852-4572-a4f8-5cf919ea2fea",
@@ -978,6 +1104,12 @@
       "request_id": "9d654032-6e3d-439f-81ac-70d8314f4763",
       "action": "update",
       "summary": "#9GPWT3: summary → Ward Flow: bed-release state model is unvalidated by any ward clinician",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "9e88c6de-2225-4134-888c-aec117a116e7",
+      "action": "done",
+      "summary": "#S4K1GA: Documented Reduce Motion iPhone acceptance criteria in docs/search-chrome-behaviour.md.",
       "created_at": "2026-08-31"
     },
     {
@@ -1005,6 +1137,18 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "b1630592-46f5-4e1a-aa03-97aa30e516af",
+      "action": "done",
+      "summary": "#0HYHTH: Verified static prohibited vocabulary checks in tests/caring-contacts-interface-vocabulary.test.ts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "b2d0158c-09c0-441e-97af-fac42cbe5f12",
+      "action": "done",
+      "summary": "#PDM6NG: Added screen registration parity test in tests/caring-contact-route-files.test.ts.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "b2e5f3fc-ab2d-4a14-a055-6742d6446784",
       "action": "add",
       "summary": "CI never runs the caring-contacts Postgres suite, so every row-level-security and cross-team assertion it makes against real SQL fires only on a developer's machine",
@@ -1017,10 +1161,28 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "b6d16549-d2cb-4815-9386-9c38854e7c0b",
+      "action": "done",
+      "summary": "#61TZJA: Verified PR #2199 merged and AWAITING_BASELINE in tests/ui-visual-baseline.spec.ts is empty.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "bb121cd3-235b-45f1-817e-a82d7c6c5a31",
+      "action": "add",
+      "summary": "Close remaining privacy provider, legal, and clinical approvals",
+      "created_at": "2026-09-01"
+    },
+    {
       "request_id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",
       "action": "add",
       "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "c3cf6c59-298b-424e-90bf-9e2cdd9c559e",
+      "action": "done",
+      "summary": "#F5EYAJ: Verified BLOCK_REASON_WORDING in overlay-host.tsx and DOM tests in tests/caring-contacts-overlay-host.dom.test.tsx.",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "c4bc5cb3-442e-42ed-9af4-29ae72f02fb6",
@@ -1029,10 +1191,76 @@
       "created_at": "2026-08-24"
     },
     {
+      "request_id": "c5f2cb44-cd51-4acc-a9d1-40a5fc1c56a0",
+      "action": "cancel",
+      "summary": "Cancel request dc26c333-1935-47e8-ab71-b5206c84e19b: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "c66f01fb-e52a-40fa-a4b2-f4d1449ddb11",
       "action": "done",
       "summary": "#DTSABC: Authored Form 12A statutory Authority and Criteria prose from committed PDF and asserted in tests/forms.test.ts",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "c733065e-9076-4f43-a7b2-9e0b5d5dcedd",
+      "action": "cancel",
+      "summary": "Cancel request 44b322b0-0a87-4564-878a-9d5ac97bcdc3: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "c862828e-276c-4d90-829b-2c2b35e04274",
+      "action": "done",
+      "summary": "#59JT7W: Verified resolveClosingContactMessageBody and tests/caring-contacts-message-policy.test.ts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "c995abce-f7d4-4be2-b057-80b173a5246f",
+      "action": "add",
+      "summary": "An agent push rewrote tests/ui-smoke.spec.ts from 6,019 lines to 1,081, deleting 74 of 82 UI journey tests, and only a merge conflict stopped it auto-merging",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "cbe7c359-b8e1-4218-a4df-59e869133e0a",
+      "action": "cancel",
+      "summary": "Cancel request 184404de-c45e-43e3-8048-2825799b349e: Duplicate of the existing open row #QCNE6N, which already records that CI never diffs the replayed migration chain against supabase/schema.sql and already proposes the same containerised two-database fix. Retracted the same session it was queued; the new 2026-09-01 evidence was reissued as an update to #QCNE6N instead (request 86ba753c-f2fd-4be7-92f4-df3d54cf4a04).",
+      "created_at": "2026-09-01"
+    },
+    {
+      "request_id": "cd767916-0034-4e5a-b2db-276609d0deec",
+      "action": "cancel",
+      "summary": "Cancel request c862828e-276c-4d90-829b-2c2b35e04274: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "d5ea0d4f-652f-480c-9a87-3be0ff7ef4b6",
+      "action": "cancel",
+      "summary": "Cancel request dba6b1fc-cb98-49e6-a035-8ca83946232a: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "d6e41550-1a6a-4f4f-aff5-d95004011942",
+      "action": "done",
+      "summary": "#PWZYY8: Added aria-hidden=\"true\" to icon call-sites and updated eslint-rules/require-lucide-icon-aria.mjs to cover Icon/ActiveIcon.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "da5b168d-a9fa-475f-a456-867edfe3694c",
+      "action": "cancel",
+      "summary": "Cancel request 368839d5-3ef0-46d4-94bc-b9d93842490c: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "dba6b1fc-cb98-49e6-a035-8ca83946232a",
+      "action": "done",
+      "summary": "#76GGRG: Implemented full WAI-ARIA Menu keyboard navigation with Arrow Up/Down/Left/Right/Home/End/Escape in search-pins-menu.tsx.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "dc26c333-1935-47e8-ab71-b5206c84e19b",
+      "action": "done",
+      "summary": "#1CYR4V: Verified 640-767px overlay modal responsive boundary contract in tests/caring-contacts-overlay-host.dom.test.tsx.",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "dc7ad7ef-1a27-4305-b1f5-326ee08985eb",
@@ -1047,16 +1275,64 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "df2e763d-c1ad-4495-9b62-046f01ab377c",
+      "action": "done",
+      "summary": "#DHAR98: Harden all SECURITY DEFINER functions with explicit pg_temp search_path.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "e2c82b28-4e33-46cf-839e-d00ad26d35d7",
+      "action": "cancel",
+      "summary": "Cancel request f3288efd-b1b6-492f-9a4a-8b316e35fe71: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "e3892275-41ea-475c-bade-e57d2d348fc4",
+      "action": "done",
+      "summary": "#0JJ4RD: Consolidated live purge_expired_rag_response_cache overloads into single bounded signature in migration 20260831100000_harden_security_definer_search_paths_and_purge_cache.sql and schema mirror.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "eaa89aeb-c7a4-47d8-b81f-7ef8a6689c4e",
+      "action": "add",
+      "summary": "Close current privacy provider, legal, and clinical approvals",
+      "created_at": "2026-09-01"
+    },
+    {
+      "request_id": "f3288efd-b1b6-492f-9a4a-8b316e35fe71",
+      "action": "update",
+      "summary": "#V27DZ1: summary → Ward Flow: role screens intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",
       "action": "done",
       "summary": "#F5EYAJ: Created connection and permission unavailable fallback components, wired routing in app/caring-contacts/error.tsx, and dynamically supplied blockReason in workspace-overlays.tsx",
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "fa3a637d-a2b9-44b9-bdb9-eb23c912505a",
+      "action": "cancel",
+      "summary": "Cancel request c3cf6c59-298b-424e-90bf-9e2cdd9c559e: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
+      "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "fbfb32c2-6ca8-4504-adb5-b7647d1d9174",
+      "action": "cancel",
+      "summary": "Cancel request b1630592-46f5-4e1a-aa03-97aa30e516af: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
+      "created_at": "2026-08-31"
+    },
+    {
       "request_id": "fed7ba66-652e-4081-8845-3c3b70496507",
       "action": "done",
       "summary": "#ZW43ZT: Bypassed GlobalMockupSearchShell for /mockups/development in MockupsLayoutClient to eliminate duplicate dev main landmark collisions.",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "ff7bcba4-5dee-44b7-9b4f-a1aefdd9ab85",
+      "action": "cancel",
+      "summary": "Cancel request d6e41550-1a6a-4f4f-aff5-d95004011942: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
+      "created_at": "2026-08-31"
     }
   ]
 }

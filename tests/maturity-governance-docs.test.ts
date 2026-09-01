@@ -9,10 +9,11 @@ describe("maturity governance documentation", () => {
   it("keeps the privacy assessment explicit about approval and operational evidence", () => {
     const pia = read("docs/privacy-impact-assessment.md");
     expect(pia).toContain("Status:** Draft for governance approval");
-    expect(pia).toContain("Revised:** 2026-08-23");
+    expect(pia).toContain("Revised:** 2026-09-01");
     expect(pia).toMatch(/\| PIA-2 \| Mitigated \|/);
     expect(pia).toContain("PIA-1");
-    expect(pia).toContain("remaining privacy governance launch blocker");
+    expect(pia).toContain("close the six release-blocking");
+    expect(pia).toContain("clinical PHI-minimisation acceptance");
     expect(pia).not.toMatch(/PIA-1[^\n]*and \*\*PIA-2\*\*[^\n]*launch-blockers/);
   });
 

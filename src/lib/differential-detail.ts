@@ -211,7 +211,7 @@ export function formatDifferentialCopyText(record: DifferentialRecord): string {
     lines.push("", "Investigations:");
     for (const investigation of investigations) lines.push(`- ${investigation}`);
   }
-  lines.push("", "Clinical decision support only. Review before use.");
+  lines.push("", "Clinical reference — not validated decision support. Review before use.");
   return lines.join("\n");
 }
 

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "b923e61aa9cac76202b8e27ddc9bffb669376d96",
-    "committed_at": "2026-09-01T09:33:16+08:00"
+    "sha": "4eebf126accdb4e200e843fb67bf3d7c839c154c",
+    "committed_at": "2026-09-01T13:11:45Z"
   },
   "routes": {
     "modes": [
@@ -574,8 +574,18 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/clinical-answer-failures",
+        "file": "src/app/mockups/development/clinical-answer-failures/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/development/clinical-trust",
         "file": "src/app/mockups/development/clinical-trust/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/corpus-health",
+        "file": "src/app/mockups/development/corpus-health/page.tsx",
         "area": "mockup"
       },
       {
@@ -1420,9 +1430,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 198,
+      "pages": 200,
       "product_pages": 63,
-      "mockup_pages": 135,
+      "mockup_pages": 137,
       "redirects": 17,
       "api": 60
     }
@@ -2875,6 +2885,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/governance/privacy-closeout-2026-09-01.md",
+        "section": "governance",
+        "catalogued": true
+      },
+      {
+        "path": "docs/governance/privacy-role-attestation-pack-2026-09-01.md",
+        "section": "governance",
+        "catalogued": true
+      },
+      {
         "path": "docs/ingestion-concurrency-fix-workorder.md",
         "section": "root",
         "catalogued": true
@@ -3320,6 +3340,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/services-mode-governance.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/site-map.md",
         "section": "root",
         "catalogued": true
@@ -3551,6 +3576,16 @@
       },
       {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3836,6 +3871,16 @@
       },
       {
         "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4240,6 +4285,9 @@
         "name": "evidence"
       },
       {
+        "name": "governance"
+      },
+      {
         "name": "plans"
       },
       {
@@ -4268,10 +4316,10 @@
       }
     ],
     "counts": {
-      "documents": 555,
-      "catalogued": 109,
-      "uncatalogued": 446,
-      "sections": 20
+      "documents": 562,
+      "catalogued": 111,
+      "uncatalogued": 451,
+      "sections": 21
     }
   },
   "test_health": {
@@ -4283,6 +4331,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2504",
+        "head": "0bb1c2b6c01509d3ea5a978c3bd56c36176438d7",
+        "scope": "Run PR sweep: scope corpus-health reads",
+        "outcome": "Replaced inaccessible authenticated-table reads with an independently administrator-gated service-role boundary that filters every query to the verified owner; restored the complete implementation after an intervening placeholder-only commit.",
+        "checks": "Focused developer corpus-health test: 16 passed; explicit owner-filter and non-administrator coverage; diff check."
+      },
       {
         "date": "2026-08-31",
         "ref": "codex/answer-surface-compact-20260830",
@@ -25533,8 +25589,8 @@
       }
     ],
     "counts": {
-      "records": 2656,
-      "refs": 1622
+      "records": 2657,
+      "refs": 1623
     }
   }
 }

@@ -24,7 +24,7 @@ const records = mapCatalogToServiceRecords(loadServicesSnapshot().services);
 
 describe("service facets", () => {
   it("carries the full typed tag payload onto every ServiceRecord (the PR C runtime spike)", () => {
-    expect(records).toHaveLength(219);
+    expect(records).toHaveLength(227);
     for (const record of records) {
       expect(record.catalogPayload).toBeTruthy();
       const tags = serviceCatalogTags(record);
@@ -43,10 +43,10 @@ describe("service facets", () => {
     expect(general + aod).toBe(records.length);
   });
 
-  it("finds housing_flags a near-partition, not an exact one — 4 services carry two values", () => {
+  it("finds housing_flags a near-partition, not an exact one — 5 services carry two values", () => {
     const counts = records.map((record) => serviceCatalogTags(record).housing_flags.length);
     const multi = counts.filter((count) => count > 1).length;
-    expect(multi).toBe(4);
+    expect(multi).toBe(5);
     expect(counts.every((count) => count >= 1)).toBe(true);
   });
 
