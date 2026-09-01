@@ -9,6 +9,7 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
+import { medicationAliasesForEntity } from "@/lib/medication-entities";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import { deriveGovernanceFromSections, rowGovernance, rowToMedicationRecord } from "@/lib/medication-records";
 import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
@@ -95,7 +96,9 @@ function medicationResponse(payload: Record<string, unknown>, options: { request
 
 function queryIncludesMedicationIdentity(query: string, medication: MedicationRecord) {
   const normalizedQuery = ` ${normalizeSearchText(query)} `;
-  return [medication.name, medication.slug.replace(/-/g, " "), ...medicationBrandNames(medication)].some((identity) => {
+  const directIdentities = [medication.name, medication.slug.replace(/-/g, " "), ...medicationBrandNames(medication)];
+  const identities = [...directIdentities, ...directIdentities.flatMap(medicationAliasesForEntity)];
+  return identities.some((identity) => {
     const normalizedIdentity = normalizeSearchText(identity);
     return normalizedIdentity.length > 0 && normalizedQuery.includes(` ${normalizedIdentity} `);
   });

@@ -125,6 +125,14 @@ describe("medication catalog query understanding", () => {
     expect(searchMedicationCatalog(records, "Zoloft", 5, rankingExpansions).matches[0]?.medication.slug).toBe(
       "sertraline",
     );
+    expect(
+      searchMedicationCatalog(records, "lithium medicine that needs regular blood tests", 5, rankingExpansions)
+        .matches[0]?.medication.slug,
+    ).toBe("lithium-carbonate-ir-sr");
+    expect(
+      searchMedicationCatalog(records, "valproate medicine that needs regular blood tests", 5, rankingExpansions)
+        .matches[0]?.medication.slug,
+    ).toBe("sodium-valproate-oral-iv");
   });
 
   it("applies conservative unique edit-distance-1 corrections only", () => {
