@@ -1492,11 +1492,11 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/ui/answer-card.tsx"
       ],
       "productImportFiles": [
-        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/ui/answer-card.tsx"
       ],
       "designSync": {
@@ -2261,6 +2261,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/answer-source-marks.dom.test.tsx",
         "tests/answer-support-priority.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
@@ -3873,7 +3874,7 @@
         {
           "file": "src/components/clinical-dashboard/answer-result-surface.tsx",
           "exists": true,
-          "imports": ["AnswerCard", "Sheet", "VerificationNotice"],
+          "imports": ["AnswerCard", "RetrievalStateBanner", "Sheet", "VerificationNotice"],
           "importedFamilies": ["answer", "layout"],
           "literalCkbV2": false,
           "dynamicCkbV2": false,

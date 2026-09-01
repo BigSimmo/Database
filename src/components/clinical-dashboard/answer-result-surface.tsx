@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
 
+import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
+
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
@@ -23,7 +25,7 @@ import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-c
 import { VerificationNotice } from "@/components/ui/verification-notice";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn } from "@/components/ui-primitives";
-import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { isCurrencyReviewWarning, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
@@ -250,8 +252,34 @@ function StagedAnswerResultSurfaceImpl({
    * beside them — and the action row the specimen draws is Copy plus the two
    * verdicts, which at 390px is already the full width of the row.
    */
+  const answerReviewDue = answerState.kind === "stale_evidence";
+  /**
+   * "A supporting source is due for review." is a currency warning, not a gap in
+   * the evidence, so it is never counted as one — it is the same fact the
+   * `Review due` half of the label already carries.
+   */
+  const answerGapWarningCount = renderModel.warnings.filter((warning) => !isCurrencyReviewWarning(warning)).length;
+  /**
+   * The chip is the ONLY place the default view states that a cited source is
+   * overdue on a source-only answer: `VerificationNotice` is `hidden print:flex`
+   * there (its wording moves into the Source-only disclosure), and that
+   * disclosure's collapsed pill reads "Source-only · verify passages", which
+   * says nothing about currency. So `Review due` must survive the presence of
+   * warnings rather than being replaced by their count — dropping it was a
+   * genuine regression in the first cut of this change, and the combination that
+   * exposes it (source-only + stale + warnings) is the common one, because the
+   * same overdue assessment that sets the stale state also adds a warning.
+   */
+  const answerEvidenceChipLabel = [
+    answerReviewDue || (answerGapWarningCount === 0 && renderModel.warnings.length > 0) ? "Review due" : null,
+    answerGapWarningCount > 0
+      ? `${answerGapWarningCount} evidence ${answerGapWarningCount === 1 ? "gap" : "gaps"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const answerMetaChipsWithGaps =
-    renderModel.warnings.length > 0 ? (
+    renderModel.warnings.length > 0 || answerReviewDue ? (
       <>
         {answerMetaChips}
         <button
@@ -280,7 +308,7 @@ function StagedAnswerResultSurfaceImpl({
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
-            {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+            {answerEvidenceChipLabel}
             {/* The chip looked identical open and closed, so on a phone the only
                 way to tell was to find the panel. */}
             <ChevronDown
@@ -295,12 +323,37 @@ function StagedAnswerResultSurfaceImpl({
     );
 
   /**
-   * The gaps themselves, mounted whether or not the chip is expanded so
+   * The overdue-sources control, which names WHICH cited sources are past their
+   * review date and links to each.
+   *
+   * It used to sit in the answer body, below the prose. Owner decision
+   * (2026-09-01): it belongs inside the evidence-gaps disclosure, with the other
+   * statements about what qualifies this answer's evidence, rather than above
+   * it. Only the per-source detail — WHICH sources, and the route into each — is
+   * behind the tap; that a source is overdue at all is still stated on the
+   * default view, by `VerificationNotice` on a model-written answer and by the
+   * chip's `Review due` label on every answer including source-only ones, where
+   * that notice is `hidden print:flex`.
+   */
+  const overdueSourcesBanner =
+    answerState.kind === "stale_evidence" ? (
+      <RetrievalStateBanner
+        state={answerState}
+        onOpenSource={openAnswerStateSource}
+        className="w-fit min-w-0 max-w-full flex-none self-start"
+      />
+    ) : null;
+  /**
+   * The disclosure, mounted whether or not the chip is expanded so
    * `aria-controls` above always resolves, and rendered by `AnswerCard`
    * immediately under the chip row rather than below the whole answer.
+   *
+   * It exists for an overdue-sources banner alone, not only for warnings —
+   * otherwise moving the banner in here would delete it outright on an answer
+   * whose only evidence qualification is that a source is overdue.
    */
   const answerEvidenceGapsDetail =
-    renderModel.warnings.length > 0 ? (
+    renderModel.warnings.length > 0 || overdueSourcesBanner ? (
       <div
         id="answer-evidence-gaps-detail"
         hidden={!evidenceGapsOpen}
@@ -308,6 +361,7 @@ function StagedAnswerResultSurfaceImpl({
         // attribute is never fighting a `grid` display it cannot override.
         className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
       >
+        {overdueSourcesBanner}
         {renderModel.warnings.map((warning, index) => (
           <p
             key={`${warning}:${index}`}
@@ -331,8 +385,6 @@ function StagedAnswerResultSurfaceImpl({
       preformatted={isPreformattedGroundedAnswer(answer)}
       sourceOnly={sourceOnly}
       sourceOnlyVerificationState={answerState.kind}
-      answerState={answerState}
-      onOpenStateSource={openAnswerStateSource}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}
