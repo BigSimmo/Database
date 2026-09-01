@@ -57,14 +57,14 @@ expected category — that is what the adversarial fixtures' canary strings exis
 
 ## 4. Provider egress
 
-| Provider            | What is sent                          | Purpose                     | Retention / logging                                                                                                        |
-| ------------------- | ------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| OpenAI — embeddings | Chunk text, query text                | Vector generation           | Provider-side; the ZDR and prompt-cache questions are open operator debt (`#053`).                                         |
-| OpenAI — captions   | Page images                           | Image captions for indexing | As above.                                                                                                                  |
-| OpenAI — generation | Query + selected excerpts + prompt    | Grounded answer generation  | As above.                                                                                                                  |
-| Supabase            | All of §3's database and storage rows | Primary data tier           | Project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`); Australian residency and the DPA are open operator debt (`#053`). |
-| Railway             | Application logs and runtime metrics  | Hosting                     | Provider retention.                                                                                                        |
-| GitHub Actions      | CI artifacts (§3)                     | Verification                | GitHub artifact retention.                                                                                                 |
+| Provider            | What is sent                          | Purpose                     | Retention / logging                                                                                                                                |
+| ------------------- | ------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI — embeddings | Chunk text, query text                | Vector generation           | Provider-side; current Platform evidence confirms API sharing and API call logging are disabled, but does not substantiate ZDR or an executed DPA. |
+| OpenAI — captions   | Page images                           | Image captions for indexing | As above.                                                                                                                                          |
+| OpenAI — generation | Query + selected excerpts + prompt    | Grounded answer generation  | As above.                                                                                                                                          |
+| Supabase            | All of §3's database and storage rows | Primary data tier           | The production project is in Sydney; provider contract and privileged-access governance remain operator-held external evidence.                    |
+| Railway             | Application logs and runtime metrics  | Hosting                     | Provider retention.                                                                                                                                |
+| GitHub Actions      | CI artifacts (§3)                     | Verification                | GitHub artifact retention.                                                                                                                         |
 
 No adversarial fixture is ever sent to a provider: the fixtures exist for offline validation
 (packet B2), and both the validator and the planned offline runner are network-free.
@@ -77,9 +77,11 @@ work. Gate A sign-off must account for them explicitly.
 1. **Worker temp-path cleanup on abnormal termination is asserted, not proven.** No test kills a
    worker mid-extraction and asserts the temp tree is empty. Until one exists, treat the
    retention claim in §3 as design intent.
-2. **Provider retention terms are unexecuted.** OpenAI/Railway DPAs, the ZDR decision, and
-   Australian data residency are open under ledger `#053`. Until they land, §4's retention column
-   is "provider default", not a contracted term.
+2. **Provider evidence remains incomplete.** Current OpenAI Platform evidence confirms API data
+   sharing and API call logging are disabled and optional hosted tools are disabled, but does not
+   substantiate ZDR or the executed DPA. Railway's DPA and the whole-of-flow
+   APP 8 decision also remain open. Railway's retention column remains "provider default", not a
+   contracted term.
 3. **Upload does not screen for identifiers.** Nothing at `/api/upload` detects a patient
    identifier inside an uploaded document. The system's design assumption is that uploads are
    guidelines, not records; that assumption is unenforced.

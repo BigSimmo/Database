@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "b923e61aa9cac76202b8e27ddc9bffb669376d96",
-    "committed_at": "2026-09-01T09:33:16+08:00"
+    "sha": "f328372f39ead3501c8a4ba09db4cbef492d4788",
+    "committed_at": "2026-09-01T01:52:31Z"
   },
   "routes": {
     "modes": [
@@ -2875,6 +2875,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/governance/privacy-closeout-2026-09-01.md",
+        "section": "governance",
+        "catalogued": true
+      },
+      {
+        "path": "docs/governance/privacy-role-attestation-pack-2026-09-01.md",
+        "section": "governance",
+        "catalogued": true
+      },
+      {
         "path": "docs/ingestion-concurrency-fix-workorder.md",
         "section": "root",
         "catalogued": true
@@ -4240,6 +4250,9 @@
         "name": "evidence"
       },
       {
+        "name": "governance"
+      },
+      {
         "name": "plans"
       },
       {
@@ -4268,10 +4281,10 @@
       }
     ],
     "counts": {
-      "documents": 555,
-      "catalogued": 109,
+      "documents": 557,
+      "catalogued": 111,
       "uncatalogued": 446,
-      "sections": 20
+      "sections": 21
     }
   },
   "test_health": {

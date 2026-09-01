@@ -4,7 +4,8 @@ import { PrivacyQuietSignalPage } from "@/components/privacy-quiet-signal-page";
 
 export const metadata: Metadata = {
   title: "How PsychSift handles your data",
-  description: "Learn what PsychSift processes, where data is handled, and how long information is retained.",
+  description:
+    "Learn what PsychSift processes, where data is handled, current provider controls, retention periods, and pending privacy approvals.",
 };
 
 /**
