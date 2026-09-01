@@ -2124,7 +2124,6 @@ test.describe("PsychSift UI smoke coverage", () => {
         ].filter((entry) => entry !== null);
         const neighbours = [
           box('[data-testid="answer-card-support"]'),
-          box('[data-testid="answer-cited-count"]'),
           box('[data-testid="plain-answer-prose"]'),
           ...chips,
         ].filter((entry) => entry !== null);

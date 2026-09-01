@@ -386,23 +386,70 @@ describe("buildAnswerFollowUpSuggestions · already-answered suppression", () =>
 });
 
 describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
-  it("puts reported gaps first and still respects the four-chip cap", () => {
+  it("never turns a reported gap's prose into a question", () => {
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",
       {
         ...answerFor(),
         conflictsOrGaps: [
-          { type: "gap", message: "Paediatric dosing is not covered." },
-          { type: "conflict", message: "The two guidelines disagree on the target level." },
+          // The real messages `detectConflictsOrGaps` writes: full advisory
+          // sentences, one of them two sentences long. Wrapping either in
+          // "What does the source say about ...?" cannot produce English, and
+          // for a while the live answer page showed exactly that.
+          {
+            type: "gap",
+            message:
+              "Current evidence comes from one document; broaden document scope if you need cross-document comparison.",
+          },
+          {
+            type: "conflict",
+            message:
+              "Sources disagree on the ANC withholding threshold (1.5 vs 2.0). Confirm the correct cut-off against the primary guideline before acting on any single source.",
+          },
         ],
       },
       ["lithium dosing"],
     );
 
-    expect(suggestions).toHaveLength(4);
-    expect(suggestions[0]).toBe("What does the source say about paediatric dosing is not covered?");
-    expect(suggestions[1]).toBe("What does the source say about the two guidelines disagree on the target level?");
-    expect(suggestions[2]).toBe("What monitoring is required for lithium?");
+    for (const suggestion of suggestions) {
+      expect(suggestion).not.toContain("What does the source say about");
+      // Every suggestion is one question, so the only sentence-ending
+      // punctuation it may carry is its own trailing "?".
+      expect(suggestion.slice(0, -1)).not.toMatch(/[.;]/);
+      expect(suggestion.endsWith("?")).toBe(true);
+    }
+    // The gap is still surfaced — by the template authored for it, which is
+    // gated on the same reported-gap evidence.
+    expect(suggestions).toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("offers a gap's own words when the gap is already a question", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor(),
+        conflictsOrGaps: [{ type: "gap", message: "Which guideline governs paediatric dosing?" }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions[0]).toBe("Which guideline governs paediatric dosing?");
+    // A gap that asked for itself suppresses the generic source-gap template.
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("respects the four-chip cap", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor(),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions.length).toBeLessThanOrEqual(4);
+    expect(suggestions).toContain("What monitoring is required for lithium?");
   });
 
   it("avoids repeating questions already asked in the thread", () => {

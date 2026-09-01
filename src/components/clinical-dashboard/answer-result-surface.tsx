@@ -206,7 +206,14 @@ function StagedAnswerResultSurfaceImpl({
   };
   /**
    * The header status line the approved specimen draws: the support chip (owned
-   * by AnswerCard), the safety-notes control, and the cited count.
+   * by AnswerCard) and the safety-notes control.
+   *
+   * The cited count is deliberately NOT here. It was, and at 390px it rendered
+   * "2 cited" twice within one screen — once beside the support chip and again
+   * on the source rail's own heading 160px below, which already reads
+   * "2 cited · 1 also found" and is the only place that explains why an uncited
+   * card carries a dash instead of a number. Two spellings of one number in one
+   * glance invite the reader to look for a difference between them.
    *
    * The safety chip is the ONLY route to the safety-critical findings sheet now
    * that the support card is gone, so it is a real button whenever there are
@@ -214,8 +221,6 @@ function StagedAnswerResultSurfaceImpl({
    * safety notes" survives forced-colors and greyscale print, where a coloured
    * chip alone would not.
    */
-  const citedSourceCount = railSources.filter((row) => row.cited !== false).length || renderModel.primarySources.length;
-  const retrievedSourceCount = Math.max(citedSourceCount, sourceCount, sources.length);
   const answerMetaChips =
     safetyFindings.length > 0 ? (
       <button
@@ -273,14 +278,6 @@ function StagedAnswerResultSurfaceImpl({
     ) : (
       answerMetaChips
     );
-  const answerMetaTrailing =
-    citedSourceCount > 0 ? (
-      <span className="nums text-3xs text-[color:var(--text-muted)]" data-testid="answer-cited-count">
-        {citedSourceCount === retrievedSourceCount
-          ? `${citedSourceCount} cited`
-          : `${citedSourceCount} of ${retrievedSourceCount} cited`}
-      </span>
-    ) : null;
 
   function openAnswerStateSource(sourceId: string, locator?: string) {
     const href = citedDocumentHref(sourceId, locator, [...sources, ...(answer.sources ?? [])]);
@@ -360,7 +357,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement="content"
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
               >
                 {answerProse}
               </AnswerCard>
@@ -373,7 +369,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button

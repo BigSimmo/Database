@@ -127,8 +127,6 @@ type AnswerCardBase = {
    * neighbours; `ui-smoke` measures the chip rectangles for exactly that.
    */
   metaChips?: ReactNode;
-  /** Trailing meta, right-aligned on the header line — the surface's cited count. */
-  metaTrailing?: ReactNode;
   className?: string;
 };
 
@@ -156,7 +154,6 @@ export function AnswerCard({
   retrievalStatePlacement = "header",
   verificationPlacement = "header",
   metaChips,
-  metaTrailing,
   className,
 }: AnswerCardProps) {
   const bare = frame === "bare";
@@ -230,7 +227,6 @@ export function AnswerCard({
           <span className="sr-only">Evidence support: </span>
           {ANSWER_SUPPORT_WORDING[support]}
         </p>
-        {bare && metaTrailing ? <span className="ms-auto shrink-0">{metaTrailing}</span> : null}
         {/* The interactive chips take a full-width row of their own rather than
             sharing the baseline-aligned status line. They carry a real 48px tap
             target, and a 48px control inside a 24px line can only be bought with
