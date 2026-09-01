@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useId, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useEffect, useId, useRef, useState } from "react";
 import {
   Activity,
   CircleAlert,
@@ -71,6 +71,7 @@ import {
   type SafetyFinding,
   type SafetyFindingKind,
 } from "@/lib/clinical-safety";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
@@ -192,6 +193,23 @@ export function AnswerUtilityActions({
   onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!feedbackOpen) return;
+    const panel = feedbackPanelRef.current;
+    if (!panel) return;
+    // The composer is fixed to the bottom of a phone viewport, and this panel
+    // opens near the foot of the answer. Measured at 390x844, it opened with its
+    // last two problem types behind that bar and the page did not move, so the
+    // list read as though it ended at "Outdated" — the options were reachable
+    // only by scrolling, which nothing invited the reader to do.
+    //
+    // Centring clears the composer whenever the panel fits. A panel taller than
+    // the viewport is anchored at its top instead, so the question and the first
+    // options are what you land on rather than the middle of the list.
+    const fitsOnScreen = panel.getBoundingClientRect().height < window.innerHeight * 0.7;
+    panel.scrollIntoView({ block: fitsOnScreen ? "center" : "start", behavior: resolveScrollBehavior() });
+  }, [feedbackOpen]);
   return (
     <section className="max-w-[68ch]" aria-label="Answer utilities">
       {/* Copy sits left; the two verdict controls sit right, as the approved
@@ -246,7 +264,7 @@ export function AnswerUtilityActions({
         ) : null}
       </div>
       {onSubmitFeedback && feedbackOpen ? (
-        <div id="answer-feedback-detail" className="px-2 pb-2">
+        <div id="answer-feedback-detail" ref={feedbackPanelRef} className="px-2 pb-2">
           <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" />
         </div>
       ) : null}
@@ -953,15 +971,13 @@ export function ClinicalNotesChecklistPanel({
   );
 }
 
-function safetyFindingKindTone(kind: SafetyFindingKind) {
-  return kind === "contraindication" || kind === "red_flag" ? toneDanger : toneWarning;
-}
-
 function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
+  // Sized to the eyebrow beside it rather than to the old icon cell: at h-5 the
+  // glyph outweighed the label it now sits next to.
   if (kind === "contraindication" || kind === "red_flag") {
-    return <ShieldAlert aria-hidden="true" className="h-5 w-5" />;
+    return <ShieldAlert aria-hidden="true" className="size-icon-xs shrink-0" />;
   }
-  return <CircleAlert aria-hidden="true" className="h-5 w-5" />;
+  return <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0" />;
 }
 
 // Issue 9: governance provenance retained on safety-finding citations lets the safety
@@ -981,6 +997,19 @@ function safetyFindingGovernanceLabels(citation: SafetyFinding["citation"]): str
   return labels;
 }
 
+/**
+ * The safety findings list, as read on a phone.
+ *
+ * The row used to lead with three stacked pills — a kind pill, the source link,
+ * then a governance pill — which at 390px wrapped to three lines and put ~110px
+ * of chrome above the first word of the finding. The clinician is here for the
+ * finding, so the order is now: what kind of finding, then the finding, then
+ * where it came from.
+ *
+ * The kind is drawn as an eyebrow beside its icon rather than as a pill: the
+ * icon and the pill were saying the same thing twice, and one line of them fits
+ * the governance chip alongside instead of below.
+ */
 export function SafetyFindingsListContent({ findings, query }: { findings: SafetyFinding[]; query?: string }) {
   if (findings.length === 0) return null;
 
@@ -994,51 +1023,49 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
       // them. Inert outside a flex container.
       className="shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
     >
-      {sortedFindings.map((finding, index) => (
-        <article
-          key={`${finding.id}:${finding.href}:${index}`}
-          data-testid="safety-finding-row"
-          className="grid min-h-[70px] grid-cols-[auto_minmax(0,1fr)] items-start gap-3 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
-        >
-          <span
-            className={cn(
-              "grid h-8 w-8 shrink-0 place-items-center rounded-md",
-              finding.kind === "contraindication" || finding.kind === "red_flag"
-                ? "text-[color:var(--danger)]"
-                : "text-[color:var(--warning)]",
-            )}
-            aria-hidden="true"
+      {sortedFindings.map((finding, index) => {
+        const severe = finding.kind === "contraindication" || finding.kind === "red_flag";
+        const accent = severe ? "text-[color:var(--danger)]" : "text-[color:var(--warning)]";
+        return (
+          <article
+            key={`${finding.id}:${finding.href}:${index}`}
+            data-testid="safety-finding-row"
+            className="grid gap-1.5 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
           >
-            <SafetyFindingRowIcon kind={finding.kind} />
-          </span>
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", safetyFindingKindTone(finding.kind))}>
-                {finding.label}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className={cn("inline-flex min-w-0 items-center gap-1.5", accent)}>
+                <SafetyFindingRowIcon kind={finding.kind} />
+                <span className="truncate text-3xs font-semibold uppercase tracking-eyebrow">{finding.label}</span>
               </span>
-              <Link
-                href={finding.href}
-                onClick={() => query && logCitationOpen(query, finding.citation)}
-                className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-compact-meta"
-                aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
-              >
-                <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
-                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-              </Link>
               {safetyFindingGovernanceLabels(finding.citation).map((label) => (
                 <span
                   key={label}
                   data-testid="safety-finding-governance"
-                  className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", toneWarning)}
+                  // Scaled to the severity eyebrow beside it rather than above
+                  // it: at text-2xs the governance chip was the largest thing in
+                  // the row, so "Not locally validated" read as louder than "Red
+                  // flag".
+                  className={cn(subtleStatusPill, "ms-auto min-h-6 px-2 text-3xs", toneWarning)}
                 >
                   {label}
                 </span>
               ))}
             </div>
-            <p className="mt-1.5 text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
-          </div>
-        </article>
-      ))}
+            <p className="text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
+            <Link
+              href={finding.href}
+              onClick={() => query && logCitationOpen(query, finding.citation)}
+              // `-mb-1.5` trims the row's own bottom padding back, so a full tap
+              // target does not read as a gap under the last finding.
+              className="-mb-1.5 inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-compact-meta"
+              aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
+            >
+              <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            </Link>
+          </article>
+        );
+      })}
     </div>
   );
 }

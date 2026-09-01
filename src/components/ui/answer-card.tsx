@@ -127,6 +127,16 @@ type AnswerCardBase = {
    * neighbours; `ui-smoke` measures the chip rectangles for exactly that.
    */
   metaChips?: ReactNode;
+  /**
+   * A disclosure the chips open, rendered directly beneath them.
+   *
+   * It belongs here rather than under the answer because a disclosure has to
+   * appear where it was tapped. The evidence-gaps panel used to render after the
+   * whole card — prose, marks and source rail included — which at 390px put it
+   * ~450px below the chip that opened it, far enough off-screen that tapping the
+   * chip read as doing nothing at all.
+   */
+  metaDetail?: ReactNode;
   className?: string;
 };
 
@@ -154,6 +164,7 @@ export function AnswerCard({
   retrievalStatePlacement = "header",
   verificationPlacement = "header",
   metaChips,
+  metaDetail,
   className,
 }: AnswerCardProps) {
   const bare = frame === "bare";
@@ -235,6 +246,7 @@ export function AnswerCard({
             it. The row costs nothing: the status line already wrapped to two
             lines on a phone, so the height is the same and the overlap is gone. */}
         {bare && metaChips ? <div className="flex w-full flex-wrap items-center gap-x-2">{metaChips}</div> : null}
+        {bare && metaDetail ? <div className="w-full">{metaDetail}</div> : null}
         {/*
          * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
          * every degraded state, on the reasoning that an adoption failure here is

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractSafetyFindings, sortSafetyFindingsBySeverity, type SafetyFinding } from "../src/lib/clinical-safety";
+import {
+  collapseDuplicateSafetyFindings,
+  extractSafetyFindings,
+  sortSafetyFindingsBySeverity,
+  type SafetyFinding,
+} from "../src/lib/clinical-safety";
 import type { RagAnswer } from "../src/lib/types";
 
 const answer: RagAnswer = {
@@ -209,5 +214,112 @@ describe("clinical safety findings", () => {
     expect(findings[0].kind).toBe("contraindication");
     expect(findings[0].label).toBe("Contraindication");
     expect(findings[0].text).toContain("contraindicated in pregnancy");
+  });
+});
+
+describe("safety findings are counted once per passage", () => {
+  // The live clozapine answer reported "3 safety notes" over two passages: the
+  // quote card and its own parent chunk both matched, so one passage was listed
+  // twice — once as "Red flag" (the longer text reaches that pattern) and once
+  // as "Monitoring" (the extract does not). The count is the whole point of the
+  // chip that opens this list, so an inflated one is not cosmetic.
+  const passage =
+    "clozapine safety checkpoints: FBC/ANC monitoring, myocarditis symptom screening, metabolic monitoring, constipation prevention, and shared-care communication.";
+  const fullerPassage = `${passage} Urgent review triggers include fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures.`;
+
+  const duplicatedAnswer: RagAnswer = {
+    answer: "Clozapine monitoring covers FBC/ANC and myocarditis screening.",
+    grounded: true,
+    confidence: "medium",
+    citations: [],
+    quoteCards: [
+      {
+        chunk_id: "chunk-a",
+        document_id: "doc-a",
+        title: "Clozapine monitoring protocol",
+        file_name: "clozapine.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.82,
+        quote: passage,
+      },
+    ] as RagAnswer["quoteCards"],
+    sources: [
+      {
+        id: "chunk-a",
+        document_id: "doc-a",
+        title: "Clozapine monitoring protocol",
+        file_name: "clozapine.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        section_heading: "Monitoring",
+        content: fullerPassage,
+        image_ids: [],
+        similarity: 0.82,
+        images: [],
+      },
+      {
+        id: "chunk-b",
+        document_id: "doc-a",
+        title: "Clozapine monitoring protocol",
+        file_name: "clozapine.pdf",
+        page_number: 2,
+        chunk_index: 1,
+        section_heading: "Escalation",
+        content: "Escalate for urgent review when red flag features are present.",
+        image_ids: [],
+        similarity: 0.8,
+        images: [],
+      },
+    ],
+  };
+
+  it("collapses a quote card into its own parent chunk", () => {
+    const findings = extractSafetyFindings(duplicatedAnswer);
+    const page1 = findings.filter((finding) => finding.citation.page_number === 1);
+
+    expect(page1).toHaveLength(1);
+    // The fuller text survives, and with it the more severe of the two labels.
+    expect(page1[0].text).toContain("Urgent review triggers");
+    expect(page1[0].label).toBe("Red flag");
+    // A genuinely separate passage on another page is untouched.
+    expect(findings.filter((finding) => finding.citation.page_number === 2)).toHaveLength(1);
+  });
+
+  it("collapses warnings that arrive already computed, not only freshly extracted ones", () => {
+    // The server computes these and the client re-reads them, so the guarantee
+    // has to hold on the way in as well as at extraction.
+    const precomputed = extractSafetyFindings({ ...duplicatedAnswer });
+    const doubled = [...precomputed, ...precomputed];
+
+    expect(extractSafetyFindings({ ...duplicatedAnswer, safetyWarnings: doubled })).toHaveLength(precomputed.length);
+  });
+
+  it("does not merge two short findings that merely share words", () => {
+    const short = (id: string, page: number, text: string): SafetyFinding => ({
+      id,
+      kind: "monitoring",
+      label: "Monitoring",
+      text,
+      citation: {
+        chunk_id: id,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: page,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: `/documents/doc-a?page=${page}`,
+    });
+
+    // Same page, one text a substring of the other, but far too short to be
+    // treated as the same passage.
+    const findings = collapseDuplicateSafetyFindings([
+      short("a", 1, "Monitor FBC."),
+      short("b", 1, "Monitor FBC. Repeat weekly."),
+    ]);
+
+    expect(findings).toHaveLength(2);
   });
 });

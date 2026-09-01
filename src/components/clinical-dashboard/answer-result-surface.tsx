@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
+import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -261,23 +261,62 @@ function StagedAnswerResultSurfaceImpl({
           onClick={() => setEvidenceGapsOpen((current) => !current)}
           className={cn("group", chipButton)}
           aria-expanded={evidenceGapsOpen}
-          aria-controls={evidenceGapsOpen ? "answer-evidence-gaps-detail" : undefined}
+          // Unconditional, because the panel is mounted whether or not it is
+          // open. Pointing `aria-controls` at an id that only exists while
+          // expanded is the shape that breaks assistive technology, and the
+          // conditional attribute that used to be here was working around
+          // exactly that.
+          aria-controls="answer-evidence-gaps-detail"
         >
           <span
             className={cn(
               chipShape,
-              "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] transition group-hover:bg-[color:var(--surface-subtle)]",
+              evidenceGapsOpen
+                ? "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] group-hover:bg-[color:var(--surface-subtle)]",
+              "transition",
               chipFocus,
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
             {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+            {/* The chip looked identical open and closed, so on a phone the only
+                way to tell was to find the panel. */}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("size-icon-xs shrink-0 transition-transform", evidenceGapsOpen && "rotate-180")}
+            />
           </span>
         </button>
       </>
     ) : (
       answerMetaChips
     );
+
+  /**
+   * The gaps themselves, mounted whether or not the chip is expanded so
+   * `aria-controls` above always resolves, and rendered by `AnswerCard`
+   * immediately under the chip row rather than below the whole answer.
+   */
+  const answerEvidenceGapsDetail =
+    renderModel.warnings.length > 0 ? (
+      <div
+        id="answer-evidence-gaps-detail"
+        hidden={!evidenceGapsOpen}
+        // Display comes from the class only while open, so the `hidden`
+        // attribute is never fighting a `grid` display it cannot override.
+        className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
+      >
+        {renderModel.warnings.map((warning, index) => (
+          <p
+            key={`${warning}:${index}`}
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            {warning}
+          </p>
+        ))}
+      </div>
+    ) : null;
 
   function openAnswerStateSource(sourceId: string, locator?: string) {
     const href = citedDocumentHref(sourceId, locator, [...sources, ...(answer.sources ?? [])]);
@@ -357,6 +396,7 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement="content"
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
+                metaDetail={answerEvidenceGapsDetail}
               >
                 {answerProse}
               </AnswerCard>
@@ -369,6 +409,7 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
+                metaDetail={answerEvidenceGapsDetail}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -378,19 +419,6 @@ function StagedAnswerResultSurfaceImpl({
                 {answerProse}
               </AnswerCard>
             )}
-
-            {renderModel.warnings.length > 0 && evidenceGapsOpen ? (
-              <div id="answer-evidence-gaps-detail" className="grid max-w-[68ch] gap-2">
-                {renderModel.warnings.map((warning, index) => (
-                  <p
-                    key={`${warning}:${index}`}
-                    className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
-                  >
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            ) : null}
 
             <AnswerUtilityActions
               copied={copiedAnswer}
