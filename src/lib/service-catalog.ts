@@ -1,4 +1,5 @@
 import servicesSnapshot from "../../data/services-snapshot.json";
+import { mergeCanonicalCatalogServices } from "@/lib/service-governance";
 
 export type CatalogServiceTags = {
   catchments: string[];
@@ -7,11 +8,59 @@ export type CatalogServiceTags = {
   acuity_flags: string[];
   substance_flags: string[];
   housing_flags: string[];
+  specialist_groups?: string[];
+  availability_flags?: string[];
+};
+
+export type CatalogServiceEvidenceSource = {
+  sourceId: string;
+  title: string;
+  issuer: string;
+  sourceClass: string;
+  jurisdiction: string;
+  publicationOrEffectiveDate: string;
+  url: string;
+  accessedAt: string;
+  limitations?: string;
+};
+
+export type CatalogServiceClaim = {
+  claimId: string;
+  field: string;
+  text: string;
+  sourceIds: string[];
+  verifiedAt: string;
+  nextReviewAt: string;
+  reviewer: string;
+  confidence: "high" | "medium" | "low";
+  riskLevel: "critical" | "high" | "moderate" | "low";
+  conflictStatus: "none" | "unresolved" | "resolved";
+};
+
+export type CatalogServiceReferralRoute = {
+  routeType: string;
+  summary: string;
+  selfReferral: boolean | null;
+  requiredDocuments: string[];
+};
+
+export type CatalogServiceStructuredContact = {
+  label: string;
+  value: string;
+  kind: string;
+};
+
+export type CatalogServiceStructuredHours = {
+  display: string;
+  timezone: string;
+  verificationStatus: "verified" | "unable_to_verify";
 };
 
 export type CatalogService = {
   id: string;
+  stable_id?: string;
   name: string;
+  aliases?: string[];
   sections: string[];
   inclusion_criteria: string;
   exclusions: string;
@@ -32,6 +81,8 @@ export type CatalogService = {
   confidence: string;
   confidence_rank?: number;
   public_source_urls: string[];
+  service_website?: string;
+  evidence_sources?: CatalogServiceEvidenceSource[];
   web_review_status: string;
   source_documents: string[];
   source_row_count?: number;
@@ -42,6 +93,22 @@ export type CatalogService = {
   analyst_notes: string;
   search_text: string;
   canonical_name_key: string;
+  availability_status?: string;
+  availability_note?: string;
+  presentation_tier?: string;
+  verification_status?: string;
+  last_verified?: string;
+  next_review_at?: string;
+  not_for?: string[];
+  referral_routes?: CatalogServiceReferralRoute[];
+  structured_contacts?: CatalogServiceStructuredContact[];
+  structured_hours?: CatalogServiceStructuredHours;
+  claims?: CatalogServiceClaim[];
+  specialist_groups?: string[];
+  quick_route_intents?: string[];
+  superseded_by?: string;
+  unresolved_issues?: string[];
+  jurisdiction?: string;
 };
 
 export type ServiceCatalogSnapshot = {
@@ -70,6 +137,47 @@ function toCleanText(value: unknown, fallback = ""): string {
 function toCleanNumber(value: unknown): number | undefined {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+function toCleanOptionalText(value: unknown): string | undefined {
+  const clean = toCleanText(value);
+  return clean || undefined;
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function normalizeEvidenceSources(value: unknown): CatalogServiceEvidenceSource[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const source = toRecord(entry);
+    if (!source) return [];
+    const sourceId = toCleanText(source.sourceId);
+    const title = toCleanText(source.title);
+    const issuer = toCleanText(source.issuer);
+    const sourceClass = toCleanText(source.sourceClass);
+    const jurisdiction = toCleanText(source.jurisdiction);
+    const publicationOrEffectiveDate = toCleanText(source.publicationOrEffectiveDate);
+    const url = toCleanText(source.url);
+    const accessedAt = toCleanText(source.accessedAt);
+    if (!sourceId || !title || !issuer || !sourceClass || !jurisdiction || !publicationOrEffectiveDate || !url || !accessedAt) {
+      return [];
+    }
+    return [
+      {
+        sourceId,
+        title,
+        issuer,
+        sourceClass,
+        jurisdiction,
+        publicationOrEffectiveDate,
+        url,
+        accessedAt,
+        limitations: toCleanOptionalText(source.limitations),
+      },
+    ];
+  });
 }
 
 function normalizeServiceId(value: unknown, fallback: string): string {
@@ -116,7 +224,11 @@ export function normalizeCatalogService(raw: unknown, index: number): CatalogSer
       acuity_flags: toStringArray(tagsSource.acuity_flags),
       substance_flags: toStringArray(tagsSource.substance_flags),
       housing_flags: toStringArray(tagsSource.housing_flags),
+      specialist_groups: toStringArray(tagsSource.specialist_groups),
+      availability_flags: toStringArray(tagsSource.availability_flags),
     },
+    stable_id: toCleanOptionalText(source.stable_id),
+    aliases: toStringArray(source.aliases),
     source_files: toStringArray(source.source_files),
     provider: toCleanText(source.provider),
     region_catchment: toCleanText(source.region_catchment),
@@ -132,6 +244,8 @@ export function normalizeCatalogService(raw: unknown, index: number): CatalogSer
     confidence: toCleanText(source.confidence),
     confidence_rank: toCleanNumber(source.confidence_rank),
     public_source_urls: toStringArray(source.public_source_urls),
+    service_website: toCleanOptionalText(source.service_website),
+    evidence_sources: normalizeEvidenceSources(source.evidence_sources),
     web_review_status: toCleanText(source.web_review_status),
     source_documents: toStringArray(source.source_documents),
     source_row_count: toCleanNumber(source.source_row_count),
@@ -142,6 +256,18 @@ export function normalizeCatalogService(raw: unknown, index: number): CatalogSer
     analyst_notes: toCleanText(source.analyst_notes),
     search_text: toCleanText(source.search_text),
     canonical_name_key: toCleanText(source.canonical_name_key),
+    availability_status: toCleanOptionalText(source.availability_status),
+    availability_note: toCleanOptionalText(source.availability_note),
+    presentation_tier: toCleanOptionalText(source.presentation_tier),
+    verification_status: toCleanOptionalText(source.verification_status),
+    last_verified: toCleanOptionalText(source.last_verified),
+    next_review_at: toCleanOptionalText(source.next_review_at),
+    not_for: toStringArray(source.not_for),
+    specialist_groups: toStringArray(source.specialist_groups),
+    quick_route_intents: toStringArray(source.quick_route_intents),
+    superseded_by: toCleanOptionalText(source.superseded_by),
+    unresolved_issues: toStringArray(source.unresolved_issues),
+    jurisdiction: toCleanOptionalText(source.jurisdiction),
   };
 }
 
@@ -169,9 +295,11 @@ export function normalizeCatalogServices(rawCatalog: unknown): CatalogService[] 
 export function loadServicesSnapshot(): ServiceCatalogSnapshot {
   if (cachedSnapshot) return cachedSnapshot;
   const parsed = servicesSnapshot as ServiceCatalogSnapshot;
+  const services = mergeCanonicalCatalogServices(normalizeCatalogServices(parsed));
   cachedSnapshot = {
     ...parsed,
-    services: normalizeCatalogServices(parsed),
+    service_count: services.length,
+    services,
   };
   return cachedSnapshot;
 }
