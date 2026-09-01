@@ -147,7 +147,10 @@ function entryScore(entry: DictionaryEntry, query: string) {
   if (mentionedAlias) {
     return {
       score: mentionedAlias.alias.kind === "abbreviation" ? 95 : 92,
-      reason: mentionedAlias.alias.kind === "abbreviation" ? `Mentioned abbreviation: ${mentionedAlias.alias.value}` : "Mentioned alias",
+      reason:
+        mentionedAlias.alias.kind === "abbreviation"
+          ? `Mentioned abbreviation: ${mentionedAlias.alias.value}`
+          : "Mentioned alias",
     };
   }
   if (term.startsWith(normalized)) return { score: 88, reason: "Term begins with the search" };

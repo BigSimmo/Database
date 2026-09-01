@@ -427,6 +427,7 @@ export function rankToolRecords(
     fullText: toolSearchText,
     contentWeight: 2,
     phraseBonus: 4,
+    exactValues: (tool) => [normalizeSearchText(tool.actionLabel)],
     expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.title.localeCompare(right.title),

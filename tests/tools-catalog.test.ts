@@ -51,6 +51,11 @@ describe("tools catalog", () => {
     expect(matches[0].reasons).toContain("title");
   });
 
+  it("keeps the Differentials tool ahead of a generic Compare keyword match", () => {
+    const matches = rankToolRecords("Compare");
+    expect(matches[0]?.tool.id).toBe("differentials");
+  });
+
   it("finds tools through keywords", () => {
     const matches = rankToolRecords("contraindications");
     expect(matches.some((match) => match.tool.id === "risk-safety")).toBe(true);
