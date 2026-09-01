@@ -136,6 +136,20 @@ function entryScore(entry: DictionaryEntry, query: string) {
       reason: exactAlias.alias.kind === "abbreviation" ? `Abbreviation: ${exactAlias.alias.value}` : "Exact alias",
     };
   }
+  // Natural-language catalogue queries often wrap an exact identity in a
+  // sentence. Give a mentioned term or alias the same priority class as a
+  // direct lookup, before broad Smart expansions can tie dozens of incidental
+  // records. Padding both sides keeps a short abbreviation such as MSE from
+  // matching inside another normalized word.
+  const paddedQuery = ` ${normalized} `;
+  if (paddedQuery.includes(` ${term} `)) return { score: 96, reason: "Mentioned term" };
+  const mentionedAlias = aliases.find(({ normalized: value }) => paddedQuery.includes(` ${value} `));
+  if (mentionedAlias) {
+    return {
+      score: mentionedAlias.alias.kind === "abbreviation" ? 95 : 92,
+      reason: mentionedAlias.alias.kind === "abbreviation" ? `Mentioned abbreviation: ${mentionedAlias.alias.value}` : "Mentioned alias",
+    };
+  }
   if (term.startsWith(normalized)) return { score: 88, reason: "Term begins with the search" };
   if (aliases.some(({ normalized: value }) => value.startsWith(normalized))) {
     return { score: 82, reason: "Alias begins with the search" };

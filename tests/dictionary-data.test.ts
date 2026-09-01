@@ -91,6 +91,21 @@ describe("clinical dictionary catalogue", () => {
     });
   });
 
+  it("keeps a Dictionary abbreviation mentioned inside a natural query ahead of Smart expansion matches", () => {
+    const hits = searchDictionary({
+      ...baseFilters,
+      q: "Can you explain MSE via a mental state exam?",
+      expansions: ["mental state examination", "MSE"],
+    });
+
+    expect(hits[0]).toMatchObject({
+      type: "entry",
+      entry: { slug: "mental-state-examination" },
+      score: 95,
+      reason: "Mentioned abbreviation: MSE",
+    });
+  });
+
   it("uses one predicate for lens counts and topic, kind and source filters", () => {
     const topic = dictionaryTopics[0]!;
     const topicHits = searchDictionary({ ...baseFilters, view: "definitions", topics: [topic.slug] });

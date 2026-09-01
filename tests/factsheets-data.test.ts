@@ -129,6 +129,17 @@ describe("factsheet library", () => {
     expect(matches.map((sheet) => sheet.slug)).toEqual(["sertraline", "gad"]);
   });
 
+  it("keeps a factsheet title mentioned inside a natural query ahead of Smart expansion matches", () => {
+    const matches = filterFactsheets(
+      "information about Generalised anxiety disorder for someone who worries all the time",
+      undefined,
+      ["anxiety", "worry"],
+    );
+
+    expect(matches[0]?.slug).toBe("gad");
+    expect(matches.map((sheet) => sheet.slug)).toContain("sertraline");
+  });
+
   it("does not turn an unknown query into an expansion match", () => {
     expect(filterFactsheets("this-matches-nothing-xyz", undefined, ["also-not-present"])).toEqual([]);
   });
