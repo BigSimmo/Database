@@ -156,6 +156,17 @@ export function CalculatorSheet({
             </span>
           </div>
           <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
+          {/* The scope line belongs HERE, not in ScorePanel at the foot of the
+              scroll body: this strip is pinned, so the score and its severity are
+              readable throughout a long instrument while anything below the fold is
+              not. `caution` is set on one of the five released instruments, and the
+              catalogue's "Scores support clinical judgement" note is on the page
+              behind this modal, so without this the number and its label are the
+              only things in view at the moment they are read. */}
+          <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            Clinical reference — not validated decision support. Confirm scoring and interpretation against the source
+            instrument.
+          </p>
         </div>
 
         <div

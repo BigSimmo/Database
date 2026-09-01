@@ -16,7 +16,8 @@ import {
 } from "@/components/calculators/calculator-fixtures";
 import { actionsForBand } from "@/components/calculators/calculator-pathways";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
-import { NextActionsPanel, ScorePanel } from "@/components/calculators/search-detail";
+import { CalculatorSheet } from "@/components/calculators/calculator-sheet";
+import { NextActionsPanel } from "@/components/calculators/search-detail";
 import { CopyResultButton, deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
@@ -185,26 +186,43 @@ describe("calculator mode copy", () => {
     );
   });
 
-  it("carries a standing scope line with every score, whether or not the instrument sets a caution", () => {
-    // The scoring sheet is a modal, so the catalogue's "Scores support clinical
-    // judgement" note sits on the page behind it, and `caution` is set on only one
-    // of the released instruments. Without a standing line, four of the five show a
-    // score and a severity label as the only things in view when they are read.
+  it("keeps the scope line pinned with the live score, not below the fold", () => {
+    // The sheet pins a live strip (score, progress, severity, band bar) above a
+    // scrolling body. A caveat at the foot of that body is not in view while a
+    // clinician answers a nine-item instrument and watches the running score, so
+    // asserting the line merely EXISTS would pass for a placement that fails the
+    // point of the change. `caution` is set on one of the five released
+    // instruments, so for the other four this line is the only qualifier shown.
+    // jsdom implements no scroll methods, and the sheet resets its scroll position
+    // on mount. Stub rather than skip: the placement assertion below is the point.
+    const originalScrollTo = Element.prototype.scrollTo;
+    Element.prototype.scrollTo = vi.fn() as unknown as typeof Element.prototype.scrollTo;
+
+    const SCOPE =
+      /Clinical reference — not validated decision support\. Confirm scoring and interpretation against the source instrument\./;
     const withoutCaution = calculators.filter((calculator) => !calculator.caution);
     expect(withoutCaution.length, "most released instruments carry no per-instrument caution").toBeGreaterThan(0);
 
     for (const calculator of withoutCaution) {
-      const { unmount } = render(
-        <ScorePanel calc={calculator} derived={deriveCalculator(calculator, {})} onReset={() => {}} />,
+      const { container, unmount } = render(
+        <CalculatorSheet calc={calculator} answers={{}} onAnswersChange={() => {}} onClose={() => {}} />,
       );
+
+      const line = screen.getByText(SCOPE);
+      expect(line, `${calculator.abbrev} renders a score with no scope line`).toBeInTheDocument();
+
+      // The decisive assertion: it must not live inside the scrolling region.
+      const scrollRegion = container.querySelector(".overflow-y-auto");
+      expect(scrollRegion, "the sheet should still have a scrolling body").not.toBeNull();
       expect(
-        screen.getByText(
-          /Clinical reference — not validated decision support\. Confirm scoring and interpretation against the source instrument\./,
-        ),
-        `${calculator.abbrev} renders a score with no scope line`,
-      ).toBeInTheDocument();
+        scrollRegion?.contains(line),
+        `${calculator.abbrev} scope line sits in the scroll body, so it is below the fold while the score is read`,
+      ).toBe(false);
+
       unmount();
     }
+
+    Element.prototype.scrollTo = originalScrollTo;
   });
 
   it("states the calculator interface privacy boundary on the live catalogue", () => {
