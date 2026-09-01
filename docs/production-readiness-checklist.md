@@ -7,9 +7,9 @@ Unchecked boxes below are rerun per release candidate; they do not imply abandon
 
 **Privacy status authority:** [`governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json).
 The 2026-09-01 closeout records privacy-minimal OpenAI account controls and an acknowledged ZDR
-request, not ZDR approval. `npm run check:production-readiness` must continue to fail closed until the
-eight provider, owner, legal, privacy-adviser, and clinical-safety requirements in that register are
-verified.
+request, not ZDR approval. The production HMAC and database-retention owner attestations were recorded
+on 2026-09-01. `npm run check:production-readiness` must continue to fail closed until the remaining
+six provider, legal, privacy-adviser, and clinical-safety requirements in that register are verified.
 
 **Provider-backed boundary:** commands such as `check:supabase-project`, `eval:quality`,
 `eval:retrieval:quality`, and `verify:release` touch live Supabase and/or OpenAI. Agents must not

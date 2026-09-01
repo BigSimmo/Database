@@ -82,7 +82,7 @@ npm run docs:check-links
 - [openai-cross-border-basis.md](openai-cross-border-basis.md) — cross-border data-processing basis
 - [governance/privacy-readiness.v1.json](governance/privacy-readiness.v1.json) — authoritative machine-checkable privacy readiness status
 - [governance/privacy-closeout-2026-09-01.md](governance/privacy-closeout-2026-09-01.md) — current provider, retention, legal, notice, and clinical closeout evidence
-- [governance/privacy-role-attestation-pack-2026-09-01.md](governance/privacy-role-attestation-pack-2026-09-01.md) — role-specific sign-off fields for the remaining eight requirements
+- [governance/privacy-role-attestation-pack-2026-09-01.md](governance/privacy-role-attestation-pack-2026-09-01.md) — evidence and role decisions for eight requirements; two owner approvals are complete and six remain
 - [production-readiness-checklist.md](production-readiness-checklist.md) — release readiness criteria
 - [samd-classification-medication-considerations.md](samd-classification-medication-considerations.md) — SaMD classification and medication considerations
 
