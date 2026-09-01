@@ -14,19 +14,11 @@ import type {
 } from "@/lib/service-catalog";
 
 export type ServiceAvailabilityStatus =
-  | "active"
-  | "planned"
-  | "temporarily_unavailable"
-  | "closed"
-  | "superseded"
-  | "unknown";
+  "active" | "planned" | "temporarily_unavailable" | "closed" | "superseded" | "unknown";
 
 export type ServicePresentationTier = "A_immediate" | "B_common_referral" | "C_specialist_support";
 export type ServiceVerificationStatus =
-  | "verified_current_core"
-  | "locally_confirmed"
-  | "legacy_unverified"
-  | "unable_to_verify";
+  "verified_current_core" | "locally_confirmed" | "legacy_unverified" | "unable_to_verify";
 
 export type CanonicalServiceSourceInput = {
   id: string;
@@ -136,11 +128,7 @@ function sourceEvidence(record: CanonicalServiceInput): CatalogServiceEvidenceSo
 
 function recordClaims(record: CanonicalServiceInput): CatalogServiceClaim[] {
   const sourceIds = record.sources.map((source) => source.id);
-  const claim = (
-    field: string,
-    text: string,
-    riskLevel: CatalogServiceClaim["riskLevel"],
-  ): CatalogServiceClaim => ({
+  const claim = (field: string, text: string, riskLevel: CatalogServiceClaim["riskLevel"]): CatalogServiceClaim => ({
     claimId: `${record.id}.${field}`,
     field,
     text,
@@ -217,7 +205,10 @@ function structuredHours(record: CanonicalServiceInput): CatalogServiceStructure
 
 function canonicalToCatalogService(record: CanonicalServiceInput): CatalogService {
   const evidence = sourceEvidence(record);
-  const contactDetails = record.contacts.map((contact) => contact.value).filter(Boolean).join("; ");
+  const contactDetails = record.contacts
+    .map((contact) => contact.value)
+    .filter(Boolean)
+    .join("; ");
   const route = record.routes[0]?.summary || "Contact service and confirm the referral pathway";
   const exclusions = record.notFor.join(" | ");
   const provider = evidence[0]?.issuer ?? "Authoritative service source";
@@ -455,7 +446,10 @@ export function canonicalServiceValidationErrors(records = canonicalRecords): st
       if (!record.hours.display.trim()) errors.push(`${record.id} has no urgent hours`);
       if (record.verification !== "verified_current_core") errors.push(`${record.id} urgent route is not verified`);
     }
-    if (record.tier === "A_immediate" && record.notFor.some((value) => /non-crisis routine referral only/i.test(value))) {
+    if (
+      record.tier === "A_immediate" &&
+      record.notFor.some((value) => /non-crisis routine referral only/i.test(value))
+    ) {
       errors.push(`${record.id} carries a contradictory non-crisis exclusion`);
     }
   }
