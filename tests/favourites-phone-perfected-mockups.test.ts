@@ -33,6 +33,15 @@ function source(file: string) {
   return readFileSync(join(root, file), "utf8");
 }
 
+/** A phone control is either explicitly at least 48px or covers an enclosing row. */
+function meetsPhoneTapTargetMinimum(classes: string): boolean {
+  // `absolute inset-0` is the deliberate row-wide exception: its hit area is
+  // the enclosing row, which establishes the 48px minimum. Everything else
+  // must state a 48px-or-larger Tailwind dimension on the button itself.
+  if (/\babsolute\b[\s\S]*\binset-0\b/.test(classes)) return true;
+  return /\b(?:min-h|size)-(?:1[2-9]|[2-9]\d)\b/.test(classes);
+}
+
 describe("favourites phone-perfected mockup", () => {
   it("draws only the four content types the favourites contract can persist", () => {
     const allowed = favouriteContentTypeSchema.options;
@@ -102,7 +111,6 @@ describe("favourites phone-perfected mockup", () => {
     // each `<button>`'s OWN class list instead of the file around it, so a
     // decorative `size-9` icon tile beside a full-row button no longer reads
     // as a small target and a `size-11` button can no longer hide.
-    const subFortyEight = /\b(?:min-h|size|h)-(?:9|10|11)\b/;
     const offenders: string[] = [];
 
     for (const file of ["favourites-rows.tsx", "favourites-phone-shell.tsx", "favourites-phone-perfected-page.tsx"]) {
@@ -112,7 +120,10 @@ describe("favourites phone-perfected mockup", () => {
         // The button's own className: the first one after the tag opens, read
         // to its balanced close so child elements are never included.
         const classIndex = text.indexOf("className", index);
-        if (classIndex === -1) continue;
+        if (classIndex === -1) {
+          offenders.push(`${file}:${text.slice(0, index).split("\n").length} (no own size class)`);
+          continue;
+        }
         const childIndex = text.indexOf("<", index + 7);
         if (childIndex !== -1 && childIndex < classIndex) continue; // no own className
         let depth = 0;
@@ -126,7 +137,7 @@ describe("favourites phone-perfected mockup", () => {
           } else if (char === "\n" && depth === 0) break;
         }
         const ownClasses = text.slice(classIndex, end + 1);
-        if (subFortyEight.test(ownClasses)) {
+        if (!meetsPhoneTapTargetMinimum(ownClasses)) {
           offenders.push(`${file}:${text.slice(0, index).split("\n").length}`);
         }
       }
@@ -139,6 +150,18 @@ describe("favourites phone-perfected mockup", () => {
     const shell = source("favourites-phone-shell.tsx");
     const setRailBlock = shell.split("export function SetRail")[1]?.split("export function PhoneComposer")[0] ?? "";
     expect(setRailBlock, "set chips must use the 48px production knob").toMatch(/\bmin-h-12\b/);
+  });
+
+  it("rejects undersized and implicit controls instead of only blacklisting 44px tokens", () => {
+    expect(meetsPhoneTapTargetMinimum("inline-flex size-12 items-center")).toBe(true);
+    expect(meetsPhoneTapTargetMinimum("flex min-h-12 w-full")).toBe(true);
+    expect(meetsPhoneTapTargetMinimum("absolute inset-0 hover:bg-surface")).toBe(true);
+
+    // Mutation fixtures: all of these used to slip through the blacklist-only
+    // guard even though none establishes the promised 48px minimum.
+    expect(meetsPhoneTapTargetMinimum("inline-flex size-8")).toBe(false);
+    expect(meetsPhoneTapTargetMinimum("inline-flex min-h-11")).toBe(false);
+    expect(meetsPhoneTapTargetMinimum("inline-flex px-3 py-2")).toBe(false);
   });
 
   it("keeps pinned rows ahead of grouped sets on the landing view", () => {
