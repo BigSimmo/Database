@@ -414,5 +414,3 @@ alter function public.match_governed_candidate_chunks_v3(
 ) owner to postgres;
 
 commit;
-
-
