@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "1944c0584064e8edfe5dc2c00f2e284cdf008ffd",
-    "committed_at": "2026-09-01T21:36:04+08:00"
+    "sha": "a4d600782727ffbd4fc0e899a3c502c5a668bf5e",
+    "committed_at": "2026-09-01T23:34:27+08:00"
   },
   "routes": {
     "modes": [
@@ -581,6 +581,11 @@
       {
         "path": "/mockups/development/clinical-trust",
         "file": "src/app/mockups/development/clinical-trust/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/corpus-health",
+        "file": "src/app/mockups/development/corpus-health/page.tsx",
         "area": "mockup"
       },
       {
@@ -1425,9 +1430,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 199,
+      "pages": 200,
       "product_pages": 63,
-      "mockup_pages": 136,
+      "mockup_pages": 137,
       "redirects": 17,
       "api": 60
     }
@@ -4336,6 +4341,38 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-01",
+        "ref": "codex/smart-local-modes-20260901 (PR #2508)",
+        "head": "a1e1b973599e9bb301360be90c051986c172670f",
+        "scope": "PR #2508 native Smart catalogue matching",
+        "outcome": "Fixed P1 Compare result-order regression; no additional P0-P3 findings.",
+        "checks": "Focused Vitest 10/10; npm run format; full suite stopped before provider-backed path."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2504",
+        "head": "0bb1c2b6c01509d3ea5a978c3bd56c36176438d7",
+        "scope": "Run PR sweep: scope corpus-health reads",
+        "outcome": "Replaced inaccessible authenticated-table reads with an independently administrator-gated service-role boundary that filters every query to the verified owner; restored the complete implementation after an intervening placeholder-only commit.",
+        "checks": "Focused developer corpus-health test: 16 passed; explicit owner-filter and non-administrator coverage; diff check."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2504",
+        "head": "3b1dc7c8bc997a4ea4bac44dc7de01632e676e63",
+        "scope": "Resolve Codex P1: corpus-health table access",
+        "outcome": "Verified the authenticated role lacks table SELECT; the administrator-gated server-only service-role path scopes every documents and document_index_quality query to the verified owner, with current access-control documentation.",
+        "checks": "Focused corpus-health suite: 18 passed; Prettier check passed; schema grants verified; independent review found no runtime access-control defect."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2507",
+        "head": "ebb57785958888c2703ccb6cadac76ce344065ee",
+        "scope": "Run PR sweep: enforce Favourites phone tap-target minimum",
+        "outcome": "Replaced the blacklist-only target guard with a positive 48px-or-row-wide requirement and mutation fixtures for undersized or implicit controls.",
+        "checks": "Focused Favourites phone mockup test: 9 passed; diff check."
+      },
       {
         "date": "2026-09-01",
         "ref": "PR-2508",
@@ -25594,8 +25631,8 @@
       }
     ],
     "counts": {
-      "records": 2657,
-      "refs": 1623
+      "records": 2661,
+      "refs": 1626
     }
   }
 }

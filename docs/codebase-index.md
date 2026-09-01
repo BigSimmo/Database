@@ -601,6 +601,19 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `scripts/check-outstanding-issues-snapshot.mjs` regenerates the snapshot in memory and compares
   its content keys (`queue`, `open`, `pending`) against the committed file, failing with the fix
   command on any mismatch — this is what makes a stale snapshot impossible to ship.
+  `resolveQualitySpread`) verifies the signed-in administrator through `createSupabaseServerClient`,
+  then reads `public.documents` and `public.document_index_quality` through the server-only
+  `createAdminClient`. `authenticated` has no table `SELECT` privilege on either table, so every
+  service-role query explicitly filters `owner_id` to that verified user. The admin client bypasses
+  RLS, making that application-enforced filter the access boundary; tests cover non-administrator
+  denial and fail if any recorded query omits it. Every failure reports as `null` and never as `0`, and each read is guarded
+  separately, because on this panel `0` is the reassuring answer and a rejected request must not be
+  able to impersonate it. Counts are computed in Postgres (`head: true`) rather than by counting
+  fetched rows, which PostgREST would cap. `resolveQualitySpread` is the pure derivation that tells
+  a real score distribution apart from every document carrying one repeated placeholder — the
+  reading that would otherwise make the quality half of the panel look like a measurement.
+  `src/lib/developer-area/clinical-answer-failures.ts` (`resolveClinicalAnswerFailures`,
+  `referencedQuestionCount`) is its sibling over the ledger and the RAG eval case list.
 - **Routes:** `/mockups/development` (`page.tsx`, Server Component) — the grouped hub: environment
   strip, a blocking-items callout when the ledger has P1s, then one section per non-empty panel
   group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
@@ -621,8 +634,14 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   experience, since `DeveloperAreaGate` no-ops outside production while the endpoint still enforces
   administrator auth everywhere — genuinely zero jobs, and the fetch itself failing) and buckets any
   job `status` this panel does not recognise (the column is a plain `string`, not an enum) under its
-  own "Other status" section, verbatim, rather than dropping it. All six inherit `DeveloperAreaGate`
-  from `layout.tsx`.
+  own "Other status" section, verbatim, rather than dropping it.
+  `/mockups/development/clinical-answer-failures` — open ledger items that name one of the
+  repository's clinical eval questions by case id, presented as references rather than as verdicts.
+  `/mockups/development/corpus-health` (`corpus-health/page.tsx`, Server Component) — the library at
+  rest rather than in flight: counts by status, documents that finished `indexed` with zero chunks,
+  failures with the recorded reason, and the extraction-quality distribution. It authenticates via
+  the user-session client, then reads through the server-only, owner-filtered admin path. Every page
+  in this directory inherits `DeveloperAreaGate` from `layout.tsx`.
 - **Components:** `src/components/developer-area/developer-hub-nav-header.tsx` (`"use client"`,
   owns the hub's in-page section table and mounts `InPageNavHeader`) and
   `src/components/developer-area/hub/` — `freshness-stamp.tsx`, `environment-strip.tsx`,
