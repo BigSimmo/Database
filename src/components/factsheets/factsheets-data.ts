@@ -14,6 +14,7 @@
  */
 
 import { categoryAccentVars, FACTSHEET_CATEGORY_IDENTITY, type FactsheetCategoryKey } from "@/lib/category-identity";
+import { normalizeSearchText } from "@/lib/catalog-search";
 
 /**
  * Demonstration/governance status shown on-screen and preserved in the printed /
@@ -700,19 +701,38 @@ export function visibleTopicSheets<T>(
 }
 
 /** Server-driven filter for the search page: optional query + optional category. */
-export function filterFactsheets(query: string, category?: string): Factsheet[] {
-  const q = query.trim().toLowerCase();
+export function filterFactsheets(query: string, category?: string, expansions: readonly string[] = []): Factsheet[] {
+  const q = normalizeSearchText(query);
+  const normalizedExpansions = expansions.map(normalizeSearchText).filter(Boolean);
   const activeCategory = factsheetCategories.find((entry) => entry === category);
-  return factsheets
-    .filter((sheet) => !activeCategory || sheet.category === activeCategory)
-    .filter((sheet) => {
-      if (!q) return true;
-      // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
-      // even though it is stored separately from the title.
-      return `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`
-        .toLowerCase()
-        .includes(q);
-    });
+  const identityMatches: Factsheet[] = [];
+  const directMatches: Factsheet[] = [];
+  const expansionOnlyMatches: Factsheet[] = [];
+  for (const sheet of factsheets) {
+    if (activeCategory && sheet.category !== activeCategory) continue;
+    // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
+    // even though it is stored separately from the title.
+    const searchable = normalizeSearchText(
+      `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`,
+    );
+    // A natural-language query can name a sheet while adding surrounding
+    // context. Treat that embedded title or brand as a direct identity match,
+    // rather than letting an expansion-only hit (for example, an incidental
+    // medicine mentioning "anxiety") appear above the sheet the reader named.
+    const identities = [sheet.title, sheet.brand]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeSearchText)
+      .filter(Boolean);
+    const mentionsIdentity = identities.some((identity) => ` ${q} `.includes(` ${identity} `));
+    if (q && mentionsIdentity) {
+      identityMatches.push(sheet);
+    } else if (!q || searchable.includes(q)) {
+      directMatches.push(sheet);
+    } else if (normalizedExpansions.some((term) => searchable.includes(term))) {
+      expansionOnlyMatches.push(sheet);
+    }
+  }
+  return [...identityMatches, ...directMatches, ...expansionOnlyMatches];
 }
 
 export function relatedFactsheets(slug: string): Factsheet[] {

@@ -20,6 +20,7 @@ import CalculatorsRoute from "@/app/(search-app)/calculators/page";
 import CalculatorsSearchRoute from "@/app/(search-app)/calculators/search/page";
 import {
   calculatorDomainCandidateCount,
+  calculatorMatchesQuery,
   calculatorProgressCandidateCount,
   calculatorTimeCandidateCount,
   filterCalculatorRecords,
@@ -31,6 +32,7 @@ import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
   return Object.fromEntries(calc.items.map((item) => [item.id, 0]));
@@ -131,6 +133,29 @@ describe("calculator mode routing", () => {
 });
 
 describe("calculator filter predicates", () => {
+  it("matches Smart screening intent and normalized exact calculator codes", () => {
+    expect(
+      calculatorMatchesQuery(
+        calculators.find((calculator) => calculator.id === "phq9")!,
+        "screen depression severity",
+        smartSearchExpansions("calculators", "screen depression severity"),
+      ),
+    ).toBe(true);
+    expect(
+      calculatorMatchesQuery(
+        calculators.find((calculator) => calculator.id === "gad7")!,
+        "measure anxiety symptoms",
+        smartSearchExpansions("calculators", "measure anxiety symptoms"),
+      ),
+    ).toBe(true);
+    expect(
+      calculatorMatchesQuery(
+        calculators.find((calculator) => calculator.id === "phq9")!,
+        "PHQ-9?",
+      ),
+    ).toBe(true);
+  });
+
   it("applies OR within domains and AND across domain, progress, time, and query", () => {
     const records = recordsWithProgress();
     const filters: CalculatorFilterState = {
@@ -181,6 +206,32 @@ describe("calculator filter predicates", () => {
     expect(calculatorDomainCandidateCount(records, "", filters, "anxiety")).toBe(2);
     expect(calculatorProgressCandidateCount(records, "", filters, "in-progress")).toBe(1);
     expect(calculatorTimeCandidateCount(records, "", filters, "quick")).toBe(0);
+  });
+
+  it("uses the expanded query predicate for candidate counts and visible records", () => {
+    const records = recordsWithProgress();
+    const query = "screen depression severity";
+    const expansions = smartSearchExpansions("calculators", query);
+    const filters = emptyFilters();
+
+    const visibleIds = filterCalculatorRecords(records, query, filters, expansions).map(({ calc }) => calc.id);
+    expect(visibleIds[0]).toBe("phq9");
+    expect(calculatorProgressCandidateCount(records, query, filters, "all", expansions)).toBe(visibleIds.length);
+  });
+
+  it("prioritizes an explicit calculator identity ahead of expansion-only matches", () => {
+    const records = recordsWithProgress();
+    const query = "AUDIT-C screen hazardous drinking";
+    const ids = filterCalculatorRecords(
+      records,
+      query,
+      emptyFilters(),
+      smartSearchExpansions("calculators", query),
+    ).map(({ calc }) => calc.id);
+
+    expect(ids.indexOf("auditc")).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf("cage")).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf("auditc")).toBeLessThan(ids.indexOf("cage"));
   });
 });
 
