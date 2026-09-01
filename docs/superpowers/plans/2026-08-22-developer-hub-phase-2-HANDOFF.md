@@ -112,9 +112,18 @@ Classify failures by mechanism, not by matching a name against a list that has a
 
 1. **No phone-viewport proof.** Server-render and jsdom only, as in Phase 1. Desktop-first by the
    owner's choice; the gap is real and stated.
-2. **The environment strip is still three-quarters unwired** — `isDemoMode()`, the signed-in email, the
-   document count. Spec §3 defers these to the phase that owns their data source. The hub's own comment
-   now says that, rather than pointing at Phase 2 as it did.
+2. **The environment strip was three-quarters unwired at the end of Phase 2** — `isDemoMode()`, the
+   signed-in email, the document count. Spec §3 defers these to the phase that owns their data source.
+   **Now closed (2026-09-01), with the owner's approval for the Supabase read that spec §3 reserved.**
+   All four facts are wired. `isDemoMode()` is a synchronous env read. The signed-in email and the
+   document count come from `src/lib/developer-area/environment-facts.ts` in one Supabase round trip,
+   which is what makes the hub page an async Server Component — the change that also made the dom
+   tests and the shared route table in `tests/in-page-nav-route-sections.dom.test.tsx` await their
+   fixtures. Two rules in that module are load-bearing and are pinned by mutation-checked tests: the
+   count is scoped to the caller's own documents by row-level security rather than by application
+   code, and every failure path reports `null` ("document count unavailable") rather than `0`, so an
+   empty corpus can never be confused with a read that failed.
+
 3. **One panel remains a declared placeholder**: `hazard-register` (phase 4). Four others were
    removed in `#2371` for restating facts a green gate already guarantees, and `ingestion` was
    built. The owner ruled on 2026-08-26 that the hazard register belongs in this hub rather than

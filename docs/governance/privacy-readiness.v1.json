@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "authority": "This register is the status authority for privacy readiness. Repository proof cannot satisfy provider, legal, or clinical evidence classes.",
-  "reviewedCommit": "f2967ae128a3c8e7b4fc315bc0f7610cd67ce0f7",
+  "reviewedCommit": "d3074946a917cac378de64284c67cbc1d4dc58fa",
   "reviewedAt": "2026-09-01",
   "reviewExpiresAt": "2026-12-01",
   "requirements": [
@@ -42,37 +42,44 @@
     {
       "id": "PRIV-PROVIDER-PRODUCTION-HMAC-SECRET",
       "evidenceClass": "provider",
-      "status": "partial",
+      "status": "verified",
       "accountableRole": "Production platform owner",
       "evidenceReferences": [
         "docs/privacy-impact-assessment.md",
         "docs/operator-backlog.md",
         "scripts/check-env-parity.mjs",
-        "scripts/production-readiness.ts"
+        "scripts/production-readiness.ts",
+        "docs/governance/privacy-role-attestation-pack-2026-09-01.md"
       ],
-      "externalEvidenceReference": "Operator-authorised GitHub and Railway production names-only parity check passed on 2026-09-01; values were not emitted or persisted",
+      "externalEvidenceReference": "Operator-authorised GitHub and Railway production names-only parity check passed on 2026-09-01; the PsychSift owner gave contextual explicit approval of the documented production HMAC control in Codex task 01a04af2-74bf-7e40-aa14-4a9e78295b33 on 2026-09-01; secret values were not emitted or persisted",
+      "verifiedByRole": "Production platform owner",
       "reviewedAt": "2026-09-01",
       "reviewExpiresAt": "2026-10-01",
       "statusHistory": [
         { "status": "pending", "date": "2026-08-23" },
-        { "status": "partial", "date": "2026-09-01" }
+        { "status": "partial", "date": "2026-09-01" },
+        { "status": "verified", "date": "2026-09-01" }
       ]
     },
     {
       "id": "PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY",
       "evidenceClass": "provider",
-      "status": "partial",
+      "status": "verified",
       "accountableRole": "Database operations owner",
       "evidenceReferences": [
         "docs/privacy-impact-assessment.md",
-        "supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql"
+        "supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql",
+        "supabase/migrations/20260901033250_enable_staging_privacy_retention_schedules.sql",
+        "docs/governance/privacy-role-attestation-pack-2026-09-01.md"
       ],
-      "externalEvidenceReference": "Staging migration 20260901033250 enabled pg_cron on the pinned staging project and post-apply verification found all four expected privacy-retention jobs active on 2026-09-01; Database operations owner attestation remains pending",
+      "externalEvidenceReference": "Staging migration 20260901033250 enabled pg_cron on the pinned staging project and post-apply verification found all four expected privacy-retention jobs active on 2026-09-01; the PsychSift owner gave contextual explicit approval of the verified retention schedules in Codex task 01a04af2-74bf-7e40-aa14-4a9e78295b33 on 2026-09-01",
+      "verifiedByRole": "Database operations owner",
       "reviewedAt": "2026-09-01",
       "reviewExpiresAt": "2026-10-01",
       "statusHistory": [
         { "status": "partial", "date": "2026-08-23" },
-        { "status": "partial", "date": "2026-09-01" }
+        { "status": "partial", "date": "2026-09-01" },
+        { "status": "verified", "date": "2026-09-01" }
       ]
     },
     {

@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 82,
+    "pending": 85,
     "resolved": 431
   },
   "queue": [
@@ -885,6 +885,12 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "224cda1c-ae72-4921-b8aa-e6b3e315796a",
+      "action": "update",
+      "summary": "#ZBAC9D: detail → documents.owner_id is ON DELETE SET NULL (supabase/schema.sql) while a null owner independently means 'public corpus' in retrieval. CORRECTION (Codex on PR #2494): deleting an auth user does NOT silently republish private documents — documents_require_publication_approval (BEFORE INSERT OR UPDATE) runs guard_document_publication_transition, which rejects every non-null-to-null owner transition without matching publication evidence, so the user-delete transaction fails instead of orphaning/republishing. Distinguish blocked user deletion from any pre-existing orphan rows. RE-VERIFIED against main and the P2 -> P1 escalation still holds on the retrieval hazard, not on a live delete-to-publish path. (1) The retrieval path is NOT closed at any layer. public.retrieval_owner_matches still resolves the public sentinel to 'row_owner_id is null' with no public_corpus condition, and grep for 'public_corpus' returns ZERO occurrences across the entire retrieval chain: rag/rag-candidate-sources.ts, corpus-grounding.ts, deep-memory.ts, document-enrichment.ts, owner-scope.ts, clinical-search.ts and query-privacy.ts. Any ownerless row (pre-existing orphan or armed hole) is therefore retrievable as public corpus and citable in an answer to an anonymous query. (2) The helper written to close exactly this hazard is DEAD CODE. src/lib/documents/is-public-document.ts requires owner_id === null AND metadata.public_corpus === true, and tests/documents-is-public.test.ts:22 pins the precise case ('Orphaned after user delete' -> false), but grep across src/ and worker/ finds NO production caller outside its own module and the barrel re-export. Same shape as #A3AHCX. (3) The only genuinely closed application read path is the REST document read: withOwnerReadScope in src/lib/public-api-access.ts applies .is('owner_id', null).eq('metadata->>public_corpus','true'). NEXT, in order: (a) one read-only live count of documents where owner_id is null and metadata->>'public_corpus' is distinct from 'true' — this decides whether the hole is currently leaking or merely armed, and needs owner approval as a provider-backed read; (b) close the retrieval path, which is a genuine retrieval behaviour change on a protected RAG surface and so needs the RAG flag plus a live eval-canary pair; (c) add a database proof that deleting an owner of an unapproved private document fails and creates no ownerless indexed row, then in an approved production window change documents.owner_id to ON DELETE RESTRICT (or an explicit visibility column) and align the RPC predicate. Note the offline proof that no table whose null owner means public declares ON DELETE SET NULL cannot be added green today — it would fail on documents.owner_id, so it is the guard that accompanies (c), not a step that precedes it.; priority → P1; source → repo-wide audit at 3ed1932 (six domain reviewers); re-verified and expanded against main a633eb6e3 by the database coordination chat 2026-09-01; deletion-path correction per Codex review on PR #2494",
+      "created_at": "2026-09-01"
+    },
+    {
       "request_id": "256a5104-df13-44d3-9734-645e08b2b0df",
       "action": "cancel",
       "summary": "Cancel request 97bbfd51-435b-4e31-b956-7138753eb0a8: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
@@ -1023,6 +1029,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "7492964b-2a87-4116-a492-8212f5270a99",
+      "action": "cancel",
+      "summary": "Cancel request eaa89aeb-c7a4-47d8-b81f-7ef8a6689c4e: Owner approvals closed the HMAC and retention items; replace with a six-blocker request.",
+      "created_at": "2026-09-01"
+    },
+    {
       "request_id": "7ab6b272-d913-43f5-bf08-a34dcb362f9a",
       "action": "add",
       "summary": "Caring Contacts: carry the retention clearance instant on Episode so a screen stops inferring clearance from a blank patient name",
@@ -1153,6 +1165,12 @@
       "action": "done",
       "summary": "#61TZJA: Verified PR #2199 merged and AWAITING_BASELINE in tests/ui-visual-baseline.spec.ts is empty.",
       "created_at": "2026-08-31"
+    },
+    {
+      "request_id": "bb121cd3-235b-45f1-817e-a82d7c6c5a31",
+      "action": "add",
+      "summary": "Close remaining privacy provider, legal, and clinical approvals",
+      "created_at": "2026-09-01"
     },
     {
       "request_id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",

@@ -16,13 +16,7 @@ import {
   progressLabel,
   type AnswerMap,
 } from "./calculator-ui";
-import {
-  CalculatorSearchHome,
-  NextActionsPanel,
-  RelatedContentPanel,
-  ScorePanel,
-  type SessionAnswers,
-} from "./search-detail";
+import { CalculatorSearchHome, NextActionsPanel, ScorePanel, type SessionAnswers } from "./search-detail";
 
 /**
  * Popup variant of the search flow: the individual calculator opens as a
@@ -35,13 +29,11 @@ export function CalculatorSheet({
   answers,
   onAnswersChange,
   onClose,
-  onOpenCalculator,
 }: {
   calc: CalculatorFixture;
   answers: AnswerMap;
   onAnswersChange: (next: AnswerMap) => void;
   onClose: () => void;
-  onOpenCalculator: (calcId: string) => void;
 }) {
   const derived = deriveCalculator(calc, answers);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -180,10 +172,7 @@ export function CalculatorSheet({
 
           <CalculatorItems calc={calc} answers={answers} onAnswersChange={onAnswersChange} />
 
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-            <NextActionsPanel calc={calc} derived={derived} />
-            <RelatedContentPanel calc={calc} derived={derived} onOpenCalculator={onOpenCalculator} />
-          </div>
+          <NextActionsPanel calc={calc} derived={derived} />
 
           <ScorePanel calc={calc} derived={derived} onReset={() => onAnswersChange({})} />
         </div>
@@ -220,7 +209,6 @@ export function CalculatorsPopupSheetMockup() {
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((prev) => ({ ...prev, [activeCalc.id]: next }))}
           onClose={() => setOpenId(null)}
-          onOpenCalculator={setOpenId}
         />
       ) : null}
     </div>

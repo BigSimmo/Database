@@ -22,9 +22,11 @@ describe("privacy readiness contract", () => {
   });
 
   it("fails release closed on the remaining human and environment blockers", () => {
-    expect(validatePrivacyReadiness(manifest, { release: true })).toContain(
-      "PRIV-LEGAL-RAILWAY-DPA: release-blocking status pending",
-    );
+    const releaseErrors = validatePrivacyReadiness(manifest, { release: true });
+    expect(releaseErrors).toContain("PRIV-LEGAL-RAILWAY-DPA: release-blocking status pending");
+    expect(releaseErrors.filter((error: string) => error.includes("release-blocking status"))).toHaveLength(6);
+    expect(releaseErrors).not.toContain("PRIV-PROVIDER-PRODUCTION-HMAC-SECRET: release-blocking status partial");
+    expect(releaseErrors).not.toContain("PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY: release-blocking status partial");
     expect(packageJson.scripts["check:production-readiness"]).toContain("check:privacy-readiness:release");
     expect(packageJson.scripts["check:production-readiness:ci"]).toContain("check:privacy-readiness");
     expect(packageJson.scripts["check:production-readiness:ci"]).not.toContain("check:privacy-readiness:release");
@@ -33,7 +35,10 @@ describe("privacy readiness contract", () => {
   it("records current provider evidence without promoting repository-only OpenAI claims", () => {
     const byId = new Map(manifest.requirements.map((item: { id: string }) => [item.id, item]));
 
-    expect(byId.get("PRIV-PROVIDER-PRODUCTION-HMAC-SECRET")).toMatchObject({ status: "partial" });
+    expect(byId.get("PRIV-PROVIDER-PRODUCTION-HMAC-SECRET")).toMatchObject({
+      status: "verified",
+      verifiedByRole: "Production platform owner",
+    });
     expect(byId.get("PRIV-PROVIDER-OPENAI-ZDR")).toMatchObject({
       status: "pending",
       externalEvidenceReference: expect.stringContaining("API input/output sharing disabled"),
@@ -48,7 +53,10 @@ describe("privacy readiness contract", () => {
       externalEvidenceReference: expect.stringContaining("submitted and acknowledged by OpenAI"),
     });
     expect(byId.get("PRIV-LEGAL-OPENAI-DPA")).toMatchObject({ status: "pending" });
-    expect(byId.get("PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY")).toMatchObject({ status: "partial" });
+    expect(byId.get("PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY")).toMatchObject({
+      status: "verified",
+      verifiedByRole: "Database operations owner",
+    });
     expect(byId.get("PRIV-LEGAL-APP8-CROSS-BORDER-BASIS")).toMatchObject({ status: "pending" });
     expect(byId.get("PRIV-CLINICAL-PHI-MINIMISATION")).toMatchObject({ status: "partial" });
   });
