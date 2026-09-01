@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useEffect, useId, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useId, useRef, useState } from "react";
 import {
   Activity,
   CircleAlert,
@@ -71,7 +71,6 @@ import {
   type SafetyFinding,
   type SafetyFindingKind,
 } from "@/lib/clinical-safety";
-import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
@@ -193,23 +192,6 @@ export function AnswerUtilityActions({
   onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const feedbackPanelRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!feedbackOpen) return;
-    const panel = feedbackPanelRef.current;
-    if (!panel) return;
-    // The composer is fixed to the bottom of a phone viewport, and this panel
-    // opens near the foot of the answer. Measured at 390x844, it opened with its
-    // last two problem types behind that bar and the page did not move, so the
-    // list read as though it ended at "Outdated" — the options were reachable
-    // only by scrolling, which nothing invited the reader to do.
-    //
-    // Centring clears the composer whenever the panel fits. A panel taller than
-    // the viewport is anchored at its top instead, so the question and the first
-    // options are what you land on rather than the middle of the list.
-    const fitsOnScreen = panel.getBoundingClientRect().height < window.innerHeight * 0.7;
-    panel.scrollIntoView({ block: fitsOnScreen ? "center" : "start", behavior: resolveScrollBehavior() });
-  }, [feedbackOpen]);
   return (
     <section className="max-w-[68ch]" aria-label="Answer utilities">
       {/* Copy sits left; the two verdict controls sit right, as the approved
@@ -263,8 +245,19 @@ export function AnswerUtilityActions({
           </span>
         ) : null}
       </div>
+      {/* This panel deliberately does NOT scroll itself into view when it
+            opens, though it can open partly behind the fixed phone composer.
+            Every scripted scroll that would clear it is a downward scroll, and a
+            downward scroll is what hides the phone chrome; closing the panel then
+            shrinks the page back to the top without generating the upward travel
+            that reveals the chrome again, so the composer stays gone at the top
+            of the page. `ui-smoke`'s critical answer journey caught exactly that.
+            The options below the fold are reachable by scrolling — measured at
+            390x844, the last one clears the composer by 180px at full scroll —
+            so the remaining problem is that the list LOOKS complete, which wants
+            a sheet rather than a page scroll. Tracked, not bodged. */}
       {onSubmitFeedback && feedbackOpen ? (
-        <div id="answer-feedback-detail" ref={feedbackPanelRef} className="px-2 pb-2">
+        <div id="answer-feedback-detail" className="px-2 pb-2">
           <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" />
         </div>
       ) : null}
