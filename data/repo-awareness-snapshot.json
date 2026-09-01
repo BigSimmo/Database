@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "33bfca886fd1c6c0c46350ce3baec1ba579fa9e3",
-    "committed_at": "2026-09-01T11:52:59Z"
+    "sha": "4eebf126accdb4e200e843fb67bf3d7c839c154c",
+    "committed_at": "2026-09-01T13:11:45Z"
   },
   "routes": {
     "modes": [
@@ -581,6 +581,11 @@
       {
         "path": "/mockups/development/clinical-trust",
         "file": "src/app/mockups/development/clinical-trust/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/corpus-health",
+        "file": "src/app/mockups/development/corpus-health/page.tsx",
         "area": "mockup"
       },
       {
@@ -1425,9 +1430,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 199,
+      "pages": 200,
       "product_pages": 63,
-      "mockup_pages": 136,
+      "mockup_pages": 137,
       "redirects": 17,
       "api": 60
     }
@@ -4328,11 +4333,11 @@
     "records": [
       {
         "date": "2026-09-01",
-        "ref": "PR-2507",
-        "head": "ebb57785958888c2703ccb6cadac76ce344065ee",
-        "scope": "Run PR sweep: enforce Favourites phone tap-target minimum",
-        "outcome": "Replaced the blacklist-only target guard with a positive 48px-or-row-wide requirement and mutation fixtures for undersized or implicit controls.",
-        "checks": "Focused Favourites phone mockup test: 9 passed; diff check."
+        "ref": "PR-2504",
+        "head": "0bb1c2b6c01509d3ea5a978c3bd56c36176438d7",
+        "scope": "Run PR sweep: scope corpus-health reads",
+        "outcome": "Replaced inaccessible authenticated-table reads with an independently administrator-gated service-role boundary that filters every query to the verified owner; restored the complete implementation after an intervening placeholder-only commit.",
+        "checks": "Focused developer corpus-health test: 16 passed; explicit owner-filter and non-administrator coverage; diff check."
       },
       {
         "date": "2026-08-31",
