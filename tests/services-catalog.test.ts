@@ -20,12 +20,12 @@ import {
 } from "@/lib/services";
 
 describe("services catalogue", () => {
-  it("loads 219 services from snapshot", () => {
+  it("loads the governed 227-service catalogue from snapshot", () => {
     const snapshot = loadServicesSnapshot();
-    expect(snapshot.service_count).toBe(219);
-    expect(snapshot.services).toHaveLength(219);
-    expect(serviceRecords).toHaveLength(219);
-    expect(loadServiceRecords()).toHaveLength(219);
+    expect(snapshot.service_count).toBe(227);
+    expect(snapshot.services).toHaveLength(227);
+    expect(serviceRecords).toHaveLength(227);
+    expect(loadServiceRecords()).toHaveLength(227);
   });
 
   it("maps 13yarn with phone and medium confidence", () => {
@@ -42,19 +42,25 @@ describe("services catalogue", () => {
 
   it("compacts pipe-joined best-use blobs on summary cards", () => {
     const snapshot = loadServicesSnapshot();
-    const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");
-    expect(crisisCare?.best_use_indication?.includes("|")).toBe(true);
-    expect(crisisCare!.best_use_indication.length).toBeGreaterThan(140);
+    const adultHomeTreatment = snapshot.services.find(
+      (service) => service.canonical_name_key === "adult-home-treatment-team",
+    );
+    expect(adultHomeTreatment?.best_use_indication?.includes("|")).toBe(true);
+    expect(adultHomeTreatment!.best_use_indication.length).toBeGreaterThan(140);
 
-    const record = catalogToServiceRecord(crisisCare!);
+    const record = catalogToServiceRecord(adultHomeTreatment!);
     const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
-    expect(bestUseCard?.title).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
+    expect(bestUseCard?.title).toBe(
+      "Intensive daily home treatment as alternative to admission or as step between hospital and community",
+    );
     expect(bestUseCard?.title?.length).toBeLessThanOrEqual(120);
     expect(bestUseCard?.title?.includes("|")).toBe(false);
     expect(record.criteria?.some((criterion) => criterion.label.includes("|"))).toBe(false);
     expect(
       record.criteria?.some(
-        (criterion) => criterion.label === "After-hours crisis, homelessness, FDV, child-safety concerns",
+        (criterion) =>
+          criterion.label ===
+          "Intensive daily home treatment as alternative to admission or as step between hospital and community",
       ),
     ).toBe(true);
   });
@@ -65,10 +71,10 @@ describe("services catalogue", () => {
       (service) => service.canonical_name_key === "community-alcohol-and-drug-services-cads-network",
     );
     expect(cads?.referral_details.includes("|")).toBe(true);
-    expect(cads?.best_use_indication.includes("|")).toBe(true);
+    expect(cads?.best_use_indication.includes("|")).toBe(false);
 
     const record = catalogToServiceRecord(cads!);
-    expect(record.route).toBe("Self-referral accepted; clinician referral form available");
+    expect(record.route).toBe("Nearest CADS; self-referral accepted");
     expect(record.route).not.toContain("|");
     expect(record.eligibility).not.toContain("|");
     expect(record.cost).toBe("Free/confidential");
@@ -76,7 +82,7 @@ describe("services catalogue", () => {
     expect(record.subtitle).not.toContain("|");
 
     const primaryRoute = record.referralInfo?.find((row) => row.label === "Primary route");
-    expect(primaryRoute?.value).toBe("Self-referral accepted; clinician referral form available");
+    expect(primaryRoute?.value).toBe("Nearest CADS; self-referral accepted");
     expect(primaryRoute?.value).not.toEqual(cads!.referral_details);
     expect(primaryRoute?.value).not.toContain("|");
     expect(record.referralInfo?.every((row) => !row.value?.includes("|"))).toBe(true);
@@ -164,11 +170,15 @@ describe("services catalogue", () => {
 
   it("compacts raw best-use fallbacks for stale seeded summary cards", () => {
     const snapshot = loadServicesSnapshot();
-    const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");
-    expect(crisisCare).toBeTruthy();
+    const adultHomeTreatment = snapshot.services.find(
+      (service) => service.canonical_name_key === "adult-home-treatment-team",
+    );
+    expect(adultHomeTreatment).toBeTruthy();
 
-    const compacted = compactBestUseTitle(crisisCare!.best_use_indication);
-    expect(compacted).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
+    const compacted = compactBestUseTitle(adultHomeTreatment!.best_use_indication);
+    expect(compacted).toBe(
+      "Intensive daily home treatment as alternative to admission or as step between hospital and community",
+    );
     expect(compacted.includes("|")).toBe(false);
     expect(compacted.length).toBeLessThanOrEqual(120);
   });
@@ -285,7 +295,7 @@ describe("services catalogue", () => {
   it("normalizes raw catalog services consistently", () => {
     const snapshot = loadServicesSnapshot();
     const normalized = normalizeCatalogServices(snapshot);
-    expect(normalized).toHaveLength(219);
+    expect(normalized).toHaveLength(227);
     expect(normalized[0]?.id).toMatch(/^S\d{3}$/);
   });
 });
