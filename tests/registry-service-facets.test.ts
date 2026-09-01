@@ -27,13 +27,14 @@ describe("registry service facet payloads", () => {
       // through the same helper, which could let a parser regression agree
       // with itself. Facets intentionally project only their six supported
       // dimensions; governance-only tag metadata remains in catalog_payload.
+      const rawTags = (record.catalogPayload?.tags ?? {}) as Record<string, string[]>;
       expect(serviceCatalogTags(restored)).toEqual({
-        catchments: record.catalogPayload?.tags?.catchments ?? [],
-        age_groups: record.catalogPayload?.tags?.age_groups ?? [],
-        setting_flags: record.catalogPayload?.tags?.setting_flags ?? [],
-        acuity_flags: record.catalogPayload?.tags?.acuity_flags ?? [],
-        substance_flags: record.catalogPayload?.tags?.substance_flags ?? [],
-        housing_flags: record.catalogPayload?.tags?.housing_flags ?? [],
+        catchments: rawTags.catchments ?? [],
+        age_groups: rawTags.age_groups ?? [],
+        setting_flags: rawTags.setting_flags ?? [],
+        acuity_flags: rawTags.acuity_flags ?? [],
+        substance_flags: rawTags.substance_flags ?? [],
+        housing_flags: rawTags.housing_flags ?? [],
       });
     }
   });
