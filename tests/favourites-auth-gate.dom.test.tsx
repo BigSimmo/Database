@@ -25,12 +25,22 @@ const authSession = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 
+const router = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+  prefetch: vi.fn(),
+}));
+
+const searchCommand = vi.hoisted(() => ({
+  value: null as { query: string; modeId: "tools" } | null,
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => authSession,
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => router,
 }));
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
@@ -43,7 +53,7 @@ vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => (
 }));
 
 vi.mock("@/components/clinical-dashboard/search-command-context", () => ({
-  useSearchCommand: () => null,
+  useSearchCommand: () => searchCommand.value,
 }));
 
 vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
@@ -94,6 +104,7 @@ describe("favourites auth gate DOM", () => {
     authSession.session = null;
     authSession.error = null;
     authSession.notice = null;
+    searchCommand.value = null;
     window.localStorage.clear();
     vi.clearAllMocks();
   });
@@ -266,10 +277,7 @@ describe("favourites auth gate DOM", () => {
 
   it("uses one guest-safe ranked collection for Smart Tools cards and mobile rows", () => {
     render(
-      <ApplicationsLauncherWorkspace
-        query="where can I check medication interactions?"
-        canAccessFavourites={false}
-      />,
+      <ApplicationsLauncherWorkspace query="where can I check medication interactions?" canAccessFavourites={false} />,
     );
 
     expect(screen.getAllByTestId(/^application-card-/)[0]).toHaveAttribute(
@@ -284,6 +292,24 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByTestId("application-row-medication-prescribing")).toBeInTheDocument();
     expect(screen.queryByTestId("application-card-favourites")).toBeNull();
     expect(screen.queryByTestId("application-row-favourites")).toBeNull();
+  });
+
+  it.each([
+    ["where can I check medication interactions?", "application-card-medication-prescribing"],
+    ["forms", "application-card-forms"],
+  ])("lets the Tools owner replace an empty shared command and submit %s", async (query, expectedCard) => {
+    const user = userEvent.setup();
+    searchCommand.value = { query: "", modeId: "tools" };
+    render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
+
+    const input = screen.getByRole("textbox", { name: "Search tools" });
+    await user.type(input, query);
+
+    expect(input).toHaveValue(query);
+    expect(screen.getAllByTestId(/^application-card-/)[0]).toHaveAttribute("data-testid", expectedCard);
+
+    await user.keyboard("{Enter}");
+    expect(router.push).toHaveBeenCalledWith(`/tools?q=${encodeURIComponent(query)}&run=1`);
   });
 
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {

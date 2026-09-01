@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   BadgeCheck,
   ChevronRight,
@@ -711,6 +712,7 @@ export function ApplicationsLauncherWorkspace({
   className,
   canAccessFavourites: canAccessFavouritesProp,
 }: ApplicationsLauncherWorkspaceProps) {
+  const router = useRouter();
   const auth = useAuthSession();
   const clientDemoMode = resolveClientDemoMode({
     explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
@@ -720,13 +722,13 @@ export function ApplicationsLauncherWorkspace({
   const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const canAccessFavourites = canAccessFavouritesProp ?? favouritesAccessible;
   const searchCommand = useSearchCommand();
-  const [localQuery, setLocalQuery] = useState("");
+  const [localQuery, setLocalQuery] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
   const launcherApps = useMemo(() => launcherAppsForSession(canAccessFavourites), [canAccessFavourites]);
   const desktopFilters = useMemo(() => desktopFiltersForSession(canAccessFavourites), [canAccessFavourites]);
-  const query = controlledQuery ?? searchCommand?.query ?? localQuery;
+  const query = controlledQuery ?? localQuery ?? searchCommand?.query ?? "";
   const normalizedQuery = query.trim().toLowerCase();
   const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
   const [selectedId, setSelectedId] = useState<ToolCatalogId>("risk-safety");
@@ -769,7 +771,7 @@ export function ApplicationsLauncherWorkspace({
       : copy.allSectionLabel;
 
   function updateQuery(nextQuery: string) {
-    if (controlledQuery === undefined && !searchCommand) setLocalQuery(nextQuery);
+    if (controlledQuery === undefined) setLocalQuery(nextQuery);
   }
 
   function openTool(id: ToolCatalogId) {
@@ -778,6 +780,11 @@ export function ApplicationsLauncherWorkspace({
   }
 
   function submitSearch() {
+    const submittedQuery = query.trim();
+    if (submittedQuery) {
+      router.push(`/tools?q=${encodeURIComponent(submittedQuery)}&run=1`);
+      return;
+    }
     if (filteredApps[0]) openTool(filteredApps[0].id);
   }
 
