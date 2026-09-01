@@ -15,7 +15,7 @@ The target for this program is:
 
 - Node.js 24.x and npm 11.x in development, CI, Docker, and production.
 - Next.js 16.2.x with React and React DOM 19.2.x.
-- TypeScript 6.0.x, with runtime-compatible Node 24 type definitions.
+- TypeScript 6.0.x, with runtime-compatible Node 26 type definitions.
 - Next.js App Router asynchronous request APIs and generated route types.
 - Turbopack as the default development and production bundler after a measured
   dual-lane migration from the current Webpack escape hatch.
@@ -42,7 +42,7 @@ migration task.
 | P2       | Build             | Production build and production Playwright force `next build --webpack`; [`next.config.ts`](../next.config.ts) retains a Webpack callback, WasmHash workaround, and one-CPU tuning.                       | Removing only the CLI flag either makes Next reject the custom Webpack config or silently changes build artifacts, CSP behavior, and resource use.                      | Run the dual-lane Turbopack program below. This is not a one-line flag change.                                                                                                           |
 | P2       | Deploy            | [`railway.app.json`](../railway.app.json) omits `run-heavy.mjs`, `test-run-lock.mjs`, and `child-process-result.mjs`; [`railway.worker.json`](../railway.worker.json) omits `build-worker.mjs`.           | A build-controller-only change does not match a watch pattern, so Railway can leave the deployed image stale.                                                           | Cover every transitive image-build input, with a regression test for watch-pattern ownership.                                                                                            |
 | P2       | Types/CI          | Clean CI runs `tsc --noEmit` without `next typegen`, while `next-env.d.ts` and `.next` types are ignored/generated.                                                                                       | An invalid page, layout, or route signature passes a clean typecheck or a developer sees results from stale generated types.                                            | Generate Next route types in an owned clean path before TypeScript and test the clean-checkout behavior.                                                                                 |
-| P2       | Runtime/types     | `@types/node` targets 26.x while every runtime contract targets Node 24.x.                                                                                                                                | Code typechecks against a Node 26 API and fails in Docker or Railway on Node 24.                                                                                        | Pin the compatible Node 24 type line until the runtime moves.                                                                                                                            |
+| Resolved | Runtime/types     | `@types/node` and every runtime contract target Node 26.x.                                                                                                                                                | Code and container/runtime checks now exercise the same Node major.                                                                                                     | Keep the Node 26 engine, image, and type contracts aligned.                                                                                                                              |
 | P2       | Frontend recovery | Fourteen App Router error boundaries present `reset()` as "Try again", although Next 16.2 recommends `unstable_retry()` for re-fetching failed Server Component content.                                  | A transient server/request failure reaches an error boundary. `reset()` re-renders without re-fetching and can repeat the failure.                                      | Plumb `unstable_retry` through the shared boundary and prove a fail-once route recovers.                                                                                                 |
 | P3       | Removal readiness | Zod 4 deprecated string UUID/URL methods and one `.passthrough()` remain; a mockup `<Image>` still uses deprecated `priority`.                                                                            | A later Zod or Next removal turns warnings/deprecated behavior into compile failures.                                                                                   | Apply focused mechanical migrations with contract tests.                                                                                                                                 |
 
@@ -104,8 +104,8 @@ responseHeaders)` and copy all supplied headers onto every rebuilt
 
 ### 2. Align the runtime and clean typecheck contract
 
-- [ ] Move `@types/node` from 26.x to the compatible 24.x line. Search new code
-      for APIs whose availability changed between Node 24 and 26.
+- [x] Align the runtime contract with the existing `@types/node` 26.x line. Search new code
+      for APIs whose availability changes across supported Node majors.
 - [ ] Add the repository-local `next typegen` command before `tsc --noEmit` in
       the canonical typecheck path.
 - [ ] Generate route types in an owned clean location and ensure stale
@@ -150,7 +150,7 @@ responseHeaders)` and copy all supplied headers onto every rebuilt
 - [ ] Prove ZIP entry-count, per-entry size, aggregate size, nested archive,
       malformed archive, and compression-ratio limits fail closed. Never accept
       a missing private field as size zero.
-- [ ] Run Node 24 import probes and focused parser fixtures for PDF, DOCX, XLSX,
+- [ ] Run Node 26 import probes and focused parser fixtures for PDF, DOCX, XLSX,
       ZIP, and PDF generation after each document-library group.
 
 ### 5. Modernize frontend recovery and component contracts

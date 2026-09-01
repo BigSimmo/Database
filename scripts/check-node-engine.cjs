@@ -2,7 +2,7 @@
 // `npm ci`, so it stays import-free and restates the range as a literal;
 // tests/check-runtime.test.ts pins this string to package.json engines.node,
 // which remains the single source of truth.
-const nodeRange = ">=24.15.0 <25";
+const nodeRange = ">=26.0.0 <27";
 const minimum = nodeRange.match(/>=\s*(\d+)\.(\d+)\.(\d+)/);
 const exclusiveMajor = nodeRange.match(/<\s*(\d+)/);
 
@@ -20,9 +20,8 @@ const belowFloor =
   (actual[0] === required[0] && actual[1] < required[1]) ||
   (actual[0] === required[0] && actual[1] === required[1] && actual[2] < required[2]);
 
-// A too-old 24.x used to pass this hook and then fail deep in resolution with an
-// opaque EBADENGINE for a transitive dev dependency (jsdom carries the same
-// floor). Failing here names the actual requirement instead.
+// Keep the complete range check so a future minor-level floor fails here with a
+// clear message rather than deep in dependency resolution.
 if (belowFloor || actual[0] >= maxMajor) {
   console.error(`This project must be installed with Node ${nodeRange}. Current runtime: ${process.versions.node}.`);
   process.exit(1);

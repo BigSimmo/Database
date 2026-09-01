@@ -15,7 +15,7 @@ provisioners.
 
 | Order | Command                                   | Timeout | Does                                               |
 | ----- | ----------------------------------------- | ------- | -------------------------------------------------- |
-| 1     | `.claude/hooks/session-start.sh`          | 900s    | Installs Node 24 to `$HOME/.node24`, then `npm ci` |
+| 1     | `.claude/hooks/session-start.sh`          | 900s    | Installs Node 26 to `$HOME/.node26`, then `npm ci` |
 | 2     | `scripts/setup-claude-cloud.sh --session` | 300s    | Everything below                                   |
 
 Both no-op instantly unless `CLAUDE_CODE_REMOTE=true`, so a local Windows session is untouched.

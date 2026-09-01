@@ -7,7 +7,7 @@ describe("worker runtime validation", () => {
 
     const result = await validateRuntime({ externals, skipPython: true });
 
-    expect(result.nodeVersion).toMatch(/^24\./);
+    expect(result.nodeVersion).toMatch(/^26\./);
     expect(result.externals).toHaveLength(1);
     expect(result.externals[0].ok).toBe(true);
     expect(result.ok).toBe(true);

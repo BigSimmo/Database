@@ -107,7 +107,7 @@ Respect the cross-worktree heavy-command coordinator. Never bypass or delete its
 exclusive gate is held by another worktree, report that command as unrun with the lock owner and
 reason.
 
-Use Node 24, npm 11, and npm. Check that `node_modules` is populated, not merely present. If it is
+Use Node 26, npm 11, and npm. Check that `node_modules` is populated, not merely present. If it is
 absent or stale, use the repository Cloud maintenance/setup procedure only after the coordinator
 allows installation; do not change manifests or lockfiles.
 

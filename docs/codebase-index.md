@@ -704,7 +704,7 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 | File                                       | Role                                                      |
 | ------------------------------------------ | --------------------------------------------------------- |
-| `package.json`                             | Scripts, deps, Node 24 / npm 11                           |
+| `package.json`                             | Scripts, deps, Node 26 / npm 11                           |
 | `.env.example`                             | Full env template                                         |
 | `next.config.ts`                           | CSP, security headers, build config                       |
 | `tsconfig.json`                            | Strict TS; excludes `supabase/functions/**`               |

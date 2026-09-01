@@ -73,7 +73,7 @@ workstation cannot see the thing that breaks it.
   This is not hypothetical: `session-start.sh` shipped `100644` while both its siblings were
   `100755` (found 2026-08-18). That script's body only runs when `CLAUDE_CODE_REMOTE=true`, so the
   sole environment it does work in is the Linux container where a non-executable checkout cannot
-  be run — and it is the script that provisions the Node 24 the engine floor needs, after
+  be run — and it is the script that provisions the Node 26 the engine floor needs, after
   `npm ci` EBADENGINE blocked PRs #1611, #1697, #1705 and #1740.
 - **Register hooks as `bash "$CLAUDE_PROJECT_DIR/…"`, never as a bare path**, so the mode is never
   load-bearing. `session-start.sh` was the only bare-path registration and the only one missing the
@@ -1004,6 +1004,6 @@ Codex Cloud uses an isolated Linux container and does not inherit desktop creden
 Durable notes for Cursor Cloud agents (see `docs/agents-guide.md` and `docs/testing.md` for full reference):
 
 - Context7 peer-library docs habit and Next 16 local docs live in `docs/agents-guide.md`.
-- Requires Node >=24.15.0 <25 / npm 11.x (installed via nvm, symlinked to `/usr/local/cargo/bin`).
+- Requires Node >=26.0.0 <27 / npm 11.x (installed via nvm, symlinked to `/usr/local/cargo/bin`).
 - Offline verification: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run verify:cheap`, and `npm run verify:pr-local` all pass without secrets.
 - For authorized GitHub work, use the connected GitHub connector/MCP tools as primary interface (`BigSimmo` write access).

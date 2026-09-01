@@ -417,8 +417,8 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 
 ## Phase 4 - Release maturity
 
-- `npm run check:runtime` is the strict runtime gate and is now part of `npm run verify:cheap`, `npm run verify:ui`, and `npm run verify:release`; it fails outside Node 24.x or npm 11.x when run through npm.
-- CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift away from Node 24.
+- `npm run check:runtime` is the strict runtime gate and is now part of `npm run verify:cheap`, `npm run verify:ui`, and `npm run verify:release`; it fails outside Node 26.x or npm 11.x when run through npm.
+- CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift away from Node 26.
 - `npm run check:edge:functions` is the Deno type gate for the Supabase `indexing-v3-agent` Edge Function.
 - `npm run check:document-label-coverage` is the live Supabase generated-label coverage gate. Run it after ingestion batches, document reclassification, or generated-label migrations; zero indexed documents may be missing generated `site` or `document_type` labels.
 - Tune the full-browser CI cadence if release branches or weekly schedules prove too slow or too sparse.

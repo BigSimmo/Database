@@ -53,13 +53,12 @@ afterEach(() => {
 
 describe("Codex Desktop worktree setup", () => {
   it("enforces the complete declared Node range before dependency handling", () => {
-    const range = ">=24.15.0 <25";
+    const range = ">=26.0.0 <27";
 
-    expect(nodeVersionSatisfiesRange("24.13.0", range)).toBe(false);
-    expect(nodeVersionSatisfiesRange("24.14.9", range)).toBe(false);
-    expect(nodeVersionSatisfiesRange("24.15.0", range)).toBe(true);
-    expect(nodeVersionSatisfiesRange("24.19.0", range)).toBe(true);
-    expect(nodeVersionSatisfiesRange("25.0.0", range)).toBe(false);
+    expect(nodeVersionSatisfiesRange("25.19.0", range)).toBe(false);
+    expect(nodeVersionSatisfiesRange("26.0.0", range)).toBe(true);
+    expect(nodeVersionSatisfiesRange("26.8.1", range)).toBe(true);
+    expect(nodeVersionSatisfiesRange("27.0.0", range)).toBe(false);
     expect(nodeVersionSatisfiesRange("not-a-version", range)).toBe(false);
   });
 

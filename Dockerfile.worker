@@ -4,7 +4,7 @@
 # container instead of completing the edge-agent migration.
 #
 # Runtime contents (2026-07-13 audit, finding 12 — slimmed):
-#   - Node 24 + PRODUCTION-ONLY node_modules: the worker runs as a
+#   - Node 26 + PRODUCTION-ONLY node_modules: the worker runs as a
 #     prebuilt esbuild bundle (dist/worker/index.mjs), so tsx and the rest
 #     of the dev toolchain never reach the image.
 #   - Tesseract OCR (Debian package, bundles English language data).

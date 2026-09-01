@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { diagnoseCodexCloud } from "../scripts/diagnose-codex-cloud.mjs";
 
 const healthy = {
-  nodeVersion: "24.18.1",
+  nodeVersion: "26.8.1",
   npmVersion: "11.17.0",
   pythonVersion: "3.12.13",
   cloudLockContents:

@@ -75,7 +75,7 @@ ownership. Do not manually edit a generated baseline if a repository update comm
   provider. Do not access production/staging systems or live data. Do not deploy, migrate, reindex,
   rotate credentials, print secrets, or create `.env*` files.
 - Do not install or update dependencies, switch package managers, loosen engines, or create a new
-  lockfile. Use the installed Node 24/npm 11 toolchain and the existing `package-lock.json`.
+  lockfile. Use the installed Node 26/npm 11 toolchain and the existing `package-lock.json`.
 - Do not reset, clean, stash, rebase, force-push, delete branches, overwrite unrelated work, or
   weaken tests/contracts to make a check pass.
 - You may edit only the three flagged owners, the smallest directly affected tests, and generated
@@ -262,7 +262,7 @@ proof. Never claim an unrun or receipt-reused check was fresh; identify receipt 
    - remaining risks and the single smallest next action.
 
 For the **local handoff**, give a copy/paste command sequence that begins by checking out the reported
-branch/commit, confirms Node 24/npm 11 and lock parity, runs `npm run ensure`, verifies the printed
+branch/commit, confirms Node 26/npm 11 and lock parity, runs `npm run ensure`, verifies the printed
 project identity URL, and executes only the browser modes that Cloud could not prove. Name the exact
 routes, viewports, states, and expected visible/non-colour outcomes. If human screenshot disposition is
 still required, list candidate paths and hashes and instruct the human to approve or reject them through

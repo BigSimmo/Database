@@ -3,7 +3,7 @@
  * generate-lock — pin eval/docling/requirements.txt from eval/docling/requirements.in
  * with pip-tools, imitating scripts/generate-worker-python-lock.mjs.
  *
- * Python 3.11 only: the lab image is Debian bookworm (node:24-bookworm-slim), whose
+ * Python 3.11 only: the lab image is Debian bookworm (node:26-bookworm-slim), whose
  * python3 is 3.11, and a hashed lock is only valid for the interpreter that resolved
  * it. This script never reads or writes anything under worker/python/ — the lab keeps
  * its own dependency universe by design (docs/rag-improvement/README.md §B3).

@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 # PsychSift app tier (Next.js). See docs/deployment-architecture.md.
 #
-# The repo is engine-strict (Node 24.x / npm 11.x via .npmrc + preinstall
-# guard), so every stage pins the same Node 24 base image. The build stage
+# The repo is engine-strict (Node 26.x / npm 11.x via .npmrc + preinstall
+# guard), so every stage pins the same Node 26 base image. The build stage
 # runs the repo's own `npm run build` (guard-next-build + next build) so the
 # image build fails exactly where a local build would.
 #

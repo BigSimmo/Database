@@ -115,8 +115,8 @@ against a pinned canonical definition, and only then marks a fail-fast guard mig
   close request for `#333` was queued after confirming a `#333` row existed — but the match was the
   **archived** row, and the invalid request threw `#333 is already archived`, red-lining
   `docs:check-links` for the whole branch.
-- **Node 24 is mandatory** (`engine-strict`). A cloud container may ship Node 20/22; `npm ci` then
-  fails `EBADENGINE` and leaves `tsx` unresolvable, which fails `check:runtime`. Install Node 24
+- **Node 26 is mandatory** (`engine-strict`). A cloud container may ship Node 20/22; `npm ci` then
+  fails `EBADENGINE` and leaves `tsx` unresolvable, which fails `check:runtime`. Install Node 26
   before anything else.
 - **Two known tooling failures are fixed — recognise the symptoms rather than re-diagnosing them.**
   `cancel request … targets missing pending request` was the ledger cancel-race (fixed in PR #1978;

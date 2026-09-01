@@ -38,9 +38,9 @@ Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** =
 ## 0. Pre-flight (read-only)
 
 ```bash
-node -v                              # must report >= 24.15.0 < 25 (Node 24 engine floor)
+node -v                              # must report >= 26.0.0 < 27 (Node 26 engine floor)
 npm -v                               # must report >= 11.0.0 < 12 (npm 11)
-npm run check:runtime                # validates Node 24 and npm 11 engines
+npm run check:runtime                # validates Node 26 and npm 11 engines
 npm run check:supabase-project       # must report Clinical KB Database / sjrfecxgysukkwxsowpy
 npx supabase migration list --linked
 npm run reindex:health               # note jobs_pending / jobs_processing (needed for step 1 R17)

@@ -18,11 +18,11 @@ export function diagnoseCodexCloud({
   setupExitCode,
 }) {
   const issues = [];
-  if (major(nodeVersion) !== "24") {
+  if (major(nodeVersion) !== "26") {
     issues.push({
       code: "NODE_RUNTIME",
-      issue: `Node 24.x is required; detected ${nodeVersion || "unavailable"}.`,
-      fix: "Select Node 24 in the Cloud environment or rerun setup with nvm available.",
+      issue: `Node 26.x is required; detected ${nodeVersion || "unavailable"}.`,
+      fix: "Select Node 26 in the Cloud environment or rerun setup with nvm available.",
     });
   }
   if (major(npmVersion) !== "11") {

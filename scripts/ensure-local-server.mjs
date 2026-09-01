@@ -13,8 +13,8 @@ import {
   stableProjectPort,
 } from "../src/lib/local-server-utils.mjs";
 
-if (Number(process.versions.node.split(".")[0]) !== 24) {
-  console.error(`PsychSift local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
+if (Number(process.versions.node.split(".")[0]) !== 26) {
+  console.error(`PsychSift local server requires Node 26.x. Current runtime: ${process.versions.node}.`);
   process.exit(1);
 }
 

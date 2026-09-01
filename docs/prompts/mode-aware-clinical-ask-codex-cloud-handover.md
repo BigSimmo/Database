@@ -147,7 +147,7 @@ merge, rebase, or pull the stale original planning branch into the implementatio
    environment values.
 4. Inspect branch, upstream, full HEAD, worktree list, concise status, relevant recent history, runtime,
    package-manager version, and active repository-owned processes.
-5. In Cloud, keep the repository's strict Node 24 and npm 11 contract. Use the documented Cloud setup;
+5. In Cloud, keep the repository's strict Node 26 and npm 11 contract. Use the documented Cloud setup;
    do not weaken engines or package-manager checks.
 6. If the prompt-perfector verifier exists, run it before editing. For a clean Cloud task, use its
    `--cloud` mode with the expected repository, branch, and HEAD. Proceed only on

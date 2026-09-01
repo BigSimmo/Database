@@ -43,7 +43,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const sourceHook = join(process.cwd(), ".claude/hooks/session-start.sh");
 const sourcePrecompactHook = join(process.cwd(), ".claude/hooks/precompact-issues-capture.sh");
-const NODE_VERSION = "24.19.0";
+const NODE_VERSION = "26.8.1";
 const scratchRoots: string[] = [];
 const bashCommand =
   process.platform === "win32"
@@ -74,7 +74,7 @@ function stubEnvironment(): { home: string; project: string; hook: string } {
   copyFileSync(sourceHook, hook);
   chmodSync(hook, 0o755);
 
-  const nodeBin = join(home, ".node24", `node-v${NODE_VERSION}-linux-x64`, "bin");
+  const nodeBin = join(home, ".node26", `node-v${NODE_VERSION}-linux-x64`, "bin");
   mkdirSync(nodeBin, { recursive: true });
   const nodeStub = join(nodeBin, "node");
   writeFileSync(nodeStub, `#!/bin/bash\necho "v${NODE_VERSION}"\n`);
@@ -167,7 +167,7 @@ describe("session-start hook", () => {
     // Windows run regardless of the diff under test, which made the whole file look red
     // locally and trained readers to wave it through. The unique mkdtemp basename still
     // pins this to *this* test's HOME, so the assertion loses no strength.
-    const expectedTail = [basename(home), ".node24", `node-v${NODE_VERSION}-linux-x64`, "bin"].join("/");
+    const expectedTail = [basename(home), ".node26", `node-v${NODE_VERSION}-linux-x64`, "bin"].join("/");
     expect(written.replace(/\\/g, "/")).toContain(expectedTail);
     expect(written).toContain("export PATH=");
     // The manual-run advice belongs only to the manual-run branch.
@@ -280,7 +280,7 @@ describe("precompact observability hook", () => {
  * rather than through `bash`, and the script's whole body is gated on
  * `CLAUDE_CODE_REMOTE=true` — so the only environment it ever does work in is a
  * Linux web container, which is exactly where a non-executable checkout cannot
- * be run. The script provisions the Node 24 the repo's engine floor requires;
+ * be run. The script provisions the Node 26 the repo's engine floor requires;
  * its own header records four PRs (#1611, #1697, #1705, #1740) blocked by
  * `npm ci` EBADENGINE before it existed.
  *

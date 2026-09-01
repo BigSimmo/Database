@@ -1,8 +1,8 @@
 #!/bin/bash
 # SessionStart hook for Claude Code on the web.
-# The app is engine-strict on Node >=24.15 <25 / npm 11.x, but web containers
+# The app is engine-strict on Node >=26.0.0 <27 / npm 11.x, but web containers
 # ship an older Node on PATH, so nothing installs or runs until a Node meeting
-# that floor is present. Installs one into $HOME/.node24 (cached with the
+# that floor is present. Installs one into $HOME/.node26 (cached with the
 # container), exposes it via $CLAUDE_ENV_FILE, and installs npm dependencies.
 set -euo pipefail
 
@@ -12,17 +12,16 @@ fi
 
 payload="$(cat 2>/dev/null || true)"
 
-NODE_VERSION="24.19.0"
+NODE_VERSION="26.8.1"
 # Keep in step with the floor in package.json engines.node. A matching major is
-# not enough: dev dependencies (jsdom) carry a minor-level floor, so a 24.13 on
-# PATH satisfied the old major-only check and then failed `npm ci` with
-# EBADENGINE. That blocked PRs #1611, #1697, #1705 and #1740.
-NODE_MINIMUM="24.15.0"
-# Exclusive major ceiling, matching the "<25" half of engines.node. Checking only
-# the floor would let a container shipping Node 25+ skip provisioning and then
+# not enough: keep the complete range check so a future minor-level floor cannot
+# let an older Node 26 runtime reach `npm ci` and fail with an opaque EBADENGINE.
+NODE_MINIMUM="26.0.0"
+# Exclusive major ceiling, matching the "<27" half of engines.node. Checking only
+# the floor would let a container shipping Node 27+ skip provisioning and then
 # fail `npm ci`, which is the same blind-spot as the major-only check above.
-NODE_MAJOR_CEILING="25"
-NODE_HOME="$HOME/.node24"
+NODE_MAJOR_CEILING="27"
+NODE_HOME="$HOME/.node26"
 NODE_BIN="$NODE_HOME/node-v${NODE_VERSION}-linux-x64/bin"
 
 supported_runtime() {

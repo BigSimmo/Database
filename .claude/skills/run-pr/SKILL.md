@@ -44,7 +44,7 @@ Never, even during a sweep:
 2. `mcp__github__get_me` to confirm identity and access, then `git fetch origin --prune`.
 3. Record the current branch/ref so it can be restored at sweep end. Require a clean
    `git status`; if the worktree is dirty, do not stash or discard — either restrict the sweep to
-   PRs whose fixes do not need this checkout, or create a separate `git worktree add` (Node 24,
+   PRs whose fixes do not need this checkout, or create a separate `git worktree add` (Node 26,
    `npm ci`) and report which was chosen.
 4. `mcp__github__list_pull_requests` with `state=open`, paginated in small batches. Build the work
    queue in ascending PR number.
