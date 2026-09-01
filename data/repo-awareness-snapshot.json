@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "33bfca886fd1c6c0c46350ce3baec1ba579fa9e3",
-    "committed_at": "2026-09-01T11:52:59+00:00"
+    "sha": "4eebf126accdb4e200e843fb67bf3d7c839c154c",
+    "committed_at": "2026-09-01T13:11:45Z"
   },
   "routes": {
     "modes": [
@@ -4331,6 +4331,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2504",
+        "head": "0bb1c2b6c01509d3ea5a978c3bd56c36176438d7",
+        "scope": "Run PR sweep: scope corpus-health reads",
+        "outcome": "Replaced inaccessible authenticated-table reads with an independently administrator-gated service-role boundary that filters every query to the verified owner; restored the complete implementation after an intervening placeholder-only commit.",
+        "checks": "Focused developer corpus-health test: 16 passed; explicit owner-filter and non-administrator coverage; diff check."
+      },
       {
         "date": "2026-08-31",
         "ref": "codex/answer-surface-compact-20260830",
@@ -25581,8 +25589,8 @@
       }
     ],
     "counts": {
-      "records": 2656,
-      "refs": 1622
+      "records": 2657,
+      "refs": 1623
     }
   }
 }
