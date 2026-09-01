@@ -992,6 +992,54 @@ describe("coverage and source-role evidence merge", () => {
     );
   });
 
+  it("surfaces a review gap when final citations retain only one side of a canonical conflict", () => {
+    const local = governedEvidence({
+      id: "local-one-sided-conflict",
+      corpusScope: "uploaded_local",
+      content: "Lithium monitoring interval is every six months.",
+      role: "local_guideline",
+    });
+    const australian = governedEvidence({
+      id: "au-one-sided-conflict",
+      corpusScope: "australian_public",
+      content: "Lithium monitoring interval is every three months.",
+      role: "clinical_guideline",
+    });
+    const plan = queryPlan([{ id: "monitoring", question: "lithium monitoring interval" }]);
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan,
+      candidates: [local, australian],
+      claimRole: "dose_or_monitoring",
+      sourcePolicyConflicts: [canonicalConflict(local, australian)],
+    });
+    const coverage = answerCoverageFromSelections({
+      plan,
+      selectedEvidence: selection!.orderedEvidence,
+      selections: [selection!],
+      citedChunkIds: [local.id],
+    });
+    const answer = {
+      conflictsOrGaps: [
+        {
+          type: "conflict",
+          message: "The local and Australian intervals differ.",
+          source_chunk_ids: [local.id],
+        },
+      ],
+    } as unknown as RagAnswer;
+    reconcileAnswerSourcePolicyConflicts(answer, [selection!], coverage);
+
+    expect(coverage.conflicts).toEqual([]);
+    expect(coverage.coverage[0]?.reasonCodes).toContain("source_policy_not_evaluated");
+    expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict")).toEqual([]);
+    expect(answer.conflictsOrGaps).toContainEqual(
+      expect.objectContaining({
+        type: "gap",
+        source_chunk_ids: [local.id],
+      }),
+    );
+  });
+
   it("displaces a same-document singleton to keep a late canonical conflict pair atomic", () => {
     const plan = queryPlan([
       { id: "baseline", question: "clozapine baseline assessment" },

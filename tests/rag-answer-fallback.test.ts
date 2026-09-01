@@ -3803,6 +3803,13 @@ describe("RAG structured-output fallback", () => {
           uploaded_at: null,
           indexed_at: null,
           uploaded_by: null,
+          source_kind: "document",
+          corpus_scope: publisherCode === "FSH" ? "uploaded_local" : "australian_public",
+          source_role: publisherCode === "FSH" ? "local_guideline" : "clinical_guideline",
+          content_mode: "indexed_content",
+          source_catalogue_key: `${publisherCode.toLowerCase()}:lithium-guideline`,
+          source_policy_version: "australian-source-policy-v1",
+          licence_policy: "public_index_permitted",
           document_status: "current",
           clinical_validation_status: "locally_reviewed",
           extraction_quality: "good",
@@ -3892,11 +3899,13 @@ describe("RAG structured-output fallback", () => {
       truncated: true,
       incompleteReason: "max_output_tokens",
     }));
+    const insert = vi.fn(async () => ({ data: null, error: null }));
+    const from = vi.fn((table: string) => (table === "rag_queries" ? { insert } : new EmptyQuery()));
 
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({
         rpc,
-        from: vi.fn(() => new EmptyQuery()),
+        from,
       }),
     }));
     vi.doMock("@/lib/openai", () => ({
@@ -3915,8 +3924,9 @@ describe("RAG structured-output fallback", () => {
     const answer = await answerQuestionWithScope({
       query: "Lithium dosing",
       ownerId: undefined,
-      logQuery: false,
+      logQuery: true,
       skipCache: true,
+      sourcePolicyConflicts: [canonicalPolicyConflict(sources[0]!, sources[1]!)],
       onProgress: (event) => {
         progressEvents.push(event);
       },
@@ -3937,9 +3947,18 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/lithium|250 mg/i);
     expect(answer.answer).not.toContain("could not generate a finalized answer");
     expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict")).toEqual([]);
+    expect(answer.conflictsOrGaps).toContainEqual(
+      expect.objectContaining({
+        type: "gap",
+        source_chunk_ids: answer.sources.map((result) => result.id),
+      }),
+    );
     // Numeric fallback intentionally narrows the returned support to one complete
     // claim/citation when a multi-source synthesis would mix figures across chunks.
     expect(new Set(answer.sources.map((result) => result.document_id))).toEqual(new Set(["fsh-lithium"]));
+    expect(answer.relatedDocuments?.map((document) => document.document_id)).toEqual(["fsh-lithium"]);
+    expect(answer.smartPanel?.relatedDocuments).toEqual(answer.relatedDocuments);
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
       "strong_max_output_tokens_retry_strong",
@@ -3947,6 +3966,20 @@ describe("RAG structured-output fallback", () => {
     ]);
     expect(answer.openAIRequestIds).toEqual(["req_truncated_1", "req_truncated_2"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1300, total_tokens: 1500 });
+    expect(insert).toHaveBeenCalledTimes(1);
+    const insertCalls = insert.mock.calls as unknown as Array<
+      [{ source_chunk_ids?: string[]; metadata?: Record<string, unknown> }]
+    >;
+    const loggedRow = insertCalls[0]?.[0] ?? {};
+    expect(loggedRow.source_chunk_ids).toEqual(answer.sources.map((result) => result.id));
+    expect(loggedRow.metadata).toMatchObject({
+      source_authority_candidate_count: 4,
+      source_authority_selected_count: answer.sources.length,
+      australian_source_count: 1,
+      wa_source_count: 1,
+      used_supplementary_fallback: false,
+      related_document_count: 1,
+    });
     expect(answerRouteResultCanBeCached({ deadlineExceeded: false }, answer)).toBe(false);
     expect(progressEvents).toContainEqual(
       expect.objectContaining({

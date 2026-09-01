@@ -78,7 +78,7 @@ export function classifyClaimRoleForSubquestion(args: {
   if (/\b(?:legislation|statutory|legal)\b|\bmental health act\b/i.test(question)) return "legal";
   if (/\bNSQHS\b|\baccreditation\b|\bquality[\s-]+standards?\b/i.test(question)) return "quality";
   if (
-    /\breferral\b|\bservice[\s-]+directory\b|\bworkflow\b|\bnavigation\b|\b(?:which|what|find|open|submit|complete|use)\s+(?:the\s+)?forms?\b|\bforms?\s+(?:for|to|required|needed)\b/i.test(
+    /\breferral\b|\bservice[\s-]+directory\b|\bworkflow\b|\bnavigation\b|\b(?:find|open|submit|complete|use)\s+(?:the\s+)?forms?\b|\bforms?\s+(?:for|to|required|needed)\b/i.test(
       question,
     )
   )

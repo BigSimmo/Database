@@ -506,23 +506,32 @@ export function answerCoverageFromSelections(args: {
   return evaluateAnswerCoverage({
     plan: args.plan,
     selectedEvidence: args.selectedEvidence,
-    evidenceBySubquestion: args.selections.map((selection) => ({
-      subquestionId: selection.subquestionId,
-      selectedChunkIds: selection.orderedEvidence.map((result) => result.id),
-      citedChunkIds: selection.orderedEvidence.map((result) => result.id).filter((id) => cited.has(id)),
-      eligibleChunkIds: selection.orderedEvidence.map((result) => result.id),
-      support: selection.coverageReason === "direct" ? "direct" : "partial",
-      reasonCodes: [
-        selection.coverageReason,
-        ...(selection.sourcePolicyReview === "not_evaluated" || selection.sourcePolicyConflictOmitted
-          ? ["source_policy_not_evaluated"]
-          : []),
-      ],
-      insufficiencyReason:
-        selection.coverageReason === "direct" || selection.coverageReason === "partial"
-          ? null
-          : selection.coverageReason,
-    })),
+    evidenceBySubquestion: args.selections.map((selection) => {
+      const incompletelyCitedConflict = selection.conflicts.some((conflict) => {
+        const citesLocal = conflict.local.supportingChunkIds.some((id) => cited.has(id));
+        const citesAustralian = conflict.australian.supportingChunkIds.some((id) => cited.has(id));
+        return citesLocal !== citesAustralian;
+      });
+      return {
+        subquestionId: selection.subquestionId,
+        selectedChunkIds: selection.orderedEvidence.map((result) => result.id),
+        citedChunkIds: selection.orderedEvidence.map((result) => result.id).filter((id) => cited.has(id)),
+        eligibleChunkIds: selection.orderedEvidence.map((result) => result.id),
+        support: selection.coverageReason === "direct" ? "direct" : "partial",
+        reasonCodes: [
+          selection.coverageReason,
+          ...(selection.sourcePolicyReview === "not_evaluated" ||
+          selection.sourcePolicyConflictOmitted ||
+          incompletelyCitedConflict
+            ? ["source_policy_not_evaluated"]
+            : []),
+        ],
+        insufficiencyReason:
+          selection.coverageReason === "direct" || selection.coverageReason === "partial"
+            ? null
+            : selection.coverageReason,
+      };
+    }),
     conflicts: args.selections.flatMap((selection) => selection.conflicts),
   });
 }
@@ -539,9 +548,8 @@ export function reconcileAnswerSourcePolicyConflicts(
       item.type !== "conflict" ||
       !candidateConflicts.some((conflict) => {
         const itemIds = new Set(item.source_chunk_ids ?? []);
-        return (
-          conflict.local.supportingChunkIds.some((id) => itemIds.has(id)) &&
-          conflict.australian.supportingChunkIds.some((id) => itemIds.has(id))
+        return [...conflict.local.supportingChunkIds, ...conflict.australian.supportingChunkIds].some((id) =>
+          itemIds.has(id),
         );
       }),
   );
@@ -569,7 +577,7 @@ export function reconcileAnswerSourcePolicyConflicts(
         {
           type: "gap" as const,
           message:
-            "Directly relevant local and Australian evidence was found, but their source-policy relationship has not been canonically reviewed.",
+            "Directly relevant local and Australian evidence was found, but their source-policy relationship was either not canonically reviewed or not completely represented by the final citations.",
           source_chunk_ids: [...new Set(unevaluatedCoverage.flatMap((item) => item.chunkIds))].slice(0, 4),
         },
       ]

@@ -1406,6 +1406,36 @@ describe("escalation fallback intent", () => {
     expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
   });
 
+  it("keeps top-level and smart-panel related documents aligned to cited fallback sources", () => {
+    const kept = figureChunk({ id: "kept-related-source", document_id: "kept-related-document" });
+    const removed = figureChunk({ id: "removed-related-source", document_id: "removed-related-document" });
+    const relatedDocuments = [kept, removed].map((source) => ({
+      document_id: source.document_id,
+      title: source.title,
+      file_name: source.file_name,
+      labels: [],
+      summary: null,
+      best_pages: [source.page_number ?? 1],
+      best_chunk_ids: [source.id],
+      image_count: 0,
+      match_reason: "Direct source match",
+      score: source.hybrid_score,
+    }));
+    const answer = retainCitedExtractiveFallbackEvidence({
+      answer: "Keep the cited source.",
+      grounded: true,
+      confidence: "medium",
+      citations: [citationFromResult(kept, "deterministic_support")],
+      sources: [kept, removed],
+      relatedDocuments,
+      smartPanel: { relatedDocuments },
+    } as unknown as RagAnswer);
+
+    expect(answer.relatedDocuments?.map((document) => document.document_id)).toEqual([kept.document_id]);
+    expect(answer.relatedDocuments?.[0]?.best_chunk_ids).toEqual([kept.id]);
+    expect(answer.smartPanel?.relatedDocuments).toEqual(answer.relatedDocuments);
+  });
+
   it("retains the correctly bound escalation clause from a mixed-medication chunk", () => {
     const mixedSource = figureChunk({
       id: "mixed-medication-escalation",

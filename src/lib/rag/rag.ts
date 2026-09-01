@@ -4207,13 +4207,17 @@ ${qualityRetryInstruction}`
         ),
       );
     }
+    const finalizedFallbackSelectionSummary = summarizeAustralianSourceSelection(
+      answerInputResults,
+      fallbackAnswer.sources,
+    );
     await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)
       await recordQuery(fallbackAnswer, {
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: fallbackAnswer.answer,
-        source_chunk_ids: generationFallbackResults.map((result) => result.id),
+        source_chunk_ids: fallbackAnswer.sources.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
@@ -4242,16 +4246,16 @@ ${qualityRetryInstruction}`
           ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
           source_authority_candidate_count: generationFallbackSelectionSummary.candidateCount,
-          source_authority_selected_count: generationFallbackSelectionSummary.selectedCount,
-          australian_source_count: generationFallbackSelectionSummary.australianSelectedCount,
-          wa_source_count: generationFallbackSelectionSummary.waSelectedCount,
+          source_authority_selected_count: finalizedFallbackSelectionSummary.selectedCount,
+          australian_source_count: finalizedFallbackSelectionSummary.australianSelectedCount,
+          wa_source_count: finalizedFallbackSelectionSummary.waSelectedCount,
           source_authority_conflict_count: generationFallbackSelectionSummary.authorityConflictCount,
-          used_supplementary_fallback: generationFallbackSelectionSummary.usedSupplementaryFallback,
+          used_supplementary_fallback: finalizedFallbackSelectionSummary.usedSupplementaryFallback,
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
           ...retrievalLogMetadata(fallbackAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
-          related_document_count: relatedDocuments.length,
+          related_document_count: fallbackAnswer.relatedDocuments?.length ?? 0,
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,

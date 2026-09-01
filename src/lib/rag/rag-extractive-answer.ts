@@ -3438,6 +3438,15 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
   const safetyWarnings = (candidate.safetyWarnings ?? []).filter((warning) =>
     citedChunkIds.has(warning.citation.chunk_id),
   );
+  const relatedDocuments = filterRelatedDocumentsForProceduralArtifacts(
+    candidate.relatedDocuments,
+    candidate.sources,
+    sources,
+  ).flatMap((document) =>
+    retainedDocumentIds.has(document.document_id)
+      ? [{ ...document, best_chunk_ids: document.best_chunk_ids.filter((chunkId) => citedChunkIds.has(chunkId)) }]
+      : [],
+  );
   const smartPanel = candidate.smartPanel
     ? {
         ...candidate.smartPanel,
@@ -3450,11 +3459,9 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
         evidenceSummary,
         sourceCoverage,
         conflictsOrGaps,
+        relatedDocuments,
       }
     : candidate.smartPanel;
-  const relatedDocuments = rebuildDerivedArtifacts
-    ? filterRelatedDocumentsForProceduralArtifacts(candidate.relatedDocuments, candidate.sources, cleanSources)
-    : candidate.relatedDocuments;
   const smartApiPlan = candidate.smartApiPlan
     ? (() => {
         const coreSourceLinks = candidate.smartApiPlan.coreSourceLinks.filter((link) =>

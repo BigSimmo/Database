@@ -14419,11 +14419,7 @@ as $$
       and public.is_committed_document_generation(chunk.index_generation_id, document.index_generation_id)
       and (document_filters is null or document.id = any(document_filters))
       and document.metadata->>'corpus_scope' = any(corpus_scopes)
-      and document.metadata->>'corpus_scope' in (
-        'uploaded_local',
-        'australian_public',
-        'international_supplementary'
-      )
+      and document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')
       and document.metadata->>'source_kind' = 'document'
       and document.metadata->'public_corpus' = 'true'::jsonb
       and document.metadata->>'content_mode' = 'indexed_content'
@@ -14434,23 +14430,6 @@ as $$
       and nullif(document.metadata->>'source_policy_version', '') is not null
       and nullif(document.metadata->>'publication_approval_id', '') is not null
       and nullif(document.metadata->>'publication_manifest_digest', '') is not null
-      and (
-        document.metadata->>'corpus_scope' <> 'uploaded_local'
-        or (
-          nullif(document.metadata->>'source_role', '') is not null
-          and document.metadata->>'publication_manifest_digest' ~ '^[0-9a-f]{64}$'
-          and document.metadata->>'publication_reviewed_state_digest' ~ '^[0-9a-f]{64}$'
-          and exists (
-            select 1
-            from public.document_publication_approvals approval
-            where approval.id::text = document.metadata->>'publication_approval_id'
-              and approval.document_id = document.id
-              and approval.decision = 'approved'
-              and approval.manifest_digest = document.metadata->>'publication_manifest_digest'
-              and approval.reviewed_state_digest = document.metadata->>'publication_reviewed_state_digest'
-          )
-        )
-      )
   ),
   site_candidates as (
     select
