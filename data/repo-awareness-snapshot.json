@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "bf4489206167d41e78e629e10194a3856616afea",
-    "committed_at": "2026-09-01T18:36:13+08:00"
+    "sha": "33bfca886fd1c6c0c46350ce3baec1ba579fa9e3",
+    "committed_at": "2026-09-01T11:52:59Z"
   },
   "routes": {
     "modes": [
@@ -4326,6 +4326,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2507",
+        "head": "ebb57785958888c2703ccb6cadac76ce344065ee",
+        "scope": "Run PR sweep: enforce Favourites phone tap-target minimum",
+        "outcome": "Replaced the blacklist-only target guard with a positive 48px-or-row-wide requirement and mutation fixtures for undersized or implicit controls.",
+        "checks": "Focused Favourites phone mockup test: 9 passed; diff check."
+      },
       {
         "date": "2026-08-31",
         "ref": "codex/answer-surface-compact-20260830",
@@ -25576,8 +25584,8 @@
       }
     ],
     "counts": {
-      "records": 2656,
-      "refs": 1622
+      "records": 2657,
+      "refs": 1623
     }
   }
 }
