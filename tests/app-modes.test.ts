@@ -33,6 +33,7 @@ describe("app mode search contract", () => {
     expect(universalSearchPreferredDomains("favourites")).toEqual([]);
     expect(universalSearchPreferredDomains("factsheets")).toEqual([]);
     expect(universalSearchPreferredDomains("calculators")).toEqual([]);
+    expect(universalSearchPreferredDomains("sources")).toEqual([]);
   });
 
   it("requires every mode to declare its search behavior and copy", () => {
@@ -193,6 +194,25 @@ describe("app mode search contract", () => {
     expect(config.kind).toBe("therapies");
     expect(config.resultKind).toBe("therapies");
     expect(appModeHomeHref("therapy-compass", { query: "CBT", run: true })).toBe("/therapy-compass/search?q=CBT&run=1");
+  });
+
+  it("routes Sources searches to the read-only catalogue", () => {
+    const config = appModeSearchConfig("sources");
+    const mode = appModeDefinitions.find((definition) => definition.id === "sources");
+
+    expect(appModeIds).toHaveLength(16);
+    expect(mode).toMatchObject({
+      label: "Sources",
+      description: "Ranked clinical source catalogue and traceability",
+      href: "/sources",
+    });
+    expect(config).toMatchObject({
+      kind: "tools",
+      placeholder: "Search sources, publishers, or topics...",
+      resultHeading: "Sources",
+      nextStep: "Filter by quality, location, publisher, topic, or usage",
+    });
+    expect(appModeHomeHref("sources", { query: "RANZCP", run: true })).toBe("/sources?q=RANZCP&run=1");
   });
 
   it("keeps source-library shortcut searches in their active mode family", () => {
@@ -418,6 +438,7 @@ describe("app mode search contract", () => {
       formulation: "/formulation/search?q=clozapine&run=1",
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       calculators: "/calculators/search?q=clozapine&run=1",
+      sources: "/sources?q=clozapine&run=1",
       // Same route, submitted branch: these still own a home of their own.
       favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.

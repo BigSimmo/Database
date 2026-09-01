@@ -25,6 +25,7 @@ export type ToolCatalogId =
   | "differentials"
   | "documents"
   | "clinical-dictionary"
+  | "source-catalogue"
   | "guidelines"
   | "risk-safety"
   | "medication-prescribing"
@@ -134,6 +135,22 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Term or abbreviation", "Clinical topic or context", "Whether a distinction or comparison is needed"],
     neededInput: ["Term, abbreviation, or topic"],
     output: "Source-checked definition, related terminology, distinctions, and source links.",
+  },
+  {
+    id: "source-catalogue",
+    title: "Sources",
+    description: "Browse ranked clinical sources and their traceability.",
+    bestFor: "Source quality and provenance review",
+    detail: "Review source identity, quality bands, locations, publishers, topics, and application usage.",
+    href: "/sources",
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    actionLabel: "Browse",
+    keywords: ["sources", "catalogue", "publisher", "quality", "provenance", "traceability"],
+    checkFirst: ["Source identity", "Quality band", "Review and lifecycle status"],
+    neededInput: ["Optional title, publisher, topic, or usage filter"],
+    output: "Read-only source catalogue records with quality and traceability details.",
   },
   {
     id: "guidelines",

@@ -20,9 +20,20 @@ describe("tools catalog", () => {
       "services",
       "forms",
       "calculators",
+      "source-catalogue",
     ]) {
       expect(ids).toContain(staple);
     }
+  });
+
+  it("exposes Sources as a ready source-backed reference tool", () => {
+    expect(toolCatalogRecordById("source-catalogue")).toMatchObject({
+      title: "Sources",
+      href: "/sources",
+      area: "reference",
+      status: "ready",
+      sourceBacked: true,
+    });
   });
 
   it("links shared-home tools directly to their canonical mode homes", () => {
