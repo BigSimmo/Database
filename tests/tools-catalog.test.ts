@@ -6,6 +6,7 @@ import {
   toolCatalogRecordsForSession,
 } from "../src/lib/tools-catalog";
 import { appModeHomeHref, type AppModeId } from "../src/lib/app-modes";
+import { smartSearchExpansions } from "../src/lib/smart-search-intent";
 import { tools as mockupToolFixtures } from "../src/components/tools-page-mockups/tool-fixtures";
 
 describe("tools catalog", () => {
@@ -50,9 +51,22 @@ describe("tools catalog", () => {
     expect(matches[0].reasons).toContain("title");
   });
 
+  it("keeps the Differentials tool ahead of a generic Compare keyword match", () => {
+    const matches = rankToolRecords("Compare");
+    expect(matches[0]?.tool.id).toBe("differentials");
+  });
+
   it("finds tools through keywords", () => {
     const matches = rankToolRecords("contraindications");
     expect(matches.some((match) => match.tool.id === "risk-safety")).toBe(true);
+  });
+
+  it("ranks Smart medication-interaction intent and exact Forms queries ahead of other tools", () => {
+    const expansions = smartSearchExpansions("tools", "where can I check medication interactions?");
+    expect(rankToolRecords("where can I check medication interactions?", 5, expansions)[0]?.tool.id).toBe(
+      "medication-prescribing",
+    );
+    expect(rankToolRecords("Forms")[0]?.tool.id).toBe("forms");
   });
 
   it("returns nothing for an empty query", () => {
@@ -75,6 +89,16 @@ describe("tools catalog", () => {
     expect(
       toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((tool) => tool.id === "favourites"),
     ).toBe(true);
+  });
+
+  it("excludes Favourites from guest Smart ranking", () => {
+    const query = "where are my saved workflows?";
+    expect(
+      rankToolRecords(query, 10, smartSearchExpansions("tools", query), {
+        authenticated: false,
+        demoMode: false,
+      }).map((match) => match.tool.id),
+    ).not.toContain("favourites");
   });
 
   it("keeps the mockup fixtures derived from catalog identity fields", () => {

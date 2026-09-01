@@ -9,9 +9,24 @@ export const smartNaturalSearchModeIds = [
   "dsm",
   "specifiers",
   "therapy-compass",
+  "prescribing",
+  "tools",
+  "calculators",
+  "factsheets",
+  "dictionary",
 ] as const satisfies readonly AppModeId[];
 
 export type SmartNaturalSearchModeId = (typeof smartNaturalSearchModeIds)[number];
+
+export const smartLocalOnlyModeIds = [
+  "prescribing",
+  "tools",
+  "calculators",
+  "factsheets",
+  "dictionary",
+] as const satisfies readonly AppModeId[];
+
+export type SmartLocalOnlyModeId = (typeof smartLocalOnlyModeIds)[number];
 
 export type SmartSearchInterpretation = {
   modeId: AppModeId;
@@ -78,11 +93,70 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
     { pattern: /\b(?:couple|relationship problems?)\b/i, terms: ["couples", "relationship"] },
     { pattern: /\b(?:emotion regulation|intense emotions?)\b/i, terms: ["dbt", "dialectical behaviour therapy"] },
   ],
+  prescribing: [
+    {
+      pattern: /\b(?:medicine that needs regular blood tests|regular blood tests)\b/i,
+      terms: ["monitoring", "blood tests"],
+    },
+    {
+      pattern: /\b(?:medicine for alcohol dependence|alcohol dependence)\b/i,
+      terms: ["alcohol dependence", "relapse prevention"],
+    },
+    {
+      pattern: /\b(?:antidepressant sexual side effects|antidepressant.*sexual adverse effects)\b/i,
+      terms: ["antidepressant", "sexual adverse effects"],
+    },
+  ],
+  tools: [
+    {
+      pattern: /\b(?:check medication interactions|medication interactions)\b/i,
+      terms: ["medication", "prescribing", "interactions", "safety"],
+    },
+    { pattern: /\b(?:mental health form|mental health forms)\b/i, terms: ["forms", "paperwork"] },
+    {
+      pattern: /\b(?:screening score|screening scores)\b/i,
+      terms: ["calculators", "assessment", "score"],
+    },
+  ],
+  calculators: [
+    {
+      pattern: /\b(?:screen depression severity|depression severity)\b/i,
+      terms: ["PHQ-9", "depression"],
+    },
+    { pattern: /\b(?:measure anxiety symptoms|anxiety symptoms)\b/i, terms: ["GAD-7", "anxiety"] },
+    {
+      pattern: /\b(?:screen hazardous drinking|hazardous drinking)\b/i,
+      terms: ["AUDIT-C", "CAGE", "alcohol"],
+    },
+    {
+      pattern: /\b(?:rate obsessive compulsive symptoms|obsessive compulsive symptoms)\b/i,
+      terms: ["Y-BOCS", "obsessive compulsive"],
+    },
+  ],
+  factsheets: [
+    {
+      pattern: /\b(?:worries all the time|worry all the time)\b/i,
+      terms: ["generalised anxiety disorder", "worry", "anxiety"],
+    },
+    { pattern: /\b(?:talking therapy)\b/i, terms: ["cognitive behavioural therapy", "CBT"] },
+    {
+      pattern: /\b(?:antidepressant side effects)\b/i,
+      terms: ["antidepressants", "SSRI", "side effects"],
+    },
+  ],
+  dictionary: [
+    {
+      pattern: /\b(?:hearing a voice that is not there|hearing voices)\b/i,
+      terms: ["hallucination", "auditory hallucination"],
+    },
+    { pattern: /\b(?:mental state exam)\b/i, terms: ["mental state examination", "MSE"] },
+    { pattern: /\b(?:repeated unwanted thoughts)\b/i, terms: ["obsession", "intrusive thought"] },
+  ],
 };
 
 const conversationalLeadPattern =
   /^(?:(?:please\s+)?(?:show|find|search(?:\s+for)?|look\s+up|help\s+me\s+find)|what|which|where|when|how|can|could|would|is|are|do|does)\b/i;
-const compactCodePattern = /^(?:form\s+)?[a-z]{0,5}\s*\d{1,3}(?:\.\d+)?[a-z]?$/i;
+const compactCodePattern = /^(?:form\s+)?[a-z]{0,5}[\s-]*\d{1,3}(?:\.\d+)?[a-z]?$/i;
 const embeddedIdentifierPattern = /\b(?=[a-z0-9.]*[a-z])(?=[a-z0-9.]*\d)[a-z0-9.]{3,}\b/i;
 
 function lexicalTokens(value: string): string[] {
@@ -91,6 +165,10 @@ function lexicalTokens(value: string): string[] {
 
 export function isSmartNaturalSearchMode(modeId: AppModeId): modeId is SmartNaturalSearchModeId {
   return smartNaturalSearchModeIds.includes(modeId as SmartNaturalSearchModeId);
+}
+
+export function isSmartLocalOnlyMode(modeId: AppModeId): modeId is SmartLocalOnlyModeId {
+  return smartLocalOnlyModeIds.includes(modeId as SmartLocalOnlyModeId);
 }
 
 /**

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import userEvent from "@testing-library/user-event";
 
@@ -10,7 +10,9 @@ import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/fa
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ApplicationsLauncherWorkspace } from "@/components/applications-launcher-page";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { UniversalSearchCommandSurface } from "@/components/clinical-dashboard/universal-search-command-surface";
 import { ToolsSearchResultsPage } from "@/components/tools/tools-search-results-page";
+import { favouriteItems, type FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { filterCrossModesForSession, visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
 import { toolCatalogRecordsForSession } from "@/lib/tools-catalog";
 
@@ -25,17 +27,31 @@ const authSession = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 
+const router = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+  prefetch: vi.fn(),
+}));
+
+const searchCommand = vi.hoisted(() => ({
+  value: null as { query: string; modeId: "tools" } | null,
+}));
+
+const savedRegistry = vi.hoisted(() => ({
+  items: [] as FavouriteItem[],
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => authSession,
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => router,
 }));
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
   useSavedRegistryFavourites: () => ({
-    items: [],
+    items: savedRegistry.items,
     status: "ready",
     registryStatus: "ready",
     refetch: () => undefined,
@@ -43,7 +59,7 @@ vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => (
 }));
 
 vi.mock("@/components/clinical-dashboard/search-command-context", () => ({
-  useSearchCommand: () => null,
+  useSearchCommand: () => searchCommand.value,
 }));
 
 vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
@@ -88,15 +104,47 @@ function headerProps(canAccessFavourites: boolean) {
   };
 }
 
+function CommandSurfaceFixture({
+  canAccessFavourites,
+  modeId,
+  query,
+}: {
+  canAccessFavourites: boolean;
+  modeId: "prescribing";
+  query: string;
+}) {
+  return (
+    <UniversalSearchCommandSurface
+      demoMode={false}
+      canAccessFavourites={canAccessFavourites}
+      modeId={modeId}
+      query={query}
+      recentQueries={[]}
+      dropdownOpen
+      onDropdownOpenChange={() => undefined}
+      onQueryChange={() => undefined}
+      onSearch={() => undefined}
+      onPickRecent={() => undefined}
+      onCrossMode={() => undefined}
+    >
+      <input data-testid="global-search-input" />
+    </UniversalSearchCommandSurface>
+  );
+}
+
 describe("favourites auth gate DOM", () => {
   beforeEach(() => {
     authSession.status = "signed_out";
     authSession.session = null;
     authSession.error = null;
     authSession.notice = null;
+    searchCommand.value = null;
+    savedRegistry.items = [];
     window.localStorage.clear();
     vi.clearAllMocks();
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("keeps the six canonical navigation entries separate from conditional Favourites", () => {
     const { rerender } = render(<ClinicalSidebarContent {...sidebarProps(false)} />);
@@ -264,6 +312,70 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByTestId("tools-hub")).toBeVisible();
   });
 
+  it("uses one guest-safe ranked collection for Smart Tools cards and mobile rows", () => {
+    render(
+      <ApplicationsLauncherWorkspace query="where can I check medication interactions?" canAccessFavourites={false} />,
+    );
+
+    expect(screen.getAllByTestId(/^application-card-/)[0]).toHaveAttribute(
+      "data-testid",
+      "application-card-medication-prescribing",
+    );
+    expect(screen.getAllByTestId(/^application-row-/)[0]).toHaveAttribute(
+      "data-testid",
+      "application-row-medication-prescribing",
+    );
+    expect(screen.getByTestId("application-card-medication-prescribing")).toBeInTheDocument();
+    expect(screen.getByTestId("application-row-medication-prescribing")).toBeInTheDocument();
+    for (const toolId of ["clinical-kb-search", "documents", "favourites"]) {
+      expect(screen.queryByTestId(`tool-shortcut-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-card-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-row-${toolId}`)).toBeNull();
+    }
+  });
+
+  it("suppresses local-only Tools Smart actions for authenticated users but keeps literal tool access", () => {
+    const { rerender } = render(
+      <ApplicationsLauncherWorkspace query="where can I check medication interactions?" canAccessFavourites />,
+    );
+
+    for (const toolId of ["clinical-kb-search", "documents", "favourites"]) {
+      expect(screen.queryByTestId(`tool-shortcut-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-card-${toolId}`)).toBeNull();
+      expect(screen.queryByTestId(`application-row-${toolId}`)).toBeNull();
+    }
+
+    for (const [query, toolId] of [
+      ["PsychSift Search", "clinical-kb-search"],
+      ["Documents", "documents"],
+      ["Favourites", "favourites"],
+    ]) {
+      rerender(<ApplicationsLauncherWorkspace query={query} canAccessFavourites />);
+
+      expect(screen.getAllByTestId(`tool-shortcut-${toolId}`)).toHaveLength(toolId === "favourites" ? 1 : 2);
+      expect(screen.getByTestId(`application-card-${toolId}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`application-row-${toolId}`)).toBeInTheDocument();
+    }
+  });
+
+  it.each([
+    ["where can I check medication interactions?", "application-card-medication-prescribing"],
+    ["forms", "application-card-forms"],
+  ])("lets the Tools owner replace an empty shared command and submit %s", async (query, expectedCard) => {
+    const user = userEvent.setup();
+    searchCommand.value = { query: "", modeId: "tools" };
+    render(<ApplicationsLauncherWorkspace query="" canAccessFavourites={false} />);
+
+    const input = screen.getByRole("textbox", { name: "Search tools" });
+    await user.type(input, query);
+
+    expect(input).toHaveValue(query);
+    expect(screen.getAllByTestId(/^application-card-/)[0]).toHaveAttribute("data-testid", expectedCard);
+
+    await user.keyboard("{Enter}");
+    expect(router.push).toHaveBeenCalledWith(`/tools?q=${encodeURIComponent(query)}&run=1`);
+  });
+
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {
     render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
 
@@ -275,6 +387,62 @@ describe("favourites auth gate DOM", () => {
     expect(filterCrossModesForSession(["favourites", "forms"], { authenticated: false, demoMode: false })).toEqual([
       "forms",
     ]);
+  });
+
+  it("hides authenticated saved matches only for natural Prescribing Smart search", async () => {
+    savedRegistry.items = [
+      {
+        ...favouriteItems[0],
+        id: "saved-prescribing-monitoring-query",
+        title: "Sertraline monitoring saved search",
+        primaryAction: "Run",
+        href: "/favourites?q=sertraline-monitoring&run=1",
+        keywords: "sertraline medicine that needs regular blood tests monitoring",
+      },
+    ];
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+
+    const { rerender } = render(
+      <CommandSurfaceFixture
+        canAccessFavourites
+        modeId="prescribing"
+        query="medicine that needs regular blood tests"
+      />,
+    );
+
+    await screen.findByRole("listbox");
+    expect(screen.queryByText("Sertraline monitoring saved search")).toBeNull();
+
+    rerender(<CommandSurfaceFixture canAccessFavourites modeId="prescribing" query="sertraline" />);
+    expect(await screen.findByText("Sertraline monitoring saved search")).toBeVisible();
+  });
+
+  it("hides document mode actions only for natural Prescribing Smart search", async () => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+
+    const { rerender } = render(
+      <CommandSurfaceFixture
+        canAccessFavourites={false}
+        modeId="prescribing"
+        query="medicine that needs regular blood tests"
+      />,
+    );
+
+    await screen.findByRole("listbox");
+    expect(screen.queryByText("Browse library")).toBeNull();
+    expect(screen.queryByText("Scope sources")).toBeNull();
+    expect(screen.queryByText("Recent documents")).toBeNull();
+
+    rerender(<CommandSurfaceFixture canAccessFavourites={false} modeId="prescribing" query="sertraline" />);
+    expect(await screen.findByText("Browse library")).toBeVisible();
   });
 
   it("applies the same Favourites access gate to the all-tools results directory", () => {
@@ -298,6 +466,36 @@ describe("favourites auth gate DOM", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Show all tools" })).toHaveAttribute("href", "/tools");
+  });
+
+  it("uses the Tools Smart matcher for the submitted medication-interactions query", () => {
+    render(
+      <ToolsSearchResultsPage initialQuery="where can I check medication interactions?" canAccessFavourites={false} />,
+    );
+
+    expect(
+      within(screen.getByRole("region", { name: "Tool results" })).getByRole("heading", {
+        level: 2,
+        name: "Medication Prescribing",
+      }),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 2, name: "Favourites" })).toBeNull();
+  });
+
+  it("keeps local-only Tools Smart results free of escape tools while literal titles still open them", () => {
+    const { rerender } = render(
+      <ToolsSearchResultsPage initialQuery="where can I check medication interactions?" canAccessFavourites />,
+    );
+    const results = screen.getByRole("region", { name: "Tool results" });
+
+    for (const title of ["PsychSift Search", "Documents", "Favourites"]) {
+      expect(within(results).queryByRole("heading", { level: 2, name: title })).toBeNull();
+      expect(within(results).queryByRole("link", { name: `Open ${title}` })).toBeNull();
+    }
+
+    rerender(<ToolsSearchResultsPage initialQuery="Documents" canAccessFavourites />);
+    expect(within(results).getByRole("heading", { level: 2, name: "Documents" })).toBeVisible();
+    expect(within(results).getByRole("link", { name: "Open Documents" })).toBeVisible();
   });
 
   it("omits Favourites from the mode menu for guests", async () => {

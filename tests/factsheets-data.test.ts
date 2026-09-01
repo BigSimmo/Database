@@ -18,6 +18,7 @@ import {
   topicSectionId,
   visibleTopicSheets,
 } from "@/components/factsheets/factsheets-data";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 const kinds = new Set(["medRich", "medLite", "condition", "therapy", "procedure"]);
 
@@ -106,6 +107,41 @@ describe("factsheet library", () => {
     expect(conditions.length).toBeGreaterThan(0);
     expect(conditions.every((sheet) => sheet.category === "Conditions")).toBe(true);
     expect(filterFactsheets("this-matches-nothing-xyz")).toHaveLength(0);
+  });
+
+  it("uses natural-language expansion terms without changing the category predicate", () => {
+    const expansions = ["generalised anxiety disorder", "worry", "anxiety"];
+    expect(filterFactsheets("worries all the time", undefined, expansions).map((sheet) => sheet.slug)).toContain("gad");
+    expect(filterFactsheets("worries all the time", "Conditions", expansions).map((sheet) => sheet.slug)).toEqual([
+      "gad",
+    ]);
+    expect(filterFactsheets("worries all the time", "Therapies", expansions)).toEqual([]);
+  });
+
+  it("finds the CBT factsheet from Factsheets-mode talking-therapy expansions", () => {
+    const query = "plain information about talking therapy";
+    const expansions = smartSearchExpansions("factsheets", query);
+    expect(filterFactsheets(query, undefined, expansions).map((sheet) => sheet.slug)).toContain("cbt");
+  });
+
+  it("places direct factsheet matches ahead of expansion-only matches in catalogue order", () => {
+    const matches = filterFactsheets("Zoloft", undefined, ["generalised anxiety disorder"]);
+    expect(matches.map((sheet) => sheet.slug)).toEqual(["sertraline", "gad"]);
+  });
+
+  it("keeps a factsheet title mentioned inside a natural query ahead of Smart expansion matches", () => {
+    const matches = filterFactsheets(
+      "information about Generalised anxiety disorder for someone who worries all the time",
+      undefined,
+      ["anxiety", "worry"],
+    );
+
+    expect(matches[0]?.slug).toBe("gad");
+    expect(matches.map((sheet) => sheet.slug)).toContain("sertraline");
+  });
+
+  it("does not turn an unknown query into an expansion match", () => {
+    expect(filterFactsheets("this-matches-nothing-xyz", undefined, ["also-not-present"])).toEqual([]);
   });
 
   it("never lists a sheet as related to itself", () => {

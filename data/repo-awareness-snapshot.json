@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "4eebf126accdb4e200e843fb67bf3d7c839c154c",
-    "committed_at": "2026-09-01T13:11:45Z"
+    "sha": "a4d600782727ffbd4fc0e899a3c502c5a668bf5e",
+    "committed_at": "2026-09-01T23:34:27+08:00"
   },
   "routes": {
     "modes": [
@@ -3585,6 +3585,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-01-native-smart-catalogue-search.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
         "catalogued": false
@@ -3876,6 +3881,11 @@
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-native-smart-catalogue-search-design.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4316,9 +4326,9 @@
       }
     ],
     "counts": {
-      "documents": 562,
+      "documents": 564,
       "catalogued": 111,
-      "uncatalogued": 451,
+      "uncatalogued": 453,
       "sections": 21
     }
   },
@@ -4333,11 +4343,43 @@
     "records": [
       {
         "date": "2026-09-01",
+        "ref": "codex/smart-local-modes-20260901 (PR #2508)",
+        "head": "a1e1b973599e9bb301360be90c051986c172670f",
+        "scope": "PR #2508 native Smart catalogue matching",
+        "outcome": "Fixed P1 Compare result-order regression; no additional P0-P3 findings.",
+        "checks": "Focused Vitest 10/10; npm run format; full suite stopped before provider-backed path."
+      },
+      {
+        "date": "2026-09-01",
         "ref": "PR-2504",
         "head": "0bb1c2b6c01509d3ea5a978c3bd56c36176438d7",
         "scope": "Run PR sweep: scope corpus-health reads",
         "outcome": "Replaced inaccessible authenticated-table reads with an independently administrator-gated service-role boundary that filters every query to the verified owner; restored the complete implementation after an intervening placeholder-only commit.",
         "checks": "Focused developer corpus-health test: 16 passed; explicit owner-filter and non-administrator coverage; diff check."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2504",
+        "head": "3b1dc7c8bc997a4ea4bac44dc7de01632e676e63",
+        "scope": "Resolve Codex P1: corpus-health table access",
+        "outcome": "Verified the authenticated role lacks table SELECT; the administrator-gated server-only service-role path scopes every documents and document_index_quality query to the verified owner, with current access-control documentation.",
+        "checks": "Focused corpus-health suite: 18 passed; Prettier check passed; schema grants verified; independent review found no runtime access-control defect."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2507",
+        "head": "ebb57785958888c2703ccb6cadac76ce344065ee",
+        "scope": "Run PR sweep: enforce Favourites phone tap-target minimum",
+        "outcome": "Replaced the blacklist-only target guard with a positive 48px-or-row-wide requirement and mutation fixtures for undersized or implicit controls.",
+        "checks": "Focused Favourites phone mockup test: 9 passed; diff check."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2508",
+        "head": "14a99d0c412a3c53bf92b684c5b7e5b57ca1ccd9",
+        "scope": "Run PR sweep: prioritise embedded catalogue identities",
+        "outcome": "Ranked named Factsheet titles or brands and Dictionary terms or abbreviations above related Smart expansion matches in natural-language queries.",
+        "checks": "Focused Factsheets and Dictionary tests: 35 passed; direct-identity regression coverage; diff check."
       },
       {
         "date": "2026-08-31",
@@ -25589,8 +25631,8 @@
       }
     ],
     "counts": {
-      "records": 2657,
-      "refs": 1623
+      "records": 2661,
+      "refs": 1626
     }
   }
 }

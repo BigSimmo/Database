@@ -1,4 +1,5 @@
 import type { AppModeId } from "@/lib/app-modes";
+import { isSmartLocalOnlyMode, interpretSmartSearch } from "@/lib/smart-search-intent";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
 export type CommandSuggestion = {
@@ -203,9 +204,19 @@ export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurf
   return searchCommandSurfaceByMode[modeId] ?? null;
 }
 
-export function commandSurfaceRemoteSearchEnabled(modeId: AppModeId) {
+export function commandSurfaceRemoteSearchEnabled(modeId: AppModeId, smartNaturalLanguage = false) {
+  if (smartNaturalLanguage && isSmartLocalOnlyMode(modeId)) return false;
   const config = searchCommandSurfaceConfig(modeId);
   return Boolean(config && config.remoteSearchEnabled !== false);
+}
+
+export function filterCommandSurfaceCrossModesForSmartSearch(
+  modeId: AppModeId,
+  query: string,
+  modeIds: readonly AppModeId[],
+): AppModeId[] {
+  if (!isSmartLocalOnlyMode(modeId) || !interpretSmartSearch(modeId, query).naturalLanguage) return [...modeIds];
+  return modeIds.filter((targetModeId) => !["documents", "answer", "favourites"].includes(targetModeId));
 }
 
 export const differentialRedFlagTerms = ["confusion", "overdose", "suicid", "chest pain", "unresponsive", "catatoni"];
