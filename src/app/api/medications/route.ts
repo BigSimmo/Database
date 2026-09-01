@@ -83,7 +83,7 @@ function rankCatalogMatches(records: MedicationRecord[], q: string, limit: numbe
       }))
     : matches;
   return {
-    matches: matchesPayload(serialized),
+    matches: matchesPayload(serialized, smartExpansions.length > 0),
     interpretation: medicationCatalogInterpretation(analysis),
   };
 }
@@ -92,10 +92,12 @@ function medicationResponse(payload: Record<string, unknown>, options: { request
   return NextResponse.json(payload, { headers: fixtureResponseHeaders(options.request, options) });
 }
 
-function matchesPayload(matches: MedicationSearchMatch[]) {
+function matchesPayload(matches: MedicationSearchMatch[], rankingOnly = false) {
   return matches.map((match) => ({
     medication: match.medication,
-    result: medicationToSearchResult(match),
+    // Smart aliases may improve retrieval order, but their score must not be
+    // interpreted outwardly as evidence of medication suitability.
+    result: medicationToSearchResult(rankingOnly ? { ...match, score: 0 } : match),
     score: match.score,
     reasons: match.reasons,
   }));
