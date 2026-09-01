@@ -14,7 +14,7 @@ import {
 } from "../src/lib/rag/rag-cache";
 import { governedCorpusComponentState } from "../src/lib/rag/rag-contracts";
 import type { RagContextSnapshot } from "../src/lib/site-content/site-content-contracts";
-import type { RagQueryPlan, SourceCorpusScope } from "../src/lib/types";
+import type { ClinicalSourceMetadata, RagQueryPlan, SearchResult, SourceCorpusScope } from "../src/lib/types";
 
 const RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
 const DIGEST = "a".repeat(64);
@@ -38,7 +38,14 @@ function snapshot(state: RagContextSnapshot["publicSiteContent"]["state"] = "cur
   };
 }
 
-function row(id: string, corpusScope: SourceCorpusScope): Record<string, unknown> {
+type GovernedTestRow = Omit<SearchResult, "source_metadata"> & {
+  source_metadata: ClinicalSourceMetadata & { public_source_steward_id: string };
+  site_release_id: string | null;
+  site_change_epoch: string | null;
+  pending_exclusion_exact: boolean | null;
+};
+
+function row(id: string, corpusScope: SourceCorpusScope): GovernedTestRow {
   return {
     id,
     document_id: `${id}-document`,
@@ -53,6 +60,14 @@ function row(id: string, corpusScope: SourceCorpusScope): Record<string, unknown
     text_rank: 0.7,
     hybrid_score: 0.8,
     source_metadata: {
+      source_title: id,
+      publisher: "Clinical KB",
+      jurisdiction: "Australia/WA",
+      version: "1",
+      publication_date: null,
+      review_date: null,
+      uploaded_at: null,
+      indexed_at: null,
       corpus_scope: corpusScope,
       source_kind: corpusScope === "clinical_kb_site" ? "registry_record" : "document",
       uploaded_by: "user-id-canary",
@@ -217,7 +232,7 @@ describe("governed public corpus retrieval", () => {
     ].map((candidate) => ({
       ...candidate,
       source_metadata: {
-        ...(candidate.source_metadata as Record<string, unknown>),
+        ...candidate.source_metadata,
         source_kind: "registry_record",
       },
     }));

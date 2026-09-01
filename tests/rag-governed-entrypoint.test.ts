@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RagContextSnapshotInput } from "../src/lib/rag/rag-context-snapshot";
-import type { SearchResult, SourceCorpusScope } from "../src/lib/types";
+import type { ClinicalSourceMetadata, SearchResult, SourceCorpusScope } from "../src/lib/types";
 
 const RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
 const STATIC_DIGEST = "a".repeat(64);
@@ -59,7 +59,23 @@ class EmptyQuery implements PromiseLike<{ data: unknown[]; error: null }> {
   }
 }
 
-function governedRow(id: string, scope: SourceCorpusScope): SearchResult & Record<string, unknown> {
+type GovernedTestSourceMetadata = ClinicalSourceMetadata & {
+  site_content_logical_id?: string;
+  site_content_lineage?: Array<{
+    sourceId: string;
+    sourceHash: string;
+    relationship: "derived_from" | "references";
+  }>;
+};
+
+type GovernedTestRow = Omit<SearchResult, "source_metadata"> & {
+  source_metadata: GovernedTestSourceMetadata;
+  site_release_id: string | null;
+  site_change_epoch: string | null;
+  pending_exclusion_exact: boolean | null;
+};
+
+function governedRow(id: string, scope: SourceCorpusScope): GovernedTestRow {
   return {
     id,
     document_id: `${id}-document`,
@@ -109,7 +125,7 @@ async function loadHarness(
     divergentCorpusGrounding?: boolean;
     hybridError?: boolean;
     missingV3?: boolean;
-    candidateRows?: Array<SearchResult & Record<string, unknown>>;
+    candidateRows?: GovernedTestRow[];
   } = {},
 ) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -432,7 +448,7 @@ describe("governed retrieval production entrypoint", () => {
   });
 
   it("applies claim-role eligibility before final governed top-K", async () => {
-    const wrongRole = Array.from({ length: 4 }, (_, index) => {
+    const wrongRole = Array.from({ length: 4 }, (_, index): GovernedTestRow => {
       const candidate = governedRow(`form-${index}`, "uploaded_local");
       return {
         ...candidate,
@@ -466,7 +482,7 @@ describe("governed retrieval production entrypoint", () => {
 
   it("collapses derivative lineage families before final governed top-K", async () => {
     const parentHash = "d".repeat(64);
-    const derivatives = Array.from({ length: 3 }, (_, index) => {
+    const derivatives = Array.from({ length: 3 }, (_, index): GovernedTestRow => {
       const candidate = governedRow(`derivative-${index}`, "clinical_kb_site");
       return {
         ...candidate,
