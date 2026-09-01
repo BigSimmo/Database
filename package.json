@@ -177,7 +177,6 @@
     "check:m13-migration": "node scripts/run-tsx.mjs scripts/archive/check-m13-migration.ts",
     "check:july8-live-batch": "node scripts/run-tsx.mjs scripts/archive/check-july8-live-batch.ts",
     "backfill:gold-labels": "node scripts/run-tsx.mjs scripts/backfill-gold-document-labels.ts",
-    "backfill:smart-v2-labels": "npm run classify:documents -- --all-owners --limit 5000 --only-missing-smart-v2",
     "tags:backfill": "node scripts/run-tsx.mjs scripts/archive/backfill-document-tags.ts",
     "index:backfill": "node scripts/run-tsx.mjs scripts/backfill-smart-index.ts",
     "visual:backfill": "node scripts/run-tsx.mjs scripts/backfill-visual-intelligence.ts",
@@ -289,7 +288,8 @@
     "check:assets": "node scripts/check-assets.mjs",
     "check:pr-mergeability": "node scripts/pr-mergeability.mjs --self-test && node scripts/check-pr-mergeability-workflow.mjs",
     "design-system:baselines:adopt": "node scripts/adopt-visual-baselines.mjs",
-    "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs"
+    "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs",
+    "check:stale-docs": "node scripts/check-stale-docs.mjs"
   },
   "dependencies": {
     "@next/env": "16.3.3",

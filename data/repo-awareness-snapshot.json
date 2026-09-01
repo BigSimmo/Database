@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "fede4029f3fe4976f20a2e59ec85351a674cc2ed",
-    "committed_at": "2026-08-31T15:13:42+08:00"
+    "sha": "b923e61aa9cac76202b8e27ddc9bffb669376d96",
+    "committed_at": "2026-09-01T09:33:16+08:00"
   },
   "routes": {
     "modes": [
@@ -1461,6 +1461,11 @@
       },
       {
         "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-reasoning-effort.md",
         "section": "agents",
         "catalogued": false
       },
@@ -4263,9 +4268,9 @@
       }
     ],
     "counts": {
-      "documents": 554,
+      "documents": 555,
       "catalogued": 109,
-      "uncatalogued": 445,
+      "uncatalogued": 446,
       "sections": 20
     }
   },
