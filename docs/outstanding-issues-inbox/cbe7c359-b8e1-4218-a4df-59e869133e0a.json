@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cbe7c359-b8e1-4218-a4df-59e869133e0a",
+  "createdOn": "2026-09-01",
+  "action": "cancel",
+  "payload": {
+    "requestId": "184404de-c45e-43e3-8048-2825799b349e",
+    "reason": "Duplicate of the existing open row #QCNE6N, which already records that CI never diffs the replayed migration chain against supabase/schema.sql and already proposes the same containerised two-database fix. Retracted the same session it was queued; the new 2026-09-01 evidence was reissued as an update to #QCNE6N instead (request 86ba753c-f2fd-4be7-92f4-df3d54cf4a04)."
+  }
+}

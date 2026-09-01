@@ -5,6 +5,7 @@ import { DeveloperHubNavHeader } from "@/components/developer-area/developer-hub
 import { EnvironmentStrip } from "@/components/developer-area/hub/environment-strip";
 import { PanelCard } from "@/components/developer-area/hub/panel-card";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { resolveHubEnvironmentFacts } from "@/lib/developer-area/environment-facts";
 import { panelsInGroup, type HubPanelGroup } from "@/lib/developer-area/hub-panels";
 import { loadLedgerSnapshot } from "@/lib/developer-area/ledger-snapshot";
 import { resolveDeploymentCommitSha } from "@/lib/observability/sentry-release";
@@ -48,8 +49,9 @@ const GROUPS: { id: HubPanelGroup; anchor: string; label: string }[] = [
   { id: "reference", anchor: "developer-hub-reference", label: "Reference" },
 ];
 
-export default function DeveloperHubPage() {
+export default async function DeveloperHubPage() {
   const snapshot = loadLedgerSnapshot();
+  const environment = await resolveHubEnvironmentFacts();
 
   return (
     <>
@@ -74,24 +76,32 @@ export default function DeveloperHubPage() {
         <section id="developer-hub-environment" className={inPageAnchor}>
           <h2 className="sr-only">Environment</h2>
           {/*
-           * Build identity only. `resolveDeploymentCommitSha` reads
-           * `RAILWAY_GIT_COMMIT_SHA`, which the Dockerfile already declares, and
-           * returns `null` when it is absent — so local dev keeps saying "build
-           * unknown" honestly rather than inventing one.
+           * All four facts are read now. Each one either reports a value it read
+           * or names its own gap; none of them may be invented.
            *
-           * `demoMode`, `documentCount` and the signed-in email stay null because
-           * this wiring is deferred; the Phase 2 design
-           * (docs/superpowers/specs/2026-08-22-developer-hub-phase-2-design.md §3,
-           * "Explicitly out of scope") scopes it to whichever phase owns each
-           * value's data source, not to a phase this branch already ships —
-           * the component and its contract exist, the real values are not wired,
-           * and the strip is required to render honestly rather than invent them.
-           * `null` is not an absence here, it is the strip's way of naming what it
-           * has not read; `demoMode` is the load-bearing one, since claiming "Live
+           * `demoMode` is the load-bearing one: it is the only entry that can be
+           * actively *wrong* rather than merely absent, because claiming "Live
            * data" on a page that never looked states the opposite of the truth in
            * demo mode.
+           *
+           * `resolveDeploymentCommitSha` reads `RAILWAY_GIT_COMMIT_SHA`, which the
+           * Dockerfile already declares, and returns `null` when it is absent — so
+           * local dev keeps saying "build unknown" honestly rather than inventing
+           * one.
+           *
+           * The document count and the signed-in email come from one Supabase
+           * round trip in `resolveHubEnvironmentFacts`, which is what makes this
+           * Server Component async. That count is owner-scoped by the database's
+           * own row-level security, not by anything asserted here, and every
+           * failure path returns `null` rather than `0` — see that module for why
+           * the distinction is load-bearing.
            */}
-          <EnvironmentStrip demoMode={null} documentCount={null} buildSha={resolveDeploymentCommitSha()} email={null} />
+          <EnvironmentStrip
+            demoMode={environment.demoMode}
+            documentCount={environment.documentCount}
+            buildSha={resolveDeploymentCommitSha()}
+            email={environment.email}
+          />
         </section>
 
         {snapshot.counts.p1 > 0 ? (

@@ -196,7 +196,7 @@ describe("formatDifferentialCopyText", () => {
     expect(text).toContain("- Six");
     expect(text).not.toContain("- Seven");
     expect(text).toContain("- Blood glucose");
-    expect(text.endsWith("Clinical decision support only. Review before use.")).toBe(true);
+    expect(text.endsWith("Clinical reference — not validated decision support. Review before use.")).toBe(true);
     expect(text).not.toContain("undefined");
   });
 });

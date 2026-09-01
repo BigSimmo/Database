@@ -13,6 +13,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { calculatorEvidence } from "./calculator-evidence";
+
+export { calculatorEvidence };
+
 export type CalculatorTone = "success" | "info" | "warning" | "danger";
 
 type CalculatorOption = {
@@ -36,6 +40,8 @@ export type CalculatorItem = {
   options?: CalculatorOption[];
   /** Safety flag surfaced whenever this item scores above zero. */
   flag?: string;
+  /** Evidence claim for the safety wording. */
+  flagClaimId?: string;
 };
 
 export type ScoreBand = {
@@ -43,7 +49,8 @@ export type ScoreBand = {
   max: number;
   label: string;
   tone: CalculatorTone;
-  guidance: string;
+  /** Source-linked psychometric interpretation, never management instruction. */
+  interpretation: string;
 };
 
 export type CalculatorDomain = "mood" | "anxiety" | "substance" | "risk" | "distress";
@@ -71,7 +78,53 @@ export type CalculatorFixture = {
   scoringNote: string;
   source: string;
   caution?: string;
+  instrumentVersion: string;
+  administrationMethod: string;
+  intendedPopulation: string;
+  timeframe: string;
+  completionPolicy: string;
+  interpretationPolicy: string;
+  sourceIds: string[];
+  claimIds: string[];
+  rights: { status: "available" | "permission_review_required" | "unknown" };
+  jurisdiction: string;
+  lastReviewed: string;
+  nextReview: string;
+  reviewer: string;
+  confidence: "high" | "moderate" | "low";
+  riskLevel: "low" | "moderate" | "high";
+  instrumentStatus: "active" | "quarantined";
+  evidenceStatus: "verified" | "review_required" | "blocked";
+  releaseStatus: "available" | "quarantined";
+  limitations: string[];
+  unresolvedIssues: string[];
 };
+
+type RawScoreBand = Omit<ScoreBand, "interpretation"> & { guidance: string };
+type RawCalculatorFixture = Omit<
+  CalculatorFixture,
+  | "bands"
+  | "instrumentVersion"
+  | "administrationMethod"
+  | "intendedPopulation"
+  | "timeframe"
+  | "completionPolicy"
+  | "interpretationPolicy"
+  | "sourceIds"
+  | "claimIds"
+  | "rights"
+  | "jurisdiction"
+  | "lastReviewed"
+  | "nextReview"
+  | "reviewer"
+  | "confidence"
+  | "riskLevel"
+  | "instrumentStatus"
+  | "evidenceStatus"
+  | "releaseStatus"
+  | "limitations"
+  | "unresolvedIssues"
+> & { bands: RawScoreBand[] };
 
 export const domainLabels: Record<CalculatorDomain, string> = {
   mood: "Mood",
@@ -112,7 +165,7 @@ const ybocsSeverity: CalculatorOption[] = [
   { label: "Extreme", short: "4", points: 4 },
 ];
 
-export const calculators: CalculatorFixture[] = [
+const calculatorFixtures: RawCalculatorFixture[] = [
   {
     id: "phq9",
     abbrev: "PHQ-9",
@@ -120,13 +173,14 @@ export const calculators: CalculatorFixture[] = [
     domain: "mood",
     icon: CloudRain,
     indication: "Screen for depression, grade severity, and track response to treatment over time.",
-    summary: "9-item depression severity score with treatment-action bands.",
+    summary: "9-item depression assessment and monitoring measure.",
     stem: "Over the last 2 weeks, how often have you been bothered by:",
     timeEstimate: "2–3 min",
     timeEstimateMinutes: { min: 2, max: 3 },
     minScore: 0,
     maxScore: 27,
-    scoringNote: "Sum of 9 items (0–3 each). Severity bands map to stepped treatment actions.",
+    scoringNote:
+      "Sum of 9 items (0–3 each); interpret a completed result with the instrument source and clinical context.",
     source: "Kroenke, Spitzer & Williams 2001",
     caution: "Any endorsement of item 9 requires direct suicide-risk assessment regardless of total score.",
     items: [
@@ -163,32 +217,45 @@ export const calculators: CalculatorFixture[] = [
         kind: "options",
         options: frequency0to3,
         text: "Thoughts that you would be better off dead, or of hurting yourself in some way",
-        flag: "Item 9 endorsed — complete a structured suicide-risk assessment now.",
+        flag: "Item 9 endorsed — directly assess suicidal thoughts, self-harm thoughts and immediate safety now.",
+        flagClaimId: "claim:phq9:safety-flag",
       },
     ],
     bands: [
-      { min: 0, max: 4, label: "Minimal", tone: "success", guidance: "Monitor; treatment may not be required." },
-      { min: 5, max: 9, label: "Mild", tone: "info", guidance: "Watchful waiting; repeat PHQ-9 at follow-up." },
+      {
+        min: 0,
+        max: 4,
+        label: "Minimal",
+        tone: "success",
+        guidance: "Lower symptom score band; interpret in clinical context.",
+      },
+      {
+        min: 5,
+        max: 9,
+        label: "Mild",
+        tone: "info",
+        guidance: "Mild symptom score band; interpret in clinical context.",
+      },
       {
         min: 10,
         max: 14,
         label: "Moderate",
         tone: "warning",
-        guidance: "Treatment plan: psychotherapy, follow-up and/or pharmacotherapy.",
+        guidance: "Moderate symptom score band; interpret in clinical context.",
       },
       {
         min: 15,
         max: 19,
         label: "Moderately severe",
         tone: "warning",
-        guidance: "Active treatment with pharmacotherapy and/or psychotherapy.",
+        guidance: "Moderately severe symptom score band; interpret in clinical context.",
       },
       {
         min: 20,
         max: 27,
         label: "Severe",
         tone: "danger",
-        guidance: "Initiate pharmacotherapy; expedite specialist referral if impairment is severe.",
+        guidance: "Severe symptom score band; interpret in clinical context.",
       },
     ],
   },
@@ -217,21 +284,33 @@ export const calculators: CalculatorFixture[] = [
       { id: "g7", kind: "options", options: frequency0to3, text: "Feeling afraid, as if something awful might happen" },
     ],
     bands: [
-      { min: 0, max: 4, label: "Minimal", tone: "success", guidance: "No action beyond routine care." },
-      { min: 5, max: 9, label: "Mild", tone: "info", guidance: "Monitor; repeat GAD-7 at review." },
+      {
+        min: 0,
+        max: 4,
+        label: "Minimal",
+        tone: "success",
+        guidance: "Lower anxiety symptom score band; interpret in clinical context.",
+      },
+      {
+        min: 5,
+        max: 9,
+        label: "Mild",
+        tone: "info",
+        guidance: "Mild anxiety symptom score band; interpret in clinical context.",
+      },
       {
         min: 10,
         max: 14,
         label: "Moderate",
         tone: "warning",
-        guidance: "Probable anxiety disorder — confirm diagnosis and agree a treatment plan.",
+        guidance: "Moderate anxiety symptom score band; interpret in clinical context.",
       },
       {
         min: 15,
         max: 21,
         label: "Severe",
         tone: "danger",
-        guidance: "Active treatment warranted; assess functional impact and comorbid depression.",
+        guidance: "Severe anxiety symptom score band; interpret in clinical context.",
       },
     ],
   },
@@ -264,27 +343,33 @@ export const calculators: CalculatorFixture[] = [
       { id: "k10", kind: "options", options: kessler1to5, text: "Worthless" },
     ],
     bands: [
-      { min: 10, max: 15, label: "Low", tone: "success", guidance: "Likely well; no specific action." },
+      {
+        min: 10,
+        max: 15,
+        label: "Low",
+        tone: "success",
+        guidance: "Lower psychological distress score band; interpret in clinical context.",
+      },
       {
         min: 16,
         max: 21,
         label: "Moderate",
         tone: "info",
-        guidance: "Consistent with mild distress — brief intervention and review.",
+        guidance: "Moderate psychological distress score band; interpret in clinical context.",
       },
       {
         min: 22,
         max: 29,
         label: "High",
         tone: "warning",
-        guidance: "Likely mild-to-moderate mental disorder — structured assessment indicated.",
+        guidance: "High psychological distress score band; interpret in clinical context.",
       },
       {
         min: 30,
         max: 50,
         label: "Very high",
         tone: "danger",
-        guidance: "Likely severe disorder — comprehensive assessment and active treatment.",
+        guidance: "Very high psychological distress score band; interpret in clinical context.",
       },
     ],
   },
@@ -385,14 +470,14 @@ export const calculators: CalculatorFixture[] = [
         max: 6,
         label: "Below symptom threshold",
         tone: "success",
-        guidance: "Screen negative on symptom count alone.",
+        guidance: "Symptom-count screen result; interpret with all required criteria and clinical context.",
       },
       {
         min: 7,
         max: 13,
         label: "Symptom threshold met",
         tone: "warning",
-        guidance: "Check co-occurrence and impairment criteria to complete the screen.",
+        guidance: "Symptom-count screen result; interpret with all required criteria and clinical context.",
       },
     ],
   },
@@ -427,14 +512,14 @@ export const calculators: CalculatorFixture[] = [
         max: 1,
         label: "Screen negative",
         tone: "success",
-        guidance: "Reinforce low-risk drinking guidance; rescreen opportunistically.",
+        guidance: "Lower-risk screening score band; interpret in clinical context.",
       },
       {
         min: 2,
         max: 4,
         label: "Clinically significant",
         tone: "danger",
-        guidance: "Positive screen — take a full drinking history and complete the AUDIT.",
+        guidance: "Positive screening score band; interpret in clinical context.",
       },
     ],
   },
@@ -491,20 +576,26 @@ export const calculators: CalculatorFixture[] = [
       },
     ],
     bands: [
-      { min: 0, max: 2, label: "Lower risk", tone: "success", guidance: "Below screening threshold for both sexes." },
+      {
+        min: 0,
+        max: 2,
+        label: "Lower risk",
+        tone: "success",
+        guidance: "Lower-risk screening score band; interpret in clinical context.",
+      },
       {
         min: 3,
         max: 4,
         label: "At threshold",
         tone: "warning",
-        guidance: "Positive for women at ≥3 and men at ≥4 — brief intervention and full AUDIT.",
+        guidance: "Positive screening score band; interpret in clinical context.",
       },
       {
         min: 5,
         max: 12,
         label: "Higher risk",
         tone: "danger",
-        guidance: "Likely hazardous or harmful drinking — full AUDIT, brief intervention, consider referral.",
+        guidance: "Higher screening score band; interpret in clinical context.",
       },
     ],
   },
@@ -548,21 +639,21 @@ export const calculators: CalculatorFixture[] = [
         max: 4,
         label: "Lower indicative risk",
         tone: "info",
-        guidance: "Consider discharge with follow-up if the clinical assessment agrees.",
+        guidance: "Lower score band; this instrument is not available for score-based decision support.",
       },
       {
         min: 5,
         max: 6,
         label: "Intermediate",
         tone: "warning",
-        guidance: "Consider close follow-up or admission; complete a structured risk assessment.",
+        guidance: "Intermediate score band; this instrument is not available for score-based decision support.",
       },
       {
         min: 7,
         max: 10,
         label: "Higher indicative risk",
         tone: "danger",
-        guidance: "Admission usually indicated; ensure immediate safety planning.",
+        guidance: "Higher score band; this instrument is not available for score-based decision support.",
       },
     ],
   },
@@ -605,32 +696,118 @@ export const calculators: CalculatorFixture[] = [
       { id: "y10", kind: "options", options: ybocsSeverity, text: "Degree of control over compulsive behaviour" },
     ],
     bands: [
-      { min: 0, max: 7, label: "Subclinical", tone: "success", guidance: "Symptoms below the clinical range." },
-      { min: 8, max: 15, label: "Mild", tone: "info", guidance: "Consider CBT with exposure and response prevention." },
+      {
+        min: 0,
+        max: 7,
+        label: "Subclinical",
+        tone: "success",
+        guidance: "Subclinical score band; interpret in clinical context.",
+      },
+      { min: 8, max: 15, label: "Mild", tone: "info", guidance: "Mild score band; interpret in clinical context." },
       {
         min: 16,
         max: 23,
         label: "Moderate",
         tone: "warning",
-        guidance: "Active treatment: ERP and/or SSRI at adequate dose.",
+        guidance: "Moderate score band; interpret in clinical context.",
       },
       {
         min: 24,
         max: 31,
         label: "Severe",
         tone: "danger",
-        guidance: "Intensive treatment; review augmentation options.",
+        guidance: "Severe score band; interpret in clinical context.",
       },
       {
         min: 32,
         max: 40,
         label: "Extreme",
         tone: "danger",
-        guidance: "Specialist OCD service involvement recommended.",
+        guidance: "Extreme score band; interpret in clinical context.",
       },
     ],
   },
 ];
+
+const activeCalculatorIds = new Set(["phq9", "gad7", "k10", "cage", "auditc"]);
+
+function sourceIdFor(id: string) {
+  return `source:${id}`;
+}
+
+function claimIdFor(id: string) {
+  return `claim:${id}:interpretation`;
+}
+
+function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFixture | "bands"> {
+  const active = activeCalculatorIds.has(id);
+  const rightsStatus = id === "mdq" ? "permission_review_required" : active ? "available" : "unknown";
+
+  return {
+    instrumentVersion: `${id.toUpperCase()} catalogue fixture v1`,
+    administrationMethod: "Clinician-entered responses in a browser-session calculator.",
+    intendedPopulation: "Adults unless the linked instrument source specifies otherwise.",
+    timeframe:
+      id === "k10" ? "Past 4 weeks" : id === "cage" || id === "mdq" ? "Lifetime" : "As stated by the instrument.",
+    completionPolicy: "Every item requires an explicit response before a final result is shown.",
+    interpretationPolicy:
+      "Interpretation describes the completed instrument result only and does not determine management.",
+    sourceIds: [sourceIdFor(id), "source:governance"],
+    claimIds: [claimIdFor(id), ...(id === "phq9" ? ["claim:phq9:safety-flag"] : [])],
+    rights: { status: rightsStatus },
+    jurisdiction:
+      id === "k10" || id === "auditc" ? "Australia" : "International instrument with Australian use context",
+    lastReviewed: "2026-09-01",
+    nextReview: "2027-09-01",
+    reviewer: "Clinical safety governance",
+    confidence: active ? "moderate" : "low",
+    riskLevel: active ? "moderate" : "high",
+    instrumentStatus: active ? "active" : "quarantined",
+    evidenceStatus: active ? "verified" : id === "mdq" ? "review_required" : "blocked",
+    releaseStatus: active ? "available" : "quarantined",
+    limitations: [
+      "A score supports assessment and monitoring but does not establish a diagnosis or management decision.",
+    ],
+    unresolvedIssues: active ? [] : ["Not released for active clinical decision support pending governance review."],
+  };
+}
+
+function interpretationFor(id: string, label: string) {
+  if (id === "k10") return `${label} psychological-distress range; it is not a diagnostic category.`;
+  if (id === "auditc")
+    return `${label} completed AUDIT-C range; interpret with Australian alcohol context and history.`;
+  return `${label} completed-score range; interpret with the instrument source, clinical context and limitations.`;
+}
+
+export const allCalculatorFixtures: CalculatorFixture[] = calculatorFixtures.map((fixture) => {
+  const { bands, ...base } = fixture;
+
+  return {
+    ...base,
+    ...metadataFor(fixture.id),
+    summary: `${fixture.abbrev} assessment and monitoring measure with interpretation after complete responses.`,
+    scoringNote: "Final interpretation is available only after every item is explicitly answered.",
+    bands: bands.map((band) => ({
+      min: band.min,
+      max: band.max,
+      label: band.label,
+      tone: band.tone,
+      interpretation: interpretationFor(fixture.id, band.label),
+    })),
+  };
+});
+
+export const calculators = allCalculatorFixtures.filter(
+  (fixture) =>
+    fixture.instrumentStatus === "active" &&
+    fixture.rights.status === "available" &&
+    fixture.evidenceStatus === "verified" &&
+    fixture.releaseStatus === "available",
+);
+
+export const quarantinedCalculators = allCalculatorFixtures.filter(
+  (fixture) => fixture.instrumentStatus === "quarantined",
+);
 
 export const domainOrder: CalculatorDomain[] = ["mood", "anxiety", "substance", "risk", "distress"];
 
