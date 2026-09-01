@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 78,
+    "pending": 79,
     "resolved": 431
   },
   "queue": [
@@ -949,6 +949,12 @@
       "action": "add",
       "summary": "Caring Contacts: no browser evidence exists for any activation-wizard stage, including a two-write middle state where a clinician presses a writing control a second time",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "428fedef-b62c-461a-8211-ce645549e2d2",
+      "action": "add",
+      "summary": "The document cover-thumbnail hook and its /api/documents/[id]/cover route have no product consumer since the source drawer stopped rendering a front-page thumbnail",
+      "created_at": "2026-09-01"
     },
     {
       "request_id": "44b322b0-0a87-4564-878a-9d5ac97bcdc3",
