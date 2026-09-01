@@ -270,7 +270,7 @@ Continue with its own action, Recent with View all, type pills and per-row Open 
 > composer and they hand the screen back to the list.
 
 Narrowing means the user is hunting for something specific, and a resume affordance is not what they
-asked for. Measured: **one** saved row above the fold on arrival, **seven** the moment you narrow. A
+asked for. Measured: **no** saved row fully above the fold on arrival (one partly), **seven** the moment you narrow. A
 degraded load also falls back to the strip — with the failure notice plus both full cards, **zero**
 saved rows fitted, which is the wrong screen to show nothing on.
 

@@ -95,18 +95,50 @@ describe("favourites phone-perfected mockup", () => {
   });
 
   it("keeps every phone tap target at the production 48px knob", () => {
-    // Mockups are gate-exempt and may use min-h-11, but this one is authored
-    // to be promotable, so interactive rows and sheets never drop below 48px.
-    for (const file of ["favourites-rows.tsx", "favourites-phone-perfected-page.tsx"]) {
+    // The first version of this test grepped whole files for `min-h-11` and
+    // `min-h-9`. That regex does not match `size-11`, which is how four of the
+    // five real 44px buttons on this page were written, so the test passed
+    // while the page it guarded still shipped 44px targets. This one reads
+    // each `<button>`'s OWN class list instead of the file around it, so a
+    // decorative `size-9` icon tile beside a full-row button no longer reads
+    // as a small target and a `size-11` button can no longer hide.
+    const subFortyEight = /\b(?:min-h|size|h)-(?:9|10|11)\b/;
+    const offenders: string[] = [];
+
+    for (const file of ["favourites-rows.tsx", "favourites-phone-shell.tsx", "favourites-phone-perfected-page.tsx"]) {
       const text = source(file);
-      expect(text, `${file} must not use the 44px mockup target`).not.toMatch(/\bmin-h-11\b/);
-      expect(text, `${file} must not use a 36px tap target`).not.toMatch(/\bmin-h-9\b/);
+      for (const match of text.matchAll(/<button\b/g)) {
+        const index = match.index ?? 0;
+        // The button's own className: the first one after the tag opens, read
+        // to its balanced close so child elements are never included.
+        const classIndex = text.indexOf("className", index);
+        if (classIndex === -1) continue;
+        const childIndex = text.indexOf("<", index + 7);
+        if (childIndex !== -1 && childIndex < classIndex) continue; // no own className
+        let depth = 0;
+        let end = classIndex;
+        for (; end < text.length; end += 1) {
+          const char = text[end];
+          if (char === "{" || char === "(") depth += 1;
+          else if (char === "}" || char === ")") {
+            depth -= 1;
+            if (depth === 0) break;
+          } else if (char === "\n" && depth === 0) break;
+        }
+        const ownClasses = text.slice(classIndex, end + 1);
+        if (subFortyEight.test(ownClasses)) {
+          offenders.push(`${file}:${text.slice(0, index).split("\n").length}`);
+        }
+      }
     }
 
+    expect(offenders, `buttons below the 48px knob: ${offenders.join(", ")}`).toEqual([]);
+
+    // The set chips are the control this rule was first missed on, so they
+    // keep an explicit assertion rather than relying on the sweep alone.
     const shell = source("favourites-phone-shell.tsx");
     const setRailBlock = shell.split("export function SetRail")[1]?.split("export function PhoneComposer")[0] ?? "";
     expect(setRailBlock, "set chips must use the 48px production knob").toMatch(/\bmin-h-12\b/);
-    expect(setRailBlock, "set chips must not use a 36px tap target").not.toMatch(/\bmin-h-9\b/);
   });
 
   it("keeps pinned rows ahead of grouped sets on the landing view", () => {
