@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "42e9eeb910925345619ab2f76dc3ef4983b27d55",
-    "committed_at": "2026-09-01T17:18:39+08:00"
+    "sha": "612e9735c0096c046fad01a1b3a3b23482b3fc07",
+    "committed_at": "2026-09-01T17:10:51+08:00"
   },
   "routes": {
     "modes": [
@@ -3330,6 +3330,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/services-mode-governance.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/site-map.md",
         "section": "root",
         "catalogued": true
@@ -3566,6 +3571,11 @@
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3856,6 +3866,11 @@
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4291,9 +4306,9 @@
       }
     ],
     "counts": {
-      "documents": 559,
+      "documents": 562,
       "catalogued": 111,
-      "uncatalogued": 448,
+      "uncatalogued": 451,
       "sections": 21
     }
   },
