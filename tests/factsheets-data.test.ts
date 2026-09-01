@@ -18,6 +18,7 @@ import {
   topicSectionId,
   visibleTopicSheets,
 } from "@/components/factsheets/factsheets-data";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 const kinds = new Set(["medRich", "medLite", "condition", "therapy", "procedure"]);
 
@@ -115,6 +116,12 @@ describe("factsheet library", () => {
       "gad",
     ]);
     expect(filterFactsheets("worries all the time", "Therapies", expansions)).toEqual([]);
+  });
+
+  it("finds the CBT factsheet from Factsheets-mode talking-therapy expansions", () => {
+    const query = "plain information about talking therapy";
+    const expansions = smartSearchExpansions("factsheets", query);
+    expect(filterFactsheets(query, undefined, expansions).map((sheet) => sheet.slug)).toContain("cbt");
   });
 
   it("places direct factsheet matches ahead of expansion-only matches in catalogue order", () => {
