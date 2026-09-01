@@ -129,8 +129,8 @@ describe("resolveClinicalAnswerFailures", () => {
     expect(failures.map((failure) => failure.item.id)).toEqual(["#P1FIRST", "#P2MID", "#P3ONLY"]);
   });
 
-  it("counts each affected question once even when several items name it", async () => {
-    const { resolveClinicalAnswerFailures, affectedQuestionCount } = await loadWithCases([
+  it("counts each referenced question once even when several items name it", async () => {
+    const { resolveClinicalAnswerFailures, referencedQuestionCount } = await loadWithCases([
       { id: "quality-duress-pathway", question: "Q1" },
       { id: "quality-agitation-im-route", question: "Q2" },
     ]);
@@ -143,7 +143,49 @@ describe("resolveClinicalAnswerFailures", () => {
     );
 
     expect(failures).toHaveLength(2);
-    expect(affectedQuestionCount(failures)).toBe(2);
+    expect(referencedQuestionCount(failures)).toBe(2);
+  });
+
+  /**
+   * The shape review of PR #2498 caught, reproduced from the real `#J8SJQ9`
+   * detail: an item about one case names a second only as the *contrast* that
+   * legitimately answers with a source pointer.
+   *
+   * The assertion is that BOTH come back, and that is not a bug being enshrined.
+   * Nothing in the text distinguishes a contrast from a report, so the module
+   * returns references and the page presents them as references. Restricting the
+   * match to the `source` field was tried against the real ledger and rejected:
+   * it fixes this item and hides both genuinely broken questions in `#S4R2W3`,
+   * which names them only in its detail prose.
+   *
+   * If a later change makes this return one case, it must be because the ledger
+   * gained an explicit per-case association — not because a heuristic guessed.
+   */
+  it("returns a contrast case as a reference, and does not pretend to know it is failing", async () => {
+    const { resolveClinicalAnswerFailures } = await loadWithCases([
+      { id: "quality-antipsychotic-metabolic-monitoring", question: "What metabolic monitoring is required?" },
+      { id: "quality-discharge-documentation", question: "What discharge documentation is required?" },
+    ]);
+
+    const failures = resolveClinicalAnswerFailures(
+      snapshotOf([
+        item({
+          id: "#J8SJQ9",
+          summary: "Antipsychotic metabolic monitoring returns a source-backed stub instead of a written answer",
+          detail:
+            "All four cases carrying that flag document the same rationale: the corpus has no single authoritative " +
+            "source, so a source pointer is a legitimate answer, and quality-discharge-documentation deliberately " +
+            "drops mustContainAny for exactly that reason. quality-antipsychotic-metabolic-monitoring is the " +
+            "opposite case - it names expectedFiles and an authoritative source exists.",
+          source: "canary run 32589154243; quality-antipsychotic-metabolic-monitoring",
+        }),
+      ]),
+    );
+
+    expect(failures[0].cases.map((testCase) => testCase.id).sort()).toEqual([
+      "quality-antipsychotic-metabolic-monitoring",
+      "quality-discharge-documentation",
+    ]);
   });
 
   /**

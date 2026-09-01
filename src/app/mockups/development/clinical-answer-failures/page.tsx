@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { CountTile, META_CLASS, PanelSection } from "@/components/developer-area/hub/panel-primitives";
-import { affectedQuestionCount, resolveClinicalAnswerFailures } from "@/lib/developer-area/clinical-answer-failures";
+import { referencedQuestionCount, resolveClinicalAnswerFailures } from "@/lib/developer-area/clinical-answer-failures";
 import { loadLedgerSnapshot, resolveFreshness } from "@/lib/developer-area/ledger-snapshot";
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export default function DeveloperClinicalAnswerFailuresPage() {
   const now = new Date();
   const freshness = resolveFreshness(snapshot, now);
   const failures = resolveClinicalAnswerFailures(snapshot);
-  const questions = affectedQuestionCount(failures);
+  const questions = referencedQuestionCount(failures);
 
   return (
     <PanelPageShell
@@ -33,7 +33,7 @@ export default function DeveloperClinicalAnswerFailuresPage() {
         <CountTile
           testId="developer-clinical-answer-failures-count-questions"
           value={questions}
-          label={questions === 1 ? "clinical question" : "clinical questions"}
+          label={questions === 1 ? "question referenced" : "questions referenced"}
         />
       </div>
 
@@ -50,10 +50,24 @@ export default function DeveloperClinicalAnswerFailuresPage() {
         not listed here, and a question that is failing right now but that nobody has written up is not either. An empty
         list means nothing is <em>recorded</em> against a named question, not that every question answers well.
       </p>
+      {/*
+       * The correction from review of #2498, and the reason the questions below
+       * are labelled as referenced rather than affected. An item names a case for
+       * more than one reason: `#J8SJQ9` names the discharge-documentation case as
+       * the *contrast* that legitimately answers with a source pointer. Nothing in
+       * the text separates that from a case being reported broken, so the page
+       * asserts at the level it can stand behind -- the item -- and leaves the
+       * reader to open it.
+       */}
+      <p className={META_CLASS}>
+        The questions under each item are the ones its text <em>names</em>, not a verdict on each question. An item may
+        name a question as the contrast that is behaving correctly, so read the item before concluding that a question
+        listed here answers badly.
+      </p>
 
       <PanelSection
         headingId="developer-clinical-answer-failures-heading"
-        heading={`Recorded against a named question · ${failures.length}`}
+        heading={`Recorded problems naming a clinical question · ${failures.length}`}
       >
         {failures.length > 0 ? (
           <ul className="grid gap-3">
@@ -67,6 +81,7 @@ export default function DeveloperClinicalAnswerFailuresPage() {
                 <p className={META_CLASS}>
                   {item.id} · {item.priority} · recorded {item.added}
                 </p>
+                <p className="text-xs font-bold text-[color:var(--text-muted)]">Questions this item names</p>
                 <ul className="grid gap-1">
                   {cases.map((testCase) => (
                     <li key={testCase.id} className="text-sm leading-6 text-[color:var(--text)]">

@@ -34,7 +34,7 @@ const failures = vi.hoisted(() => ({
 
 vi.mock("@/lib/developer-area/clinical-answer-failures", () => ({
   resolveClinicalAnswerFailures: () => failures.value,
-  affectedQuestionCount: (list: { cases: { id: string }[] }[]) =>
+  referencedQuestionCount: (list: { cases: { id: string }[] }[]) =>
     new Set(list.flatMap((failure) => failure.cases.map((testCase) => testCase.id))).size,
 }));
 
@@ -79,7 +79,7 @@ describe("developer clinical answer failures page", () => {
     expect(entry).toHaveTextContent("Metabolic monitoring returns a stub");
   });
 
-  it("counts items and affected questions separately, because one item can break several", () => {
+  it("counts items and referenced questions separately, because one item can name several", () => {
     failures.value = [
       failure("#S4R2W3", "Two questions answer with a bare title list", [
         { id: "quality-agitation-im-route", question: "Q1" },
@@ -90,6 +90,33 @@ describe("developer clinical answer failures page", () => {
 
     expect(screen.getByTestId("developer-clinical-answer-failures-count-items")).toHaveTextContent("1");
     expect(screen.getByTestId("developer-clinical-answer-failures-count-questions")).toHaveTextContent("2");
+  });
+
+  /**
+   * Raised in review of PR #2498. An item names a case for more than one reason
+   * — `#J8SJQ9` names the discharge-documentation case as the contrast that
+   * legitimately answers with a source pointer — so the page must not present a
+   * named question as a question proven broken. This pins the wording that keeps
+   * the claim at the level the data supports.
+   */
+  it("presents named questions as references rather than as verdicts", async () => {
+    failures.value = [
+      failure("#J8SJQ9", "Metabolic monitoring returns a stub", [
+        { id: "quality-antipsychotic-metabolic-monitoring", question: "What metabolic monitoring is required?" },
+        { id: "quality-discharge-documentation", question: "What discharge documentation is required?" },
+      ]),
+    ];
+    const { container } = render(<DeveloperClinicalAnswerFailuresPage />);
+    const text = container.textContent ?? "";
+
+    expect(screen.getByTestId("developer-clinical-answer-failure-#J8SJQ9")).toHaveTextContent(
+      "Questions this item names",
+    );
+    expect(text).toMatch(/not a verdict on each question/);
+    expect(text).toMatch(/name a question as the contrast that is behaving correctly/);
+    expect(screen.getByTestId("developer-clinical-answer-failures-count-questions")).toHaveTextContent(
+      "questions referenced",
+    );
   });
 
   /**
