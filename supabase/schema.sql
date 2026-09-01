@@ -5256,6 +5256,7 @@ begin
         where enabled
           and owner_id is null
           and length(canonical) between 4 and 40
+          and length(canonical) between 4 and 40
           and lower(canonical) % tok
         order by similarity(lower(canonical), tok) desc, lower(canonical)
         limit 32
