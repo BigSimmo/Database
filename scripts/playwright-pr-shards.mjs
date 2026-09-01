@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -38,6 +38,8 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-formulation.spec.ts", shard: 1, fullSeconds: 11.0, criticalSeconds: 0 },
   // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
   { file: "tests/ui-dictionary.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
+  // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
+  { file: "tests/ui-sources.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Critical-only acceptance coverage; the required critical job owns its runtime.
   { file: "tests/ui-clinical-ask.spec.ts", shard: 1, fullSeconds: 1, criticalSeconds: 1 },
   // Added after the timing sample. Measured locally at ~4.8s for 3 tests; replace

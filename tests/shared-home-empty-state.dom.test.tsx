@@ -102,6 +102,12 @@ const expectedPresentations = [
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
     iconClass: "lucide-book-marked",
   },
+  {
+    modeId: "sources",
+    title: "Sources",
+    subtitle: "Clinical source catalogue.",
+    iconClass: "lucide-library-big",
+  },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;

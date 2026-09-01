@@ -754,6 +754,24 @@ describe("route reachability", () => {
     }
   });
 
+  it("links the dynamic Sources detail family from the catalogue", () => {
+    const sourceDetailRoute = collectSiteMapData().pageRoutes.find((route) => route.route === "/sources/[sourceId]");
+    expect(sourceDetailRoute, "the Sources detail page route is missing").toBeDefined();
+
+    const catalogueClient = sourceFiles.find(
+      (file) => file.rel === "src/components/sources/sources-catalogue-client.tsx",
+    );
+    expect(catalogueClient, "the Sources catalogue client is missing").toBeDefined();
+    const catalogueSource = readFileSync(
+      path.join(srcRoot, "components", "sources", "sources-catalogue-client.tsx"),
+      "utf8",
+    );
+    expect(
+      /<Link[\s\S]*?href=\{`\/sources\/\$\{entry\.id\}`\}/.test(catalogueSource),
+      "the Sources catalogue does not render a Next Link to /sources/${entry.id}",
+    ).toBe(true);
+  });
+
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));
     for (const route of REACHABILITY_ALLOWLIST.keys()) {

@@ -22,6 +22,7 @@ const MODE_HOME_LOADING_ROUTES = [
   "documents",
   "calculators",
   "dictionary",
+  "sources",
 ] as const;
 
 describe("mode-home loading contract", () => {
