@@ -30,6 +30,24 @@ vi.mock("@/components/account-data-provider", () => ({
 }));
 
 /**
+ * The page reads all four strip facts through one server-only helper, so the
+ * helper is the seam. Mocking it rather than Supabase keeps this file a *page*
+ * contract: what the page renders for a given set of facts, not how those facts
+ * are fetched. `tests/developer-hub-environment-facts.test.ts` owns the other
+ * half — owner scoping, and that a failed read reports null rather than zero.
+ *
+ * The default is the shape an unauthenticated local render produces, which is
+ * what every test that does not care about the strip should see.
+ */
+const environment = vi.hoisted(() => ({
+  value: { demoMode: true, documentCount: null as number | null, email: null as string | null },
+}));
+
+vi.mock("@/lib/developer-area/environment-facts", () => ({
+  resolveHubEnvironmentFacts: async () => environment.value,
+}));
+
+/**
  * Only `counts.p1` is overridden, and only on top of the *real* committed
  * snapshot — so the band is exercised against the shape the route actually
  * loads rather than a hand-built fixture that could drift from it. `null` means
@@ -77,8 +95,8 @@ describe("developer hub page — synthetic-data warning", () => {
    * it in place was a source comment, so the next layout rewrite could drop it
    * with every gate still green. That is what these pin.
    */
-  it("states that the data is synthetic and that nothing here is validated decision support", () => {
-    const { container } = render(<DeveloperHubPage />);
+  it("states that the data is synthetic and that nothing here is validated decision support", async () => {
+    const { container } = render(await DeveloperHubPage());
     const warning = container.querySelector("svg.lucide-shield-alert")?.closest("p");
 
     expect(warning, "no paragraph carries the ShieldAlert warning icon").not.toBeNull();
@@ -89,9 +107,9 @@ describe("developer hub page — synthetic-data warning", () => {
     expect(warning).toHaveTextContent(/nothing here is validated clinical decision support/);
   });
 
-  it("keeps the warning above the blocking-work band, not buried below the panels", () => {
+  it("keeps the warning above the blocking-work band, not buried below the panels", async () => {
     p1.value = 3;
-    const { container } = render(<DeveloperHubPage />);
+    const { container } = render(await DeveloperHubPage());
     const warning = container.querySelector("svg.lucide-shield-alert")?.closest("p");
     const band = screen.getByTestId("developer-hub-needs-you-now");
 
@@ -100,21 +118,21 @@ describe("developer hub page — synthetic-data warning", () => {
     expect(warning!.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("marks the warning icon decorative so its sentence is not announced twice", () => {
-    const { container } = render(<DeveloperHubPage />);
+  it("marks the warning icon decorative so its sentence is not announced twice", async () => {
+    const { container } = render(await DeveloperHubPage());
     expect(container.querySelector("svg.lucide-shield-alert")).toHaveAttribute("aria-hidden", "true");
   });
 });
 
 describe("developer hub page — needs-you-now band", () => {
-  it("reports the snapshot's own P1 count", () => {
+  it("reports the snapshot's own P1 count", async () => {
     // No override, so this is the real committed snapshot: the band must agree
     // with the data the route actually loads, not merely with itself. When the
     // snapshot has no P1s the page must omit the band rather than render a
     // settled-looking "0 blocking items" line — that is the same contract as
     // the explicit zero-override case below.
     const { counts } = loadLedgerSnapshot();
-    render(<DeveloperHubPage />);
+    render(await DeveloperHubPage());
     if (counts.p1 > 0) {
       expect(screen.getByTestId("developer-hub-needs-you-now")).toHaveTextContent(String(counts.p1));
     } else {
@@ -122,13 +140,13 @@ describe("developer hub page — needs-you-now band", () => {
     }
   });
 
-  it("carries no text beyond the computed count", () => {
+  it("carries no text beyond the computed count", async () => {
     // Spec 8.1, and the whole reason the band exists: a literal such as "red for
     // 26 days" cannot age, so static prose here is the same defect class as a
     // stale snapshot. Asserting the exact string is what makes that unfakeable
     // — any added claim changes it.
     p1.value = 7;
-    render(<DeveloperHubPage />);
+    render(await DeveloperHubPage());
     const band = screen.getByTestId("developer-hub-needs-you-now");
 
     expect(band.textContent).toBe("7 blocking items in the task ledger.");
@@ -137,23 +155,23 @@ describe("developer hub page — needs-you-now band", () => {
     expect(band.textContent?.match(/\d+/g)).toEqual(["7"]);
   });
 
-  it("says 'item' for one and 'items' for more than one", () => {
+  it("says 'item' for one and 'items' for more than one", async () => {
     p1.value = 1;
-    render(<DeveloperHubPage />);
+    render(await DeveloperHubPage());
     expect(screen.getByTestId("developer-hub-needs-you-now").textContent).toBe("1 blocking item in the task ledger.");
     cleanup();
 
     p1.value = 2;
-    render(<DeveloperHubPage />);
+    render(await DeveloperHubPage());
     expect(screen.getByTestId("developer-hub-needs-you-now").textContent).toBe("2 blocking items in the task ledger.");
   });
 
-  it("renders nothing rather than a reassuring all-clear when there are no blockers", () => {
+  it("renders nothing rather than a reassuring all-clear when there are no blockers", async () => {
     // A band reading "0 blocking items" would be a settled-looking statement
     // about work the page cannot see. The override keeps this branch explicit
     // even on days the committed snapshot already has no P1s.
     p1.value = 0;
-    render(<DeveloperHubPage />);
+    render(await DeveloperHubPage());
 
     expect(screen.queryByTestId("developer-hub-needs-you-now")).toBeNull();
     // The page still rendered: this is a dropped band, not a dead page.
@@ -162,20 +180,20 @@ describe("developer hub page — needs-you-now band", () => {
 });
 
 describe("developer hub page — group sections", () => {
-  it("renders an anchor and a heading for a group that has panels", () => {
-    const { container } = render(<DeveloperHubPage />);
+  it("renders an anchor and a heading for a group that has panels", async () => {
+    const { container } = render(await DeveloperHubPage());
     expect(container.querySelector("#developer-hub-clinical")).not.toBeNull();
     expect(screen.getByRole("heading", { name: "Clinical trust" })).toBeInTheDocument();
   });
 
-  it("omits the anchor entirely for an empty group", () => {
+  it("omits the anchor entirely for an empty group", async () => {
     // `useResolvedPageSections` drops a declared section whose anchor is not
     // rendered — that is what lets phases 2-4 add panels without touching the
     // navigation. Rendering the section unconditionally would make that
     // mechanism inert here and leave a jump to a bare heading above an empty
     // grid.
     emptyGroups.value = new Set(["clinical"]);
-    const { container } = render(<DeveloperHubPage />);
+    const { container } = render(await DeveloperHubPage());
 
     expect(container.querySelector("#developer-hub-clinical")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Clinical trust" })).toBeNull();
@@ -203,8 +221,8 @@ describe("developer hub page — section headings", () => {
    * boundary — both modules are ordinary JavaScript under vitest. Do not
    * weaken it, and do not "improve" the page into deriving them.
    */
-  it("gives every nav section the exact heading its nav entry declares", () => {
-    const { container } = render(<DeveloperHubPage />);
+  it("gives every nav section the exact heading its nav entry declares", async () => {
+    const { container } = render(await DeveloperHubPage());
 
     const rendered = developerHubNavSections
       .map((section) => ({ section, element: container.querySelector(`#${section.id}`) }))
@@ -222,11 +240,11 @@ describe("developer hub page — section headings", () => {
     }
   });
 
-  it("renders no panel grid for the environment section, which is not a panel group", () => {
+  it("renders no panel grid for the environment section, which is not a panel group", async () => {
     // `developerHubNavSections` declares `developer-hub-environment`, but it is
     // a navigable section rather than a panel group: it renders its own anchor
     // and `sr-only` heading around the strip, and must never gain a panel grid.
-    const { container } = render(<DeveloperHubPage />);
+    const { container } = render(await DeveloperHubPage());
     const environment = container.querySelector("#developer-hub-environment");
 
     expect(environment).not.toBeNull();
@@ -260,22 +278,81 @@ describe("developer hub page — environment strip", () => {
     }
   });
 
-  it("reports the deployed build sha when the platform provides one", () => {
+  it("reports the deployed build sha when the platform provides one", async () => {
     clearBuildShaVariables();
     process.env.RAILWAY_GIT_COMMIT_SHA = "ce4b1cb72".padEnd(40, "0");
-    render(<DeveloperHubPage />);
+    render(await DeveloperHubPage());
     expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("build ce4b1cb");
   });
 
-  it("says build unknown rather than inventing one when the platform provides none", () => {
+  it("says build unknown rather than inventing one when the platform provides none", async () => {
     clearBuildShaVariables();
-    render(<DeveloperHubPage />);
+    render(await DeveloperHubPage());
     const strip = screen.getByTestId("developer-hub-environment-strip");
     expect(strip).toHaveTextContent("build unknown");
-    // The three facts the plan scoped to Phase 2 still name their own gaps
-    // rather than claiming a value the page never read.
-    expect(strip).toHaveTextContent("environment unknown");
+    // With the default facts (nothing read), the other two still name their own
+    // gaps rather than claiming a value. Both directions are covered below.
     expect(strip).toHaveTextContent("document count unavailable");
     expect(strip).toHaveTextContent("account unknown");
+  });
+
+  afterEach(() => {
+    environment.value = { demoMode: true, documentCount: null, email: null };
+  });
+
+  it("says Demo corpus when the app is serving the synthetic corpus", async () => {
+    environment.value = { ...environment.value, demoMode: true };
+    render(await DeveloperHubPage());
+    const strip = screen.getByTestId("developer-hub-environment-strip");
+    expect(strip).toHaveTextContent("Demo corpus");
+    expect(strip).not.toHaveTextContent("environment unknown");
+  });
+
+  /**
+   * The branch that matters. Before this was wired the strip said "environment
+   * unknown" in both directions, which was honest; the failure to avoid now is
+   * the opposite one, where a page reads demo mode and still reports live data.
+   */
+  it("says Live data only when it has actually read that the app is not in demo mode", async () => {
+    environment.value = { ...environment.value, demoMode: false };
+    render(await DeveloperHubPage());
+    const strip = screen.getByTestId("developer-hub-environment-strip");
+    expect(strip).toHaveTextContent("Live data");
+    expect(strip).not.toHaveTextContent("environment unknown");
+    expect(strip).not.toHaveTextContent("Demo corpus");
+  });
+
+  it("reports the document count it read, grouped for reading", async () => {
+    environment.value = { ...environment.value, documentCount: 2851 };
+    render(await DeveloperHubPage());
+    expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("2,851 documents");
+  });
+
+  /**
+   * Zero is a true answer — an account that has uploaded nothing — and it must
+   * survive to the screen as "0 documents". If the page ever coerced a falsy
+   * count into the unavailable branch, an empty corpus would be indistinguishable
+   * from a failed read, which is the one confusion this strip exists to prevent.
+   */
+  it("distinguishes an empty corpus from a count it could not read", async () => {
+    environment.value = { ...environment.value, documentCount: 0 };
+    render(await DeveloperHubPage());
+    expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("0 documents");
+
+    cleanup();
+    environment.value = { ...environment.value, documentCount: null };
+    render(await DeveloperHubPage());
+    expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("document count unavailable");
+  });
+
+  it("names the signed-in account, and says so plainly when there is none", async () => {
+    environment.value = { ...environment.value, email: "clinician@example.com" };
+    render(await DeveloperHubPage());
+    expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("clinician@example.com");
+
+    cleanup();
+    environment.value = { ...environment.value, email: null };
+    render(await DeveloperHubPage());
+    expect(screen.getByTestId("developer-hub-environment-strip")).toHaveTextContent("account unknown");
   });
 });
