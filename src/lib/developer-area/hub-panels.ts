@@ -97,6 +97,20 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/ingestion",
   },
+  // Named for the question it answers -- which of my documents are broken -- and
+  // scoped to that. The ingestion card above shows documents *moving*; this one
+  // shows the library at rest, which is where a document that finished and
+  // produced nothing usable hides. It reports what indexing produced, never
+  // whether an answer drawn from those documents is any good, and the page says
+  // so; do not widen the summary into a claim about answer quality.
+  {
+    id: "corpus-health",
+    name: "Corpus health",
+    summary: "Documents that finished indexing and produced nothing usable",
+    group: "system",
+    phase: 1,
+    href: "/mockups/development/corpus-health",
+  },
   {
     id: "test-health",
     name: "Test health",
