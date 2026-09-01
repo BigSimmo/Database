@@ -80,7 +80,7 @@ import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/das
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
 import { resolveModeHomeCanvasClass } from "@/components/clinical-dashboard/mode-home-canvas";
-import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
+import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { AnswerCancelledNotice } from "@/components/clinical-dashboard/answer-cancelled-notice";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
@@ -238,7 +238,7 @@ import {
   type AnswerThreadSnapshotMetadata,
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
-import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
+import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import {
   frontendSourceGovernanceWarnings,
@@ -255,7 +255,6 @@ import type {
   IngestionJob,
   QuoteCard,
   RagAnswer,
-  AnswerSection,
   SearchResult,
   SearchScopeSummary,
   ClinicalQueryMode,
@@ -2839,12 +2838,6 @@ function ClinicalDashboardContent({
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answerRenderModel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
-  const answerGrounded =
-    answer?.grounded === true &&
-    answer.confidence !== "unsupported" &&
-    isAnswerSourceBacked(answer) &&
-    answerRenderModel?.trust !== "unsupported";
-  const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const answerPreformatted = isPreformattedGroundedAnswer(answer);
   const safeAnswerText = useMemo(
     () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
@@ -2860,36 +2853,6 @@ function ClinicalDashboardContent({
     if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
     return priorAnswerTurns.slice(-maxVisiblePriorTurns);
   }, [hiddenPriorTurnCount, priorAnswerTurns, showEarlierTurns]);
-  const safeAnswerSections = useMemo(() => {
-    return (answer?.answerSections ?? [])
-      .map((section) => {
-        const heading = sanitizeDisplayText(section.heading, { minLength: 1, minTokens: 1 });
-        const body = sanitizeAnswerDisplayText(section.body, {
-          minLength: 8,
-          minTokens: 2,
-          preformatted: answerPreformatted,
-        });
-        if (!heading || !body) return null;
-
-        const citationSources: SearchResult[] = [];
-        const seenCitationIds = new Set<string>();
-        for (const id of section.citation_chunk_ids) {
-          if (seenCitationIds.has(id)) continue;
-          const source = sourceLookup.get(id);
-          if (!source) continue;
-          seenCitationIds.add(id);
-          citationSources.push(source);
-        }
-
-        return {
-          ...section,
-          heading,
-          body,
-          citationSources,
-        };
-      })
-      .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
-  }, [answer?.answerSections, answerPreformatted, sourceLookup]);
   const showSystemNotice = Boolean(setupWarning && !demoMode);
   const groupedGovernanceWarningCount = useMemo(
     () =>
@@ -3824,20 +3787,18 @@ function ClinicalDashboardContent({
                         sourceSummary={sourceSummary}
                         renderModel={answerRenderModel}
                         weakEvidence={weakEvidence}
-                        answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
-                        safeAnswerSections={safeAnswerSections}
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}
                         pendingFeedback={pendingFeedback}
                         onCopyAnswer={handleCopyAnswer}
                         onSubmitFeedback={handleSubmitAnswerFeedback}
                         onFollowUpQuote={handleAnswerFollowUpQuote}
+                        crossModeQueries={crossModeQueries}
+                        onCrossModeSearch={handleCrossModeSearch}
                         followUpSuggestions={answerFollowUpSuggestions}
                         onPickFollowUpSuggestion={handleFollowUpSuggestionPick}
                         followUpSuggestionsDisabled={loading}
-                        crossModeQueries={crossModeQueries}
-                        onCrossModeSearch={handleCrossModeSearch}
                         onScopeDocument={handleScopeDocument}
                       />
                     </>

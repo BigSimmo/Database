@@ -2065,15 +2065,17 @@ test.describe("PsychSift UI smoke coverage", () => {
     }
     await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
 
-    // The support card is one focused priority/safety row. Answer-level utilities
-    // sit with Copy with sources instead of visually inheriting warning chrome.
-    const supportCard = page.getByTestId("answer-support-card");
-    await expect(supportCard).toBeVisible();
-    await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
-    await expect(supportCard).not.toContainText("Report a problem");
-    await expect(supportCard).not.toContainText("Evidence gaps");
-    await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
+    // The support card was removed on 2026-08-31 (owner decision): the status it
+    // carried is now a chip line above the prose, and the safety chip below is
+    // the route it used to own. What this block protected — that the answer's
+    // state is stated on screen, and that the old per-source sheets stay gone —
+    // is asserted against the chip instead.
+    const supportChip = page.getByTestId("answer-card-support");
+    await expect(supportChip).toBeVisible();
+    await expect(supportChip).toContainText(/support/i);
+    await expect(page.getByTestId("answer-support-card")).toHaveCount(0);
+    await expect(page.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("answer-evidence-trigger")).toHaveCount(0);
     await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
 
     // Safety findings are MANDATORY for this clozapine fixture — the answer is saturated
@@ -2155,26 +2157,34 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByTestId("mobile-evidence-tabs")).toHaveCount(0);
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
-    // Document order on the answer surface: question, prose, the rail that cites
-    // it, the quiet utilities, then the focused support strip.
+    // Document order on the answer surface: question, the status chip line, the
+    // prose, the rail that cites it, the quiet utilities, then the governed
+    // caution. The caution moved below the answer on 2026-08-31 (owner
+    // decision); pinning it here is what stops it drifting back up or, worse,
+    // being dropped when a call site takes placement from AnswerCard.
     const hierarchy = await page.evaluate(() => {
       const question = document.querySelector('[data-testid="user-question-bubble"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
       const rail = document.querySelector('[data-testid="answer-source-rail"]');
       const utilities = document.querySelector('section[aria-label="Answer utilities"]');
-      const support = document.querySelector('[data-testid="answer-support-card"]');
+      const support = document.querySelector('[data-testid="answer-card-support"]');
+      const caution = document.querySelector('[data-testid="verification-notice"]');
       return {
         questionTop: question?.getBoundingClientRect().top ?? 9999,
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
         railTop: rail?.getBoundingClientRect().top ?? 9999,
         utilitiesTop: utilities?.getBoundingClientRect().top ?? 9999,
         supportTop: support?.getBoundingClientRect().top ?? 9999,
+        cautionTop: caution?.getBoundingClientRect().top ?? 9999,
+        cautionPresent: Boolean(caution),
       };
     });
-    expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
+    expect(hierarchy.cautionPresent).toBe(true);
+    expect(hierarchy.questionTop).toBeLessThan(hierarchy.supportTop);
+    expect(hierarchy.supportTop).toBeLessThan(hierarchy.plainAnswerTop);
     expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.railTop);
     expect(hierarchy.railTop).toBeLessThan(hierarchy.utilitiesTop);
-    expect(hierarchy.utilitiesTop).toBeLessThan(hierarchy.supportTop);
+    expect(hierarchy.utilitiesTop).toBeLessThan(hierarchy.cautionTop);
 
     // Evidence gaps and feedback remain answer-level, but use the same quiet
     // utility treatment as Copy with sources rather than the safety panel.
@@ -2864,7 +2874,16 @@ test.describe("PsychSift UI smoke coverage", () => {
       await scrollPrimarySurface(page, liveEndpoint);
       await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
       await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-      const endpoint = await relatedItems.last().evaluate((item) => {
+      // Measure the LAST thing in the runway, which is the follow-up rows — not
+      // a library listitem. The library line is collapsed by the block above, so
+      // its listitems are `display:none` and expose no element to measure; this
+      // branch only ever ran on a taller answer before the support card was
+      // removed, which is why the mismatch went unseen. What the assertion is
+      // for is unchanged: the last content clears the dock rather than sitting
+      // under it.
+      const runwayEnd = page.getByTestId("answer-follow-up-suggestions").getByRole("button").last();
+      await expect(runwayEnd).toBeVisible();
+      const endpoint = await runwayEnd.evaluate((item) => {
         const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
         if (!dockNode) throw new Error("Expected phone answer dock");
         return {
@@ -3273,12 +3292,17 @@ test.describe("PsychSift UI smoke coverage", () => {
       await expectNoPageHorizontalOverflow(page);
     }
 
-    const supportCard = page.getByTestId("answer-support-card");
-    await expect(supportCard).toBeVisible();
-    await expect(supportCard).toContainText("Review source match");
-    await expect(supportCard).toContainText("Verify cited passages");
-    await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
+    // The "Review source match" card is gone with the support card. The caution
+    // it restated is not: the source-only disclosure above already carries the
+    // governed wording ("verify passages", asserted earlier in this test), and
+    // the chip states the degraded support level rather than reading like a
+    // fully supported answer.
+    const sourceOnlySupportChip = page.getByTestId("answer-card-support");
+    await expect(sourceOnlySupportChip).toBeVisible();
+    await expect(sourceOnlySupportChip).toHaveAttribute("data-support", /limited|unassessed/);
+    await expect(page.getByTestId("answer-support-card")).toHaveCount(0);
+    await expect(page.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("answer-evidence-trigger")).toHaveCount(0);
 
     // A source-only answer still cites real documents, so the rail must list them
     // and the drawer must open — the degraded path is exactly where a clinician
@@ -3413,8 +3437,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
       const plainAnswer = page.getByTestId("plain-answer-response");
       await expect(plainAnswer).toBeVisible();
-      const supportCard = page.getByTestId("answer-support-card");
-      await expect(supportCard).toBeVisible();
+      await expect(page.getByTestId("answer-card-support")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
 
       // One source surface at every breakpoint: the rail on the page, the drawer

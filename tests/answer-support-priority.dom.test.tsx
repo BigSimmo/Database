@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { AnswerUtilityActions, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
@@ -135,26 +136,48 @@ describe("answerSupportPriority · Review source match", () => {
 });
 
 describe("AnswerUtilityActions · feedback on a clean answer", () => {
-  it("keeps Report a problem beside Copy with sources when priority and warnings are both empty", () => {
+  it("reaches Report a problem through the thumb down, beside Copy with sources", async () => {
+    const user = userEvent.setup();
     render(
       <AnswerUtilityActions
         copied={false}
         onCopy={() => undefined}
-        warnings={[]}
         pendingFeedback={null}
         onSubmitFeedback={() => undefined}
       />,
     );
     expect(screen.getByRole("button", { name: "Copy answer with source status" })).toBeInTheDocument();
-    expect(screen.getByTestId("answer-feedback-trigger")).toBeInTheDocument();
+
+    const report = screen.getByTestId("answer-feedback-trigger");
+    expect(report).toHaveAccessibleName("Report a problem with this answer");
+    expect(report).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("answer-review-panel")).not.toBeInTheDocument();
+
+    await user.click(report);
+    const panel = screen.getByTestId("answer-review-panel");
+    expect(panel).toHaveAttribute("data-tone", "problems");
+    // The affirmative option is the thumb up, not an entry in a list opened to
+    // report a fault — offering it here is a mis-click that records the
+    // opposite of what the reader meant.
+    expect(within(panel).queryByRole("button", { name: /Verified/ })).not.toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: /Wrong source/ })).toBeInTheDocument();
   });
 
-  it("the answer surface mounts utilities independently and reserves the support card for a real priority", () => {
+  it("routes the safety sheet from the header chip now that the support card is gone", () => {
     const surface = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
       "utf8",
     );
     expect(surface).toContain("<AnswerUtilityActions");
-    expect(surface).toMatch(/showInlineSupportCard = Boolean\(priority\)/);
+    // The support card was removed on 2026-08-31 with the owner's decision that
+    // the header chip carries safety instead. The chip is therefore the ONLY
+    // route to the safety-critical findings sheet, so it must stay a button.
+    expect(surface).not.toContain("<AnswerSupportSummaryCard");
+    expect(surface).toContain('data-testid="answer-safety-findings-trigger"');
+    expect(surface).toContain("onClick={openSafetyFindings}");
+    // The governed verification wording moved below the answer with it, and the
+    // surface must render it itself once it takes placement from the card.
+    expect(surface).toContain('verificationPlacement="content"');
+    expect(surface).toContain("<VerificationNotice {...answerVerification} />");
   });
 });
