@@ -25,11 +25,27 @@ export function calculatorMatchesQuery(calc: CalculatorFixture, query: string, e
   const normalized = normalizeCalculatorQuery(query);
   if (!normalized) return true;
   const haystack = normalizeSearchText(
-    [calc.abbrev, calc.name, calc.indication, calc.summary, domainLabels[calc.domain], ...calc.items.map((item) => item.text)].join(
-      " ",
-    ),
+    [
+      calc.abbrev,
+      calc.name,
+      calc.indication,
+      calc.summary,
+      domainLabels[calc.domain],
+      ...calc.items.map((item) => item.text),
+    ].join(" "),
   );
   return haystack.includes(normalized) || expansions.some((term) => haystack.includes(normalizeSearchText(term)));
+}
+
+function calculatorIdentityMatchesQuery(calc: CalculatorFixture, normalizedQuery: string) {
+  return [calc.id, calc.abbrev, calc.name]
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .some((identity) =>
+      new RegExp(`(?:^|[^a-z0-9])${identity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^a-z0-9])`).test(
+        normalizedQuery,
+      ),
+    );
 }
 
 export function calculatorMatchesProgress(derived: DerivedCalculator, progress: CalculatorProgressFilter) {
@@ -66,7 +82,14 @@ export function filterCalculatorRecords(
   filters: CalculatorFilterState,
   expansions: readonly string[] = [],
 ) {
-  return records.filter((record) => calculatorMatchesFilters(record, query, filters, expansions));
+  const matchingRecords = records.filter((record) => calculatorMatchesFilters(record, query, filters, expansions));
+  const normalizedQuery = normalizeCalculatorQuery(query);
+  if (!normalizedQuery) return matchingRecords;
+  return matchingRecords.sort(
+    (left, right) =>
+      Number(calculatorIdentityMatchesQuery(right.calc, normalizedQuery)) -
+      Number(calculatorIdentityMatchesQuery(left.calc, normalizedQuery)),
+  );
 }
 
 export function calculatorDomainCandidateCount(

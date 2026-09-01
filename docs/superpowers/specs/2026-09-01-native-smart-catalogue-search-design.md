@@ -42,7 +42,7 @@ A generic ontology, stemming layer, or cross-mode semantic engine would make rul
 
 ### 3. Build five bespoke parsers or Smart result surfaces — rejected
 
-Per-mode parsers and UI would duplicate intent, cue, accessibility, URL, and ranking behaviour. The existing shared interpreter and composer already own those contracts.
+Per-mode parsers and UI would duplicate intent, cue, accessibility, URL, and ranking behaviour. The existing shared interpreter and composer own those contracts for the eleven shared-composer modes; standalone Tools keeps its own visible owner and deterministic Smart matching without the shared cue.
 
 ## Architecture
 

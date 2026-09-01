@@ -146,7 +146,12 @@ describe("calculator filter predicates", () => {
         smartSearchExpansions("calculators", "measure anxiety symptoms"),
       ),
     ).toBe(true);
-    expect(calculatorMatchesQuery(calculators.find((calculator) => calculator.id === "phq9")!, "PHQ-9?")).toBe(true);
+    expect(
+      calculatorMatchesQuery(
+        calculators.find((calculator) => calculator.id === "phq9")!,
+        "PHQ-9?",
+      ),
+    ).toBe(true);
   });
 
   it("applies OR within domains and AND across domain, progress, time, and query", () => {
@@ -210,6 +215,21 @@ describe("calculator filter predicates", () => {
     const visibleIds = filterCalculatorRecords(records, query, filters, expansions).map(({ calc }) => calc.id);
     expect(visibleIds[0]).toBe("phq9");
     expect(calculatorProgressCandidateCount(records, query, filters, "all", expansions)).toBe(visibleIds.length);
+  });
+
+  it("prioritizes an explicit calculator identity ahead of expansion-only matches", () => {
+    const records = recordsWithProgress();
+    const query = "AUDIT-C screen hazardous drinking";
+    const ids = filterCalculatorRecords(
+      records,
+      query,
+      emptyFilters(),
+      smartSearchExpansions("calculators", query),
+    ).map(({ calc }) => calc.id);
+
+    expect(ids.indexOf("auditc")).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf("cage")).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf("auditc")).toBeLessThan(ids.indexOf("cage"));
   });
 });
 
