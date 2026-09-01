@@ -310,7 +310,11 @@ function TherapyPicker() {
   const [q, setQ] = useState("");
   const matches = useMemo(() => {
     const base = q.trim()
-      ? searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
+      ? searchTherapies(
+          b.therapies,
+          { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false },
+          true,
+        )
       : b.therapies;
     // Only offer therapies that actually ship a patient sheet — selecting one now
     // navigates to its /sheet subroute, which 404s for records without a sheet.

@@ -567,7 +567,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(results.getByText("2 tools", { exact: true })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
-    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute(
+      "href",
+      "/?mode=differentials",
+    );
     await expect(results.getByRole("heading", { level: 2, name: "Clinical Dictionary" }).first()).toBeVisible();
     await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
 
@@ -612,7 +615,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 2 tools/);
     await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
-    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute(
+      "href",
+      "/?mode=differentials",
+    );
     const details = results.getByRole("button", { name: "View details for Differentials" });
     await details.click();
     const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
@@ -621,11 +627,34 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(detailSheet.getByRole("heading", { name: "Best for" })).toBeVisible();
     await expect(detailSheet.getByRole("link", { name: "Compare Differentials" })).toHaveAttribute(
       "href",
-      "/differentials",
+      "/?mode=differentials",
     );
     await detailSheet.getByRole("button", { name: "Close Differentials" }).click();
     await expect(details).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone Tools launches every shared-home mode without a redirect hop or stale layout", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const launches = [
+      { link: "Open Differentials", mode: "differentials", heading: "Differential Diagnosis" },
+      { link: "Open Clinical Dictionary", mode: "dictionary", heading: "Clinical Dictionary" },
+      { link: "Open Services", mode: "services", heading: "Clinical Services" },
+      { link: "Open Forms", mode: "forms", heading: "Clinical Forms" },
+      { link: "Open Calculators", mode: "calculators", heading: "Clinical Calculators" },
+    ] as const;
+
+    for (const launch of launches) {
+      await mockAnswerDashboardApi(page);
+      await gotoLauncher(page, "/tools");
+      const link = visibleByTestId(page, "tools-search-results-page").getByRole("link", { name: launch.link });
+      await expect(link).toHaveAttribute("href", `/?mode=${launch.mode}`);
+      await Promise.all([page.waitForURL(`**/?mode=${launch.mode}`), link.click()]);
+
+      const home = visibleByTestId(page, "shared-home-empty-state");
+      await expect(home.getByRole("heading", { level: 2, name: launch.heading })).toBeVisible();
+      await expectIdlePhoneHomeCentered(page, "shared-home-empty-state");
+    }
   });
 
   test("all tools stay visible across supported breakpoints and media preferences", async ({ page }) => {
@@ -654,8 +683,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     for (const [title, href] of [
       ["Medication Prescribing", "/medications"],
       ["Documents", "/documents"],
-      ["Services", "/services"],
-      ["Forms", "/forms"],
+      ["Services", "/?mode=services"],
+      ["Forms", "/?mode=forms"],
       ["Saved workflows", "/favourites"],
       ["PsychSift Search", "/?mode=answer"],
     ] as const) {
@@ -785,6 +814,9 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await waitForReactEventHandler(dsmMode);
     await dsmMode.click();
     await expect(page).toHaveURL(/\/\?mode=dsm\b/, { timeout: 20_000 });
+    const dsmModeButton = page.getByRole("button", { name: "Mode DSM-5 Diagnosis" });
+    await expect(dsmModeButton).toBeVisible();
+    await expect(dsmModeButton).toBeFocused();
 
     // Submitting is the only thing that leaves home.
     await visibleGlobalSearchInput(page).fill("bipolar");
@@ -2576,6 +2608,41 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 320, height: 700 });
     await expect(detailPage).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+    const safetySnapshot = detailPage.getByTestId("differential-safety-snapshot");
+    await expect(safetySnapshot).toBeVisible();
+    await expect(safetySnapshot.getByTestId("differential-safety-cta")).toHaveCount(0);
+
+    const safetyMetricItems = safetySnapshot.getByRole("list", { name: "Safety metrics" }).getByRole("listitem");
+    await expect(safetyMetricItems).toHaveCount(4);
+    const metricRows = await safetyMetricItems.evaluateAll((items) => {
+      return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;
+    });
+    expect(metricRows).toBe(1);
+    const metricValuesStayWithinCells = await safetyMetricItems.evaluateAll((items) => {
+      return items.every((item) => {
+        const value = item.querySelector('[data-testid="differential-safety-value"]');
+        if (!value) return false;
+        const valueRange = document.createRange();
+        valueRange.selectNodeContents(value);
+        const valueBounds = valueRange.getBoundingClientRect();
+        const itemBounds = item.getBoundingClientRect();
+        return valueBounds.left >= itemBounds.left - 0.5 && valueBounds.right <= itemBounds.right + 0.5;
+      });
+    });
+    expect(metricValuesStayWithinCells).toBe(true);
+
+    const watchRowCenterSpread = await safetySnapshot
+      .getByTestId("differential-safety-watchlist")
+      .evaluate((watchlist) => {
+        const centers = Array.from(watchlist.children).map((item) => {
+          const bounds = item.getBoundingClientRect();
+          return bounds.top + bounds.height / 2;
+        });
+        return Math.max(...centers) - Math.min(...centers);
+      });
+    expect(watchRowCenterSpread).toBeLessThan(1);
+    const safetySnapshotBox = await safetySnapshot.boundingBox();
+    expect(safetySnapshotBox?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(250);
     await expect(detailPage.getByRole("tab", { name: "Overview" })).toBeHidden();
     // The header is portaled into the universal collapse row on phones, so it
     // lives outside the page root that `detailPage` scopes to.
@@ -2583,6 +2650,31 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(sectionTrigger).toBeVisible();
     await expect(sectionTrigger).toContainText("Overview");
     await expectMinTouchTarget(sectionTrigger);
+
+    // The page title already has a dedicated back control in the in-page
+    // header, so the old three-part breadcrumb is intentionally absent. Map
+    // and Related are useful enough to remain visible without opening the
+    // section sheet on a phone.
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+    const discoveryActions = detailPage.getByRole("navigation", { name: "Explore diagnosis" });
+    await expect(discoveryActions).toBeVisible();
+    const mapAction = discoveryActions.getByRole("button", { name: /^Map/ });
+    const relatedAction = discoveryActions.getByRole("button", { name: /^Related/ });
+    await expectMinTouchTarget(mapAction);
+    await expectMinTouchTarget(relatedAction);
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await expect(discoveryActions).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
+    await mapAction.focus();
+    await expect(mapAction).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sectionTrigger).toContainText("Map");
+    await expect(page).toHaveURL(/[?&]tab=map/);
+    await relatedAction.click();
+    await expect(sectionTrigger).toContainText("Related");
+    await expect(page).toHaveURL(/[?&]tab=related/);
+
     await sectionTrigger.click();
     const sectionSheet = page.getByTestId("differential-section-sheet");
     await expect(sectionSheet).toBeVisible();
@@ -2624,6 +2716,17 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       return lines;
     });
     expect(overviewLineCount).toBe(1);
+
+    await overviewTab.click();
+    await expect(safetySnapshot).toBeVisible();
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.setViewportSize({ width: 320, height: 700 });
+    await expect(safetySnapshot).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const forcedColorsMetricRows = await safetyMetricItems.evaluateAll((items) => {
+      return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;
+    });
+    expect(forcedColorsMetricRows).toBe(1);
   });
 
   test("diagnosis map keeps labels contained and the selected inspector out of the canvas", async ({ page }) => {

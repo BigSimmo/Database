@@ -215,6 +215,17 @@ describe("services catalogue", () => {
     expect(searchServiceRecords("13YARN")[0]?.service.slug).toBe("13yarn");
   });
 
+  it("interprets natural-language youth follow-up searches inside the services catalogue", () => {
+    const matches = rankServiceRecords(
+      serviceRecords,
+      "Where can a young person get support after discharge?",
+      serviceRecords.length,
+      [],
+      true,
+    );
+    expect(matches.some(({ service }) => service.slug.includes("youth-community"))).toBe(true);
+  });
+
   it("maps representative services into the four browse groups", () => {
     const records = loadServiceRecords();
     const yarn = records.find((service) => service.slug === "13yarn");

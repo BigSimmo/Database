@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 38,
+    "pending": 39,
     "resolved": 431
   },
   "queue": [
@@ -973,6 +973,12 @@
       "action": "cancel",
       "summary": "Cancel request b60f9982-f48c-4a70-ae92-99d88313cab3: The summary and detail both state a test count that this branch's own next commit falsified, and one of them double-counts. Filed while the caring-contacts database suite was 193 tests; moving the PLAN_COLUMNS guard to the offline project made it 192, so the record was true when written and false before it could be reconciled. The summary also reads 'its 193 tests and the PLAN_COLUMNS narrowing guard', which double-counts the guard that was already inside the 193. Superseded by a replacement that states the invariant instead of a tally, per Ruling 94. The underlying issue is real and unchanged.",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "9d654032-6e3d-439f-81ac-70d8314f4763",
+      "action": "update",
+      "summary": "#9GPWT3: summary → Ward Flow: bed-release state model is unvalidated by any ward clinician",
+      "created_at": "2026-08-31"
     },
     {
       "request_id": "a2cff633-7bfe-480e-91bc-8d97f68c66c7",

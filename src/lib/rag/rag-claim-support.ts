@@ -447,12 +447,12 @@ function compatibleDirectiveActions(claim: string, evidence: string) {
 }
 
 // Exported so the extractive figure-promotion guard (rag-extractive-answer.ts) can check a
-// candidate fact's value atoms against the EXACT corpus this module assesses claims with.
-// Keep the two in lockstep: a promoted figure verified against a wider corpus (e.g. one that
-// includes adjacent_context) would pass numeric verification and then trip
-// claim_support_high_risk_gap here. (Precision note: this corpus also includes
-// index_unit metadata that the numeric-verification corpus does not, so it is not a strict
-// subset — that sole divergence fails safe: the guard passes, the numeric gate then nukes.)
+/**
+ * Extracts and concatenates all text fields of a source result into the evidence corpus used for claim verification.
+ *
+ * @param source - Search result to format
+ * @returns Combined evidence text
+ */
 export function sourceEvidenceText(source: SearchResult) {
   return [
     source.section_heading,
@@ -650,13 +650,26 @@ function sourceBandConflicts(source: SearchResult) {
   return sourceBandConflictSegments(source).flatMap((value) => detectLabelledNumericBandConflicts(value));
 }
 
-/** Same-chunk labelled-band conflicts that specifically affect delivered text. */
+/**
+ * Detects same-chunk labelled-band conflicts that specifically affect delivered text.
+ *
+ * @param source - Candidate search result
+ * @param text - Answer or section text
+ * @param bandContext - Optional surrounding band context
+ * @returns Array of affecting labelled numeric band conflicts
+ */
 export function sourceLabelledNumericBandConflictsAffectingText(source: SearchResult, text: string, bandContext = "") {
   return sourceBandConflictSegments(source).flatMap((segment) =>
     labelledNumericBandConflictsAffectingText(text, segment, bandContext),
   );
 }
 
+/**
+ * Checks whether a search result source contains internal labelled numeric band contradictions.
+ *
+ * @param source - Search result to inspect
+ * @returns `true` if conflicting numeric bands are present
+ */
 export function sourceHasLabelledNumericBandConflict(source: SearchResult) {
   return sourceBandConflicts(source).length > 0;
 }
@@ -1150,6 +1163,12 @@ function assessClaimSupportDetails(answer: RagAnswer) {
   return { claims, evidenceAssessments, inputs, unassessedClaims };
 }
 
+/**
+ * Evaluates support status and evidence assessments for all clinical claims in an answer without mutating the answer.
+ *
+ * @param answer - RAG answer to assess
+ * @returns Object with supportedClaims and evidenceAssessments
+ */
 export function assessClaimSupport(answer: RagAnswer) {
   const { claims, evidenceAssessments } = assessClaimSupportDetails(answer);
   return { claims, evidenceAssessments };
@@ -1162,6 +1181,12 @@ function enforceUnassessedNumericClaims(answer: RagAnswer, unassessedClaims: str
     : answer;
 }
 
+/**
+ * Assesses clinical claim support across top-level answer and sections, enforcing fail-closed degradation upon unsupported high-risk claims.
+ *
+ * @param answer - The candidate RAG answer
+ * @returns Verified and safely degraded or augmented RAG answer
+ */
 export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
   const { claims, evidenceAssessments, inputs, unassessedClaims } = assessClaimSupportDetails(answer);
   if (!answer.grounded || answer.confidence === "unsupported" || answer.responseMode === "evidence_gap") {

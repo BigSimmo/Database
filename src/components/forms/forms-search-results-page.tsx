@@ -626,7 +626,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
     if (!query.trim()) return [];
     // Deferred empty while live has text: wait — do not rank as empty-query "all forms".
     if (!deferredQuery.trim()) return [];
-    return rankFormRecords(registry.records, deferredQuery);
+    return rankFormRecords(registry.records, deferredQuery, registry.records.length, [], true);
   }, [registryReady, registry.records, deferredQuery, query]);
   const categoryOptions = useMemo(() => deriveFormCategories(matches), [matches]);
   const filterSelection = useMemo(

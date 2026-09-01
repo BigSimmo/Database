@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c995abce-f7d4-4be2-b057-80b173a5246f",
+  "createdOn": "2026-08-31",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "An agent push rewrote tests/ui-smoke.spec.ts from 6,019 lines to 1,081, deleting 74 of 82 UI journey tests, and only a merge conflict stopped it auto-merging",
+    "detail": "Observed 2026-08-31 on PR #2481 (the answer-surface colour fix). Commit d1485d6e8, message 'test(ui): compare answer status surfaces', authored via the BigSimmo account, changed exactly one file with 4 insertions and 4,924 deletions: tests/ui-smoke.spec.ts fell from 6,019 lines / 82 tests to 1,081 lines / 8 tests. The commit message describes a narrow comparison change, so the diff is almost certainly an accidental whole-file rewrite by a tool that regenerated the file instead of editing a region of it — the surviving 8 tests are a contiguous slice, which is the signature of that failure mode. WHY IT MATTERS BEYOND THE ONE COMMIT: squash auto-merge was armed on the PR at the time. A gutted suite goes green trivially, so had the branch merged cleanly the deletion would have reached main automatically with no human reading the diff. The only thing that actually prevented it was an unrelated merge conflict against a main that had moved on; the subsequent merge of main into the branch restored the file, and the squash landed only the intended two-file colour change (verified by reading main at e16d5f66d). So no harm occurred, by luck rather than by any gate. NOTHING IN CI WOULD HAVE CAUGHT IT: no check asserts a floor on the number of Playwright tests or fails on a large deletion in a test file, and AGENTS.md's 'never skip, disable, or quarantine a test to get green' rule is agent policy, not an enforced gate. check:dead-code-candidate guards exported symbols, not test bodies. SUGGESTED REMEDY, cheapest first: a static check that fails when a committed diff removes more than a threshold share of test cases from tests/**, in the spirit of the existing bundle-budget ratchets — a count of test( occurrences per spec file, ratcheted per path, so a deliberate reduction is a reviewed baseline change rather than a silent one. Separately worth considering: do not arm auto-merge on a branch that any agent session is still pushing to.",
+    "source": "session 2026-08-31, answer-page colour fix (PR #2481)",
+    "issueUlid": "01M1BRQ3RAY30AXBTYS5VPXHAF"
+  }
+}

@@ -5,8 +5,11 @@ const mockedModuleSpecifiers = [
   "@/lib/demo-data",
   "@/lib/differentials",
   "@/lib/env",
+  "@/lib/formulation",
   "@/lib/rag/rag",
+  "@/lib/specifiers",
   "@/lib/supabase/admin",
+  "@/lib/therapies",
   "@/lib/tools-catalog",
   "@/lib/universal-search",
 ] as const;
@@ -423,6 +426,91 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     expect(response.domainOrder?.[0]).toBe("documents");
     expect(response.topHit?.kind).toBe("formulation");
     expect(response.topHit?.title).toBe("Avoidance");
+  });
+
+  it("applies the active Smart mode's expansions to universal catalogue ranking", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({
+      query: "Which diagnoses involve elevated mood?",
+      limitPerDomain: 5,
+      domains: ["dsm"],
+      contextMode: "dsm",
+      demo: true,
+    });
+
+    expect(response.interpretation?.appliedExpansions).toEqual(
+      expect.arrayContaining(["mania", "hypomania", "bipolar"]),
+    );
+    expect(response.groups.find((group) => group.kind === "dsm")?.items[0]?.title).toContain("Bipolar I");
+  });
+
+  it("forwards the capped Smart expansion lane to every non-registry catalogue adapter", async () => {
+    isolateNextModuleImport();
+    const forwardedSpecifierExpansions: Array<readonly string[] | undefined> = [];
+    const forwardedFormulationExpansions: Array<readonly string[] | undefined> = [];
+    const forwardedTherapyExpansions: Array<readonly string[] | undefined> = [];
+    const searchSpecifiers = vi.fn((_query: string, options?: { expansions?: readonly string[] }) => {
+      forwardedSpecifierExpansions.push(options?.expansions);
+      return [];
+    });
+    const searchFormulationMechanisms = vi.fn((_query: string, options?: { expansions?: readonly string[] }) => {
+      forwardedFormulationExpansions.push(options?.expansions);
+      return [];
+    });
+    const searchTherapyRecords = vi.fn((_query: string, expansions?: readonly string[]) => {
+      forwardedTherapyExpansions.push(expansions);
+      return [];
+    });
+    vi.doMock("@/lib/specifiers", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("../src/lib/specifiers")>()),
+      searchSpecifiers,
+    }));
+    vi.doMock("@/lib/formulation", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("../src/lib/formulation")>()),
+      searchFormulationMechanisms,
+    }));
+    vi.doMock("@/lib/therapies", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("../src/lib/therapies")>()),
+      searchTherapyRecords,
+    }));
+    const { runUniversalSearch } = await loadUniversalSearch();
+
+    await runUniversalSearch({
+      query: "Which specifier describes anxiety symptoms?",
+      limitPerDomain: 5,
+      domains: ["specifiers"],
+      contextMode: "specifiers",
+      demo: true,
+    });
+    await runUniversalSearch({
+      query: "Which formulation names someone who cannot stop thinking?",
+      limitPerDomain: 5,
+      domains: ["formulation"],
+      contextMode: "formulation",
+      demo: true,
+    });
+    await runUniversalSearch({
+      query: "Which therapy helps after trauma?",
+      limitPerDomain: 5,
+      domains: ["therapies"],
+      contextMode: "therapy-compass",
+      demo: true,
+    });
+
+    expect(searchSpecifiers).toHaveBeenCalledTimes(1);
+    expect(searchFormulationMechanisms).toHaveBeenCalledTimes(1);
+    expect(searchTherapyRecords).toHaveBeenCalledTimes(1);
+    expect(forwardedSpecifierExpansions[0]).toEqual(expect.arrayContaining(["anxious distress"]));
+    expect(forwardedFormulationExpansions[0]).toEqual(expect.arrayContaining(["rumination"]));
+    expect(forwardedTherapyExpansions[0]).toEqual(expect.arrayContaining(["trauma-focused", "ptsd"]));
+    for (const expansions of [
+      forwardedSpecifierExpansions[0],
+      forwardedFormulationExpansions[0],
+      forwardedTherapyExpansions[0],
+    ]) {
+      expect(expansions).toBeDefined();
+      expect(expansions!.length).toBeLessThanOrEqual(16);
+    }
   });
 
   it("typo-corrects the base query so a misspelled drug still finds the record", async () => {

@@ -438,7 +438,7 @@ export function FlowDiagram({
                     <div
                       key={unit.id}
                       className={styles.diagramUnplacedUnit}
-                      data-testid={`ward-diagram-unit-${unit.id}`}
+                      data-testid={`ward-diagram-unplaced-unit-${unit.id}`}
                     >
                       <span className={styles.diagramUnitName}>{unit.name}</span>
                       <span className={styles.diagramUnitCapability}>{capabilityLabel(unit)}</span>

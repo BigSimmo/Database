@@ -44,7 +44,7 @@ import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/u
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
-import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, isSmartNaturalSearchMode } from "@/lib/smart-search-intent";
 
 // Domains whose live result totals a cross-mode chip should sum. Answer/favourites
 // chips have no countable domain; the
@@ -182,7 +182,7 @@ function SmartRotatingHint({
 }: {
   examples: string[];
   modeLabel: string;
-  /** The desktop line names Smart search, so it follows the server capability. */
+  /** Smart is a provider-free capability of the supported catalogue modes. */
   showSmartLine: boolean;
   showPhoneTicker: boolean;
   onPickExample: (example: string) => void;
@@ -269,7 +269,7 @@ function SmartIntentCue({ active, modeLabel }: { active: boolean; modeLabel: str
   useEffect(() => {
     const announcement = announcementRef.current;
     if (active && !previouslyActiveRef.current) {
-      if (announcement) announcement.textContent = `Smart answer selected for ${modeLabel}.`;
+      if (announcement) announcement.textContent = `Smart search selected for ${modeLabel}.`;
     } else if (!active) {
       if (announcement) announcement.textContent = "";
     }
@@ -281,7 +281,7 @@ function SmartIntentCue({ active, modeLabel }: { active: boolean; modeLabel: str
       {active ? (
         <div className="smart-search-intent-cue" data-testid="smart-search-intent-cue" aria-hidden="true">
           <Sparkles aria-hidden="true" className="size-icon-sm" />
-          Smart answer · governed sources
+          Smart search · catalogue results
         </div>
       ) : null}
       <span ref={announcementRef} className="sr-only" aria-live="polite" aria-atomic="true" />
@@ -469,7 +469,6 @@ export function UniversalSearchCommandSurface({
   onListboxIdReady,
   onActiveItemIdChange,
   showPhoneSuggestionTicker = false,
-  clinicalAskAvailable = false,
   placement = "inline",
   children,
 }: {
@@ -492,8 +491,6 @@ export function UniversalSearchCommandSurface({
   onActiveItemIdChange?: (activeItemId: string | null) => void;
   /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
   showPhoneSuggestionTicker?: boolean;
-  /** Server-projected capability; false keeps the composer fully deterministic. */
-  clinicalAskAvailable?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -514,8 +511,8 @@ export function UniversalSearchCommandSurface({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
-  const smartClinicalAsk =
-    clinicalAskAvailable && resolveSmartSearchSubmissionIntent(modeId, trimmedQuery) === "clinical-ask";
+  const smartInterpretation = interpretSmartSearch(modeId, trimmedQuery);
+  const smartNaturalSearch = smartInterpretation.naturalLanguage;
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
@@ -1113,19 +1110,14 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
-      <SmartIntentCue active={smartClinicalAsk} modeLabel={mode.label} />
-      {smartClinicalAsk ? null : (
-        // Two different promises share this component. The desktop line names
-        // Smart search, so it stays tied to the server capability. The phone
-        // ticker is an ordinary example search — "Try this … Tap to search" —
-        // and is the only suggestion a phone home page has, because the desktop
-        // prompt rail is display:none below 640px. It therefore belongs on
-        // every phone home page, capability or not (owner decision 2026-08-30,
-        // restoring the pre-#2459 behaviour).
+      <SmartIntentCue active={smartNaturalSearch} modeLabel={mode.label} />
+      {smartNaturalSearch ? null : (
+        // The phone ticker and desktop line both demonstrate deterministic
+        // catalogue search. Neither depends on Clinical Ask or a provider flag.
         <SmartRotatingHint
           examples={config.examples}
           modeLabel={mode.label}
-          showSmartLine={clinicalAskAvailable}
+          showSmartLine={isSmartNaturalSearchMode(modeId)}
           showPhoneTicker={showPhoneSuggestionTicker}
           onPickExample={(example) => {
             onQueryChange(example);

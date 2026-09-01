@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { AnswerSupportSummaryCard, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
+import { AnswerUtilityActions, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
 import type { AnswerState } from "@/components/ui/answer-state";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { RagAnswer } from "@/lib/types";
@@ -134,26 +135,49 @@ describe("answerSupportPriority · Review source match", () => {
   });
 });
 
-describe("AnswerSupportSummaryCard · feedback on a clean answer", () => {
-  it("still hosts Report a problem when priority and warnings are both empty", () => {
+describe("AnswerUtilityActions · feedback on a clean answer", () => {
+  it("reaches Report a problem through the thumb down, beside Copy with sources", async () => {
+    const user = userEvent.setup();
     render(
-      <AnswerSupportSummaryCard
-        priority={null}
-        warnings={[]}
+      <AnswerUtilityActions
+        copied={false}
+        onCopy={() => undefined}
         pendingFeedback={null}
         onSubmitFeedback={() => undefined}
       />,
     );
-    expect(screen.getByTestId("answer-feedback-trigger")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy answer with source status" })).toBeInTheDocument();
+
+    const report = screen.getByTestId("answer-feedback-trigger");
+    expect(report).toHaveAccessibleName("Report a problem with this answer");
+    expect(report).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("answer-review-panel")).not.toBeInTheDocument();
+
+    await user.click(report);
+    const panel = screen.getByTestId("answer-review-panel");
+    expect(panel).toHaveAttribute("data-tone", "problems");
+    // The affirmative option is the thumb up, not an entry in a list opened to
+    // report a fault — offering it here is a mis-click that records the
+    // opposite of what the reader meant.
+    expect(within(panel).queryByRole("button", { name: /Verified/ })).not.toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: /Wrong source/ })).toBeInTheDocument();
   });
 
-  it("the answer surface mounts that card for feedback even without priority or warnings", () => {
+  it("routes the safety sheet from the header chip now that the support card is gone", () => {
     const surface = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
       "utf8",
     );
-    expect(surface).toMatch(
-      /showInlineSupportCard = Boolean\(priority \|\| renderModel\.warnings\.length > 0 \|\| onSubmitFeedback\)/,
-    );
+    expect(surface).toContain("<AnswerUtilityActions");
+    // The support card was removed on 2026-08-31 with the owner's decision that
+    // the header chip carries safety instead. The chip is therefore the ONLY
+    // route to the safety-critical findings sheet, so it must stay a button.
+    expect(surface).not.toContain("<AnswerSupportSummaryCard");
+    expect(surface).toContain('data-testid="answer-safety-findings-trigger"');
+    expect(surface).toContain("onClick={openSafetyFindings}");
+    // The governed verification wording moved below the answer with it, and the
+    // surface must render it itself once it takes placement from the card.
+    expect(surface).toContain('verificationPlacement="content"');
+    expect(surface).toContain("<VerificationNotice {...answerVerification} />");
   });
 });

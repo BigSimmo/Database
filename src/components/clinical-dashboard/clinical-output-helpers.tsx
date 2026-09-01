@@ -190,7 +190,7 @@ export function AnswerViewModeControl({
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
             )}
           >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate sm:hidden">{mode.shortLabel}</span>
             <span className="hidden truncate sm:inline">{mode.label}</span>
           </button>

@@ -236,7 +236,7 @@ export function FavouritesHub({
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
               >
                 <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+                  <Icon aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   <span className="truncate">{stat.label}</span>
                 </div>
                 <p
@@ -332,7 +332,7 @@ export function FavouritesHub({
                           selected ? "bg-[color:var(--surface)]" : "bg-transparent",
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon aria-hidden="true" className="h-4 w-4" />
                       </span>
                       <span className="font-bold">{tab.label}</span>
                       {libraryCountsTrusted ? (
@@ -584,7 +584,7 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
   return (
     <article className="grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
       <span className={iconTilePremium}>
-        <Icon className="h-4 w-4" />
+        <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
       <div className="min-w-0">
         <p className="truncate font-bold text-[color:var(--text-heading)]">{item.title}</p>

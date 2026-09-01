@@ -38,7 +38,7 @@ export function StatusBadge({ status }: { status: string }) {
         tone.className,
       )}
     >
-      <Icon className={cn("h-3.5 w-3.5", status === "processing" && "animate-spin")} />
+      <Icon aria-hidden="true" className={cn("h-3.5 w-3.5", status === "processing" && "animate-spin")} />
       {status}
     </span>
   );
@@ -55,7 +55,7 @@ export function StrengthBadge({ strength }: { strength?: string }) {
     <span
       className={cn("inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold", className)}
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
       {label}
     </span>
   );

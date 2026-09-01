@@ -187,6 +187,12 @@ describe("specifiers content catalog", () => {
 });
 
 describe("searchSpecifierCatalog", () => {
+  it("interprets natural-language specifier descriptions inside the catalogue", () => {
+    expect(searchSpecifierCatalog("Which specifier describes anxiety symptoms?", {}, true)[0]?.item.label).toContain(
+      "anxious distress",
+    );
+  });
+
   it("finds a known specifier by label", () => {
     const results = searchSpecifierCatalog("anxious distress");
     expect(results.length).toBeGreaterThan(0);

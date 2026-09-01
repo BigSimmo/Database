@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { cn, type SourceMetadataInput } from "@/components/ui-primitives";
 import type { AnswerState, DegradedAnswerState } from "@/components/ui/answer-state";
@@ -93,6 +94,35 @@ type AnswerCardBase = {
    * around them goes. Adopted for the answer surface 2026-08-25.
    */
   frame?: "raised" | "bare";
+  /**
+   * Keeps the shared card safe by default while allowing the live answer
+   * surface to place source-currency controls beside its source-only disclosure.
+   * The content owner must render the same state and source route when it opts
+   * into `"content"`.
+   */
+  retrievalStatePlacement?: "header" | "content";
+  /**
+   * Where the governed verification sentence is rendered.
+   *
+   * `"content"` moves it below the answer, which is what the approved specimen
+   * draws: the header carries a support chip and the cited count, and the full
+   * caution sits under the action row with the sources it refers to. The card
+   * still owns the wording — the sentence is the same `VerificationNotice`,
+   * placed by the content owner rather than rewritten by it. **A surface that
+   * opts in MUST render `<VerificationNotice {...verification} />` itself**;
+   * `tests/answer-verification-placement.dom.test.tsx` is what stops that
+   * obligation being quietly dropped, the same way `retrievalStatePlacement`
+   * above requires the content owner to keep the state and its source route.
+   */
+  verificationPlacement?: "header" | "content";
+  /**
+   * Chips rendered on the header meta line, after the support chip. The answer
+   * surface puts its safety-notes control here; the card keeps ownership of the
+   * support word beside it so the two read as one status line.
+   */
+  metaChips?: ReactNode;
+  /** Trailing meta, right-aligned on the header line — the surface's cited count. */
+  metaTrailing?: ReactNode;
   className?: string;
 };
 
@@ -117,6 +147,10 @@ export function AnswerCard({
   actions,
   onOpenSource,
   frame = "raised",
+  retrievalStatePlacement = "header",
+  verificationPlacement = "header",
+  metaChips,
+  metaTrailing,
   className,
 }: AnswerCardProps) {
   const bare = frame === "bare";
@@ -157,21 +191,41 @@ export function AnswerCard({
       >
         {query ? <AnswerCardQueryEcho query={query} /> : null}
         {/* Above the prose and above the actions, in document order, on screen
-            and on print alike. */}
-        <VerificationNotice {...verification} />
+            and on print alike — unless the content owner has taken placement,
+            in which case it renders the same notice below the answer. */}
+        {verificationPlacement === "header" ? <VerificationNotice {...verification} /> : null}
         {/* Text, never colour alone - this must survive greyscale print and
-            forced-colors the same way StatusMark does. */}
+            forced-colors the same way StatusMark does. The bare frame draws it
+            as a chip so the support word, the surface's safety chip and the
+            cited count read as one status line; the word itself is unchanged,
+            and the icon is decorative beside it rather than a second signal. */}
         <p
           data-testid="answer-card-support"
           data-support={support}
           className={cn(
-            "font-semibold text-[color:var(--text-muted)]",
-            bare ? "text-3xs leading-4" : "text-2xs uppercase tracking-wide",
+            "font-semibold",
+            bare
+              ? cn(
+                  "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs uppercase tracking-eyebrow",
+                  support === "strong" || support === "supported"
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
+                )
+              : "text-2xs uppercase tracking-wide text-[color:var(--text-muted)]",
           )}
         >
+          {bare ? (
+            support === "strong" || support === "supported" ? (
+              <ShieldCheck aria-hidden="true" className="size-icon-xs shrink-0" />
+            ) : (
+              <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
+            )
+          ) : null}
           <span className="sr-only">Evidence support: </span>
           {ANSWER_SUPPORT_WORDING[support]}
         </p>
+        {bare ? metaChips : null}
+        {bare && metaTrailing ? <span className="ms-auto shrink-0">{metaTrailing}</span> : null}
         {/*
          * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
          * every degraded state, on the reasoning that an adoption failure here is
@@ -194,7 +248,8 @@ export function AnswerCard({
          * `onOpenSource` stays required for every degraded state (DECISIONS §Q1): a
          * degraded answer must remain re-verifiable whether or not a banner renders.
          */}
-        {state.kind === "stale_evidence" || state.kind === "partial_retrieval" ? (
+        {retrievalStatePlacement === "header" &&
+        (state.kind === "stale_evidence" || state.kind === "partial_retrieval") ? (
           <div className={bare ? "w-full" : undefined}>
             <RetrievalStateBanner
               state={state}

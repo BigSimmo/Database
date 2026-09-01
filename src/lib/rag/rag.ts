@@ -95,6 +95,7 @@ export {
   completeExtractiveSentence,
   generatedAnswerQualityFailureReason,
   isBareDefinitionQuestion,
+  isBareDocumentSupportListAnswer,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag/rag-extractive-answer";

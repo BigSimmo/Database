@@ -307,7 +307,7 @@ function EvidenceTabs({ selected }: { selected: string }) {
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-raised)]"
               }`}
             >
-              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               <span className="min-w-0 truncate">{label}</span>
               <span className="nums inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1 text-2xs opacity-90 shadow-[var(--shadow-inset)]">
                 {count}
@@ -501,7 +501,7 @@ function ImageEvidence() {
         >
           <div className="grid min-h-28 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:min-h-32">
             <div className="grid justify-items-center gap-2">
-              <Icon className="h-9 w-9 text-[color:var(--clinical-accent)]" />
+              <Icon aria-hidden="true" className="h-9 w-9 text-[color:var(--clinical-accent)]" />
               <Pill>p.14</Pill>
             </div>
           </div>
