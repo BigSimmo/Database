@@ -180,4 +180,38 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     expect(surface).toContain('verificationPlacement="content"');
     expect(surface).toContain("<VerificationNotice {...answerVerification} />");
   });
+
+  it("keeps the overdue-sources control inside the evidence-gaps disclosure", () => {
+    // Owner decision, 2026-09-01: the control that names WHICH cited sources are
+    // past their review date moved out of the answer body and into the
+    // disclosure, with the other statements about this answer's evidence.
+    const surface = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
+      "utf8",
+    );
+    const content = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/answer-content.tsx"),
+      "utf8",
+    );
+
+    // Gone from the answer body, and its props with it.
+    expect(content).not.toContain("<RetrievalStateBanner");
+    expect(content).not.toContain("onOpenStateSource");
+
+    // Present in the disclosure, and rendered before the warnings so the
+    // governed caution leads what the reader sees on opening it.
+    expect(surface).toContain("<RetrievalStateBanner");
+    const detailStart = surface.indexOf('id="answer-evidence-gaps-detail"');
+    const bannerInDetail = surface.indexOf("{overdueSourcesBanner}");
+    const warningsInDetail = surface.indexOf("renderModel.warnings.map");
+    expect(detailStart).toBeGreaterThan(-1);
+    expect(bannerInDetail).toBeGreaterThan(detailStart);
+    expect(warningsInDetail).toBeGreaterThan(bannerInDetail);
+
+    // The disclosure must survive on an overdue-only answer, or moving the
+    // banner in here would delete it outright rather than relocate it.
+    expect(surface).toContain("renderModel.warnings.length > 0 || overdueSourcesBanner");
+    // And the chip that opens it must exist for that answer too.
+    expect(surface).toContain('renderModel.warnings.length > 0 || answerState.kind === "stale_evidence"');
+  });
 });

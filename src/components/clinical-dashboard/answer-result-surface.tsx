@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
 
+import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
+
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
@@ -251,7 +253,7 @@ function StagedAnswerResultSurfaceImpl({
    * verdicts, which at 390px is already the full width of the row.
    */
   const answerMetaChipsWithGaps =
-    renderModel.warnings.length > 0 ? (
+    renderModel.warnings.length > 0 || answerState.kind === "stale_evidence" ? (
       <>
         {answerMetaChips}
         <button
@@ -280,7 +282,13 @@ function StagedAnswerResultSurfaceImpl({
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
-            {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+            {/* An overdue source is not a gap, so it is never counted as one.
+                When it is the ONLY thing behind this chip the label says so
+                instead, in the banner's own word, rather than reading
+                "0 evidence gaps" or calling an overdue source a gap. */}
+            {renderModel.warnings.length > 0
+              ? `${renderModel.warnings.length} evidence ${renderModel.warnings.length === 1 ? "gap" : "gaps"}`
+              : "Review due"}
             {/* The chip looked identical open and closed, so on a phone the only
                 way to tell was to find the panel. */}
             <ChevronDown
@@ -295,12 +303,36 @@ function StagedAnswerResultSurfaceImpl({
     );
 
   /**
-   * The gaps themselves, mounted whether or not the chip is expanded so
+   * The overdue-sources control, which names WHICH cited sources are past their
+   * review date and links to each.
+   *
+   * It used to sit in the answer body, below the prose. Owner decision
+   * (2026-09-01): it belongs inside the evidence-gaps disclosure, with the other
+   * statements about what qualifies this answer's evidence, rather than above
+   * it. Nothing about the answer's standing is hidden by the move — the worded
+   * caution stays on the default view, where `VerificationNotice` reads "some
+   * cited sources are overdue. Re-verify every clinical claim before acting."
+   * Only the per-source detail is now one tap away.
+   */
+  const overdueSourcesBanner =
+    answerState.kind === "stale_evidence" ? (
+      <RetrievalStateBanner
+        state={answerState}
+        onOpenSource={openAnswerStateSource}
+        className="w-fit min-w-0 max-w-full flex-none self-start"
+      />
+    ) : null;
+  /**
+   * The disclosure, mounted whether or not the chip is expanded so
    * `aria-controls` above always resolves, and rendered by `AnswerCard`
    * immediately under the chip row rather than below the whole answer.
+   *
+   * It exists for an overdue-sources banner alone, not only for warnings —
+   * otherwise moving the banner in here would delete it outright on an answer
+   * whose only evidence qualification is that a source is overdue.
    */
   const answerEvidenceGapsDetail =
-    renderModel.warnings.length > 0 ? (
+    renderModel.warnings.length > 0 || overdueSourcesBanner ? (
       <div
         id="answer-evidence-gaps-detail"
         hidden={!evidenceGapsOpen}
@@ -308,6 +340,7 @@ function StagedAnswerResultSurfaceImpl({
         // attribute is never fighting a `grid` display it cannot override.
         className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
       >
+        {overdueSourcesBanner}
         {renderModel.warnings.map((warning, index) => (
           <p
             key={`${warning}:${index}`}
@@ -331,8 +364,6 @@ function StagedAnswerResultSurfaceImpl({
       preformatted={isPreformattedGroundedAnswer(answer)}
       sourceOnly={sourceOnly}
       sourceOnlyVerificationState={answerState.kind}
-      answerState={answerState}
-      onOpenStateSource={openAnswerStateSource}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}
