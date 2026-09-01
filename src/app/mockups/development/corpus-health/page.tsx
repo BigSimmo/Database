@@ -144,10 +144,9 @@ export default async function DeveloperCorpusHealthPage() {
       <p className={META_CLASS}>
         Read live from your own library: every query is scoped to the account you are signed in as via an explicit owner
         filter on the server-only admin path, so these are your documents rather than the database&rsquo;s. Every figure
-        describes what indexing{" "}
-        <em>produced</em> — whether a document finished, and whether it left anything behind. Nothing here reads answer
-        quality, retrieval accuracy, or whether the extracted text is correct, so an empty page below means indexing ran
-        to completion, not that the answers are good.
+        describes what indexing <em>produced</em> — whether a document finished, and whether it left anything behind.
+        Nothing here reads answer quality, retrieval accuracy, or whether the extracted text is correct, so an empty
+        page below means indexing ran to completion, not that the answers are good.
       </p>
 
       {health.read ? null : <UnreadNotice />}

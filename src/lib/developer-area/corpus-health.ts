@@ -234,7 +234,11 @@ export async function resolveCorpusHealth(): Promise<CorpusHealth> {
   const [queued, processing, indexed, unsearchable, failures, good, partial, poor, unknown, lowest, highest] =
     await Promise.all([
       countOf(() =>
-        supabase.from("documents").select("id", { count: "exact", head: true }).eq("owner_id", owner).eq("status", "queued"),
+        supabase
+          .from("documents")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", owner)
+          .eq("status", "queued"),
       ),
       countOf(() =>
         supabase
@@ -244,7 +248,11 @@ export async function resolveCorpusHealth(): Promise<CorpusHealth> {
           .eq("status", "processing"),
       ),
       countOf(() =>
-        supabase.from("documents").select("id", { count: "exact", head: true }).eq("owner_id", owner).eq("status", "indexed"),
+        supabase
+          .from("documents")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", owner)
+          .eq("status", "indexed"),
       ),
 
       // The cut this panel exists for: finished, and yet holds not one text
