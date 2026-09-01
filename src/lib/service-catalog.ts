@@ -161,7 +161,16 @@ function normalizeEvidenceSources(value: unknown): CatalogServiceEvidenceSource[
     const publicationOrEffectiveDate = toCleanText(source.publicationOrEffectiveDate);
     const url = toCleanText(source.url);
     const accessedAt = toCleanText(source.accessedAt);
-    if (!sourceId || !title || !issuer || !sourceClass || !jurisdiction || !publicationOrEffectiveDate || !url || !accessedAt) {
+    if (
+      !sourceId ||
+      !title ||
+      !issuer ||
+      !sourceClass ||
+      !jurisdiction ||
+      !publicationOrEffectiveDate ||
+      !url ||
+      !accessedAt
+    ) {
       return [];
     }
     return [

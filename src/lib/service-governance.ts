@@ -67,10 +67,7 @@ export type CanonicalServiceInput = {
   sources: readonly CanonicalServiceSourceInput[];
 };
 
-const canonicalRecords = [
-  ...canonicalPart01,
-  ...canonicalPart02,
-] as unknown as readonly CanonicalServiceInput[];
+const canonicalRecords = [...canonicalPart01, ...canonicalPart02] as unknown as readonly CanonicalServiceInput[];
 
 const URL_PATTERN = /^https?:\/\/[^\s]+$/i;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
