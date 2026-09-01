@@ -108,6 +108,24 @@ describe("factsheet library", () => {
     expect(filterFactsheets("this-matches-nothing-xyz")).toHaveLength(0);
   });
 
+  it("uses natural-language expansion terms without changing the category predicate", () => {
+    const expansions = ["generalised anxiety disorder", "worry", "anxiety"];
+    expect(filterFactsheets("worries all the time", undefined, expansions).map((sheet) => sheet.slug)).toContain("gad");
+    expect(filterFactsheets("worries all the time", "Conditions", expansions).map((sheet) => sheet.slug)).toEqual([
+      "gad",
+    ]);
+    expect(filterFactsheets("worries all the time", "Therapies", expansions)).toEqual([]);
+  });
+
+  it("places direct factsheet matches ahead of expansion-only matches in catalogue order", () => {
+    const matches = filterFactsheets("Zoloft", undefined, ["generalised anxiety disorder"]);
+    expect(matches.map((sheet) => sheet.slug)).toEqual(["sertraline", "gad"]);
+  });
+
+  it("does not turn an unknown query into an expansion match", () => {
+    expect(filterFactsheets("this-matches-nothing-xyz", undefined, ["also-not-present"])).toEqual([]);
+  });
+
   it("never lists a sheet as related to itself", () => {
     for (const sheet of factsheets) {
       expect(relatedFactsheets(sheet.slug).some((related) => related.slug === sheet.slug)).toBe(false);

@@ -14,6 +14,7 @@
  */
 
 import { categoryAccentVars, FACTSHEET_CATEGORY_IDENTITY, type FactsheetCategoryKey } from "@/lib/category-identity";
+import { normalizeSearchText } from "@/lib/catalog-search";
 
 /**
  * Demonstration/governance status shown on-screen and preserved in the printed /
@@ -700,19 +701,26 @@ export function visibleTopicSheets<T>(
 }
 
 /** Server-driven filter for the search page: optional query + optional category. */
-export function filterFactsheets(query: string, category?: string): Factsheet[] {
-  const q = query.trim().toLowerCase();
+export function filterFactsheets(query: string, category?: string, expansions: readonly string[] = []): Factsheet[] {
+  const q = normalizeSearchText(query);
+  const normalizedExpansions = expansions.map(normalizeSearchText).filter(Boolean);
   const activeCategory = factsheetCategories.find((entry) => entry === category);
-  return factsheets
-    .filter((sheet) => !activeCategory || sheet.category === activeCategory)
-    .filter((sheet) => {
-      if (!q) return true;
-      // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
-      // even though it is stored separately from the title.
-      return `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`
-        .toLowerCase()
-        .includes(q);
-    });
+  const directMatches: Factsheet[] = [];
+  const expansionOnlyMatches: Factsheet[] = [];
+  for (const sheet of factsheets) {
+    if (activeCategory && sheet.category !== activeCategory) continue;
+    // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
+    // even though it is stored separately from the title.
+    const searchable = normalizeSearchText(
+      `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`,
+    );
+    if (!q || searchable.includes(q)) {
+      directMatches.push(sheet);
+    } else if (normalizedExpansions.some((term) => searchable.includes(term))) {
+      expansionOnlyMatches.push(sheet);
+    }
+  }
+  return [...directMatches, ...expansionOnlyMatches];
 }
 
 export function relatedFactsheets(slug: string): Factsheet[] {

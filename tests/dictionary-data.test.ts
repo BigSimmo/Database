@@ -71,6 +71,26 @@ describe("clinical dictionary catalogue", () => {
     expect(actHits[0]).toMatchObject({ type: "abbreviation", abbreviation: "ACT", senses: { length: 2 } });
   });
 
+  it("keeps exact Dictionary scores while adding lower-priority related search-term matches", () => {
+    const exact = searchDictionary({ ...baseFilters, q: "MSE" });
+    expect(exact.find((hit) => hit.type === "entry" && hit.entry.slug === "mental-state-examination")).toMatchObject({
+      score: 98,
+      reason: "Abbreviation: MSE",
+    });
+
+    const related = searchDictionary({
+      ...baseFilters,
+      q: "Can you explain a mental state exam?",
+      expansions: ["mental state examination", "MSE"],
+    });
+    const relatedEntry = related.find((hit) => hit.type === "entry" && hit.entry.slug === "mental-state-examination");
+    expect(relatedEntry).toMatchObject({ reason: "Related search term" });
+    expect(relatedEntry?.score).toBeLessThan(44);
+    expect(related.find((hit) => hit.type === "abbreviation" && hit.abbreviation === "MSE")).toMatchObject({
+      reason: "Related search term",
+    });
+  });
+
   it("uses one predicate for lens counts and topic, kind and source filters", () => {
     const topic = dictionaryTopics[0]!;
     const topicHits = searchDictionary({ ...baseFilters, view: "definitions", topics: [topic.slug] });
@@ -173,6 +193,22 @@ describe("merged dictionary catalogue", () => {
     expect(terms.every((hit) => hit.type === "entry")).toBe(true);
     expect(abbreviations.every((hit) => hit.type === "abbreviation")).toBe(true);
     expect(abbreviations.length).toBeGreaterThan(0);
+  });
+
+  it("uses Dictionary-mode expansions only in the dedicated catalogue", () => {
+    const catalogueHits = dictionaryCatalogue({
+      ...baseCatalogue,
+      q: "Can you explain a mental state exam?",
+      sort: "relevance",
+    });
+    expect(
+      catalogueHits.find((hit) => hit.type === "entry" && hit.entry.slug === "mental-state-examination"),
+    ).toMatchObject({
+      reason: "Related search term",
+    });
+    expect(dictionaryCompareHref(["mental-state-examination", "mini-mental-state-examination"])).toBe(
+      "/dictionary/compare?a=mental-state-examination&b=mini-mental-state-examination",
+    );
   });
 
   it("degrades the two retired search lenses rather than rendering an empty list", () => {
