@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import PrivacyPage from "@/app/privacy/page";
+import PrivacyPage, { metadata } from "@/app/privacy/page";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 
 vi.mock("next/navigation", () => ({
@@ -91,19 +91,32 @@ describe("privacy UI", () => {
     expect(markup).toContain("retains attributable citations and retrieval dates");
     expect(markup).toContain("not a zero-retention promise");
     expect(markup).toContain("production readiness must each be verified");
+    expect(markup).toContain("verified the four expected schedules on production and staging");
+    expect(markup).not.toContain("staging evidence, clinical evaluation");
 
     // The provider section states only what the application itself does. A
     // zero-retention or no-training claim is an operator/contractual matter the
     // app cannot observe, and docs/openai-cross-border-basis.md still records it
     // as unresolved — so it must not appear here.
     expect(markup).toContain("a keyed pseudonym is used instead when the operator configures one");
-    expect(markup).toContain("not a deletion deadline");
+    expect(markup).toContain("not that maximum or a deletion deadline");
+    expect(markup).toContain("API data sharing and API call logging disabled");
+    expect(markup).toContain("hosted MCP, web search, file search, image generation, code interpreter");
+    expect(markup).toContain("has submitted a Zero Data Retention request");
+    expect(markup).toContain("OpenAI has not yet approved it");
+    expect(markup).toContain("abuse-monitoring logs for up to 30 days");
+    expect(markup).toContain("prompt-cache data may remain on its local GPU machines for up to 24 hours");
+    expect(markup).toContain("has not yet proved that the production key targets the inspected project");
+    expect(markup).toContain("do not establish Zero Data Retention");
+    expect(markup).toContain("hosted-search path is disabled in the inspected provider project");
     expect(markup).not.toContain("zero-retention arrangement is in place");
     expect(markup).not.toContain("not used for training");
 
     // Status line: describes configured behaviour, never asserts a review.
     expect(markup).toContain("Describes configured behaviour as of");
     expect(markup).not.toContain("Reviewed on");
+    expect(metadata.description).toContain("current provider controls");
+    expect(metadata.description).toContain("pending privacy approvals");
   });
 
   it("exposes every section as a stable anchor so /privacy#retention can be linked", () => {

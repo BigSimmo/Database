@@ -295,9 +295,14 @@ action must perform one; a page that ships must be reachable.
 - **`production`** — every chunk a non-mockup route reaches, plus chunks no route manifest claims
   (framework, polyfills, runtime). This is user-facing weight and the real regression guard.
   Tolerance 10%. A failure here means find the regression; do not refresh the baseline to clear it.
-- **`routes`** — client JavaScript referenced by `/`, `/therapy-compass`, `/documents/search`,
-  `/dsm`, and `/forms`, the same journeys measured by Lighthouse. Each route has a 10% tolerance,
-  so local growth cannot hide inside a still-healthy repository aggregate.
+- **`routes`** — client JavaScript referenced by `/` and `/documents/search`, the same journeys
+  measured by Lighthouse. Each route has a 10% tolerance, so local growth cannot hide inside a
+  still-healthy repository aggregate. `/therapy-compass`, `/dsm` and `/forms` were in this list
+  and were deliberately removed: home consolidation turned all three into redirect stubs that
+  render the same shared home as `/`, so budgeting them measured `/` three more times rather than
+  covering anything new (see `tests/check-lighthouse-budget.test.ts`, `COMMITTED_ROUTES`). Do not
+  re-add them without also un-consolidating the homes; if a mode's own surface needs its own
+  budget, the route to add is its `/search` view, which is a genuinely different bundle.
 - **`mockups`** — chunks reachable **only** from `/mockups/**`. Nobody downloads these, so this is a
   repo-hygiene ceiling for unbounded accumulation, not a per-mockup gate. Tolerance 25%.
 

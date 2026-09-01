@@ -227,8 +227,8 @@ export function SpecifierSafetyNote({
     >
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden />
       <p>
-        Use this as structured decision support. Confirm the current diagnostic manual criteria, exclusions, episode
-        chronology, and local clinical requirements before documenting a specifier.
+        Use this as a structured clinical reference, not validated decision support. Confirm the current diagnostic
+        manual criteria, exclusions, episode chronology, and local clinical requirements before documenting a specifier.
       </p>
     </aside>
   );

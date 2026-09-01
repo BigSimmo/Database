@@ -246,11 +246,13 @@ function AboutPanel() {
         About these tools
       </h2>
       <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-        Scores support clinical judgement — they never replace a full assessment. Every calculator cites its source and
-        maps its result to next clinical actions. Nothing you enter is stored.
+        Scores support clinical judgement — they never replace a full assessment. Calculator answers remain in this
+        browser session and are not intentionally submitted by this calculator interface. Application telemetry and
+        clinical-record documentation are governed separately.
       </p>
       <p className="text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
-        {plannedCalculators.length} more calculators (CIWA-Ar, EPDS, COWS) are coming next.
+        {plannedCalculators.length} candidate calculators remain governance-gated pending version, rights and workflow
+        review.
       </p>
     </section>
   );
@@ -511,7 +513,6 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
           onClose={() => setOpenId(null)}
-          onOpenCalculator={setOpenId}
         />
       ) : null}
     </>

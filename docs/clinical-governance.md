@@ -21,6 +21,14 @@ PsychSift is currently a source-backed clinical reference prototype. Before prod
 - Confirm OpenAI and Supabase data-processing arrangements are acceptable for the intended clinical setting.
 - Define audit requirements for uploads, document access, user queries, generated answers, copied drafts, and source opening.
 
+The status authority is [`governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json),
+with the current evidence summary in
+[`governance/privacy-closeout-2026-09-01.md`](governance/privacy-closeout-2026-09-01.md). As of
+2026-09-01, OpenAI API sharing and call logging are disabled and optional hosted tools are disabled;
+OpenAI has acknowledged the ZDR request, but ZDR, DPA, APP 8, APP 1/5 notice, and clinical
+PHI-minimisation approvals remain release blockers. Do not infer approval from request submission or
+from the public `/privacy` transparency page.
+
 ## Clinical Use Rules
 
 - Generated answers and copied drafts must be verified against linked source text, local policy, and patient context before use.

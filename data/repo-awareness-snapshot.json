@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "b923e61aa9cac76202b8e27ddc9bffb669376d96",
-    "committed_at": "2026-09-01T09:33:16+08:00"
+    "sha": "612e9735c0096c046fad01a1b3a3b23482b3fc07",
+    "committed_at": "2026-09-01T17:10:51+08:00"
   },
   "routes": {
     "modes": [
@@ -2875,6 +2875,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/governance/privacy-closeout-2026-09-01.md",
+        "section": "governance",
+        "catalogued": true
+      },
+      {
+        "path": "docs/governance/privacy-role-attestation-pack-2026-09-01.md",
+        "section": "governance",
+        "catalogued": true
+      },
+      {
         "path": "docs/ingestion-concurrency-fix-workorder.md",
         "section": "root",
         "catalogued": true
@@ -3320,6 +3330,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/services-mode-governance.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/site-map.md",
         "section": "root",
         "catalogued": true
@@ -3551,6 +3566,16 @@
       },
       {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3836,6 +3861,16 @@
       },
       {
         "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4240,6 +4275,9 @@
         "name": "evidence"
       },
       {
+        "name": "governance"
+      },
+      {
         "name": "plans"
       },
       {
@@ -4268,10 +4306,10 @@
       }
     ],
     "counts": {
-      "documents": 555,
-      "catalogued": 109,
-      "uncatalogued": 446,
-      "sections": 20
+      "documents": 562,
+      "catalogued": 111,
+      "uncatalogued": 451,
+      "sections": 21
     }
   },
   "test_health": {
