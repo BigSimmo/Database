@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "39dc8d5f8491eb14a071bf3e3d6aa109730ff0bc",
-    "committed_at": "2026-09-01T19:23:20+08:00"
+    "sha": "1944c0584064e8edfe5dc2c00f2e284cdf008ffd",
+    "committed_at": "2026-09-01T21:36:04+08:00"
   },
   "routes": {
     "modes": [
@@ -4336,6 +4336,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2508",
+        "head": "14a99d0c412a3c53bf92b684c5b7e5b57ca1ccd9",
+        "scope": "Run PR sweep: prioritise embedded catalogue identities",
+        "outcome": "Ranked named Factsheet titles or brands and Dictionary terms or abbreviations above related Smart expansion matches in natural-language queries.",
+        "checks": "Focused Factsheets and Dictionary tests: 35 passed; direct-identity regression coverage; diff check."
+      },
       {
         "date": "2026-08-31",
         "ref": "codex/answer-surface-compact-20260830",
@@ -25586,8 +25594,8 @@
       }
     ],
     "counts": {
-      "records": 2656,
-      "refs": 1622
+      "records": 2657,
+      "refs": 1623
     }
   }
 }
