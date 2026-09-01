@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "7a797e527783c306b9460f65a7fffbfc3b043f32",
-    "committed_at": "2026-09-01T10:57:39+00:00"
+    "sha": "bf4489206167d41e78e629e10194a3856616afea",
+    "committed_at": "2026-09-01T18:36:13+08:00"
   },
   "routes": {
     "modes": [
@@ -571,6 +571,11 @@
       {
         "path": "/mockups/development",
         "file": "src/app/mockups/development/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/clinical-answer-failures",
+        "file": "src/app/mockups/development/clinical-answer-failures/page.tsx",
         "area": "mockup"
       },
       {
@@ -1420,9 +1425,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 198,
+      "pages": 199,
       "product_pages": 63,
-      "mockup_pages": 135,
+      "mockup_pages": 136,
       "redirects": 17,
       "api": 60
     }
