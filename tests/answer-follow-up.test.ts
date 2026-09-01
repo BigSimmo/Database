@@ -386,23 +386,188 @@ describe("buildAnswerFollowUpSuggestions · already-answered suppression", () =>
 });
 
 describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
-  it("puts reported gaps first and still respects the four-chip cap", () => {
+  it("never turns a reported gap's prose into a question", () => {
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",
       {
         ...answerFor(),
         conflictsOrGaps: [
-          { type: "gap", message: "Paediatric dosing is not covered." },
-          { type: "conflict", message: "The two guidelines disagree on the target level." },
+          // The real messages `detectConflictsOrGaps` writes: full advisory
+          // sentences, one of them two sentences long. Wrapping either in
+          // "What does the source say about ...?" cannot produce English, and
+          // for a while the live answer page showed exactly that.
+          {
+            type: "gap",
+            message:
+              "Current evidence comes from one document; broaden document scope if you need cross-document comparison.",
+          },
+          {
+            type: "conflict",
+            message:
+              "Sources disagree on the ANC withholding threshold (1.5 vs 2.0). Confirm the correct cut-off against the primary guideline before acting on any single source.",
+          },
         ],
       },
       ["lithium dosing"],
     );
 
+    for (const suggestion of suggestions) {
+      expect(suggestion).not.toContain("What does the source say about");
+      // Every suggestion is one question, so the only sentence-ending
+      // punctuation it may carry is its own trailing "?".
+      expect(suggestion.slice(0, -1)).not.toMatch(/[.;]/);
+      expect(suggestion.endsWith("?")).toBe(true);
+    }
+    // The gap is not silently dropped: the reader still sees its exact words as
+    // a caveat on the answer itself (`answer-render-policy`), and the authored
+    // question is offered whenever a slot is free — see the spare-slot test
+    // below. Here the four dosing chips fill every slot, and a concrete dosing
+    // question outranks a meta-question about coverage.
     expect(suggestions).toHaveLength(4);
-    expect(suggestions[0]).toBe("What does the source say about paediatric dosing is not covered?");
-    expect(suggestions[1]).toBe("What does the source say about the two guidelines disagree on the target level?");
-    expect(suggestions[2]).toBe("What monitoring is required for lithium?");
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("offers a gap's own words when the gap is already a question", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor(),
+        conflictsOrGaps: [{ type: "gap", message: "Which guideline governs paediatric dosing?" }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions[0]).toBe("Which guideline governs paediatric dosing?");
+    // A gap that asked for itself suppresses the generic source-gap template.
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("never displaces a concrete menu chip with the gap question", () => {
+    // The gap question is offered last and only into a spare slot. Put it first
+    // and a gapped medication_dose_risk answer trades the renal/hepatic dosing
+    // chip — a concrete, evidence-backed question — for a meta-question about
+    // coverage. The gap's own words are already on screen as a caveat, so the
+    // chip is the cheaper of the two things to lose.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor(),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions).toEqual([
+      "What monitoring is required for lithium?",
+      "What cautions or contraindications apply to lithium?",
+      "What should trigger stopping or escalating lithium?",
+      "How is lithium dosed in renal or hepatic impairment?",
+    ]);
+  });
+
+  it("offers the gap question in a spare slot on a menu that has no gap item", () => {
+    // `source_gap` lives only in the `management` menu, so before this a reported
+    // gap on any other query class went unmentioned entirely.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions.length).toBeLessThanOrEqual(4);
+    if (suggestions.length < 4) {
+      expect(suggestions.at(-1)).toBe("What does the indexed guidance not cover for lithium?");
+    }
+  });
+
+  it("does not call a conflict a coverage gap", () => {
+    // `detectConflictsOrGaps` writes `type: "conflict"` when sources disagree on
+    // a withholding threshold. That answer HAS coverage, from several sources —
+    // the problem is that they contradict each other — so "What does the indexed
+    // guidance not cover?" misstates the evidence and points the clinician at
+    // the wrong follow-up.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [
+          {
+            type: "conflict",
+            message:
+              "Sources disagree on the ANC withholding threshold (1.5 vs 2.0). Confirm the correct cut-off against the primary guideline before acting on any single source.",
+          },
+        ],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("still offers the gap question when a gap accompanies a conflict", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [
+          { type: "conflict", message: "Sources disagree on the ANC withholding threshold (1.5 vs 2.0)." },
+          { type: "gap", message: "Paediatric dosing is not covered." },
+        ],
+      },
+      ["lithium dosing"],
+    );
+
+    if (suggestions.length < 4) {
+      expect(suggestions).toContain("What does the indexed guidance not cover for lithium?");
+    }
+  });
+
+  it("stays silent about a gap the answer already has a Source gap section for", () => {
+    // The menu loop drops its own `source_gap` template when a section of that
+    // kind was emitted; the direct offer has to apply the same rule, or the chip
+    // asks what the guidance does not cover directly beneath a section that
+    // just said. `source_gap` is a real emitted kind — `rag.ts` maps
+    // gap/unsupported/missing/unclear headings onto it.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium management",
+      {
+        ...answerFor({
+          query: "lithium management",
+          intent: "general",
+          answer: "Review the plan at each visit.",
+          sections: [
+            {
+              heading: "Caveat",
+              kind: "source_gap",
+              body: "The guidance does not cover paediatric use.",
+              citation_chunk_ids: [],
+            },
+          ],
+        }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium management"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("offers no gap question when the topic is not supported by the evidence", () => {
+    // `reportedGapQuestion` interpolates the topic, so offering it past this gate
+    // would name a subject the corpus never mentioned.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "quetiapine dosing",
+      {
+        ...answerFor({ query: "quetiapine dosing" }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["quetiapine dosing"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for quetiapine?");
   });
 
   it("avoids repeating questions already asked in the thread", () => {

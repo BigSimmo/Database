@@ -49,6 +49,12 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
   },
 ];
 
+/**
+ * How much of a passage two findings must share before containment is treated as
+ * "the same passage". Below this, a short fragment is a substring of too much.
+ */
+const minPassageOverlap = 40;
+
 function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
@@ -85,8 +91,107 @@ function hasQueryConceptOverlap(text: string, terms: string[]) {
   return terms.some((term) => haystack.includes(term.toLowerCase()));
 }
 
+/**
+ * Collapse findings that are the same passage counted twice.
+ *
+ * The candidate list below draws from `quoteCards` AND `sources`, and a quote
+ * card is an extract of its own parent chunk — same document, same page, its
+ * text a substring of the chunk's. Both used to survive, because the dedupe key
+ * was the text itself and two different lengths of one passage are two different
+ * strings. They could also carry different labels: `safetyPatterns.find` returns
+ * the first pattern the text matches, and the longer text reaches severities the
+ * extract does not. On the live clozapine answer that rendered as "3 safety
+ * notes" over two passages, the first two of them the same words under "Red
+ * flag" and "Monitoring".
+ *
+ * A count is the whole point of this surface, so an inflated one is not cosmetic.
+ * Same document, same page, one text containing the other: keep the fuller text,
+ * and keep the most severe label of the group — a passage that names both an
+ * urgent trigger and a monitoring step is a red flag that also mentions
+ * monitoring, not two findings.
+ *
+ * Applied to every path into this module, including an answer that arrives with
+ * `safetyWarnings` already computed, so a future producer of those warnings
+ * cannot reintroduce the double count.
+ */
+export function collapseDuplicateSafetyFindings(findings: SafetyFinding[]): SafetyFinding[] {
+  // A single pass is order-greedy: it merges into the FIRST passage-key match,
+  // so a finding that contains two already-kept ones lands on the first and
+  // leaves the second nested inside it. That matters because this runs twice on
+  // the same data — server-side into the payload, then again on the client — and
+  // a pass that has not reached a fixed point can return a different count each
+  // time, so the chip reads "2 safety notes" before hydration and "1" after.
+  // Every iteration that changes anything removes at least one finding, so the
+  // input length bounds the loop.
+  let current = findings;
+  for (let pass = 0; pass < findings.length; pass += 1) {
+    const next = collapseSafetyFindingsOnce(current);
+    if (next.length === current.length) return next;
+    current = next;
+  }
+  return current;
+}
+
+function collapseSafetyFindingsOnce(findings: SafetyFinding[]): SafetyFinding[] {
+  const kept: SafetyFinding[] = [];
+  const normalized = new Map<SafetyFinding, string>();
+  const passageKey = (finding: SafetyFinding) =>
+    `${finding.citation.document_id}:${finding.citation.page_number ?? "?"}`;
+
+  for (const finding of findings) {
+    const text = normalizeText(finding.text).toLowerCase();
+    normalized.set(finding, text);
+    const duplicateIndex = kept.findIndex((candidate) => {
+      const other = normalized.get(candidate) ?? "";
+      if (other === text && passageKey(candidate) === passageKey(finding)) return true;
+      const contains = other.includes(text) || text.includes(other);
+      if (!contains) return false;
+      // Same chunk is not a heuristic: a quote card and the source it was cut
+      // from carry the same `chunk_id`, so containment there is proof of one
+      // passage however short the extract. The length floor below exists only
+      // for the cross-chunk case, and applying it here would let a quote under
+      // 40 characters double-count against its own parent — the exact defect
+      // this function was written for.
+      const sameChunk =
+        Boolean(candidate.citation.chunk_id) && candidate.citation.chunk_id === finding.citation.chunk_id;
+      if (sameChunk) return true;
+      if (passageKey(candidate) !== passageKey(finding)) return false;
+      // Across chunks, containment only counts when the shorter side is long
+      // enough to identify a passage. A stray fragment is a substring of almost
+      // anything.
+      const shorter = other.length < text.length ? other : text;
+      return shorter.length >= minPassageOverlap;
+    });
+
+    if (duplicateIndex === -1) {
+      kept.push(finding);
+      continue;
+    }
+
+    const existing = kept[duplicateIndex];
+    const existingText = normalized.get(existing) ?? "";
+    const fuller = text.length > existingText.length ? finding : existing;
+    const severest = safetyKindPriority[finding.kind] < safetyKindPriority[existing.kind] ? finding : existing;
+    // The id encodes the kind, so a merge that takes one finding's text and
+    // another's severity has to rebuild it rather than keep a `monitoring:` id
+    // on a row now labelled "Red flag".
+    kept[duplicateIndex] =
+      fuller === severest
+        ? fuller
+        : {
+            ...fuller,
+            id: `${severest.kind}:${fuller.citation.chunk_id}`,
+            kind: severest.kind,
+            label: severest.label,
+          };
+    normalized.set(kept[duplicateIndex], normalizeText(kept[duplicateIndex].text).toLowerCase());
+  }
+
+  return kept;
+}
+
 export function extractSafetyFindings(answer: RagAnswer | null | undefined, limit = 5): SafetyFinding[] {
-  if (answer?.safetyWarnings) return answer.safetyWarnings.slice(0, limit);
+  if (answer?.safetyWarnings) return collapseDuplicateSafetyFindings(answer.safetyWarnings).slice(0, limit);
   if (!answer?.grounded) return [];
   if (answer.relevance && !answer.relevance.isSourceBacked) return [];
 
@@ -144,10 +249,13 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
       href: documentCitationHref(candidate.citation),
     });
 
-    if (findings.length >= limit) break;
+    // Deliberately NOT `>= limit`: the collapse below can merge two of these
+    // into one, and stopping at the limit first would let a duplicate crowd out
+    // a genuinely distinct finding.
+    if (findings.length >= limit * 2) break;
   }
 
-  return findings;
+  return collapseDuplicateSafetyFindings(findings).slice(0, limit);
 }
 
 export function formatSafetyFindingLabel(finding: SafetyFinding) {
