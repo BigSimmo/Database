@@ -19,6 +19,7 @@ import {
   type MedicationSearchMatch,
 } from "@/lib/medications";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
@@ -71,7 +72,8 @@ function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
 }
 
 function rankCatalogMatches(records: MedicationRecord[], q: string, limit: number, projectIndex = false) {
-  const { matches, analysis } = searchMedicationCatalog(records, q, limit);
+  const smartExpansions = smartSearchExpansions("prescribing", q);
+  const { matches, analysis } = searchMedicationCatalog(records, q, limit, smartExpansions);
   // Rank on full records for vocabulary, but serialize the slim identity shape
   // when fields=index so matches do not reintroduce stats/sections/quick.
   const serialized = projectIndex

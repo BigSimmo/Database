@@ -277,6 +277,30 @@ describe("medications API", () => {
     expect(typoPayload.interpretation?.corrections).toContainEqual({ from: "sertaline", to: "sertraline" });
   });
 
+  it("uses Prescribing expansions for ordinary catalogue matches without exposing Smart analysis", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(
+      request("/api/medications?q=medicine%20that%20needs%20regular%20blood%20tests&limit=10"),
+    );
+    const payload = (await response.json()) as {
+      matches?: Array<{
+        medication: { slug: string };
+        result: { id: string };
+        score: number;
+        reasons: string[];
+      }>;
+      interpretation?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.map((match) => match.medication.slug)).toContain("warfarin-vka");
+    expect(Object.keys(payload.matches?.[0] ?? {}).sort()).toEqual(["medication", "reasons", "result", "score"]);
+    expect(payload.interpretation).toBeUndefined();
+  });
+
   it("projects matched medications to the index shape when fields=index&q is set", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
