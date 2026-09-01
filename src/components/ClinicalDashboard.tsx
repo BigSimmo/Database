@@ -3511,8 +3511,9 @@ function ClinicalDashboardContent({
               ) : null}
 
               <section
-                // 640–1919 first-paint top-align hook in globals.css. Do not
-                // restyle this from body:has(.pwa-notice-stack) — that caused CLS.
+                // Constrained 640–1919 first-paint top-align hook in globals.css.
+                // Tall desktop canvases keep their default optical centring. Do
+                // not restyle this from body:has(.pwa-notice-stack) — that caused CLS.
                 data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
                 className={resolveModeHomeCanvasClass({
                   activeModeResultKind,
