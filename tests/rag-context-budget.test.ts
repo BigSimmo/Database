@@ -940,6 +940,37 @@ describe("coverage and source-role evidence merge", () => {
     expect(selection?.orderedEvidence.map((item) => item.id)).toEqual(["direct-australian"]);
   });
 
+  it("keeps WA evidence ahead of equally relevant state evidence inside a one-slot Australian budget", () => {
+    const state = governedEvidence({
+      id: "state-monitoring",
+      corpusScope: "australian_public",
+      content: "Lithium monitoring interval requires serum lithium and renal review.",
+      role: "clinical_guideline",
+      metadata: {
+        source_catalogue_key: "nsw-health",
+        publisher_code: "NSWHEALTH",
+        publisher: "NSW Health",
+        jurisdiction: "Australia/NSW",
+      },
+    });
+    const wa = governedEvidence({
+      id: "wa-monitoring",
+      corpusScope: "australian_public",
+      content: "Lithium monitoring interval requires serum lithium and renal review.",
+      role: "clinical_guideline",
+    });
+
+    const [selection] = mergeEvidenceByCoverageAndSourceRole({
+      plan: queryPlan([{ id: "monitoring", question: "lithium monitoring interval serum renal review" }]),
+      candidates: [state, wa],
+      claimRole: "dose_or_monitoring",
+      maxPerSubquestion: 1,
+      maxPerDocument: 1,
+    });
+
+    expect(selection?.orderedEvidence.map((item) => item.id)).toEqual(["wa-monitoring"]);
+  });
+
   it("keeps current local guidance primary and returns the canonical material conflict", () => {
     const local = governedEvidence({
       id: "local-monitoring",

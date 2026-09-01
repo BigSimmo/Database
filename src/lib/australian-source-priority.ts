@@ -38,6 +38,13 @@ export function australianSourceTier(result: Pick<SearchResult, "source_metadata
   return australianSourceClassification(result).tier;
 }
 
+export function compareAustralianSourcesWithinRelevanceBand(
+  left: Pick<SearchResult, "source_metadata">,
+  right: Pick<SearchResult, "source_metadata">,
+) {
+  return tierRank[australianSourceTier(left)] - tierRank[australianSourceTier(right)];
+}
+
 export function isAustralianSourceTier(tier: AustralianSourceTier) {
   return tier !== "supplementary";
 }
@@ -104,8 +111,14 @@ export function selectAustralianClinicalContext(
       const rightRelevance = resultRelevanceRank(right.result);
       const leftCorpus = left.result.source_metadata?.corpus_scope ?? left.result.corpus_scope;
       const rightCorpus = right.result.source_metadata?.corpus_scope ?? right.result.corpus_scope;
-      if (leftCorpus && leftCorpus === rightCorpus) return leftRelevance - rightRelevance || left.index - right.index;
-      return leftRelevance - rightRelevance || tierRank[left.tier] - tierRank[right.tier] || left.index - right.index;
+      if (leftCorpus && leftCorpus === rightCorpus && leftCorpus !== "australian_public") {
+        return leftRelevance - rightRelevance || left.index - right.index;
+      }
+      return (
+        leftRelevance - rightRelevance ||
+        compareAustralianSourcesWithinRelevanceBand(left.result, right.result) ||
+        left.index - right.index
+      );
     });
   const withoutSupplementaryPadding = omitSupplementaryPadding
     ? ranked.filter((candidate) => !isSupplementaryPadding({ candidate, ranked, sufficientAustralianChunks }))

@@ -64,6 +64,32 @@ function result(args: {
   };
 }
 
+function australianResult(args: {
+  id: string;
+  verdict: "direct" | "partial";
+  publisher: string;
+  publisherCode: string;
+  jurisdiction: string;
+}) {
+  const candidate = result({
+    id: args.id,
+    similarity: args.verdict === "direct" ? 1 : 0.5,
+    role: "clinical_guideline",
+    relevance: relevance(args.verdict),
+  });
+  return {
+    ...candidate,
+    corpus_scope: "australian_public" as const,
+    source_metadata: {
+      ...candidate.source_metadata!,
+      corpus_scope: "australian_public" as const,
+      publisher: args.publisher,
+      publisher_code: args.publisherCode,
+      jurisdiction: args.jurisdiction,
+    },
+  };
+}
+
 describe("selectAustralianClinicalContext role eligibility", () => {
   it("filters role-ineligible evidence before applying the existing relevance ordering", () => {
     const treatmentLow = result({
@@ -116,5 +142,42 @@ describe("selectAustralianClinicalContext role eligibility", () => {
     }).map((item) => item.id);
 
     expect(governed).toEqual(legacy);
+  });
+
+  it("orders Australian evidence by relevance, authority tier, then input order", () => {
+    const stateDirect = australianResult({
+      id: "state-direct",
+      verdict: "direct",
+      publisher: "NSW Health",
+      publisherCode: "NSWHEALTH",
+      jurisdiction: "Australia/NSW",
+    });
+    const waPartial = australianResult({
+      id: "wa-partial",
+      verdict: "partial",
+      publisher: "WA Health",
+      publisherCode: "WAHEALTH",
+      jurisdiction: "Australia/WA",
+    });
+    const waDirectFirst = australianResult({
+      id: "wa-direct-first",
+      verdict: "direct",
+      publisher: "WA Health",
+      publisherCode: "WAHEALTH",
+      jurisdiction: "Australia/WA",
+    });
+    const waDirectSecond = australianResult({
+      id: "wa-direct-second",
+      verdict: "direct",
+      publisher: "WA Health",
+      publisherCode: "WAHEALTH",
+      jurisdiction: "Australia/WA",
+    });
+
+    expect(
+      selectAustralianClinicalContext([stateDirect, waPartial, waDirectFirst, waDirectSecond], {
+        omitSupplementaryPadding: false,
+      }).map((item) => item.id),
+    ).toEqual(["wa-direct-first", "wa-direct-second", "state-direct", "wa-partial"]);
   });
 });

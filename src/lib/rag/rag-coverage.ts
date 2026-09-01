@@ -2,7 +2,10 @@ import { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 import type { RagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
 import { classifyRagQuery, medicationDoseEvidenceQueryIntent } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
-import { selectAustralianClinicalContext } from "@/lib/australian-source-priority";
+import {
+  compareAustralianSourcesWithinRelevanceBand,
+  selectAustralianClinicalContext,
+} from "@/lib/australian-source-priority";
 import { evidenceFamilyKeys, siteContentClaimPolicy } from "@/lib/site-content/site-content-registry";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { normalizeClinicalSourceMetadata } from "@/lib/source-metadata";
@@ -270,7 +273,12 @@ function orderedByPolicy(args: {
     const inBand = args.candidates.filter(({ result }) => relevanceRank(result) === band);
     const site = inBand.filter(({ result }) => result.corpus_scope === "clinical_kb_site");
     const uploaded = inBand.filter(({ result }) => result.corpus_scope === "uploaded_local");
-    const au = inBand.filter(({ result }) => result.corpus_scope === "australian_public");
+    const au = inBand
+      .filter(({ result }) => result.corpus_scope === "australian_public")
+      .sort(
+        (left, right) =>
+          compareAustralianSourcesWithinRelevanceBand(left.result, right.result) || left.inputIndex - right.inputIndex,
+      );
     const international = inBand.filter(({ result }) => result.corpus_scope === "international_supplementary");
     if (site.some(({ result }) => productIntent(args.input.plan, args.question, result))) add(site);
     if (localPrimary) {
