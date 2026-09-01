@@ -27,6 +27,20 @@
   "compilerOptions": {
     "tsBuildInfoFile": "node_modules/.cache/tsc/tsconfig.typecheck.tsbuildinfo"
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts"],
-  "exclude": ["node_modules", ".next/**", "scratch/**", "supabase/functions/**", "worktrees/**", "scripts/archive/**"]
+  // `next-env.typecheck.d.ts` stands in for `next-env.d.ts`, which Next 16
+  // regenerates with `import "./.next/dev/types/routes.d.ts"` in it. An
+  // `exclude` cannot drop a file that an included file imports, so that one line
+  // silently reinstated the `.next` dependency this config exists to remove.
+  // `next-env.d.ts` is excluded explicitly because `**/*.ts` matches `.d.ts`
+  // too, so dropping it from `include` alone would not keep it out.
+  "include": ["next-env.typecheck.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts"],
+  "exclude": [
+    "node_modules",
+    ".next/**",
+    "next-env.d.ts",
+    "scratch/**",
+    "supabase/functions/**",
+    "worktrees/**",
+    "scripts/archive/**"
+  ]
 }
