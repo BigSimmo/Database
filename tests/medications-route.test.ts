@@ -313,6 +313,28 @@ describe("medications API", () => {
     expect(payload.interpretation).toBeUndefined();
   });
 
+  it("keeps literal medication identity wording in a mixed Smart query", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(
+      request("/api/medications?q=sertraline%20antidepressant%20sexual%20side%20effects&limit=5"),
+    );
+    const payload = (await response.json()) as {
+      matches?: Array<{
+        medication: { slug: string };
+        result: { match: string };
+        reasons: string[];
+      }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.[0]?.medication.slug).toBe("sertraline");
+    expect(payload.matches?.[0]?.reasons).toEqual(expect.arrayContaining(["name", "brand"]));
+    expect(payload.matches?.[0]?.result.match).toBe("Exact clinical fit");
+  });
+
   it("projects matched medications to the index shape when fields=index&q is set", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });

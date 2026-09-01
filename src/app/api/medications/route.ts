@@ -15,6 +15,7 @@ import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/
 import {
   medicationBrandNames,
   medicationToSearchResult,
+  normalizeSearchText,
   type MedicationRecord,
   type MedicationSearchMatch,
 } from "@/lib/medications";
@@ -83,7 +84,7 @@ function rankCatalogMatches(records: MedicationRecord[], q: string, limit: numbe
       }))
     : matches;
   return {
-    matches: matchesPayload(serialized, smartExpansions.length > 0),
+    matches: matchesPayload(serialized, smartExpansions.length > 0, analysis.correctedQuery),
     interpretation: medicationCatalogInterpretation(analysis),
   };
 }
@@ -92,15 +93,26 @@ function medicationResponse(payload: Record<string, unknown>, options: { request
   return NextResponse.json(payload, { headers: fixtureResponseHeaders(options.request, options) });
 }
 
-function matchesPayload(matches: MedicationSearchMatch[], rankingOnly = false) {
-  return matches.map((match) => ({
-    medication: match.medication,
-    // Smart aliases may improve retrieval order, but their score must not be
-    // interpreted outwardly as evidence of medication suitability.
-    result: medicationToSearchResult(rankingOnly ? { ...match, score: 0 } : match),
-    score: match.score,
-    reasons: match.reasons,
-  }));
+function queryIncludesMedicationIdentity(query: string, medication: MedicationRecord) {
+  const normalizedQuery = ` ${normalizeSearchText(query)} `;
+  return [medication.name, medication.slug.replace(/-/g, " "), ...medicationBrandNames(medication)].some((identity) => {
+    const normalizedIdentity = normalizeSearchText(identity);
+    return normalizedIdentity.length > 0 && normalizedQuery.includes(` ${normalizedIdentity} `);
+  });
+}
+
+function matchesPayload(matches: MedicationSearchMatch[], rankingOnly = false, query = "") {
+  return matches.map((match) => {
+    const hasLiteralIdentityMatch = queryIncludesMedicationIdentity(query, match.medication);
+    return {
+      medication: match.medication,
+      // Smart aliases may improve retrieval order, but Smart-only relevance
+      // must not be interpreted outwardly as evidence of medication suitability.
+      result: medicationToSearchResult(rankingOnly && !hasLiteralIdentityMatch ? { ...match, score: 0 } : match),
+      score: match.score,
+      reasons: match.reasons,
+    };
+  });
 }
 
 // The anonymous payload is entirely derived from the curated snapshot, so both
