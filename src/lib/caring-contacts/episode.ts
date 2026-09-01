@@ -31,6 +31,40 @@ export type Episode = {
   patientMobileNumber: string;
   patientIdentifiers: readonly string[];
   culturalIdentity: string | null;
+  /**
+   * What this patient asked to be called in the messages they receive, or null when no preferred
+   * name is held for this episode.
+   *
+   * IT IS ASKED FOR, NEVER DERIVED FROM `patientName` (owner decision, 2026-08-26). That field is
+   * one free-text box, and splitting it greets a person with one name by their only name, a person
+   * whose family name is written first by their surname, `Mr John Smith` as "Mr", and someone with
+   * two given names by half of them. Nothing in this domain parses a name, and nothing should.
+   *
+   * THREE VALUES, THREE DIFFERENT FACTS, AND THEY MUST STAY DISTINGUISHABLE. A non-empty string is
+   * a name a clinician recorded. `null` is "no preferred name is held" -- an episode that predates
+   * the field, or one a caller created without supplying one. `""` is what the clearance that
+   * de-identifies an ended episode writes, exactly as it does for `patientName`, so an episode whose
+   * name has been REMOVED is not mistaken for one that never had it. A surface rendering this says
+   * which of those it is looking at, or says only that no preferred name is held; it never invents
+   * a cause for the absence.
+   */
+  preferredName: string | null;
+  /**
+   * Why this episode's first contact was moved off the programme's usual day, or null when no
+   * reason is held for it.
+   *
+   * It sits among the identifying fields rather than beside the plan dates because of what it
+   * CONTAINS, not what it describes: it is prose a clinician typed about this patient, and a real
+   * one names relatives, places and living arrangements. So it is released by the one read that
+   * releases a name, and removed by the one write that removes one. `DeidentifiedEpisode` below
+   * does not carry it, which is what makes a de-identified episode free of it.
+   *
+   * Null carries no single cause and must never be rendered as one. The date may never have been
+   * moved, the plan may predate the field existing, or the clearance that de-identifies an ended
+   * episode may have removed it; a surface that can tell those apart says which, and one that
+   * cannot says only that no reason is held.
+   */
+  firstContactReason: string | null;
   planDates: EpisodePlanDates;
   pathwayVersionId: PathwayVersionId;
   teamId: TeamId;

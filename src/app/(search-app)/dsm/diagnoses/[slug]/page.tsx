@@ -17,10 +17,10 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: DsmDiagnosisRouteProps): Promise<Metadata> {
   const { slug } = await params;
   const diagnosis = getDsmDiagnosis(slug);
-  if (!diagnosis) return { title: "DSM diagnosis not found | Clinical KB" };
+  if (!diagnosis) return { title: "DSM diagnosis not found | PsychSift" };
 
   return {
-    title: `${diagnosis.title} | DSM-5 Diagnosis | Clinical KB`,
+    title: `${diagnosis.title} | DSM-5 Diagnosis | PsychSift`,
     description: `${diagnosis.title} criteria, specifiers, differential considerations, and documentation support.`,
   };
 }

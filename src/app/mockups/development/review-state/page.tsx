@@ -1,112 +1,31 @@
 import type { Metadata } from "next";
 
-import {
-  CARD_CLASS,
-  CountTile,
-  META_CLASS,
-  MONO_CLASS,
-  PanelSection,
-  ROW_CLASS,
-} from "@/components/developer-area/hub/panel-primitives";
-import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
-import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
+import { ReviewStatePageContent } from "@/components/developer-area/hub/review-state-page-content";
 
 export const metadata: Metadata = {
-  title: "Review state · Developer · Clinical KB",
+  title: "Review state · Developer · PsychSift",
   description: "Every immutable review record: which ref was reviewed, at which head, with what outcome.",
 };
 
-const DISCLOSURE_CLASS =
-  "min-h-12 cursor-pointer text-xs font-bold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+type DeveloperReviewStatePageProps = {
+  searchParams?: Promise<{ page?: string | string[] }>;
+};
 
-export default function DeveloperReviewStatePage() {
-  const snapshot = loadRepoAwarenessSnapshot();
-  const freshness = resolveRepoFreshness(snapshot, new Date());
-  const { records, counts } = snapshot.review_state;
+function parsePageParam(value: string | string[] | undefined): number {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = raw ? Number.parseInt(raw, 10) : 1;
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+}
 
-  return (
-    <PanelPageShell
-      testId="developer-review-state"
-      title="Review state"
-      freshness={freshness}
-      freshnessLabel="Repository"
-    >
-      <div className="grid grid-cols-2 gap-3">
-        <CountTile testId="developer-review-state-count-records" value={counts.records} label="review records" />
-        <CountTile testId="developer-review-state-count-refs" value={counts.refs} label="distinct recorded refs" />
-      </div>
-
-      {/*
-       * The panel is named for what it has, and says plainly what it has not.
-       * A label promising more than its data delivers is the `#338` failure
-       * wearing different clothes: "open changes, checks, review state" from
-       * "local data; no new permissions" was the original outline's own
-       * contradiction, because open pull requests and CI status are not on
-       * disk — reading them needs a token, a network call, and an approval
-       * boundary this repo deliberately gates. This page answers a narrower,
-       * honest question instead: has this ref been reviewed at this exact
-       * head, with what outcome. That is history, not live state, and it says
-       * so in its own words below rather than leaving a reader to infer it
-       * from an absence.
-       */}
-      <p data-testid="developer-review-state-scope" className={META_CLASS}>
-        This is the repository&rsquo;s own review history: which recorded ref was reviewed, at which exact commit, and
-        what the reviewer concluded. It does not show which pull requests are open, whether their checks are green, or
-        whether a review is outstanding — none of that exists on disk, and reading it would need credentials this page
-        deliberately does not have. A ref absent from this list has not been reviewed at any head; it does not mean
-        there is no pull request.
-      </p>
-
-      <PanelSection headingId="developer-review-state-heading" heading={`Records · ${counts.records}`}>
-        <p className={META_CLASS}>
-          Newest first. Each record is immutable; a later review of the same recorded ref adds a row rather than
-          replacing one. Showing all {counts.records} — nothing here is capped, paginated, or filtered, so a count and
-          its list can never disagree.
-        </p>
-        {/*
-         * `record` is `{ date, ref, head, scope, outcome, checks }` — six free-text
-         * fields (Ruling R7: review outcomes are prose from many sessions over
-         * months, so the page never classifies or buckets `outcome`). Every field
-         * of every record is rendered unconditionally below, and nothing here
-         * branches on a field's *value* — the only structural choices are which
-         * fields get their own line versus a shared row, which is presentation,
-         * not a recognised/unrecognised-value distinction. So the "render an
-         * unrecognised value under its own heading" rule has nothing to bite on
-         * for this page, the same conclusion Task 11 reached for the quarantined
-         * test list.
-         */}
-        {records.length === 0 ? (
-          <p data-testid="developer-review-state-empty" className={META_CLASS}>
-            No immutable review records are committed.
-          </p>
-        ) : (
-          <ol data-testid="developer-review-state-records" className="grid gap-3">
-            {records.map((record, index) => (
-              <li
-                // `head` alone is not unique — 21 records in the corpus share a
-                // date, ref AND head, because one branch can be reviewed twice at one
-                // commit under different scopes. Adding `scope` disambiguates every
-                // record today, but nothing structurally guarantees it, so the index
-                // carries uniqueness and the fields carry readability.
-                key={`${record.date}-${record.ref}-${record.head}-${record.scope}-${index}`}
-                className={CARD_CLASS}
-              >
-                <div className={ROW_CLASS}>
-                  <span className={META_CLASS}>{record.date}</span>
-                  <span className="text-sm font-bold text-[color:var(--text-heading)]">{record.ref}</span>
-                  <span className={MONO_CLASS}>{record.head}</span>
-                </div>
-                <p className={META_CLASS}>{record.scope}</p>
-                <p className="text-sm leading-6 text-[color:var(--text-heading)]">{record.outcome}</p>
-                <details>
-                  <summary className={DISCLOSURE_CLASS}>Checks run</summary>
-                  <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">{record.checks}</p>
-                </details>
-              </li>
-            ))}
-          </ol>
-        )}
-      </PanelSection>
-    </PanelPageShell>
-  );
+/**
+ * Thin async wrapper only — Next 16 serves `searchParams` as a `Promise`, so
+ * unwrapping it is the one thing here that has to be async. Everything else
+ * (the snapshot read, the pagination slice, the actual markup) stays in the
+ * synchronous `ReviewStatePageContent`, which is what `render()` can execute
+ * directly the same way every sibling developer-hub page's dom test does —
+ * mirrors `ToolsRoute` in `src/app/(search-app)/tools/page.tsx`.
+ */
+export default async function DeveloperReviewStatePage({ searchParams }: DeveloperReviewStatePageProps) {
+  const params = searchParams ? await searchParams : {};
+  return <ReviewStatePageContent requestedPage={parsePageParam(params.page)} />;
 }

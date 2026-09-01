@@ -1,4 +1,4 @@
-﻿-- Medical RAG Knowledge Base schema.
+-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -76,7 +76,8 @@ create table if not exists public.documents (
   chunk_count integer not null default 0,
   image_count integer not null default 0,
   error_message text,
-  metadata jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb
+    constraint documents_metadata_object_check check (jsonb_typeof(metadata) = 'object'),
   search_tsv tsvector generated always as (
     to_tsvector('english', coalesce(title, '') || ' ' || coalesce(file_name, ''))
   ) stored,
@@ -859,23 +860,7 @@ create index if not exists rag_response_cache_expiry_idx
 create index if not exists rag_response_cache_owner_kind_idx
   on public.rag_response_cache(owner_id, cache_kind, updated_at desc);
 
-create or replace function public.purge_expired_rag_response_cache()
-returns integer
-language plpgsql
-security definer
-set search_path = public, extensions, pg_temp
-as $$
-declare
-  v_deleted integer;
-begin
-  delete from public.rag_response_cache where expires_at <= now();
-  get diagnostics v_deleted = row_count;
-  return v_deleted;
-end;
-$$;
 
-revoke execute on function public.purge_expired_rag_response_cache() from public, anon, authenticated;
-grant execute on function public.purge_expired_rag_response_cache() to service_role;
 create unique index if not exists rag_response_cache_key_idx
   on public.rag_response_cache(
     coalesce(owner_id, '00000000-0000-0000-0000-000000000000'::uuid),
@@ -3342,7 +3327,7 @@ CREATE OR REPLACE FUNCTION public.set_owner_id_from_auth_uid()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'auth'
+ SET search_path = public, auth, pg_temp
 AS $function$
 begin
   if new.owner_id is null then
@@ -5225,7 +5210,7 @@ returns text
 language plpgsql
 stable
 security definer
-set search_path = pg_catalog, extensions
+set search_path = pg_catalog, extensions, pg_temp
 as $$
 declare
   tokens text[];
@@ -5898,7 +5883,7 @@ create or replace function public.create_uploaded_document_with_ingestion_job(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_document public.documents%rowtype;

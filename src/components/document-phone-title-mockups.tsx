@@ -360,7 +360,7 @@ function PhoneFrame({ approach, open }: { approach: ApproachId; open: boolean })
       <div
         data-approach={approach}
         data-state={open ? "open" : "closed"}
-        className="relative flex h-[30rem] w-[390px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+        className="relative flex h-[30rem] w-[390px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         {approach === "fused" ? <FusedApproach open={open} /> : null}
         {approach === "breadcrumb" ? <BreadcrumbApproach open={open} /> : null}

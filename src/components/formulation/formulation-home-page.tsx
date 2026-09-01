@@ -52,7 +52,7 @@ function EmptySearchResults({ query }: { query: string }) {
       </div>
       <Link
         href={consolidatedModeSearchPath("formulation")}
-        className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
+        className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)]"
       >
         Clear search
       </Link>
@@ -88,7 +88,7 @@ function FormulationResults({ query }: { query: string }) {
     // Empty deferred while live query has text would score every mechanism —
     // treat that lag as "no results yet" instead of dumping the full catalogue.
     if (!deferredQuery.trim()) return [];
-    return searchFormulationMechanisms(deferredQuery, { domains });
+    return searchFormulationMechanisms(deferredQuery, { domains, interpretNaturalLanguage: true });
   }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
 
@@ -123,7 +123,10 @@ function FormulationResults({ query }: { query: string }) {
         options: formulationDomainsInUse.map((item) => {
           const withCandidate = pendingRanking
             ? 0
-            : searchFormulationMechanisms(searchQuery, { domains: new Set([...domains, item]) }).length;
+            : searchFormulationMechanisms(searchQuery, {
+                domains: new Set([...domains, item]),
+                interpretNaturalLanguage: true,
+              }).length;
           return {
             value: item,
             label: item,
@@ -242,7 +245,7 @@ function FormulationResults({ query }: { query: string }) {
               data-formulation-result-card
               className={cn(
                 formulationCard,
-                "group relative overflow-hidden rounded-xl border-[color:var(--border-strong)] shadow-[var(--shadow-soft)] transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
+                "group relative overflow-hidden rounded-xl border-[color:var(--border-strong)] shadow-[var(--e2)] transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
                 index === 0 &&
                   hasUniqueTopMatch &&
                   "border-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10",
@@ -332,7 +335,7 @@ function FormulationResults({ query }: { query: string }) {
                 <Link
                   href={`/formulation/${mechanism.id}`}
                   aria-label={`Open ${mechanism.name}`}
-                  className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:w-auto sm:min-w-44 sm:px-5"
+                  className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:w-auto sm:min-w-44 sm:px-5"
                 >
                   Open mechanism
                   <ArrowRight

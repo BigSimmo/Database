@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f3288efd-b1b6-492f-9a4a-8b316e35fe71",
+  "createdOn": "2026-08-31",
+  "action": "update",
+  "payload": {
+    "id": "#V27DZ1",
+    "summary": "Ward Flow: role screens intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
+    "baseRowFingerprint": "b88d3e7a0476fe25c1ec7bbd16793ea48260961d03b022b7b3972e37bea0d8a0"
+  }
+}

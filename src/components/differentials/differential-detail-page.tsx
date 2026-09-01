@@ -20,8 +20,10 @@ import {
   GitCompareArrows,
   Info,
   Plus,
+  Share2,
   ShieldAlert,
   Stethoscope,
+  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,6 +34,7 @@ import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentia
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { inPageActionRowClass as actionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -366,20 +369,12 @@ const factIcons: Record<DifferentialSafetyFact["id"], LucideIcon> = {
 
 function safetyFactGridClass(count: number): string {
   if (count <= 1) return "grid-cols-1";
+  if (count >= 4) return "grid-cols-4";
   if (count === 3) return "grid-cols-3";
-  if (count >= 4) return "grid-cols-2 sm:grid-cols-4";
   return "grid-cols-2";
 }
 
-function SafetySnapshot({
-  record,
-  onReviewMustNotMiss,
-  termLinks,
-}: {
-  record: DifferentialRecord;
-  onReviewMustNotMiss: (() => void) | null;
-  termLinks: Record<string, string>;
-}) {
+function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; termLinks: Record<string, string> }) {
   const theme = snapshotThemes[record.status];
   const facts = resolveSafetyFacts(record);
   const tags = record.safetySnapshot.tags;
@@ -388,62 +383,46 @@ function SafetySnapshot({
 
   return (
     <section
-      className={cn("rounded-lg border p-3 shadow-[var(--shadow-inset)] sm:p-4", theme.container)}
+      className={cn("rounded-lg border px-3 py-2.5 shadow-[var(--shadow-inset)] sm:px-3.5 sm:py-3", theme.container)}
       data-testid="differential-safety-snapshot"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            "grid h-7 w-7 shrink-0 place-items-center rounded-md border sm:h-8 sm:w-8 sm:rounded-lg",
-            theme.iconTile,
-          )}
-        >
-          <theme.Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
+      <div className="flex items-center gap-1.5">
+        <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md border", theme.iconTile)}>
+          <theme.Icon className="h-3.5 w-3.5" aria-hidden />
         </span>
-        <h2 className={cn("text-sm font-extrabold uppercase tracking-label", theme.heading)}>Safety snapshot</h2>
-        <span
-          className={cn(
-            "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-extrabold uppercase",
-            statusToneClass[record.status],
-          )}
-        >
-          {differentialStatusLabel(record.status)}
-        </span>
+        <h2 className={cn("text-xs font-extrabold uppercase tracking-label", theme.heading)}>Safety snapshot</h2>
       </div>
 
       {showSummary ? (
-        <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">{summary}</p>
+        <p className="mt-1.5 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">{summary}</p>
       ) : null}
 
       {tags.length > 0 ? (
-        <div className="mt-2 grid gap-1.5">
-          <span className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
+        <div
+          className="mt-1.5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5"
+          data-testid="differential-safety-watchlist"
+        >
+          <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
             Watch for
           </span>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((tag) => {
-              const cleaned = cleanDifferentialItem(tag);
-              return (
-                <DiagnosisTermChip
-                  key={tag}
-                  label={cleaned}
-                  slug={termLinks[cleaned] ?? null}
-                  tone="danger"
-                  className={cn(!termLinks[cleaned] && theme.chip, "min-h-6 px-2 text-2xs")}
-                />
-              );
-            })}
-          </div>
+          {tags.map((tag) => {
+            const cleaned = cleanDifferentialItem(tag);
+            return (
+              <DiagnosisTermChip
+                key={tag}
+                label={cleaned}
+                slug={termLinks[cleaned] ?? null}
+                tone="danger"
+                className={cn(!termLinks[cleaned] && theme.chip, "min-h-6 shrink-0 px-2 text-2xs")}
+              />
+            );
+          })}
         </div>
       ) : null}
 
       {facts.length > 0 ? (
         <div
-          className={cn(
-            "mt-2 grid gap-2 border-y py-2 sm:mt-2.5 sm:gap-3 sm:py-2.5",
-            safetyFactGridClass(facts.length),
-            theme.divider,
-          )}
+          className={cn("mt-1.5 grid gap-1 border-t pt-2 sm:gap-2", safetyFactGridClass(facts.length), theme.divider)}
           role="list"
           aria-label="Safety metrics"
         >
@@ -452,11 +431,17 @@ function SafetySnapshot({
             const compactLabel = safetyFactCompactLabel[fact.id] ?? fact.label;
             return (
               <div key={fact.id} className="min-w-0 text-center sm:text-left" role="listitem">
-                <p className={cn("text-base font-extrabold leading-none tabular-nums", theme.accentText)}>
+                <p
+                  className={cn(
+                    "min-w-0 text-2xs font-extrabold leading-tight tracking-tight tabular-nums [overflow-wrap:anywhere] min-[360px]:text-xs sm:text-base sm:leading-none sm:tracking-normal",
+                    theme.accentText,
+                  )}
+                  data-testid="differential-safety-value"
+                >
                   {fact.value}
                 </p>
                 <p
-                  className="mt-1 flex items-center justify-center gap-1 text-2xs font-bold leading-tight text-[color:var(--text-muted)] sm:justify-start sm:text-xs"
+                  className="mt-1 flex min-w-0 items-center justify-center gap-1 text-2xs font-bold leading-tight text-[color:var(--text-muted)] sm:justify-start sm:text-xs"
                   aria-label={fact.label}
                 >
                   <Icon className={cn("h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5", theme.accentText)} aria-hidden />
@@ -469,18 +454,6 @@ function SafetySnapshot({
             );
           })}
         </div>
-      ) : null}
-
-      {onReviewMustNotMiss ? (
-        <button
-          type="button"
-          data-testid="differential-safety-cta"
-          onClick={onReviewMustNotMiss}
-          className="mt-2 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:mt-2.5 sm:w-auto sm:justify-start"
-        >
-          <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
-          Review must-not-miss causes
-        </button>
       ) : null}
     </section>
   );
@@ -603,7 +576,7 @@ function ComparePanel({
     ? `/differentials/presentations/${detailContext.comparePresentation.slug}`
     : "/differentials/compare";
   const rowClassName =
-    "flex min-h-12 items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]";
+    "flex min-h-12 items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)]";
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -675,7 +648,7 @@ function ComparePanel({
       <Link
         data-testid="differential-compare-open"
         href={compareHref}
-        className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] hover:bg-[color:var(--primary-strong)]"
+        className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Open comparison workspace
@@ -768,7 +741,7 @@ function TopActions({
       <button
         type="button"
         onClick={onCompare}
-        className="inline-flex min-h-tap items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
+        className="inline-flex min-h-tap items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare
@@ -804,11 +777,11 @@ function MobilePrimaryActions({
   onCompare: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--e2)] lg:hidden">
       <button
         type="button"
         onClick={onCompare}
-        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--primary-strong)]"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare ({record.related.length + 1})
@@ -836,16 +809,73 @@ function MobilePrimaryActions({
   );
 }
 
-function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
+function DiagnosisDiscoveryActions({
+  sections,
+  onSelect,
+}: {
+  sections: ReturnType<typeof buildDifferentialSectionIndex>;
+  onSelect: (id: "map" | "related") => void;
+}) {
+  const actions = [
+    {
+      id: "map" as const,
+      label: "Map",
+      detail: sections.find((section) => section.id === "map")?.detail ?? "View links",
+      icon: Waypoints,
+    },
+    {
+      id: "related" as const,
+      label: "Related",
+      detail: sections.find((section) => section.id === "related")?.detail ?? "View items",
+      icon: Share2,
+    },
+  ];
+
   return (
-    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg text-[color:var(--clinical-accent)]">
-      {record.slug === "delirium" ? (
-        <BrainCircuit className="h-12 w-12 stroke-[1.7]" aria-hidden />
-      ) : (
-        <Stethoscope className="h-12 w-12 stroke-[1.7]" aria-hidden />
-      )}
-    </span>
+    <nav
+      aria-label="Explore diagnosis"
+      data-testid="differential-discovery-actions"
+      className="grid gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--e2)] sm:hidden"
+    >
+      <div className="flex items-center justify-between gap-3 px-1 pt-0.5">
+        <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
+          Explore diagnosis
+        </p>
+        <span className="text-xs font-medium text-[color:var(--text-muted)]">Quick access</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => onSelect(action.id)}
+              className="group grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-2.5 text-left shadow-[var(--shadow-inset)] transition-colors hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              <span className="grid size-9 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-[color:var(--text-heading)]">{action.label}</span>
+                <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                  {action.detail}
+                </span>
+              </span>
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+    </nav>
   );
+}
+
+function IconForDiagnosis(record: DifferentialRecord): LucideIcon {
+  return record.slug === "delirium" ? BrainCircuit : Stethoscope;
 }
 
 /**
@@ -1055,15 +1085,6 @@ export function DifferentialDetailPage({
     }
   }
 
-  const hasMustNotMiss = record.sections.some((section) => section.id === "must-not-miss");
-  const reviewMustNotMiss = hasMustNotMiss
-    ? () => {
-        setSectionOpen("must-not-miss", true);
-        const target = document.getElementById("differential-section-must-not-miss");
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        target?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-      }
-    : null;
   const openCompareTab = () => changeTab("compare");
 
   return (
@@ -1099,43 +1120,24 @@ export function DifferentialDetailPage({
         )}
       />
       <div className={cn(pageContainer, "grid gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8")}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <nav aria-label="Differential breadcrumbs" className="mb-3 flex items-center gap-2 text-xs font-semibold">
-              <Link href="/differentials" className="text-[color:var(--clinical-accent)]">
-                Differentials
-              </Link>
-              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
-              <Link href="/differentials/diagnoses" className="text-[color:var(--clinical-accent)]">
-                Diagnosis
-              </Link>
-              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
-              <span className="text-[color:var(--text-muted)]">{record.title}</span>
-            </nav>
-            <div className="flex items-start gap-3 sm:gap-4">
-              <IconForDiagnosis record={record} />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-3xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-                    {record.title}
-                  </h1>
-                  <span
-                    className={cn(
-                      "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-extrabold uppercase",
-                      statusToneClass[record.status],
-                    )}
-                  >
-                    {differentialStatusLabel(record.status)}
-                  </span>
-                </div>
-                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] sm:mt-2 sm:text-base">
-                  {record.subtitle}
-                </p>
-              </div>
-            </div>
-          </div>
-          <TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
-        </div>
+        <PageHeader
+          title={record.title}
+          description={record.subtitle}
+          icon={IconForDiagnosis(record)}
+          meta={
+            <span
+              className={cn(
+                "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-extrabold uppercase",
+                statusToneClass[record.status],
+              )}
+            >
+              {differentialStatusLabel(record.status)}
+            </span>
+          }
+          actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />}
+        />
+
+        <DiagnosisDiscoveryActions sections={sections} onSelect={changeTab} />
 
         {saveNotice ? (
           <p role="status" aria-live="polite" className="text-sm text-[color:var(--text-muted)]">
@@ -1156,11 +1158,7 @@ export function DifferentialDetailPage({
         >
           {activeTab === "overview" ? (
             <>
-              <SafetySnapshot
-                record={record}
-                onReviewMustNotMiss={reviewMustNotMiss}
-                termLinks={detailContext.termLinks ?? {}}
-              />
+              <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} />
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
                   <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -1171,7 +1169,7 @@ export function DifferentialDetailPage({
                       type="button"
                       data-testid="differential-expand-all"
                       onClick={toggleAllSections}
-                      className="inline-flex min-h-tap items-center gap-1.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
+                      className="inline-flex min-h-tap items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
                     >
                       {allOpen ? (
                         <ChevronsDownUp className="h-4 w-4" aria-hidden />

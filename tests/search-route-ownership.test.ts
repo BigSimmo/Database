@@ -413,13 +413,13 @@ describe("shared-search route ownership", () => {
     const leaveResultsBranch = sourceSegment(
       selectSearchMode,
       "// Outside the shared home",
-      "function stageAnswerFollowUpDraft",
+      "function handleFollowUpQuote",
       { label: "selectSearchMode leave-results branch" },
     );
     expect(leaveResultsBranch).toMatch(/stopSearch\(\);\s*clearModeResultState\(\);/);
     expect(
-      sourceSegment(selectSearchMode, "function selectSearchMode(", "function stageAnswerFollowUpDraft", {
-        label: "selectSearchMode before stageAnswerFollowUpDraft",
+      sourceSegment(selectSearchMode, "function selectSearchMode(", "function handleFollowUpQuote", {
+        label: "selectSearchMode before handleFollowUpQuote",
       }),
     ).not.toContain("crossModeSearch(mode, carriedQuery)");
     expect(dashboardSource).toContain('if (pathname === "/" && !submittedUrlRunRequested) return;');
@@ -440,12 +440,12 @@ describe("shared-search route ownership", () => {
       label: "ClinicalDashboard async function ask",
     });
 
-    // Before this branch existed, every mode except documents/prescribing fell
-    // through to an in-place executeSearch. That was only safe while `/` plus a
-    // namespaced mode was unreachable; the shared home makes it the normal state.
+    // Natural-language Smart search uses the same selected-mode route as a
+    // keyword lookup. The shared composer must not divert it to Clinical Ask.
     expect(ask).toMatch(
-      /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);\n    if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
+      /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);[\s\S]*?if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
     );
+    expect(ask).not.toContain("submitSmartSearch");
   });
 
   it("does not treat catalogue search docks as tool-detail footer-search pages", () => {

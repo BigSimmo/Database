@@ -361,22 +361,33 @@ describe("VerificationNotice", () => {
 });
 
 describe("RetrievalStateBanner", () => {
-  it("names how many of the cited sources are overdue", () => {
+  it("collapses overdue source details into a compact review-due tab", async () => {
     render(<RetrievalStateBanner state={{ kind: "stale_evidence", overdue, sourceCount: 5 }} onOpenSource={vi.fn()} />);
-    expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent("2 of 5 sources");
+    const toggle = screen.getByTestId("retrieval-state-stale-toggle");
+    expect(toggle).toHaveTextContent(/Review due\s*· 2 sources/);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const panel = document.getElementById(toggle.getAttribute("aria-controls")!);
+    expect(panel).toHaveAttribute("hidden");
+    expect(screen.queryAllByTestId("retrieval-state-overdue-row")).toHaveLength(2);
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(panel).not.toHaveAttribute("hidden");
+    expect(screen.getByText("2 of 5 sources for this answer are past their review date.")).toBeVisible();
+    expect(screen.getAllByTestId("retrieval-state-overdue-row")).toHaveLength(2);
   });
 
-  it("states totality when every cited source is overdue", () => {
+  it("states totality when every cited source is overdue", async () => {
     render(<RetrievalStateBanner state={{ kind: "stale_evidence", overdue, sourceCount: 2 }} onOpenSource={vi.fn()} />);
-    expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent(
-      "Every source for this answer is past its review date.",
-    );
+    await userEvent.click(screen.getByTestId("retrieval-state-stale-toggle"));
+    expect(screen.getByText("Every source for this answer is past its review date.")).toBeVisible();
   });
 
-  it("states totality rather than 'N of 0' when sourceCount underflows the overdue list", () => {
+  it("states totality rather than 'N of 0' when sourceCount underflows the overdue list", async () => {
     render(<RetrievalStateBanner state={{ kind: "stale_evidence", overdue, sourceCount: 0 }} onOpenSource={vi.fn()} />);
-    expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent("Every source for this answer");
-    expect(screen.getByTestId("retrieval-state-headline")).not.toHaveTextContent("of 0");
+    await userEvent.click(screen.getByTestId("retrieval-state-stale-toggle"));
+    expect(screen.getByText(/Every source for this answer/)).toBeVisible();
+    expect(screen.getByTestId("retrieval-state-banner")).not.toHaveTextContent("of 0");
   });
 
   it("gives every overdue source a one-click route back to the cited page", async () => {
@@ -385,13 +396,15 @@ describe("RetrievalStateBanner", () => {
       <RetrievalStateBanner state={{ kind: "stale_evidence", overdue, sourceCount: 2 }} onOpenSource={onOpenSource} />,
     );
 
+    await userEvent.click(screen.getByTestId("retrieval-state-stale-toggle"));
     await userEvent.click(screen.getByRole("button", { name: "Open WA Clozapine Protocol, p. 12" }));
     expect(onOpenSource).toHaveBeenCalledWith("doc-1", "p. 12");
   });
 
-  it("says an overdue source has no recorded review date rather than hiding the row", () => {
+  it("says an overdue source has no recorded review date rather than hiding the row", async () => {
     render(<RetrievalStateBanner state={{ kind: "stale_evidence", overdue, sourceCount: 2 }} onOpenSource={vi.fn()} />);
 
+    await userEvent.click(screen.getByTestId("retrieval-state-stale-toggle"));
     const rows = screen.getAllByTestId("retrieval-state-overdue-row");
     expect(rows).toHaveLength(2);
     expect(within(rows[1] as HTMLElement).getByTestId("missing-value")).toHaveTextContent("Not recorded");
@@ -406,7 +419,7 @@ describe("RetrievalStateBanner", () => {
     expect(banner.textContent).not.toMatch(/nothing has been paraphrased/i);
   });
 
-  it("distinguishes a superseded source from one merely due for review", () => {
+  it("distinguishes a superseded source from one merely due for review", async () => {
     render(
       <RetrievalStateBanner
         state={{
@@ -421,7 +434,8 @@ describe("RetrievalStateBanner", () => {
       />,
     );
 
-    expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent("including 1 that has been superseded");
+    await userEvent.click(screen.getByTestId("retrieval-state-stale-toggle"));
+    expect(screen.getByText(/including 1 that has been superseded/)).toBeVisible();
     const rows = screen.getAllByTestId("retrieval-state-overdue-row");
     expect(rows[0]).toHaveAttribute("data-status", "outdated");
     expect(rows[0]).toHaveTextContent(/superseded/i);
@@ -663,8 +677,37 @@ describe("AnswerCard", () => {
       </AnswerCard>,
     );
 
+    await userEvent.click(screen.getByTestId("retrieval-state-stale-toggle"));
     await userEvent.click(screen.getByRole("button", { name: "Open WA Clozapine Protocol, p. 12" }));
     expect(onOpenSource).toHaveBeenCalledWith("doc-1", "p. 12");
+  });
+
+  it("allows the live content owner to relocate stale status without duplicating it", () => {
+    render(
+      <AnswerCard
+        support="strong"
+        state={{
+          kind: "stale_evidence",
+          sourceCount: 1,
+          overdue: [
+            {
+              sourceId: "doc-1",
+              title: "WA Clozapine Protocol",
+              reviewDueOn: "2025-11-01",
+              status: "review_due",
+            },
+          ],
+        }}
+        verification={{ state: "stale_evidence" }}
+        retrievalStatePlacement="content"
+        onOpenSource={vi.fn()}
+      >
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+
+    expect(screen.queryByTestId("retrieval-state-banner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("verification-notice")).toHaveAttribute("data-state", "stale_evidence");
   });
 
   it("wires every declared action", async () => {

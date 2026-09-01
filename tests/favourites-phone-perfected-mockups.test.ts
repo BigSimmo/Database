@@ -5,7 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import { favouriteContentTypeSchema, favouriteSetNames } from "@/lib/favourites-contract";
 
-import { favouriteRows, kindIdentity, setLabels } from "@/components/favourites-phone-perfected-mockups/fixtures";
+import {
+  favouriteRows,
+  kindIdentity,
+  landingLibrarySectionOrder,
+  setLabels,
+} from "@/components/favourites-phone-perfected-mockups/fixtures";
 
 /**
  * The phone Favourites mockup is design scratch and deliberately untested for
@@ -91,9 +96,58 @@ describe("favourites phone-perfected mockup", () => {
 
   it("keeps every phone tap target at the production 48px knob", () => {
     // Mockups are gate-exempt and may use min-h-11, but this one is authored
-    // to be promotable, so it never drops below the production knob.
+    // to be promotable, so interactive rows and sheets never drop below 48px.
     for (const file of ["favourites-rows.tsx", "favourites-phone-perfected-page.tsx"]) {
-      expect(source(file), `${file} must not use the 44px mockup target`).not.toMatch(/\bmin-h-11\b/);
+      const text = source(file);
+      expect(text, `${file} must not use the 44px mockup target`).not.toMatch(/\bmin-h-11\b/);
+      expect(text, `${file} must not use a 36px tap target`).not.toMatch(/\bmin-h-9\b/);
     }
+
+    const shell = source("favourites-phone-shell.tsx");
+    const setRailBlock = shell.split("export function SetRail")[1]?.split("export function PhoneComposer")[0] ?? "";
+    expect(setRailBlock, "set chips must use the 48px production knob").toMatch(/\bmin-h-12\b/);
+    expect(setRailBlock, "set chips must not use a 36px tap target").not.toMatch(/\bmin-h-9\b/);
+  });
+
+  it("keeps pinned rows ahead of grouped sets on the landing view", () => {
+    const resumeRow = [...favouriteRows].sort((a, b) => a.recency - b.recency)[0];
+    const landingRows = favouriteRows.filter((row) => row.id !== resumeRow.id);
+    const order = landingLibrarySectionOrder(landingRows);
+    const firstPinnedIndex = order.findIndex((id) => favouriteRows.find((row) => row.id === id)?.pinned);
+    const firstClinicalReviewIndex = order.findIndex(
+      (id) =>
+        favouriteRows.find((row) => row.id === id)?.setId === "clinical-review" &&
+        !favouriteRows.find((row) => row.id === id)?.pinned,
+    );
+
+    expect(firstPinnedIndex).toBeGreaterThanOrEqual(0);
+    expect(firstClinicalReviewIndex).toBeGreaterThan(firstPinnedIndex);
+  });
+
+  it("hides the landing cards once View all switches sort away from set", () => {
+    // RecentCard's "View all" control (onViewAll) sets sort to "recent". If
+    // showCards stayed true after that, the list would open with the same
+    // rows ContinueCard/RecentCard already show above it — duplicate recent
+    // items right after View all. showCards must require sort === "set" so
+    // the cards disappear once the view is no longer the set-grouped landing.
+    const pageSource = source("favourites-phone-perfected-page.tsx");
+    const showCardsLine = pageSource.split("\n").find((line) => line.trimStart().startsWith("const showCards ="));
+
+    expect(showCardsLine, "showCards assignment not found").toBeDefined();
+    expect(showCardsLine, 'showCards must require sort === "set" or View all duplicates RecentCard rows').toMatch(
+      /sort === "set"/,
+    );
+    expect(pageSource).toContain('onViewAll={() => setSort("recent")}');
+  });
+
+  it("routes clear-all to its own confirmation sheet, not set management", () => {
+    const pageSource = source("favourites-phone-perfected-page.tsx");
+    expect(pageSource).toContain('onRequestClearAll={() => setSheet("clear-all")}');
+    expect(pageSource).toContain('sheet === "clear-all"');
+    expect(pageSource).not.toMatch(/Remove all favourites.*onOpenSets/s);
+
+    const rowsSource = source("favourites-rows.tsx");
+    expect(rowsSource).toContain("onRequestClearAll");
+    expect(rowsSource).toContain("ClearAllSheetBody");
   });
 });

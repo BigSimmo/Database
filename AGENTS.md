@@ -12,82 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Dependency shortcut
 
-When the user types exactly `dependency` as the entire task message, after trimming surrounding whitespace, treat it as a shortcut for safe dependency maintenance. This is a Codex chat shortcut, not an app feature, script, automation, or CI workflow.
-
-Goal:
-Update direct project dependencies to the newest stable compatible versions, regenerate the existing lockfile, identify source/config/test code that relies on old dependency behavior, make the smallest safe compatibility changes, and verify the result. Do not rewrite the project, switch package managers, discard user work, commit, push, deploy, or run destructive cleanup without explicit confirmation.
-
-Start with read-only inspection:
-
-- Check branch, upstream, worktrees, recent relevant history, and `git status`.
-- If on `main`, `master`, `develop`, `release/*`, or another protected/base branch, create/switch to `codex/dependency-maintenance` before editing, if safe.
-- Inspect manifests, lockfiles, package-manager config, runtime/toolchain files, workspace layout, CI config, scripts, and documented checks.
-- Detect repo-local install/dev/test/build/watch/server processes that could race dependency updates.
-- Preserve all existing staged, unstaged, and untracked user work.
-
-Package-manager rules:
-
-- Use the package manager already used by the repo: npm, pnpm, yarn, bun, pip, poetry, uv, cargo, go, bundler, gradle, maven, dotnet, or equivalent.
-- Do not switch package managers or create a new lockfile type.
-- Respect engines, runtime versions, lockfiles, workspaces, wrappers, and repo conventions.
-- In monorepos or polyglot repos, update each ecosystem through its native workspace-aware workflow.
-
-Dependency update rules:
-
-- Identify outdated direct production and development dependencies.
-- Compare both manifest ranges and locked/installed versions against latest stable compatible releases.
-- Treat “outdated packages found” exit codes as normal where applicable.
-- Avoid prerelease, alpha, beta, canary, rc, next, nightly, and experimental versions unless the stable channel points there and explain why.
-- Do not use force or legacy flags that bypass peer, engine, resolver, or lockfile integrity checks unless explicitly approved.
-- Do not run forced audit fixes or broad destructive codemods.
-- If latest is incompatible, use the newest compatible version and document why.
-- Group risky updates coherently, such as framework plus plugins, test runner plus coverage, lint core plus plugins, or runtime plus adapter packages.
-
-Compatibility audit:
-
-- For every major update and every core framework/runtime/build/test/lint/UI/database update, inspect release notes, migration guides, peer ranges, engines, and changelogs when available.
-- Search source, tests, scripts, config, and CI for imports, APIs, CLI flags, config keys, environment variables, plugin names, generated types, or file paths tied to changed dependencies.
-- If old dependency behavior is used, make the smallest safe migration that preserves behavior.
-- If migration is large, risky, architectural, or product-affecting, stop after discovery and provide a concrete fix plan with affected files, package versions, sequence, and verification commands.
-- Add or adjust focused tests only when needed to prove migrated behavior.
-
-Generated and sensitive files:
-
-- Do not intentionally keep dependency directories, build outputs, caches, logs, local state, test artifacts, browser artifacts, `.env*`, secrets, keys, tokens, credentials, or machine-local config.
-- Manifest and existing lockfile changes are allowed.
-
-Verification:
-
-- Run a cheap baseline first when useful to distinguish pre-existing failures.
-- After updates, run install/dependency validation, then relevant lint, type check, tests, build, smoke/UI/a11y, codegen, integration checks, or equivalent.
-- For frontend/browser-facing changes, run browser/UI verification when framework, bundler, router, styling, test runner, or browser automation changed.
-- If a check fails, fix dependency-related breakage and rerun the smallest failing check before broader checks.
-- Run non-mutating audit/vulnerability checks when available.
-- Confirm no repo-owned dev server, watcher, or temporary process was left running unless requested.
-
-Final response for `dependency` must include:
-
-- Branch and worktree state.
-- Package manager, runtime, manifests, and lockfiles detected.
-- Outdated dependencies found.
-- Dependencies updated, old version -> new version.
-- Dependencies not updated and why.
-- Files changed.
-- Compatibility migrations and old APIs found/fixed.
-- Checks run and results.
-- Checks not run and why.
-- Audit/vulnerability summary.
-- Generated/untracked files left behind.
-- Branch movement, external repo changes, or process cleanup observed.
-- Risks or follow-up work.
-- Confirmation that no commit or push was made unless explicitly requested.
-
-After setup:
-
-- Verify root `AGENTS.md` contains exactly one `## Dependency shortcut` section.
-- Show the final diff for `AGENTS.md`.
-- Summarize what changed.
-- Confirm no dependency update, install, test, build, audit, commit, or push was performed.
+For the full Codex dependency shortcut workflow, see [`docs/agents/codex-dependency-shortcut.md`](docs/agents/codex-dependency-shortcut.md).
 
 <!-- END:dependency-shortcut -->
 
@@ -117,70 +42,9 @@ Scope and safety:
 
 ## Codex review throttling and routing
 
-Do not review branches opportunistically. Review the current changed diff, PR, or branch only when the user explicitly asks for review/audit/hunter/cleanup/upload work, when CI/check failures are the task, or when the current change touches high-risk areas that require a targeted review before handoff.
-
-Use `docs/codex-review-protocol.md` as the shared review protocol for every repo-local review skill, branch/PR review, audit, bug hunt, release-readiness check, and PR/CI review.
-
-Before reviewing a branch or PR:
-
-- Run `npm run ledger:lookup -- <branch-or-ref> --scope "<scope>"`. It resolves the HEAD, matches the abbreviated SHAs older records used, and prints an explicit verdict. Do not read `docs/branch-review-ledger.md` by eye — live + archive rows are many, and eyeballing is how repeat reviews slipped through. `ledger:lookup` reads archives under `docs/archive/branch-review-ledger-*.md` too.
-- On `ALREADY REVIEWED`, summarize the prior ledger outcome and skip the repeat review unless the user explicitly requests a fresh pass.
-- On `NOT REVIEWED at this HEAD`, review only the changed scope and append a record after the review.
-
-Before reviewing multiple branches:
-
-- Build a short branch inventory first: branch, upstream, ahead/behind, last commit, and merged status.
-- Skip branches already merged into `main`.
-- Skip unchanged branches already recorded in `docs/branch-review-ledger.md`.
-- Do not re-review every branch after ordinary coding tasks.
-- If a repeated request targets unchanged reviewed branches, summarize the prior result and ask before doing another full pass.
-
-Review routing:
-
-- `diff-review`: Use for explicit review of the current diff, PR, or named branch. Findings first, ordered by severity, with file/line evidence.
-- `bug-hunter`: Use only for the exact `bug-hunter` shortcut or an explicit defect-hunt request. Prioritize reproducible bugs and smallest proof.
-- `repo-auditor`: Use for explicit repo-wide audit/refactor/dead-code/import/dependency-structure requests. Treat outputs as triage, not automatic delete lists.
-- `release-readiness`: Use for explicit release, merge, PR readiness, or handoff confidence requests. Do not run provider-backed gates without confirmation.
-- `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
-- `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules. Exception: an explicit `Run PR` sweep carries this approval (see "## Run PR shortcut").
-
-When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. It creates one content-addressed immutable record file, so concurrent reviews never edit a shared Markdown hunk. Never hand-write a record: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make the throttle unreliable. The legacy Markdown table is frozen for normal PRs; append a correction or superseding record (`--supersede`) instead. `npm run check:branch-review-ledger` validates all sources, while `check:ledger-write-discipline` rejects a legacy-table row change before it becomes a GitHub conflict.
-
-Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit review record (that marks every other open PR behind). One Run PR record per PR per sweep; on a later sweep of the same PR, pass `--supersede` rather than stacking another "main sync" record.
+For Codex review throttling, branch routing, review ledger append rules, and review thread resolution guidance, see [`docs/agents/codex-review-throttling.md`](docs/agents/codex-review-throttling.md) and [`docs/codex-review-protocol.md`](docs/codex-review-protocol.md).
 
 <!-- END:codex-review-throttling -->
-
-<!-- BEGIN:resolve-review-threads-after-fixing -->
-
-## Resolve review threads after fixing them
-
-Pushing a fix is not the end of the task when that fix was made in response to a GitHub PR
-review comment. Resolving the corresponding review thread is part of the same unit of work,
-not a follow-up to remember later — an addressed comment left unresolved still blocks merge
-and still reads to reviewers, merge-queue tooling, and `pr-policy.mjs`-style gates as
-unaddressed.
-
-- After pushing a fix for a review comment, reply on that thread with a short summary of what
-  changed (naming the fixing commit where useful), then resolve the thread once the fix is
-  pushed — reply first, resolve second, both before moving to the next item.
-- Only resolve a thread you actually fixed or fully dispositioned. Never resolve a thread you
-  did not act on, never resolve one to tidy away feedback you disagree with, and never resolve
-  a thread on a PR you are only watching on someone else's behalf — leave those for the PR's
-  owner or reviewer.
-- If the comment needs more than a direct fix (a design decision, missing context, reviewer
-  input), reply explaining why instead of resolving, and leave the thread open.
-- This does not grant new GitHub write access or user authorisation for separate provider
-  writes. Reply and resolve only when the user explicitly authorised those actions for that PR
-  (for example, an explicit PR-fixing/babysitting sweep that names replies or thread resolution,
-  or the `Run PR` shortcut where that authority is stated) and the available tooling permits
-  them. If the user's ask was scoped to only committing and pushing the fix, stop there and tell
-  them the reply/resolve step is still open rather than performing it unasked.
-- This applies to every PR you push review-responsive fixes to in this repo, not only the
-  automated Codex resolve workflow — see "Review comment lifecycle" below for that workflow's
-  specific marker convention, and your runtime PR-babysitting instructions for the fuller
-  human-reviewer posture this section summarizes.
-
-<!-- END:resolve-review-threads-after-fixing -->
 
 <!-- BEGIN:local-server-safety -->
 
@@ -232,16 +96,7 @@ bytes. Do not weaken it.
 
 # Codex Desktop worktree setup
 
-- The Windows Codex Desktop environment setup command is `node scripts/setup-codex-worktree.mjs`.
-  It must work before `node_modules` exists, validate Node 24/npm 11, reuse only a complete
-  byte-identical local installation, and otherwise run the locked npm install.
-- Never configure Windows Desktop worktrees to run `bash scripts/setup-codex-cloud.sh`. That script
-  is Linux/Cloud-only; Windows launches it through WSL outside the worktree and cannot provision the
-  repository.
-- `.codex/environments/environment.toml` is autogenerated and ignored. Change the Database
-  environment through Codex settings, then verify the effective command with the generated file and
-  `node scripts/setup-codex-worktree.mjs --dry-run`.
-- **Web container runtime requirements:** Package manifests enforce strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container environment boots with Node 22 on `PATH`, do not drop engine-strict; export `/opt/node24/bin` at the front of `PATH` or install Node 24 to satisfy repository engine contracts before running `npm ci`.
+For Windows Codex Desktop worktree bootstrap and dry-run instructions, see [`docs/agents/codex-desktop-worktree-setup.md`](docs/agents/codex-desktop-worktree-setup.md).
 
 <!-- END:codex-desktop-worktree-setup -->
 
@@ -567,9 +422,9 @@ Output-style plugins such as caveman mode may compress prose. They must never co
 - **Always paste the decisive line.** Report gates with real output, not a summary. Under heavy-lock
   contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and, if still
   blocked at the deadline, exits `75` with a `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker
-  (`run-playwright.mjs`) — a distinct non-zero code from an ordinary test failure, so tooling can
-  tell "blocked, retry" apart from "red", but it never soft-skips green either way. When the gate
-  does run, grep for the "N passed" line; exit 0 alone is not proof.
+  (`run-playwright.mjs`). On test failure it propagates Playwright's non-zero exit code, and on
+  wrapper/build error it exits `1`. Tooling and callers must check both the exit code and the decisive
+  output line (such as "N passed"); neither code 0 alone nor a raw exit code is sufficient proof.
 - **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
   read, and what is inferred. Do not drop uncertainty to save tokens.
 - **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
@@ -927,209 +782,67 @@ review sessions on someone else's PR still function normally.
 
 ## Automated review coverage (owner decision, 2026-08-22)
 
-CodeRabbit's included allowance is exhausted and the organisation has reached its usage spending
-cap, so it declines most reviews with "Review limit reached" — measured on PRs #2113, #2252, #2255,
-#2256, #2263 and #2278 between 2026-08-18 and 2026-08-22. The owner has decided to **leave the cap
-as it is and accept that CodeRabbit review is intermittent**, rather than raise it (`#CCZ4HB`).
+CodeRabbit's included allowance is capped and review is intermittent (`#CCZ4HB`). The decision and root-cause analysis are documented in `docs/decisions/ccz4hb-review-coverage.md`.
 
-**Read `docs/decisions/ccz4hb-review-coverage.md` before acting on this.** A separate analysis
-written the same day measured the cause and it is not primarily billing: CodeRabbit's included
-reviews refill at one per hour (24/day) while this repo merged 25.4 PRs/day on average over the
-preceding month. It also found that 285 of the last 1,190 merged PRs (24%) changed only
-documentation and 190 (16%) changed only the repo's own record-keeping files — roughly six review
-credits a day spent on files a code-review bot has nothing to say about. Two levers therefore remain
-open at **no cost and no loss of safety**, and the owner's decision above does not foreclose them:
-configure CodeRabbit to skip documentation-only PRs, and stop opening PRs whose only content is a
-bookkeeping record. Do those before anyone proposes raising the cap again.
-
-What the decision means in practice, and what it does not mean:
-
-- The ChatGPT Codex connector reviewed PR #2278 on 2026-08-22 in the same run CodeRabbit skipped, so
-  as of that date automated review is reduced rather than absent. Do not treat that as permanent —
-  the connector reported its own usage limit on PR #2113 on 2026-08-18, so it can lapse too.
-- Draft PRs are skipped by CodeRabbit outright, so a PR that stays in draft gets nothing from it
-  even when allowance is available. Undrafting mid-CI also cancels the in-flight run.
-- **Do not weaken, skip, or relax any required check to compensate.** The required gates are now
-  carrying more of the load, not less, and the whole point of accepting reduced bot review is that
-  the deterministic checks stay strict.
-- Clinical-risk and RAG-surface diffs still require their PR-body preflight sections in full; those
-  are enforced by `scripts/pr-policy.mjs` and are unaffected by review-bot availability.
-
-Reducing PR churn (below) remains the cheapest way to get more value from the allowance that exists.
+- Draft PRs are skipped by CodeRabbit outright; undrafting mid-CI cancels the in-flight run.
+- **Do not weaken, skip, or relax any required check to compensate.** Required gates carry the deterministic safety net and must stay strict.
+- Clinical-risk and RAG-surface diffs still require their PR-body preflight sections in full (`scripts/pr-policy.mjs`).
+- Reduce PR churn by bundling low-risk append-only paperwork with product PRs (see below).
 
 ## PR bundling (reduce one-task-one-PR churn)
 
-Every `newtask`/`handoff` cycle mints a dedicated `claude/<task-slug>` branch and PR, so a
-single docs/ledger-append line pays the same required-CI bill as a large change:
-`static-pr`, `pr-required`, and whatever path-scoped job the diff happens to trigger.
-Measured 2026-07-30 (PR #1406, sampling the last 500 CI workflow runs, ~3 days of PR
-traffic): 437 PR-triggered runs, ~40% cancelled mid-run (mostly superseded by a newer
-push before Production UI finished), roughly 12 Production-UI-hours burned on runs that
-never completed. More PRs also means more `docs/branch-review-ledger.md` rows and more
-of the anti-churn re-syncing described above.
+Before opening a new branch, check whether the task can ride an **already-open PR you still own** or be bundled with **other currently-queued low-risk work** instead of minting a new one. If the target PR's CI is already running, wait for it to settle before pushing the addition or assemble every commit before that PR's first push (pushes mid-run cancel and restart CI).
 
-Before opening a new branch, check whether the task can ride an **already-open PR you
-still own** or be bundled with **other currently-queued low-risk work** instead of
-minting a new one. If the target PR's CI is already running, either wait for it to settle
-before pushing the addition or assemble every commit before that PR's first push —
-`.github/workflows/ci.yml` cancels in-progress runs for pull requests, so a push mid-run
-cancels and restarts CI rather than saving an invocation, reproducing the exact cancellation waste
-this rule exists to cut (reproduced 2026-07-30 pushing a second commit to PR #1406: the
-in-flight `static-pr` run was cancelled, failing `pr-required` on the now-stale head).
-A settle-then-push addition also lands after this repo's one automatic Codex review may
-already have run against the earlier head — in practice the connector re-reviews each new
-push (observed on this same PR), but if it doesn't, request a fresh review explicitly
-before merging rather than assuming the addition was covered. **If the target PR has
-auto-merge armed, an ordinary fast-forward push is still safe to bundle onto** — GitHub
-re-validates required checks against the new head before merging. Per-PR auto-merge state is
-user-owned: automation must not disable or re-enable it, and a force-push or base/target change
-while armed still hard-blocks with no override — that is the actual race, not an additive
-commit. `guard-push.mjs` enforces the force-push block for every locally pushed PR branch when
-authenticated `gh` is available; agent
-policy remains the backstop in environments where local hooks or `gh` are unavailable.
+**If the target PR has auto-merge armed, an ordinary fast-forward push is still safe to bundle onto** — GitHub re-validates required checks against the new head before merging. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it, and a force-push or base/target change while armed still hard-blocks with no override. `guard-push.mjs` enforces the force-push block for locally pushed PR branches when authenticated `gh` is available; agent policy remains the backstop.
+
 Bundle only when every item being combined is:
 
-- **Independently low-risk, checked two ways — neither is exhaustive alone.**
-  First, `scripts/pr-policy.mjs` / `classifyPullRequestFiles` must return
-  `clinicalRisk: false`, `operationalRisk: false` (dependency manifests, lockfiles,
-  `.github/workflows/**`, build/test-runner config), and no RAG-ranking-surface path.
-  Second, the diff must not touch anything in this repo's own broader "PR risk
-  detection" list below (auth, privacy, migrations/RLS, clinical/RAG/retrieval,
-  **background jobs/workers/queue processing**, payment/billing, public API contracts,
-  production config/deployment, file upload/download, provider/paid-API calls) —
-  that list catches real high-risk paths the narrower classifier doesn't flag at all
-  (e.g. `worker/**` trips neither `clinicalRisk` nor `operationalRisk`, but ingestion
-  workers are exactly the kind of change this exclusion exists for). When a path's risk
-  category is genuinely unclear under either check, default to its own PR rather than
-  extending the exclusion list further — the two checks together are a floor, not a
-  closed enumeration.
-- **Still its own committed, separately revertible commit while the PR is open** —
-  bundling means one PR with multiple commits, never one squashed diff; `git revert <sha>`
-  must undo any one item without touching the others before merge. That guarantee ends at
-  merge: this repo's normal squash-merge folds every commit into one on `main`, and once
-  the feature branch is deleted those original SHAs are unreachable. Reverting a single
-  bundled item after merge means reverting the relevant hunks of the squash commit by
-  hand, not `git revert <sha>` on an item's original commit — keep an item out of the
-  bundle if it might need its own durable post-merge revert.
-- **Listed as its own bullet** in the PR body's Summary, not blended into one narrative
-  — a reviewer (and `pr-policy.mjs`) still needs to find each item's own
-  governance/RAG-impact statement if it needs one.
-- **Not already mid-edit** in another open PR or session — check local context first
-  (`docs/branch-review-ledger.md`, `git branch`/`git log`). Confirming against the live
-  open-PR list means a GitHub API read: only do that with this session's already-
-  authorized GitHub access, or ask before querying GitHub, per "API and provider
-  confirmation boundary" — do not treat it as a silent, unconditional prerequisite that
-  blocks starting ordinary work.
+- **Independently low-risk, checked two ways:**
+  1. `scripts/pr-policy.mjs` / `classifyPullRequestFiles` must return `clinicalRisk: false`, `operationalRisk: false`, and no RAG-ranking-surface path.
+  2. The diff must not touch anything in this repo's broader "PR risk detection" list (auth, privacy, migrations/RLS, clinical/RAG/retrieval, background jobs/workers/queue processing, payment/billing, public API contracts, production config/deployment, file upload/download, provider/paid-API calls).
+- **Committed as its own separately revertible commit** while the PR is open (one PR with multiple commits, not one squashed diff).
+- **Listed as its own bullet** in the PR body's Summary.
+- **Not already mid-edit** in another open PR or session (check local context / review ledger first).
 
-**Best candidates:** small same-scope documentation or low-risk follow-up changes. Review records
-and issue requests now use independent immutable files, so they should travel with their owning
-product PR instead of receiving a dedicated ledger-only branch.
+**Best candidates:** small same-scope documentation, immutable review records (`docs/branch-review-records/`), or queued issue requests (`docs/outstanding-issues-inbox/`).
 
 **Never bundle:**
 
-- A change needing its own `RAG impact:` line together with one that doesn't.
+- A change needing its own `RAG impact:` line together with one that does not.
 - A change needing `## Clinical Governance Preflight` together with unrelated chores.
-- Anything explicitly scoped "1 PR per work order" by its own tracking doc (e.g. the
-  maturity backlog in `docs/maturity-backlog-workorders.md`, ledger `#086`) — those are
-  deliberately isolated for staged rollout and review.
+- Anything explicitly scoped "1 PR per work order" by its own tracking doc (e.g. `docs/maturity-backlog-workorders.md`).
 
-Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still
-gets the smallest correct gate run against it before it joins the PR.
+Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still gets the smallest correct gate run against it before joining the PR.
 
 <!-- BEGIN:anti-conflict-speed -->
 
 ## Anti-conflict and CI-speed operating procedure
 
-Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — without
-weakening required gates, flake policy, provider boundaries, or clinical/RAG safeguards.
-Do not touch unrelated active PRs unless the user explicitly asks (`Run PR`, sync, or a
-named PR). Future process only.
+Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — without weakening required gates, flake policy, provider boundaries, or clinical/RAG safeguards. Do not touch unrelated active PRs unless the user explicitly asks (`Run PR`, sync, or a named PR).
 
 ### Prevent conflicts before they start
 
-- Prefer fewer, shorter-lived PRs. Bundle independently low-risk append-only docs/ledger
-  chores (see "## PR bundling") instead of one PR per line.
-- Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a
-  stale head that already shares hot files with the open queue.
-- The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**:
-  normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record;
-  `npm run issues:add|update|queue|done` creates one immutable inbox request (`queue` corrects a
-  recommended-execution-queue row; see ledger `#M6JNR8`). One fresh-base,
-  cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the
-  canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits,
-  changed request records, deleted requests, and a canonical issue diff that does not exactly
-  equal its recorded reconciliation transaction. The legacy review table's merge attribute remains
-  unspecified: GitHub cannot rely on local drivers.
-- Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run
-  `git merge-tree --write-tree origin/main <tip>`. Clean tree + behind = sync; dirty tree =
-  real conflict.
+- Prefer fewer, shorter-lived PRs. Bundle independently low-risk append-only docs/ledger chores (see "## PR bundling") instead of one PR per line.
+- Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a stale head that already shares hot files with the open queue.
+- The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**: normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record; `npm run issues:add|update|queue|done` creates one immutable inbox request (`queue` corrects a recommended-execution-queue row; see ledger `#M6JNR8`). One fresh-base, cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits, changed request records, deleted requests, and a canonical issue diff that does not exactly equal its recorded reconciliation transaction.
+- Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run `git merge-tree --write-tree origin/main <tip>`. Clean tree + behind = sync; dirty tree = real conflict.
 
 ### Speed CI without skipping quality
 
-- Assemble every commit for a head before the first push, or wait for the current PR CI run
-  to settle before pushing again. Apply the same settle-first rule to branch syncs: for a
-  behind-but-clean PR with required CI in flight, wait, then perform at most one late
-  `update-branch` / `git merge origin/main` after review and fix work is assembled.
-  Cancel-in-progress should remain enabled **for pull requests**, where a newer head genuinely
-  supersedes the work in flight, but every superseding push or sync cancels Production UI
-  mid-flight (~40% of recent PR CI runs were cancellations). It is deliberately NOT enabled for
-  base-branch pushes: a merged commit cannot be superseded, so cancelling there destroyed the
-  only verification `main` received (23 of the last 30 main pushes cancelled, measured
-  2026-08-18). Do not "simplify" that exemption back to a blanket `true` — it is pinned by
-  `tests/ci-cache-safety.test.ts`.
-- For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run
-  `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest
-  gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an
-  uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited
-  file.
-- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
-  or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled
-  additions may proceed — GitHub re-validates required checks against the new head before merging,
-  so an additive push cannot slip past that. A force-push, history rewrite, or base/target change
-  while armed still hard-blocks with no override; wait for the user to change that state first.
-- Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
-  cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
-  `pull_request_target` events and refreshes unchanged PR heads after protected-base
-  pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
-  `npm run sync:pr-branches` / `:apply` with a human `gh` identity — never bot
-  `update-branch`.
-- At the first PR snapshot, collect unresolved review threads as well as check state. Triage and
-  repair clear actionable threads before waiting for the long CI tail, so a late bot finding does
-  not turn one otherwise-green run into a full second run. Reply before resolving; leave ambiguous
-  or product-sensitive threads open for the owner.
-- Babysit dormant: observe a fresh CI run only at a meaningful stage boundary, then at most once
-  every five minutes for no longer than 30 minutes per run. If it remains queued or in progress at
-  that limit, record the run URL as deferred and continue the sweep. Prefer a terminal-event wait
-  over repeated log reads, never stream logs or poll minute-by-minute, and re-read the exact
-  head/base only when a check settles or immediately before a final audit.
-- For a sweep that may need local repair, prepare one isolated, exact-lock worktree before the first
-  local gate with `node scripts/setup-codex-worktree.mjs`. It reuses only a complete byte-identical
-  install or performs the locked install once; do not create partial dependency junctions that make
-  local lint/typecheck appear unavailable.
-- When the repository merge queue is enabled, treat queue state as read-only during a Run PR sweep.
-  Report active validation capacity and failed or conflicting entries, but do not configure queue
-  concurrency/grouping or add, remove, or re-queue entries without separate explicit user
-  authorization.
-- When `gh pr checks` cannot read check runs with the current token, query the Actions runs for the
-  exact head SHA instead; do not report CI as unverifiable until that read-only fallback has also
-  failed.
-- Treat outstanding-issue IDs as display locators, not proof that work landed. Verify completion
-  from distinctive content and its recorded check on the exact target ref; PR state, row ID, and row
-  title are insufficient, especially after squash merges or concurrent renumbering. Queue changes only
-  through `npm run issues:add|update|done`; each PR adds its own inbox file. Run
-  `npm run issues:reconcile` from one deliberately serialized ledger branch after the relevant PRs land;
-  it alone edits `docs/outstanding-issues.md` and allocates IDs. Never use GitHub's Update branch button
-  on a PR touching the canonical ledger.
-- Keep Playwright blocking tests at zero retries. Quarantine only after three reproductions
-  on the same SHA via `tests/flake-ledger.json` (`@quarantine`, not `@critical`, ≤30-day
-  expiry). Do not weaken tap targets to `min-h-11` to chase generic a11y guidance — that
-  reintroduces a known `ui-smoke` flake.
+- Assemble every commit for a head before the first push, or wait for the current PR CI run to settle before pushing again. Apply the same settle-first rule to branch syncs: for a behind-but-clean PR with required CI in flight, wait, then perform at most one late `update-branch` / `git merge origin/main` after review and fix work is assembled. Cancel-in-progress remains enabled for pull requests (pushes mid-run cancel Production UI), but is deliberately disabled for base-branch pushes (`tests/ci-cache-safety.test.ts`).
+- For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited file.
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled additions may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first.
+- Missing CI checks are not a green pass. The `PR mergeability` check uses trusted `pull_request_target` events and refreshes unchanged PR heads after protected-base pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads use `npm run sync:pr-branches` / `:apply` with human `gh` auth — never bot `update-branch`.
+- Triage and repair actionable review threads early; reply before resolving (`<!-- codex-thread-disposition:resolved -->`). Leave ambiguous or product-sensitive threads open for the owner.
+- Babysit dormant: observe fresh CI only at meaningful stage boundaries (at most once every 5 min, ≤30 min per run). If queued/running at limit, record run URL as deferred and continue sweep.
+- For sweeps needing local repair, prepare one isolated, exact-lock worktree via `node scripts/setup-codex-worktree.mjs`.
+- Treat merge queue state as read-only. Fall back to Actions runs for exact head SHA if `gh pr checks` cannot read check runs.
+- Treat outstanding-issue IDs as display locators, not proof that work landed. Queue changes only through `npm run issues:add|update|done`; reconcile via `npm run issues:reconcile` from a dedicated branch after PRs land.
+- Keep Playwright blocking tests at zero retries; quarantine via `tests/flake-ledger.json` only after three reproductions on the same SHA.
 
 ### Operator sync (explicit only)
 
-- Leave active PRs alone unless the user asks. Report-only inventory:
-  `npm run sync:pr-branches`. Apply only with confirmation and human/operator `gh` auth:
-  `npm run sync:pr-branches:apply`.
+- Leave active PRs alone unless requested. Report: `npm run sync:pr-branches`. Apply with confirmation and human/operator auth: `npm run sync:pr-branches:apply`.
 
 <!-- END:anti-conflict-speed -->
 
@@ -1137,17 +850,7 @@ named PR). Future process only.
 
 ## Codex productivity defaults
 
-- Treat terse prompts as workflow shortcuts when the intent is clear. If the user says `run`, execute `npm run ensure`, verify the project identity through that helper, and return the printed local URL without a long log dump.
-- For non-trivial changes, start from concrete repo state: branch, `git status`, relevant package scripts, recent failures, and local logs such as `dev-server.log` when runtime behavior is involved. For architecture and module orientation, read `docs/codebase-index.md` (routes: `docs/site-map.md`).
-- For UI, browser, styling, routing, accessibility, or screenshot work, run `npm run ensure` before opening the app, then use browser QA and the smallest relevant UI proof before broader gates.
-- Prefer the smallest failing check first. For this repo, use focused Vitest or Playwright targets before widening to `npm run verify:cheap`, `npm run verify:ui`, or `npm run verify:release`.
-- Use `npm run test:focused -- --files <paths>` only for safe source-only iteration. It fails closed for deleted files and test/configuration infrastructure; follow its instruction to run `npm run test` in those cases.
-- When the user says `safely`, preserve unrelated staged, unstaged, and untracked work; stop only clearly repo-owned transient processes; and verify the result instead of doing broad cleanup.
-- After auth, Supabase, ingestion, answer generation, search/ranking, clinical output, or source-governance changes, run the smallest domain check plus `npm run check:production-readiness`. Run `npm run check:supabase-project` after Supabase env/config changes.
-- For handoff, archive-safety, or upload-style requests, inspect branch/upstream/status first, run the appropriate verification gate, and only commit or push when the request explicitly asks for that workflow.
-- For broad chat/worktree reconciliation or cleanup, run `node scripts/reconciliation-preflight.mjs`, use the cheap ownership/PR/ledger/ancestry funnel before patch comparison, and never print raw process command lines.
-- For codebase appraisal exports, stage outside the repo, include `EXPORT_MANIFEST.md`, exclude secrets/dependencies/build outputs/local state, and verify the archive can be opened before handoff.
-- When a repeated repo-specific workflow is discovered, update this file or ask the user whether it should be remembered.
+For Codex-specific productivity shortcuts and operating rules, see [`docs/agents/codex-productivity-defaults.md`](docs/agents/codex-productivity-defaults.md).
 
 <!-- END:codex-productivity-defaults -->
 
@@ -1155,7 +858,7 @@ named PR). Future process only.
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 35 canonical skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and Clinical KB plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 35 canonical skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and PsychSift plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 
@@ -1173,41 +876,13 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 
 ## Outstanding-work memory (`/issues`)
 
-`docs/outstanding-issues.md` is the single universal, durable, cross-session ledger for every
-outstanding **task**, **recommendation**, and **issue** in this repo. It owns evidence, resolution
-history, recommended order, acuity, capability, timing, effort, approvals, verification, and stop
-rules. Chat context resets; this file does not, so anything worth remembering belongs there.
-Detailed runbooks such as `docs/operator-backlog.md` may support a task but must not become a second
-status ledger. Update the universal ledger when work completes, is dropped, becomes stale, or is
-materially re-scoped. Never restore completed, duplicate, speculative, superseded, or rejected work
-to the recommended queue.
+`docs/outstanding-issues.md` is the universal durable cross-session ledger for tasks, recommendations, and issues. Update it when work completes, is dropped, or is materially re-scoped. Never restore completed, duplicate, speculative, or rejected work to the recommended queue.
 
-- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): run
-  `npm run issues:report -- --json` to read the cached `origin/main` ledger with an explicit stale-state warning;
-  refresh that ref first only with provider authorization. State the recommended queue in order, then summarize other open
-  items by priority. A plain `/issues` is read-only — it mutates and commits nothing.
-- `/issues add|done|update|capture …` queue immutable request files under
-  `docs/outstanding-issues-inbox/`; ordinary branches never edit the canonical ledger. Commit a
-  request only when explicitly asked, and never push unless requested or already handing off.
-  One deliberately serialized fresh-base branch later runs `npm run issues:reconcile`, which alone
-  edits the canonical ledger. That transaction is the whole deliverable: the legacy `ISSUES-LIST.html`
-  visual register was retired by `#338` on 2026-08-18, so there is no second artifact to refresh.
-- Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
-  before a session's context is lost — that is what keeps it a memory rather than a stale list.
-- **An open row is not evidence that nobody is building it.** Some rows do carry a progress marker in
-  their prose (`IN PROGRESS`, `IMPLEMENTED in PR #1766`), but there is no structured status field and
-  no atomic claim: a marker is written by whoever did the work, usually after the fact, and nothing
-  requires or checks one. Absence of a marker therefore means nothing.
-  So before _acting_ on a queued item (not before reading the list back), check the open PRs for the
-  route, component, or surface it touches — a duplicate PR will rarely quote the ledger id. Skipping
-  this shipped the same conversion twice on 2026-08-09: PR #1766, and PR #1767 closed as a duplicate,
-  four hours apart, leaving two divergent shapes to adjudicate. It is one GitHub read and falls under
-  the provider-confirmation boundary above; if GitHub is unreachable, warn and continue rather than
-  blocking an offline session. Tracked as `#292`.
-- A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
-  auto-surfaces the recommended queue plus open-item counts at the start of every session and, on a
-  context reset (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never
-  writes the ledger. `/issues` is still the way to read the full list or mutate it.
+- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): run `npm run issues:report -- --json` to read the cached `origin/main` ledger (read-only; mutates and commits nothing).
+- `/issues add|done|update|queue …` queue immutable request files under `docs/outstanding-issues-inbox/`. Ordinary branches never edit the canonical ledger. One deliberately serialized fresh-base branch runs `npm run issues:reconcile` after PRs land.
+- Proactively offer to capture unresolved follow-ups, deferrals, and known risks into the ledger before session context is lost.
+- Before acting on a queued item, check open PRs for overlapping routes or components to avoid duplicate concurrent work (`#292`).
+- The `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`) auto-surfaces the recommended queue plus open-item counts at session start (read-only).
 
 ## Codex GitHub review behavior
 
@@ -1303,7 +978,6 @@ Automatic Codex review is review-only by default. This repository includes `.git
 - The workflow may request one automatic repair pass per pull request lifetime. Later heads require an explicit human request.
 - Only trust a pull-request deduplication marker when it was posted by the trigger-token account (the same identity that posts the request), resolved at runtime rather than hard-coded.
 - Permission failures while reading or creating pull-request comments must fail the workflow visibly, not return a successful soft-skip.
-- Grant `pull-requests: write` only to the narrow marker-driven thread-resolution job; the request job runs with read-only repository contents and relies on the trigger token's own scope, and neither job approves reviews or alters code.
 - The workflow must not run Codex directly with API credentials.
 - P0 and P1 findings should always be fixed.
 - P2 and lower findings should be fixed only when clear, scoped, low-risk, and testable; otherwise explain the decision and resolve or mark ready for human resolution.
@@ -1314,119 +988,22 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 ## Codex Cloud environment
 
-Codex Cloud uses an isolated Linux container and does not inherit desktop files,
-credentials, OAuth sessions, MCP authentication, local services, or uncommitted work.
-Use `docs/codex-cloud.md` as the environment contract:
+Codex Cloud uses an isolated Linux container and does not inherit desktop credentials, local services, or uncommitted work. Full environment specification and runbooks live in `docs/codex-cloud.md`.
 
 - Configure setup as `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
-- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
-  Use `connected` only when the user explicitly authorizes the required provider access.
-- When MCP tools are already callable in a Cloud session and the task needs them, use the host
-  plugin/connector inventory. The production Supabase target is limited to prompted, read-only
-  `docs` and `development` metadata tools; do not enable database, SQL, row, or log tools.
-  Write-capable Figma, Railway, and Sentry tools still require explicit confirmation. Paid API
-  canaries (`eval:rag`, `eval:retrieval:quality`, `eval:quality`, `verify:release`,
-  `test:live`, `check:supabase-project`) still need explicit confirmation. Project
-  `.codex/config.toml` keeps Desktop/CLI MCP entries `enabled = false` in git (`check:codex-cloud`
-  fails if any tracked entry is enabled). Opt in locally via `$CODEX_HOME/config.toml` (preferred)
-  or a never-committed project-file edit, then `codex mcp login railway`. Cloud setup never writes
-  Railway or Supabase MCP registrations to `$CODEX_HOME`. Hosted ChatGPT/Codex requires an
-  installed, workspace-authorized, OAuth-authenticated app, and a fresh task must prove the callable
-  inventory with read-only identity calls. Root `.mcp.json` is a static cross-client template, not
-  hosted runtime proof.
-- Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
-  read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
-  clean disposable checkout on a task-specific non-protected branch.
-- Cloud mirrors the tracked repository toolchain, not Windows files, `.env.local`,
-  desktop plugins, browser sessions, OAuth sessions, user-global skills, or uncommitted
-  work. Keep required workflows in tracked instructions, scripts, tests, and repo-local
-  skills.
-- Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
-  policy, or provider credentials. Treat those as product/account settings and verify them
-  separately without printing secret values.
-- In a fresh Cloud task, run `bash scripts/check-codex-cloud-raw-env.sh` before sourcing a
-  profile or entering a login shell. It must report only provider variable names and presence,
-  never values. Treat exit `1` / `FAIL`+`STOP` as a hard stop for any unexpected inherited name.
-  Only exit `2` / `FAIL-KNOWN` for `OPENAI_BASE_URL` alone may use the restricted
-  profile-and-shim continue path; do not generalize that allowance. Exit `2` is still a failed raw
-  boundary — future automation must not treat non-1 as success or as a blind retry. That name can
-  redirect OpenAI-bound traffic, so never invoke OpenAI clients from the raw parent or any binary
-  that bypasses the profile/`node`/`npm`/`npx` scrub. Then run
-  `npm run check:codex-cloud` directly; it must report the static-and-environment PASS line. Run
-  `npm run check:codex-cloud -- --runtime` with `CODEX_CLOUD_EXPECTED_BASE_SHA` set to the
-  intended merge/base commit when the checkout has only a task HEAD. Setup and maintenance may
-  report freshness as unverified so provisioning remains repairable, but explicit acceptance must
-  not pass an arbitrary HEAD. The command shims load the generated profile for normal `node`,
-  `npm`, and `npx` work. Also run `npm run check:runtime` and
-  `npm run check:installed-lock-parity` before trusting a new or reset environment. A skipped
-  browser install is not full browser readiness. Output is limited to approved mode values,
-  presence booleans, full Git commit identities, and MCP server/command/environment-variable
-  names; never print credential values.
-- Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
-  Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
-  agent phase unless the platform explicitly exposes a secret to the named task phase; do not
-  copy them into files to bypass that boundary.
-- Provider-backed checks, hosted CI mutations, deployment, production data access, and
-  Git publishing still require the explicit authorization defined above.
-- The ordinary offline Cloud profile intentionally cannot perform authenticated production or
-  live-provider checks. `check:production-readiness` reports this as a provider capability gap.
-- Authenticated live tests run through the manual
-  `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
-  dispatch confirmation, and the `Database / production` environment, never by exposing
-  credentials to the Codex Cloud agent shell.
-- The active hosted workspace is **Personal Pro**. Use Railway's installed official ChatGPT app
-  with browser OAuth and **Allow read actions**; Personal Pro does not provide the dedicated-group
-  RBAC or per-tool action disabling assumed by Enterprise/Edu instructions. Prove Railway with the
-  callable tool inventory and a read-only identity/project-list call. Repository setup and local
-  MCP config cannot activate it, and the Codex Cloud connector page currently offers no Railway
-  connector. Use the documented split control plane: Codex Cloud for code and its native GitHub
-  connector, ChatGPT web for Railway and project-scoped read-only Supabase. Every provider change
-  still requires explicit approval. Enterprise/Edu custom-app controls are a future governance
-  option, not the current workspace classification.
-  CLI token auth is a separate operator capability: it requires a separately installed Railway CLI
-  and a dedicated
-  `RAILWAY_API_TOKEN`, and must never substitute `RAILWAY_TOKEN` or expose either token to an
-  ordinary agent shell. GitHub connector access, GitHub CLI authentication, the credential-free
-  `origin` URL, and shell Git authentication are separate capabilities.
-- For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
-  tools as the default remote control plane. Use them for repository, PR, issue, review
-  thread, and Actions work, including inline-thread replies/resolution, Actions
-  run/job/log/artifact inspection, and approved branch, file, or PR mutations. Missing
-  `gh`, shell GitHub credentials, or direct shell network access is not a loss of this
-  capability. The intended connection is `BigSimmo` with repository write access.
-  Reserve administrator access for separately approved operations.
-- In Codex Cloud, use native Push, the authenticated GitHub connector, or GitHub's UI for branch
-  publication and cleanup. `CODEX_CLOUD_GITHUB_PAT` is excluded from every Cloud agent shell.
-  The helper `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` is
-  operator-only outside Codex Cloud; it must reject `CODEX_CLOUD=1`, validate the exact
-  non-protected ref and credential-free origin, and never print the token. If the native or
-  connector path is unavailable, report the platform limit rather than copying a PAT into a
-  profile, remote URL, cached file, or agent environment.
-- Confirm the exact repository and PR/thread/job before a write, and verify the connector
-  result before treating the write as successful. A repository cannot sanitize a variable
-  already inherited by the top-level task process; the tracked shims protect normal
-  `node`/`npm`/`npx` commands. Report raw-parent exposure as a Codex Cloud launcher defect
-  rather than weakening the provider-variable contract.
-- Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
-  physical iPhone Safari/PWA acceptance.
+- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary/RAG work; use `connected` only with explicit provider authorization.
+- Personal Pro split control plane: Codex Cloud for code and GitHub connector; ChatGPT web for Railway and read-only Supabase metadata.
+- Acceptance: run `bash scripts/check-codex-cloud-raw-env.sh`, `npm run check:codex-cloud`, and `npm run check:codex-cloud -- --runtime` (with `CODEX_CLOUD_EXPECTED_BASE_SHA`).
+- Do not expose provider secrets (OpenAI, Supabase, Railway, GitHub PATs) in Cloud agent shells or committed config.
+- Authenticated live tests run via `.github/workflows/authenticated-live-tests.yml` with manual dispatch, never from Cloud agent shells.
+- Branch deletion helper `bash scripts/delete-codex-cloud-branch-with-pat.sh` is operator-only outside Cloud.
 
 ## Cursor Cloud specific instructions (not Codex Cloud)
 
-Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.
+Durable notes for Cursor Cloud agents (see `docs/agents-guide.md` and `docs/testing.md` for full reference):
 
-- Context7 peer-library docs habit (and the Next 16 local-docs carve-out) lives in `docs/agents-guide.md`. Project MCP is local `@upstash/context7-mcp@3.2.5` with `CONTEXT7_API_KEY` from env/Secrets. If the host-injected Context7 MCP returns quota exceeded, use `npx ctx7 library|docs …` with the same secret — do not invent peer APIs from training data.
-- Runtime: the app hard-requires Node >=24.15.0 <25 / npm 11.x (`engine-strict`; the preinstall and runtime gates enforce the minor floor, while `scripts/dev-free-port.mjs` rejects other majors). A compatible Node 24 is installed via nvm and symlinked into `/usr/local/cargo/bin` (first entry in `PATH`) so `node`/`npm` resolve to it in every shell. If a shell ever resolves `/exec-daemon/node` (v22) instead, prepend the installed nvm Node 24 bin to `PATH` (for example `"$HOME/.nvm/versions/node/v24.18.1/bin"`; run `ls "$HOME/.nvm/versions/node"` to confirm the exact patch version).
-- Live vs demo mode: the app auto-detects. When the Supabase + OpenAI env vars below are present (set them as Cloud Agent **Secrets** so they inject into `.env.local`/`process.env`), `isDemoMode()` (`src/lib/env.ts`) is false and the app runs against the live `Clinical KB Database` project (~2000 indexed docs) with OpenAI answer generation. When they are absent, dev auto-falls back to demo mode using the synthetic corpus in `src/lib/demo-data.ts` / `public/demo-documents/`. Required for live mode: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_PROJECT_REF`, `SUPABASE_PROJECT_NAME`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`), `SUPABASE_SERVICE_ROLE_KEY` (accepts the `sb_secret_…` secret key), `OPENAI_API_KEY`. Keep `RAG_PROVIDER_MODE=auto` so OpenAI is used with graceful source-only fallback. `E2E_USER_EMAIL`/`E2E_USER_PASSWORD` power CI env-check and Playwright.
-- Live-mode caveat: `RAG_PROVIDER_MODE=auto` attempts OpenAI (fast → strong route); if generation fails the built-in quality gates it silently degrades to a deterministic "Source-only" answer that still cites real documents — this is expected, not a failure. The header sign-in UI exposes magic-link + OAuth only (no password field), but the `/api/answer` + retrieval flow works server-side without a browser session.
-- What still won't run in this VM even with secrets: `npm run worker` also needs the Python OCR stack (`worker/python/requirements.txt`) and heavy parsing deps; Supabase edge functions need Deno v2.x + deployment. `verify:release` additionally runs governance/eval gates. Treat missing-secret failures of `check:supabase-project`/`verify:release` in demo mode as expected, not regressions.
-- Dev server: `npm run dev` selects a stable per-project localhost port (e.g. `4461`), binds `0.0.0.0`, and prints the exact URL. Never assume port 3000/3001/3002. `npm run ensure` starts/verifies it in the background.
-- Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs runtime, GitHub Actions pin, CI-scope, and sitemap checks. `npm run verify:pr-local` adds format, conditional build/client-bundle scanning, and RAG fixture/manifest validation without repeating unit tests; browser, Docker/Supabase, audit, and provider checks remain separate. See `docs/testing.md` for lock, live-test, Playwright, and flake-ledger rules. If `check:installed-lock-parity` or `check:playwright-browser-revision` reports Playwright/image drift (`#255`), do not force a mismatched Chromium path — delegate browser proof to CI Production UI (see `docs/testing.md` § Testing speed playbook).
-- For GitHub-related work authorised in this session, prefer the connected GitHub
-  connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
-  support (including run/job/log/artifact inspection and review-thread replies/resolution).
-  A missing `gh` CLI is not a blocker for connector-supported work; never add a PAT as a
-  workaround. The intended connection is `BigSimmo` with repository write access.
-  Reserve administrator access for separately approved operations. Verify the exact target and connector result before any write. Ordinary
-  authorised shell `git` branch publication remains allowed; use shell `gh` only for a
-  genuine connector gap and only when the task permits it.
+- Context7 peer-library docs habit and Next 16 local docs live in `docs/agents-guide.md`.
+- Requires Node >=24.15.0 <25 / npm 11.x (installed via nvm, symlinked to `/usr/local/cargo/bin`).
+- Offline verification: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run verify:cheap`, and `npm run verify:pr-local` all pass without secrets.
+- For authorized GitHub work, use the connected GitHub connector/MCP tools as primary interface (`BigSimmo` write access).

@@ -6,6 +6,7 @@
  * inside it — this stays self-sufficient regardless of where it is placed.
  */
 .switcher {
+  composes: descendantKill from "./ward-reduced-motion.module.css";
   --rs-blue: var(--clinical-accent);
   --rs-blue-soft: var(--clinical-accent-soft);
   --rs-blue-border: var(--clinical-accent-border);

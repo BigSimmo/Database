@@ -254,7 +254,7 @@ function ResultsTable({
         <Link
           href={appModeHomeHref("forms", { query, focus: true, run: true })}
           className={cn(
-            "inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+            "inline-flex min-h-tap items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
             searchFocusRing,
           )}
         >
@@ -295,7 +295,7 @@ function PathwayPanel() {
           onClick={ignoreUnavailableActivation}
           title="Coming soon"
           className={cn(
-            "inline-flex min-h-9 cursor-not-allowed items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] opacity-70",
+            "inline-flex min-h-tap cursor-not-allowed items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] opacity-70",
             searchFocusRing,
           )}
         >
@@ -595,7 +595,7 @@ function MobilePathway() {
         onClick={ignoreUnavailableActivation}
         title="Coming soon"
         className={cn(
-          "mx-auto mt-1 flex min-h-8 cursor-not-allowed items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] opacity-70",
+          "mx-auto mt-1 flex min-h-tap cursor-not-allowed items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] opacity-70",
           searchFocusRing,
         )}
       >
@@ -626,7 +626,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
     if (!query.trim()) return [];
     // Deferred empty while live has text: wait — do not rank as empty-query "all forms".
     if (!deferredQuery.trim()) return [];
-    return rankFormRecords(registry.records, deferredQuery);
+    return rankFormRecords(registry.records, deferredQuery, registry.records.length, [], true);
   }, [registryReady, registry.records, deferredQuery, query]);
   const categoryOptions = useMemo(() => deriveFormCategories(matches), [matches]);
   const filterSelection = useMemo(
@@ -781,7 +781,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             registry.status === "unauthorized" ? (
               <Link
                 href="/"
-                className="inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+                className="inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]"
               >
                 Open account setup
               </Link>

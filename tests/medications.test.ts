@@ -35,9 +35,11 @@ function buildRecord(overrides: Partial<MedicationRecord>): MedicationRecord {
 describe("medications catalogue", () => {
   it("loads the full reviewed export snapshot", () => {
     const records = loadMedicationSnapshot();
-    expect(records.length).toBe(328);
+    expect(records.length).toBe(330);
     expect(records.some((record) => record.slug === "acamprosate")).toBe(true);
     expect(records.some((record) => record.slug === "sertraline")).toBe(true);
+    expect(records.some((record) => record.slug === "ramipril")).toBe(true);
+    expect(records.some((record) => record.slug === "simvastatin")).toBe(true);
   });
 
   it("ranks exact medication names ahead of broad matches", () => {

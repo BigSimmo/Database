@@ -191,7 +191,7 @@ export function SetRail({
               aria-pressed={active}
               onClick={() => onSelect(set.id)}
               className={cn(
-                "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-2xs font-bold transition",
+                "inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-2xs font-bold transition",
                 focusRing,
                 active
                   ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"

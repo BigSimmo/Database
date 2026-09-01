@@ -48,7 +48,7 @@ export function OtherScreen() {
   return (
     <section data-screen-label="Review Queue" className={pageContainer}>
       <PageHeader
-        className="mb-[22px]"
+        className="mb-5.5"
         title="Review Queue"
         description="Records awaiting source and clinical review, lowest review-completeness first."
         // A count, not a control: `meta` is the documented slot for status
@@ -56,7 +56,7 @@ export function OtherScreen() {
         // the actions column it used to share with nothing else.
         meta={
           <span className="inline-flex items-center gap-2 h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-lg bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] text-sm-minus font-semibold">
-            <TriangleAlert aria-hidden="true" size={16} strokeWidth={1.8} />
+            <TriangleAlert aria-hidden="true" className="size-icon-md shrink-0" strokeWidth={1.8} />
             {b.reviewCount} to review
           </span>
         }

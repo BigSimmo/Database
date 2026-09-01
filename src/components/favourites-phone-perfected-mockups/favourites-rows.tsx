@@ -270,7 +270,7 @@ export function RecentCard({
           type="button"
           onClick={onViewAll}
           className={cn(
-            "-mr-1 inline-flex min-h-9 items-center rounded-lg px-2 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+            "-mr-1 inline-flex min-h-12 items-center rounded-lg px-2 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
             focusRing,
           )}
         >
@@ -358,13 +358,32 @@ export function FavouritesList({
   const rest = showPinnedGroup ? rows.filter((row) => !row.pinned) : rows;
 
   if (groupBySet) {
+    const pinnedInView = rows.filter((row) => row.pinned);
+    const restInView = rows.filter((row) => !row.pinned);
     const bySet = setOrder
       .filter((id) => id !== "all")
-      .map((id) => ({ id, label: setLabels[id], items: rows.filter((row) => row.setId === id) }))
+      .map((id) => ({ id, label: setLabels[id], items: restInView.filter((row) => row.setId === id) }))
       .filter((group) => group.items.length > 0);
 
     return (
       <div className="bg-[color:var(--surface)]">
+        {pinnedInView.length > 0 ? (
+          <>
+            <GroupLabel>Pinned</GroupLabel>
+            <ul>
+              {pinnedInView.map((row) => (
+                <FavouriteListRow
+                  key={row.id}
+                  row={row}
+                  showPinGlyph={false}
+                  typeAs={typeAs}
+                  onOpen={onOpen}
+                  onOpenActions={onOpenActions}
+                />
+              ))}
+            </ul>
+          </>
+        ) : null}
         {bySet.map((group) => (
           <section key={group.id}>
             <GroupLabel>
@@ -534,7 +553,7 @@ export function PartialLoadNotice({ failed }: { failed: number }) {
           type="button"
           onClick={() => undefined}
           className={cn(
-            "inline-flex min-h-9 shrink-0 items-center gap-1.5 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--warning-text)]",
+            "inline-flex min-h-12 shrink-0 items-center gap-1.5 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--warning-text)]",
             focusRing,
           )}
         >
@@ -678,16 +697,60 @@ export function SetsSheetBody({ counts, onClose }: { counts: Record<FavouriteSet
   );
 }
 
+/** Confirmation step for the destructive clear-all action. Kept separate from
+ *  set management so the page-options row cannot open the wrong sheet. */
+export function ClearAllSheetBody({
+  total,
+  onCancel,
+  onConfirm,
+}: {
+  total: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="space-y-3 pb-1">
+      <p className="px-3 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
+        This removes all {total} saved favourites from your account on every device. It cannot be undone.
+      </p>
+      <div className="space-y-1.5 px-3">
+        <button
+          type="button"
+          onClick={onConfirm}
+          className={cn(
+            "flex w-full min-h-12 items-center justify-center rounded-lg bg-[color:var(--danger-solid)] px-4 text-sm-minus font-bold text-[color:var(--danger-solid-contrast)]",
+            focusRing,
+          )}
+        >
+          Remove all favourites
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className={cn(
+            "flex w-full min-h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm-minus font-bold text-[color:var(--text-heading)]",
+            focusRing,
+          )}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** The page-level sheet: sort, sets, and the destructive action, which belongs
  *  behind a sheet rather than on the header where it can be hit by accident. */
 export function PageActionsSheetBody({
   sort,
   onSelectSort,
   onOpenSets,
+  onRequestClearAll,
 }: {
   sort: "recent" | "title" | "set";
   onSelectSort: (value: "recent" | "title" | "set") => void;
   onOpenSets: () => void;
+  onRequestClearAll: () => void;
 }) {
   const options: ReadonlyArray<{ value: "recent" | "title" | "set"; label: string; hint: string }> = [
     { value: "recent", label: "Recently opened", hint: "Default" },
@@ -717,7 +780,7 @@ export function PageActionsSheetBody({
         Library
       </p>
       <SheetRow icon={FolderInput} label="Manage sets" hint="Six approved workflows" onClick={onOpenSets} />
-      <SheetRow icon={Trash2} label="Remove all favourites" tone="danger" onClick={onOpenSets} />
+      <SheetRow icon={Trash2} label="Remove all favourites" tone="danger" onClick={onRequestClearAll} />
     </div>
   );
 }

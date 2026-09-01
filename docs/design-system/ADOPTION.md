@@ -1,11 +1,11 @@
-# Clinical KB design system — ADOPTION
+# PsychSift design system — ADOPTION
 
 **The committed ownership and disposition contract for every production surface.** The source
 of truth is `adoption-contract.json`; the generated manifest and marked tables in this document
 must match it exactly.
 
 - **Date:** 12 August 2026
-- **Current state:** 54 visual references are locally registered; all 51 production page routes
+- **Current state:** 55 visual references are locally registered; all 51 production page routes
   are owned across 14 surface families, with 59 route/component roots scanned; every declared
   root uses the v2 shell and has declared proof with no committed visual baseline.
 - **Phase 1 blockers resolved first, in their own commits:** `#207` ungrounded `AnswerState`,
@@ -357,12 +357,12 @@ product exclusions; the only route-only dispositions are the documented legacy-r
 surfaces. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
 Registered public components: 55
-Declared product roots: 76
+Declared product roots: 84
 Roots with a literal `.ckb-v2` opt-in: 1
-Roots inheriting `.ckb-v2` from the global `<html>`: 75
+Roots inheriting `.ckb-v2` from the global `<html>`: 83
 Production surfaces observed under v2: 15/15
 Dynamic `ckb-v2` constructions: 0
-Declared production page routes: 68/68
+Declared production page routes: 76/76
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
@@ -380,7 +380,7 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
 | `favourites`                       | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `tools-and-calculators`            | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `caring-contacts-workspace`        | owned           |      2 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `caring-contacts-workspace`        | owned           |     10 |    10 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `privacy-safety-and-reference`     | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `answers-shared`                   | shared-shell    |      0 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |

@@ -95,7 +95,7 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
       <Link
         href={link.detailHref}
         onClick={() => logCrossModeLinkOpen(query, link)}
-        className="inline-flex min-h-tap min-w-0 items-center gap-2 px-2.5 transition hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9"
+        className="inline-flex min-h-tap min-w-0 items-center gap-2 px-2.5 transition hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-compact-meta"
       >
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]">
           <Icon className="h-3.5 w-3.5" aria-hidden />
@@ -115,7 +115,7 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
         // click would corrupt retrieval-quality/click telemetry.
         onClick={() => onModeSearch(link.modeId, link.modeSearchQuery)}
         aria-label={`Search ${link.title} in ${link.modeLabel}`}
-        className="grid min-h-tap w-tap shrink-0 place-items-center border-l border-[color:var(--border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9 md:w-9"
+        className="grid min-h-tap w-tap shrink-0 place-items-center border-l border-[color:var(--border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-compact-meta md:w-compact-meta"
       >
         <Search className="h-3.5 w-3.5" aria-hidden />
       </button>
@@ -190,9 +190,9 @@ export function CrossModeLinksSection({
  * Under an answer this block used to be a permanently expanded rail sitting
  * directly above a second, near-identical panel of mode matches. Two panels
  * asking the same question ("where else does this appear") read as one panel
- * repeated, and neither is the clinician's next step — the follow-up questions
- * above them are. So this collapses to a single row carrying a preview of what
- * is inside, and opens to exactly the rail it always was.
+ * repeated. This collapses to a single row carrying a preview of what is inside,
+ * closes the answer's evidence/safety stack, and opens to exactly the rail it
+ * always was before the follow-up conversation begins.
  *
  * The preview names come from the resolved links, so the line can never
  * advertise a match the expanded rail does not list.

@@ -8,8 +8,12 @@
 >
 > - **A9 (adding Lifeline `13 11 14`) CANNOT be executed yet, by its own terms.** The recommendation
 >   was to add Lifeline _and drop the `Fictional Support Line` line once a real crisis number is
->   chosen_ — because the message is roughly nine characters from its two-segment maximum, so nothing
->   can be added until something comes out. No real crisis number exists. **A9 is APPROVED IN
+>   chosen_ — because ~~the message is roughly nine characters from its two-segment maximum~~ **[the
+>   figure is wrong — CORRECTED 2026-08-27: the message is 54 septets short of its 306-septet
+>   two-segment ceiling, and every one of those 54 is already allocated to the preferred-name slot,
+>   whose cap is 59 septets. The room for new FIXED wording is zero, not nine characters. The
+>   conclusion below stands; its stated reason did not, and the owner approved it on the wrong
+>   reason]**, so nothing can be added until something comes out. No real crisis number exists. **A9 is APPROVED IN
 >   PRINCIPLE and BLOCKED ON a real crisis number.** Do not implement it by removing some other
 >   sentence chosen by an implementer; the owner was explicitly asked to name what goes, and the
 >   answer that arrived approves the shape, not a specific removal. Re-ask when a real number exists.
@@ -193,9 +197,20 @@ Aboriginal and Torres Strait Islander patients, and the schema already carries c
 it could be conditional rather than universal — but that is a Phase 2B capability, not a wording
 change.
 
-**Cost if wrong:** the length ceiling is hard at about nine characters, so anything added means
-something removed, and removing the wrong thing is worse than adding nothing. This is the one item
-where I would not act on my own recommendation without the owner's explicit choice of what goes.
+**CORRECTED 2026-08-27 — the "nine characters" figure is wrong, and it was wrong everywhere it was
+relayed.** Computed directly from the module rather than from any comment: the two-segment ceiling is
+**306 septets**; the message with its name slot EMPTY costs **247 septets**; the specimen name `Rowan`
+brings it to **252 septets**, leaving **54 septets** unused. Nine is not the headroom under any reading
+found. **But the conclusion survives for a different and sharper reason:** every one of those 54
+remaining septets is already allocated to the preferred-name slot, whose cap is **59 septets** — 247
+plus 59 is exactly 306. So the room available for new FIXED wording is **zero**, not nine characters,
+and adding any still requires something to come out or the name budget to shrink. The distinction
+matters because "nine characters" invites trimming nine characters, which would not be enough.
+
+**Cost if wrong:** ~~the length ceiling is hard at about nine characters~~ — the ceiling is hard at
+**zero** unallocated septets, so anything added means something removed, and removing the wrong thing
+is worse than adding nothing. This is the one item where I would not act on my own recommendation
+without the owner's explicit choice of what goes.
 
 ---
 

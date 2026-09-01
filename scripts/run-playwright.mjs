@@ -19,7 +19,7 @@ import {
 } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
-  console.error(`Clinical KB Playwright checks require Node 24.x. Current runtime: ${process.versions.node}.`);
+  console.error(`PsychSift Playwright checks require Node 24.x. Current runtime: ${process.versions.node}.`);
   process.exit(1);
 }
 
@@ -216,7 +216,7 @@ async function waitForServer(baseUrl, server) {
     }
     await sleep(500);
   }
-  throw new Error(`Timed out waiting for the Playwright-owned Clinical KB server at ${baseUrl}.`);
+  throw new Error(`Timed out waiting for the Playwright-owned PsychSift server at ${baseUrl}.`);
 }
 
 function stopOwnedProcessTree(child) {
@@ -334,6 +334,10 @@ try {
   });
   const buildExitCode = childProcessExitCode(buildResult);
   if (buildExitCode !== 0) {
+    const memory = process.memoryUsage();
+    console.error(
+      `[playwright] build diagnostics: status=${buildResult.status}, signal=${buildResult.signal ?? "none"}, error=${buildResult.error?.message ?? "none"}, memory(rss=${Math.round(memory.rss / (1024 * 1024))}MB, heapTotal=${Math.round(memory.heapTotal / (1024 * 1024))}MB, heapUsed=${Math.round(memory.heapUsed / (1024 * 1024))}MB)`,
+    );
     throw new Error(`Playwright production build failed (${childProcessFailureSummary(buildResult)}).`);
   }
 

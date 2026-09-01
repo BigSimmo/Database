@@ -1,11 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, ChevronLeft, ClipboardCopy, FileCheck2, ListChecks, RotateCcw, Tags } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ClipboardCopy,
+  FileCheck2,
+  GitCompareArrows,
+  ListChecks,
+  RotateCcw,
+  Tags,
+  Waypoints,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { InformationPageHeader } from "@/components/information-page-shell";
 import { SpecifierPageShell, SpecifierSafetyNote, specifierCard } from "@/components/specifiers/specifier-ui";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { pairCompareHref } from "@/components/compare";
+import { Button } from "@/components/ui/button";
+import { cn, eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   normalizeSpecifierSelection,
@@ -84,7 +98,7 @@ function StepProgress({
   return (
     <ol
       aria-label="Specifier builder steps"
-      className="grid grid-cols-4 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)]"
+      className="grid grid-cols-4 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5"
     >
       {builderSteps.map((step, index) => {
         const isActive = active === step.id;
@@ -260,15 +274,12 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
 
   return (
     <SpecifierPageShell>
-      <header className="grid min-w-0 gap-2 border-b border-[color:var(--border)] pb-5">
-        <p className={eyebrowText}>{specifierBuilderCopy.hero.eyebrow}</p>
-        <h1 className="text-3xl font-extrabold tracking-tight break-words text-[color:var(--text-heading)] sm:text-4xl">
-          {specifierBuilderCopy.hero.title}
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          {specifierBuilderCopy.hero.body}
-        </p>
-      </header>
+      <InformationPageHeader
+        className="border-b border-[color:var(--border)] pb-5"
+        eyebrow={specifierBuilderCopy.hero.eyebrow}
+        title={specifierBuilderCopy.hero.title}
+        subtitle={specifierBuilderCopy.hero.body}
+      />
 
       <StepProgress active={activeView} visited={visited} onChange={openStep} />
 
@@ -283,7 +294,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <select
                     value={diagnosisId}
                     onChange={(event) => changeDiagnosis(event.target.value as SpecifierBuilderDiagnosis)}
-                    className="min-h-12 w-full max-w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                    className={cn(fieldControlPlain, "max-w-full font-bold text-[color:var(--text-heading)]")}
                   >
                     {diagnosisPresets.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -488,7 +499,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                         <button
                           type="button"
                           onClick={() => openStep(step.id, true)}
-                          className="inline-flex min-h-tap items-center rounded-lg px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          className="inline-flex min-h-tap items-center rounded-lg px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                         >
                           Edit
                           <span className="sr-only"> {step.fullLabel}</span>
@@ -502,23 +513,19 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <button
                     type="button"
                     onClick={resetBuilder}
-                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   >
                     <RotateCcw className="h-4 w-4" aria-hidden />
                     {specifierBuilderCopy.review.startOver}
                   </button>
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
                     onClick={() => void copyWording()}
-                    className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    icon={copyState === "copied" ? Check : ClipboardCopy}
                   >
-                    {copyState === "copied" ? (
-                      <Check className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <ClipboardCopy className="h-4 w-4" aria-hidden />
-                    )}
                     {copyState === "copied" ? copyButton.copied : specifierBuilderCopy.review.copy}
-                  </button>
+                  </Button>
                 </div>
                 <p role="status" className="sr-only">
                   {copyState === "copied"
@@ -527,26 +534,43 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                       ? errorCopy.clipboardCopyFailed
                       : ""}
                 </p>
+
+                <div className="flex flex-wrap justify-end gap-2 border-t border-[color:var(--border)] pt-4">
+                  <Link
+                    href="/specifiers/map"
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
+                  >
+                    <Waypoints className="h-4 w-4" aria-hidden />
+                    Browse the map
+                  </Link>
+                  <Link
+                    href={
+                      selectedRecords.length >= 2
+                        ? pairCompareHref("/specifiers/compare", selectedRecords[0].slug, selectedRecords[1].slug)
+                        : "/specifiers/compare"
+                    }
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
+                  >
+                    <GitCompareArrows className="h-4 w-4" aria-hidden />
+                    Compare specifiers
+                  </Link>
+                </div>
               </div>
             </section>
           ) : null}
 
           {activeView !== "review" ? (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
               <button
                 type="button"
                 onClick={() => move(-1)}
                 disabled={activeIndex === 0}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
                 {specifierBuilderCopy.navigation.previous}
               </button>
-              <button
-                type="button"
-                onClick={() => move(1)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              >
+              <Button type="button" variant="primary" onClick={() => move(1)} trailingIcon={ArrowRight}>
                 {activeIndex === 0
                   ? specifierBuilderCopy.navigation.continueToFeatures
                   : activeIndex === 1
@@ -554,8 +578,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                     : activeIndex === 2
                       ? specifierBuilderCopy.navigation.continueToSeverity
                       : specifierBuilderCopy.navigation.reviewWording}
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </button>
+              </Button>
             </div>
           ) : null}
         </div>

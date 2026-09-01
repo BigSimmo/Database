@@ -167,7 +167,7 @@ async function mockStressData(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical KB",
+        appName: "PsychSift",
         projectId: "test-clinical-kb",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -334,14 +334,14 @@ async function openScopeControl(page: Page) {
     // No force-click: the mobile "+" menu is a bottom sheet that slides up, so wait
     // for the row to settle rather than clicking mid-animation (which lands on the
     // adjacent row).
-    await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    await dailyActions.getByRole("button", { name: /^Scope\b/ }).click();
     await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 20_000 });
 }
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB long-content stress coverage", () => {
+test.describe("PsychSift long-content stress coverage", () => {
   for (const viewport of [
     { name: "mobile", width: 320, height: 740 },
     // Scope opens in a sheet below lg; 1000px keeps the stress path stable on desktop.
@@ -355,7 +355,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);
-        await expect(dailyActions.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+        await expect(dailyActions.getByRole("button", { name: /Add document|Upload PDF/ })).toHaveCount(0);
         await expect(page.locator('input[type="file"]')).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(dailyActions).toBeHidden();

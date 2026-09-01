@@ -14,10 +14,10 @@ import {
 /**
  * The settings surface's section list and its search index.
  *
- * Both live here rather than inside `settings-dialog.tsx` so the dialog, the
- * desktop rail, the phone chip rail and the search field all read one source of
- * truth. `tests/settings-search-index.test.ts` pins the index against the rows
- * the dialog actually renders, so an added row cannot silently become
+ * Both live here rather than inside `settings-dialog.tsx` so the dialog,
+ * desktop rail and desktop search field all read one source of truth.
+ * `tests/settings-search.dom.test.tsx` pins the index against the rows the
+ * dialog actually renders, so an added row cannot silently become
  * unsearchable — the index is declarative on purpose, and that test is what
  * stops it drifting from the JSX.
  */

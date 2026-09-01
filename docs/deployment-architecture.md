@@ -1,6 +1,6 @@
 # Deployment Architecture
 
-Decision record for the production topology of Clinical KB. Written 2026-07-06,
+Decision record for the production topology of PsychSift. Written 2026-07-06,
 revised 2026-07-12 when the app went live on Railway. Companion documents:
 `docs/observability-slos.md` (SLOs + eval canary) and `docs/audit/capacity-review.md`
 (load model, first bottleneck, soak test).

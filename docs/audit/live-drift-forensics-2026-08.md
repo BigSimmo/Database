@@ -1240,7 +1240,7 @@ and the green live-drift dispatch also remain **pending** for the full phase.
 
 _Owner-authorised window against `Clinical KB Database` (`sjrfecxgysukkwxsowpy`) for index DDL plus
 a `supabase db push` of the guard migrations. Executed from a dedicated worktree; the main checkout
-`D:\Repos\Database` stayed linked to STAGING throughout. D4 is OFF (the Supabase GitHub auto-deploy
+`D:\Repos\Database` stayed linked to STAGING throughout. D4 is OFF *(superseded: see §D4 — SETTLED 2026-08-21; deploy-on-merge is ON)* (the Supabase GitHub auto-deploy
 was disabled before this window), so nothing in this task reached production on merge — every hosted
 change below was made by the explicit step that names it._
 
@@ -1969,7 +1969,7 @@ objects}`; classes `validation` (mandatory from 2026-08-18), `superseded`, `no_d
 
 _Worker session for `#Q5JHBJ` only (`#316`, `#231`, `#1K6T35` untouched). Pre-flight per `#292`: none of
 the seven open PRs (#2181, #2180, #2176, #2173, #2012, #2011, #2010) touches `supabase/**`,
-`scripts/check-drift.ts`, `tests/migration-history-guards.test.ts` or this file. D4 is OFF, so the only
+`scripts/check-drift.ts`, `tests/migration-history-guards.test.ts` or this file. D4 is OFF *(superseded: see §D4 — SETTLED 2026-08-21; deploy-on-merge is ON)*, so the only
 production writes are the explicit `db push` recorded below._
 
 #### Step 1 — classification of the fifteen (every one `validation`; none earned `superseded` or `no_ddl`)
@@ -2273,7 +2273,7 @@ is worse than the red job it replaces. When neither path works, the error names 
 _Superseded by the 2026-08-20 window section below: the migration was already applied on production
 before the window opened, and D4 is no longer treated as OFF. Kept as the pre-window record._
 
-The migration is **not deployed**. D4 is OFF, so merging does not apply it, and until it is applied
+The migration is **not deployed**. D4 is OFF _(superseded: see §D4 — SETTLED 2026-08-21; deploy-on-merge is ON)_, so merging does not apply it, and until it is applied
 `check:drift` will report `migration_history_versions` as a missing function — i.e. merging before the
 window trades one red for another. **Deploy from the branch first, then merge**, which is the order
 Phase 4 used (§Phase 4 completion). Staging needs the same migration by the Phase 2 method to hold the

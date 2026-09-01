@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Therapy } from "@/components/therapy-compass/data/types";
@@ -55,20 +55,39 @@ const therapy = {
 } as Therapy;
 
 describe("Recommend screen", () => {
-  it("owns an in-flow situation composer and grouped constraint chips", () => {
+  it("uses a minimal header and mobile scenario trigger with sheet editor", () => {
     bindings.recommendations = [{ therapy, score: 40, reasons: ["Matches the described presentation"] }];
     render(<RecommendScreen />);
 
-    expect(screen.getByRole("heading", { name: "Recommend a therapy" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Recommend Tool" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Clinical situation")).toHaveAttribute("id", "tc-rec-q");
+    expect(screen.getByRole("heading", { name: "Recommend" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recommend a therapy" })).not.toBeInTheDocument();
+
+    const trigger = screen.getByTestId("therapy-recommend-scenario-trigger");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    const panel = screen.getByTestId("therapy-recommend-scenario-panel");
+    expect(within(panel).getByLabelText("Clinical situation")).toBeInTheDocument();
+    expect(within(panel).getByRole("group", { name: "Setting" })).toBeInTheDocument();
+    expect(within(panel).getByRole("group", { name: "Time" })).toBeInTheDocument();
+    expect(within(panel).getByRole("group", { name: "Support" })).toBeInTheDocument();
+    expect(within(panel).getByRole("group", { name: "Cautions" })).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Outpatient" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(panel).getByText(/From the situation/)).toBeInTheDocument();
+    expect(within(panel).getByTestId("therapy-recommend-scenario-done")).toBeInTheDocument();
+  });
+
+  it("keeps desktop inline fieldsets and moves actions to the results toolbar", () => {
+    bindings.recommendations = [{ therapy, score: 40, reasons: ["Matches the described presentation"] }];
+    render(<RecommendScreen />);
+
     expect(document.querySelector("[data-therapy-recommend-composer]")).not.toBeNull();
-    expect(screen.getByRole("group", { name: "Setting" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Time" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Support" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Cautions" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Outpatient" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText(/From the situation/)).toBeInTheDocument();
+
+    expect(screen.getAllByRole("group", { name: "Setting" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("group", { name: "Time" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("group", { name: "Support" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("group", { name: "Cautions" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "Copy shortlist" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Refine in catalogue" })).toBeInTheDocument();
     expect(screen.getByText("1 ranked match")).toBeInTheDocument();

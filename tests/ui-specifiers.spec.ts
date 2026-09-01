@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type TestInfo } from "playwright/test";
+import { expect, test, type Locator, type Page, type TestInfo } from "playwright/test";
 
 const axeWcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const axeBlockingImpacts = new Set(["critical", "serious"]);
@@ -27,6 +27,25 @@ async function gotoApp(page: Page, path: string) {
     .first()
     .waitFor({ state: "visible", timeout: 15_000 })
     .catch(() => undefined);
+}
+
+/** `gotoApp` waits for the server-rendered shell, not for React to attach its handlers.
+ * A click that lands in that window is silently dropped, and the assertion that follows
+ * fails as "element(s) not found" for a heading the step change would have rendered.
+ * Same probe as `tests/ui-smoke.spec.ts` and `tests/ui-stress.spec.ts`. */
+async function waitForReactEventHandler(locator: Locator, eventName: "onClick") {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element, reactEventName) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.[reactEventName] === "function";
+        }, eventName),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -58,6 +77,37 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
+test("mode Search tab from compare lands on the specifiers search catalogue", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await gotoApp(page, "/specifiers/compare");
+
+  await expect(page.getByRole("heading", { name: "Compare two specifiers", exact: true })).toBeVisible();
+  const modeNav = page.getByTestId("mode-nav");
+  const searchTab = modeNav.getByRole("link", { name: "Search" });
+  await expect(searchTab).toBeVisible();
+  await expect(searchTab).toHaveAttribute("href", "/specifiers/search");
+  await expect(modeNav.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
+
+  await searchTab.click();
+  await expect(page).toHaveURL(/\/specifiers\/search(?:\?|$)/, { timeout: 30_000 });
+  expect(new URL(page.url()).searchParams.get("mode")).toBeNull();
+  await expect(modeNav.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
+});
+
+test("mode Search tab from builder lands on the specifiers search catalogue", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await gotoApp(page, "/specifiers/builder");
+
+  const modeNav = page.getByTestId("mode-nav");
+  const searchTab = modeNav.getByRole("link", { name: "Search" });
+  await expect(searchTab).toHaveAttribute("href", "/specifiers/search");
+  await expect(modeNav.getByRole("link", { name: "Build" })).toHaveAttribute("aria-current", "page");
+
+  await searchTab.click();
+  await expect(page).toHaveURL(/\/specifiers\/search(?:\?|$)/, { timeout: 30_000 });
+  expect(new URL(page.url()).searchParams.get("mode")).toBeNull();
+});
+
 test("searches clinical language without provenance fields and carries a result into wording", async ({
   page,
 }, testInfo) => {
@@ -82,6 +132,14 @@ test("searches clinical language without provenance fields and carries a result 
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "depressed but racing thoughts" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
   await expect(page.getByText(/Results ranked by text relevance/i)).toHaveCount(0);
+  // Smart natural-language queries default to the full catalogue lane. This journey
+  // asserts curated guide cards (Top match → wording), so pin Search in → guides first.
+  {
+    const guidesUrl = new URL(page.url());
+    guidesUrl.searchParams.set("scope", "guides");
+    await page.goto(guidesUrl.toString());
+  }
+  await expect(page).toHaveURL(/scope=guides/);
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
   const filterTrigger = page.getByTestId("specifier-filter-trigger-desktop");
   await filterTrigger.click();
@@ -369,7 +427,9 @@ test("guides choices into a reviewable and copyable diagnosis", async ({ page },
   const previous = page.getByRole("button", { name: "Previous", exact: true });
   await expect(previous).toBeDisabled();
 
-  await page.getByRole("button", { name: "Continue to features" }).click();
+  const continueToFeatures = page.getByRole("button", { name: "Continue to features" });
+  await waitForReactEventHandler(continueToFeatures, "onClick");
+  await continueToFeatures.click();
   await expect(page.getByRole("heading", { name: "Add episode features" })).toBeFocused();
   await page.getByText("Mixed features", { exact: true }).click();
   await page.getByRole("button", { name: "Continue to course" }).click();
@@ -426,7 +486,9 @@ test("keeps the guide usable with reduced motion and forced colors", async ({ pa
     .poll(() => page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches))
     .toBe(true);
   await expect.poll(() => page.evaluate(() => window.matchMedia("(forced-colors: active)").matches)).toBe(true);
-  await page.getByRole("button", { name: "Continue to features" }).click();
+  const continueToFeatures = page.getByRole("button", { name: "Continue to features" });
+  await waitForReactEventHandler(continueToFeatures, "onClick");
+  await continueToFeatures.click();
   await expect(page.getByRole("heading", { name: "Add episode features" })).toBeFocused();
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);

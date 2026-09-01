@@ -29,11 +29,18 @@ The source of truth is `completionOverlayDefinitions` in `src/components/caring-
 | `team-switcher`            | Header active-team context         | Bottom sheet      | Dialog            | Yes            | Escape, backdrop, close |
 | `draft-version-conflict`   | Draft/version guard                | Full-screen stage | Dialog            | No             | Escape, backdrop, close |
 
+## Dismissal model
+
+- **Standard dismissals (`Escape, backdrop, close`):** Standard modal overlays and inspection drawers allow clinician dismissal via pressing the `Escape` key, clicking the backdrop, or activating the close/cancel button. Closing restores focus to the triggering element.
+- **System gate dismissals (`Recovery action only`):** Non-dismissible blocking gates (such as `session-expiry` and `offline-banner`) deliberately disallow passive dismissal (`Escape`, backdrop tap, or close icon). They persist until the explicit recovery action is completed (e.g. re-authenticating at the session gate or regaining network connectivity).
+
 ## Feedback contract
 
 - Success: announce the synthetic in-memory outcome and update the visible plan/audit summary.
 - No change: state explicitly that no external or production action occurred.
 - Guard rejection: retain the surface, keep the action focusable with `aria-disabled`, provide the named reason, and do not mutate state.
 - Recovery: clear the scenario only after its recovery action succeeds.
+  - **Automated supervisor queues** (e.g. `offline-banner`): cleared automatically when background polling / connectivity supervisors confirm connection restoration.
+  - **Manual intervention triggers** (e.g. `session-expiry`): require explicit clinician / user intervention (such as re-authenticating credentials or clicking the dedicated recovery action) before the gate unblocks.
 - Modal close: restore focus to the originating action; overlay-only navigation must not move focus to the page heading.
 - Navigation: move natural focus to the new page heading and announce the destination.

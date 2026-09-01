@@ -42,7 +42,7 @@ export type UnavailableDestinationProps = {
  *
  * What actually holds Ruling 13 is the MODULE BOUNDARY, which does not decay:
  * nothing outside the `/caring-contacts` route segment imports this workspace —
- * the tools catalogue names it by href, never by import — so the Clinical KB
+ * the tools catalogue names it by href, never by import — so the PsychSift
  * dashboard references no chunk exclusive to it, whatever this directory grows
  * to. A screen that adds no client component of its own therefore adds no client
  * payload, and that is the property worth checking, not the number of files.

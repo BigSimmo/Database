@@ -4,7 +4,13 @@
 // programme/hours/emergency/crisis-support fragments, the closing statement, and the maximum
 // segment count — all live in message-rules.ts and change there, wholesale, without editing
 // this file. See message-rules.ts for why.
-import type { MessageType } from "./model";
+import {
+  TERMINAL_DISPATCH_REFUSED_CONTACT_STATES,
+  TERMINAL_PLAN_STATES,
+  type ContactState,
+  type MessageType,
+  type PlanState,
+} from "./model";
 import { PROVISIONAL_MESSAGE_RULES } from "./message-rules";
 
 // The GSM-7 default alphabet (basic set) and its extension table, per the SMS standard. These
@@ -16,6 +22,24 @@ const GSM_7_BASIC_CHARACTERS = new Set(
 const GSM_7_EXTENSION_CHARACTERS = new Set("\f^{}\\[~]|€");
 const GSM_7_SINGLE_SEGMENT_LIMIT = 160;
 const GSM_7_MULTI_SEGMENT_UNIT = 153;
+
+/**
+ * The largest septet count that still fits inside `segments` GSM-7 segments.
+ *
+ * It exists so that a caller sizing something that goes INTO a message — today, the preferred name
+ * `message-copy.ts` substitutes — can derive its own ceiling from this module's thresholds rather
+ * than writing the number down. A literal is correct only for the wording in front of whoever wrote
+ * it; this stays correct when the wording changes, which for a PROVISIONAL message still awaiting
+ * clinical approval is not hypothetical.
+ *
+ * The single-segment case is NOT `153 * 1`. A message that is never split carries 160 septets,
+ * because the concatenation header costing the other 7 exists only once there is more than one
+ * segment. Returning `153 * segments` for every input would understate a one-segment budget — a
+ * quiet answer, wrong in the safe direction, which is the kind that survives review unnoticed.
+ */
+export function maxSeptetsWithin(segments: number): number {
+  return segments <= 1 ? GSM_7_SINGLE_SEGMENT_LIMIT : GSM_7_MULTI_SEGMENT_UNIT * segments;
+}
 
 export type Gsm7Evidence = {
   valid: boolean;
@@ -60,6 +84,17 @@ export type GovernedMessageInput = {
    * other than passing this flag at the call site.
    */
   syntheticFictionalContactsAcknowledged?: boolean;
+  /**
+   * Contact state, if evaluated in the context of an existing contact record.
+   * Attempts to dispatch or evaluate messages for a contact that is already in a terminal state
+   * trigger deterministic refusal.
+   */
+  contactState?: ContactState;
+  /**
+   * Plan state, if evaluated in the context of an existing plan.
+   * Messages cannot be dispatched to plans that have ended (withdrawn, cancelled, completed).
+   */
+  planState?: PlanState;
 };
 
 export type MessageValidationIssue =
@@ -70,7 +105,8 @@ export type MessageValidationIssue =
   | { code: "closing-message-missing-ending-statement" }
   | { code: "closing-message-missing-support-information" }
   | { code: "contains-patient-mobile" }
-  | { code: "solicits-reply" };
+  | { code: "solicits-reply" }
+  | { code: "terminated-contact-dispatch-refused"; state: ContactState | PlanState };
 
 export type ValidationResult = { valid: true } | { valid: false; issues: MessageValidationIssue[] };
 
@@ -133,6 +169,14 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
 
   if (text.includes("?")) {
     issues.push({ code: "solicits-reply" });
+  }
+
+  if (input.contactState && TERMINAL_DISPATCH_REFUSED_CONTACT_STATES.includes(input.contactState)) {
+    issues.push({ code: "terminated-contact-dispatch-refused", state: input.contactState });
+  }
+
+  if (input.planState && TERMINAL_PLAN_STATES.includes(input.planState)) {
+    issues.push({ code: "terminated-contact-dispatch-refused", state: input.planState });
   }
 
   return issues.length === 0 ? { valid: true } : { valid: false, issues };

@@ -529,7 +529,12 @@ for (const match of tcReservedSegments) {
 // `tests/caring-contacts-workspace-shell.dom.test.tsx` independently pins that each of these is
 // rendered as a real link, which is what stops this builder from vouching for a dead entry.
 const workspaceShellSrc = readFileSync(path.join(srcRoot, "components/caring-contacts/workspace/shell.tsx"), "utf8");
-const workspaceHrefKeys = [...workspaceShellSrc.matchAll(/href:\s*CARING_CONTACTS_ROUTES\.(\w+)/g)].map(
+// Two spellings, both of them the same fact. `href: CARING_CONTACTS_ROUTES.x` is a row of the
+// frozen destination table; `href={CARING_CONTACTS_ROUTES.x}` is a control written directly in the
+// shell's JSX, which is what the primary "New plan" control became in Phase 2B Task 7 when the
+// screen behind it was built. Matching only the table spelling would have read that control as no
+// link at all and reported its route as an orphan.
+const workspaceHrefKeys = [...workspaceShellSrc.matchAll(/href(?::\s*|=\{)CARING_CONTACTS_ROUTES\.(\w+)/g)].map(
   (match) => match[1],
 );
 // Fail loudly rather than silently covering nothing: an empty parse here would let every built
@@ -549,6 +554,27 @@ for (const key of workspaceHrefKeys) {
   }
   builderTargets.add(pathOnly(href));
 }
+
+/**
+ * The Caring Contacts workspace's DYNAMIC page families, and the href builder each is reached by.
+ *
+ * `staticPageRoutes` below drops every route containing `[`, so the orphan guard that covers the
+ * rest of the workspace does not see these at all -- a dynamic detail page could ship with no
+ * inbound link anywhere and this file would stay green. That exemption is right for the app's
+ * older `[slug]` families, whose targets come from live or seeded data and whose interpolated
+ * hrefs cannot be pattern-matched usefully. It is not right here: this workspace reaches every
+ * destination through a named builder in `caring-contacts-routes.ts`, so "is it linked" is a
+ * question that CAN be answered statically, by finding a `<Link href={<builder>(...)}>` in a
+ * non-mockup source file.
+ *
+ * Registering a family here is deliberately mandatory rather than optional -- the assertion below
+ * fails on an unregistered one, so a new dynamic workspace route cannot be added without either
+ * naming its builder or consciously deciding not to.
+ */
+const CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS: ReadonlyMap<string, string> = new Map([
+  ["/caring-contacts/patients/[patientId]", "patientRoute"],
+  ["/caring-contacts/templates/[pathwayId]", "pathwayRoute"],
+]);
 
 /** A route is reachable if a builder emits it, or a non-mockup source file links to it. */
 function isReachable(route: string, selfFile: string) {
@@ -677,6 +703,56 @@ describe("route reachability", () => {
   // longer applies, so they are removed rather than repointed at the new path, which would
   // silently fail `toBeDefined()` on every run since the route can never appear in
   // `staticPageRoutes` again.
+  it("links every dynamic Caring Contacts page family from real in-app navigation", () => {
+    const families = collectSiteMapData()
+      .pageRoutes.map((route) => route.route)
+      .filter((route) => route.startsWith("/caring-contacts/") && route.includes("["));
+
+    // Fail loudly rather than vacuously: an empty list here would pass this test while proving
+    // nothing, which is exactly the silenced gate the workspace's own specs warn about.
+    expect(families.length, "no dynamic Caring Contacts page families were found - update this test").toBeGreaterThan(
+      0,
+    );
+
+    const routesModule = "src/lib/caring-contacts-routes.ts";
+    // Comments are stripped before the scan, and this is load-bearing rather than tidy: the
+    // patients directory's own module note contains the sentence "the control is
+    // `<Link href={patientRoute(...)}>`", which satisfied the regex below on PROSE. This check
+    // passed with the real link mutated away -- a check that could not fail. Documenting a link
+    // is not linking. Block comments and whole-line `//` comments only, so a protocol-relative
+    // URL inside a string cannot truncate the line it sits on.
+    const sources = sourceFiles
+      .filter((file) => file.rel !== routesModule)
+      .map((file) => ({
+        rel: file.rel,
+        text: readFileSync(path.join(repoRoot, file.rel), "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^[ \t]*\/\/[^\n]*$/gm, ""),
+      }));
+    const routesModuleSource = readFileSync(path.join(repoRoot, routesModule), "utf8");
+
+    for (const route of families) {
+      const builder = CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS.get(route);
+      expect(
+        builder,
+        `${route} is a dynamic Caring Contacts page with no registered href builder. Add it to ` +
+          "CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS with the builder that reaches it.",
+      ).toBeDefined();
+      expect(
+        routesModuleSource.includes(`export function ${builder}(`),
+        `${routesModule} exports no ${builder}(), so ${route} is registered against a builder that does not exist`,
+      ).toBe(true);
+
+      const linking = sources
+        .filter((file) => new RegExp(`<Link[^>]*href=\\{${builder}\\(`, "s").test(file.text))
+        .map((file) => file.rel);
+      expect(
+        linking,
+        `Orphan dynamic page route ${route}: no non-mockup source renders <Link href={${builder}(...)}>. ` +
+          "Wire it into real navigation (a caseload row, a launcher, a search result).",
+      ).not.toEqual([]);
+    }
+  });
 
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));

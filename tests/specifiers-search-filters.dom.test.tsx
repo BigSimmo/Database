@@ -32,6 +32,17 @@ describe("SpecifiersHomePage filters", () => {
     expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute("href", "/specifiers/search");
   });
 
+  it("defaults natural-language searches to their interpreted catalogue results", () => {
+    render(<SpecifiersHomePage query="Which specifier describes anxiety symptoms?" autoRunSearch />);
+
+    const catalogue = screen.getByRole("region", { name: "Full specifier catalogue matches" });
+    // Several disorder-specific catalogue rows share the same specifier label; assert the
+    // intended Smart match is present in the default catalogue lane rather than unique.
+    const matches = within(catalogue).getAllByRole("link", { name: /with anxious distress/i });
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0]).toBeVisible();
+  });
+
   it("filters the catalogue before applying the 24-item display limit", () => {
     const matches = searchSpecifierCatalog("disorder").filter(({ item }) => item.categoryId === "per");
     expect(matches.length).toBeGreaterThan(0);

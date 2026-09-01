@@ -36,7 +36,7 @@ the report; record that fetch separately because the report itself performs no p
 
 If a filter is given, filter the open items before rendering steps 2–3, then show only matching
 queued tasks and matching non-queued items: `/issues P1` (by priority), `/issues issues` /
-`/issues recs` / `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
+`/issues recs` / `/issues tasks` (by type), `/issues ward` (Ward Flow tasks only via `npm run issues:report -- --ward --json`), `/issues core` (repository/platform tasks excluding Ward Flow via `npm run issues:report -- --core --json`), `/issues <keyword>` (summary/detail substring match via `npm run issues:report -- --filter <keyword> --json`).
 
 `/issues wins` or `/issues agent-safe` runs
 `npm run issues:report -- --agent-safe-wins --json`. The classifier includes only queued work

@@ -109,7 +109,7 @@ describe("source authority metadata tooling", () => {
       source_path: "WA Health/EMHS/Registry/emhs-crisis-service.json",
       metadata: {
         source_kind: "registry_record",
-        publisher: "Clinical KB registry",
+        publisher: "PsychSift registry",
         jurisdiction: "WA/local clinical workspace",
       },
     });

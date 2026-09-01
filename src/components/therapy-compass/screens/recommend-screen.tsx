@@ -1,15 +1,17 @@
 "use client";
 
+import { useId } from "react";
 import { Check, Copy, Search, Shield, Sparkles } from "lucide-react";
 
 import { cardPadding, cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
-import { cn, eyebrowText, pageContainer } from "@/components/ui-primitives";
+import { cn, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
-import { ChoiceChip } from "@/components/ui/chip";
 
 import { useTcBindings } from "../bindings";
-import { RECOMMEND_CONSTRAINT_GROUPS, RECOMMEND_CONSTRAINTS } from "../data/select";
+import { RECOMMEND_CONSTRAINTS } from "../data/select";
+import { RecommendScenarioControl } from "../recommend-scenario-control";
+import { RecommendScenarioFields } from "../recommend-scenario-fields";
 import { ResultCard } from "../therapy-card";
 import { EmptyState, LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
@@ -20,6 +22,7 @@ export function RecommendScreen() {
   const ranked = b.recommendations;
   const top = ranked[0];
   const rest = ranked.slice(1);
+  const desktopIdPrefix = useId();
 
   const copyShortlist = () =>
     copy(
@@ -39,85 +42,39 @@ export function RecommendScreen() {
       "shortlist",
     );
 
+  const matchLabel = b.loading
+    ? "Ranking clinical matches…"
+    : `${ranked.length} ranked ${ranked.length === 1 ? "match" : "matches"}`;
+
+  const scenarioBindings = {
+    recQuery: b.recQuery,
+    setRecQuery: b.setRecQuery,
+    isConstraintActive: b.isConstraintActive,
+    isConstraintInferred: b.isConstraintInferred,
+    toggleConstraint: b.toggleConstraint,
+  };
+
   return (
     <section data-screen-label="Recommend" className={pageContainer}>
       <PageHeader
-        className="mb-6"
-        eyebrow="Therapy Compass"
-        icon={Sparkles}
-        title="Recommend a therapy"
-        description="Describe the clinical situation. Catalogue matches rank by presentation, setting, time and cautions — advisory, not a protocol. Confirm fit and review status before use."
+        className="mb-5 sm:mb-6"
+        title="Recommend"
+        description="Rank catalogue therapies against a clinical scenario — advisory only."
+      />
+
+      <RecommendScenarioControl
+        {...scenarioBindings}
+        idPrefix="tc-mobile"
+        loading={b.loading}
+        matchCount={ranked.length}
       />
 
       <form
         data-therapy-recommend-composer
-        className={cn(cardSurface, cardPadding.standard, "mb-8 sm:p-5")}
+        className={cn(cardSurface, cardPadding.compact, "mb-6 hidden sm:mb-8 sm:block sm:p-4")}
         onSubmit={(event) => event.preventDefault()}
       >
-        <label htmlFor="tc-rec-q" className="block text-xs font-semibold text-[color:var(--text-heading)]">
-          Clinical situation
-        </label>
-        <textarea
-          id="tc-rec-q"
-          value={b.recQuery}
-          onChange={(event) => b.setRecQuery(event.target.value)}
-          placeholder="e.g. 28-year-old with panic attacks in outpatient clinic, 15 minutes available, no trauma work yet"
-          className="mt-2 w-full min-h-20 resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3.5 py-3 text-base-minus leading-normal text-[color:var(--text)]"
-        />
-
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {RECOMMEND_CONSTRAINT_GROUPS.map((group) => {
-            const chips = RECOMMEND_CONSTRAINTS.filter((constraint) => constraint.group === group.id);
-            return (
-              <fieldset key={group.id} className="min-w-0">
-                <legend className={cn(eyebrowText, "mb-2 px-0")}>{group.label}</legend>
-                <div className="flex flex-wrap gap-2">
-                  {chips.map((constraint) => {
-                    const active = b.isConstraintActive(constraint.key);
-                    const inferred = b.isConstraintInferred(constraint.key);
-                    return (
-                      <ChoiceChip
-                        key={constraint.key}
-                        pressed={active}
-                        onPressedChange={() => b.toggleConstraint(constraint.key)}
-                        title={inferred ? `${constraint.label} — inferred from the situation` : undefined}
-                      >
-                        {constraint.label}
-                      </ChoiceChip>
-                    );
-                  })}
-                </div>
-              </fieldset>
-            );
-          })}
-        </div>
-
-        {RECOMMEND_CONSTRAINTS.some((constraint) => b.isConstraintInferred(constraint.key)) ? (
-          <p className="mt-3 text-xs text-[color:var(--text-muted)]">
-            From the situation: accent chips were inferred from the typed presentation. Toggle any chip to override.
-          </p>
-        ) : null}
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
-            {b.loading
-              ? "Ranking clinical matches…"
-              : `${ranked.length} ranked ${ranked.length === 1 ? "match" : "matches"}`}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              icon={copied === "shortlist" ? Check : Copy}
-              onClick={copyShortlist}
-              disabled={!ranked.length}
-            >
-              {copied === "shortlist" ? "Copied" : "Copy shortlist"}
-            </Button>
-            <Button variant="secondary" icon={Search} onClick={b.goSearch}>
-              Refine in catalogue
-            </Button>
-          </div>
-        </div>
+        <RecommendScenarioFields {...scenarioBindings} idPrefix={desktopIdPrefix} />
       </form>
 
       {b.loading && !top ? (
@@ -130,8 +87,28 @@ export function RecommendScreen() {
         />
       ) : (
         <>
-          <div className="mb-3.5 text-base-minus font-semibold text-[color:var(--text-heading)]">
-            Ranked clinical matches
+          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">
+                Ranked clinical matches
+              </div>
+              <p className="mt-0.5 text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
+                {matchLabel}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                icon={copied === "shortlist" ? Check : Copy}
+                onClick={copyShortlist}
+                disabled={!ranked.length}
+              >
+                {copied === "shortlist" ? "Copied" : "Copy shortlist"}
+              </Button>
+              <Button variant="secondary" icon={Search} onClick={b.goSearch}>
+                Refine in catalogue
+              </Button>
+            </div>
           </div>
           <div className="flex flex-col gap-3">
             <ResultCard
@@ -153,7 +130,7 @@ export function RecommendScreen() {
           </div>
 
           <div className="mt-5 flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
-            <Shield aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
+            <Shield aria-hidden="true" className="size-icon-sm text-[color:var(--decoration-soft)]" />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
         </>

@@ -150,7 +150,7 @@ export function AuthPanel() {
   return (
     <form
       onSubmit={submit}
-      className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]"
+      className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]"
     >
       <div className="border-b border-[color:var(--border)]/70 p-4 sm:p-5">
         <div className="flex items-center gap-3">
@@ -312,7 +312,7 @@ function ProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft"
 function AuthBenefit({ icon: Icon, label }: { icon: typeof SlidersHorizontal; label: string }) {
   return (
     <span className="flex min-w-0 flex-col items-center gap-1 text-center text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
-      <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" />
+      <Icon aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" />
       <span>{label}</span>
     </span>
   );

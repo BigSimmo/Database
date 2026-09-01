@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "8b92561e9023c221714980facb878d575827b4b7",
-    "committed_at": "2026-08-26T16:36:11+00:00"
+    "sha": "fede4029f3fe4976f20a2e59ec85351a674cc2ed",
+    "committed_at": "2026-08-31T15:13:42+08:00"
   },
   "routes": {
     "modes": [
@@ -114,8 +114,48 @@
         "area": "product"
       },
       {
+        "path": "/caring-contacts/guidance",
+        "file": "src/app/caring-contacts/guidance/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/caring-contacts/patients",
         "file": "src/app/caring-contacts/patients/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/patients/[patientId]",
+        "file": "src/app/caring-contacts/patients/[patientId]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/plans/new",
+        "file": "src/app/caring-contacts/plans/new/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/reports",
+        "file": "src/app/caring-contacts/reports/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/schedule",
+        "file": "src/app/caring-contacts/schedule/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/team",
+        "file": "src/app/caring-contacts/team/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/templates",
+        "file": "src/app/caring-contacts/templates/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/templates/[pathwayId]",
+        "file": "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "area": "product"
       },
       {
@@ -311,6 +351,11 @@
       {
         "path": "/mockups/answer-home-proposal",
         "file": "src/app/mockups/answer-home-proposal/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/answer-loading-redesign",
+        "file": "src/app/mockups/answer-loading-redesign/page.tsx",
         "area": "mockup"
       },
       {
@@ -579,6 +624,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/document-image-status",
+        "file": "src/app/mockups/document-image-status/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/document-navigation-contract",
         "file": "src/app/mockups/document-navigation-contract/page.tsx",
         "area": "mockup"
@@ -674,38 +724,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/favourites-command-console",
-        "file": "src/app/mockups/favourites-command-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-command-desk",
-        "file": "src/app/mockups/favourites-command-desk/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-library-view",
-        "file": "src/app/mockups/favourites-library-view/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/favourites-phone-perfected",
         "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-review-console",
-        "file": "src/app/mockups/favourites-review-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-board",
-        "file": "src/app/mockups/favourites-set-board/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-navigator",
-        "file": "src/app/mockups/favourites-set-navigator/page.tsx",
         "area": "mockup"
       },
       {
@@ -1206,8 +1226,16 @@
         "file": "src/app/api/caring-contacts/plans/[planId]/route.ts"
       },
       {
+        "path": "/api/caring-contacts/plans/[planId]/contacts/[contactId]",
+        "file": "src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/referrals",
         "file": "src/app/api/caring-contacts/referrals/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/schedule",
+        "file": "src/app/api/caring-contacts/schedule/route.ts"
       },
       {
         "path": "/api/caring-contacts/service-state",
@@ -1216,6 +1244,10 @@
       {
         "path": "/api/caring-contacts/session",
         "file": "src/app/api/caring-contacts/session/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/team",
+        "file": "src/app/api/caring-contacts/team/route.ts"
       },
       {
         "path": "/api/caring-contacts/training",
@@ -1290,8 +1322,8 @@
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
       {
-        "path": "/api/documents/signed-urls",
-        "file": "src/app/api/documents/signed-urls/route.ts"
+        "path": "/api/documents/images/batch",
+        "file": "src/app/api/documents/images/batch/route.ts"
       },
       {
         "path": "/api/eval-cases",
@@ -1388,11 +1420,11 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 194,
-      "product_pages": 55,
-      "mockup_pages": 139,
+      "pages": 198,
+      "product_pages": 63,
+      "mockup_pages": 135,
       "redirects": 17,
-      "api": 57
+      "api": 60
     }
   },
   "documentation": {
@@ -1406,6 +1438,41 @@
         "path": "docs/agents-guide.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/agents/codex-cloud-environment.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-dependency-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-desktop-worktree-setup.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-github-review.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-review-throttling.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
       },
       {
         "path": "docs/answer-page-redesign-handover.md",
@@ -1680,6 +1747,11 @@
       {
         "path": "docs/branch-review-ledger.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/brand/psychsift-logo.md",
+        "section": "brand",
         "catalogued": true
       },
       {
@@ -2113,12 +2185,207 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-pr-body.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/merge-checklist.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-brief.md",
         "section": "caring-contacts",
         "catalogued": false
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-2-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-17-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-18-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-20-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-21-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2153,6 +2420,66 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2163,7 +2490,62 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-exit-only-trigger-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-round-2-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-privacy-url-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-safety-fixes-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/whole-branch-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-timeline-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-wireframe-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2343,6 +2725,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/FIX-GUIDE.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
         "path": "docs/design-system/GATES.md",
         "section": "design-system",
         "catalogued": true
@@ -2355,7 +2742,7 @@
       {
         "path": "docs/design-system/README.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/SPEC.md",
@@ -2363,8 +2750,53 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/sweep-2026-08-29-structure.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-2026-08-29-unenforced-rules.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-2026-08-29-visual.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-duration-display.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-missing-values-round-2.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-missing-values.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-tap-floors-round-2.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-tap-floors.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/TOKENS.md",
         "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/development-speed-playbook.md",
+        "section": "root",
         "catalogued": true
       },
       {
@@ -2388,7 +2820,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
+        "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
         "section": "evidence",
         "catalogued": false
       },
@@ -2493,6 +2935,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/operations-runbook.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/operator-apply-performance-latency-remediation.md",
         "section": "root",
         "catalogued": true
@@ -2501,6 +2948,11 @@
         "path": "docs/operator-backlog.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/operator-supabase-branching-cap.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3398,6 +3850,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-clinician-check.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-complete-ledger.md",
         "section": "root",
         "catalogued": false
@@ -3688,7 +4145,22 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-6-7-decisions.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow-phase-6-7-kickoff-prompt.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-pinned-clock-handover.md",
         "section": "root",
         "catalogued": false
       },
@@ -3733,10 +4205,16 @@
         "name": "adr"
       },
       {
+        "name": "agents"
+      },
+      {
         "name": "archive"
       },
       {
         "name": "audit"
+      },
+      {
+        "name": "brand"
       },
       {
         "name": "care-plan"
@@ -3785,10 +4263,10 @@
       }
     ],
     "counts": {
-      "documents": 466,
-      "catalogued": 102,
-      "uncatalogued": 364,
-      "sections": 18
+      "documents": 554,
+      "catalogued": 109,
+      "uncatalogued": 445,
+      "sections": 20
     }
   },
   "test_health": {
@@ -3800,6 +4278,230 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-31",
+        "ref": "codex/answer-surface-compact-20260830",
+        "head": "705561dd1f9b1ac8f72c7a4858e3819b9ee5a40e",
+        "scope": "compact answer source safety and library UI",
+        "outcome": "No P0-P2 findings; compact source status, answer utilities, safety row, and library placement ready for PR",
+        "checks": "13 focused DOM tests passed; targeted Chromium 1/1 passed; lint and typecheck passed; build passed 1998 routes; design contracts passed; production-readiness CI READY; offline RAG 628/628 and adversarial 25/25 passed; full unit 11656 passed with 6 unrelated Windows Claude Cloud harness exit-127 failures; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "codex/chat-smart-natural-mode-search-pr-2480-landed-verify",
+        "head": "f64762dd6b16bd90e94773b1dc892760180747e1",
+        "scope": "Smart natural-language catalogue search separation",
+        "outcome": "no P0/P1 findings; ready for PR",
+        "checks": "208 focused tests; 53 post-merge tests; production Chromium 4/4; typecheck; lint; docs links; diff check"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "core_rag_security_hub",
+        "head": "d39db0ec72583680f666078a4a366083bf37fcf9",
+        "scope": "PR Group 2: Core RAG, Security, DB Functions & Developer Hub (#DHAR98, #0JJ4RD, #2X46NY, #S4R2W3, #N8B176, #VKH7N1, #CJCH2E, #FDST2Q, #XKS6FD, #ZW43ZT, #G693BZ)",
+        "outcome": "PASS: All 11 Group 2 tasks verified clean against database guards, RAG quality gates, DOM component tests, full typecheck, and Prettier formatting with zero regressions.",
+        "checks": "npm run check:migration-role, npm run check:function-grants, npm run check:owner-scope, npm run typecheck, vitest run tests/developer-hub-components.dom.test.tsx tests/developer-ingestion-page.dom.test.tsx tests/documents-is-public.test.ts tests/supabase-schema.test.ts tests/extractive-answer-formatting.test.ts (247/247 passed), npm run format"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "gemini/pr-group-3-ui-a11y-caring-contacts-ward-flow (PR #2479)",
+        "head": "8ff3f26c6e4f5302c1883f940f4cc1b22fbeec5c",
+        "scope": "Run PR sweep: existing unresolved review threads",
+        "outcome": "0 → 2 threads resolved: useful-actions disclosure semantics, workspace route registration assertion",
+        "checks": "Focused Vitest 18/18; typecheck passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "7190c2ccd87dfc25e49e488b22705fb6b7b60931",
+        "scope": "Smart natural search CI reconciliation exact-tree review",
+        "outcome": "No open P0/P1/P2 findings; maintainability blocker fixed by cohesive extraction",
+        "checks": "maintainability budgets; 86 focused Vitest; provider-free Chromium Smart suite; lint; typecheck; formatting; diff check"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "8de6dae0e541166dad23523ca3a4e2340eb6c217",
+        "scope": "Smart natural search exact-tree implementation and review",
+        "outcome": "P2 findings fixed; no open P0/P1/P2 findings",
+        "checks": "105 focused contracts; enabled Chromium 6 passed/1 skipped; default-off Chromium 1 passed; production build passed; PR-local 11616 passed with 6 exact-main Windows Bash failures"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "b762e1363b9bbb993f0f74a9e00a2c2ccb1f56be",
+        "scope": "Smart natural search final CI test correction review",
+        "outcome": "No open P0/P1/P2 findings; stale extracted-owner tests corrected",
+        "checks": "6 focused Vitest; DSM production Chromium; formatting; diff check"
+      },
+      {
+        "date": "2026-08-29",
+        "ref": "PR-2454",
+        "head": "9e27b7b779443eb9d140c5eaf562af578f5ec6e4",
+        "scope": "CI triage and unresolved review findings",
+        "outcome": "Confirmed PR-specific repo-awareness drift and two P2 documentation findings; corrected the generated snapshot, Windows LCP delta, and Linux-only qualification. Main coverage/browser failures did not reproduce on the PR head.",
+        "checks": "PR/base Actions logs; repo-awareness check; outstanding-issues check; docs links; targeted Prettier; arithmetic verification"
+      },
+      {
+        "date": "2026-08-29",
+        "ref": "PR-2457",
+        "head": "0e5631ba6a98b22ef1ddf5557e6ce38b824e78b2",
+        "scope": "PR #2457 review-and-fix",
+        "outcome": "Fixed repository breakpoint coverage, conservative same-band Tailwind cascade handling, and the stale compact-disclosure UI assertion; no other material PR-introduced defects confirmed.",
+        "checks": "57 focused Vitest tests passed; design-system contract/adoption/sync passed; typecheck passed; local Playwright unavailable because pinned Chromium is not installed, with exact-head Actions reproducing the corrected 42px assertion."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "2398",
+        "head": "4228b6f91a1d130b6751fd60bdee86e673cb6ddd",
+        "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
+        "outcome": "FIXED",
+        "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "claude/home-page-scroll-stability-cbnak6",
+        "head": "c917e079635ee17c3059205b5356b4c51e6362cf",
+        "scope": "Phone defects from device screenshots: safety-findings sheet scroll lock and flex-clipped card; stopped-answer notice placement plus the never-clearing pending skeleton; phone answer-results bottom padding pb-4 -> pb-10; sidebar Documents entry repointed to /?mode=documents. 11 files, +118/-39.",
+        "outcome": "Merged to main 2026-08-27 as squash 28b1fef (PR #2422). Squash verified by content: git diff c917e079 28b1fef is empty, so nothing was dropped by the auto-merge.",
+        "checks": "CI green on head c917e079 (run 33072264164): Static PR checks, Build + bundle budget, Unit coverage, Safety and config, Caring Contacts, Production UI critical and Production UI 1/2/3 (Chromium journeys), Lighthouse budget, PR required - all success. Local before push: typecheck clean; lint clean at --max-warnings 0; full offline unit suite 10,814 passed with 3 pre-existing failures confirmed identical on a stashed tree. verify:ui and the verify:phone-chrome browser stages NOT run in this container - the lock pins Playwright chromium-1234, the image ships chromium-1194, and the #255 guard forbids substituting; browser proof delegated to CI Production UI. Lighthouse desktop-root LCP read high across four branch runs (961 FAILED, then 925/900/852 passing, vs main 748/705) and is recorded as its own unresolved ledger item rather than treated as cleared."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "6e5531ce7724c63b8c29bd880141ea87c7cd5fd8",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (main advanced 5 commits past merge base to a DSM comparison-page redesign #2409 that conflicted with this PR's DSM search/compare changes); 0 unresolved review threads (5 PR comments were all bot rate-limit/housekeeping noise, no actionable findings); CI had not yet run on a clean merge. After: merged origin/main resolving real content conflicts in 5 files (dsm-compare-chrome.tsx, dsm-comparison-page.tsx, dsm-page-header.tsx, mode-secondary-navigation.ts, tests/ui-route-coverage.spec.ts) by combining both sides' intent (kept main's compact-header redesign and null-id-filter fix, kept this PR's dsmSearchHref routing, compact compare starters, and showEmptyState/slotLayout opt-ins) rather than blanket ours/theirs; pushed merge commit 6e5531ce. No review threads needed action. CI re-triggered on the new head (run 33051601015) and was still in progress (Lint/Unit coverage/Build/4x Production UI shards/Lighthouse running) after ~34 minutes of observation with no new job-log progress in the final two snapshots; left for a human or a later session to confirm green.",
+        "checks": "npm run typecheck (clean, gate-receipts recorded pass), npm run lint (clean, gate-receipts recorded pass), npx vitest run tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-comparison-page.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/information-page-shell.dom.test.tsx (75 passed), npm run format (no changes needed). No provider-backed checks run; hosted CI run 33051601015 still in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "958a6b4f7c969f07cb118ccc0c581939fd81bcab",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty again (main advanced one more commit, #2416, past the prior sweep's merge, re-conflicting the generated repo-awareness snapshot); required CI red on the prior head (5b22edb2) with Production UI (1) failing tests/ui-route-coverage.spec.ts 'DSM home renders responsively and opens comparison' (expected /dsm/compare$ but got /dsm/compare?q=major+depressive, because the prior sweep's merge silently dropped a same-PR fix commit's dropped $ anchor while keeping its other hunks) and PR mergeability failing on the dirty state; 0 unresolved review threads (6 PR comments were all bot rate-limit/housekeeping noise: Codex usage limit, CodeRabbit review limit, Cursor Bugbot limit x2, Supabase preview skip, CI-triage bot). After: merged origin/main resolving the sole conflict (data/repo-awareness-snapshot.json, a generated file) by regenerating via npm run snapshot:repo-awareness rather than hand-editing; separately fixed the real route-coverage regression by dropping the stale $ anchor on the /dsm/compare URL assertion (restoring intended behaviour: Compare now carries q/ids from DSM search, matching this PR's own preserve-filters design) — both included in merge commit 958a6b4f. No review threads needed action (still zero unresolved). Pushed 958a6b4f; new CI run 33062342217 kicked off on the synced head and was still in progress at time of recording; left for a human or later session to confirm green.",
+        "checks": "npm run lint (clean, gate-receipts recorded pass), npm run typecheck (clean, gate-receipts recorded pass), npm run test -- tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/dsm-comparison-page.dom.test.tsx (68 passed, gate-receipts recorded pass). git merge-tree confirmed the only conflict was the generated snapshot file before merging. No provider-backed checks run; hosted CI run 33062342217 in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "00356908c096c9bdf462d9da85b1157f9e7c70b9",
+        "scope": "Resolve CodeRabbit review comment",
+        "outcome": "CodeRabbit flagged a real SSR/client hydration mismatch: usePhoneMedia's useState lazy initializer read window.matchMedia directly on the client's first render, which could disagree with the server-rendered false and mismatch CompareIdsChrome/CompareSlotStrip's initial hybrid-layout branch. Fixed by switching usePhoneMedia to useSyncExternalStore with a server snapshot fixed to false, matching the repo's existing useIndexingAdminDesktopLayout pattern. Replied and resolved the thread.",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/dsm-compare-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx -- 18 passed (53 passed on the full focused set before format pass); npx tsc --noEmit -- clean; npx eslint on the changed file -- clean; npx prettier --check -- clean after --write. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "4042bdd7af523746d4c9b7a9c6a732e36c886b7d",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (real conflict in src/components/dsm/dsm-compare-chrome.tsx vs main's #2409 DSM redesign), CI red (Build/Static PR checks/Production UI x4/Lighthouse all failing on one root-cause TS2783 duplicate-prop typecheck error in the PR's own new test), 0 unresolved review threads (all 5 PR comments were bot noise: Codex/CodeRabbit/Bugbot usage-limit notices and a CI-triage bot comment). After: merged origin/main cleanly (dsm-compare-chrome.tsx conflict resolved by combining HEAD's phoneLayout/slotSummaryLabel props with main's onCommit, verified equivalent since idsCompareHref already null-filters internally), fixed the duplicate actionLabel JSX prop in tests/compare-ids-chrome.dom.test.tsx (removed the redundant explicit prop since chromeProps spread already supplies it and the test asserts nothing about its value), pushed 2 commits (13efa061 merge, 4042bdd7 fix). No review threads needed action. New CI run (33051244071) at 4042bdd7 still in_progress after 30+ min observation window (PR mergeability + PR policy + Safety and config checks + Caring Contacts database already green); Build/Static PR checks/Unit coverage/Production UI x3/Production UI critical/Lighthouse budget not yet settled — deferred to the user per babysit budget, run: https://github.com/BigSimmo/Database/actions/runs/33051244071",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts tests/dsm-comparison-page.dom.test.tsx -- 6 files / 53 passed; npm run typecheck -- passed after fix (5604 input files); npx eslint on touched files -- clean; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "4af5895f48cca785333272ece41e25bcaccb7441",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Static PR checks failing (check:repo-awareness-snapshot: committed snapshot behind — review_state differs) -> merged origin/main@603da96 (clean, no conflicts) then regenerated snapshot via npm run snapshot:repo-awareness and committed; 0 unresolved review threads found (none to fix/reply/resolve). Local full gate now green. Note: main advanced again mid-sweep to be65b8a1b (PR #2415, same DSM/compare files) producing a real post-push content conflict — left unresolved for the user, not auto-resolved.",
+        "checks": "npm run verify:cheap equivalent set run piecewise: check:repo-awareness-snapshot (fail -> pass after regenerate), full static-pr check chain (34 gates, all pass), npm run lint (pass), npm run typecheck (pass), npm run test (893 files / 10824 tests passed, 4 skipped — two initially-failing tests (clinical-hazard-controls.test.ts, privacy-readiness-contract.test.ts) were a local shallow-clone ancestry artifact, confirmed pre-existing on plain origin/main and resolved by git fetch --deepen, not a code fix). No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "871df2793ccb63ffe92f70225e8be64e25619da7",
+        "scope": "Resolve merge conflict against origin/main (requested follow-up after Run PR sweep)",
+        "outcome": "Real content conflict in compare-ids-chrome.tsx, compare-slot-strip.tsx, dsm-compare-chrome.tsx, and tests/ui-route-coverage.spec.ts caused by PR #2415 (already merged) independently reworking DsmCompareChrome to a compact horizontal rail + separate starter-chip row, while this PR added a phoneLayout=hybrid pip-summary/2x2-grid design to the same shared CompareIdsChrome/CompareSlotStrip components. Resolved by merging both prop sets into the shared components (showEmptyState/slotLayout from main plus phoneLayout/slotSummaryLabel from this PR, now coexisting) and, for the one screen both PRs redesigned (DSM compare), keeping origin/main's already-shipped compact-rail design rather than overwriting it — so this PR's hybrid layout still lands in full for Therapy compare (untouched by #2415), while DSM compare keeps its most recently reviewed design. Regenerated data/repo-awareness-snapshot.json. Pushed as merge commit 871df2793.",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/dsm-compare-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts -- 53 passed; npx tsc --noEmit -- clean; npx eslint on the 4 resolved files -- clean; npm run check:repo-awareness-snapshot -- in step; npx prettier --check on the 4 resolved files -- all match. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "c718360809aa7bd0d3b681329e34bbb2be633bcb",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: Static PR checks failing (check:repo-awareness-snapshot drifted review_state), Production UI (1) failing (tests/ui-route-coverage.spec.ts DSM compare removal test expected the pre-hybrid-layout Choose-at-least-two-diagnoses heading, which this PR's own new hybrid-phone suppressEmptyState/showOneMoreHint logic intentionally replaces with an Add-one-more-to-compare hint at phone width), PR required aggregate failing as a result. No unresolved review threads existed (0 review threads; all 7 PR comments were bot usage-limit/CI-triage noise). Branch was not behind main (base 3265231 == origin/main tip). After: regenerated data/repo-awareness-snapshot.json via npm run snapshot:repo-awareness and updated the Playwright assertion to expect compare-slot-strip-one-more-hint instead of the old heading, matching the new intended UX already covered by tests/compare-slot-strip.dom.test.tsx. No drift merge needed (branch was current with main). No review threads to address.",
+        "checks": "npm run check:repo-awareness-snapshot (pass after regen), npm run test -- tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts (5 files, 52 passed), npm run typecheck (pass), npx eslint tests/ui-route-coverage.spec.ts --max-warnings 0 (pass, 0 findings), npx prettier --check tests/ui-route-coverage.spec.ts data/repo-awareness-snapshot.json (pass). No provider-backed checks run (no verify:ui/verify:release/eval:* executed)."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "fcfaa11a07bea6c04c4c4c1b046fb0ccaca469ba",
+        "scope": "Run PR follow-up: second merge-drift + real bug fix + PR-policy fix",
+        "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated). Also found and fixed a real regression from the earlier sweep's conflict resolution: DsmCompareChrome's onCommit had dropped ids.filter(Boolean) that origin/main carries, producing ids=,bipolar-ii-disorder after removing the first of two selections instead of ids=bipolar-ii-disorder -- exactly the failure tests/ui-route-coverage.spec.ts caught in CI. Restored the filter to match main. Added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/. No review threads outstanding.",
+        "checks": "npx vitest run tests/compare-catalog.test.ts tests/compare-ids-chrome.dom.test.tsx tests/compare-slot-strip.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts -- 57 passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "05e00976ab04796d7f44593b692f46cb8919943e",
+        "scope": "Run PR follow-up: second merge-drift + PR-policy fix",
+        "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated); added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/, a path scripts/pr-policy.mjs treats as clinical-risk. No review threads outstanding.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "be2d9b0291965258e5933006dc9b914961bb0dc3",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "CI was already green pre-sweep (PR required: success on d3f39c4); branch was already current with main (0 behind), so no drift merge needed. Fixed 3 unresolved CodeRabbit review threads: (1) pathway/step 'linked steps' counts used total steps.length instead of counting only steps with a matched therapySlug — added pathwayLinkedStepCount() and wired it into pathway-review-label.ts, pathway-picker-sheet.tsx (x2), pathway-step-stack.tsx; (2) ui-therapy-pathways.spec.ts readCautionGeometry substituted +/-Infinity for a missing caution/dock element, masking a broken overlap assertion — now throws if either is absent; (3) the 'Change pathway' Playwright test only re-clicked the already-active Anxiety pathway row, which could pass with a broken selectPathway — now selects Mood pathway, asserts the URL/heading changed, then switches back to Anxiety before the anxiety-scoped scroll assertions. All 3 threads replied with commit SHA and resolved.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts tests/therapy-compass-pathways.test.ts -- 34 passed; npm run lint -- exit 0 (gate-receipts pass); npm run typecheck -- exit 0, run foreground twice, gate-receipts recorded pass for typecheck:internal (5613 input files); npm run format -- applied (1 file reformatted, amended into commit); no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "d2bbc44f084707d8844485c67c8cd76d57e04b39",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (conflict vs main), all real CI green on prior head (19fca0d), 0 unresolved review threads (4 PR comments were all automated bot usage-limit/status noise, no actionable findings). After: merged origin/main (b183dc65) into branch; only conflicts were generated files docs/design-system/COMPONENTS.md and docs/design-system/adoption-manifest.json, resolved by regenerating via 'node scripts/generate-design-system-adoption.mjs --write' (no manual edits); PR mergeability check now succeeds. No review threads needed action (none existed). No CI fix needed beyond the merge itself.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; npm run check:design-system-adoption -- design system adoption checked: 55 components, 76 roots; npm run check:playwright-pr-shards -- PR UI shard parity OK: 31 production specs across 3 groups; pre-commit hook ran docs:check-inventory and docs:check-index -- both current. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "f8537abbef36b5e9f72eb1c745f565253a276153",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: PR required failing (Static PR checks red on check:repo-awareness-snapshot — committed data/repo-awareness-snapshot.json review_state was stale after prior sweep's ledger/docs commits); 0 unresolved review threads; branch already contained origin/main (no drift). After: ran npm run snapshot:repo-awareness to regenerate the snapshot, verified npm run check:repo-awareness-snapshot and npm run format:changed pass, committed and pushed f8537ab. All other required jobs (Build, Unit coverage, Production UI critical, Safety and config checks, Production UI shards 1-3, Lighthouse budget) were already green before this fix and untouched by it. No review threads existed to address. No main-sync needed (branch already up to date).",
+        "checks": "npm run check:repo-awareness-snapshot (PASS, reproduces prior CI failure then passes after regen); npm run format:changed (PASS); npm run snapshot:repo-awareness (regenerated data/repo-awareness-snapshot.json); no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/tooling-hooks-ci-invariants",
+        "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
+        "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
+        "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
+        "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep",
+        "head": "19ee085b1cc952e8c40e893fb2fce99538415259",
+        "scope": "design-system",
+        "outcome": "Findings — 0 P0/P1; 4 structural P2 (disabled-send border jump, hero leading on composer, --leading-prose on chrome, stale conventions.md per-step type scale); residuals on specifier focus ring and leftover Lucide sizes",
+        "checks": "read-only origin/main...HEAD token/UI/docs inspection; ledger lookup NOT REVIEWED; no contract gate, browser, or providers"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep (PR #2416)",
+        "head": "0ed48477cf427f95d6d1dc0999ea58be64153a4c",
+        "scope": "Run PR sweep: CI fix + review threads + drift resolution",
+        "outcome": "Before: PR was 1 commit behind main (mergeable_state=behind), 0 unresolved review threads, all 5 PR comments were bot rate-limit/CI-triage noise (Codex usage cap, Supabase preview skip, CodeRabbit rate-limited, Bugbot rate-limited, stale CI-triage comment referencing an earlier pre-merge head). Hosted CI on the existing head (1365ac08) was already green (Static PR checks, PR required, Build, Unit coverage, Production UI x3, Lighthouse, Safety checks all success) after the branch author's own earlier push. Action: merge-tree check against origin/main confirmed a clean merge (no conflicts); merged origin/main (1 commit ahead, an unrelated docs/test-infra commit) into ds-hazard-1-2-sweep locally and pushed (1365ac08..0ed48477). No review threads existed to reply to or resolve. After: local verification on the merged head all passed - whole-tree Prettier check clean, tsc --noEmit clean, eslint on touched files clean, and both design-system contract test files (tests/ckb-v2-token-contract.test.ts, tests/design-system-contract-utils.test.ts) passed 66/66. Hosted CI re-triggered on new head 0ed48477: Static PR checks, Lint, Typecheck, Build+bundle-budget, Production UI critical, Lighthouse budget, Safety and config checks, Caring Contacts database, PR policy, PR mergeability, Gitleaks, Semgrep, GitGuardian all completed success. Production UI (1)/(2)/(3) and Unit coverage were still in_progress after 30+ minutes of observation (well beyond their prior ~9 minute runtime on the same suite for the previous head) with no failure signal - deferred per the sweep's 30-min-per-run babysit cap; job steps showed steady forward progress (no stall/livelock signature) so this is not treated as a regression, just unobserved completion. No auto-merge was set on this PR; none was touched.",
+        "checks": "Local: npx prettier --check . (clean), npx tsc -p tsconfig.typecheck.json --noEmit (clean), npx eslint on touched src/tests files (clean, only expected CSS-file lint-ignore warnings), npx vitest run tests/ckb-v2-token-contract.test.ts tests/design-system-contract-utils.test.ts (66 passed). Hosted CI on merge commit 0ed48477: Static PR checks/Lint/Typecheck/Build+bundle-budget/Production UI critical/Lighthouse budget/Safety and config checks/Caring Contacts database/PR policy/PR mergeability/Gitleaks/Semgrep/GitGuardian all success; Production UI (1)(2)(3) and Unit coverage still in_progress at time of this record (deferred, no failure). No provider-backed live-Supabase/OpenAI/eval commands run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "gemini/engineering-maintenance-and-ledger-reconciliation (PR #2418)",
+        "head": "0a370df3cb346a441124ca67938f4a4c71d4e980",
+        "scope": "Run PR sweep: CI/drift diagnosis + review-thread sweep on ledger-reconciliation PR",
+        "outcome": "No fix pushed. mergeable_state=dirty is real: git merge origin/main conflicts only in generated data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json, both cleanly regenerable via npm run snapshot:issues / npm run snapshot:repo-awareness. Regenerated them, but the merge commit then fails the check-ledger-write-discipline.mjs pre-push guard: origin/main (PR #2417) queued 2 new pending ledger-inbox requests after this PR's branch point (474922a3-...json -> issue #TBW7BR, 5e8ec6a9-...json -> issue #BR2217), and this PR's merge commit would touch docs/outstanding-issues-inbox/applied/ (its own 33-item reconciliation) while leaving those 2 newer items unreconciled - flagged as a partial-batch reconciliation. Deciding whether #TBW7BR/#BR2217 should be marked done is outside this PR's declared 33-item scope and belongs to a dedicated npm run issues:reconcile operation, not an ad hoc merge fix, so per sweep policy for ambiguous reconciliation-content conflicts the merge was aborted (git reset --hard back to the original PR tip 0a370df3) rather than pushed with SKIP_LEDGER_WRITE_GUARD=1. Branch left exactly as found (0a370df3, matches origin). Review threads: get_review_comments returned 0 threads; the 4 PR comments are all bot rate-limit notices (Codex usage limit, CodeRabbit review limit, Cursor Bugbot usage limit, Supabase preview ignored-no-supabase-changes) with nothing actionable to reply to or resolve. Real CI: only PR Policy (pass) and PR mergeability (fail, caused by the same drift above) have run for this head; the main ci.yml required-checks aggregate (changes/static-pr/safety/coverage/build/ui-critical/db-reset-verify/pr-required) has not triggered yet on this SHA, so there is no other CI failure to diagnose. No merge to main, no force-push, no auto-merge toggle, no close, no provider-backed gate run.",
+        "checks": "node scripts/ledger-inbox.mjs check (0 pending / 33 applied at PR head, 2 pending after main merge before abort); npm run check:outstanding-issues-snapshot (83 open, 0 pending at PR head); node scripts/check-outstanding-issues.mjs (512 rows, 83 open, 429 archived, passed on merged tree before abort); node scripts/check-ledger-write-discipline.mjs --base 32652318 --head <merge-commit> = FAILED (partial reconciliation, 2 items left pending) -> merge aborted; npx tsc -p tsconfig.typecheck.json --noEmit = 0 errors (on merged tree, discarded); npm run docs:check-index/check-inventory/check-scripts/check-links = all passed (on merged tree, discarded); npm run format = no changes (on merged tree, discarded); git merge-tree --write-tree origin/main 0a370df3 = conflicts confined to data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json only"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "update_documentation_structure (PR #2444)",
+        "head": "c619671065422373f746f69bca5f94147767f877",
+        "scope": "PR 2444 review: main sync + CI fix + review thread",
+        "outcome": "before: PR policy/Static PR checks/Unit coverage failing, 1 unresolved review thread, behind main by 2 commits (clean merge). after: merged origin/main (no conflicts), regenerated docs/site-map.md to drop deleted signed-urls alias route (fixes docs:check-links + site-map.test.ts), fixed CodeRabbit Major finding — upload error-path storage_cleanup_jobs ledger now carries document_id when document deletion is not confirmed so the janitor live-document guard can protect it, added required PR-body Clinical Governance Preflight + Risk and rollout sections (fixes PR policy check). Thread resolved with fix commit reference.",
+        "checks": "npm run typecheck (clean), npm run lint (clean), npm run test:focused -- --files src/app/api/upload/route.ts (184 passed), npm run docs:check-links (passed), npm run sitemap:check (passed), npm run format (no changes needed). No provider-backed checks run."
+      },
       {
         "date": "2026-08-26",
         "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
@@ -24826,8 +25528,8 @@
       }
     ],
     "counts": {
-      "records": 2628,
-      "refs": 1605
+      "records": 2656,
+      "refs": 1622
     }
   }
 }

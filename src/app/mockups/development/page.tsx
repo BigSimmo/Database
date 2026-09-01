@@ -10,7 +10,7 @@ import { loadLedgerSnapshot } from "@/lib/developer-area/ledger-snapshot";
 import { resolveDeploymentCommitSha } from "@/lib/observability/sentry-release";
 
 export const metadata: Metadata = {
-  title: "Developer · Clinical KB",
+  title: "Developer · PsychSift",
   description: "In-progress surfaces and repository state, reachable only to a signed-in administrator account.",
 };
 

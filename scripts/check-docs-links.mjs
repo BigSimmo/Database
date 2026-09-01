@@ -101,6 +101,90 @@ const SCOPED_ALLOWLIST = new Map([
     // does not resolve as a path.
     new Set(["tests/caring-contacts-overlay-trigger.dom.test.tsx(107"]),
   ],
+  [
+    "docs/ward-flow-pinned-clock-handover.md",
+    // Both files exist on `claude/ward-flow-phases-6-7-design` and not on this branch —
+    // naming them is the entire point of the handover, which exists to send a later session
+    // to that branch to finish the work. The document says so where it names them, and gives
+    // the `git show` command to read the spec from there. Remove this entry once Phase 6
+    // lands on `main` and both paths resolve normally.
+    new Set([
+      "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
+      "tests/ward-morning-page.dom.test.tsx",
+    ]),
+  ],
+  [
+    "docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md",
+    // Design spec proposed layout path implemented at component level in WardFlowProvider.
+    new Set(["src/app/ward-management/layout.tsx"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-build-record.md",
+    // Three references that cannot resolve, and each is the point of the sentence containing it:
+    //   * `src/app/ward-management/**` is named while DESCRIBING `main`'s rename of that path --
+    //     the record exists to say the old name is gone, so making it resolve would erase the
+    //     finding. Same reason as the design-spec entry above.
+    //   * the assurances location is a quoted `tsc` diagnostic, `file.ts(88,7): error TS...`.
+    //     codeSpanCandidates() splits backtick spans on commas, so the ",7)" half is gone before
+    //     the path is checked and the candidate arrives unclosed. The file itself exists.
+    //   * `docs/…/phase-2b-build-record.md` is an ELLIPSIS standing for a directory in prose about
+    //     this file's own name, not a path anybody could follow.
+    new Set([
+      "src/app/ward-management/**",
+      "src/lib/caring-contacts/assurances.ts(88",
+      "docs/…/phase-2b-build-record.md",
+    ]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
+    // The inventory of what `main` changed under this branch. It names the pre-rename path because
+    // recording the rename is what the document is for.
+    new Set(["src/app/ward-management/**"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-11b-review.md",
+    // A throwaway probe test, written to prove one assertion could fail and DELETED in the same
+    // session -- it was never committed. The review names it so the mutation it ran can be
+    // reproduced; a file that still existed would be the defect, not the reference.
+    new Set(["tests/zz-review-probe-task11b.dom.test.tsx"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-report.md",
+    // The same deleted probe, named by the report whose work the review above checked.
+    new Set(["tests/zz-review-probe-task11b.dom.test.tsx"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-14-report.md",
+    // Another quoted `tsc` diagnostic arriving unclosed after the comma split, exactly as the
+    // task-3-report entry above records. The test file itself exists.
+    new Set(["tests/caring-contacts-overlay-trigger.dom.test.tsx(108"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
+    // A scratch module written to prove an untracked file behaved as claimed, then deleted. Named
+    // so the check can be repeated; it was deliberately never committed.
+    new Set(["src/lib/caring-contacts/scratch-untracked-probe.ts"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-9b-report.md",
+    // The same quoted-diagnostic fragment as the build-record entry above; the file exists.
+    new Set(["src/lib/caring-contacts/assurances.ts(88"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-p-brief.md",
+    // A governance document that has NOT been written. The brief cites it as the lived-experience
+    // and clinical-programme approval gate that owns final wording, which is real and outstanding
+    // (`#1S81R8`). Allowlisted rather than removed because deleting the citation would delete the
+    // statement that the wording is unapproved -- the single most important line in that brief.
+    new Set(["docs/caring-contacts/message-review-pack.md"]),
+  ],
+  [
+    "docs/caring-contacts/task-seed-timeline-report.md",
+    // An ephemeral test that drove the real seeded store to print its cadence table as evidence,
+    // then was deleted -- the report says so where it names it. The table it produced is quoted in
+    // the report, which is the durable part.
+    new Set(["tests/caring-contacts-demo-seed-timeline-proof.test.ts"]),
+  ],
 ]);
 
 /** True when `repoRelative` is allowed outright, or allowed for the document being scanned. */
@@ -146,6 +230,41 @@ function repoPathExists(repoRelative) {
   return APP_ROUTE_GROUPS.some((group) => existsSync(path.join(repoRoot, "src/app", group, appRelative)));
 }
 
+export function markdownAnchorSlugs(markdown) {
+  const slugs = new Set();
+  const slugCounts = new Map();
+  for (const line of markdown.split("\n")) {
+    const match = line.match(/^#{1,6}\s+(.+)$/);
+    if (!match) continue;
+    const headingText = match[1]
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/[*_~]/g, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    let rawSlug = headingText
+      .toLowerCase()
+      .trim()
+      .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+      .replace(/\s/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!rawSlug) rawSlug = "section";
+    const count = slugCounts.get(rawSlug) ?? 0;
+    slugCounts.set(rawSlug, count + 1);
+    const uniqueSlug = count === 0 ? rawSlug : `${rawSlug}-${count}`;
+    slugs.add(uniqueSlug);
+
+    const collapsedSlug = rawSlug.replace(/-+/g, "-");
+    if (collapsedSlug !== rawSlug) {
+      slugs.add(collapsedSlug);
+    }
+  }
+  for (const match of markdown.matchAll(/<(?:a|span|div|section|h[1-6])[^>]+(?:id|name)=["']([^"']+)["']/gi)) {
+    slugs.add(match[1].toLowerCase());
+  }
+  return slugs;
+}
+
 function collectDocs(dirRelative, targets) {
   const absolute = path.join(repoRoot, dirRelative);
   for (const entry of readdirSync(absolute, { withFileTypes: true })) {
@@ -157,7 +276,8 @@ function collectDocs(dirRelative, targets) {
       continue;
     }
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-    if (!scanAll && DATED_DOC.test(entry.name)) continue;
+    const isSpecDoc = dirRelative === "docs/superpowers/specs" || dirRelative.startsWith("docs/superpowers/specs/");
+    if (!scanAll && DATED_DOC.test(entry.name) && !isSpecDoc) continue;
     targets.push(entryRelative);
   }
 }
@@ -243,12 +363,22 @@ function globBaseDir(value) {
 }
 
 function isExternalLink(value) {
-  return /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value) || value.startsWith("#");
+  return /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value);
 }
 
 function main() {
   let missing = 0;
   let checked = 0;
+  const targetAnchorsCache = new Map();
+
+  function getAnchorsForFile(absPath, relPath) {
+    if (targetAnchorsCache.has(absPath)) return targetAnchorsCache.get(absPath);
+    if (!existsSync(absPath) || !relPath.endsWith(".md")) return null;
+    const content = markdownForTarget(relPath, absPath);
+    const anchors = markdownAnchorSlugs(content);
+    targetAnchorsCache.set(absPath, anchors);
+    return anchors;
+  }
 
   for (const target of defaultTargets()) {
     const absoluteTarget = path.join(repoRoot, target);
@@ -256,6 +386,8 @@ function main() {
     const markdown = markdownForTarget(target, absoluteTarget);
     const targetDir = path.posix.dirname(target);
     const failures = [];
+    const currentFileAnchors = markdownAnchorSlugs(markdown);
+    targetAnchorsCache.set(absoluteTarget, currentFileAnchors);
 
     const check = (repoRelative, label) => {
       if (isAllowedPath(repoRelative, target)) return;
@@ -282,21 +414,48 @@ function main() {
     // `../AGENTS.md`). Accept whichever resolves, confined to the repository.
     for (const rawCandidate of linkCandidates(markdown)) {
       if (isExternalLink(rawCandidate)) continue;
-      const value = stripSuffixes(rawCandidate);
-      if (value === "" || value.includes("*") || /[<>{}$\\]/.test(value) || /\s/.test(value)) continue;
-      const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, value));
+      let targetPart = rawCandidate;
+      let anchorPart = null;
+      const hashIndex = targetPart.indexOf("#");
+      if (hashIndex !== -1) {
+        anchorPart = targetPart.slice(hashIndex + 1);
+        targetPart = targetPart.slice(0, hashIndex);
+      }
+      targetPart = stripSuffixes(targetPart);
+
+      if (targetPart === "") {
+        // Same-document anchor link: [heading](#heading)
+        if (anchorPart) {
+          checked += 1;
+          const normalizedAnchor = anchorPart.toLowerCase();
+          if (!currentFileAnchors.has(normalizedAnchor)) {
+            failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${target})`);
+          }
+        }
+        continue;
+      }
+
+      if (targetPart.includes("*") || /[<>{}$\\]/.test(targetPart) || /\s/.test(targetPart)) continue;
+      const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, targetPart));
       if (relative.startsWith("..")) {
         checked += 1;
         failures.push(`${rawCandidate} (escapes repository root)`);
         continue;
       }
-      const rootStyle = path.posix.normalize(value);
+      const rootStyle = path.posix.normalize(targetPart);
       const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
       if (candidates.some((candidate) => isAllowedPath(candidate, target))) continue;
       checked += 1;
-      const found = candidates.some((candidate) => repoPathExists(candidate));
-      if (!found)
+      const matchingPath = candidates.find((candidate) => repoPathExists(candidate));
+      if (!matchingPath) {
         failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
+      } else if (anchorPart && matchingPath.endsWith(".md")) {
+        const absFound = path.join(repoRoot, matchingPath);
+        const targetAnchors = getAnchorsForFile(absFound, matchingPath);
+        if (targetAnchors && !targetAnchors.has(anchorPart.toLowerCase())) {
+          failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${matchingPath})`);
+        }
+      }
     }
 
     if (failures.length > 0) {

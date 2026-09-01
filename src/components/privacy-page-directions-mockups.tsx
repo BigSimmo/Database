@@ -33,12 +33,12 @@ const SECTIONS: Section[] = [
   {
     heading: "What this tool is",
     short: "Tool",
-    body: "Clinical KB is a knowledge base over clinical reference material. It is not a patient-record system and its provider-backed features do not ask for patient identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately omits a patient-identifier field.",
+    body: "PsychSift is a knowledge base over clinical reference material. It is not a patient-record system and its provider-backed features do not ask for patient identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately omits a patient-identifier field.",
   },
   {
     heading: "What is collected",
     short: "Collected",
-    body: "Questions, generated answers, account identifiers, administrator-provided documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and source material can contain sensitive information. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by Clinical KB.",
+    body: "Questions, generated answers, account identifiers, administrator-provided documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and source material can contain sensitive information. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by PsychSift.",
   },
   {
     heading: "How questions are handled",
@@ -58,7 +58,7 @@ const SECTIONS: Section[] = [
   {
     heading: "Retention",
     short: "Retention",
-    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",
@@ -85,7 +85,7 @@ const directions: Array<{
     name: "Statement theatre",
     verdict: "Brand-led first viewport",
     summary:
-      "First screen is one composition: Clinical KB mark, display title, and a full-bleed amber obligation band — then a calm 68ch reading column. Desktop pins a graphite command rail; phone keeps sticky glass chrome below the notch.",
+      "First screen is one composition: PsychSift mark, display title, and a full-bleed amber obligation band — then a calm 68ch reading column. Desktop pins a graphite command rail; phone keeps sticky glass chrome below the notch.",
     strengths: ["Hero reads as brand, not a form", "Obligation is the loudest plane", "Almost no card chrome"],
     cost: "Long scroll on phone with no section jump.",
   },
@@ -298,7 +298,7 @@ function TheatreFrame({ phone = false }: { phone?: boolean }) {
             <BackControl />
             <BrandMark size="sm" />
             <div className="min-w-0 flex-1">
-              <p className={eyebrowText}>Clinical KB</p>
+              <p className={eyebrowText}>PsychSift</p>
               <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">Privacy</p>
             </div>
           </div>
@@ -341,7 +341,7 @@ function TheatreFrame({ phone = false }: { phone?: boolean }) {
             <BackControl tone="dark" />
             <BrandMark size="md" />
           </div>
-          <p className="mt-10 text-xs font-extrabold uppercase tracking-[0.16em] text-white/55">Clinical KB</p>
+          <p className="mt-10 text-xs font-extrabold uppercase tracking-[0.16em] text-white/55">PsychSift</p>
           <h1 className="mt-3 text-balance text-3xl font-extrabold leading-[1.05] tracking-[-0.04em]">
             Privacy & data handling
           </h1>
@@ -404,7 +404,7 @@ function PassportFrame({ phone = false }: { phone?: boolean }) {
           <BrandMark size={phone ? "sm" : "md"} />
           <div className="min-w-0 flex-1">
             <p className="text-2xs font-extrabold uppercase tracking-[0.14em] text-white/55">
-              Clinical KB · sealed brief
+              PsychSift · sealed brief
             </p>
             <h1 className={cn("font-extrabold tracking-[-0.03em]", phone ? "truncate text-base" : "text-2xl")}>
               Privacy & data handling

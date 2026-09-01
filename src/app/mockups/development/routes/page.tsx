@@ -12,7 +12,7 @@ import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
 
 export const metadata: Metadata = {
-  title: "Routes and modes · Developer · Clinical KB",
+  title: "Routes and modes · Developer · PsychSift",
   description: "Every page route, redirect, API route and app mode, read from the committed repository snapshot.",
 };
 

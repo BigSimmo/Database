@@ -20,7 +20,7 @@ export function SpecifierPageShell({ children, className }: { children: ReactNod
 }
 
 export function SpecifierBreadcrumbs({ current }: { current?: string }) {
-  return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
+  return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers/search" }} current={current} />;
 }
 
 const specifierWordingPathwaySteps = [
@@ -39,7 +39,7 @@ export function SpecifierWordingPathway() {
     >
       {specifierWordingPathwaySteps.map((label, index) => (
         <div key={label} className="contents">
-          <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+          <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)]">
             <span className="nums grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs text-[color:var(--clinical-accent-contrast)]">
               {index + 1}
             </span>
@@ -70,7 +70,7 @@ export function SpecifierDiagnosisFilter({
     <label
       className={cn(
         // Content-sized control: wide enough for “All diagnoses” without becoming a full-width field.
-        "relative inline-flex min-h-tap w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "relative inline-flex min-h-tap w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-semibold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
@@ -79,7 +79,7 @@ export function SpecifierDiagnosisFilter({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-label="Filter by diagnosis"
-        className="w-40 max-w-[min(100%,12rem)] cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none] sm:w-44"
+        className="w-40 max-w-[min(100%,12rem)] cursor-pointer appearance-none bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none [-webkit-appearance:none] sm:w-44"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -104,7 +104,7 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
       data-specifier-match-card
       className={cn(
         specifierCard,
-        "group relative overflow-hidden border-[color:var(--border-strong)] shadow-[var(--shadow-soft)] transition hover:border-[color:var(--clinical-accent)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)] motion-reduce:transition-none",
+        "group relative overflow-hidden border-[color:var(--border-strong)] shadow-[var(--e2)] transition hover:border-[color:var(--clinical-accent)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)] motion-reduce:transition-none",
         isTopMatch && "border-2 border-[color:var(--clinical-accent)]",
       )}
     >
@@ -128,7 +128,7 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
             </div>
             <span
               data-testid="specifier-open-tab"
-              className="-mr-4 -mt-4 inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-bl-xl border-b border-l border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] transition group-hover:border-[color:var(--clinical-accent)] group-hover:bg-[color:var(--clinical-accent)] group-hover:text-[color:var(--clinical-accent-contrast)] motion-reduce:transition-none sm:-mr-5 sm:-mt-5 sm:px-3.5 sm:text-sm"
+              className="-mr-4 -mt-4 inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-bl-xl border-b border-l border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] transition group-hover:border-[color:var(--clinical-accent)] group-hover:bg-[color:var(--clinical-accent)] group-hover:text-[color:var(--clinical-accent-contrast)] motion-reduce:transition-none sm:-mr-5 sm:-mt-5 sm:px-3.5 sm:text-sm"
             >
               <Bookmark className="h-4 w-4" aria-hidden />
               Open
@@ -146,7 +146,7 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
 
             <div
               data-specifier-card-signal
-              className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 p-3.5 shadow-[var(--shadow-inset)] sm:mt-0.5"
+              className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 p-3.5 sm:mt-0.5"
             >
               <p className={eyebrowText}>Deciding signal</p>
               <p className="mt-1.5 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">

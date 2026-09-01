@@ -218,7 +218,7 @@ function ClinicalContent({ active }: { active: SectionLabel }) {
           <p className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.1em] text-[#64d9dc]">
             {(() => {
               const Icon = blocks[0].icon;
-              return <Icon className="size-3.5" />;
+              return <Icon aria-hidden="true" className="size-3.5" />;
             })()}{" "}
             {blocks[0].label}
           </p>
@@ -228,7 +228,7 @@ function ClinicalContent({ active }: { active: SectionLabel }) {
           <p className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.1em] text-[#f0c65d]">
             {(() => {
               const Icon = blocks[1].icon;
-              return <Icon className="size-3.5" />;
+              return <Icon aria-hidden="true" className="size-3.5" />;
             })()}{" "}
             {blocks[1].label}
           </p>
@@ -238,7 +238,7 @@ function ClinicalContent({ active }: { active: SectionLabel }) {
           <p className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.1em] text-[#a7b0ae]">
             {(() => {
               const Icon = blocks[2].icon;
-              return <Icon className="size-3.5" />;
+              return <Icon aria-hidden="true" className="size-3.5" />;
             })()}{" "}
             {blocks[2].label}
           </p>
@@ -285,7 +285,7 @@ function ScrollRail() {
               aria-current={active === label ? "page" : undefined}
               className={`flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-full px-3.5 text-xs font-semibold transition ${active === label ? "bg-[#173b3e] text-[#6de1e4] ring-1 ring-[#34787d]" : "text-[#9ca6a4]"}`}
             >
-              <Icon className="size-4" />
+              <Icon aria-hidden="true" className="size-4" />
               {label}
             </button>
           ))}
@@ -311,13 +311,13 @@ function DropdownNavigator() {
           className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-[#335053] bg-[#152224] px-3 text-left"
         >
           <span className="grid size-8 place-items-center rounded-xl bg-[#55d5d9] text-[#073438]">
-            <ActiveIcon className="size-4" />
+            <ActiveIcon aria-hidden="true" className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-3xs font-bold uppercase tracking-[0.14em] text-[#82908e]">Jump to section</span>
             <span className="block truncate text-sm font-semibold text-white">{active}</span>
           </span>
-          <ChevronDown className={`size-4 text-[#8ce3e5] transition ${open ? "rotate-180" : ""}`} />
+          <ChevronDown aria-hidden="true" className={`size-4 text-[#8ce3e5] transition ${open ? "rotate-180" : ""}`} />
         </button>
         {open ? (
           <div className="absolute left-3 right-3 top-[68px] z-20 overflow-hidden rounded-[22px] border border-[#354044] bg-[#171c1d]/95 p-2 shadow-2xl backdrop-blur-xl">
@@ -333,9 +333,9 @@ function DropdownNavigator() {
                   }}
                   className={`flex min-h-12 items-center gap-2 rounded-xl px-2.5 text-left text-xs font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#b3bcba] hover:bg-white/5"}`}
                 >
-                  <Icon className="size-4" />
+                  <Icon aria-hidden="true" className="size-4" />
                   <span className="flex-1">{label}</span>
-                  {active === label ? <Check className="size-3.5" /> : null}
+                  {active === label ? <Check aria-hidden="true" className="size-3.5" /> : null}
                 </button>
               ))}
             </div>
@@ -370,7 +370,7 @@ function PriorityDock() {
             aria-current={active === label ? "page" : undefined}
             className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-3xs font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
           >
-            <Icon className="size-[18px]" />
+            <Icon aria-hidden="true" className="size-[18px]" />
             {label === "Why matched" ? "Matched" : label}
           </button>
         ))}
@@ -381,7 +381,7 @@ function PriorityDock() {
           aria-current={overflowActive ? "page" : undefined}
           className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-3xs font-semibold ${more || overflowActive ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
         >
-          <MoreHorizontal className="size-[18px]" />
+          <MoreHorizontal aria-hidden="true" className="size-[18px]" />
           More
         </button>
         {more ? (
@@ -397,7 +397,7 @@ function PriorityDock() {
                 aria-current={active === label ? "page" : undefined}
                 className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-xs font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#c0c8c6] hover:bg-white/5"}`}
               >
-                <Icon className="size-4 text-[#64d9dc]" />
+                <Icon aria-hidden="true" className="size-4 text-[#64d9dc]" />
                 {label}
               </button>
             ))}
@@ -424,7 +424,7 @@ function ProgressNavigator() {
             aria-label="Previous section"
             className="grid size-11 shrink-0 place-items-center rounded-full border border-[#30393b] text-[#9aa5a3] disabled:opacity-30"
           >
-            <ChevronRight className="size-4 rotate-180" />
+            <ChevronRight aria-hidden="true" className="size-4 rotate-180" />
           </button>
           <button
             type="button"
@@ -439,7 +439,7 @@ function ProgressNavigator() {
               <span className="text-[#55d5d9]">{Math.round(((index + 1) / sections.length) * 100)}%</span>
             </span>
             <span className="mt-1 flex items-center gap-2 text-sm font-semibold text-white">
-              <ActiveIcon className="size-4 text-[#62dadd]" />
+              <ActiveIcon aria-hidden="true" className="size-4 text-[#62dadd]" />
               {active.label}
             </span>
             <span className="mt-2 flex gap-1">
@@ -497,7 +497,7 @@ export default function PhoneInPageNavigationMockup() {
         </PhoneFrame>
       </section>
       <footer className="mx-auto mt-12 flex max-w-6xl items-center justify-between border-t border-[#283033] py-6 text-xs text-[#7f8b89]">
-        <span>Clinical KB · design exploration</span>
+        <span>PsychSift · design exploration</span>
         <span className="flex items-center gap-2">
           <Search className="size-3.5" /> Phone-first, 390px canvas
         </span>

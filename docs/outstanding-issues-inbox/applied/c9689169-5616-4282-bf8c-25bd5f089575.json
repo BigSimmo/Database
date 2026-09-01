@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c9689169-5616-4282-bf8c-25bd5f089575",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#9X40BT",
+    "outcome": "Documented Supabase preview branching compute cap limit and governance protocol.",
+    "baseRowFingerprint": "962484944d33c84a81d3b3db71a6ff1ebdc26cfe266568ebfc9d57efa8f54b95"
+  }
+}

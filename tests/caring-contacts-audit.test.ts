@@ -92,6 +92,20 @@ describe("rule 2: rejects patient data", () => {
     expect(() => buildAuditEvent(withStrayField, CLOCK)).toThrow("audit-event-contains-patient-data");
   });
 
+  it("throws on the name a patient asked to be called, which the denylist names in its own right", () => {
+    // The guard matches a field name EXACTLY, so the existing `"name"` entry does not cover
+    // `preferredName` -- it is a separate entry, and this is what holds it there (2026-08-26).
+    // Its value is short, has no digits, and looks like nothing: a denylist is the only thing that
+    // could ever stop it.
+    const withPreferredName = { ...baseChange(), preferredName: "Jordy" } as unknown as AuditableChange;
+    expect(() => buildAuditEvent(withPreferredName, CLOCK)).toThrow("audit-event-contains-patient-data");
+
+    // Positive control: a field name that is NOT on the denylist, carrying the same harmless-looking
+    // value, is allowed -- so the throw above is the entry acting rather than the value being
+    // refused by some other rule.
+    expect(() => assertAuditEventFreeOfPatientData({ chosenName: "Jordy" })).not.toThrow();
+  });
+
   it("lets a caller supply a narrower or wider forbidden-field-name set", () => {
     // A field name outside the default denylist is allowed by default...
     expect(() => assertAuditEventFreeOfPatientData({ freeText: "no digits here" })).not.toThrow();

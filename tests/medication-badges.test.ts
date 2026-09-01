@@ -7,7 +7,7 @@ import {
   medicationRowBadges,
   medicationStatTone,
 } from "@/lib/medication-badges";
-import { deriveGovernanceFromSections } from "@/lib/medication-records";
+import { deriveGovernanceFromSections, evaluateSourceStatus, parseSourceDate } from "@/lib/medication-records";
 import type { MedicationRecord } from "@/lib/medications";
 
 describe("medication badge mappers", () => {
@@ -124,6 +124,57 @@ describe("medications catalogue regression", () => {
     const badges = medicationIdentityBadges(record!);
     expect(badges.some((badge) => badge.label === "PBS streamlined")).toBe(true);
   });
+
+  it("verifies Ramipril cardiovascular profile, pregnancy contraindication, and triple whammy interaction", () => {
+    const record = getMedicationRecord("ramipril");
+    expect(record).toBeTruthy();
+    expect(record?.class).toBe("Antihypertensive");
+    expect(record?.subclass).toBe("ACE Inhibitor");
+    expect(record?.schedule).toBe("S4");
+    expect(record?.tag).toBe("ACEi");
+
+    const badges = medicationIdentityBadges(record!);
+    expect(badges.some((b) => b.label === "ACEi")).toBe(true);
+    expect(badges.some((b) => b.label === "S4")).toBe(true);
+
+    const contraSection = record?.sections.find((s) => s.type === "contra");
+    expect(contraSection).toBeTruthy();
+    const pregRow = contraSection?.rows.find((r) => r.key === "Pregnancy");
+    expect(pregRow?.patient?.factors).toContain("pregnancy");
+    expect(pregRow?.patient?.severity).toBe("danger");
+    expect(pregRow?.patient?.action).toBe("contraindication");
+
+    const interSection = record?.sections.find((s) => s.type === "inter");
+    expect(interSection).toBeTruthy();
+    const tripleWhammy = interSection?.rows.find((r) => r.key === "Triple Whammy");
+    expect(tripleWhammy?.val).toMatch(/^CRITICAL/);
+    expect(tripleWhammy?.val).toContain("NSAID");
+  });
+
+  it("verifies Simvastatin lipid-lowering profile, evening administration, and CYP3A4 interaction", () => {
+    const record = getMedicationRecord("simvastatin");
+    expect(record).toBeTruthy();
+    expect(record?.class).toBe("Lipid-Lowering");
+    expect(record?.subclass).toBe("HMG-CoA Reductase Inhibitor");
+    expect(record?.schedule).toBe("S4");
+    expect(record?.tag).toBe("STATIN");
+
+    const badges = medicationIdentityBadges(record!);
+    expect(badges.some((b) => b.label === "STATIN")).toBe(true);
+    expect(badges.some((b) => b.label === "S4")).toBe(true);
+
+    const contraSection = record?.sections.find((s) => s.type === "contra");
+    expect(contraSection).toBeTruthy();
+    const hepaticRow = contraSection?.rows.find((r) => r.key === "Absolute");
+    expect(hepaticRow?.patient?.factors).toContain("hepatic");
+    expect(hepaticRow?.patient?.severity).toBe("danger");
+
+    const interSection = record?.sections.find((s) => s.type === "inter");
+    expect(interSection).toBeTruthy();
+    const cyp3a4Row = interSection?.rows.find((r) => r.val.includes("CYP3A4"));
+    expect(cyp3a4Row?.val).toMatch(/^CRITICAL/);
+    expect(cyp3a4Row?.val).toContain("Clarithromycin");
+  });
 });
 
 describe("controlled-drug (S8) schedule badge", () => {
@@ -156,5 +207,56 @@ describe("controlled-drug (S8) schedule badge", () => {
     const scheduleBadge = badges.find((badge) => badge.label === "S4");
     expect(scheduleBadge?.tone).toBe("info");
     expect(scheduleBadge?.iconKey).toBeUndefined();
+  });
+});
+
+describe("medication governance date evaluation", () => {
+  it("parses valid ISO dates and rejects negative phrases", () => {
+    expect(parseSourceDate("checked 2026-06-30 for this entry")).toEqual(new Date("2026-06-30T00:00:00.000Z"));
+    expect(parseSourceDate("not checked 2026-06-30")).toBeNull();
+    expect(parseSourceDate("unchecked entry")).toBeNull();
+    expect(parseSourceDate("no date in this string")).toBeNull();
+  });
+
+  it("rejects an impossible calendar date instead of letting Date roll it forward", () => {
+    // 2026 is not a leap year, so `new Date("2026-02-29T00:00:00.000Z")` silently normalizes
+    // to March 1 rather than throwing. parseSourceDate must reject this rather than reporting
+    // a fabricated "checked" date one day off from what the source text actually said.
+    expect(parseSourceDate("checked 2026-02-29 for this entry")).toBeNull();
+  });
+
+  it("evaluates governance status based on review interval", () => {
+    const refDate = new Date("2026-08-26T00:00:00.000Z");
+    const freshDate = new Date("2026-06-30T00:00:00.000Z");
+    const expiredDate = new Date("2024-01-01T00:00:00.000Z");
+
+    expect(evaluateSourceStatus(freshDate, refDate, 365)).toBe("current");
+    expect(evaluateSourceStatus(expiredDate, refDate, 365)).toBe("review_due");
+    expect(evaluateSourceStatus(null, refDate, 365)).toBe("unknown");
+  });
+
+  it("derives review_due when the source date is older than the review interval", () => {
+    const refDate = new Date("2028-01-01T00:00:00.000Z");
+    const record: MedicationRecord = {
+      slug: "test-med",
+      name: "Test Med",
+      class: "",
+      subclass: "",
+      category: "",
+      accent: "#0f766e",
+      tag: "",
+      schedule: "",
+      stats: [],
+      sections: [
+        {
+          title: "Sources",
+          type: "src",
+          rows: [{ key: "Source Review", val: "checked 2026-06-30" }],
+        },
+      ],
+      quick: [],
+    };
+    const governance = deriveGovernanceFromSections(record, refDate);
+    expect(governance.source_status).toBe("review_due");
   });
 });

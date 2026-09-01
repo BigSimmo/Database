@@ -53,12 +53,10 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     expect(screen.getByTestId("developer-ingestion-back")).toHaveAttribute("href", "/mockups/development");
 
     // The shell's own stamp is rendered at server-render time, before the
-    // client panel has fetched anything — so it must say "revision unknown",
+    // client panel has fetched anything — so it says "read live on demand" (#XKS6FD),
     // not invent a build-time content date the way every Phase 1/2 panel does.
-    // Falsifying edit: passing `resolveRepoFreshness(snapshot, now)` (or any
-    // non-null contentAt) to PanelPageShell in page.tsx turns this red.
     const shellStamp = screen.getByTestId("developer-hub-freshness");
-    expect(shellStamp).toHaveTextContent(/Ingestion jobs revision unknown/i);
+    expect(shellStamp).toHaveTextContent(/Ingestion jobs read live on demand/i);
 
     await screen.findByTestId("developer-ingestion-empty");
   });
@@ -74,12 +72,8 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     render(<DeveloperIngestionPage />);
 
     const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
-    // Falsifying edit: deleting the `resolveFreshnessFrom(fetchedAt, ...)` call
-    // (or the element it feeds) removes this node entirely, so the assertion
-    // above already falsifies an omission; asserting real content here also
-    // falsifies a component that renders the testid but leaves it empty.
     expect(checkedAt).toHaveTextContent(/checked/i);
-    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/revision unknown/i);
+    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live on demand/i);
   });
 });
 
@@ -137,6 +131,16 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     expect(await screen.findByTestId("developer-ingestion-fetch-error")).toHaveTextContent(/could not be reached/i);
   });
 
+  it("malformed JSON body on 200 response reports parse error rather than network failure", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("<html>Not JSON</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
+    );
+    render(<DeveloperIngestionPage />);
+    const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent(/could not be parsed as json/i);
+    expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
+  });
+
   it("an unexpected payload shape degrades to the fetch-failed state rather than inventing zero jobs", async () => {
     // Never a real server response, but proves the panel does not silently
     // treat a malformed body as "zero jobs" — degrading conservatively per
@@ -150,6 +154,14 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     // separate.
     expect(errorState).not.toHaveTextContent(/could not reach/i);
     expect(errorState).not.toHaveTextContent(/No ingestion jobs/i);
+  });
+
+  it("unparseable response body: reports unparseable response body rather than network failure", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("<html><body>502 Bad Gateway</body></html>", { status: 200 }));
+    render(<DeveloperIngestionPage />);
+    const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent(/unparseable response body/i);
+    expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
   });
 });
 

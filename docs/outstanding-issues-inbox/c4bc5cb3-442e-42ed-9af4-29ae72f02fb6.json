@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c4bc5cb3-442e-42ed-9af4-29ae72f02fb6",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: the plans list query fetches every patient's mobile number and identifiers on every caseload render",
+    "detail": "PLAN_COLUMNS in src/lib/caring-contacts/db/postgres-repository.ts includes patient_mobile_number and patient_identifiers, and listPlans selects it verbatim. toPlanRecord then discards both, so nothing is released -- PlanRecord excludes patientDetail structurally and that guarantee is intact. But every render of /caring-contacts/patients pulls both fields for the whole caseload into the application process, and the names projection added in Task 5b then issues a second query to obtain names narrowly. Giving listPlans its own column list (readPlanRecord still needs the detail columns for getEpisode; listPlans does not) would mean the sensitive fields are never fetched at all for a list read. Genuine privacy improvement on a hot path; deserves its own review rather than riding a comment fix.",
+    "source": "Task 5b review finding I-1, 2026-08-25",
+    "issueUlid": "01M0TJ72GRRZVMPD42W47A2VZE"
+  }
+}

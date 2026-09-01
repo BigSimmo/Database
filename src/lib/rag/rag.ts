@@ -95,6 +95,7 @@ export {
   completeExtractiveSentence,
   generatedAnswerQualityFailureReason,
   isBareDefinitionQuestion,
+  isBareDocumentSupportListAnswer,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag/rag-extractive-answer";
@@ -2435,11 +2436,6 @@ function buildContextDerivedArtifacts(query: string, results: SearchResult[]) {
     indexingQuality: buildIndexingQuality(results, memoryCardsUsed),
     scoreExplanations: buildAnswerScoreExplanations(results),
   };
-}
-
-/** Answer question. */
-export async function answerQuestion(query: string, documentId?: string) {
-  return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
 
 /** Answer question with scope. */

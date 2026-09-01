@@ -162,6 +162,20 @@ function statusTone(status: DifferentialRecord["status"]) {
   return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
 }
 
+/**
+ * The card's left urgency rail. Same status semantics as `statusTone`, reduced
+ * to a single solid fill so urgency is legible before any text is read.
+ */
+function statusRailTone(status: DifferentialRecord["status"]) {
+  if (status === "emergent") return "bg-[color:var(--danger-solid)]";
+  if (status === "urgent") return "bg-[color:var(--warning)]";
+  return "bg-[color:var(--info)]";
+}
+
+function openActionLabel(kind: DifferentialResult["kind"]) {
+  return kind === "presentation" ? "Open presentation" : "Open differential";
+}
+
 function resultIcon(kind: DifferentialResult["kind"], slug: string) {
   if (kind === "presentation") return BrainCircuit;
   return candidateIconBySlug.find(([fragment]) => slug.includes(fragment))?.[1] ?? Stethoscope;
@@ -273,11 +287,37 @@ function Chip({ children }: { children: string }) {
   );
 }
 
-function SelectionCheckbox({ selected, onChange, label }: { selected: boolean; onChange: () => void; label: string }) {
+/**
+ * The compare toggle. It sits on the same card as the whole-card open link, so
+ * it carries its own word ("Compare"/"Added") rather than a bare tick: the two
+ * actions must never read as the same target. `relative z-10` keeps it above
+ * the card's stretched open link.
+ */
+function SelectionCheckbox({
+  selected,
+  onChange,
+  label,
+  showLabel = true,
+}: {
+  selected: boolean;
+  onChange: () => void;
+  label: string;
+  showLabel?: boolean;
+}) {
   return (
     <label
       data-testid="differential-selection-target"
-      className="group grid size-tap shrink-0 cursor-pointer place-items-center rounded-md"
+      className={cn(
+        "group/compare relative z-10 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg transition",
+        showLabel
+          ? cn(
+              "min-h-tap gap-2 border px-2.5",
+              selected
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]",
+            )
+          : "size-tap",
+      )}
     >
       <input
         type="checkbox"
@@ -289,7 +329,7 @@ function SelectionCheckbox({ selected, onChange, label }: { selected: boolean; o
       <span
         data-testid="differential-selection-box"
         className={cn(
-          "grid size-6 place-items-center rounded-sm border text-transparent transition group-hover:border-[color:var(--clinical-accent-border)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
+          "grid size-6 shrink-0 place-items-center rounded-sm border text-transparent transition group-hover/compare:border-[color:var(--clinical-accent-border)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
           selected
             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
             : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
@@ -298,7 +338,66 @@ function SelectionCheckbox({ selected, onChange, label }: { selected: boolean; o
       >
         <Check aria-hidden="true" className="size-icon-sm stroke-[2.5]" />
       </span>
+      {showLabel ? (
+        <span className="whitespace-nowrap text-2xs font-extrabold uppercase tracking-eyebrow">
+          {selected ? "Added" : "Compare"}
+        </span>
+      ) : null}
     </label>
+  );
+}
+
+/**
+ * Stretches the card's title link across the whole card, so anywhere that is
+ * not another control opens the record. It stays a pseudo-element on the single
+ * existing link rather than a second overlay anchor, so assistive technology
+ * still hears one link named by the title.
+ *
+ * The hit area is widened but the focus ring is deliberately NOT: the shared
+ * `:focus-visible` rule in `globals.css` is unlayered, so it wins over any
+ * `outline-none` utility here, and painting a second ring on the pseudo-element
+ * would leave two rings stacked — exactly what the "focus is singular"
+ * assertion in `tests/ui-smoke.spec.ts` forbids. Focus stays on the title.
+ */
+// The pseudo-element paints nothing, so it needs no radius of its own — and a
+// `rounded-[inherit]` arbitrary value is a raw radius literal the design-system
+// contract ratchet counts against this file.
+const stretchedOpenLinkClass = "after:absolute after:inset-0 after:z-0 after:content-['']";
+
+/**
+ * The visible "click here" label for the stretched card link. It is text, not a
+ * second anchor to the same href — duplicating the link would double every
+ * result in a screen-reader link list.
+ */
+function OpenAffordance({
+  kind,
+  compact = false,
+  className,
+}: {
+  kind: DifferentialResult["kind"];
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      data-testid="differential-open-affordance"
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]",
+        className,
+      )}
+    >
+      {compact ? "Open" : openActionLabel(kind)}
+      <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] transition group-hover:bg-[color:var(--clinical-accent)] group-hover:text-[color:var(--clinical-accent-contrast)]">
+        <ChevronRight className="size-icon-xs stroke-[3]" aria-hidden />
+      </span>
+    </span>
+  );
+}
+
+/** The card's left urgency rail, drawn inside the card's rounded clip. */
+function StatusRail({ status }: { status: DifferentialRecord["status"] }) {
+  return (
+    <span aria-hidden className={cn("pointer-events-none absolute inset-y-0 left-0 w-1.5", statusRailTone(status))} />
   );
 }
 
@@ -318,18 +417,22 @@ function DesktopResultRow({
   return (
     <article
       data-testid="differential-compact-result"
-      className="group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]"
+      className="group relative grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_10.75rem_auto] items-center gap-3 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] py-3 pl-4 pr-3.5 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]/40 hover:shadow-[var(--e2)]"
     >
+      <StatusRail status={result.status} />
       <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
         {index + 1}
       </span>
-      <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] transition group-hover:border-[color:var(--clinical-accent-border)]">
+      <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] transition group-hover:border-[color:var(--clinical-accent-border)] group-hover:text-[color:var(--clinical-accent)]">
         <Icon className="h-7 w-7 stroke-[1.75]" aria-hidden />
       </span>
       <div className="min-w-0">
         <Link
           href={result.href}
-          className="block min-w-0 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className={cn(
+            "block min-w-0 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]",
+            stretchedOpenLinkClass,
+          )}
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="line-clamp-1">{result.title}</span>
@@ -355,10 +458,15 @@ function DesktopResultRow({
           {result.clinicalCues.length > 4 ? <Chip>{`+${result.clinicalCues.length - 4}`}</Chip> : null}
         </div>
       </div>
-      <div className="grid min-h-10 place-items-center border-l border-[color:var(--border)] pl-3">
+      <div className="grid min-h-10 justify-items-center gap-2 self-center border-l border-[color:var(--border)] pl-3">
         <MatchBadge label={result.matchLabel} />
+        <OpenAffordance kind={result.kind} />
       </div>
-      {onToggle ? <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} /> : <span />}
+      {onToggle ? (
+        <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} showLabel={false} />
+      ) : (
+        <span />
+      )}
     </article>
   );
 }
@@ -377,8 +485,9 @@ function MobileResultCard({
   return (
     <article
       data-testid="differential-mobile-result-card"
-      className="grid gap-2.5 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+      className="group relative grid gap-2.5 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] py-3 pl-4 pr-3 shadow-[var(--shadow-inset)] transition active:border-[color:var(--clinical-accent-border)] active:bg-[color:var(--clinical-accent-soft)]/25"
     >
+      <StatusRail status={result.status} />
       <div className="flex min-w-0 items-start gap-2.5">
         <span
           data-testid="differential-mobile-result-rank"
@@ -389,15 +498,13 @@ function MobileResultCard({
         </span>
         <Link
           href={result.href}
-          className="block min-w-0 flex-1 rounded-md text-sm font-extrabold leading-5 text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className={cn(
+            "block min-w-0 flex-1 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)]",
+            stretchedOpenLinkClass,
+          )}
         >
           <span className="line-clamp-2">{result.title}</span>
         </Link>
-        {onToggle ? (
-          <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} />
-        ) : (
-          <ChevronRight className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-        )}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <ResultTypeBadge kind={result.kind} />
@@ -419,6 +526,10 @@ function MobileResultCard({
             <Chip key={`${result.id}-cue-${cueIndex}-${tag}`}>{tag}</Chip>
           ))}
         </div>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2.5">
+        <OpenAffordance kind={result.kind} />
+        {onToggle ? <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} /> : null}
       </div>
     </article>
   );
@@ -497,13 +608,15 @@ function BestAnswerCard({
       data-testid={compact ? "differential-best-answer" : "differential-best-match-card"}
       aria-label="Best differential match"
       className={cn(
-        "grid items-start gap-x-2.5 gap-y-3 rounded-lg border shadow-[var(--e1)]",
+        "group relative grid items-start gap-x-2.5 gap-y-3 overflow-hidden rounded-xl border shadow-[var(--e1)] transition",
         "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45",
+        "hover:shadow-[var(--e2)]",
         compact
-          ? "grid-cols-[minmax(0,1fr)_var(--spacing-tap)] p-3"
-          : "grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] p-3.5",
+          ? "grid-cols-[minmax(0,1fr)] py-3 pl-4 pr-3"
+          : "grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_10.75rem_auto] py-3.5 pl-4 pr-3.5",
       )}
     >
+      <StatusRail status={best.status} />
       {!compact ? (
         <span
           data-testid="differential-best-match-rank"
@@ -524,10 +637,7 @@ function BestAnswerCard({
       ) : null}
       <Link
         href={best.href}
-        className={cn(
-          "block min-w-0 self-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-          compact && "self-start",
-        )}
+        className={cn("block min-w-0 self-center rounded-md", stretchedOpenLinkClass, compact && "self-start")}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {compact ? (
@@ -546,33 +656,38 @@ function BestAnswerCard({
           >
             <span className={cn(compact && "line-clamp-2")}>{best.title}</span>
           </h2>
-          <ResultTypeBadge kind={best.kind} />
-          <StatusBadge status={best.status} />
+          <div className={cn("flex min-w-0 flex-wrap items-center gap-2", compact && "w-full")}>
+            <ResultTypeBadge kind={best.kind} />
+            <StatusBadge status={best.status} />
+            {compact ? <MatchBadge label="Best match" /> : null}
+          </div>
         </div>
         {best.scopeLabel ? (
           <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">{best.scopeLabel}</p>
         ) : null}
       </Link>
       {!compact ? (
-        <div className="grid min-h-10 place-items-center self-center border-l border-[color:var(--clinical-accent-border)] pl-3">
+        <div className="grid min-h-10 justify-items-center gap-2 self-center border-l border-[color:var(--clinical-accent-border)] pl-3">
           <MatchBadge label="Best match" />
+          <OpenAffordance kind={best.kind} />
         </div>
       ) : null}
-      {onToggle ? (
-        <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} />
-      ) : compact ? (
-        <ChevronRight className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-      ) : (
-        <span />
-      )}
-      {compact ? (
-        <div className="col-span-2 flex items-center gap-1.5">
-          <MatchBadge label="Best match" />
-        </div>
+      {!compact ? (
+        onToggle ? (
+          <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} showLabel={false} />
+        ) : (
+          <span />
+        )
       ) : null}
-      <div className={cn(compact ? "col-span-2" : "col-start-3 col-end-6")}>
+      <div className={compact ? undefined : "col-start-3 col-end-6"}>
         <BestMatchReasoningPanel result={best} compact={compact} />
       </div>
+      {compact ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--clinical-accent-border)] pt-2.5">
+          <OpenAffordance kind={best.kind} />
+          {onToggle ? <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} /> : null}
+        </div>
+      ) : null}
     </section>
   );
 }

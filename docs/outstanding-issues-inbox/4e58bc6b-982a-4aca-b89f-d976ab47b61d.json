@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#PDM6NG",
+    "outcome": "Added static test suite tests/caring-contacts-workspace-screens.test.ts asserting all page routes under src/app/caring-contacts/ match WORKSPACE_SCREENS",
+    "baseRowFingerprint": "67f4223645c79410173de09a6f9e537202e251b1bf3ac51145e45820762ba617"
+  }
+}

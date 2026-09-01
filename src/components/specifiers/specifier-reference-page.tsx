@@ -25,7 +25,9 @@ import {
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { InformationPageHeader } from "@/components/information-page-shell";
 import { SpecifierNavHeader } from "@/components/specifiers/specifier-nav-header";
+import { MissingValue } from "@/components/ui/missing-value";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import {
   curatedEnrichmentFor,
@@ -160,31 +162,23 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
           id="specifier-overview"
           className={cn(inPageAnchor, "grid gap-5 border-b border-[color:var(--border)] pb-5")}
         >
-          <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
-            <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-              <Tags className="h-7 w-7" aria-hidden />
-            </span>
-            <div className="grid gap-2.5">
-              <div className="flex flex-wrap items-center gap-2">
+          <InformationPageHeader
+            eyebrow={`${categoryShortName(item.categoryName)} specifier`}
+            title={item.label}
+            subtitle={description}
+            icon={Tags}
+            badges={
+              <>
                 <DsmBadge label={sourceManual} />
                 <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-2xs font-bold text-[color:var(--text-muted)]">
                   {item.groupLabel}
                 </span>
                 <ReviewStatusBadge status={item.review.sourceVerificationStatus} />
-              </div>
-              <div>
-                <p className={eyebrowText}>{categoryShortName(item.categoryName)} specifier</p>
-                <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-                  {item.label}
-                </h1>
-              </div>
-              <p className="max-w-3xl text-base font-medium leading-7 text-[color:var(--text-muted)]">{description}</p>
-              <div className="flex flex-wrap items-center gap-2">
                 <CategoryTag categoryId={item.categoryId} name={item.categoryName} />
                 <DiagnosisChips values={[item.disorderName]} />
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
         </section>
 
         {/* Quick tiles */}
@@ -256,12 +250,31 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
                 <p className={eyebrowText}>Review status</p>
               </div>
               <dl className="divide-y divide-[color:var(--border)]">
-                {[
-                  ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
-                  ["Clinician review", "Pending qualified review"],
-                  ["Source family", item.definition?.sourceFamily ?? item.review.sourceFamily ?? "—"],
-                  ["Content hash", item.review.contentHash],
-                ].map(([label, body]) => (
+                {/* SPEC §11: no source family means one of two different things, and a dash said
+                    neither. All 20 of the 585 catalogue items that reach this fallback today carry
+                    `source-not-applicable` — the specifier has no source family to name —
+                    so the phrase is driven off that status rather than assumed, and an item that
+                    ever lacks a family for any other reason reads as an omission, which it is. */}
+                {(
+                  [
+                    ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
+                    ["Clinician review", "Pending qualified review"],
+                    [
+                      "Source family",
+                      item.definition?.sourceFamily ?? item.review.sourceFamily ?? (
+                        <MissingValue
+                          reason={
+                            item.review.sourceVerificationStatus === "source-not-applicable"
+                              ? "not_applicable"
+                              : "not_recorded"
+                          }
+                          density="cell"
+                        />
+                      ),
+                    ],
+                    ["Content hash", item.review.contentHash],
+                  ] satisfies Array<[string, ReactNode]>
+                ).map(([label, body]) => (
                   <div key={label} className="px-4 py-3">
                     <dt className="text-xs font-extrabold text-[color:var(--text-heading)]">{label}</dt>
                     <dd className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{body}</dd>
@@ -288,7 +301,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
                     <Link
                       key={entry.slug}
                       href={`/specifiers/${entry.slug}`}
-                      className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
+                      className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-semibold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
                     >
                       <span className="min-w-0">
                         <span className="block truncate">{entry.label}</span>
