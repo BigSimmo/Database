@@ -1022,8 +1022,13 @@ describe("coverage and source-role evidence merge", () => {
       conflictsOrGaps: [
         {
           type: "conflict",
-          message: "The local and Australian intervals differ.",
-          source_chunk_ids: [local.id],
+          message: "Provisional local and Australian interval conflict.",
+          source_chunk_ids: [local.id, australian.id],
+        },
+        {
+          type: "conflict",
+          message: "Independent interaction conflict.",
+          source_chunk_ids: [local.id, "independent-interaction-source"],
         },
       ],
     } as unknown as RagAnswer;
@@ -1031,7 +1036,12 @@ describe("coverage and source-role evidence merge", () => {
 
     expect(coverage.conflicts).toEqual([]);
     expect(coverage.coverage[0]?.reasonCodes).toContain("source_policy_not_evaluated");
-    expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict")).toEqual([]);
+    expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict")).toEqual([
+      expect.objectContaining({
+        message: "Independent interaction conflict.",
+        source_chunk_ids: [local.id, "independent-interaction-source"],
+      }),
+    ]);
     expect(answer.conflictsOrGaps).toContainEqual(
       expect.objectContaining({
         type: "gap",

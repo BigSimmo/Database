@@ -3442,11 +3442,11 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
     candidate.relatedDocuments,
     candidate.sources,
     sources,
-  ).flatMap((document) =>
-    retainedDocumentIds.has(document.document_id)
-      ? [{ ...document, best_chunk_ids: document.best_chunk_ids.filter((chunkId) => citedChunkIds.has(chunkId)) }]
-      : [],
-  );
+  ).flatMap((document) => {
+    if (!retainedDocumentIds.has(document.document_id)) return [];
+    const bestChunkIds = document.best_chunk_ids.filter((chunkId) => citedChunkIds.has(chunkId));
+    return bestChunkIds.length ? [{ ...document, best_chunk_ids: bestChunkIds }] : [];
+  });
   const smartPanel = candidate.smartPanel
     ? {
         ...candidate.smartPanel,

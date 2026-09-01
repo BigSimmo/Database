@@ -1436,6 +1436,37 @@ describe("escalation fallback intent", () => {
     expect(answer.smartPanel?.relatedDocuments).toEqual(answer.relatedDocuments);
   });
 
+  it("drops a related-document row when only an uncited chunk from the retained document is referenced", () => {
+    const kept = figureChunk({ id: "kept-same-document-source", document_id: "shared-related-document" });
+    const removed = figureChunk({ id: "removed-same-document-source", document_id: "shared-related-document" });
+    const relatedDocuments = [
+      {
+        document_id: kept.document_id,
+        title: kept.title,
+        file_name: kept.file_name,
+        labels: [],
+        summary: null,
+        best_pages: [removed.page_number ?? 1],
+        best_chunk_ids: [removed.id],
+        image_count: 0,
+        match_reason: "Matched the uncited passage",
+        score: removed.hybrid_score,
+      },
+    ];
+    const answer = retainCitedExtractiveFallbackEvidence({
+      answer: "Keep the cited passage only.",
+      grounded: true,
+      confidence: "medium",
+      citations: [citationFromResult(kept, "deterministic_support")],
+      sources: [kept, removed],
+      relatedDocuments,
+      smartPanel: { relatedDocuments },
+    } as unknown as RagAnswer);
+
+    expect(answer.relatedDocuments).toEqual([]);
+    expect(answer.smartPanel?.relatedDocuments).toEqual([]);
+  });
+
   it("retains the correctly bound escalation clause from a mixed-medication chunk", () => {
     const mixedSource = figureChunk({
       id: "mixed-medication-escalation",

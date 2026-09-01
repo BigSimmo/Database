@@ -548,8 +548,9 @@ export function reconcileAnswerSourcePolicyConflicts(
       item.type !== "conflict" ||
       !candidateConflicts.some((conflict) => {
         const itemIds = new Set(item.source_chunk_ids ?? []);
-        return [...conflict.local.supportingChunkIds, ...conflict.australian.supportingChunkIds].some((id) =>
-          itemIds.has(id),
+        return (
+          conflict.local.supportingChunkIds.some((id) => itemIds.has(id)) &&
+          conflict.australian.supportingChunkIds.some((id) => itemIds.has(id))
         );
       }),
   );
