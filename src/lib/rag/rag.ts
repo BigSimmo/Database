@@ -3949,19 +3949,16 @@ ${qualityRetryInstruction}`
       answerRetryReasons.push(`generation_quality_gate:${generationQualityFailure.gateReason}`);
     }
     const generationFallbackArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, generationFallbackResults);
-    const generationFallbackSelectionSummary = summarizeAustralianSourceSelection(
-      answerInputResults,
-      generationFallbackResults,
-    );
+    const candidateSummary = summarizeAustralianSourceSelection(answerInputResults, generationFallbackResults);
     await args.onProgress?.({
       stage: "fallback",
       message: "Generation failed, returning source-based fallback answer.",
       mode: "unsupported",
       reason: "generation_fallback",
-      selectedContextCount: generationFallbackSelectionSummary.selectedCount,
-      australianSourceCount: generationFallbackSelectionSummary.australianSelectedCount,
-      waSourceCount: generationFallbackSelectionSummary.waSelectedCount,
-      usedSupplementaryFallback: generationFallbackSelectionSummary.usedSupplementaryFallback,
+      selectedContextCount: candidateSummary.selectedCount,
+      australianSourceCount: candidateSummary.australianSelectedCount,
+      waSourceCount: candidateSummary.waSelectedCount,
+      usedSupplementaryFallback: candidateSummary.usedSupplementaryFallback,
     });
     const baseFallbackAnswer = await buildGenerationFallbackAnswer(
       error,
@@ -4207,10 +4204,7 @@ ${qualityRetryInstruction}`
         ),
       );
     }
-    const finalizedFallbackSelectionSummary = summarizeAustralianSourceSelection(
-      answerInputResults,
-      fallbackAnswer.sources,
-    );
+    const servedSummary = summarizeAustralianSourceSelection(answerInputResults, fallbackAnswer.sources);
     await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)
       await recordQuery(fallbackAnswer, {
@@ -4245,12 +4239,12 @@ ${qualityRetryInstruction}`
           ...memoryLogMetadata,
           ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
-          source_authority_candidate_count: generationFallbackSelectionSummary.candidateCount,
-          source_authority_selected_count: finalizedFallbackSelectionSummary.selectedCount,
-          australian_source_count: finalizedFallbackSelectionSummary.australianSelectedCount,
-          wa_source_count: finalizedFallbackSelectionSummary.waSelectedCount,
-          source_authority_conflict_count: generationFallbackSelectionSummary.authorityConflictCount,
-          used_supplementary_fallback: finalizedFallbackSelectionSummary.usedSupplementaryFallback,
+          source_authority_candidate_count: candidateSummary.candidateCount,
+          source_authority_selected_count: servedSummary.selectedCount,
+          australian_source_count: servedSummary.australianSelectedCount,
+          wa_source_count: servedSummary.waSelectedCount,
+          source_authority_conflict_count: candidateSummary.authorityConflictCount,
+          used_supplementary_fallback: servedSummary.usedSupplementaryFallback,
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
