@@ -133,6 +133,10 @@ const collapsedSidebarControl =
 const collapsedSidebarButton = `grid ${collapsedSidebarControl}`;
 const collapsedSidebarActiveButton =
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
+/* One divider for the whole rail. Every group separator is the same 32px rule
+   with the same 12px of air on both sides, so the rail reads as one column of
+   48px controls broken into groups rather than four rules with three spacings. */
+const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border)]";
 
 /* Phone drawer header (ClinicalMobileSidebar).
  *
@@ -931,11 +935,14 @@ function ClinicalCollapsedRail({
     <aside
       aria-label="Clinical Guide collapsed sidebar"
       className={cn(
-        "hidden min-h-0 w-[5.25rem] shrink-0 flex-col items-center border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--e2)] md:flex",
+        // One 12px gap owns every step in the column, so the brand, the rule
+        // beneath it, New chat, the scrolling groups and the footer all sit on
+        // the same rhythm instead of each carrying its own `mt-3`.
+        "hidden min-h-0 w-[5.25rem] shrink-0 flex-col items-center gap-3 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--e2)] md:flex",
         hiddenOnDesktop && "lg:hidden",
       )}
     >
-      <div className="grid w-full shrink-0 justify-items-center gap-2 px-3">
+      <div className="grid w-full shrink-0 justify-items-center gap-3 px-3">
         {collapseLocked ? (
           <span className={collapsedSidebarButton} aria-hidden="true">
             <BrandMark tone="emphasis" optical="chrome" className="h-7 w-7" />
@@ -966,13 +973,13 @@ function ClinicalCollapsedRail({
             </Button>
           </>
         )}
-        <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+        <span className={cn(collapsedSidebarDivider, "my-0")} aria-hidden="true" />
       </div>
 
       <Button
         variant="ghost"
         icon={MessageSquarePlus}
-        className={cn("mt-3 gap-0 px-0 [&>span]:hidden", collapsedSidebarButton)}
+        className={cn("gap-0 px-0 [&>span]:hidden", collapsedSidebarButton)}
         aria-label="New chat"
         title="New chat"
         onClick={onNewChat}
@@ -981,7 +988,15 @@ function ClinicalCollapsedRail({
       </Button>
       <div
         data-testid="collapsed-sidebar-scroll-region"
-        className="mt-3 grid min-h-0 w-full flex-1 content-start justify-items-center gap-1.5 overflow-y-auto overscroll-contain px-3 pb-1 [scrollbar-gutter:stable]"
+        /* `both-edges`, not a bare `stable`: a one-sided gutter takes its width
+           off the right of this box only, so the centred column of icons sat
+           ~6px left of the brand, New chat, Settings and the account button —
+           the misalignment that runs the length of the rail. Reserving the
+           gutter on both edges keeps the column on the rail's centre line
+           whether or not a scrollbar is showing. The horizontal padding goes
+           with it: two 15px gutters plus `px-3` left less than a 48px control's
+           width of content box. */
+        className="grid min-h-0 w-full flex-1 content-start justify-items-center gap-1.5 overflow-y-auto overscroll-contain pb-1 [scrollbar-gutter:stable_both-edges]"
       >
         <nav aria-label="Pinned shortcuts" className="grid justify-items-center gap-1.5">
           {pinnedModeItems.map((item) => {
@@ -1004,7 +1019,7 @@ function ClinicalCollapsedRail({
             );
           })}
         </nav>
-        <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+        <span className={collapsedSidebarDivider} aria-hidden="true" />
         <SidebarModesTrigger
           variant="collapsed"
           active={moreModesActive}
@@ -1014,7 +1029,7 @@ function ClinicalCollapsedRail({
         />
         {showAccountLibrary ? (
           <>
-            <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+            <span className={collapsedSidebarDivider} aria-hidden="true" />
             <nav aria-label="Your library" className="grid justify-items-center gap-1.5">
               {sidebarAccountLibraryItems.map((item) => {
                 const Icon = item.icon;
@@ -1036,10 +1051,13 @@ function ClinicalCollapsedRail({
           </>
         ) : null}
       </div>
+      {/* Mirrors the rule under the brand mark, so the rail is bracketed the
+          same way at both ends and the two footer controls read as one group. */}
+      <span className={cn(collapsedSidebarDivider, "my-0")} aria-hidden="true" />
       <Button
         variant="ghost"
         icon={SettingsIcon}
-        className={cn("mt-3 gap-0 px-0 [&>span]:hidden", collapsedSidebarButton)}
+        className={cn("gap-0 px-0 [&>span]:hidden", collapsedSidebarButton)}
         aria-label="Settings"
         title="Settings"
         onClick={onOpenSettings}
@@ -1054,7 +1072,7 @@ function ClinicalCollapsedRail({
         onPointerEnter={onPrefetchAccount}
         onFocus={onPrefetchAccount}
         data-testid="collapsed-account-settings"
-        className="mt-3 grid h-tap w-tap shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="grid h-tap w-tap shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         title={identity.signedIn ? identity.detail : "Set up workspace"}
         aria-label={accountLabel}
       >

@@ -427,7 +427,10 @@ test.describe("PsychSift long-content stress coverage", () => {
       await sourceRail.getByTestId("answer-source-rail-row").first().click();
       const sourceDrawer = page.getByTestId("answer-source-drawer");
       await expect(sourceDrawer).toBeVisible();
-      await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toBeVisible();
+      // Opened from a rail card, so no support sentence: the passage is the
+      // panel's first content at every one of these widths.
+      await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+      await expect(sourceDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
       await page.keyboard.press("Escape");
       await expect(sourceDrawer).toHaveCount(0);

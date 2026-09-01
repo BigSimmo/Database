@@ -18,7 +18,6 @@ import { cn, glassOverlaySurface, subtleStatusPill, textMuted } from "@/componen
 import { logSourceOpen } from "@/components/clinical-dashboard/source-actions";
 import { cleanDisplayTitle, sourceQuoteDisplayText } from "@/components/clinical-dashboard/display-text";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
-import { useDocumentCoverImageId } from "@/components/clinical-dashboard/use-document-cover";
 import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-evidence";
 import {
   answerSourceRailRowId,
@@ -140,9 +139,8 @@ export function AnswerSourceDrawer({
   const sourceTables = open ? tablesForSource(tables, sources, openIndex) : [];
   const sourceImages = open ? imagesForSource(visualEvidence, sources, openIndex) : [];
   const stale = source ? sourceRowIsStale(source) : false;
-  // Hooks cannot be conditional, so this asks for the open source's cover on
-  // every render and resolves to null while the drawer is closed.
-  const { coverImageId, markCoverUnavailable } = useDocumentCoverImageId(source?.documentId);
+  // Null unless a claim opened the drawer; see `sourceSupportSentence`.
+  const supportSentence = sourceSupportSentence(source, activeSupportIndex, activeClaimSupport);
   const numbered = sources.length <= NUMBERED_PAGER_LIMIT;
 
   return (
@@ -256,43 +254,23 @@ export function AnswerSourceDrawer({
     >
       {source ? (
         <div className="grid gap-3 pb-3">
-          {/* What the document looks like, next to what it says. A citation is a
-              pointer into a physical-looking artefact, and a clinician who has
-              seen the front page of the protocol recognises it faster than they
-              read its title.
+          {/* Owner decision 2026-08-31: the drawer opens on the passage.
+              What stood here — a front-page cover thumbnail beside a sentence —
+              cost the top third of the panel to say nothing about this page. The
+              thumbnail is the FRONT page and never a render of the cited one (the
+              index holds one cover per document), so it needed its own caption
+              to stop it reading as "p. 12", and a document opened from the source
+              list paired it with a sentence whose whole content was that there
+              was no claim. The passage is what the clinician opened the drawer to
+              check, so the passage is now the first thing in it.
 
-              The caption is not decoration. This is the FRONT page, never a
-              render of the cited page — the index stores one cover thumbnail per
-              document and no per-page renders — so an uncaptioned picture beside
-              "p. 12" would read as page 12 and quietly misrepresent the
-              evidence. Say which page it is, and say where the passage actually
-              sits. */}
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
-            {coverImageId ? (
-              <figure data-testid="answer-source-drawer-cover" className="w-20 shrink-0">
-                {/* Same 3:4 frame, surface and accent edge as `DocumentPagePreview`
-                    on the document search card: one document, two surfaces, one
-                    look. */}
-                <SignedImage
-                  endpoint={`/api/images/${coverImageId}/signed-url`}
-                  alt={`Front page of ${cleanDisplayTitle(source.title)}`}
-                  aspectRatio={3 / 4}
-                  className="rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
-                  rootMargin="0px"
-                  priority
-                  failurePresentation="hidden"
-                  onSettledFailure={() => markCoverUnavailable(coverImageId)}
-                />
-                <figcaption className={cn("mt-1 text-3xs leading-4", textMuted)}>
-                  Front page
-                  {typeof source.pageNumber === "number" ? ` · passage on p. ${source.pageNumber}` : null}
-                </figcaption>
-              </figure>
-            ) : null}
+              What survives is the sentence that says something: when a claim
+              opened the drawer, how far this page backs THAT claim. */}
+          {supportSentence ? (
             <p data-testid="answer-source-drawer-support" className="text-sm leading-6 text-[color:var(--text)]">
-              {sourceSupportSentence(source, activeSupportIndex, activeClaimSupport)}
+              {supportSentence}
             </p>
-          </div>
+          ) : null}
 
           {stale ? (
             <p
@@ -331,7 +309,16 @@ export function AnswerSourceDrawer({
                 </button>
               ) : null}
             </section>
-          ) : null}
+          ) : (
+            /* A retrieved-but-uncited row carries no quote and no snippet, so
+               there is nothing to quote here. Say that plainly: with the cover
+               and the no-claim sentence gone, the alternative is a panel whose
+               only content is a button, which reads as a failure rather than as
+               a document with no captured passage. */
+            <p data-testid="answer-source-drawer-no-passage" className={cn("text-sm leading-6", textMuted)}>
+              No passage was captured for this source. Open the original PDF to read the page it points at.
+            </p>
+          )}
 
           {sourceTables.length ? (
             <section aria-label="Tables on this page" data-testid="answer-source-drawer-tables">
