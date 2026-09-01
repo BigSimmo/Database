@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { computeDivergences, diffAgainstPin, readPin } from "../scripts/token-layer-divergences.mjs";
+import { computeDivergences, diffAgainstPin, readLayers, readPin } from "../scripts/token-layer-divergences.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 /**
@@ -566,6 +566,27 @@ describe("compat layer agrees with the v2 layer", () => {
   // figures did. Refresh with `npm run design-system:token-divergence:update`.
   it("has no unreviewed divergence between globals.css and ckb-v2-tokens.css", () => {
     expect(diffAgainstPin()).toEqual([]);
+  });
+
+  // A conditional `@media` override is a different comparison context from an
+  // unconditional declaration. An earlier parser filtered only on `forced-colors`,
+  // so any other media block was merged into the base map and its override silently
+  // replaced the base value — which reports "identical" for a pair that diverges
+  // everywhere the condition does not apply. globals.css has three such `:root`
+  // blocks, so this is checked against the real file rather than a fixture.
+  it("reads base-theme tokens from unconditional blocks, not from media overrides", () => {
+    const layers = readLayers();
+    const base = /^\s*--mode-home-copy-reserve:\s*(.+);\s*$/m.exec(globals.slice(globals.indexOf("\n:root {")));
+    expect(base, "--mode-home-copy-reserve should still be declared unconditionally").toBeTruthy();
+    expect(
+      layers.light.compat.get("--mode-home-copy-reserve"),
+      "the (min-width: 412px) override must not replace the unconditional value",
+    ).toBe(base![1].replace(/\s+/g, " ").trim());
+
+    // Same shape, second instance: `@theme` declares 5.5rem and a
+    // (min-width: 640px) block overrides it to 10rem. The base map must hold the
+    // unconditional value, because that is the one comparable to a v2 declaration.
+    expect(layers.light.compat.get("--spacing-mode-home-composer-wide")).toBe("5.5rem");
   });
 
   it("rejects a pin whose counts metadata disagrees with divergences", () => {
