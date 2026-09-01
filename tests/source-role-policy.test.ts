@@ -106,6 +106,7 @@ describe("classifyClaimRoleForSubquestion", () => {
     ["What form of lithium is preferred for maintenance treatment?", "primary", "treatment"],
     ["Which form for lithium maintenance treatment?", "primary", "treatment"],
     ["Which referral form should I submit?", "primary", "service_workflow"],
+    ["Which form should I submit to the clinic?", "primary", "service_workflow"],
     ["Are the adverse effects listed in the guideline?", "primary", "treatment"],
   ] satisfies Array<[string, RagSubquestionPurpose, ClinicalClaimRole]>)(
     "classifies %s with %s purpose as %s",

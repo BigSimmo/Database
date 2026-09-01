@@ -548,10 +548,9 @@ export function reconcileAnswerSourcePolicyConflicts(
       item.type !== "conflict" ||
       !candidateConflicts.some((conflict) => {
         const itemIds = new Set(item.source_chunk_ids ?? []);
-        return (
-          conflict.local.supportingChunkIds.some((id) => itemIds.has(id)) &&
-          conflict.australian.supportingChunkIds.some((id) => itemIds.has(id))
-        );
+        if (itemIds.size === 0) return false;
+        const conflictIds = new Set([...conflict.local.supportingChunkIds, ...conflict.australian.supportingChunkIds]);
+        return [...itemIds].every((id) => conflictIds.has(id));
       }),
   );
   const finalCitedChunkIds = new Set((coveragePlan?.coverage ?? []).flatMap((item) => item.chunkIds));

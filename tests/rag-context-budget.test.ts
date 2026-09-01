@@ -1022,6 +1022,11 @@ describe("coverage and source-role evidence merge", () => {
       conflictsOrGaps: [
         {
           type: "conflict",
+          message: "One-sided provisional local interval conflict.",
+          source_chunk_ids: [local.id],
+        },
+        {
+          type: "conflict",
           message: "Provisional local and Australian interval conflict.",
           source_chunk_ids: [local.id, australian.id],
         },
@@ -1029,6 +1034,10 @@ describe("coverage and source-role evidence merge", () => {
           type: "conflict",
           message: "Independent interaction conflict.",
           source_chunk_ids: [local.id, "independent-interaction-source"],
+        },
+        {
+          type: "conflict",
+          message: "Independent unscoped conflict.",
         },
       ],
     } as unknown as RagAnswer;
@@ -1040,6 +1049,9 @@ describe("coverage and source-role evidence merge", () => {
       expect.objectContaining({
         message: "Independent interaction conflict.",
         source_chunk_ids: [local.id, "independent-interaction-source"],
+      }),
+      expect.objectContaining({
+        message: "Independent unscoped conflict.",
       }),
     ]);
     expect(answer.conflictsOrGaps).toContainEqual(
