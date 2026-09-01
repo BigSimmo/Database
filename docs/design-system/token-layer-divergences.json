@@ -3,7 +3,8 @@
   "generatedBy": "scripts/token-layer-divergences.mjs",
   "counts": {
     "light": 29,
-    "dark": 24
+    "dark": 22,
+    "forcedColors": 3
   },
   "divergences": {
     "light": {
@@ -141,9 +142,9 @@
         "compat": "#3b444b",
         "v2": "#47505a"
       },
-      "--clinical-accent-soft": {
-        "compat": "var(--primary-soft)",
-        "v2": "#123556"
+      "--clinical-chat-document": {
+        "compat": "var(--surface-inset)",
+        "v2": "var(--surface-inset)"
       },
       "--clinical-chat-table-header": {
         "compat": "var(--surface-subtle)",
@@ -201,14 +202,6 @@
         "compat": "#0a0c0e",
         "v2": "#161a1e"
       },
-      "--text": {
-        "compat": "var(--neutral-900)",
-        "v2": "#f4f6f8"
-      },
-      "--text-heading": {
-        "compat": "var(--neutral-950)",
-        "v2": "#fbfcfd"
-      },
       "--text-muted": {
         "compat": "var(--neutral-600)",
         "v2": "#a8b2bd"
@@ -220,6 +213,20 @@
       "--text-soft": {
         "compat": "var(--neutral-500)",
         "v2": "#7d8792"
+      }
+    },
+    "forcedColors": {
+      "--clinical-accent-border": {
+        "compat": "ButtonBorder",
+        "v2": "CanvasText"
+      },
+      "--overlay-backdrop": {
+        "compat": "CanvasText",
+        "v2": "transparent"
+      },
+      "--text-soft": {
+        "compat": "CanvasText",
+        "v2": "GrayText"
       }
     }
   }

@@ -574,6 +574,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/clinical-answer-failures",
+        "file": "src/app/mockups/development/clinical-answer-failures/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/development/clinical-trust",
         "file": "src/app/mockups/development/clinical-trust/page.tsx",
         "area": "mockup"
@@ -1420,9 +1425,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 198,
+      "pages": 199,
       "product_pages": 63,
-      "mockup_pages": 135,
+      "mockup_pages": 136,
       "redirects": 17,
       "api": 60
     }
