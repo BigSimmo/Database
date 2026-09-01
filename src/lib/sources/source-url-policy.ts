@@ -18,6 +18,7 @@ export const GOVERNED_SOURCE_HOSTS = [
   "www.aihw.gov.au",
   "www.beyondblue.org.au",
   "www.cci.health.wa.gov.au",
+  "www.chiefpsychiatrist.wa.gov.au",
   "www.entrypointperth.com.au",
   "www.gamblinghelponline.org.au",
   "www.health.gov.au",

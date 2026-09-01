@@ -44,6 +44,13 @@ const INCOMPLETE_METADATA_WARNINGS = new Set<SourceCatalogueWarning>([
   "verification_unknown",
   "invalid_date",
 ]);
+const RESOLVED_METADATA_GAP_WARNINGS = new Set<SourceCatalogueWarning>([
+  "missing_publisher",
+  "missing_version",
+  "missing_dates",
+  "unknown_jurisdiction",
+]);
+const COMPATIBILITY_FIELDS = ["publisher", "publisherCode", "jurisdiction", "version"] as const;
 
 function opaqueSourceId(identity: string) {
   return `src_${createHash("sha256").update(identity).digest("hex").slice(0, 20)}`;
@@ -57,7 +64,7 @@ function baseIdentity(input: ClinicalSourceReferenceInput) {
   if (input.documentId) return `document:${input.documentId}`;
   if (input.sourceId) return `source:${input.sourceId.trim().toLowerCase()}`;
   const url = safeHttpsUrl(input.canonicalUrl);
-  if (url) return `url:${url}|version:${input.version ?? "unknown"}`;
+  if (url) return `url:${url}`;
   if (input.publisher && input.title) {
     return `title:${normalizeSourceAuthorityText(input.publisher)}|${normalizeSourceAuthorityText(input.title)}|${input.version ?? "unknown"}`;
   }
@@ -65,10 +72,37 @@ function baseIdentity(input: ClinicalSourceReferenceInput) {
   return provisionalIdentity ? `provisional:${provisionalIdentity}` : "provisional:unresolved";
 }
 
-function compatibilityKey(input: ClinicalSourceReferenceInput) {
-  return [input.publisher, input.publisherCode, input.jurisdiction, input.version]
-    .map((value) => normalizeSourceAuthorityText(value))
-    .join("|");
+function metadataValue(value: string | null) {
+  return normalizeSourceAuthorityText(value);
+}
+
+function compatibleMetadata(left: ClinicalSourceReferenceInput, right: ClinicalSourceReferenceInput) {
+  return COMPATIBILITY_FIELDS.every((field) => {
+    const leftValue = metadataValue(left[field]);
+    const rightValue = metadataValue(right[field]);
+    return !leftValue || !rightValue || leftValue === rightValue;
+  });
+}
+
+function partitionCompatibleReferences(inputs: readonly ClinicalSourceReferenceInput[]) {
+  const partitions: ClinicalSourceReferenceInput[][] = [];
+  for (const input of [...inputs].sort((left, right) =>
+    compareText(canonicalReferenceKey(left), canonicalReferenceKey(right)),
+  )) {
+    const matches = partitions.filter((partition) =>
+      partition.every((candidate) => compatibleMetadata(candidate, input)),
+    );
+    if (matches.length === 1) matches[0].push(input);
+    else partitions.push([input]);
+  }
+  return partitions;
+}
+
+function metadataPartitionKey(inputs: readonly ClinicalSourceReferenceInput[]) {
+  return COMPATIBILITY_FIELDS.map((field) => {
+    const values = [...new Set(inputs.map((input) => metadataValue(input[field])).filter(Boolean))].sort(compareText);
+    return values.join(",") || "unknown";
+  }).join("|");
 }
 
 function metadataFor(input: ClinicalSourceReferenceInput) {
@@ -402,7 +436,8 @@ function catalogueEntry(
     ]),
   );
   const warnings = sortedWarnings([
-    ...inputs.flatMap(sourceWarnings),
+    ...sourceWarnings(merged),
+    ...inputs.flatMap(sourceWarnings).filter((warning) => !RESOLVED_METADATA_GAP_WARNINGS.has(warning)),
     ...(metadataConflict ? (["metadata_conflict"] satisfies SourceCatalogueWarning[]) : []),
   ]);
   const canonicalLocation = canonicalLocationFor(inputs);
@@ -457,14 +492,16 @@ export function canonicalizeSourceReferences(
       ),
     );
   for (const [identity, identityInputs] of identityGroups) {
-    const partitions = new Map<string, ClinicalSourceReferenceInput[]>();
-    for (const input of identityInputs) {
-      const key = compatibilityKey(input);
-      partitions.set(key, [...(partitions.get(key) ?? []), input]);
-    }
-    const metadataConflict = partitions.size > 1;
-    for (const [key, partition] of partitions) {
-      entries.push(catalogueEntry(`${identity}|compatibility:${key}`, partition, metadataConflict));
+    const partitions = partitionCompatibleReferences(identityInputs);
+    const metadataConflict = partitions.length > 1;
+    for (const partition of partitions) {
+      entries.push(
+        catalogueEntry(
+          metadataConflict ? `${identity}|compatibility:${metadataPartitionKey(partition)}` : identity,
+          partition,
+          metadataConflict,
+        ),
+      );
     }
   }
   return entries.sort(compareClinicalSources);

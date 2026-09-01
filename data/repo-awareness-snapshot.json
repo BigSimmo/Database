@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "a4d600782727ffbd4fc0e899a3c502c5a668bf5e",
-    "committed_at": "2026-09-01T23:34:27+08:00"
+    "sha": "f159844f1c5e8cf22871479a58f0deea00691a81",
+    "committed_at": "2026-09-02T00:24:19+08:00"
   },
   "routes": {
     "modes": [
@@ -177,11 +177,6 @@
       {
         "path": "/dictionary/search",
         "file": "src/app/(search-app)/dictionary/search/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/dictionary/sources",
-        "file": "src/app/(search-app)/dictionary/sources/page.tsx",
         "area": "product"
       },
       {
@@ -1152,6 +1147,11 @@
         "target": "/dictionary/search"
       },
       {
+        "path": "/dictionary/sources",
+        "file": "src/app/(search-app)/dictionary/sources/page.tsx",
+        "target": "/sources?usedBy=dictionary"
+      },
+      {
         "path": "/differentials",
         "file": "src/app/(search-app)/differentials/page.tsx",
         "target": "/?mode=differentials"
@@ -1461,20 +1461,15 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 205,
-      "product_pages": 68,
+      "pages": 204,
+      "product_pages": 67,
       "mockup_pages": 137,
-      "redirects": 17,
+      "redirects": 18,
       "api": 60
     }
   },
   "documentation": {
     "documents": [
-      {
-        "path": "docs/README.md",
-        "section": "root",
-        "catalogued": false
-      },
       {
         "path": "docs/adr/0001-use-a-shared-local-first-clinical-ask-orchestrator.md",
         "section": "adr",
@@ -1541,16 +1536,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/archive/COLOR_REDESIGN_PLAN.md",
-        "section": "archive",
-        "catalogued": false
-      },
-      {
-        "path": "docs/archive/TOOLS_CONTEXT_FOR_NEW_CHAT.md",
-        "section": "archive",
-        "catalogued": false
-      },
-      {
         "path": "docs/archive/branch-cleanup-2026-06-28.md",
         "section": "archive",
         "catalogued": false
@@ -1582,6 +1567,11 @@
       },
       {
         "path": "docs/archive/cloud-chat-reconciliation-postmortem-2026-07-23.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
+        "path": "docs/archive/COLOR_REDESIGN_PLAN.md",
         "section": "archive",
         "catalogued": false
       },
@@ -1689,6 +1679,11 @@
         "path": "docs/archive/source-governance-status-2026-07-08.md",
         "section": "archive",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/TOOLS_CONTEXT_FOR_NEW_CHAT.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/audit/2026-07-20-repository-maturity.md",
@@ -1811,22 +1806,17 @@
         "catalogued": false
       },
       {
-        "path": "docs/care-plan/CLAUDE-START-HERE.md",
-        "section": "care-plan",
-        "catalogued": false
-      },
-      {
-        "path": "docs/care-plan/HANDOFF-START-HERE.md",
-        "section": "care-plan",
-        "catalogued": false
-      },
-      {
         "path": "docs/care-plan/accessibility-acceptance.md",
         "section": "care-plan",
         "catalogued": false
       },
       {
         "path": "docs/care-plan/claude-build-handover-2026-08-21.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/CLAUDE-START-HERE.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -1842,6 +1832,11 @@
       },
       {
         "path": "docs/care-plan/conversation-transcript-2026-08-21.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/HANDOFF-START-HERE.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -1968,11 +1963,6 @@
       {
         "path": "docs/care-plan/verification-report.md",
         "section": "care-plan",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
-        "section": "caring-contacts",
         "catalogued": false
       },
       {
@@ -2236,6 +2226,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-build-record.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2246,17 +2241,7 @@
         "catalogued": false
       },
       {
-        "path": "docs/caring-contacts/phase-2b-build-record.md",
-        "section": "caring-contacts",
-        "catalogued": false
-      },
-      {
         "path": "docs/caring-contacts/phase-2b-pr-body.md",
-        "section": "caring-contacts",
-        "catalogued": false
-      },
-      {
-        "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2282,6 +2267,11 @@
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2591,6 +2581,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/task-seed-timeline-report.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2801,11 +2796,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/design-system/TOKENS.md",
-        "section": "design-system",
-        "catalogued": true
-      },
-      {
         "path": "docs/design-system/sweep-2026-08-29-structure.md",
         "section": "design-system",
         "catalogued": false
@@ -2844,6 +2834,11 @@
         "path": "docs/design-system/sweep-fix-tap-floors.md",
         "section": "design-system",
         "catalogued": false
+      },
+      {
+        "path": "docs/design-system/TOKENS.md",
+        "section": "design-system",
+        "catalogued": true
       },
       {
         "path": "docs/development-speed-playbook.md",
@@ -3161,12 +3156,12 @@
         "catalogued": true
       },
       {
-        "path": "docs/rag-behaviour/README.md",
+        "path": "docs/rag-behaviour/behaviour-map.md",
         "section": "rag-behaviour",
         "catalogued": false
       },
       {
-        "path": "docs/rag-behaviour/behaviour-map.md",
+        "path": "docs/rag-behaviour/README.md",
         "section": "rag-behaviour",
         "catalogued": false
       },
@@ -3196,22 +3191,12 @@
         "catalogued": true
       },
       {
-        "path": "docs/rag-improvement/COORDINATION.md",
-        "section": "rag-improvement",
-        "catalogued": true
-      },
-      {
-        "path": "docs/rag-improvement/HANDOVER.md",
-        "section": "rag-improvement",
-        "catalogued": true
-      },
-      {
-        "path": "docs/rag-improvement/README.md",
-        "section": "rag-improvement",
-        "catalogued": true
-      },
-      {
         "path": "docs/rag-improvement/baseline-record.md",
+        "section": "rag-improvement",
+        "catalogued": true
+      },
+      {
+        "path": "docs/rag-improvement/COORDINATION.md",
         "section": "rag-improvement",
         "catalogued": true
       },
@@ -3231,9 +3216,24 @@
         "catalogued": false
       },
       {
+        "path": "docs/rag-improvement/HANDOVER.md",
+        "section": "rag-improvement",
+        "catalogued": true
+      },
+      {
+        "path": "docs/rag-improvement/README.md",
+        "section": "rag-improvement",
+        "catalogued": true
+      },
+      {
         "path": "docs/rag-injection-threat-model.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/README.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/reconciliation-playbook.md",
@@ -3631,26 +3631,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/superpowers/rag-upgrade/CLOUD-EXECUTION-PROMPT.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/rag-upgrade/LOCAL-CONNECTED-EXECUTION-PROMPT.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.cloud.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
-        "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.local.md",
-        "section": "superpowers",
-        "catalogued": false
-      },
-      {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
         "section": "superpowers",
         "catalogued": false
@@ -3671,7 +3651,17 @@
         "catalogued": false
       },
       {
-        "path": "docs/superpowers/rag-upgrade/cloud/START-HERE.md",
+        "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.cloud.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.local.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/rag-upgrade/CLOUD-EXECUTION-PROMPT.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3746,6 +3736,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/rag-upgrade/cloud/START-HERE.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/execution-artifacts/rag-answer-quality-and-repository-coverage-v1/README.md",
         "section": "superpowers",
         "catalogued": false
@@ -3756,7 +3751,7 @@
         "catalogued": false
       },
       {
-        "path": "docs/superpowers/rag-upgrade/local/START-HERE.md",
+        "path": "docs/superpowers/rag-upgrade/LOCAL-CONNECTED-EXECUTION-PROMPT.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3827,6 +3822,11 @@
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/rag-upgrade/local/START-HERE.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3986,11 +3986,6 @@
         "catalogued": false
       },
       {
-        "path": "docs/ward-flow-phase-3-workspace/README.md",
-        "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
-      },
-      {
         "path": "docs/ward-flow-phase-3-workspace/clinical-changes-report.md",
         "section": "ward-flow-phase-3-workspace",
         "catalogued": false
@@ -4022,6 +4017,11 @@
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/progress.md",
+        "section": "ward-flow-phase-3-workspace",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-phase-3-workspace/README.md",
         "section": "ward-flow-phase-3-workspace",
         "catalogued": false
       },

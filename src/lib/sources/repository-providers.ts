@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
+import formsPdfManifest from "../../../data/forms-pdf-manifest.json";
 import formsSnapshot from "../../../data/forms-page-snapshot.json";
 import dsmClinicalContent from "../../data/dsm-clinical-content.json";
 import therapiesSource from "../../data/therapies-source.json";
@@ -19,6 +20,8 @@ import {
   type FormulationMechanism,
   type FormulationSource,
 } from "@/lib/formulation";
+import { officialFormsRegisterUrl } from "@/lib/form-catalog";
+import { normalizeCode, officialForms } from "@/lib/form-register";
 import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import { mhaActMetadata } from "@/lib/mha-act-sections";
 import { loadServicesSnapshot } from "@/lib/service-catalog";
@@ -298,11 +301,72 @@ const specifierProvider: ClinicalSourceProvider = {
   references: () => [...specifierAuthoritativeSourceReferences(authoritativeSources()), ...specifierReviewReferences()],
 };
 
+const officialFormByCode = new Map(officialForms.map((form) => [normalizeCode(form.code), form] as const));
+
+function formUsage(code: string, title: string, field: string): SourceUsage {
+  return {
+    modeId: "forms",
+    recordId: `official-form-${normalizeCode(code)}`,
+    recordLabel: `Form ${code}: ${title}`,
+    field,
+  };
+}
+
+function officialFormReferences() {
+  const references = formsPdfManifest.assets.flatMap((asset) => {
+    if (!asset.officialPdfUrl) return [];
+    const form = officialFormByCode.get(normalizeCode(asset.code));
+    const title = form?.title ?? `Form ${asset.code}`;
+    return [
+      reference(formUsage(asset.code, title, "officialPdfUrl"), {
+        sourceId: `official-mha-form-${normalizeCode(asset.code)}`,
+        title: `Form ${asset.code}: ${title}`,
+        publisher: "Office of the Chief Psychiatrist WA",
+        publisherCode: "OCP WA",
+        canonicalUrl: asset.officialPdfUrl,
+        version: formsPdfManifest.generatedAt,
+        reviewDate: formsPdfManifest.generatedAt,
+        jurisdiction: "Australia/WA",
+        evidenceType: "regulatory",
+        documentStatus: "current",
+        validationStatus: "locally_reviewed",
+        contentMode: "link_only",
+        topics: ["Mental Health Act", "official form"],
+      }),
+    ];
+  });
+  return [
+    ...references,
+    ...officialForms.map((form) =>
+      reference(formUsage(form.code, form.title, "officialRegisterUrl"), {
+        sourceId: "official-mha-2014-forms-register",
+        title: "Mental Health Act 2014 forms",
+        publisher: "Office of the Chief Psychiatrist WA",
+        publisherCode: "OCP WA",
+        canonicalUrl: officialFormsRegisterUrl,
+        version: formsPdfManifest.generatedAt,
+        reviewDate: formsPdfManifest.generatedAt,
+        jurisdiction: "Australia/WA",
+        evidenceType: "regulatory",
+        documentStatus: "current",
+        validationStatus: "locally_reviewed",
+        contentMode: "link_only",
+        topics: ["Mental Health Act", "official form"],
+      }),
+    ),
+  ];
+}
+
 const formsProvider: ClinicalSourceProvider = {
   id: "forms",
-  sourcePaths: ["data/forms-page-snapshot.json"],
-  references: () =>
-    formsSnapshot.sourceDocuments.flatMap((document) => {
+  sourcePaths: [
+    "data/forms-page-snapshot.json",
+    "data/forms-pdf-manifest.json",
+    "src/lib/form-catalog.ts",
+    "src/lib/form-register.ts",
+  ],
+  references: () => [
+    ...formsSnapshot.sourceDocuments.flatMap((document) => {
       const referencingForms = formsSnapshot.forms.filter((form) => form.sourceDocumentId === document.id);
       const usages: SourceUsage[] = referencingForms.length
         ? referencingForms.map((form) => ({
@@ -328,6 +392,8 @@ const formsProvider: ClinicalSourceProvider = {
         }),
       );
     }),
+    ...officialFormReferences(),
+  ],
 };
 
 const mhaProvider: ClinicalSourceProvider = {
@@ -619,6 +685,30 @@ export function repositorySourceCoverageIssues(inputs: RepositorySourceCoverageI
       )
     ) {
       issues.push(`Forms record ${form.id} source document usage is not captured`);
+    }
+  }
+  for (const asset of formsPdfManifest.assets) {
+    if (
+      !formReferences.some(
+        (item) =>
+          item.canonicalUrl === asset.officialPdfUrl &&
+          item.usage.recordId === `official-form-${normalizeCode(asset.code)}` &&
+          item.usage.field === "officialPdfUrl",
+      )
+    ) {
+      issues.push(`Forms official PDF ${asset.code} is not captured`);
+    }
+  }
+  for (const form of officialForms) {
+    if (
+      !formReferences.some(
+        (item) =>
+          item.canonicalUrl === officialFormsRegisterUrl &&
+          item.usage.recordId === `official-form-${normalizeCode(form.code)}` &&
+          item.usage.field === "officialRegisterUrl",
+      )
+    ) {
+      issues.push(`Forms register usage ${form.code} is not captured`);
     }
   }
 

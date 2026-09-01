@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
@@ -22,8 +23,7 @@ const bandLabels: Record<SourceQualityBand, string> = {
   excluded: "Excluded",
 };
 
-const filterClassName =
-  "min-h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]";
+const filterClassName = fieldControlPlain;
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -217,7 +217,7 @@ export function SourcesCatalogueClient({
   return (
     <div className="grid gap-6">
       <header className="grid gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">Traceability</p>
+        <p className={eyebrowText}>Traceability</p>
         <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--text)]">Sources</h1>
         <p className="max-w-3xl text-sm leading-6 text-[color:var(--text-muted)]">
           Browse the clinical sources registered across the application. Ratings organise review work and do not measure
@@ -373,10 +373,6 @@ export function SourcesCatalogueClient({
           </label>
         </div>
       </section>
-
-      <p role="status" aria-live="polite" className="text-sm font-medium text-[color:var(--text-muted)]">
-        {visibleEntries.length} {visibleEntries.length === 1 ? "source" : "sources"}
-      </p>
 
       {visibleEntries.length === 0 ? (
         <section className="rounded-2xl border border-dashed border-[color:var(--border)] p-8 text-center">

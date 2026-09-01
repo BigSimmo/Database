@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+import formsPdfManifest from "../data/forms-pdf-manifest.json";
 import formsSnapshot from "../data/forms-page-snapshot.json";
 import dsmClinicalContent from "../src/data/dsm-clinical-content.json";
 import therapies from "../src/data/therapies-source.json";
@@ -9,6 +10,8 @@ import { calculators } from "@/components/calculators/calculator-fixtures";
 import { factsheets } from "@/components/factsheets/factsheets-data";
 import { dictionarySources } from "@/lib/dictionary-data";
 import { formulationMechanisms, formulationSourceLibrary } from "@/lib/formulation";
+import { officialFormsRegisterUrl } from "@/lib/form-catalog";
+import { normalizeCode, officialForms } from "@/lib/form-register";
 import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import { loadServicesSnapshot } from "@/lib/service-catalog";
 import { authoritativeSources, loadSpecifiersContent } from "@/lib/specifiers-content";
@@ -28,7 +31,12 @@ const expectedProviders = {
   formulation: ["src/data/formulation-content.json"],
   therapies: ["src/data/therapies-source.json"],
   specifiers: ["data/specifiers-content.json"],
-  forms: ["data/forms-page-snapshot.json"],
+  forms: [
+    "data/forms-page-snapshot.json",
+    "data/forms-pdf-manifest.json",
+    "src/lib/form-catalog.ts",
+    "src/lib/form-register.ts",
+  ],
   mha: ["data/mha-2014-sections.source.json"],
   medications: ["data/medications-snapshot.json"],
   services: ["data/services-snapshot.json"],
@@ -71,7 +79,7 @@ describe("repository source providers", () => {
     );
   });
 
-  it("pins the 49 currently governed structured source hosts without deriving trust at runtime", () => {
+  it("pins the 50 currently governed structured source hosts without deriving trust at runtime", () => {
     const emittedHosts = new Set(
       repositorySourceReferences()
         .map((reference) => reference.canonicalUrl)
@@ -79,7 +87,7 @@ describe("repository source providers", () => {
         .map((value) => new URL(value).hostname),
     );
 
-    expect(GOVERNED_SOURCE_HOSTS).toHaveLength(49);
+    expect(GOVERNED_SOURCE_HOSTS).toHaveLength(50);
     expect(new Set(GOVERNED_SOURCE_HOSTS)).toEqual(emittedHosts);
   });
 
@@ -142,9 +150,8 @@ describe("repository source providers", () => {
     ).toEqual(specifierSourceFamilies());
 
     const formsReferences = provider("forms").references();
-    expect(new Set(formsReferences.map((reference) => reference.sourceId))).toEqual(
-      new Set(formsSnapshot.sourceDocuments.map((document) => document.id)),
-    );
+    const formSourceIds = new Set(formsReferences.map((reference) => reference.sourceId));
+    expect(formsSnapshot.sourceDocuments.every((document) => formSourceIds.has(document.id))).toBe(true);
     for (const form of formsSnapshot.forms) {
       expect(formsReferences).toContainEqual(
         expect.objectContaining({
@@ -158,6 +165,37 @@ describe("repository source providers", () => {
         }),
       );
     }
+    const officialPdfAssets = formsPdfManifest.assets.filter((asset) => asset.officialPdfUrl);
+    expect(
+      new Set(
+        formsReferences
+          .filter((reference) => reference.usage.field === "officialPdfUrl")
+          .map((reference) => reference.canonicalUrl),
+      ),
+    ).toEqual(new Set(officialPdfAssets.map((asset) => asset.officialPdfUrl)));
+    for (const asset of officialPdfAssets) {
+      expect(formsReferences).toContainEqual(
+        expect.objectContaining({
+          canonicalUrl: asset.officialPdfUrl,
+          usage: expect.objectContaining({
+            recordId: `official-form-${normalizeCode(asset.code)}`,
+            field: "officialPdfUrl",
+          }),
+        }),
+      );
+    }
+    expect(
+      new Set(
+        formsReferences
+          .filter((reference) => reference.usage.field === "officialRegisterUrl")
+          .map((reference) => reference.usage.recordId),
+      ),
+    ).toEqual(new Set(officialForms.map((form) => `official-form-${normalizeCode(form.code)}`)));
+    expect(
+      formsReferences
+        .filter((reference) => reference.usage.field === "officialRegisterUrl")
+        .every((reference) => reference.canonicalUrl === officialFormsRegisterUrl),
+    ).toBe(true);
 
     const medicationReferences = provider("medications").references();
     const medicationSourceRows = loadMedicationSnapshot().flatMap((medication) =>

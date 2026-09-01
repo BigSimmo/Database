@@ -279,6 +279,61 @@ describe("clinical source catalogue", () => {
     expect(entries[0].usedBy).toHaveLength(2);
   });
 
+  it("enriches incomplete metadata for the same canonical source without splitting its usages", () => {
+    const entries = canonicalizeSourceReferences([
+      reference({
+        sourceId: null,
+        canonicalUrl: "https://www.ranzcp.org/metadata-completion",
+        publisher: null,
+        publisherCode: null,
+        jurisdiction: null,
+        usage: {
+          modeId: "factsheets",
+          recordId: "depression",
+          recordLabel: "Depression",
+          field: "sources",
+        },
+      }),
+      reference({
+        sourceId: null,
+        canonicalUrl: "https://www.ranzcp.org/metadata-completion",
+        publisher: "Royal Australian and New Zealand College of Psychiatrists",
+        publisherCode: "RANZCP",
+        jurisdiction: "Australia",
+      }),
+    ]);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      publisher: "Royal Australian and New Zealand College of Psychiatrists",
+      publisherCode: "RANZCP",
+    });
+    for (const warning of ["metadata_conflict", "missing_publisher", "unknown_jurisdiction"]) {
+      expect(entries[0].warnings).not.toContain(warning);
+    }
+    expect(entries[0].usedBy).toHaveLength(2);
+  });
+
+  it("keeps a canonical source detail ID stable when metadata is completed", () => {
+    const incomplete = reference({
+      sourceId: null,
+      canonicalUrl: "https://www.ranzcp.org/stable-detail-source",
+      publisher: null,
+      publisherCode: null,
+      jurisdiction: null,
+      version: null,
+    });
+    const completed = {
+      ...incomplete,
+      publisher: "Royal Australian and New Zealand College of Psychiatrists",
+      publisherCode: "RANZCP",
+      jurisdiction: "Australia",
+      version: "2025",
+    };
+
+    expect(canonicalizeSourceReferences([completed])[0].id).toBe(canonicalizeSourceReferences([incomplete])[0].id);
+  });
+
   it("does not merge conflicting versions or publishers", () => {
     const entries = canonicalizeSourceReferences([
       reference(),
