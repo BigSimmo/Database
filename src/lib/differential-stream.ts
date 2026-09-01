@@ -298,7 +298,9 @@ export function buildDifferentialStreamModel(stream: DifferentialStreamType, que
   }
 
   const knownSlugs = new Set(differentialRecords.map((record) => record.slug));
-  const ranked = hasQuery ? rankDifferentialRecords(differentialRecords, trimmedQuery, differentialRecords.length) : [];
+  const ranked = hasQuery
+    ? rankDifferentialRecords(differentialRecords, trimmedQuery, differentialRecords.length, [], true)
+    : [];
   const matchBySlug = new Map(ranked.map((match) => [match.record.slug, match]));
   const matchedItems = ranked.map((match) =>
     diagnosisItemFromRecord(match.record, knownSlugs, { score: match.score, reasons: match.reasons }),

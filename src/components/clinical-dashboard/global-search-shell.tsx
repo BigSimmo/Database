@@ -73,7 +73,6 @@ import { focusComposerInput } from "@/components/clinical-dashboard/focus-compos
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { ClinicalAskAnswerSurface } from "@/components/clinical-dashboard/clinical-ask-answer-surface";
 import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
-import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
 
@@ -837,14 +836,7 @@ function GlobalStandaloneSearchShellBody({
       setQuery(draft);
       focusComposerInput(inputRef);
     };
-    const submitSearchWithSmart = (queryOverride?: string) => {
-      const submittedQuery = (queryOverride ?? query).trim();
-      if (clinicalAskMode && resolveSmartSearchSubmissionIntent(clinicalAskMode, submittedQuery) === "clinical-ask") {
-        runModeClinicalAsk(submittedQuery);
-        return;
-      }
-      submitSearch(queryOverride);
-    };
+    const submitSearchFromComposer = (queryOverride?: string) => submitSearch(queryOverride);
     const returnToSearch = () => {
       clinicalAskSession.clear();
       setQuery("");
@@ -947,8 +939,7 @@ function GlobalStandaloneSearchShellBody({
                 setMobileMenuOpen(false);
                 openAccountSetup("favourites");
               }}
-              onAsk={submitSearchWithSmart}
-              clinicalAskAvailable={Boolean(clinicalAskMode)}
+              onAsk={submitSearchFromComposer}
               onClearQuery={() => {
                 setQuery("");
                 if (isStandaloneModeHome || searchMode === "calculators") {

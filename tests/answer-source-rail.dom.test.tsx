@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { useState } from "react";
 
 import { render, screen, within } from "@testing-library/react";
@@ -36,7 +38,7 @@ vi.mock("@/components/clinical-dashboard/signed-image", () => ({
   ),
 }));
 
-import { AnswerSupportSummaryCard } from "@/components/clinical-dashboard/evidence-panels";
+import { AnswerUtilityActions } from "@/components/clinical-dashboard/evidence-panels";
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
 import {
@@ -398,18 +400,35 @@ describe("answer source drawer", () => {
 });
 
 describe("evidence gaps stay answer-level", () => {
-  it("lists the answer's warnings on the card rather than against any one source", async () => {
-    const user = userEvent.setup();
-    render(
-      <AnswerSupportSummaryCard
-        priority={null}
-        warnings={["Retrieval confidence gate was blocked for low signal."]}
-        onSubmitFeedback={vi.fn()}
-      />,
+  // The warnings are a statement about the answer's evidence, never about one
+  // cited page, so they must not be rendered inside the rail or a source row.
+  // They moved out of the utility row and into the header status chips on
+  // 2026-08-31 (the approved specimen draws Copy plus two verdicts and nothing
+  // else in the action row); this pins the new home and the fact that the rail
+  // still does not own them.
+  it("renders the answer's warnings once, from the answer surface, and never inside the source rail", () => {
+    const surface = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
+      "utf8",
     );
+    expect(surface).toContain('data-testid="answer-evidence-gaps-trigger"');
+    expect(surface).toContain('id="answer-evidence-gaps-detail"');
+    expect(surface).toContain("renderModel.warnings");
 
-    await user.click(screen.getByTestId("answer-evidence-gaps-trigger"));
-    expect(screen.getByText("Retrieval confidence gate was blocked for low signal.")).toBeInTheDocument();
+    const rail = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/answer-source-rail.tsx"),
+      "utf8",
+    );
+    expect(rail).not.toContain("evidence-gaps");
+    expect(rail).not.toContain("warnings");
+  });
+
+  it("keeps the utility row to copy and the two verdicts", () => {
+    render(<AnswerUtilityActions copied={false} onCopy={vi.fn()} onSubmitFeedback={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Copy answer with source status" })).toBeInTheDocument();
+    expect(screen.getByTestId("answer-feedback-useful")).toBeInTheDocument();
+    expect(screen.getByTestId("answer-feedback-trigger")).toBeInTheDocument();
+    expect(screen.queryByTestId("answer-evidence-gaps-trigger")).not.toBeInTheDocument();
   });
 });
 

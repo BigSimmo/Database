@@ -1,4 +1,5 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 export type ServiceChipTone = "danger" | "info" | "warning" | "success" | "neutral";
 export type ServiceCriterionTone = "meet" | "caution" | "reject";
@@ -131,7 +132,12 @@ export function rankServiceRecords(
   limit = records.length,
   // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
   expansions: string[] = [],
+  interpretNaturalLanguage = false,
 ): ServiceSearchMatch[] {
+  const interpretedExpansions = [
+    ...expansions,
+    ...(interpretNaturalLanguage ? smartSearchExpansions("services", query) : []),
+  ];
   return rankCatalogRecords(records, query, {
     fields: [
       { id: "title", weight: 6, text: (service) => normalizeSearchText(`${service.title} ${service.slug}`) },
@@ -148,7 +154,7 @@ export function rankServiceRecords(
     phraseBonus: 4,
     broadTerms: ["service", "services", "pathway", "pathways"],
     broadBonus: 1,
-    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
+    expandTokens: interpretedExpansions.length ? (terms) => [...terms, ...interpretedExpansions] : undefined,
     limit,
     tieBreak: (left, right) => left.title.localeCompare(right.title),
   }).map(({ record, score, signals }) => ({

@@ -230,6 +230,41 @@ function repoPathExists(repoRelative) {
   return APP_ROUTE_GROUPS.some((group) => existsSync(path.join(repoRoot, "src/app", group, appRelative)));
 }
 
+export function markdownAnchorSlugs(markdown) {
+  const slugs = new Set();
+  const slugCounts = new Map();
+  for (const line of markdown.split("\n")) {
+    const match = line.match(/^#{1,6}\s+(.+)$/);
+    if (!match) continue;
+    const headingText = match[1]
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/[*_~]/g, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    let rawSlug = headingText
+      .toLowerCase()
+      .trim()
+      .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+      .replace(/\s/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!rawSlug) rawSlug = "section";
+    const count = slugCounts.get(rawSlug) ?? 0;
+    slugCounts.set(rawSlug, count + 1);
+    const uniqueSlug = count === 0 ? rawSlug : `${rawSlug}-${count}`;
+    slugs.add(uniqueSlug);
+
+    const collapsedSlug = rawSlug.replace(/-+/g, "-");
+    if (collapsedSlug !== rawSlug) {
+      slugs.add(collapsedSlug);
+    }
+  }
+  for (const match of markdown.matchAll(/<(?:a|span|div|section|h[1-6])[^>]+(?:id|name)=["']([^"']+)["']/gi)) {
+    slugs.add(match[1].toLowerCase());
+  }
+  return slugs;
+}
+
 function collectDocs(dirRelative, targets) {
   const absolute = path.join(repoRoot, dirRelative);
   for (const entry of readdirSync(absolute, { withFileTypes: true })) {
@@ -328,12 +363,22 @@ function globBaseDir(value) {
 }
 
 function isExternalLink(value) {
-  return /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value) || value.startsWith("#");
+  return /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value);
 }
 
 function main() {
   let missing = 0;
   let checked = 0;
+  const targetAnchorsCache = new Map();
+
+  function getAnchorsForFile(absPath, relPath) {
+    if (targetAnchorsCache.has(absPath)) return targetAnchorsCache.get(absPath);
+    if (!existsSync(absPath) || !relPath.endsWith(".md")) return null;
+    const content = markdownForTarget(relPath, absPath);
+    const anchors = markdownAnchorSlugs(content);
+    targetAnchorsCache.set(absPath, anchors);
+    return anchors;
+  }
 
   for (const target of defaultTargets()) {
     const absoluteTarget = path.join(repoRoot, target);
@@ -341,6 +386,8 @@ function main() {
     const markdown = markdownForTarget(target, absoluteTarget);
     const targetDir = path.posix.dirname(target);
     const failures = [];
+    const currentFileAnchors = markdownAnchorSlugs(markdown);
+    targetAnchorsCache.set(absoluteTarget, currentFileAnchors);
 
     const check = (repoRelative, label) => {
       if (isAllowedPath(repoRelative, target)) return;
@@ -367,21 +414,48 @@ function main() {
     // `../AGENTS.md`). Accept whichever resolves, confined to the repository.
     for (const rawCandidate of linkCandidates(markdown)) {
       if (isExternalLink(rawCandidate)) continue;
-      const value = stripSuffixes(rawCandidate);
-      if (value === "" || value.includes("*") || /[<>{}$\\]/.test(value) || /\s/.test(value)) continue;
-      const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, value));
+      let targetPart = rawCandidate;
+      let anchorPart = null;
+      const hashIndex = targetPart.indexOf("#");
+      if (hashIndex !== -1) {
+        anchorPart = targetPart.slice(hashIndex + 1);
+        targetPart = targetPart.slice(0, hashIndex);
+      }
+      targetPart = stripSuffixes(targetPart);
+
+      if (targetPart === "") {
+        // Same-document anchor link: [heading](#heading)
+        if (anchorPart) {
+          checked += 1;
+          const normalizedAnchor = anchorPart.toLowerCase();
+          if (!currentFileAnchors.has(normalizedAnchor)) {
+            failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${target})`);
+          }
+        }
+        continue;
+      }
+
+      if (targetPart.includes("*") || /[<>{}$\\]/.test(targetPart) || /\s/.test(targetPart)) continue;
+      const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, targetPart));
       if (relative.startsWith("..")) {
         checked += 1;
         failures.push(`${rawCandidate} (escapes repository root)`);
         continue;
       }
-      const rootStyle = path.posix.normalize(value);
+      const rootStyle = path.posix.normalize(targetPart);
       const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
       if (candidates.some((candidate) => isAllowedPath(candidate, target))) continue;
       checked += 1;
-      const found = candidates.some((candidate) => repoPathExists(candidate));
-      if (!found)
+      const matchingPath = candidates.find((candidate) => repoPathExists(candidate));
+      if (!matchingPath) {
         failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
+      } else if (anchorPart && matchingPath.endsWith(".md")) {
+        const absFound = path.join(repoRoot, matchingPath);
+        const targetAnchors = getAnchorsForFile(absFound, matchingPath);
+        if (targetAnchors && !targetAnchors.has(anchorPart.toLowerCase())) {
+          failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${matchingPath})`);
+        }
+      }
     }
 
     if (failures.length > 0) {

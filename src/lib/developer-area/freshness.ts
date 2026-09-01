@@ -9,8 +9,22 @@ export type Freshness = {
   contentAt: string | null;
   viewedAt: string;
   ageHours: number | null;
+  ageMinutes?: number | null;
   mode?: FreshnessMode;
+  status?: FreshnessMode;
 };
+
+/**
+ * Formats a human-readable time distance string for sub-hour and hourly elapsed times.
+ */
+export function formatTimeDistance(ageHours: number | null, ageMinutes?: number | null): string {
+  if (ageHours === null) return "unknown age";
+  if (ageMinutes !== undefined && ageMinutes !== null && ageMinutes < 60) {
+    if (ageMinutes < 1) return "just now";
+    return ageMinutes === 1 ? "1 minute ago" : `${ageMinutes} minutes ago`;
+  }
+  return ageHours === 1 ? "1 hour ago" : `${ageHours} hours ago`;
+}
 
 /**
  * Formats a duration in milliseconds into clean relative prose:
@@ -34,17 +48,25 @@ export function formatRelativeAge(diffMs: number): string {
  * carrying no information, which is the failure that component exists to
  * prevent.
  */
-export function resolveFreshnessFrom(contentAt: string | null, now: Date, mode: FreshnessMode = "snapshot"): Freshness {
+export function resolveFreshnessFrom(
+  contentAt: string | null,
+  now: Date,
+  modeOrOptions?: FreshnessMode | { status?: FreshnessMode; mode?: FreshnessMode },
+): Freshness {
+  const mode: FreshnessMode =
+    typeof modeOrOptions === "string" ? modeOrOptions : (modeOrOptions?.mode ?? modeOrOptions?.status ?? "snapshot");
   const viewedAt = now.toISOString();
-  if (contentAt === null) return { contentAt, viewedAt, ageHours: null, mode };
+  if (contentAt === null) {
+    return { contentAt, viewedAt, ageHours: null, ageMinutes: null, mode, status: mode };
+  }
   const parsed = new Date(contentAt);
-  if (Number.isNaN(parsed.getTime())) return { contentAt, viewedAt, ageHours: null, mode };
-  return {
-    contentAt,
-    viewedAt,
-    ageHours: Math.round((now.getTime() - parsed.getTime()) / 3_600_000),
-    mode,
-  };
+  if (Number.isNaN(parsed.getTime())) {
+    return { contentAt, viewedAt, ageHours: null, ageMinutes: null, mode, status: mode };
+  }
+  const diffMs = Math.max(0, now.getTime() - parsed.getTime());
+  const ageMinutes = Math.floor(diffMs / 60_000);
+  const ageHours = Math.round(diffMs / 3_600_000);
+  return { contentAt, viewedAt, ageHours, ageMinutes, mode, status: mode };
 }
 
 export function resolveLiveFreshness(contentAt: string | null = null, now: Date = new Date()): Freshness {

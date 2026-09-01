@@ -440,11 +440,12 @@ describe("shared-search route ownership", () => {
       label: "ClinicalDashboard async function ask",
     });
 
-    // Smart intent must be intercepted before ordinary namespaced navigation.
-    // Everything else still routes to the selected mode's deterministic surface.
+    // Natural-language Smart search uses the same selected-mode route as a
+    // keyword lookup. The shared composer must not divert it to Clinical Ask.
     expect(ask).toMatch(
-      /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);[\s\S]*?if \(submitSmartSearch\(trimmedQuery, \(\) => setModeSearchSubmitted\(true\)\)\) return;[\s\S]*?if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
+      /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);[\s\S]*?if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
     );
+    expect(ask).not.toContain("submitSmartSearch");
   });
 
   it("does not treat catalogue search docks as tool-detail footer-search pages", () => {

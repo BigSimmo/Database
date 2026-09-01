@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "f340cd0b9052459a438ab8ae8d52de19c88dd55e",
-    "committed_at": "2026-08-29T12:26:43+08:00"
+    "sha": "b923e61aa9cac76202b8e27ddc9bffb669376d96",
+    "committed_at": "2026-09-01T09:33:16+08:00"
   },
   "routes": {
     "modes": [
@@ -1461,6 +1461,11 @@
       },
       {
         "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-reasoning-effort.md",
         "section": "agents",
         "catalogued": false
       },
@@ -4263,9 +4268,9 @@
       }
     ],
     "counts": {
-      "documents": 554,
+      "documents": 555,
       "catalogued": 109,
-      "uncatalogued": 445,
+      "uncatalogued": 446,
       "sections": 20
     }
   },
@@ -4279,12 +4284,76 @@
   "review_state": {
     "records": [
       {
+        "date": "2026-08-31",
+        "ref": "codex/answer-surface-compact-20260830",
+        "head": "705561dd1f9b1ac8f72c7a4858e3819b9ee5a40e",
+        "scope": "compact answer source safety and library UI",
+        "outcome": "No P0-P2 findings; compact source status, answer utilities, safety row, and library placement ready for PR",
+        "checks": "13 focused DOM tests passed; targeted Chromium 1/1 passed; lint and typecheck passed; build passed 1998 routes; design contracts passed; production-readiness CI READY; offline RAG 628/628 and adversarial 25/25 passed; full unit 11656 passed with 6 unrelated Windows Claude Cloud harness exit-127 failures; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "codex/chat-smart-natural-mode-search-pr-2480-landed-verify",
+        "head": "f64762dd6b16bd90e94773b1dc892760180747e1",
+        "scope": "Smart natural-language catalogue search separation",
+        "outcome": "no P0/P1 findings; ready for PR",
+        "checks": "208 focused tests; 53 post-merge tests; production Chromium 4/4; typecheck; lint; docs links; diff check"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "core_rag_security_hub",
+        "head": "d39db0ec72583680f666078a4a366083bf37fcf9",
+        "scope": "PR Group 2: Core RAG, Security, DB Functions & Developer Hub (#DHAR98, #0JJ4RD, #2X46NY, #S4R2W3, #N8B176, #VKH7N1, #CJCH2E, #FDST2Q, #XKS6FD, #ZW43ZT, #G693BZ)",
+        "outcome": "PASS: All 11 Group 2 tasks verified clean against database guards, RAG quality gates, DOM component tests, full typecheck, and Prettier formatting with zero regressions.",
+        "checks": "npm run check:migration-role, npm run check:function-grants, npm run check:owner-scope, npm run typecheck, vitest run tests/developer-hub-components.dom.test.tsx tests/developer-ingestion-page.dom.test.tsx tests/documents-is-public.test.ts tests/supabase-schema.test.ts tests/extractive-answer-formatting.test.ts (247/247 passed), npm run format"
+      },
+      {
+        "date": "2026-08-31",
+        "ref": "gemini/pr-group-3-ui-a11y-caring-contacts-ward-flow (PR #2479)",
+        "head": "8ff3f26c6e4f5302c1883f940f4cc1b22fbeec5c",
+        "scope": "Run PR sweep: existing unresolved review threads",
+        "outcome": "0 → 2 threads resolved: useful-actions disclosure semantics, workspace route registration assertion",
+        "checks": "Focused Vitest 18/18; typecheck passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "7190c2ccd87dfc25e49e488b22705fb6b7b60931",
+        "scope": "Smart natural search CI reconciliation exact-tree review",
+        "outcome": "No open P0/P1/P2 findings; maintainability blocker fixed by cohesive extraction",
+        "checks": "maintainability budgets; 86 focused Vitest; provider-free Chromium Smart suite; lint; typecheck; formatting; diff check"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "8de6dae0e541166dad23523ca3a4e2340eb6c217",
+        "scope": "Smart natural search exact-tree implementation and review",
+        "outcome": "P2 findings fixed; no open P0/P1/P2 findings",
+        "checks": "105 focused contracts; enabled Chromium 6 passed/1 skipped; default-off Chromium 1 passed; production build passed; PR-local 11616 passed with 6 exact-main Windows Bash failures"
+      },
+      {
+        "date": "2026-08-30",
+        "ref": "codex/smart-natural-search-current-main",
+        "head": "b762e1363b9bbb993f0f74a9e00a2c2ccb1f56be",
+        "scope": "Smart natural search final CI test correction review",
+        "outcome": "No open P0/P1/P2 findings; stale extracted-owner tests corrected",
+        "checks": "6 focused Vitest; DSM production Chromium; formatting; diff check"
+      },
+      {
         "date": "2026-08-29",
         "ref": "PR-2454",
         "head": "9e27b7b779443eb9d140c5eaf562af578f5ec6e4",
         "scope": "CI triage and unresolved review findings",
         "outcome": "Confirmed PR-specific repo-awareness drift and two P2 documentation findings; corrected the generated snapshot, Windows LCP delta, and Linux-only qualification. Main coverage/browser failures did not reproduce on the PR head.",
         "checks": "PR/base Actions logs; repo-awareness check; outstanding-issues check; docs links; targeted Prettier; arithmetic verification"
+      },
+      {
+        "date": "2026-08-29",
+        "ref": "PR-2457",
+        "head": "0e5631ba6a98b22ef1ddf5557e6ce38b824e78b2",
+        "scope": "PR #2457 review-and-fix",
+        "outcome": "Fixed repository breakpoint coverage, conservative same-band Tailwind cascade handling, and the stale compact-disclosure UI assertion; no other material PR-introduced defects confirmed.",
+        "checks": "57 focused Vitest tests passed; design-system contract/adoption/sync passed; typecheck passed; local Playwright unavailable because pinned Chromium is not installed, with exact-head Actions reproducing the corrected 42px assertion."
       },
       {
         "date": "2026-08-27",
@@ -4405,6 +4474,14 @@
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
         "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
         "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep",
+        "head": "19ee085b1cc952e8c40e893fb2fce99538415259",
+        "scope": "design-system",
+        "outcome": "Findings — 0 P0/P1; 4 structural P2 (disabled-send border jump, hero leading on composer, --leading-prose on chrome, stale conventions.md per-step type scale); residuals on specifier focus ring and leftover Lucide sizes",
+        "checks": "read-only origin/main...HEAD token/UI/docs inspection; ledger lookup NOT REVIEWED; no contract gate, browser, or providers"
       },
       {
         "date": "2026-08-27",
@@ -25456,8 +25533,8 @@
       }
     ],
     "counts": {
-      "records": 2647,
-      "refs": 1615
+      "records": 2656,
+      "refs": 1622
     }
   }
 }

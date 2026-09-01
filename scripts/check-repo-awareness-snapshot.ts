@@ -67,32 +67,81 @@ export function compareSnapshots(committed: unknown, regenerated: RepoAwarenessS
   return differences;
 }
 
-function main() {
-  if (!isGitRepository()) {
-    console.log(
+export type CheckSnapshotOptions = {
+  outputPath?: string;
+  generateImpl?: () => RepoAwarenessSnapshot;
+  readCommittedImpl?: (path: string) => unknown;
+  isGitRepoImpl?: () => boolean;
+  log?: (msg: string) => void;
+  error?: (msg: string) => void;
+  exit?: (code: number) => void;
+};
+
+export function checkRepoAwarenessSnapshot(options: CheckSnapshotOptions = {}): number {
+  const {
+    outputPath = OUTPUT_PATH,
+    generateImpl = generate,
+    readCommittedImpl = (p) => JSON.parse(readFileSync(p, "utf8")),
+    isGitRepoImpl = isGitRepository,
+    log = console.log,
+    error = console.error,
+    exit = (code) => process.exit(code),
+  } = options;
+
+  if (!isGitRepoImpl()) {
+    log(
       "[repo-awareness] Git repository not available (git-less environment); skipping repo-awareness snapshot staleness check.",
     );
-    process.exit(0);
+    return 0;
   }
-  const regenerated = generate();
+
+  let regenerated: RepoAwarenessSnapshot;
+  try {
+    regenerated = generateImpl();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (
+      message.includes("spawnSync git") ||
+      message.includes("ENOENT") ||
+      message.includes("not a git repository") ||
+      message.includes("git: not found") ||
+      message.includes("git is not available")
+    ) {
+      log(`[repo-awareness] skipped: git is not available in this environment (${message}).`);
+      return 0;
+    }
+    error(`[repo-awareness] generation failed: ${message}`);
+    exit(1);
+    return 1;
+  }
+
   let committed: unknown = null;
   try {
-    committed = JSON.parse(readFileSync(OUTPUT_PATH, "utf8"));
+    committed = readCommittedImpl(outputPath);
   } catch {
-    console.error(`[repo-awareness] ${OUTPUT_PATH} is missing or unreadable. Run: ${FIX}`);
-    process.exit(1);
+    error(`[repo-awareness] ${outputPath} is missing or unreadable. Run: ${FIX}`);
+    exit(1);
+    return 1;
   }
+
   const differences = compareSnapshots(committed, regenerated);
   if (differences.length > 0) {
-    console.error("[repo-awareness] The committed snapshot is behind the repository:");
-    for (const difference of differences) console.error(`  - ${difference}`);
-    console.error(`[repo-awareness] Fix with: ${FIX}`);
-    process.exit(1);
+    error("[repo-awareness] The committed snapshot is behind the repository:");
+    for (const difference of differences) error(`  - ${difference}`);
+    error(`[repo-awareness] Fix with: ${FIX}`);
+    exit(1);
+    return 1;
   }
-  console.log(
-    `[repo-awareness] in step with ${OUTPUT_PATH} (${regenerated.routes.counts.pages} pages, ` +
+
+  log(
+    `[repo-awareness] in step with ${outputPath} (${regenerated.routes.counts.pages} pages, ` +
       `${regenerated.documentation.counts.documents} documents, ${regenerated.review_state.counts.records} reviews)`,
   );
+  return 0;
+}
+
+function main() {
+  checkRepoAwarenessSnapshot();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

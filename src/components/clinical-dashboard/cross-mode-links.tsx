@@ -190,9 +190,9 @@ export function CrossModeLinksSection({
  * Under an answer this block used to be a permanently expanded rail sitting
  * directly above a second, near-identical panel of mode matches. Two panels
  * asking the same question ("where else does this appear") read as one panel
- * repeated, and neither is the clinician's next step — the follow-up questions
- * above them are. So this collapses to a single row carrying a preview of what
- * is inside, and opens to exactly the rail it always was.
+ * repeated. This collapses to a single row carrying a preview of what is inside,
+ * closes the answer's evidence/safety stack, and opens to exactly the rail it
+ * always was before the follow-up conversation begins.
  *
  * The preview names come from the resolved links, so the line can never
  * advertise a match the expanded rail does not list.

@@ -7,12 +7,12 @@ import {
   CircleAlert,
   CircleCheck,
   ChevronDown,
+  ChevronRight,
   ClipboardCheck,
   Copy,
   ExternalLink,
   FileText,
   Loader2,
-  MessageSquareWarning,
   Plus,
   Quote,
   RefreshCw,
@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   Table2,
   Target,
+  ThumbsDown,
+  ThumbsUp,
 } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
@@ -42,6 +44,8 @@ import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text"
 import { SourceActionRow, logCitationOpen } from "@/components/clinical-dashboard/source-actions";
 import {
   clinicalDivider,
+  chatActionRow,
+  chatMicroAction,
   cn,
   codeText,
   EmptyState,
@@ -170,263 +174,173 @@ export function answerSupportPriority(
 }
 
 /**
- * The answer-level strip under the prose.
+ * Quiet answer-level utilities under the source rail.
  *
- * Since the source rail and drawer took over every per-source surface, this card
- * carries only what belongs to the answer rather than to any one document: the
- * safety/priority row, the evidence gaps, and the feedback control.
- *
- * The safety row is not optional chrome. `answerSupportPriority` returns a
- * safety-findings priority ahead of everything else, and the trigger below is
- * the only route to the safety-critical findings sheet — so this card renders
- * whenever `priority` is set, and removing it would remove that route.
+ * Evidence gaps and feedback belong to the answer rather than one document, but
+ * they are utilities rather than safety findings. Keeping them beside Copy with
+ * sources stops the safety panel's warning chrome from colouring neutral actions.
  */
+export function AnswerUtilityActions({
+  copied,
+  onCopy,
+  pendingFeedback = null,
+  onSubmitFeedback,
+}: {
+  copied: boolean;
+  onCopy: () => void;
+  pendingFeedback?: AnswerFeedbackType | null;
+  onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
+}) {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  return (
+    <section className="max-w-[68ch]" aria-label="Answer utilities">
+      {/* Copy sits left; the two verdict controls sit right, as the approved
+          specimen draws them. The verdicts are icon-only because their meaning
+          is the icon — a thumb — and a word beside each one would take the whole
+          390px row on its own. Each carries a full sentence as its accessible
+          name rather than "Thumbs up". Evidence gaps are NOT here: they are a
+          statement about the answer's evidence and belong with the safety chip
+          in the header, which is also what keeps this row to one line. */}
+      <div className={cn(chatActionRow, "flex-nowrap")} aria-label="Answer actions">
+        <button type="button" onClick={onCopy} className={chatMicroAction} aria-label="Copy answer with source status">
+          <Copy aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{copied ? "Copied with sources" : "Copy with sources"}</span>
+        </button>
+        {onSubmitFeedback ? (
+          <span className="ms-auto flex shrink-0 items-center gap-1">
+            {/* One tap records the product's existing positive verdict rather
+                than opening a panel to choose the only affirmative option in
+                it. `verified` is that option, and the panel's own question —
+                "Is the answer supported?" — is what a thumb up answers. */}
+            <button
+              data-testid="answer-feedback-useful"
+              type="button"
+              disabled={Boolean(pendingFeedback)}
+              onClick={() => onSubmitFeedback("verified")}
+              className={cn(chatMicroAction, "min-w-12 justify-center px-2 disabled:opacity-60")}
+              aria-label="This answer is supported by its sources"
+            >
+              {pendingFeedback === "verified" ? (
+                <Loader2 aria-hidden="true" className="size-icon-sm shrink-0 animate-spin" />
+              ) : (
+                <ThumbsUp aria-hidden="true" className="size-icon-sm shrink-0" />
+              )}
+            </button>
+            {/* The thumb down IS the way in to "report a problem": it opens the
+                list of problem types rather than recording an unlabelled
+                negative, because an unlabelled negative tells a reviewer
+                nothing about which claim failed. */}
+            <button
+              id="answer-feedback-trigger"
+              data-testid="answer-feedback-trigger"
+              type="button"
+              onClick={() => setFeedbackOpen((current) => !current)}
+              className={cn(chatMicroAction, "min-w-12 justify-center px-2")}
+              aria-expanded={feedbackOpen}
+              aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
+              aria-label="Report a problem with this answer"
+            >
+              <ThumbsDown aria-hidden="true" className="size-icon-sm shrink-0" />
+            </button>
+          </span>
+        ) : null}
+      </div>
+      {onSubmitFeedback && feedbackOpen ? (
+        <div id="answer-feedback-detail" className="px-2 pb-2">
+          <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function AnswerSupportSummaryCard({
   priority,
-  warnings = [],
   safetyTriggerRef,
   safetyFindingsCount = 0,
   onOpenSafetyFindings,
-  pendingFeedback = null,
-  onSubmitFeedback,
-  density = "comfortable",
 }: {
   priority: AnswerSupportPriority | null;
-  /** Answer-level evidence gaps (`renderModel.warnings`); they belong to no single source. */
-  warnings?: string[];
   safetyTriggerRef?: RefObject<HTMLButtonElement | null>;
   safetyFindingsCount?: number;
   onOpenSafetyFindings?: () => void;
-  pendingFeedback?: AnswerFeedbackType | null;
-  onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
-  /**
-   * `"compact"` is the chat-framed answer's density. Safety keeps its full row —
-   * it is the one thing here that must not be tucked into a chip — while the
-   * evidence-gaps and report rows collapse from two 56px two-line rows into one
-   * line of small buttons. Same controls, same ids, same routes; roughly 90px of
-   * phone scroll returned under a four-line answer.
-   */
-  density?: "comfortable" | "compact";
 }) {
-  const [gapsOpen, setGapsOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const compact = density === "compact";
-  const supportRowCount = Number(warnings.length > 0) + Number(Boolean(onSubmitFeedback));
-  const supportButtonClass =
-    "grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
-  // min-h-12 (48px), not min-h-11: 44px reintroduced a known sub-pixel rounding
-  // flake in `ui-smoke`. See AGENTS.md "External skill precedence".
-  const compactChipClass =
-    "inline-flex min-h-12 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+  // The safety row is not optional chrome. `answerSupportPriority` returns a
+  // safety finding ahead of everything else, and this trigger is the only route
+  // to the safety-critical findings sheet.
+  if (!priority) return null;
   const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
-  const gapsDetail =
-    warnings.length > 0 && gapsOpen ? (
-      <div id="answer-evidence-gaps-detail" className={cn("grid gap-2 pb-3", compact ? "px-2" : "px-3")}>
-        {warnings.map((warning, index) => (
-          <p
-            key={`${warning}:${index}`}
-            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
-          >
-            {warning}
-          </p>
-        ))}
-      </div>
-    ) : null;
-  const feedbackDetail =
-    onSubmitFeedback && feedbackOpen ? (
-      <div id="answer-feedback-detail" className={compact ? "px-2 pb-3" : "px-3 pb-3"}>
-        <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
-      </div>
-    ) : null;
+  const rowClass = "grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-1.5 text-left";
 
   return (
     <section
       data-testid="answer-support-card"
-      className="max-w-[68ch] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+      className="max-w-[68ch] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
       aria-label="Answer support"
     >
-      {priority ? (
-        safetyInteractive ? (
-          <button
-            ref={safetyTriggerRef}
-            id="answer-safety-findings-drawer-trigger"
-            data-testid="answer-safety-findings-trigger"
-            type="button"
-            onClick={onOpenSafetyFindings}
-            className={cn(supportButtonClass, "w-full")}
-            aria-label="Open safety-critical source findings"
+      {safetyInteractive ? (
+        <button
+          ref={safetyTriggerRef}
+          id="answer-safety-findings-drawer-trigger"
+          data-testid="answer-safety-findings-trigger"
+          type="button"
+          onClick={onOpenSafetyFindings}
+          className={cn(
+            rowClass,
+            "w-full transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+          )}
+          aria-label="Open safety-critical source findings"
+        >
+          <span
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+            aria-hidden="true"
           >
-            <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-              aria-hidden="true"
-            >
-              <CircleAlert aria-hidden="true" className="h-5 w-5" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
-              <span className={cn("mt-1 flex min-w-0 items-center gap-1.5 text-xs leading-5", textMuted)}>
-                {priority.severityLabel ? (
-                  <span className="shrink-0 rounded border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-1.5 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--warning)]">
-                    {priority.severityLabel}
-                  </span>
-                ) : null}
-                <span className="line-clamp-2">{priority.detail}</span>
-              </span>
-            </span>
-            <span className="flex shrink-0 items-center gap-2">
-              <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{safetyFindingsCount}</span>
-              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </span>
-          </button>
-        ) : (
-          <div className="grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2">
-            <span
-              className={cn(
-                "grid h-7 w-7 shrink-0 place-items-center rounded-md border",
-                priority.tone === "caution"
-                  ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                  : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-              )}
-              aria-hidden="true"
-            >
-              {priority.tone === "caution" ? (
-                <CircleAlert aria-hidden="true" className="h-4 w-4" />
-              ) : (
-                <ShieldCheck aria-hidden="true" className="h-4 w-4" />
-              )}
-            </span>
-            <div className="min-w-0 sm:flex sm:min-w-0 sm:items-center sm:gap-3">
-              <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
-              <p className={cn("mt-0.5 line-clamp-1 text-xs leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
-            </div>
-            {priority.sourceLabel ? (
-              <span className="nums inline-flex min-h-7 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-                {priority.sourceLabel}
-              </span>
-            ) : null}
-          </div>
-        )
-      ) : null}
-
-      {supportRowCount > 0 ? (
-        compact ? (
-          // One line of small buttons instead of two stacked 56px rows. The
-          // detail each one opens is unchanged and still carries the same id, so
-          // `aria-controls`, the feedback route and the gap wording all survive
-          // the density change.
-          <div className="border-t border-[color:var(--border)]">
-            <div className="flex flex-wrap items-center gap-1 px-2">
-              {warnings.length > 0 ? (
-                <button
-                  id="answer-evidence-gaps-trigger"
-                  data-testid="answer-evidence-gaps-trigger"
-                  type="button"
-                  onClick={() => setGapsOpen((current) => !current)}
-                  className={compactChipClass}
-                  aria-expanded={gapsOpen}
-                  aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
-                >
-                  <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--warning)]" />
-                  Evidence gaps
-                  <span className="nums rounded-full bg-[color:var(--warning-soft)] px-1.5 text-2xs text-[color:var(--text-heading)]">
-                    {warnings.length}
-                  </span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cn("size-icon-sm transition-transform", gapsOpen ? "rotate-0" : "-rotate-90")}
-                  />
-                </button>
+            <CircleAlert aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
+            <span className={cn("mt-0.5 flex min-w-0 items-center gap-1.5 text-2xs leading-4", textMuted)}>
+              {priority.severityLabel ? (
+                <span className="shrink-0 rounded border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-1.5 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--warning)]">
+                  {priority.severityLabel}
+                </span>
               ) : null}
-              {onSubmitFeedback ? (
-                <button
-                  id="answer-feedback-trigger"
-                  data-testid="answer-feedback-trigger"
-                  type="button"
-                  onClick={() => setFeedbackOpen((current) => !current)}
-                  className={compactChipClass}
-                  aria-expanded={feedbackOpen}
-                  aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
-                >
-                  <MessageSquareWarning aria-hidden="true" className="size-icon-sm shrink-0" />
-                  Report a problem
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cn("size-icon-sm transition-transform", feedbackOpen ? "rotate-0" : "-rotate-90")}
-                  />
-                </button>
-              ) : null}
-            </div>
-            {gapsDetail}
-            {feedbackDetail}
+              <span className="truncate">{priority.detail}</span>
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2">
+            <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-2xs")}>{safetyFindingsCount}</span>
+            <ChevronRight aria-hidden="true" className="h-4 w-4 text-[color:var(--text-muted)]" />
+          </span>
+        </button>
+      ) : (
+        <div className={rowClass}>
+          <span
+            className={cn(
+              "grid h-7 w-7 shrink-0 place-items-center rounded-lg border",
+              priority.tone === "caution"
+                ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+            )}
+            aria-hidden="true"
+          >
+            {priority.tone === "caution" ? (
+              <CircleAlert aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <ShieldCheck aria-hidden="true" className="h-4 w-4" />
+            )}
+          </span>
+          <div className="min-w-0 sm:flex sm:min-w-0 sm:items-center sm:gap-2">
+            <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
+            <p className={cn("mt-0.5 line-clamp-1 text-2xs leading-4 sm:mt-0", textMuted)}>{priority.detail}</p>
           </div>
-        ) : (
-          <div className="grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
-            {warnings.length > 0 ? (
-              <div>
-                <button
-                  id="answer-evidence-gaps-trigger"
-                  data-testid="answer-evidence-gaps-trigger"
-                  type="button"
-                  onClick={() => setGapsOpen((current) => !current)}
-                  className={cn(supportButtonClass, "w-full")}
-                  aria-expanded={gapsOpen}
-                  aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
-                >
-                  <CircleAlert aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--warning)]" />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence gaps</span>
-                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                      {warnings.length} note{warnings.length === 1 ? "" : "s"} about this answer
-                    </span>
-                  </span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cn(
-                      "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
-                      gapsOpen ? "rotate-0" : "-rotate-90",
-                    )}
-                  />
-                </button>
-                {gapsDetail}
-              </div>
-            ) : null}
-            {onSubmitFeedback ? (
-              <div>
-                <button
-                  id="answer-feedback-trigger"
-                  data-testid="answer-feedback-trigger"
-                  type="button"
-                  onClick={() => setFeedbackOpen((current) => !current)}
-                  className={cn(supportButtonClass, "w-full")}
-                  aria-expanded={feedbackOpen}
-                  aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
-                >
-                  <MessageSquareWarning
-                    aria-hidden="true"
-                    className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">
-                      Report a problem
-                    </span>
-                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                      Record whether the evidence supports this answer
-                    </span>
-                  </span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cn(
-                      "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
-                      feedbackOpen ? "rotate-0" : "-rotate-90",
-                    )}
-                  />
-                </button>
-                {feedbackDetail}
-              </div>
-            ) : null}
-          </div>
-        )
-      ) : null}
+          {priority.sourceLabel ? (
+            <span className="nums inline-flex min-h-7 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+              {priority.sourceLabel}
+            </span>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
@@ -1256,22 +1170,38 @@ function feedbackToneClass(tone: "success" | "warning" | "danger" | "neutral") {
 export function AnswerFeedbackPanel({
   pending,
   onSubmit,
+  tone = "full",
 }: {
   pending: AnswerFeedbackType | null;
   onSubmit: (feedbackType: AnswerFeedbackType) => void;
+  /**
+   * `"problems"` drops the affirmative option and asks the narrower question.
+   * The thumb down is the only way into this panel on the answer surface, and
+   * offering "Verified" inside a list a reader opened to report a fault is a
+   * mis-click waiting to record the opposite of what they meant.
+   */
+  tone?: "full" | "problems";
 }) {
+  const problemsOnly = tone === "problems";
+  const options = problemsOnly
+    ? answerFeedbackOptions.filter((item) => item.tone !== "success")
+    : answerFeedbackOptions;
   return (
     <section
       data-testid="answer-review-panel"
+      data-tone={tone}
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-      aria-label="Answer review"
+      aria-label={problemsOnly ? "Report a problem" : "Answer review"}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Is the answer supported?</p>
+          <p className="text-sm font-semibold text-[color:var(--text)]">
+            {problemsOnly ? "What is wrong with this answer?" : "Is the answer supported?"}
+          </p>
           <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Record whether the linked evidence supports the answer. This sends feedback for review; it does not change
-            the answer.
+            {problemsOnly
+              ? "Name the fault so a reviewer can find it. This sends feedback for review; it does not change the answer."
+              : "Record whether the linked evidence supports the answer. This sends feedback for review; it does not change the answer."}
           </p>
         </div>
         {pending ? (
@@ -1282,7 +1212,7 @@ export function AnswerFeedbackPanel({
         ) : null}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        {answerFeedbackOptions.map((item) => {
+        {options.map((item) => {
           const Icon = item.icon;
           return (
             <button

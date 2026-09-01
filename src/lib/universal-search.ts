@@ -22,6 +22,7 @@ import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchSpecifiers as searchPsychiatricSpecifiers } from "@/lib/specifiers";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { searchTherapyRecords, therapyNeedsReview } from "@/lib/therapies";
 import { rankToolRecords } from "@/lib/tools-catalog";
 import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
@@ -440,7 +441,7 @@ async function searchDictionaryDomain(args: ResolvedSearchArgs): Promise<Univers
 }
 
 async function searchFormulationDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return searchFormulationMechanisms(args.baseQuery)
+  return searchFormulationMechanisms(args.baseQuery, { expansions: args.expansions })
     .slice(0, args.limitPerDomain)
     .map(({ mechanism, score }) => ({
       id: mechanism.id,
@@ -455,7 +456,7 @@ async function searchFormulationDomain(args: ResolvedSearchArgs): Promise<Univer
 }
 
 async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return searchPsychiatricSpecifiers(args.baseQuery)
+  return searchPsychiatricSpecifiers(args.baseQuery, { expansions: args.expansions })
     .slice(0, args.limitPerDomain)
     .map(({ record, score }) => ({
       id: record.slug,
@@ -470,7 +471,7 @@ async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<Univers
 }
 
 async function searchTherapiesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return searchTherapyRecords(args.baseQuery)
+  return searchTherapyRecords(args.baseQuery, args.expansions)
     .slice(0, args.limitPerDomain)
     .map(({ record, score }) => ({
       id: record.slug,
@@ -694,7 +695,15 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
   // expanded lane. The documents adapter still receives the ORIGINAL query (it self-analyses).
   const analysis = analyzeClinicalQuery(args.query);
   const baseQuery = applyTypoCorrections(args.query, analysis.typoCorrections);
-  const expansions = deriveExpansions(analysis, baseQuery);
+  // Keep the command surface aligned with the selected mode's local search: both
+  // routes score its deterministic vocabulary in the same low-weight expansion
+  // lane. The original query remains untouched for document retrieval.
+  const expansions = Array.from(
+    new Set([
+      ...(args.contextMode ? smartSearchExpansions(args.contextMode, args.query) : []),
+      ...deriveExpansions(analysis, baseQuery),
+    ]),
+  ).slice(0, maxExpansions);
   const resolved: ResolvedSearchArgs = { ...args, baseQuery, expansions };
 
   const groups = await Promise.all(

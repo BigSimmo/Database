@@ -263,7 +263,8 @@
         "tests/in-page-nav-playwright-contract.test.ts",
         "tests/information-page-shell.dom.test.tsx",
         "tests/ui-route-coverage.spec.ts",
-        "tests/ui-specifiers.spec.ts"
+        "tests/ui-specifiers.spec.ts",
+        "tests/ui-tools.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1490,8 +1491,14 @@
       "source": "src/components/ui/retrieval-state-banner.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/answer-card.tsx"],
-      "productImportFiles": ["src/components/ui/answer-card.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -2239,8 +2246,14 @@
       "source": "src/components/ui/verification-notice.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/answer-card.tsx"],
-      "productImportFiles": ["src/components/ui/answer-card.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -2248,6 +2261,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/answer-support-priority.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx"
@@ -3804,7 +3818,7 @@
         {
           "file": "src/components/clinical-dashboard/answer-result-surface.tsx",
           "exists": true,
-          "imports": ["AnswerCard", "Sheet"],
+          "imports": ["AnswerCard", "Sheet", "VerificationNotice"],
           "importedFamilies": ["answer", "layout"],
           "literalCkbV2": false,
           "dynamicCkbV2": false,

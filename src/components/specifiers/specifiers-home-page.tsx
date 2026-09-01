@@ -29,6 +29,7 @@ import { cn, primaryControl } from "@/components/ui-primitives";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { searchSpecifiers, specifierFamilies, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
+import { interpretSmartSearch } from "@/lib/smart-search-intent";
 import {
   readResultFilterValue,
   readResultFilterValues,
@@ -138,8 +139,14 @@ function SpecifierResults({ query }: { query: string }) {
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const allGuideMatches = useMemo(() => searchSpecifiers(query, { family: "all", diagnosis: "" }), [query]);
-  const allCatalogueMatches = useMemo(() => searchSpecifierCatalog(query), [query]);
-  const defaultScope: SpecifierResultScope = allGuideMatches.length > 0 ? "guides" : "catalogue";
+  const allCatalogueMatches = useMemo(() => searchSpecifierCatalog(query, {}, true), [query]);
+  const smartInterpretation = useMemo(() => interpretSmartSearch("specifiers", query), [query]);
+  const defaultScope: SpecifierResultScope =
+    smartInterpretation.naturalLanguage && allCatalogueMatches.length > 0
+      ? "catalogue"
+      : allGuideMatches.length > 0
+        ? "guides"
+        : "catalogue";
   const scope = readResultFilterValue(searchParams, "scope", specifierScopeValues, defaultScope);
   const familyValues = useMemo(() => new Set(specifierFamilies.map((option) => option.id)), []);
   const diagnosisValues = useMemo(() => new Set(diagnosisOptions.map((option) => option.value)), []);

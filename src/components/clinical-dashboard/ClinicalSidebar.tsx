@@ -762,6 +762,7 @@ export function ClinicalSidebarContent({
                   )}
                 >
                   <Icon
+                    aria-hidden="true"
                     className={cn(
                       "h-4 w-4 shrink-0",
                       active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
@@ -812,6 +813,7 @@ export function ClinicalSidebarContent({
                     )}
                   >
                     <Icon
+                      aria-hidden="true"
                       className={cn(
                         "h-4 w-4 shrink-0",
                         active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
@@ -943,14 +945,14 @@ function ClinicalCollapsedRail({
       <div className="grid w-full shrink-0 justify-items-center gap-3 px-3">
         {collapseLocked ? (
           <span className={collapsedSidebarButton} aria-hidden="true">
-            <BrandMark tone="emphasis" className="h-7 w-7" />
+            <BrandMark tone="emphasis" optical="chrome" className="h-7 w-7" />
           </span>
         ) : (
           <>
             {/* Tablet: the expanded panel does not exist below lg, so show a
                 static brand mark instead of a dead expand control. */}
             <span className={cn("hidden md:grid lg:hidden", collapsedSidebarControl)} aria-hidden="true">
-              <BrandMark tone="emphasis" className="h-7 w-7" />
+              <BrandMark tone="emphasis" optical="chrome" className="h-7 w-7" />
             </span>
             <Button
               variant="ghost"
@@ -959,7 +961,11 @@ function ClinicalCollapsedRail({
               title="Expand sidebar"
               onClick={() => onCollapsedChange(false)}
             >
-              <BrandMark tone="emphasis" className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
+              <BrandMark
+                tone="emphasis"
+                optical="chrome"
+                className="h-7 w-7 group-hover:hidden group-focus-visible:hidden"
+              />
               <PanelLeftOpen
                 aria-hidden="true"
                 className="hidden size-icon-lg group-hover:block group-focus-visible:block"
@@ -1008,7 +1014,7 @@ function ClinicalCollapsedRail({
                 title={item.label}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon className="h-4 w-4" />
+                <Icon aria-hidden="true" className="h-4 w-4" />
               </Link>
             );
           })}
@@ -1037,7 +1043,7 @@ function ClinicalCollapsedRail({
                     title={item.label}
                     aria-current={active ? "page" : undefined}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon aria-hidden="true" className="h-4 w-4" />
                   </Link>
                 );
               })}
@@ -1206,7 +1212,7 @@ export function ClinicalMobileSidebar({
       closeLabel="Close Clinical Guide menu"
       placement="left"
       contentClassName={hiddenFrom === "lg" ? "lg:hidden" : "md:hidden"}
-      headerLeading={<BrandMark tone="emphasis" className="h-7 w-7 sm:h-8 sm:w-8" />}
+      headerLeading={<BrandMark tone="emphasis" optical="chrome" className="h-7 w-7 sm:h-8 sm:w-8" />}
       headerClassName={drawerHeader}
       titleClassName={drawerHeaderTitle}
       closeButtonClassName={drawerHeaderClose}

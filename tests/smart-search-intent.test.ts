@@ -1,52 +1,50 @@
 import { describe, expect, it } from "vitest";
 
 import { appModeIds } from "@/lib/app-modes";
-import { clinicalAskModeIds } from "@/lib/clinical-ask/contracts";
-import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, isSmartNaturalSearchMode, smartNaturalSearchModeIds } from "@/lib/smart-search-intent";
 
-describe("resolveSmartSearchSubmissionIntent", () => {
-  it.each(clinicalAskModeIds)("routes explicit questions to governed Clinical Ask in %s", (mode) => {
-    expect(resolveSmartSearchSubmissionIntent(mode, "Which option is best for this presentation?")).toBe(
-      "clinical-ask",
+describe("interpretSmartSearch", () => {
+  it.each(smartNaturalSearchModeIds)("keeps natural-language questions inside %s search", (mode) => {
+    const interpretation = interpretSmartSearch(mode, "Which catalogue result fits this presentation?");
+    expect(interpretation.naturalLanguage).toBe(true);
+    expect(interpretation.originalQuery).toBe("Which catalogue result fits this presentation?");
+  });
+
+  it("adds only mode-scoped catalogue vocabulary", () => {
+    expect(interpretSmartSearch("services", "services for young people after discharge").expansions).toEqual(
+      expect.arrayContaining(["youth", "adolescent", "community", "post-discharge"]),
     );
-    expect(resolveSmartSearchSubmissionIntent(mode, "How should this be approached")).toBe("clinical-ask");
-  });
-
-  it.each(clinicalAskModeIds)("routes developed clinical case statements to Clinical Ask in %s", (mode) => {
-    expect(resolveSmartSearchSubmissionIntent(mode, "presentation is persistent and worse after discharge")).toBe(
-      "clinical-ask",
+    expect(interpretSmartSearch("forms", "which form extends detention?").expansions).toEqual(
+      expect.arrayContaining(["extension", "detention"]),
     );
-    expect(
-      resolveSmartSearchSubmissionIntent(mode, "consider the most appropriate pathway for ongoing community care"),
-    ).toBe("clinical-ask");
+    expect(interpretSmartSearch("differentials", "causes of hearing voices").expansions).toEqual(
+      expect.arrayContaining(["hallucinations", "psychosis"]),
+    );
+    expect(interpretSmartSearch("formulation", "why do I keep going over it?").expansions).toContain("rumination");
+    expect(interpretSmartSearch("dsm", "diagnoses involving elevated mood").expansions).toEqual(
+      expect.arrayContaining(["mania", "hypomania", "bipolar"]),
+    );
+    expect(interpretSmartSearch("specifiers", "specifier for anxiety symptoms").expansions).toContain(
+      "anxious distress",
+    );
+    expect(interpretSmartSearch("therapy-compass", "therapy for emotion regulation").expansions).toEqual(
+      expect.arrayContaining(["dbt", "dialectical behaviour therapy"]),
+    );
   });
 
-  it.each(clinicalAskModeIds)("keeps catalogue phrases, codes, commands, and fragments in search for %s", (mode) => {
-    for (const query of [
-      "cognitive therapy for anxiety",
-      "DBT for borderline personality disorder",
-      "services for young people",
-      "best interests form",
-      "form 4A?",
-      "find crisis services",
-      "look up section 26",
-      "community treatment order",
-      "Services are available for young people in Perth",
-      "Forms are used for community treatment orders",
-      "Cognitive therapy is used for anxiety disorders",
-      "persistent symptoms after",
-    ]) {
-      expect(resolveSmartSearchSubmissionIntent(mode, query), query).toBe("search");
-    }
+  it("keeps compact catalogue codes literal after terminal punctuation", () => {
+    expect(interpretSmartSearch("forms", "form 4A?")).toMatchObject({ naturalLanguage: false, expansions: [] });
+    expect(interpretSmartSearch("dsm", "F31.81?")).toMatchObject({ naturalLanguage: false, expansions: [] });
   });
 
-  it.each(appModeIds.filter((mode) => !clinicalAskModeIds.includes(mode as never)))(
-    "never invokes Clinical Ask in unsupported mode %s",
+  it.each(appModeIds.filter((mode) => !smartNaturalSearchModeIds.includes(mode as never)))(
+    "does not advertise interpretation in unsupported mode %s",
     (mode) => {
-      expect(resolveSmartSearchSubmissionIntent(mode, "Which option is best for this presentation?")).toBe("search");
-      expect(resolveSmartSearchSubmissionIntent(mode, "presentation is persistent and worse after discharge")).toBe(
-        "search",
-      );
+      expect(isSmartNaturalSearchMode(mode)).toBe(false);
+      expect(interpretSmartSearch(mode, "Which option fits this presentation?")).toMatchObject({
+        naturalLanguage: false,
+        expansions: [],
+      });
     },
   );
 });

@@ -484,6 +484,18 @@ describe("composeDifferentialSearchResults", () => {
 });
 
 describe("ranked differential search", () => {
+  it("interprets presentation language without leaving the differential catalogue", () => {
+    const matches = rankDifferentialRecords(
+      differentialRecords,
+      "What can cause hearing voices?",
+      differentialRecords.length,
+      [],
+      true,
+    );
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches.some(({ record }) => record.slug.includes("psychosis"))).toBe(true);
+  });
+
   it("ranks title matches above content-only matches", () => {
     const matches = rankDifferentialRecords(differentialRecords, "delirium");
     expect(matches.length).toBeGreaterThan(0);

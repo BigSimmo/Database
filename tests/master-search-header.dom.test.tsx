@@ -120,22 +120,32 @@ describe("MasterSearchHeader DOM", () => {
     expect(props.onAsk).toHaveBeenCalledOnce();
   });
 
-  it("shows a governed Smart cue only when the server capability and intent both allow it", () => {
+  it("ignores form and keyboard submission while the composer is loading", () => {
+    const props = { ...defaultHeaderProps(), query: "bipolar", loading: true };
+    render(<MasterSearchHeader {...props} searchMode="dsm" />);
+
+    fireEvent.submit(screen.getByRole("search"));
+    fireEvent.keyDown(screen.getByTestId("global-search-input"), { key: "Enter", ctrlKey: true });
+
+    expect(props.onAsk).not.toHaveBeenCalled();
+  });
+
+  it("shows provider-free Smart search while preserving the ordinary search action", () => {
     const props = {
       ...defaultHeaderProps(),
       query: "Which service is best for ongoing support after discharge?",
       searchMode: "services" as const,
     };
-    const { rerender } = render(<MasterSearchHeader {...props} clinicalAskAvailable />);
+    const { rerender } = render(<MasterSearchHeader {...props} />);
 
-    expect(screen.getByTestId("smart-search-intent-cue")).toHaveTextContent("Smart answer");
-    expect(screen.getByRole("button", { name: "Get Smart answer" })).toBeInTheDocument();
-    expect(screen.getByText("Smart answer selected for Services.")).toBeInTheDocument();
+    expect(screen.getByTestId("smart-search-intent-cue")).toHaveTextContent("Smart search");
+    expect(screen.getByRole("button", { name: "Search services" })).toBeInTheDocument();
+    expect(screen.getByText("Smart search selected for Services.")).toBeInTheDocument();
+    expect(screen.queryByText(/Smart answer/i)).not.toBeInTheDocument();
 
-    rerender(<MasterSearchHeader {...props} clinicalAskAvailable={false} />);
+    rerender(<MasterSearchHeader {...props} query="13YARN" />);
     expect(screen.queryByTestId("smart-search-intent-cue")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Get Smart answer" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("smart-search-rotating-text")).not.toBeInTheDocument();
+    expect(screen.getByTestId("smart-search-rotating-text")).toHaveTextContent("Smart search");
   });
 
   it("routes Factsheets Browse all sheets to the Topics page", async () => {

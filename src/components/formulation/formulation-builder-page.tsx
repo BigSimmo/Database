@@ -229,7 +229,9 @@ export function FormulationBuilderPage({
     }
     // Empty deferred while live query has text would score every mechanism.
     if (!deferredQuery.trim()) return [];
-    return searchFormulationMechanisms(deferredQuery, { domain }).map((result) => result.mechanism);
+    return searchFormulationMechanisms(deferredQuery, { domain, interpretNaturalLanguage: true }).map(
+      (result) => result.mechanism,
+    );
   }, [domain, deferredQuery, query]);
   const activeSections = formulationSectionsForTemplate(templateId);
   const generatedDraft = formulationDraftFor({

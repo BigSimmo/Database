@@ -92,7 +92,7 @@ function StaleEvidenceBody({
   return (
     <div
       className={cn(
-        "w-fit max-w-full overflow-hidden border text-sm",
+        "w-fit max-w-full overflow-hidden border text-2xs",
         open ? "rounded-lg" : "rounded-full",
         toneWarning,
       )}
@@ -103,7 +103,7 @@ function StaleEvidenceBody({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-controls={detailId}
-        className="inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+        className="flex min-h-compact-meta max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
       >
         <span data-testid="retrieval-state-headline" className="min-w-0 truncate font-semibold">
           Review due
@@ -297,6 +297,20 @@ export function RetrievalStateBanner({ state, onOpenSource, className }: Retriev
           ? "Source match status"
           : "How this answer was produced";
 
+  if (state.kind === "stale_evidence") {
+    return (
+      <div
+        role="group"
+        aria-label={label}
+        data-testid="retrieval-state-banner"
+        data-state={state.kind}
+        className={cn("w-fit min-w-0 max-w-full text-2xs", className)}
+      >
+        <StaleEvidenceBody overdue={state.overdue} sourceCount={state.sourceCount} onOpenSource={onOpenSource} />
+      </div>
+    );
+  }
+
   return (
     <div
       // `group`, not `region`: a labelled region would add a landmark to every
@@ -308,18 +322,16 @@ export function RetrievalStateBanner({ state, onOpenSource, className }: Retriev
       data-state={state.kind}
       className={cn(
         "flex items-start gap-2 text-sm",
-        state.kind === "stale_evidence" ? "w-full" : "rounded-[var(--radius-md)] border p-[var(--pad-card)]",
+        "rounded-[var(--radius-md)] border p-[var(--pad-card)]",
         // Source currency is the amber channel (SPEC §11). Operational severity
         // is not: a fallback answer is not a clinical hazard.
-        state.kind === "stale_evidence" ? null : caution ? toneWarning : toneInfo,
+        caution ? toneWarning : toneInfo,
         className,
       )}
     >
-      {state.kind === "stale_evidence" ? null : <Icon aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />}
+      <Icon aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
       <div className="min-w-0 flex-1">
-        {state.kind === "stale_evidence" ? (
-          <StaleEvidenceBody overdue={state.overdue} sourceCount={state.sourceCount} onOpenSource={onOpenSource} />
-        ) : state.kind === "partial_retrieval" ? (
+        {state.kind === "partial_retrieval" ? (
           <PartialRetrievalBody
             retrieved={state.retrieved}
             requested={state.requested}
