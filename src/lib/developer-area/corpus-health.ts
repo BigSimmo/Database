@@ -13,13 +13,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * completed and produced nothing usable was invisible: it is not in the queue,
  * it is not an error, and its row says `indexed`.
  *
- * **A server-only admin client, gated and explicitly owner-scoped.** The Data
- * API revokes table privileges from `authenticated`, so a cookie-bound client
- * cannot read either table even though their RLS policies describe owner reads.
- * We first verify the session's administrator claim, then use the service-role
- * client only on queries that filter `owner_id` to that verified user's id.
- * That separates the privilege needed to read these health tables from the
- * identity whose library the panel is allowed to describe.
+ * **Service-role admin client with an explicit `owner_id` filter on every query.**
+ * `authenticated` has no table `SELECT` privilege on `documents` or
+ * `document_index_quality` (revoked in schema and re-applied by the audit
+ * remediation migration), so the cookie-bound user client cannot read these
+ * tables at all — every count would fail with permission denied and degrade to
+ * "Not read". The working pattern is the sibling ingestion route: resolve the
+ * signed-in administrator through the user-session client (the same claim
+ * `DeveloperAreaGate` already enforces), then route the reads through
+ * `createAdminClient()` with `.eq("owner_id", user.id)` on every query. The
+ * owner filter is application-enforced because the service role bypasses RLS;
+ * `tests/developer-corpus-health.test.ts` fails if any query omits it.
  *
  * **Every failure returns `null`, never `0`, and every read is guarded
  * separately.** Zero is a true and load-bearing answer on this panel — "nothing
@@ -83,8 +87,8 @@ export type CountedList<T> = { count: number | null; sample: T[] };
 export type CorpusHealth = {
   /**
    * Whether a read was attempted at all. False for an unconfigured Supabase env
-   * or a request with no signed-in user; the panel says "not read" rather than
-   * rendering a page of nulls that look like failures.
+   * or a request with no signed-in administrator; the panel says "not read" rather
+   * than rendering a page of nulls that look like failures.
    */
   read: boolean;
   statuses: Record<DocumentStatus, number | null>;
@@ -94,7 +98,7 @@ export type CorpusHealth = {
   failures: CountedList<FailedDocument>;
   quality: {
     extraction: Record<ExtractionQuality, number | null>;
-    /** Rows in `document_index_quality` the database attributes to this owner. */
+    /** Rows in `document_index_quality` attributed to this owner. */
     scored: number | null;
     /** The lowest-scoring rows, worst first, with the issues each recorded. */
     lowest: ScoredDocument[];
@@ -194,44 +198,53 @@ async function scoreOf(run: () => PromiseLike<RowsResult<{ quality_score: number
 }
 
 export async function resolveCorpusHealth(): Promise<CorpusHealth> {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return unreadCorpusHealth();
+  // Auth through the cookie-bound user client (session only — no table reads).
+  // Table reads go through the service-role admin client below, because
+  // `authenticated` has no SELECT privilege on these tables.
+  const authClient = await createSupabaseServerClient();
+  if (!authClient) return unreadCorpusHealth();
 
   // Guarded like every read below it: an auth call that rejects during a
   // Supabase outage is exactly when this page gets opened.
-  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  let ownerId: string | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const { data } = await authClient.auth.getUser();
+    const user = data.user;
+    // Same administrator claim `DeveloperAreaGate` already enforces. Re-checked
+    // here because the gate is a no-op when mockups are enabled locally, while
+    // the admin client bypasses RLS and must never run for a non-administrator.
+    if (!user || !isAdministratorUser(user)) return unreadCorpusHealth();
+    ownerId = user.id;
   } catch {
     return unreadCorpusHealth();
   }
-  // The page layout is also administrator-gated, but this data boundary is
-  // independently defensive: the service role bypasses RLS, so the session's
-  // claim and its owner id must be established here before any admin query.
-  if (!user || !isAdministratorUser(user)) return unreadCorpusHealth();
+  if (!ownerId) return unreadCorpusHealth();
 
-  let admin: ReturnType<typeof createAdminClient>;
+  let supabase: ReturnType<typeof createAdminClient>;
   try {
-    admin = createAdminClient();
+    supabase = createAdminClient();
   } catch {
+    // Missing service-role env (demo / unconfigured). Same unread degradation
+    // as an absent user-session client — never invent zeroes.
     return unreadCorpusHealth();
   }
+
+  const owner = ownerId;
 
   const [queued, processing, indexed, unsearchable, failures, good, partial, poor, unknown, lowest, highest] =
     await Promise.all([
       countOf(() =>
-        admin.from("documents").select("id", { count: "exact", head: true }).eq("owner_id", user.id).eq("status", "queued"),
+        supabase.from("documents").select("id", { count: "exact", head: true }).eq("owner_id", owner).eq("status", "queued"),
       ),
       countOf(() =>
-        admin
+        supabase
           .from("documents")
           .select("id", { count: "exact", head: true })
-          .eq("owner_id", user.id)
+          .eq("owner_id", owner)
           .eq("status", "processing"),
       ),
       countOf(() =>
-        admin.from("documents").select("id", { count: "exact", head: true }).eq("owner_id", user.id).eq("status", "indexed"),
+        supabase.from("documents").select("id", { count: "exact", head: true }).eq("owner_id", owner).eq("status", "indexed"),
       ),
 
       // The cut this panel exists for: finished, and yet holds not one text
@@ -239,10 +252,10 @@ export async function resolveCorpusHealth(): Promise<CorpusHealth> {
       // sample can never disagree with each other.
       listOf(
         () =>
-          admin
+          supabase
             .from("documents")
             .select("id, title, page_count, image_count", { count: "exact" })
-            .eq("owner_id", user.id)
+            .eq("owner_id", owner)
             .eq("status", "indexed")
             .eq("chunk_count", 0)
             .order("updated_at", { ascending: false })
@@ -261,10 +274,10 @@ export async function resolveCorpusHealth(): Promise<CorpusHealth> {
       // above a list of four is worse than one that shows a single number.
       listOf(
         () =>
-          admin
+          supabase
             .from("documents")
             .select("id, title, error_message", { count: "exact" })
-            .eq("owner_id", user.id)
+            .eq("owner_id", owner)
             .eq("status", "failed")
             .order("updated_at", { ascending: false })
             .limit(SAMPLE_LIMIT),
@@ -272,31 +285,31 @@ export async function resolveCorpusHealth(): Promise<CorpusHealth> {
       ),
 
       countOf(() =>
-        admin
+        supabase
           .from("document_index_quality")
           .select("document_id", { count: "exact", head: true })
-          .eq("owner_id", user.id)
+          .eq("owner_id", owner)
           .eq("extraction_quality", "good"),
       ),
       countOf(() =>
-        admin
+        supabase
           .from("document_index_quality")
           .select("document_id", { count: "exact", head: true })
-          .eq("owner_id", user.id)
+          .eq("owner_id", owner)
           .eq("extraction_quality", "partial"),
       ),
       countOf(() =>
-        admin
+        supabase
           .from("document_index_quality")
           .select("document_id", { count: "exact", head: true })
-          .eq("owner_id", user.id)
+          .eq("owner_id", owner)
           .eq("extraction_quality", "poor"),
       ),
       countOf(() =>
-        admin
+        supabase
           .from("document_index_quality")
           .select("document_id", { count: "exact", head: true })
-          .eq("owner_id", user.id)
+          .eq("owner_id", owner)
           .eq("extraction_quality", "unknown"),
       ),
 
@@ -305,10 +318,10 @@ export async function resolveCorpusHealth(): Promise<CorpusHealth> {
       // range, and the documents a reader would actually go and look at.
       listOf(
         () =>
-          admin
+          supabase
             .from("document_index_quality")
             .select("document_id, quality_score, extraction_quality, issues", { count: "exact" })
-            .eq("owner_id", user.id)
+            .eq("owner_id", owner)
             .order("quality_score", { ascending: true })
             .limit(SAMPLE_LIMIT),
         (row): ScoredDocument => ({
@@ -322,10 +335,10 @@ export async function resolveCorpusHealth(): Promise<CorpusHealth> {
       // The top of the range, and the only thing that can tell a real
       // distribution apart from every document carrying the same placeholder.
       scoreOf(() =>
-        admin
+        supabase
           .from("document_index_quality")
           .select("quality_score")
-          .eq("owner_id", user.id)
+          .eq("owner_id", owner)
           .order("quality_score", { ascending: false })
           .limit(1),
       ),
