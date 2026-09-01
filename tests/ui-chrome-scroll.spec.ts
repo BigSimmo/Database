@@ -320,4 +320,33 @@ test.describe("pages that fit the window have no scroll range", () => {
       expect(stable.maxScrollTop, `${route} grew a scroll range after late chrome mounted`).toBe(0);
     });
   }
+
+  test("desktop: tall documents home centres its action cluster in the available canvas", async ({ page }) => {
+    await page.setViewportSize({ width: 1720, height: 1350 });
+    await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+
+    const geometry = await page.evaluate(() => {
+      const home = document.querySelector<HTMLElement>('[data-testid="shared-home-empty-state"]');
+      const canvas = document.querySelector<HTMLElement>("[data-mode-home-canvas]");
+      const main = document.getElementById("main-content");
+      if (!home || !canvas || !main) return null;
+
+      const homeRect = home.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        homeMidY: homeRect.top + homeRect.height / 2,
+        canvasMidY: canvasRect.top + canvasRect.height / 2,
+        maxScrollTop: Math.max(0, main.scrollHeight - main.clientHeight),
+      };
+    });
+
+    expect(geometry).not.toBeNull();
+    expect(Math.abs(geometry!.homeMidY - geometry!.canvasMidY)).toBeLessThanOrEqual(1);
+    expect(geometry!.maxScrollTop).toBe(0);
+  });
 });
