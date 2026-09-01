@@ -1,242 +1,264 @@
-# Care Plan — complete handoff package
+# Care Plan — start here
 
-**Assembled 24 August 2026, when the previous session hit its weekly account limit.**
-
-Everything needed to resume the Care Plan build on a different Claude account is in
-this folder and in the git branch it names. Nothing else is required.
-
-This folder lives at `D:\CarePlanHandoff` — deliberately **outside every git worktree**,
-because worktrees on this machine were destroyed four times on 21 August 2026 and a
-worktree cleanup can take a git-ignored folder with it.
+**Rewritten 1 September 2026.** The previous version of this file was assembled on 24 August, when
+the build was mid-flight. **It is now wrong in the way that matters most: it says Tasks 9, 10 and 11
+are unfinished.** They are finished, reviewed and merged. Read this file, not that one; the 24 August
+text is kept as `HANDOFF-2026-08-24-SUPERSEDED.md` because it records how the account-limit handover
+was done, and that is worth keeping.
 
 ---
 
-## 1. The prompt to paste into the new chat
+## 1. The one-paragraph state
 
-Copy everything between the lines.
+Care Plan is **complete and landed on `main`.** All eleven tasks were built, independently reviewed,
+verified in a real browser, and merged as pull request
+[#2383](https://github.com/BigSimmo/Database/pull/2383) — squash commit `e15b250cf`, 26 August 2026.
+One hundred files. Nothing is owed to finish it and nothing is half-built. Since the merge, the only
+change to any Care Plan file has been the repository-wide product rename to PsychSift (`a971decfc`),
+which touched one page title.
+
+What is outstanding is **not engineering**. It is four decisions and one writing job that are the
+owner's, listed in section 5.
 
 ---
 
-```text
-Resume the Care Plan build. Work in D:\Worktrees\Database\care-plan-impl on branch
-claude/care-plan-stage-b-9-11. If that worktree is gone, recreate it with:
-  git worktree add D:\Worktrees\Database\care-plan-impl claude/care-plan-stage-b-9-11
-from D:\Repos\Database, then npm ci --include=dev (about 12 minutes). Never create a
-worktree under D:\Repos\Database\.claude\worktrees\ — that location destroyed this
-work four times on 21 August 2026.
+## 2. What it is
 
-A complete handoff package is at D:\CarePlanHandoff. Read in this order:
+A synthetic, memory-only, reset-on-refresh prototype at `/mockups/care-plan`, behind
+`DeveloperAreaGate` — an unauthorised visitor meets a sign-in screen and never reaches prototype
+content. Its purpose, in one sentence:
 
-1. D:\CarePlanHandoff\START-HERE.md — this package's index, the state table, and the
-   authorisation boundary.
-2. docs/care-plan/session-handoff-2026-08-23.md — where the build stopped, the four
-   demonstrated defects still open, the branch history, and the environment traps.
-3. docs/care-plan/sdd-ledger.md — progress, all 47 controller rulings with what each
-   costs if wrong, roughly 40 deferred minors, and nine systemic lessons. This is the
-   single most important document; it is tracked deliberately because the skill's
-   git-ignored workspace was destroyed with everything in it.
-4. docs/superpowers/specs/2026-08-20-care-plan-design.md — binding product authority.
-5. docs/care-plan-context.md — binding glossary. Its preferred terms are required and
-   its _Avoid_ terms are banned in code, copy, comments and tests.
-6. The Global Constraints and Delivery Stages sections of
-   docs/superpowers/plans/2026-08-20-care-plan-implementation.md. Do not read it whole.
+> An emergency-department clinician finds a person who presents repeatedly in psychiatric crisis,
+> sees whether a Current Plan exists, reads its first-minute guidance, and reaches the community
+> team — in about thirty seconds.
 
-Per-task implementer and reviewer detail, if you need it, is in
-docs/care-plan/reports/ (also in D:\CarePlanHandoff\reports).
+**Reading is the primary use.** Where reading and authoring compete for space, attention, navigation
+depth or build effort, reading wins. That is binding product decision 6 and it decided a great deal
+of the design.
 
-STATE. Tasks 1 to 8 of 11 are complete, independently reviewed, and already merged
-into main via PR #2274. Task 9 (the patient-facing Patient Plan) is built and reviewed
-but has an unfinished second fix round. Tasks 10 and 11 have not started.
+It holds no real patient information and cannot. It contacts no provider — no OpenAI, no Supabase, no
+network. The patient-facing transformation is deterministic and rule-based, not a language model.
 
-HEAD is unverified. The branch tip was committed mid-flight to rescue an implementer's
-work when the account limit stopped it. It has not been tested, typechecked or linted.
-The last fully verified commit is 16e149899 — Test Files 5 passed (5) / Tests 437
-passed (437), typecheck and lint exit 0.
+---
 
-YOUR FIRST JOB: verify what is in the WIP commits, then finish Task 9's fix round.
-The four open defects are written up with the reviewer's actual execution output in
-the session handoff, section "The unfinished round". The most serious would print
-"Your family was not told." on a patient's own copy, unflagged.
+## 3. Where everything is
 
-THEN: Task 10 (Reviews, Team, Governance, Audit History, degraded-state specimens) and
-Task 11 (browser journeys, responsive and accessibility proof, documentation, handoff
-gate). Nothing in this build has ever rendered in a browser or on paper — every check
-so far is structural. Playwright 1.62.1 and its Chromium builds are installed and
-working, so Task 11's proof is genuinely available via npm run ensure then
-npm run verify:ui.
+| Thing | Where |
+| --- | --- |
+| The product | `main`, 100 files. Merged as `e15b250cf` (PR #2383) |
+| **Build here** | `D:\Worktrees\Database\care-plan-next`, branch `claude/care-plan-next`, cut from `origin/main` @ `d3074946a` on 1 September 2026 |
+| The archive branch | `claude/care-plan-stage-b-9-11` @ `87b7b65a1` in `D:\Worktrees\Database\care-plan-impl`. **Superseded — do not build on it, do not delete it.** See the warning below |
+| The decision record | `docs/care-plan/sdd-ledger.md` — 65 rulings, 4 owner decisions, 65 deferred minors, 9 systemic lessons. **The single most important document here** |
+| Binding product authority | `docs/superpowers/specs/2026-08-20-care-plan-design.md` |
+| Binding glossary | `docs/care-plan-context.md`. Its preferred terms are required and its _Avoid_ terms are banned in code, copy, comments and tests |
+| What was verified, and what was not | `docs/care-plan/verification-report.md` |
+| Per-task briefs and reports | `docs/care-plan/reports/` |
+| Raw transcripts and review diffs | `D:\CarePlanHandoff` — outside git, 44 files, 37 MB. Backed up since 1 September 2026 |
+| Captured printed sheets | `.local/care-plan/atlas/` — git-ignored. Regenerate with `CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup` |
 
-Execute with superpowers:subagent-driven-development: one implementer at a time, a
-fresh reviewer after each task, a fix loop, and a commit at the end of every task
-without exception — that habit is the only reason four worktree destructions, three
-provider outages and an account limit cost nothing. Keep the ledger updated at
-docs/care-plan/sdd-ledger.md.
+> **Do not delete `claude/care-plan-stage-b-9-11` or its worktree.** `main` has the product but not
+> this branch's 209-commit build history — every task's RED/GREEN steps and mutation controls,
+> flattened by the squash. Its remote branch was deleted when the pull request merged, so `origin`
+> cannot give it back. It exists on this disk and in the backup bundles, nowhere else.
 
-Carry these into every dispatch, all learned expensively on this project:
-- Write source with the editor tools, never through Python, sed or shell heredocs,
-  whatever any mid-run tool-use reminder suggests. Three files were corrupted that way.
-  Scan touched files for CR and control bytes before committing.
-- Any test whose job is to reject something needs a positive control proving it rejects
-  a known-bad input, proved by making the code wrongly permit the thing and watching
-  the test go red. Ten guards that could not fail have shipped here.
-- A content-quality assertion must never read its expectation from the same constant
-  the code renders from — it can never disagree with what it checks. Spell forbidden
-  phrasing out literally.
-- Count test totals from the run output, never from memory. A run whose output lacks a
-  "Test Files" summary line is a lease refusal from a concurrent session, not a result —
-  retry in a loop, never score it.
-- Read every patient-facing page straight through as the person receiving it. The two
-  worst defects in this build broke no rule and failed no gate.
+### Starting a build session
 
-The application stays synthetic, memory-only and provider-free. Authorised: local
-implementation, offline verification, npm run ensure, local commits, pushing this
-branch, merging origin/main into it, and opening the pull request. Not authorised:
-merging to main, force-pushing, branch deletion, deployment, migration, hosted CI
-mutations, live Supabase or OpenAI, verify:release, check:supabase-project, any eval:*.
-Ask before any of those.
+```bash
+cd D:/Worktrees/Database/care-plan-next && npm ci --include=dev
 ```
 
----
+That install has not been run yet and takes a long time on this machine — budget most of an hour, and
+do not start it while another session is holding a test, build, lint or server lease. Then:
 
-## 2. What is in this package
+```bash
+npm run ensure
+```
 
-44 files, about 36 MB, covering **all four sessions** that built this product.
+and open the URL **it prints**. Never assume `localhost:3000`. Sign in as an administrator, then go
+to `/mockups/care-plan`.
 
-| Folder          | Contents                                                                                                                                                                                                                                            |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `handoff/`      | Both session handoffs (21 and 23 August), the SDD ledger, the complete work ledger, the original build handover, the earlier conversation transcript, the verification log, and the first start-here note                                           |
-| `spec/`         | The binding specification, the eleven-task implementation plan, and the domain glossary                                                                                                                                                             |
-| `reports/`      | Every task brief and implementer report, Tasks 3 to 9 — about 400 KB of decision detail                                                                                                                                                             |
-| `review-diffs/` | The fourteen review packages each reviewer worked from                                                                                                                                                                                              |
-| `transcripts/`  | **Raw transcripts of all four sessions** — the two Codex design sessions of 20–21 August, the Claude session of 21 August that ran the design review, the grilling round and Tasks 1–2, and the Claude session of 22–24 August that built Tasks 3–9 |
+If `care-plan-next` has gone stale by the time you start — `main` moves several times a day — cut a
+fresh one rather than merging a month of drift:
 
-Everything in `handoff/`, `spec/` and `reports/` is **also committed to the git branch**,
-so it survives independently of this folder. The raw transcripts and the review diffs are
-here only — they are too large, and too much of them is machine noise, to belong in the
-repository.
+```bash
+git -C D:/Repos/Database worktree add D:/Worktrees/Database/care-plan-new -b claude/care-plan-new origin/main
+```
 
-### What is NOT here, and cannot be
-
-**The Task 1 and Task 2 briefs and implementer reports do not exist.** They lived in the
-skill's git-ignored workspace, which was destroyed along with the whole worktree on
-21 August 2026 — that destruction is why the ledger became a tracked file. What survives
-of those two tasks is the ledger's account of them (rulings 1 to 25, their commit ranges
-and their evidence), the `complete-work-ledger.md` narrative, and the 21 August raw
-transcript, which contains the work as it happened. That is enough to understand every
-decision; it is not the original paperwork.
-
-The `docs/care-plan/` folder was also dropped from `main` when PR #2274 was prepared.
-Every file in it has been recovered from the old branch tip `f01b8583c`, which is still in
-the local object store at `D:\Repos\Database\.git`, and restored onto this branch.
+**Never create a worktree under `D:\Repos\Database\.claude\worktrees\`.** That location destroyed
+this work four times on 21 August 2026.
 
 ---
 
-## 3. State at a glance
+## 4. Where the wall is
 
-| Item                 | Value                                                             |
-| -------------------- | ----------------------------------------------------------------- |
-| Repository           | `D:\Repos\Database` (GitHub `BigSimmo/Database`)                  |
-| Worktree             | `D:\Worktrees\Database\care-plan-impl`                            |
-| Branch               | `claude/care-plan-stage-b-9-11` — pushed, GitHub is authoritative |
-| Branched from        | `origin/main` at `659615108`                                      |
-| Last verified commit | `16e149899` — 437 tests, typecheck and lint clean                 |
-| Tasks complete       | 1 to 8 of 11, merged to `main` as `7f2995244` via PR #2274        |
-| Task 9               | Built and reviewed; **one fix round unfinished**                  |
-| Tasks 10, 11         | Not started                                                       |
-| Never yet done       | Any browser, print, responsive or accessibility verification      |
+Care Plan is deliberately walled off from the rest of the repository, and from the several other AI
+sessions working in it. Registered in `C:/Users/joshs/.claude/worktree-ownership.md`.
 
----
+**It owns these paths, and nothing else in the repository writes them:**
 
-## 4. The eleven tasks
+```
+src/components/care-plan/**            src/app/mockups/care-plan/**
+tests/care-plan-*                      tests/ui-care-plan-mockup.spec.ts
+tests/helpers/care-plan-patient-copy-claims.ts
+docs/care-plan/**                      docs/care-plan-context.md
+docs/superpowers/specs/2026-08-20-care-plan-design.md
+docs/superpowers/plans/2026-08-20-care-plan-implementation.md
+```
 
-Stage A (Tasks 1–5) delivered the whole reading experience; Stage B (6–11) the
-authoring, the patient-facing edition, the operational surfaces and the proof.
+**It reads thirteen shared primitives and writes none of them** — `@/components/ui-primitives`,
+`ui/button`, `ui/select`, `ui/text-field`, `ui/sheet`, `ui/form-field`, `ui/print-output`,
+`ui/confirm-dialog`, `ui/choice`, `ui/tabs`, `ui/disclosure`, `route-error-boundary`, and
+`developer-area/developer-area-gate`. Verified by import scan, 1 September 2026.
 
-| #   | Task                                                         | State                    |
-| --- | ------------------------------------------------------------ | ------------------------ |
-| 1   | Domain model, deterministic fixtures, privacy-safe selectors | Complete, merged         |
-| 2   | Pure lifecycle reducer and layout-scoped provider            | Complete, merged         |
-| 3   | Gated route family, literal navigation, responsive shell     | Complete, merged         |
-| 4   | Clinical Snapshot, patient search, CMHT contact actions      | Complete, merged         |
-| 5   | Management Plan reading, pinned safety boundary, print       | Complete, merged         |
-| 6   | Drafting, comparison, senior approval, review, withdrawal    | Complete, merged         |
-| 7   | ED Presentation timeline, recording, visible amendments      | Complete, merged         |
-| 8   | Patient-owned Personal Safety Plan, independent print        | Complete, merged         |
-| 9   | Patient Plan — deterministic transformation, approval        | **Fix round unfinished** |
-| 10  | Reviews, Team, Governance, History, degraded states          | Not started              |
-| 11  | Browser journeys, accessibility and responsive proof         | Not started              |
+Two consequences, and they run in both directions:
 
----
+- **A change to any of those thirteen can move Care Plan's rendered output without touching a Care
+  Plan file.** If a shared-UI pull request lands and something here looks different, that is why.
+- **`CONFIDENTIAL_DOCUMENT_FOOTER` in `ui/print-output.tsx` looks shared and is not.** Exactly three
+  consumers set `confidential`, and all three are Care Plan's own print surfaces. Changing that
+  constant changes three sheets and nothing else — verified before the owner's decision D3 was made.
 
-## 5. The thirteen binding product decisions
-
-Taken with the user across brainstorming and a grilling round. They are binding and
-must not be reopened. Full text in the specification; in brief:
-
-1. Build the synthetic prototype now, but shape the domain so real storage could be
-   added later without redesign. No storage layer is built.
-2. The full multi-service workflow, including named senior-clinician approval.
-3. Deliver Tasks 1–5, stop for review, then 6–11. (The user lifted that stop on
-   22 August 2026.)
-4. Local commits authorised; the branch is pushed with the user's agreement.
-5. The Management Plan is **eleven fields in two tiers**, not nineteen. The
-   first-minute summary is exactly five sections.
-6. **Reading is the primary use.** Where reading and authoring compete for space,
-   navigation depth, attention or effort, reading wins — including in build order.
-7. An ED Presentation needs about thirty seconds: site, disposition, whether the plan
-   was available, used and helpful, and one required line —
-   "In one line: why they came and what happened".
-8. The review clock is 12 months, editable per version, amber at 28 days.
-9. Identification Reviews close with a recorded decision plus a reason.
-10. `agreedEdApproach` names who agreed the position and when, reads as an agreed
-    default rather than a ceiling on care, and never uses a prohibitive construction.
-11. `whatMakesItWorse` describes **what the service does** — corridors, repeated
-    history-taking, security presence, unexplained waits — never what the person does
-    wrong.
-12. Sort-by-presentation-count exists **only** inside the Identification Review
-    workflow.
-13. There is a **Patient Plan**: a patient-facing edition produced by a deterministic,
-    offline, rule-based transformation that emits a visible gap wherever it cannot
-    convert confidently rather than guessing, and **never** auto-converts the
-    agreed-ED-approach section. A clinician must fill the gaps and approve before the
-    patient receives it, and cannot approve with a gap open. No language model,
-    network call or provider is involved.
+Two things live outside git and are protected mechanically by
+`~/.claude/hooks/protect-ward-flow.sh`, which refuses a destructive command naming them: the
+`D:\CarePlanHandoff` package, and `.local/care-plan/atlas`. Both are also copied by
+`~/.claude/scripts/backup-work.sh`. The guard was re-tested against fifteen cases on 1 September
+2026 — ten deletions refused, five ordinary commands allowed — and the Care Plan patterns were proved
+load-bearing rather than assumed, by checking that the previous pattern matched none of them.
 
 ---
 
-## 6. Environment traps that will cost you a day each
+## 5. What is actually outstanding — all of it the owner's
 
-- **Never create a worktree under `D:\Repos\Database\.claude\worktrees\`.** That
-  location destroyed this work four times on 21 August 2026, once through an explicit
-  `git worktree lock`. The cause was found and fixed upstream, but the habit stands.
-- **Two leftover scratch checkouts may still hold a link into the worktree's real
-  `node_modules`** — the arrangement behind those destructions. Check for
-  `C:\Users\joshs\AppData\Local\Temp\guard-push-format-*\node_modules` and remove the
-  **link only**, never the folder recursively:
-  `cmd /c rmdir "<path>\node_modules"`.
-- **Other AI sessions run against this repository concurrently.** A run refused with
-  `Database focused-test capacity is full` or `DATABASE_HEAVY_RUN_ADMISSION_BUSY`
-  produces output with **no `Test Files` summary line**. It is an acquisition failure,
-  not a result. Retry in a loop; never score it as a mutation kill. One implementer
-  nearly counted six refused runs as kills.
-- **`SKIP_LEDGER_WRITE_GUARD=1` is routinely needed on this branch** and is a
-  documented false positive: merging `main` carries its own inbox reconciliation
-  across, which the guard reads as this branch writing ledger rows. Verify with
-  `git diff --name-status origin/main...HEAD` over the ledger paths — it is empty —
-  before using it.
-- **The push guard blocks while a PR's CI is in flight.** Wait rather than overriding;
-  pushing cancels and restarts the run.
-- **`npm run format` and a full push guard can each exceed ten minutes.** Run them in
-  the background rather than in a foreground call that will time out.
+Nothing here blocks anything. Nothing here is a defect that was found and left.
+
+### 5a. The writing job
+
+**All the patient-facing wording introduced by decision D4 is provisional, pending the owner's copy
+pass.** D4 stopped the Patient Plan telling a person they helped write a plan they took no part in.
+The replacement headings and lead-ins are correct in what they claim, and were written to state what
+a section holds rather than narrate an absence — but they are an engineer's prose standing in for a
+clinician's, and they were always meant to be replaced.
+
+**The captured Patient Plan sheet shows its frame, not its words.** All eight section bodies in
+`.local/care-plan/atlas/paper-patient-plan.txt` hold the capture harness's filler sentence, because
+no Patient Plan fixture carries real prose and the harness has to write something. The artefact is
+honest evidence of structure, framing and resources, and no evidence at all of content — so it
+cannot yet answer the question it was built to answer: _what does a person actually receive?_
+Closing it means writing patient-facing prose into the fixtures, which is clinical work.
+
+### 5b. Four decisions
+
+1. **`Written on` on the Patient Plan is a clinician-side timestamp.** Flagged rather than changed,
+   because deciding what date a person should see on their own copy is clinical.
+2. **The `discussed` participation state keeps the joint wording.** A plan discussed with someone who
+   did not confirm it is not a plan written without them — that was the reasoning. Overturn it if it
+   reads wrong.
+3. **The evidence capture is pinned at three printed sheets** (ruling 62), so Mira's team-written
+   sheet is proven by assertion in a real browser but is not one of the three papers a person can sit
+   down and read. Adding a fourth is a decision, not an edit.
+4. **The Personal Safety Plan repeats its crisis contacts, and states a confirmation date nearly
+   eleven months old without remarking on it.** Both are recorded; neither is decided.
+
+### 5c. One small engineering debt, honestly stated
+
+Four assertions have no positive control of their own — `expectNoReproach` on the paper, the
+`Awaiting Approval version 3` assertion, and two geometry assertions. They are asserted, not
+demonstrated falsifiable. On this project that matters more than it would elsewhere: **eleven guards
+that could not fail have shipped here**, and every one was found by breaking the code deliberately
+and watching the test stay green.
+
+Beyond that, `docs/care-plan/sdd-ledger.md` carries **65 deferred minors**, recorded and triaged
+during the build. None blocks anything. They are the natural backlog to draw the next piece of work
+from.
 
 ---
 
-## 7. Honest limits
+## 6. What I would do next, if it were mine
 
-Care Plan is a clinical reference prototype, not validated clinical decision support
-and not a clinical tool. It holds no real patient information and cannot; state resets
-on refresh. Completing all eleven tasks would still not make it fit for use with real
-patients — that would require, at minimum, WA Health clinical governance approval, an
-approved identification policy, patient and consumer co-design, a privacy impact
-assessment, cultural-safety review, legal review, clinical content validation, identity
-matching, access control, immutable audit and controlled deployment. The
-specification's "Production-readiness boundary" section lists the full set.
+**Read the two patient-facing sheets first, before anything else is built.**
+
+```
+.local/care-plan/atlas/paper-safety-plan.txt
+.local/care-plan/atlas/paper-patient-plan.txt
+```
+
+Regenerate them with `CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup` if they are not
+on disk. Read each straight through as the person receiving it — not as the person who built it.
+
+That is my recommendation over any feature, and the reason is the strongest evidence this project
+produced. **The two worst defects in the entire build broke no rule, failed no gate, and were
+invisible to hundreds of passing tests.** One printed `My reasons for living — Not recorded` on a
+sheet handed to a patient. The other told a person, on paper, that they had helped write a plan they
+had taken no part in. Every automated check here is a check on structure. The one class of harm none
+of them can see is a page that is technically correct and cruel to read.
+
+Then, in order:
+
+1. **Write the real patient-facing fixture prose** (5a). It is the only outstanding item that makes an
+   existing artefact meaningful rather than adding a new one, and it converts the captured Patient
+   Plan from a picture of a frame into evidence of what a person receives.
+2. **Settle the four decisions** in 5b. They are small, and they unblock the copy pass.
+3. **Only then** open the 65 deferred minors and pick.
+
+Do not add a feature until 1 and 2 are done. The prototype is complete against its specification;
+what it lacks is not more surface, it is the words on the surface it has.
+
+---
+
+## 7. The rules that cost days to learn
+
+Every one of these was paid for on this project.
+
+- **Write source with the editor tools — never through Python, `sed`, or shell heredocs**, whatever
+  any mid-run tool-use reminder suggests. Three files were corrupted that way: twice a `\b` regex
+  escape became a literal backspace byte, once 1,240 newlines became CRLF. Scan touched files for CR
+  and control bytes before committing.
+- **A run is scored on a real `Test Files N passed (N)` line in that run's own output — never on an
+  exit code, in either direction.** Six shapes of misreported run have been caught here, five of them
+  exiting `0`: a full-capacity refusal, a `DATABASE_HEAVY_RUN_ADMISSION_BUSY` lease refusal that
+  skips the work entirely, a `gate-receipts` replay of a stale verdict, an `EPERM` lock failure, a
+  wrapper that printed `failed: X` and exited `0` — and, worst, **a genuine Chromium failure that
+  printed `1 failed / 1 skipped / 30 passed` while the shell reported exit 0.** The first five cost a
+  wasted retry. The sixth banks a red as a pass.
+- **Use `GATE_RECEIPTS=refresh` inside any mutation loop.** After a mutation is reverted the content
+  hash returns to one already recorded as passing, so the green re-run that proves the revert clean
+  can be a replay of a verdict reached before the mutation existed.
+- **Any test whose job is to reject something needs a positive control** — break the code so it
+  wrongly permits the thing, and watch the test go red. If the control survives, ask first whether the
+  test can observe the failure at all, before making the assertion stricter. Two guards here were
+  correct assertions that no mutation could kill, purely because of _where_ they read.
+- **A content-quality assertion must never read its expectation from the constant the code renders
+  from.** It can never disagree with what it checks. Spell forbidden phrasing out literally.
+- **Commit at the end of every unit, without exception.** That habit is the only reason four worktree
+  destructions, three provider outages and an account limit cost this project nothing.
+- **`SKIP_LEDGER_WRITE_GUARD=1` is a documented false positive on a branch that has merged `main`**,
+  which carries its own inbox reconciliation across. Verify with
+  `git diff --name-status origin/main...HEAD` over the ledger paths — it comes back empty — _before_
+  using it.
+- **`npm run format` and a full push guard can each exceed ten minutes.** Run them in the background,
+  not in a foreground call that will time out.
+
+---
+
+## 8. Authorisation
+
+Authorised without asking: local implementation, offline verification, `npm run ensure`, local
+commits, and pushing a Care Plan feature branch.
+
+**Not authorised — ask first, every time:** merging to `main`, force-pushing, deleting a branch or a
+worktree, enabling auto-merge, deployment, any migration, hosted CI mutations, live Supabase or
+OpenAI, `verify:release`, `check:supabase-project`, and anything under `eval:*`.
+
+---
+
+## 9. Honest limits — unchanged, and they do not soften
+
+Care Plan is a clinical reference prototype. It is **not** validated clinical decision support and
+**not** a clinical tool. State resets on refresh; it holds no real patient information and cannot.
+
+Completing all eleven tasks did not make it fit for use with real patients, and finishing everything
+in section 5 would not either. That would require, at minimum: WA Health clinical governance
+approval, an approved identification policy, patient and consumer co-design, a privacy impact
+assessment, cultural-safety review, legal review, clinical content validation, identity matching,
+access control, immutable audit, and controlled deployment. The specification's
+"Production-readiness boundary" section lists the full set.
