@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "bf4489206167d41e78e629e10194a3856616afea",
-    "committed_at": "2026-09-01T18:36:13+08:00"
+    "sha": "90db76d9cd22b434b10739b23eec3dd6deb7a9ed",
+    "committed_at": "2026-09-01T21:40:44+08:00"
   },
   "routes": {
     "modes": [
@@ -4326,6 +4326,30 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2470",
+        "head": "3e7fc9b44ae5dca9d6b353585300036640adde88",
+        "scope": "Run PR sweep: merge main after Node 26 CI repair",
+        "outcome": "Merged current main after resolving the AGENTS guidance and generated repository-snapshot conflicts; retained the Node 26 CI repair; no review threads remain open.",
+        "checks": "npm ci; 41 focused runtime tests; lint; typecheck; lockfile parity; docs and policy checks; merge-tree conflict review; regenerated repository snapshot; full unit suite started but stopped before completion when it attempted a protected production Supabase request."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2470",
+        "head": "7cd20b1ea121d9cf9f66efa04971f8fefee63f05",
+        "scope": "Run PR sweep: Node 26 container CI compatibility",
+        "outcome": "Fixed the Node 26 Docker-image versus Node 24 engine-contract mismatch; no review threads were open.",
+        "checks": "npm ci; 41 focused runtime, hook, Cloud, and worker tests passed; lint and typecheck passed; offline static, docs, workflow, lockfile, and ledger gates passed; full unit suite stopped before completion after a protected Supabase call; no provider-backed checks completed."
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "PR-2470",
+        "head": "ddc42a13bf3ecab29e15f511d0165db266eafd46",
+        "scope": "Run PR sweep: final Node 26 lockfile alignment",
+        "outcome": "Aligned package-lock runtime metadata with the Node 26 engine contract after the container CI repair; no review threads were open.",
+        "checks": "npm ci; 41 focused runtime, hook, Cloud, and worker tests passed; lint and typecheck passed; offline static, docs, workflow, lockfile, and ledger gates passed; full unit suite stopped before completion after a protected Supabase call; no provider-backed checks completed."
+      },
       {
         "date": "2026-08-31",
         "ref": "codex/answer-surface-compact-20260830",
@@ -25576,8 +25600,8 @@
       }
     ],
     "counts": {
-      "records": 2656,
-      "refs": 1622
+      "records": 2659,
+      "refs": 1623
     }
   }
 }
