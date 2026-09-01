@@ -1,0 +1,135 @@
+{
+  "sources": [
+    {
+      "id": "source:governance",
+      "issuer": "PsychSift",
+      "title": "Calculator clinical-safety governance record",
+      "type": "internal_governance_record",
+      "version": "2026-09-01",
+      "url": "https://github.com/BigSimmo/Database/blob/main/docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
+      "jurisdiction": "Australia",
+      "status": "reviewed",
+      "claimsSupported": [
+        "claim:phq9:interpretation",
+        "claim:phq9:safety-flag",
+        "claim:gad7:interpretation",
+        "claim:k10:interpretation",
+        "claim:cage:interpretation",
+        "claim:auditc:interpretation",
+        "claim:mdq:interpretation",
+        "claim:sadpersons:interpretation",
+        "claim:ybocs:interpretation"
+      ],
+      "limitations": ["Records the release decision and does not replace an instrument source."]
+    },
+    {
+      "id": "source:phq9",
+      "issuer": "Kroenke, Spitzer & Williams",
+      "title": "The PHQ-9: Validity of a Brief Depression Severity Measure",
+      "type": "journal_article",
+      "version": "2001 validation study",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1495268/",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:phq9:interpretation"],
+      "limitations": [
+        "A completed score supports assessment and monitoring; it is not a diagnosis or management decision."
+      ]
+    },
+    {
+      "id": "source:gad7",
+      "issuer": "Spitzer et al.",
+      "title": "A Brief Measure for Assessing Generalized Anxiety Disorder",
+      "type": "journal_article",
+      "version": "2006 validation study",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/16717171/",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:gad7:interpretation"],
+      "limitations": ["A completed score supports anxiety assessment and does not establish a diagnosis."]
+    },
+    {
+      "id": "source:k10",
+      "issuer": "Australian Bureau of Statistics",
+      "title": "Kessler Psychological Distress Scale (K10)",
+      "type": "government_information_paper",
+      "version": "2003 information paper",
+      "url": "https://www.abs.gov.au/ausstats/abs%40.nsf/papersbyReleaseDate/4D5BD324FE8B415FCA2579D500161D57",
+      "jurisdiction": "Australia",
+      "status": "reviewed",
+      "claimsSupported": ["claim:k10:interpretation"],
+      "limitations": ["The K10 measures psychological distress and is not a diagnostic category."]
+    },
+    {
+      "id": "source:cage",
+      "issuer": "Ewing",
+      "title": "Detecting alcoholism: The CAGE questionnaire",
+      "type": "journal_article",
+      "version": "1984 original article",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/6471323/",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:cage:interpretation"],
+      "limitations": ["CAGE is a lifetime problem-drinking screen and does not assess current use or withdrawal."]
+    },
+    {
+      "id": "source:auditc",
+      "issuer": "Australian Government Department of Health",
+      "title": "Australian standard drinks guide",
+      "type": "government_web_guidance",
+      "version": "Current web guidance",
+      "url": "https://www.health.gov.au/topics/alcohol/about-alcohol/standard-drinks-guide",
+      "jurisdiction": "Australia",
+      "status": "reviewed",
+      "claimsSupported": ["claim:auditc:interpretation"],
+      "limitations": ["The standard-drink reference does not establish a diagnosis or management decision."]
+    },
+    {
+      "id": "source:mdq",
+      "issuer": "Hirschfeld et al.",
+      "title": "Development and validation of a screening instrument for bipolar spectrum disorder",
+      "type": "journal_article",
+      "version": "2000 validation study",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/11058490/",
+      "jurisdiction": "International",
+      "status": "permission_review_required",
+      "claimsSupported": ["claim:mdq:interpretation"],
+      "limitations": ["Quarantined pending approval of digital-use rights and completion semantics."]
+    },
+    {
+      "id": "source:sadpersons",
+      "issuer": "Patterson et al.",
+      "title": "Evaluation of suicidal patients: the SAD PERSONS scale",
+      "type": "journal_article",
+      "version": "1983 original article",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/6867245/",
+      "jurisdiction": "International",
+      "status": "not_for_active_use",
+      "claimsSupported": ["claim:sadpersons:interpretation"],
+      "limitations": ["Not released for active score-based clinical decision support."]
+    },
+    {
+      "id": "source:ybocs",
+      "issuer": "Goodman et al.",
+      "title": "The Yale-Brown Obsessive Compulsive Scale. I. Development, Use, and Reliability",
+      "type": "journal_article",
+      "version": "1989 original article",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/2684084/",
+      "jurisdiction": "International",
+      "status": "permission_review_required",
+      "claimsSupported": ["claim:ybocs:interpretation"],
+      "limitations": ["Quarantined because the current generic anchors are not a verified Y-BOCS implementation."]
+    }
+  ],
+  "claims": [
+    { "id": "claim:phq9:interpretation", "sourceIds": ["source:phq9", "source:governance"] },
+    { "id": "claim:phq9:safety-flag", "sourceIds": ["source:phq9", "source:governance"] },
+    { "id": "claim:gad7:interpretation", "sourceIds": ["source:gad7", "source:governance"] },
+    { "id": "claim:k10:interpretation", "sourceIds": ["source:k10", "source:governance"] },
+    { "id": "claim:cage:interpretation", "sourceIds": ["source:cage", "source:governance"] },
+    { "id": "claim:auditc:interpretation", "sourceIds": ["source:auditc", "source:governance"] },
+    { "id": "claim:mdq:interpretation", "sourceIds": ["source:mdq", "source:governance"] },
+    { "id": "claim:sadpersons:interpretation", "sourceIds": ["source:sadpersons", "source:governance"] },
+    { "id": "claim:ybocs:interpretation", "sourceIds": ["source:ybocs", "source:governance"] }
+  ]
+}
