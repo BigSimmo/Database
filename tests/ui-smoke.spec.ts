@@ -2421,6 +2421,47 @@ test.describe("PsychSift UI smoke coverage", () => {
     });
   }
 
+  test("privacy sticky chrome is an opaque bar on phones and glass from sm", async ({ page }) => {
+    // Proven in a browser, not by class presence: tailwind-merge keeps both the
+    // base and the `sm:` utility, so stylesheet order — not the class list —
+    // decides which one wins, and jsdom cannot resolve either.
+    //
+    // The phone case is the one that matters. This band carried translucent
+    // glass at every width, so scrolled content ghosted through the title; it
+    // was visible against the amber obligation band, whose fill read straight
+    // through "Data handling". The repo's own header rule for phones
+    // (`.edge-glass-header` / `.universal-header` in globals.css) is an opaque
+    // bar with no blur, and this page now follows it.
+    const chrome = page.getByTestId("privacy-sticky-chrome");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+    await expect(chrome).toBeVisible();
+
+    const phone = await chrome.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, blur: style.backdropFilter };
+    });
+    // Fully opaque: no alpha channel at all, so nothing can read through.
+    expect(phone.background).not.toMatch(/\/\s*0?\.\d+|rgba?\([^)]*,\s*0?\.\d+\s*\)/);
+    expect(phone.blur).toBe("none");
+
+    // Scrolled, the band must actually hide what passes behind it.
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(chrome).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /handles your data/i })).not.toBeInViewport();
+
+    // From sm the shared glass treatment is correct again.
+    await page.setViewportSize({ width: 900, height: 900 });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+    const wide = await chrome.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, blur: style.backdropFilter };
+    });
+    expect(wide.blur).toContain("blur(");
+    expect(wide.background).not.toBe(phone.background);
+  });
+
   test("privacy trust brief remains operable with reduced motion and forced colours", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
