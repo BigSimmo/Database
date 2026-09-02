@@ -23,6 +23,10 @@
 //                 runs document_id -> documents.owner_id. These join-through tables hold
 //                 the actual document text and images and were invisible to both guards
 //                 before this module existed.
+// A queried table that lands in NONE of the three (a tenancy column under a fourth name, the way
+// `clinical_quality_feedback_triage` carries `owner_user_id`) gets no per-chain rule at all, so it
+// must be declared in UNTIERED_TABLE_DECLARATIONS with a reason or the scan fails. That fourth
+// signal exists because such a table previously got zero coverage with zero signal.
 //
 // SCOPE IS ATTRIBUTED PER QUERY CHAIN, NOT PER FUNCTION. The older guards asked whether a
 // sanctioned token appeared anywhere in the enclosing function, so a handler that scoped
@@ -100,6 +104,7 @@ export function tableTiersFromDatabaseTypes(text) {
   const direct = new Set();
   const userKeyed = new Set();
   const derived = new Set();
+  const all = new Set();
 
   let inPublic = false;
   let inTables = false;
@@ -109,6 +114,7 @@ export function tableTiersFromDatabaseTypes(text) {
 
   const flush = () => {
     if (!table || !columns) return;
+    all.add(table);
     if (columns.has("owner_id")) direct.add(table);
     else if (columns.has("user_id")) userKeyed.add(table);
     else if (columns.has("document_id")) derived.add(table);
@@ -157,7 +163,12 @@ export function tableTiersFromDatabaseTypes(text) {
   }
   flush();
 
-  return { direct, userKeyed, derived };
+  // NOTE: a tenancy column under a FOURTH name (the way `clinical_quality_feedback_triage`
+  // carries `owner_user_id`) puts its table in `all` and in no tier — which is exactly what
+  // the untiered-table declaration list exists to surface. Renaming `owner_id`,`user_id` or
+  // `document_id` on an existing table would likewise drop it out of its tier silently, and
+  // the untiered list would then be the only thing that notices.
+  return { direct, userKeyed, derived, all };
 }
 
 /* ------------------------------------------------------------- AST helpers */
@@ -165,19 +176,211 @@ export function tableTiersFromDatabaseTypes(text) {
 const OWNER_COLUMNS = new Set(["owner_id", "documents.owner_id"]);
 const USER_COLUMNS = new Set(["user_id"]);
 
-/** Helpers whose call proves the caller owns the document id it was handed. */
-export const OWNING_DOCUMENT_HELPERS = new Set([
-  "requireOwnedDocument",
-  "loadOwnedDocument",
-  "ownedDocumentId",
-  "ownedDocumentExists",
+function isStringLiteral(node) {
+  return Boolean(node) && ts.isStringLiteralLike(node);
+}
+
+/* --------------------------------------------- PostgREST `or=` disjunctions (P1-2) */
+
+/**
+ * Split a PostgREST filter string on its TOP-LEVEL commas, keeping `and(...)` / `or(...)`
+ * groups intact. The one real producer of this shape, `withOwnerReadScope`
+ * (src/lib/public-api-access.ts), emits exactly such a nested filter:
+ *   `owner_id.eq.<uuid>,and(owner_id.is.null,metadata->>public_corpus.eq.true)`
+ */
+function splitTopLevelTerms(filter) {
+  const terms = [];
+  let depth = 0;
+  let current = "";
+  for (const character of filter) {
+    if (character === "(") depth += 1;
+    if (character === ")") depth -= 1;
+    if (character === "," && depth === 0) {
+      terms.push(current);
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  terms.push(current);
+  return terms.map((term) => term.trim()).filter((term) => term.length > 0);
+}
+
+/** Does one term of a PostgREST filter restrict `column`? */
+function termConstrainsColumn(term, column) {
+  const group = term.match(/^(and|or)\(([\s\S]*)\)$/);
+  if (group) {
+    const inner = splitTopLevelTerms(group[2]);
+    if (inner.length === 0) return false;
+    // A conjunction is restricted as soon as ONE of its terms restricts the column; a
+    // nested disjunction only when EVERY one of its terms does. Anything else — a `not.`
+    // prefix in particular — falls through to the literal test below and fails closed.
+    return group[1] === "and"
+      ? inner.some((part) => termConstrainsColumn(part, column))
+      : inner.every((part) => termConstrainsColumn(part, column));
+  }
+  return new RegExp(`^${column}\\.(eq|is)\\.`).test(term);
+}
+
+/**
+ * PostgREST `or=` is a DISJUNCTION, so a single owner term restricts nothing unless every
+ * alternative restricts. Before 2026-09-02 any literal merely CONTAINING `owner_id.eq.` or
+ * `owner_id.is.` counted as an owner proof, which accepted
+ * `.or("owner_id.is.null,status.eq.indexed")` and `.or("owner_id.eq.<uuid>,id.eq.abc")` —
+ * both of which return other tenants' rows (security review P1-2).
+ */
+export function orFilterConstrainsColumn(filter, column) {
+  const terms = splitTopLevelTerms(filter);
+  return terms.length > 0 && terms.every((term) => termConstrainsColumn(term, column));
+}
+
+/* ------------------------------- sanctioned wrappers / owning helpers (P2-4) */
+
+/**
+ * Helpers whose call proves the caller owns the document id it was handed, mapped to the
+ * module an import of that name must come from — or `null` when the name has no sanctioned
+ * module and must therefore be a FILE-LOCAL definition that itself carries an owner
+ * predicate. All four are file-local in this repo today (`loadOwnedDocument` is a local
+ * function in src/app/api/documents/[id]/table-facts/route.ts), so the idiom is normalised
+ * and matching on identifier TEXT alone would let a local no-op of the same name vouch for
+ * a query it never scoped.
+ */
+export const OWNING_DOCUMENT_HELPERS = new Map([
+  ["requireOwnedDocument", null],
+  ["loadOwnedDocument", null],
+  ["ownedDocumentId", null],
+  ["ownedDocumentExists", null],
 ]);
 
 /** Wrappers that apply the owner predicate to a query builder passed as their first argument. */
-export const SANCTIONED_QUERY_WRAPPERS = new Set(["withOwnerReadScope"]);
+export const SANCTIONED_QUERY_WRAPPERS = new Map([["withOwnerReadScope", /(?:^|\/)public-api-access$/]]);
 
-function isStringLiteral(node) {
-  return Boolean(node) && ts.isStringLiteralLike(node);
+/** The parameter or property name that carries the document id in an owning-helper call. */
+const DOCUMENT_ID_PARAMETER = /^document_?id$/i;
+
+/** Strip wrappers that do not change the value an expression denotes. */
+function unwrapExpression(node) {
+  let current = node;
+  while (
+    current &&
+    (ts.isParenthesizedExpression(current) ||
+      ts.isAsExpression(current) ||
+      ts.isNonNullExpression(current) ||
+      (typeof ts.isSatisfiesExpression === "function" && ts.isSatisfiesExpression(current)))
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+/** Local name -> module specifier for every import in this file. */
+function importedNames(sourceFile) {
+  const imports = new Map();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) || !isStringLiteral(statement.moduleSpecifier)) continue;
+    const specifier = statement.moduleSpecifier.text;
+    if (statement.importClause?.name) imports.set(statement.importClause.name.text, specifier);
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) imports.set(element.name.text, specifier);
+    }
+    if (bindings && ts.isNamespaceImport(bindings)) imports.set(bindings.name.text, specifier);
+  }
+  return imports;
+}
+
+/** Every function-like declaration of `name` in this file. */
+function localFunctionDeclarations(sourceFile, name) {
+  const declarations = [];
+  const visit = (node) => {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === name && node.body) declarations.push(node);
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === name &&
+      node.initializer &&
+      (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))
+    ) {
+      declarations.push(node.initializer);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return declarations;
+}
+
+/** Does this subtree apply an owner predicate to a query builder? */
+function containsOwnerPredicate(node) {
+  let found = false;
+  const visit = (current) => {
+    if (found || !current) return;
+    if (ts.isCallExpression(current) && ts.isPropertyAccessExpression(current.expression)) {
+      const method = current.expression.name.text;
+      const [first] = current.arguments;
+      if (
+        (method === "eq" || method === "in" || method === "is") &&
+        isStringLiteral(first) &&
+        OWNER_COLUMNS.has(first.text)
+      ) {
+        found = true;
+        return;
+      }
+      if (method === "or" && isStringLiteral(first) && orFilterConstrainsColumn(first.text, "owner_id")) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return found;
+}
+
+/**
+ * Resolve the sanctioned wrapper and owning-helper names available in ONE source file. A
+ * name counts only when it is imported from its sanctioned module, or defined in this file
+ * by a declaration that itself carries an owner predicate. Identifier text is never enough.
+ */
+export function resolveSanctionedNames(sourceFile) {
+  const imports = importedNames(sourceFile);
+  const wrappers = new Set();
+  const helpers = new Map();
+
+  const owningLocalDeclarations = (name) => {
+    const declarations = localFunctionDeclarations(sourceFile, name);
+    if (declarations.length === 0) return null;
+    return declarations.every((declaration) => containsOwnerPredicate(declaration)) ? declarations : null;
+  };
+  const importSatisfies = (specifier, modulePattern) =>
+    Boolean(modulePattern) && modulePattern.test(specifier.replace(/\.[cm]?[tj]sx?$/, ""));
+
+  for (const [name, modulePattern] of SANCTIONED_QUERY_WRAPPERS) {
+    const specifier = imports.get(name);
+    if (specifier !== undefined) {
+      if (importSatisfies(specifier, modulePattern)) wrappers.add(name);
+      continue;
+    }
+    if (owningLocalDeclarations(name)) wrappers.add(name);
+  }
+
+  for (const [name, modulePattern] of OWNING_DOCUMENT_HELPERS) {
+    const specifier = imports.get(name);
+    if (specifier !== undefined) {
+      // An imported helper's parameter names are not visible here, so only a
+      // `documentId:`-keyed object argument can register an owning-document argument.
+      if (importSatisfies(specifier, modulePattern)) helpers.set(name, { parameters: [] });
+      continue;
+    }
+    const declarations = owningLocalDeclarations(name);
+    if (!declarations) continue;
+    helpers.set(name, {
+      parameters: declarations[0].parameters.map((parameter) =>
+        ts.isIdentifier(parameter.name) ? parameter.name.text : null,
+      ),
+    });
+  }
+
+  return { wrappers, helpers };
 }
 
 /** Walk OUTWARD from `.from(...)` to the top of the fluent chain that contains it. */
@@ -309,46 +512,118 @@ function valueExpressionText(node) {
   return null;
 }
 
-/** Does an object-literal (or an array of them) in this subtree stamp `owner_id:` / `user_id:`? */
-function subtreeStampsColumn(node, columns) {
-  let found = false;
-  const visit = (current) => {
-    if (found || !current) return;
-    if (ts.isPropertyAssignment(current) || ts.isShorthandPropertyAssignment(current)) {
-      const name = current.name;
+/**
+ * Does this expression stamp `owner_id:` / `user_id:` as a TOP-LEVEL property of the row(s)
+ * it writes? Deliberately bounded: the previous implementation recursed the entire argument
+ * subtree, so an `owner_id` key buried inside a JSON `metadata` column counted as a stamp
+ * (security review P1-1). An array must stamp EVERY element; a `.map()`/`.flatMap()` must
+ * stamp every row its callback returns.
+ */
+function expressionStampsColumn(node, columns) {
+  const expression = unwrapExpression(node);
+  if (!expression) return false;
+  if (ts.isObjectLiteralExpression(expression)) {
+    return expression.properties.some((property) => {
+      if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) return false;
+      const name = property.name;
       const text = ts.isIdentifier(name) ? name.text : ts.isStringLiteralLike(name) ? name.text : null;
-      if (text && columns.has(text)) {
-        found = true;
-        return;
-      }
+      return Boolean(text && columns.has(text));
+    });
+  }
+  if (ts.isArrayLiteralExpression(expression)) {
+    return (
+      expression.elements.length > 0 && expression.elements.every((element) => expressionStampsColumn(element, columns))
+    );
+  }
+  if (ts.isCallExpression(expression) && ts.isPropertyAccessExpression(expression.expression)) {
+    const method = expression.expression.name.text;
+    if (method === "map" || method === "flatMap") {
+      const callback = expression.arguments.find(
+        (argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument),
+      );
+      if (callback) return callbackReturnsStampedRow(callback, columns);
     }
-    ts.forEachChild(current, visit);
+  }
+  return false;
+}
+
+/** Every row a `.map()` callback can return must carry the stamp. */
+function callbackReturnsStampedRow(callback, columns) {
+  if (!callback.body) return false;
+  if (!ts.isBlock(callback.body)) return expressionStampsColumn(callback.body, columns);
+  let sawReturn = false;
+  let allStamped = true;
+  const visit = (node) => {
+    if (ts.isFunctionLike(node)) return;
+    if (ts.isReturnStatement(node)) {
+      sawReturn = true;
+      if (!node.expression || !expressionStampsColumn(node.expression, columns)) allStamped = false;
+      return;
+    }
+    ts.forEachChild(node, visit);
   };
-  visit(node);
-  return found;
+  ts.forEachChild(callback.body, visit);
+  return sawReturn && allStamped;
 }
 
 /**
- * Resolve a write-payload argument. A literal object is read directly; a plain identifier
- * is resolved to its `const`/`let` initializer inside the same file so the very common
+ * The initializer of `identifier`, resolved LEXICALLY: the nearest enclosing function scope
+ * first (without descending into nested functions), then a top-level `const` at module
+ * scope. The previous implementation walked the whole file for any variable of that name,
+ * so two handlers sharing a common identifier (`rows`, `payload`, `record`) collided and an
+ * owner-stamped variable in helper A vouched for `rows = body.rows` in handler B
+ * (security review P2-3).
+ */
+function lexicalInitializer(sourceFile, identifier) {
+  const name = identifier.text;
+  const inScope = (scopeNode) => {
+    let found = null;
+    const visit = (node) => {
+      if (found) return;
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name && node.initializer) {
+        found = node.initializer;
+        return;
+      }
+      if (ts.isFunctionLike(node) || ts.isClassLike(node)) return;
+      ts.forEachChild(node, visit);
+    };
+    ts.forEachChild(scopeNode, visit);
+    return found;
+  };
+
+  let current = identifier.parent;
+  while (current && !ts.isSourceFile(current)) {
+    if (ts.isFunctionLike(current)) {
+      const found = inScope(current);
+      if (found) return found;
+    }
+    current = current.parent;
+  }
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    if (!(statement.declarationList.flags & ts.NodeFlags.Const)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.name.text === name && declaration.initializer) {
+        return declaration.initializer;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve a write-payload argument. A literal object (or array/`map` of them) is read
+ * directly; a plain identifier is resolved through `lexicalInitializer` so the very common
  * "build the rows above, then `.upsert(rows)`" idiom is still recognised as stamping the
  * owner column rather than forced into an exemption it does not need.
  */
 function payloadStampsColumn(sourceFile, argument, columns) {
   if (!argument) return false;
-  if (subtreeStampsColumn(argument, columns)) return true;
-  if (!ts.isIdentifier(argument)) return false;
-  const name = argument.text;
-  let found = false;
-  const visit = (node) => {
-    if (found) return;
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name && node.initializer) {
-      if (subtreeStampsColumn(node.initializer, columns)) found = true;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return found;
+  if (expressionStampsColumn(argument, columns)) return true;
+  const identifier = unwrapExpression(argument);
+  if (!identifier || !ts.isIdentifier(identifier)) return false;
+  const initializer = lexicalInitializer(sourceFile, identifier);
+  return Boolean(initializer) && expressionStampsColumn(initializer, columns);
 }
 
 /* ---------------------------------------------------------- chain analysis */
@@ -358,11 +633,11 @@ function payloadStampsColumn(sourceFile, argument, columns) {
  * Recognised in-chain forms, all of which exist in this codebase:
  *   .eq("owner_id", x) / .eq("user_id", x) / .eq("documents.owner_id", x)
  *   .is("owner_id", null)
- *   .or("owner_id.eq.…")
- *   an owner_id:/user_id: key in an .insert()/.upsert()/.update() payload
+ *   .or("…") where EVERY top-level disjunct constrains the column
+ *   an owner_id:/user_id: key at the top level of an .insert()/.upsert() payload
  * plus the chain being handed to a sanctioned wrapper: withOwnerReadScope(chain, ownerId).
  */
-function analyzeChain(sourceFile, fromCall) {
+function analyzeChain(sourceFile, fromCall, context) {
   const top = chainTop(fromCall);
   const calls = chainMethodCalls(top);
   const proofs = [];
@@ -383,13 +658,19 @@ function analyzeChain(sourceFile, fromCall) {
       proofs.push(`is:${first.text}`);
     }
     if (call.name === "or" && isStringLiteral(first)) {
-      if (/\bowner_id\.(eq|is)\./.test(first.text)) proofs.push("or:owner_id");
-      if (/\buser_id\.(eq|is)\./.test(first.text)) proofs.push("or:user_id");
+      if (orFilterConstrainsColumn(first.text, "owner_id")) proofs.push("or:owner_id");
+      if (orFilterConstrainsColumn(first.text, "user_id")) proofs.push("or:user_id");
     }
     if (call.name === "select" && isStringLiteral(first) && /documents!inner/.test(first.text)) {
       innerJoinsDocuments = true;
     }
-    if (call.name === "insert" || call.name === "upsert" || call.name === "update") {
+    // `insert`/`upsert` create the row already owned, so an `owner_id:` key in the payload
+    // IS the tenancy fact. `update` is deliberately ABSENT: there the key is the value
+    // WRITTEN, and says nothing about which rows are matched —
+    // `.update({ owner_id: user.id, title })` with no filter reassigns every tenant's rows
+    // to the caller, and was reported as ownerScoped before 2026-09-02 (security review
+    // P1-1). An update is scoped by its `.eq(...)` filters or not at all.
+    if (call.name === "insert" || call.name === "upsert") {
       if (payloadStampsColumn(sourceFile, first, new Set(["owner_id"]))) proofs.push(`${call.name}:owner_id`);
       if (payloadStampsColumn(sourceFile, first, new Set(["user_id"]))) proofs.push(`${call.name}:user_id`);
     }
@@ -402,7 +683,7 @@ function analyzeChain(sourceFile, fromCall) {
     ts.isCallExpression(parent) &&
     parent.arguments[0] === top &&
     ts.isIdentifier(parent.expression) &&
-    SANCTIONED_QUERY_WRAPPERS.has(parent.expression.text)
+    context.wrappers.has(parent.expression.text)
   ) {
     proofs.push(`wrapper:${parent.expression.text}`);
   }
@@ -410,9 +691,8 @@ function analyzeChain(sourceFile, fromCall) {
   return { proofs, documentFilter, idFilter, innerJoinsDocuments };
 }
 
-const OWNER_PROOF =
-  /^(eq|in|is):(owner_id|documents\.owner_id)$|^(insert|upsert|update):owner_id$|^or:owner_id$|^wrapper:/;
-const USER_PROOF = /^(eq|in):user_id$|^(insert|upsert|update):user_id$|^or:user_id$/;
+const OWNER_PROOF = /^(eq|in|is):(owner_id|documents\.owner_id)$|^(insert|upsert):owner_id$|^or:owner_id$|^wrapper:/;
+const USER_PROOF = /^(eq|in):user_id$|^(insert|upsert):user_id$|^or:user_id$/;
 
 /* --------------------------------------------------------- scope-level facts */
 
@@ -421,7 +701,7 @@ const USER_PROOF = /^(eq|in):user_id$|^(insert|upsert|update):user_id$|^or:user_
  * proof: which identifiers were pinned by an owner-scoped `documents` query, which were
  * handed to an owning-document helper, and which are locally declared.
  */
-function scopeFacts(sourceFile, scopeNode) {
+function scopeFacts(sourceFile, scopeNode, context) {
   const ownerScopedDocumentIds = new Set();
   const owningHelperArguments = new Set();
   const localDeclarations = new Set();
@@ -436,30 +716,41 @@ function scopeFacts(sourceFile, scopeNode) {
       isStringLiteral(node.arguments[0]) &&
       node.arguments[0].text === "documents"
     ) {
-      const chain = analyzeChain(sourceFile, node);
+      const chain = analyzeChain(sourceFile, node, context);
       if (chain.proofs.some((proof) => OWNER_PROOF.test(proof))) {
         hasOwnerScopedDocumentsQuery = true;
         if (chain.idFilter?.argument) ownerScopedDocumentIds.add(chain.idFilter.argument);
       }
     }
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      OWNING_DOCUMENT_HELPERS.has(node.expression.text)
-    ) {
-      const collect = (argument) => {
-        if (!argument) return;
-        if (ts.isIdentifier(argument)) owningHelperArguments.add(argument.text);
-        else if (ts.isObjectLiteralExpression(argument)) {
-          for (const property of argument.properties) {
-            if (ts.isShorthandPropertyAssignment(property)) owningHelperArguments.add(property.name.text);
-            else if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.initializer)) {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && context.helpers.has(node.expression.text)) {
+      // Only the DOCUMENT-ID-shaped argument registers. Collecting every identifier and
+      // shorthand argument meant `loadOwnedDocument({ supabase, documentId: id })`
+      // registered `supabase` as an owning-document argument too (security review P2-4).
+      const helper = context.helpers.get(node.expression.text);
+      node.arguments.forEach((argument, index) => {
+        const value = unwrapExpression(argument);
+        if (!value) return;
+        if (ts.isObjectLiteralExpression(value)) {
+          for (const property of value.properties) {
+            if (ts.isShorthandPropertyAssignment(property) && DOCUMENT_ID_PARAMETER.test(property.name.text)) {
+              owningHelperArguments.add(property.name.text);
+            } else if (
+              ts.isPropertyAssignment(property) &&
+              ts.isIdentifier(property.name) &&
+              DOCUMENT_ID_PARAMETER.test(property.name.text) &&
+              ts.isIdentifier(property.initializer)
+            ) {
               owningHelperArguments.add(property.initializer.text);
             }
           }
+          return;
         }
-      };
-      for (const argument of node.arguments) collect(argument);
+        // A positional call is resolved against the helper's own parameter names, which is
+        // possible only because the helper resolved to a file-local definition.
+        if (ts.isIdentifier(value) && DOCUMENT_ID_PARAMETER.test(helper.parameters[index] ?? "")) {
+          owningHelperArguments.add(value.text);
+        }
+      });
     }
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) localDeclarations.add(node.name.text);
     ts.forEachChild(node, visit);
@@ -485,10 +776,15 @@ export function analyzeSource({ relativePath, source, tiers }) {
   );
   const sites = [];
   const factsCache = new Map();
+  const context = resolveSanctionedNames(sourceFile);
+  // Every table the generated types declare. A table that lands in NO tenancy tier gets no
+  // coverage at all from the three tiers, so it must be declared rather than pass silently
+  // (security review P2-5).
+  const allTables = tiers.all ?? new Set([...tiers.direct, ...tiers.userKeyed, ...tiers.derived]);
 
   const factsFor = (node) => {
     const scopeNode = enclosingNamedScopeNode(node) ?? sourceFile;
-    if (!factsCache.has(scopeNode)) factsCache.set(scopeNode, scopeFacts(sourceFile, scopeNode));
+    if (!factsCache.has(scopeNode)) factsCache.set(scopeNode, scopeFacts(sourceFile, scopeNode, context));
     return factsCache.get(scopeNode);
   };
 
@@ -507,9 +803,11 @@ export function analyzeSource({ relativePath, source, tiers }) {
           ? "user-keyed"
           : tiers.derived.has(table)
             ? "derived"
-            : null;
+            : allTables.has(table)
+              ? "untiered"
+              : null;
       if (tier) {
-        const chain = analyzeChain(sourceFile, node);
+        const chain = analyzeChain(sourceFile, node, context);
         sites.push({
           file: relativePath,
           table,
@@ -606,11 +904,17 @@ export function readFile(file) {
 
 /* ------------------------------------------------- declared tenancy proofs */
 
-// How an entry proves ownership. The first four are VERIFIED IN THE AST — the entry names
-// an identifier and the scanner checks that the very same identifier carries the proof —
-// so the reason string cannot drift away from the code. `reviewed-indirect` is the escape
-// hatch for links no AST check can express; it carries a written reason and nothing else,
-// which is why it is used as sparingly as possible.
+// How an entry proves ownership. The first FIVE are VERIFIED IN THE AST — the entry names an
+// identifier and the scanner checks that the very same identifier carries the proof — so the
+// reason string cannot drift away from the code. `reviewed-indirect` is the escape hatch for links
+// no AST check can express; it carries a written reason and nothing else, which is why it is used
+// as sparingly as possible. `untiered-table` is declaration-only by construction: a table carrying
+// no tenancy column has no ownership relation for a proof to check.
+//
+// All five mechanical proofs are ORDER-INSENSITIVE: scopeFacts scans the whole enclosing scope, so
+// a proof is satisfied by an ownership query that runs AFTER the protected read or whose result is
+// discarded. The "a 404 is returned before this query" clauses below are prose, not checked —
+// recorded as a residual gap in docs/audit/tenancy-defense-in-depth-review.md §6.
 export const PROOF_KINDS = {
   // The query's own chain joins `documents!inner` and filters `documents.owner_id`.
   DOCUMENTS_INNER_JOIN: "documents-inner-join",
@@ -628,6 +932,9 @@ export const PROOF_KINDS = {
   PARENT_DOCUMENT_VERIFIED: "parent-document-verified",
   // No mechanical link is expressible. Written reason only.
   REVIEWED_INDIRECT: "reviewed-indirect",
+  // The table carries none of the three tenancy columns, so no tier covers it at all and no
+  // mechanical proof is even definable. Declaration-only, and the declaration is the signal.
+  UNTIERED_TABLE: "untiered-table",
 };
 
 const CLINICAL_QUALITY_REASON =
@@ -940,9 +1247,10 @@ export const DERIVED_QUERY_INVENTORY = [
     table: "document_images",
     fn: "PATCH",
     queries: 1,
-    proof: PROOF_KINDS.REVIEWED_INDIRECT,
+    proof: PROOF_KINDS.OWNED_DOCUMENT_HELPER,
+    identifier: "id",
     reason:
-      'Writes review metadata back to `fact.source_image_id` by image id alone. Not mechanically linkable: the id comes from a table-fact row that was itself read under `.eq("document_id", id).eq("owner_id", user.id)`, and the immediately preceding read in this handler confirmed that image carries the same document_id. The residual gap is that the chain of the write itself does not restate the document constraint — recorded in the tenancy review §6 as the narrowest remaining derived-tier write.',
+      'Writes review metadata back to `fact.source_image_id`, constrained by `.eq("document_id", id)` on the write chain itself, where `loadOwnedDocument` already proved that document belongs to the administrator making the request. Until 2026-09-02 this write filtered by image id alone and was declared `reviewed-indirect`; restating the document constraint turned the repo\'s narrowest derived-tier write into a mechanically checked proof.',
   },
   {
     file: "src/app/api/eval-cases/route.ts",
@@ -1082,6 +1390,26 @@ export const DERIVED_QUERY_INVENTORY = [
   },
 ];
 
+/**
+ * Tables the scanned files query that carry NONE of the three tenancy columns, and so land
+ * in no tier. Before 2026-09-02 such a table got zero coverage with zero signal: it was
+ * simply skipped. `clinical_quality_feedback_triage` is exactly that case — its tenancy
+ * columns are `owner_role`/`owner_user_id`, a fourth naming convention — and it was read by
+ * a route with no entry in any list (security review P2-5). Any new one fails the scan
+ * until it is declared here with a reason.
+ */
+export const UNTIERED_TABLE_DECLARATIONS = [
+  {
+    file: "src/app/api/clinical-quality/route.ts",
+    table: "clinical_quality_feedback_triage",
+    fn: "loadClinicalQualitySnapshot",
+    queries: 1,
+    proof: PROOF_KINDS.UNTIERED_TABLE,
+    reason:
+      "Tenancy columns are named `owner_role`/`owner_user_id`, so no tier claims this table. Administrator-gated cross-tenant governance triage queue: GET and PATCH call authorizeAndLimit before this helper runs, the projection is triage disposition metadata (signal type/id, status, resolution code, reviewer id and timestamps) and never question, answer, excerpt or patient text, and per-owner filtering would defeat the oversight purpose (tenancy review §6).",
+  },
+];
+
 /* -------------------------------------------------------- proof verification */
 
 /** Does `site` satisfy the mechanical proof `entry` declares? Returns null, or the reason it does not. */
@@ -1118,6 +1446,9 @@ export function proofFailure(entry, site) {
       return null;
     case PROOF_KINDS.REVIEWED_INDIRECT:
       return null;
+    case PROOF_KINDS.UNTIERED_TABLE:
+      if (site.tier !== "untiered") return `\`${site.table}\` is in the ${site.tier} tier, not outside every tier`;
+      return null;
     default:
       return `unknown proof kind \`${entry.proof}\``;
   }
@@ -1136,7 +1467,7 @@ function describe(site) {
  * an undeclared query, a declared entry that matches nothing, a wrong query count, or a
  * mechanical proof that no longer holds.
  */
-function reconcile(entries, sites, label) {
+function reconcile(entries, sites, label, remedy = "Scope it on the chain, or add") {
   const violations = [];
   const grouped = new Map();
   for (const site of sites) {
@@ -1183,7 +1514,7 @@ function reconcile(entries, sites, label) {
   for (const [key, remaining] of grouped) {
     for (const site of remaining) {
       violations.push(
-        `${describe(site)} — undeclared ${label} query. Scope it on the chain, or add a reviewed ${label} entry (key ${key}) naming its ownership proof in scripts/lib/tenancy-scan.mjs.`,
+        `${describe(site)} — undeclared ${label} query. ${remedy} a reviewed ${label} entry (key ${key}) naming its ownership proof in scripts/lib/tenancy-scan.mjs.`,
       );
     }
   }
@@ -1210,14 +1541,26 @@ export function scanTenancy(repoRoot = process.cwd()) {
  * so the guard test can drive it with synthetic fixtures and prove each rule actually
  * fails on the thing it claims to catch.
  */
-export function evaluateSites({ sites, exemptions = SCOPE_EXEMPTIONS, inventory = DERIVED_QUERY_INVENTORY }) {
+export function evaluateSites({
+  sites,
+  exemptions = SCOPE_EXEMPTIONS,
+  inventory = DERIVED_QUERY_INVENTORY,
+  untiered = UNTIERED_TABLE_DECLARATIONS,
+}) {
   const unscopedDirect = sites.filter((site) => site.tier === "direct" && !site.ownerScopedChain);
   const unscopedUserKeyed = sites.filter((site) => site.tier === "user-keyed" && !site.userScopedChain);
   const derivedSites = sites.filter((site) => site.tier === "derived");
+  const untieredSites = sites.filter((site) => site.tier === "untiered");
 
   const violations = [
     ...reconcile(exemptions, [...unscopedDirect, ...unscopedUserKeyed], "scope-exemption"),
     ...reconcile(inventory, derivedSites, "derived-inventory"),
+    ...reconcile(
+      untiered,
+      untieredSites,
+      "untiered-table",
+      "This table carries no owner_id, user_id or document_id column, so no tier covers it. Give it a tenancy column, or add",
+    ),
   ];
 
   return {
@@ -1226,10 +1569,22 @@ export function evaluateSites({ sites, exemptions = SCOPE_EXEMPTIONS, inventory 
       direct: sites.filter((site) => site.tier === "direct").length,
       userKeyed: sites.filter((site) => site.tier === "user-keyed").length,
       derived: derivedSites.length,
+      untiered: untieredSites.length,
       unscopedDirect: unscopedDirect.length,
       unscopedUserKeyed: unscopedUserKeyed.length,
     },
   };
+}
+
+/**
+ * The tiers that found NOTHING. A scan that finds nothing is a broken scan, never a clean
+ * repo: the tier derivation parses src/lib/supabase/database.types.ts with patterns anchored
+ * to that generated file's exact indentation, so a reformat empties every tier and the whole
+ * gate silently becomes a no-op that exits 0 (security review P2-5). Both the shipped command
+ * and the guard test assert this is empty.
+ */
+export function emptyTierNames(counts) {
+  return ["direct", "userKeyed", "derived"].filter((tier) => (counts?.[tier] ?? 0) === 0);
 }
 
 /**
@@ -1240,7 +1595,13 @@ export function evaluateSites({ sites, exemptions = SCOPE_EXEMPTIONS, inventory 
 export function queriedTablesByTier(repoRoot = process.cwd()) {
   const { sites, tiers } = scanTenancy(repoRoot);
   const bucket = (tier) => [...new Set(sites.filter((site) => site.tier === tier).map((site) => site.table))].sort();
-  return { tiers, direct: bucket("direct"), userKeyed: bucket("user-keyed"), derived: bucket("derived") };
+  return {
+    tiers,
+    direct: bucket("direct"),
+    userKeyed: bucket("user-keyed"),
+    derived: bucket("derived"),
+    untiered: bucket("untiered"),
+  };
 }
 
 /** Scan all of `src/` for dynamic `.rpc()` dispatch (blind spot E). */

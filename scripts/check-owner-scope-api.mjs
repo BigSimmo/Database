@@ -45,7 +45,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { scanRpcDispatch, scanTenancy } from "./lib/tenancy-scan.mjs";
+import { emptyTierNames, scanRpcDispatch, scanTenancy } from "./lib/tenancy-scan.mjs";
 
 // Recognised owner-scoping constructs. If any appears in the enclosing handler of an
 // owner-scoped `.from(...)`, that query is considered scoped. `owner_id` (as a substring)
@@ -318,6 +318,13 @@ function runSelfTest() {
     expect(scan.tiers.derived.has("document_chunks"), "phase 2: document_chunks must be a derived-tier table");
     expect(!scan.tiers.direct.has("document_chunks"), "phase 2: document_chunks must not be a direct-tier table");
     expect(scanRpcDispatch(process.cwd()).dispatcherCallSites.length > 0, "phase 2: found no versioned-RPC call sites");
+    // The anti-vacuous rule main() applies: an emptied tier (a database.types.ts reformat
+    // defeats the indentation-anchored parse) must be reported, not exited 0 on.
+    expect(emptyTierNames(scan.counts).length === 0, "phase 2: live scan has an empty tier");
+    expect(
+      emptyTierNames({ direct: 0, userKeyed: 0, derived: 0 }).length === 3,
+      "phase 2: an empty scan must be reported as vacuous, not clean",
+    );
   } catch (error) {
     failures.push(`phase 2 self-test threw: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -364,19 +371,36 @@ function main() {
   // Phase 2: the shared mechanical scan (per-chain scope, three tiers, wider file set).
   const tenancy = scanTenancy(process.cwd());
   const rpc = scanRpcDispatch(process.cwd());
-  if (tenancy.violations.length === 0 && rpc.violations.length === 0) {
-    console.log(
-      `✓ owner-scope phase 2: ${tenancy.counts.direct} direct, ${tenancy.counts.userKeyed} user-keyed and ` +
-        `${tenancy.counts.derived} derived-tier queries scoped on their chain or declared; ` +
-        `${rpc.dispatcherCallSites.length} versioned-RPC call sites, all literal.`,
+
+  // ANTI-VACUOUS: the tier derivation parses src/lib/supabase/database.types.ts with
+  // indentation-anchored patterns, so a reformat of that generated file empties every tier —
+  // and an empty tier set means zero sites, zero violations and a green exit. Without these
+  // assertions the shipped gate could print "0 direct, 0 user-keyed and 0 derived-tier
+  // queries" and pass. A scan that finds nothing is a broken scan, never a clean repo.
+  const emptyTiers = emptyTierNames(tenancy.counts);
+  const vacuous = emptyTiers.length > 0;
+  if (vacuous) {
+    failed = true;
+    console.error(
+      `\n✗ owner-scope phase 2: found NO ${emptyTiers.join(", ")} queries. The scan is vacuous — most likely the\n` +
+        "  src/lib/supabase/database.types.ts tier parse stopped matching (its patterns are anchored to the\n" +
+        "  generated file's exact indentation). Fix the parse; do not treat an empty scan as a clean repo.",
     );
-  } else {
+  }
+
+  if (!vacuous && tenancy.violations.length === 0 && rpc.violations.length === 0) {
+    console.log(
+      `✓ owner-scope phase 2: ${tenancy.counts.direct} direct, ${tenancy.counts.userKeyed} user-keyed, ` +
+        `${tenancy.counts.derived} derived-tier and ${tenancy.counts.untiered} untiered-table queries scoped ` +
+        `on their chain or declared; ${rpc.dispatcherCallSites.length} versioned-RPC call sites, all literal.`,
+    );
+  } else if (tenancy.violations.length > 0 || rpc.violations.length > 0) {
     failed = true;
     console.error(`\n✗ owner-scope phase 2: ${tenancy.violations.length + rpc.violations.length} finding(s):\n`);
     for (const v of [...tenancy.violations, ...rpc.violations]) console.error(`  ${v}\n`);
     console.error(
       "Put the tenancy predicate on the query's own chain, or add a reviewed entry to SCOPE_EXEMPTIONS /\n" +
-        "DERIVED_QUERY_INVENTORY in scripts/lib/tenancy-scan.mjs AND to the tables in\n" +
+        "DERIVED_QUERY_INVENTORY / UNTIERED_TABLE_DECLARATIONS in scripts/lib/tenancy-scan.mjs AND to the tables in\n" +
         "docs/audit/tenancy-defense-in-depth-review.md §6 (a committed test checks both).",
     );
   }

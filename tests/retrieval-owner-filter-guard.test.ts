@@ -9,8 +9,10 @@ import {
   PROOF_KINDS,
   SCANNED_LIB_MODULES,
   SCOPE_EXEMPTIONS,
+  UNTIERED_TABLE_DECLARATIONS,
   analyzeRpcDispatch,
   analyzeSource,
+  emptyTierNames,
   evaluateSites,
   queriedTablesByTier,
   scanRpcDispatch,
@@ -322,18 +324,33 @@ type ScanTiers = ReturnType<typeof tableTiersFromDatabaseTypes>;
 
 /** Scan a synthetic module as if it lived at `relativePath`, using the given tier sets. */
 function scanFixture(relativePath: string, source: string, tiers: Partial<ScanTiers> = {}) {
+  const direct = tiers.direct ?? new Set(["documents"]);
+  const userKeyed = tiers.userKeyed ?? new Set(["user_favourites"]);
+  const derived = tiers.derived ?? new Set(["document_chunks"]);
   return analyzeSource({
     relativePath,
     source,
-    tiers: {
-      direct: tiers.direct ?? new Set(["documents"]),
-      userKeyed: tiers.userKeyed ?? new Set(["user_favourites"]),
-      derived: tiers.derived ?? new Set(["document_chunks"]),
-    },
+    // `all` is every table the generated types declare, tiered or not; a table in `all` and
+    // in no tier is the untiered case the fourth signal exists for.
+    tiers: { direct, userKeyed, derived, all: tiers.all ?? new Set([...direct, ...userKeyed, ...derived]) },
   });
 }
 
 const FIXTURE_FILE = "src/app/api/synthetic/route.ts";
+
+// Sanctioned names are resolved to an import or to a file-local definition that itself
+// carries an owner predicate — never matched on identifier text — so a fixture that means
+// to USE one has to actually bring it into scope (security review P2-4).
+const IMPORT_WRAPPER = 'import { withOwnerReadScope } from "@/lib/public-api-access";\n';
+const LOCAL_OWNED_DOCUMENT_HELPER = `async function loadOwnedDocument(args) {
+        return args.supabase
+          .from("documents")
+          .select("id")
+          .eq("id", args.documentId)
+          .eq("owner_id", args.ownerId)
+          .maybeSingle();
+      }
+      `;
 
 describe("tenancy table tiers", () => {
   it("splits generated table types into direct, user-keyed and derived tiers", () => {
@@ -428,7 +445,8 @@ describe("per-chain owner scope (direct and user-keyed tiers)", () => {
     );
     const wrapped = scanFixture(
       FIXTURE_FILE,
-      `export async function GET() {
+      IMPORT_WRAPPER +
+        `export async function GET() {
         return withOwnerReadScope(supabase.from("documents").select("id"), access.ownerId);
       }`,
     );
@@ -475,7 +493,7 @@ describe("per-chain owner scope (direct and user-keyed tiers)", () => {
     expect(sites).toHaveLength(2);
     expect(sites.filter((site) => site.ownerScopedChain)).toHaveLength(1);
 
-    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [] });
+    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [], untiered: [] });
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain("undeclared scope-exemption query");
   });
@@ -495,7 +513,7 @@ describe("per-chain owner scope (direct and user-keyed tiers)", () => {
     );
     expect(scoped[0].userScopedChain).toBe(true);
     expect(unscoped[0].userScopedChain).toBe(false);
-    expect(evaluateSites({ sites: unscoped, exemptions: [], inventory: [] }).violations).toHaveLength(1);
+    expect(evaluateSites({ sites: unscoped, exemptions: [], inventory: [], untiered: [] }).violations).toHaveLength(1);
     // owner_id is NOT a substitute: these tables have no owner_id column at all.
     const wrongColumn = scanFixture(
       FIXTURE_FILE,
@@ -528,7 +546,9 @@ describe("per-chain owner scope (direct and user-keyed tiers)", () => {
 });
 
 describe("derived-tier inventory (blind spot A)", () => {
-  const derivedSource = `export async function GET() {
+  const derivedSource =
+    IMPORT_WRAPPER +
+    `export async function GET() {
         const { data: document } = await withOwnerReadScope(
           supabase.from("documents").select("id").eq("id", id),
           access.ownerId,
@@ -544,7 +564,7 @@ describe("derived-tier inventory (blind spot A)", () => {
     const derived = sites.filter((site) => site.tier === "derived");
     expect(derived).toHaveLength(1);
 
-    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [] });
+    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [], untiered: [] });
     expect(violations.filter((violation) => violation.includes("undeclared derived-inventory query"))).toHaveLength(1);
   });
 
@@ -561,7 +581,7 @@ describe("derived-tier inventory (blind spot A)", () => {
         reason: "fixture",
       },
     ];
-    expect(evaluateSites({ sites, exemptions: [], inventory }).violations).toEqual([]);
+    expect(evaluateSites({ sites, exemptions: [], inventory, untiered: [] }).violations).toEqual([]);
 
     // The identity is checked in the AST, not trusted from the reason string: declaring a
     // different identifier than the one the owner-scoped query pinned must fail.
@@ -569,6 +589,7 @@ describe("derived-tier inventory (blind spot A)", () => {
       sites,
       exemptions: [],
       inventory: [{ ...inventory[0], identifier: "otherId" }],
+      untiered: [],
     }).violations;
     // Two violations: the entry matches nothing, and the query is therefore undeclared.
     expect(wrongIdentifier).toHaveLength(2);
@@ -622,7 +643,7 @@ describe("derived-tier inventory (blind spot A)", () => {
       proof: PROOF_KINDS.DOCUMENTS_INNER_JOIN,
       reason: "fixture",
     };
-    expect(evaluateSites({ sites: joined, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+    expect(evaluateSites({ sites: joined, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual([]);
 
     const unfiltered = scanFixture(
       FIXTURE_FILE,
@@ -630,7 +651,12 @@ describe("derived-tier inventory (blind spot A)", () => {
         return supabase.from("document_chunks").select("*, documents!inner(owner_id)").eq("status", "indexed");
       }`,
     );
-    const violations = evaluateSites({ sites: unfiltered, exemptions: [], inventory: [entry] }).violations;
+    const violations = evaluateSites({
+      sites: unfiltered,
+      exemptions: [],
+      inventory: [entry],
+      untiered: [],
+    }).violations;
     expect(violations.join("\n")).toContain("does not filter `documents.owner_id`");
   });
 
@@ -646,13 +672,16 @@ describe("derived-tier inventory (blind spot A)", () => {
     };
     const withHelper = scanFixture(
       FIXTURE_FILE,
-      `export async function PATCH() {
+      LOCAL_OWNED_DOCUMENT_HELPER +
+        `export async function PATCH() {
         const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
         if (!document) return notFound();
         return supabase.from("document_chunks").select("id").eq("document_id", id);
       }`,
     );
-    expect(evaluateSites({ sites: withHelper, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+    expect(evaluateSites({ sites: withHelper, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual(
+      [],
+    );
 
     const withoutHelper = scanFixture(
       FIXTURE_FILE,
@@ -660,9 +689,9 @@ describe("derived-tier inventory (blind spot A)", () => {
         return supabase.from("document_chunks").select("id").eq("document_id", id);
       }`,
     );
-    expect(evaluateSites({ sites: withoutHelper, exemptions: [], inventory: [entry] }).violations.join("\n")).toContain(
-      "no owning-document helper in this scope was handed `id`",
-    );
+    expect(
+      evaluateSites({ sites: withoutHelper, exemptions: [], inventory: [entry], untiered: [] }).violations.join("\n"),
+    ).toContain("no owning-document helper in this scope was handed `id`");
   });
 
   it("verifies the owner-scoped-id-list proof and fails when the list is not locally derived", () => {
@@ -683,7 +712,9 @@ describe("derived-tier inventory (blind spot A)", () => {
         return supabase.from("document_chunks").select("content").in("document_id", documentIds);
       }`,
     );
-    expect(evaluateSites({ sites: derivedList, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+    expect(evaluateSites({ sites: derivedList, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual(
+      [],
+    );
 
     const requestSuppliedList = scanFixture(
       FIXTURE_FILE,
@@ -693,7 +724,9 @@ describe("derived-tier inventory (blind spot A)", () => {
       }`,
     );
     expect(
-      evaluateSites({ sites: requestSuppliedList, exemptions: [], inventory: [entry] }).violations.join("\n"),
+      evaluateSites({ sites: requestSuppliedList, exemptions: [], inventory: [entry], untiered: [] }).violations.join(
+        "\n",
+      ),
     ).toContain("not the declared documentIds");
   });
 
@@ -708,7 +741,8 @@ describe("derived-tier inventory (blind spot A)", () => {
     };
     const verified = scanFixture(
       FIXTURE_FILE,
-      `export async function GET() {
+      IMPORT_WRAPPER +
+        `export async function GET() {
         const { data: chunk } = await supabase.from("document_chunks").select("document_id").eq("id", id).maybeSingle();
         const { data: document } = await withOwnerReadScope(
           supabase.from("documents").select("id").eq("id", chunk.document_id),
@@ -717,7 +751,7 @@ describe("derived-tier inventory (blind spot A)", () => {
         return document ? chunk : notFound();
       }`,
     );
-    expect(evaluateSites({ sites: verified, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+    expect(evaluateSites({ sites: verified, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual([]);
 
     const unverified = scanFixture(
       FIXTURE_FILE,
@@ -726,9 +760,9 @@ describe("derived-tier inventory (blind spot A)", () => {
         return chunk;
       }`,
     );
-    expect(evaluateSites({ sites: unverified, exemptions: [], inventory: [entry] }).violations.join("\n")).toContain(
-      "the parent document is never verified",
-    );
+    expect(
+      evaluateSites({ sites: unverified, exemptions: [], inventory: [entry], untiered: [] }).violations.join("\n"),
+    ).toContain("the parent document is never verified");
   });
 
   it("fails a stale entry that no longer matches any query site", () => {
@@ -773,6 +807,378 @@ describe("derived-tier inventory (blind spot A)", () => {
       ],
     }).violations;
     expect(violations.join("\n")).toContain("undeclared derived-inventory query");
+  });
+});
+
+/*
+ * ---------------------------------------------------------------------------------------
+ * Security review of the scanner (2026-09-02). Every fixture below is a query the reviewer
+ * constructed that is GENUINELY CROSS-TENANT and that the scanner REPORTED AS SCOPED. None
+ * is load-bearing in the repo today, so these were latent guard defects — but a guard that
+ * passes when it should fail is precisely the failure this work exists to prevent. Each
+ * `it` asserts the scanner now rejects the shape it used to accept.
+ * ---------------------------------------------------------------------------------------
+ */
+
+describe("P1-1 — an update payload is a written VALUE, not a filter", () => {
+  it("rejects an unfiltered mass reassignment of every tenant's rows to the caller", () => {
+    const massReassign = scanFixture(
+      FIXTURE_FILE,
+      `export async function PATCH() {
+        return supabase.from("documents").update({ owner_id: user.id, title });
+      }`,
+    );
+    expect(massReassign).toHaveLength(1);
+    // Previously `update:owner_id` was an OWNER_PROOF, so this reported ownerScoped with
+    // zero violations while rewriting every other tenant's documents to the caller.
+    expect(massReassign[0].ownerScopedChain, JSON.stringify(massReassign[0].proofs)).toBe(false);
+    expect(evaluateSites({ sites: massReassign, exemptions: [], inventory: [], untiered: [] }).violations).toHaveLength(
+      1,
+    );
+  });
+
+  it("rejects an owner_id write filtered only by a request-supplied id", () => {
+    const byRequestId = scanFixture(
+      FIXTURE_FILE,
+      `export async function PATCH() {
+        return supabase.from("documents").update({ owner_id: user.id }).eq("id", body.id);
+      }`,
+    );
+    expect(byRequestId[0].ownerScopedChain).toBe(false);
+  });
+
+  it("rejects the same shape on a user-keyed table", () => {
+    const userKeyed = scanFixture(
+      FIXTURE_FILE,
+      `export async function PATCH() {
+        return supabase.from("user_favourites").update({ user_id: user.id, content_key: key });
+      }`,
+    );
+    expect(userKeyed[0].userScopedChain).toBe(false);
+  });
+
+  it("still accepts an update whose OWN CHAIN carries the owner predicate", () => {
+    const filtered = scanFixture(
+      FIXTURE_FILE,
+      `export async function PATCH() {
+        return supabase.from("documents").update({ title }).eq("id", body.id).eq("owner_id", user.id);
+      }`,
+    );
+    expect(filtered[0].ownerScopedChain).toBe(true);
+  });
+
+  it("does not count an owner_id key buried in a nested JSON column as a stamp", () => {
+    const nested = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        return supabase.from("documents").insert({ title, metadata: { owner_id: user.id } });
+      }`,
+    );
+    // subtreeStampsColumn used to recurse the whole argument, so a metadata key counted.
+    expect(nested[0].ownerScopedChain, JSON.stringify(nested[0].proofs)).toBe(false);
+
+    const topLevel = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        return supabase.from("documents").insert({ owner_id: user.id, metadata: { source: "upload" } });
+      }`,
+    );
+    expect(topLevel[0].ownerScopedChain).toBe(true);
+  });
+
+  it("requires every element of an array payload to carry the stamp", () => {
+    const mixed = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        return supabase.from("documents").insert([{ owner_id: user.id }, { title }]);
+      }`,
+    );
+    expect(mixed[0].ownerScopedChain).toBe(false);
+  });
+});
+
+describe("P1-2 — `.or()` is a disjunction and cannot be an owner proof on its own", () => {
+  const orFixture = (filter: string) =>
+    scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("documents").select("id").or(${JSON.stringify(filter)});
+      }`,
+    )[0];
+
+  it("rejects a disjunct that does not constrain owner_id", () => {
+    // Both of these return other tenants' rows; both were accepted before 2026-09-02
+    // because the literal merely CONTAINED `owner_id.is.` / `owner_id.eq.`.
+    expect(orFixture("owner_id.is.null,status.eq.indexed").ownerScopedChain).toBe(false);
+    expect(orFixture("owner_id.eq.11111111-1111-4111-8111-111111111111,id.eq.abc").ownerScopedChain).toBe(false);
+    expect(orFixture("status.eq.indexed,owner_id.eq.abc").ownerScopedChain).toBe(false);
+  });
+
+  it("accepts the nested shape withOwnerReadScope actually emits", () => {
+    // src/lib/public-api-access.ts:113-116 — the split must be parenthesis-aware, and the
+    // `and(...)` group is restricted as soon as one of ITS terms restricts owner_id.
+    expect(
+      orFixture(
+        "owner_id.eq.11111111-1111-4111-8111-111111111111,and(owner_id.is.null,metadata->>public_corpus.eq.true)",
+      ).ownerScopedChain,
+    ).toBe(true);
+    expect(orFixture("owner_id.eq.abc,owner_id.is.null").ownerScopedChain).toBe(true);
+  });
+
+  it("rejects an and() group that constrains no owner column, and a negated group", () => {
+    expect(orFixture("owner_id.eq.abc,and(status.eq.indexed,id.eq.x)").ownerScopedChain).toBe(false);
+    expect(orFixture("owner_id.eq.abc,not.and(owner_id.is.null,id.eq.x)").ownerScopedChain).toBe(false);
+  });
+
+  it("applies the same rule to user-keyed tables", () => {
+    const leaky = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("user_favourites").select("content_key").or("user_id.eq.abc,content_type.eq.tool");
+      }`,
+    );
+    expect(leaky[0].userScopedChain).toBe(false);
+  });
+});
+
+describe("P2-3 — write-payload identifiers resolve lexically, not file-wide by name", () => {
+  it("does not let an owner-stamped `rows` in one function vouch for `rows` in another", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `async function stampOwnedRows(supabase, user) {
+        const rows = documents.map((document) => ({ owner_id: user.id, document_id: document.id }));
+        return supabase.from("documents").insert(rows);
+      }
+
+      export async function POST(request) {
+        const rows = body.rows;
+        return supabase.from("documents").insert(rows);
+      }`,
+    );
+    expect(sites).toHaveLength(2);
+    const byScope = new Map(sites.map((site) => [site.scope, site]));
+    expect(byScope.get("stampOwnedRows")?.ownerScopedChain).toBe(true);
+    // Before the fix payloadStampsColumn walked the whole file for any variable of this
+    // name, so the helper's stamped `rows` vouched for the handler's `body.rows`.
+    expect(byScope.get("POST")?.ownerScopedChain, JSON.stringify(byScope.get("POST")?.proofs)).toBe(false);
+  });
+
+  it("still resolves a payload built in the same function, and a module-level const", () => {
+    const sameFunction = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        const rows = documents.map((document) => ({ owner_id: user.id }));
+        return supabase.from("documents").insert(rows);
+      }`,
+    );
+    expect(sameFunction[0].ownerScopedChain).toBe(true);
+
+    const moduleConst = scanFixture(
+      FIXTURE_FILE,
+      `const seedRow = { owner_id: SYSTEM_OWNER_ID, title: "seed" };
+      export async function POST() {
+        return supabase.from("documents").insert(seedRow);
+      }`,
+    );
+    expect(moduleConst[0].ownerScopedChain).toBe(true);
+  });
+});
+
+describe("P2-4 — sanctioned names are resolved, not matched as text", () => {
+  it("rejects a file-local no-op named withOwnerReadScope", () => {
+    const shadowed = scanFixture(
+      FIXTURE_FILE,
+      `function withOwnerReadScope(query) {
+        return query;
+      }
+
+      export async function GET() {
+        return withOwnerReadScope(supabase.from("documents").select("id"), access.ownerId);
+      }`,
+    );
+    expect(shadowed[0].ownerScopedChain, JSON.stringify(shadowed[0].proofs)).toBe(false);
+  });
+
+  it("rejects the wrapper imported from a module that is not the sanctioned one", () => {
+    const wrongModule = scanFixture(
+      FIXTURE_FILE,
+      'import { withOwnerReadScope } from "@/lib/somewhere-else";\n' +
+        `export async function GET() {
+        return withOwnerReadScope(supabase.from("documents").select("id"), access.ownerId);
+      }`,
+    );
+    expect(wrongModule[0].ownerScopedChain).toBe(false);
+  });
+
+  it("accepts a file-local wrapper that itself carries the owner predicate", () => {
+    const realLocal = scanFixture(
+      FIXTURE_FILE,
+      `function withOwnerReadScope(query, ownerId) {
+        return query.eq("owner_id", ownerId);
+      }
+
+      export async function GET() {
+        return withOwnerReadScope(supabase.from("documents").select("id"), access.ownerId);
+      }`,
+    );
+    expect(realLocal[0].ownerScopedChain).toBe(true);
+  });
+
+  it("rejects a file-local no-op named loadOwnedDocument", () => {
+    const entry = {
+      file: FIXTURE_FILE,
+      table: "document_chunks",
+      fn: "PATCH",
+      queries: 1,
+      proof: PROOF_KINDS.OWNED_DOCUMENT_HELPER,
+      identifier: "id",
+      reason: "fixture",
+    };
+    const shadowed = scanFixture(
+      FIXTURE_FILE,
+      `async function loadOwnedDocument(args) {
+        return { id: args.documentId };
+      }
+
+      export async function PATCH() {
+        const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
+        if (!document) return notFound();
+        return supabase.from("document_chunks").select("id").eq("document_id", id);
+      }`,
+    );
+    expect(
+      evaluateSites({ sites: shadowed, exemptions: [], inventory: [entry], untiered: [] }).violations.join("\n"),
+    ).toContain("no owning-document helper in this scope was handed `id`");
+  });
+
+  it("registers only the documentId-shaped argument as an owning-document argument", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      LOCAL_OWNED_DOCUMENT_HELPER +
+        `export async function PATCH() {
+        const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
+        if (!document) return notFound();
+        return supabase.from("document_chunks").select("id").eq("document_id", id);
+      }`,
+    );
+    const derivedSite = sites.find((site) => site.table === "document_chunks");
+    const owningArguments = derivedSite!.facts.owningHelperArguments;
+    expect([...owningArguments]).toEqual(["id"]);
+    // Every shorthand/identifier argument used to be collected, so `supabase` counted as an
+    // owning-document argument and could satisfy an entry declaring it as the identifier.
+    expect(owningArguments.has("supabase")).toBe(false);
+    expect(owningArguments.has("user")).toBe(false);
+  });
+
+  it("resolves a positional owning-helper call through the helper's own parameter names", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `async function requireOwnedDocument(supabase, documentId, ownerId) {
+        const { data } = await supabase
+          .from("documents")
+          .select("id")
+          .eq("id", documentId)
+          .eq("owner_id", ownerId)
+          .maybeSingle();
+        if (!data) throw new PublicApiError("Document not found.", 404);
+      }
+
+      export async function PATCH() {
+        await requireOwnedDocument(supabase, id, user.id);
+        return supabase.from("document_chunks").select("id").eq("document_id", id);
+      }`,
+    );
+    const derivedSite = sites.find((site) => site.table === "document_chunks");
+    expect([...derivedSite!.facts.owningHelperArguments]).toEqual(["id"]);
+  });
+});
+
+describe("P2-5 — a table outside the three tiers is signalled, never silently uncovered", () => {
+  const TRIAGE = "clinical_quality_feedback_triage";
+  const untieredFixture = () =>
+    scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("${TRIAGE}").select("signal_id,status,owner_user_id");
+      }`,
+      { all: new Set(["documents", "user_favourites", "document_chunks", TRIAGE]) },
+    );
+
+  it("fails an undeclared query on a table that lands in no tenancy tier", () => {
+    const sites = untieredFixture();
+    expect(sites).toHaveLength(1);
+    expect(sites[0].tier).toBe("untiered");
+    const { violations, counts } = evaluateSites({ sites, exemptions: [], inventory: [], untiered: [] });
+    expect(counts.untiered).toBe(1);
+    // Before the fourth signal this query produced NO site, NO violation and no mention
+    // anywhere: zero coverage with zero signal.
+    expect(violations.join("\n")).toContain("undeclared untiered-table query");
+    expect(violations.join("\n")).toContain("carries no owner_id, user_id or document_id column");
+  });
+
+  it("passes once the table is declared with a reason", () => {
+    const violations = evaluateSites({
+      sites: untieredFixture(),
+      exemptions: [],
+      inventory: [],
+      untiered: [
+        {
+          file: FIXTURE_FILE,
+          table: TRIAGE,
+          fn: "GET",
+          queries: 1,
+          proof: PROOF_KINDS.UNTIERED_TABLE,
+          reason: "fixture",
+        },
+      ],
+    }).violations;
+    expect(violations).toEqual([]);
+  });
+
+  it("refuses an untiered declaration pointed at a table that IS in a tier", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("documents").select("id");
+      }`,
+    );
+    const violations = evaluateSites({
+      sites,
+      exemptions: [],
+      inventory: [],
+      untiered: [
+        {
+          file: FIXTURE_FILE,
+          table: "documents",
+          fn: "GET",
+          queries: 1,
+          proof: PROOF_KINDS.UNTIERED_TABLE,
+          reason: "fixture",
+        },
+      ],
+    }).violations;
+    expect(violations.join("\n")).toContain("No query site matched it at all");
+  });
+
+  it("sees the real untiered table the review found, and it is declared", () => {
+    const { untiered, tiers } = queriedTablesByTier(process.cwd());
+    expect(untiered, "the scanned files query no untiered table — has the tier parse changed?").toContain(TRIAGE);
+    for (const table of untiered) {
+      expect(tiers.direct.has(table) || tiers.userKeyed.has(table) || tiers.derived.has(table)).toBe(false);
+      expect(
+        UNTIERED_TABLE_DECLARATIONS.some((entry) => entry.table === table),
+        `${table} is queried, is in no tenancy tier, and is not declared in UNTIERED_TABLE_DECLARATIONS`,
+      ).toBe(true);
+    }
+  });
+
+  it("treats an empty tier as a broken scan, not a clean repo", () => {
+    // The database.types.ts parse is anchored to that generated file's exact indentation.
+    // De-indent it and every tier empties, every site disappears and the scan reports zero
+    // violations — so the shipped command asserts non-empty tier counts, and so does this.
+    expect(emptyTierNames({ direct: 0, userKeyed: 0, derived: 0 })).toEqual(["direct", "userKeyed", "derived"]);
+    expect(emptyTierNames({ direct: 5, userKeyed: 0, derived: 2 })).toEqual(["userKeyed"]);
+    expect(emptyTierNames(scanTenancy(process.cwd()).counts)).toEqual([]);
   });
 });
 
@@ -845,7 +1251,7 @@ describe("mechanical tenancy scan over the real surface", () => {
   it("documents every declared exemption and inventory entry in the tenancy review", () => {
     const review = readFileSync(join(process.cwd(), "docs", "audit", "tenancy-defense-in-depth-review.md"), "utf8");
     const lines = review.split("\n");
-    for (const entry of [...SCOPE_EXEMPTIONS, ...DERIVED_QUERY_INVENTORY]) {
+    for (const entry of [...SCOPE_EXEMPTIONS, ...DERIVED_QUERY_INVENTORY, ...UNTIERED_TABLE_DECLARATIONS]) {
       expect(entry.reason.length, `${entry.file} / ${entry.table} has no reason`).toBeGreaterThan(40);
       const documented = lines.some((line) => line.includes(entry.file) && line.includes(entry.table));
       expect(

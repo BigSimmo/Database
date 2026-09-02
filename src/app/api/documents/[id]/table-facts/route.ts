@@ -179,7 +179,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           metadata: { ...metadataRecord(sourceImage.metadata), ...reviewMetadata },
           searchable: parsed.reviewClass === "clinical_useful" || parsed.reviewClass === "reference",
         })
-        .eq("id", fact.source_image_id);
+        .eq("id", fact.source_image_id)
+        // `document_images` has no owner column, so restate the document constraint on the
+        // write chain itself rather than relying on the preceding read having confirmed it.
+        // `id` is the document `loadOwnedDocument` proved belongs to this administrator.
+        .eq("document_id", id);
       if (imageUpdateError) throw new Error(imageUpdateError.message);
     }
 
