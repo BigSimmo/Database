@@ -15,14 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 588
-- Distinct ref cells: 371
-- Distinct reviewed heads: 571
+- Records: 589
+- Distinct ref cells: 372
+- Distinct reviewed heads: 572
 - Date range: `2026-08-12` to `2026-09-02`
 
 Records per date, newest first:
 
-- `2026-09-02` — 13 records
+- `2026-09-02` — 14 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
 - `2026-08-30` — 3 records
@@ -59,6 +59,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | caring-contacts plural job-title exemption | Second clinical-governance review on this branch, covering commit 33e1… | [3f5afc46](branch-review-records/3f5afc461d6cd9444e4720b112fa5b424610487e28999e732d87d342fa4a492b.record.md) |
 | 2026-09-02 | claude/caring-contacts-rules-r7r2ih-2 | PR #2533 (#RZVMPD): db/postgres-repository.ts PLAN_LIST_COLUMNS, schedule-view.ts doc comm… | MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r… | [4618bc97](branch-review-records/4618bc97849416bcc9b687e3669942b3bd9aa3c69fe34563d1eb0a56e23a55a5.record.md) |
 | 2026-09-02 | claude/caring-contacts-rules-r7r2ih-3 | PR #2534 (#J7PZQP + #PAMATF, squashed to main): episode.ts, model.ts, repository.ts, sched… | MERGED to main 2026-09-02. Episode carries patientDetailClearedAt inst… | [85a37952](branch-review-records/85a379521e2bae9498d29f1f34eeacfbe6c224a8ee48ecf893be298b318e96a5.record.md) |
+| 2026-09-02 | claude/full-repo-audit-27fccs | Audit only: new docs/audit/full-repository-audit-2026-09-02.md (25 finder lanes + critic +… | Report landed on the branch for owner triage: High 3 (medication badge… | [9b30395d](branch-review-records/9b30395dd42eb0dfab500f76781cb924f883a67224bc623b94985a47d24f2e3a.record.md) |
 | 2026-09-02 | claude/instruction-tiering-n9vs14 | Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference fil… | No findings. Reorganisation only: all 662 non-blank AGENTS.md lines ve… | [9b97c2e6](branch-review-records/9b97c2e689cead2aabfd99148f22120ca4d7f1b907be8e06dc595b279216be69.record.md) |
 | 2026-09-02 | claude/gate-audit-ujhkqb | prlanded | merged clean, content diff empty against branch tip | [9f7fd1f9](branch-review-records/9f7fd1f9419de5446570947eaf97adbf74e22ae0543039142417e79ed7c2e928.record.md) |
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | mockup retirement policy and sweep | Reviewed by two fresh agents before push; both found real defects and… | [b34f56e0](branch-review-records/b34f56e00cf20e8f76a4e7564cdb71ae5fd3c9cf97973c49f9b5541448f99a56.record.md) |
