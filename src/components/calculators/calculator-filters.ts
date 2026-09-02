@@ -34,7 +34,11 @@ export function calculatorMatchesQuery(calc: CalculatorFixture, query: string, e
       ...calc.items.map((item) => item.text),
     ].join(" "),
   );
-  return haystack.includes(normalized) || expansions.some((term) => haystack.includes(normalizeSearchText(term)));
+  return (
+    calculatorIdentityMatchesQuery(calc, normalized) ||
+    haystack.includes(normalized) ||
+    expansions.some((term) => haystack.includes(normalizeSearchText(term)))
+  );
 }
 
 function calculatorIdentityMatchesQuery(calc: CalculatorFixture, normalizedQuery: string) {

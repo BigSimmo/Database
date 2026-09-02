@@ -233,6 +233,14 @@ describe("calculator filter predicates", () => {
     expect(ids.indexOf("cage")).toBeGreaterThanOrEqual(0);
     expect(ids.indexOf("auditc")).toBeLessThan(ids.indexOf("cage"));
   });
+
+  it("finds a calculator identity embedded in a natural query without expansion terms", () => {
+    const records = recordsWithProgress();
+    const query = "What does PHQ-9 mean?";
+
+    expect(smartSearchExpansions("calculators", query)).toEqual([]);
+    expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)).toEqual(["phq9"]);
+  });
 });
 
 describe("calculator results surface", () => {
