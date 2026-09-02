@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e49dd511-974f-4f7e-af2c-e399b1c147ec",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#9P4XAE",
+    "outcome": "Resolved 2026-09-02 on branch claude/form-12a-warning. The 12A data defect was already corrected before this work: data/forms-pdf-manifest.json recorded passwordProtected false and tests/forms.test.ts pinned it. The outstanding half — a measured generation/validation workflow deriving the flag from committed PDF bytes — is what landed. scripts/build-forms-pdf-manifest.mjs derives sha256, bytes and passwordProtected offline from public/forms-pdf/, with a --check mode wired into verify:cheap:internal and CI as check:forms-pdf-manifest. The flag is derived by attempting to open each PDF with an empty user password, not by looking for an /Encrypt marker, because a PDF with an owner password and an empty user password carries /Encrypt yet opens freely. Every error path fails closed to passwordProtected true plus a hard non-zero exit. Regeneration reproduces the committed manifest byte for byte. tests/forms.test.ts now asserts the generated contract, keeps every prior assertion, and adds a synthetic owner-password-only fixture that is the only test which fails if the deriver is ever simplified to an /Encrypt grep.",
+    "baseRowFingerprint": "e85f7e6b68571acafd0cfe331ea7f28241e56a2c997cd8e52f5a8e503344fd5c"
+  }
+}
