@@ -1718,6 +1718,7 @@
         "src/components/clinical-dashboard/answer-source-drawer.tsx",
         "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
+        "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
@@ -1753,6 +1754,7 @@
         "src/components/clinical-dashboard/answer-source-drawer.tsx",
         "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
+        "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
@@ -1784,6 +1786,7 @@
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
         "tests/answer-source-rail.dom.test.tsx",
+        "tests/answer-support-priority.dom.test.tsx",
         "tests/caring-contacts-overlay-host.dom.test.tsx",
         "tests/caring-contacts-overlay-trigger.dom.test.tsx",
         "tests/caring-contacts-plan-wizard.dom.test.tsx",
