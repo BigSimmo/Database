@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "c754d54588a4d29b2ab2368de1a7f6b1b6ed870d",
-    "committed_at": "2026-09-02T09:09:03+00:00"
+    "sha": "1f0e9cbf548f0b544dcf0028fef86f1990577d0f",
+    "committed_at": "2026-09-02T07:12:14+00:00"
   },
   "routes": {
     "modes": [
@@ -1574,11 +1574,6 @@
         "path": "docs/api-jobs-ops-surface.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/app-modes-decision-brief.md",
-        "section": "root",
-        "catalogued": false
       },
       {
         "path": "docs/archive/BRANCH_ARCHIVE_20260709.md",
@@ -3682,6 +3677,11 @@
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-sources-mode.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md",
         "section": "superpowers",
         "catalogued": false
       },
