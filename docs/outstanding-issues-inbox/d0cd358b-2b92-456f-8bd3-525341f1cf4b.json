@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d0cd358b-2b92-456f-8bd3-525341f1cf4b",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#J7PZQP",
+    "outcome": "FIXED AND MERGED to main in 2631782a3 (PR #2534), 2026-09-02. Episode now carries patientDetailClearedAt: Date | null, so the patient overview stops deducing 'a retention clearance removed this' from episode.patientName === ''. That inference was only ever held up by z.string().min(1) at the HTTP edge: patient_name is not null with no CHECK against the empty string and neither store's createPlan validates non-blank, so a blank name reaching a store any other way made the screen state three things falsely about a live record. Evidence read off origin/main: patientDetailClearedAt appears in src/lib/caring-contacts/episode.ts at 2631782a3. No migration — retention_state.cleared_at already existed and both stores already wrote it in the same transaction as the de-identification, so there is no backfill gap either. The field is named for what was cleared, not the policy that ordered it, because Ruling 26 keeps that vocabulary inside the storage layer and forbids widening its allowlist to make a diff pass. DeidentifiedEpisode is unchanged: it is built by construction from a named field list, so the new field is absent from it automatically. A Codex review round found the first fix reintroducing its own defect class — under READ COMMITTED a clearance committing mid-getEpisode produced an episode reporting a completed clearance while still releasing the name and mobile number. Fixed by reading every field a clearance touches in one statement, and pinned by a database contract test that pauses the read between statements (present on main; fails against the pre-fix code with expected 'Rowan Delacroix' to be ''). This does not overturn the ''-as-cleared convention, which is correct wherever a non-blank write is enforced. NOT DONE, deliberately, and worth filing separately: createPlan still accepts a blank patient name.",
+    "baseRowFingerprint": "540928de1bb3a5c74d5fd6bda6302e2625e1c7756bd316db26620ec25a733588"
+  }
+}
