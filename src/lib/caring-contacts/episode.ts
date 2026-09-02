@@ -65,6 +65,40 @@ export type Episode = {
    * cannot says only that no reason is held.
    */
   firstContactReason: string | null;
+  /**
+   * The instant a clearance removed this episode's identifying detail, or null when none has been
+   * recorded against it.
+   *
+   * IT EXISTS BECAUSE THE FACT WAS BEING INFERRED FROM AN EMPTY STRING (#J7PZQP, 2026-09-02). The
+   * patient overview decided that a clearance had removed this episode's detail from
+   * `patientName === ""`, and said so to a clinician in as many words: that a first-contact reason
+   * was given, that a clearance has since removed it, and that a clearance is not reversible. The
+   * only thing holding that up was `z.string().min(1)` in the plans API route. Neither store's
+   * `createPlan` validates a non-blank name, and the stored column is `not null` with no CHECK
+   * against the empty string, so `''` is a legal value that means two different things at once. A
+   * plan that reached a store with a blank name made that screen state all three of those things
+   * falsely, about a live record.
+   *
+   * THIS DOES NOT OVERTURN THE `''`-AS-CLEARED CONVENTION, which is correct wherever a non-blank
+   * write is actually enforced -- the migration that added `first_contact_reason` says exactly
+   * that of it: cleared to the empty string by a write no ordinary caller can produce. For
+   * `patientName` that precondition was never established, so the sentinel carried two meanings.
+   * This carries the fact directly instead of deducing it from the absence of another.
+   *
+   * NAMED FOR WHAT WAS CLEARED, NOT FOR THE POLICY THAT ORDERED IT. Ruling 26 keeps the policy's
+   * own vocabulary inside the storage layer, and this module is deliberately the shape a store can
+   * project WITHOUT importing that policy (see the header above). What an episode holds is that
+   * its patient detail was cleared, and when; why it was due is the policy module's question.
+   *
+   * `Date | null`, never optional. Three-valued absence -- a value, null, or the property missing
+   * altogether -- is the shape that produced this class of bug in the first place; see
+   * `preferredName` above. Two values, one meaning each.
+   *
+   * NOT ON `DeidentifiedEpisode`. That type is built by construction from a named field list, so a
+   * field added here is absent from a de-identified episode without the builder being touched --
+   * the same mechanism that made `preferredName` correct on arrival.
+   */
+  patientDetailClearedAt: Date | null;
   planDates: EpisodePlanDates;
   pathwayVersionId: PathwayVersionId;
   teamId: TeamId;

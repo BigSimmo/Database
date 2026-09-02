@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "73cb84d3-27ff-4554-bda1-01e1d53a5c6d",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Batch image signed-url route swallows per-item createSignedUrls errors and still returns 200",
+    "detail": "src/app/api/images/signed-urls/route.ts:105 checks only the top-level signed.error returned by createSignedUrls. supabase-js returns a per-path result array of { error, path, signedUrl }, so a single path that fails to sign yields an entry with no usable signedUrl while the top-level error stays null. The loop at :112-122 then skips that image because of the if (signedUrl) guard, and the route returns HTTP 200 with the image silently absent from the urls map. The client (src/lib/batch-signed-urls.ts) treats a missing key as \"not returned\" rather than \"failed\", so a figure disappears from the document view with nothing logged and no error surfaced anywhere.\n\nThis is a milder instance of exactly the silent-failure class that #Z61JRT was about, and it survived that fix because the fix replaced getPublicUrl with createSignedUrls without adding per-item error handling. It is not a privacy or tenancy defect: the owner-scope gate at :70-88 has already run, so only images the caller is entitled to reach ever get to the signing step. The impact is diagnosability and a confusing partial render, not exposure.\n\nFIX: inspect each per-path result, and either surface a per-image error field in the response so the client can distinguish \"failed\" from \"not found\", or log the failing paths through the existing observability layer so a systematic storage problem is visible rather than presenting as scattered missing figures. Prefer the first: the response shape is already a per-id record, so an error discriminant fits without a breaking change.\n\nNote the singular route src/app/api/images/[id]/signed-url/route.ts:71 has the mirror-image gap, dereferencing signed.data.signedUrl without a null guard where the batch route has an explicit !signed.data check. Worth aligning both in the same change.",
+    "source": "Found while verifying #Z61JRT on main 45a3dca, 2026-09-02; supabase-schema-guardian review of src/app/api/images/signed-urls/route.ts",
+    "issueUlid": "01M1G5EHVK5ECZQA6630XACRSP"
+  }
+}

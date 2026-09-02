@@ -1,0 +1,191 @@
+# Weekly bundle-budget baseline measurement. Surfaces the current production /
+# mockups / per-route gzip weight, and how far it has drifted from the committed
+# baseline in bundle-budget.json, into a rolling issue. REPORT ONLY — it never
+# commits, pushes, or opens a PR; acting on the report means refreshing the
+# baseline by hand in a normal reviewed PR.
+#
+# Why this exists (outstanding issue #QSHHGK): nothing scheduled a baseline
+# measurement, so accumulated growth from many merged PRs stayed invisible until
+# it crossed the 10% tolerance and failed whichever unrelated PR happened to land
+# last. This job makes the accumulation visible early and attributable, without
+# silently absorbing it.
+name: Bundle Budget Refresh
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # 04:40 UTC on Wednesdays. Deliberately off the crowded Sunday-evening slot:
+    # ci.yml, docker-image.yml and eval-canary.yml all fire at "0 18 * * 0" and
+    # live-drift.yml at "30 18 * * 0", and a cold full `npm run build` here would
+    # queue behind them. Midweek also means the measurement lands while work is
+    # in flight rather than after the weekend batch. The :40 minute avoids
+    # ops-digest.yml (hourly at :20), ingestion-autopilot.yml (6-hourly at :00)
+    # and live-domain-monitor.yml (6-hourly at :23). 04:40 UTC is off-peak for
+    # GitHub-hosted runners and is midday in Perth (UTC+8), so the owner sees a
+    # fresh report during the working day.
+    - cron: "40 4 * * 3"
+
+concurrency:
+  group: bundle-budget-refresh
+  # Never cancel a measurement in flight: a half-finished build produces no
+  # numbers at all, and the next run is a week away.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bundle-budget-refresh:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Only for the rolling report issue below. This workflow writes nothing to
+      # the repository itself.
+      issues: write
+    # Generous: this is a deliberately COLD full Next.js build (no .next cache
+    # restore, see below), which is far slower than ci.yml's incremental Build.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: --refresh-baseline validates baseline provenance with
+          # git (the source SHA must be a real commit and an ancestor of HEAD,
+          # and its distance from HEAD must be resolvable). A shallow clone makes
+          # that check fail closed.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      # No .next cache restore here, and .next is removed outright before the
+      # build. AGENTS.md ("Bundle budget" → Measuring): `npm run build` reuses a
+      # cached .next, and check-bundle-budget.mjs then reads STALE output and
+      # reports byte-identical numbers — it will say the budget passes when it
+      # does not. A scheduled measurement whose numbers cannot be trusted is
+      # worse than no measurement, so this job always pays for a cold build.
+      - name: Measure bundle weight against the committed baseline
+        id: refresh
+        env:
+          # Matches ci.yml's Build step; parallelises static generation only.
+          NEXT_BUILD_CPUS: "4"
+        run: |
+          set -o pipefail
+          rm -rf .next
+          npm run build
+          node scripts/check-bundle-budget.mjs --refresh-baseline --json | tee bundle-budget-refresh.json
+
+      # DELIBERATELY REPORT ONLY. This workflow must never commit the refreshed
+      # bundle-budget.json, push a branch, or open a PR:
+      #   * scripts/check-github-action-pins.mjs fails the build on any
+      #     workflow-authored branch mutation, because bot-authored heads leave
+      #     required checks awaiting approval and cannot be merged.
+      #   * a baseline moved by a bot is a baseline nobody reviewed — the growth
+      #     it absorbs becomes unattributable, which is the exact failure mode
+      #     #QSHHGK exists to prevent.
+      # The refreshed file ships as an artifact instead; a human applies it in a
+      # normal PR after deciding the growth is legitimate.
+      - name: Upload refreshed baseline and measurement
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: bundle-budget-refresh
+          path: |
+            bundle-budget.json
+            bundle-budget-refresh.json
+          retention-days: 30
+          # A missing file means the measurement silently produced nothing; fail
+          # rather than publish a report with no evidence behind it.
+          if-no-files-found: error
+
+      - name: Publish to rolling issue
+        if: ${{ !cancelled() }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Pass step results via env (not inline template expansion) to avoid
+          # the GitHub Actions template-injection pattern. The measurement itself
+          # is read from the JSON file on disk for the same reason.
+          REFRESH_OUTCOME: ${{ steps.refresh.outcome }}
+          MEASUREMENT_FILE: bundle-budget-refresh.json
+        with:
+          script: |
+            const fs = require("fs");
+            const label = "bundle-budget-refresh";
+            const title = "Bundle budget baseline measurement";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const outcome = process.env.REFRESH_OUTCOME || "unknown";
+
+            const pct = (value) => (typeof value === "number" ? `${value >= 0 ? "+" : ""}${value.toFixed(2)}%` : "n/a");
+            const kb = (value) => (typeof value === "number" ? `${(value / 1024).toFixed(1)} kB` : "n/a");
+
+            let body;
+            if (outcome === "success") {
+              const measurement = JSON.parse(fs.readFileSync(process.env.MEASUREMENT_FILE, "utf8"));
+              const rows = [
+                `| production | ${kb(measurement.production?.gzipBytes)} | ${kb(measurement.production?.previousGzipBytes)} | ${pct(measurement.production?.diffPct)} |`,
+                `| mockups (scratch) | ${kb(measurement.mockups?.gzipBytes)} | ${kb(measurement.mockups?.previousGzipBytes)} | ${pct(measurement.mockups?.diffPct)} |`,
+                ...Object.entries(measurement.routes ?? {}).map(
+                  ([route, r]) => `| route \`${route}\` | ${kb(r.gzipBytes)} | ${kb(r.previousGzipBytes)} | ${pct(r.diffPct)} |`,
+                ),
+              ];
+              body = [
+                `_Updated ${measurement.updatedAt} — [run](${runUrl})._`,
+                "",
+                "Cold-build measurement of current bundle weight against the committed",
+                "`bundle-budget.json` baseline. **Report only** — no baseline was committed by this run.",
+                "",
+                "| bucket | measured (gzip) | committed baseline | drift |",
+                "| --- | --- | --- | --- |",
+                ...rows,
+                "",
+                `Total: ${kb(measurement.totalGzipBytes)} gzip across ${measurement.files} chunk(s).`,
+                `Measured at \`${String(measurement.baselineSource ?? "").slice(0, 12)}\` (${measurement.baselineCommitDistance ?? "?"} commit(s) behind HEAD).`,
+                "",
+                "Production and mockup tolerances are 10% and 25% respectively. When production",
+                "drift approaches its ceiling, either find the regression or refresh the baseline",
+                "deliberately in a reviewed PR:",
+                "",
+                "```",
+                "rm -rf .next && npm run build",
+                "npm run check:bundle-budget -- --refresh-baseline",
+                "```",
+                "",
+                "The refreshed `bundle-budget.json` from this run is attached to the run above as",
+                "the `bundle-budget-refresh` artifact.",
+              ].join("\n");
+            } else {
+              body = [
+                `_Updated ${new Date().toISOString()} — [run](${runUrl})._`,
+                "",
+                `⚠ The scheduled measurement did not complete (\`${outcome}\`), so the numbers below are absent`,
+                "rather than reassuring. This is **not** evidence that the bundle budget is healthy.",
+                "",
+                `Check the build and bundle-budget steps in the [run log](${runUrl}).`,
+              ].join("\n");
+              core.warning(`Bundle budget measurement did not complete: ${outcome}`);
+            }
+
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+            });
+            if (existing.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body,
+              });
+              core.info(`Updated rolling issue #${existing[0].number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: [label],
+                body,
+              });
+              core.info(`Opened rolling issue #${created.data.number}.`);
+            }

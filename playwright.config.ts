@@ -28,10 +28,24 @@ const mockupSpecPattern =
   /.*ui-(answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-management|ward-coordinator|ward-roles|ward-discharges)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
+// The ONE production journey that needs a populated Caring Contacts store, and therefore the one
+// that runs against `run-playwright.mjs`'s SECOND server (`CARING_CONTACTS_DEMO_SEED=on`) rather
+// than the primary one. It is deliberately absent from `productionSpecPattern` above: that matcher
+// names `caring-contacts-workspace` explicitly, so `ui-caring-contacts-activation` cannot leak into
+// the projects pointed at the unseeded server — where its referral would not exist and the wizard
+// would render the same "not visible" notice the workspace spec already pins. Keep it that way;
+// `tests/playwright-project-isolation.test.ts` fails if it drifts either direction.
+const seededSpecPattern = /.*ui-caring-contacts-activation\.spec\.ts/;
+
+// Published by `scripts/run-playwright.mjs` when it starts the seeded server. Falling back to the
+// primary `baseURL` would silently point the journey at the EMPTY store, so the spec itself refuses
+// to run without this value rather than trusting a fallback (see its own head comment).
+const seededBaseURL = process.env.PLAYWRIGHT_SEEDED_BASE_URL;
+
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges)|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-activation|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges)|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
@@ -95,6 +109,20 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
+      },
+    },
+    {
+      // The Caring Contacts activation journey, and the ONLY project pointed at the seeded server.
+      // Chromium-only on purpose: this is the workspace's one Client Component, so the evidence it
+      // buys is hydration plus a two-write recovery path, neither of which is a cross-engine
+      // question — and a second engine would need a third server for the same population.
+      name: "chromium-caring-contacts-seeded",
+      testMatch: seededSpecPattern,
+      grepInvert: mockupTag,
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
+        baseURL: seededBaseURL ?? baseURL,
       },
     },
     {

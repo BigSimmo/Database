@@ -116,7 +116,7 @@ For the verification principle, the tier table, and the rest of the gate-selecti
 
 ## Do not pay twice for the verdict GitHub is about to reach
 
-For the rule against re-deriving a verdict GitHub is about to reach, and the gate arbiter's inputs and non-negotiable boundaries, see [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md).
+For the rule against re-deriving a verdict GitHub is about to reach, the gate arbiter's inputs and non-negotiable boundaries, and the browser-gate planner that narrows `verify:ui` to the specs a diff can actually break (`npm run plan:browser`), see [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md).
 <!-- END:process-hardening -->
 
 <!-- BEGIN:page-and-button-wiring -->
@@ -124,6 +124,10 @@ For the rule against re-deriving a verdict GitHub is about to reach, and the gat
 # Deleting code you believe is dead
 
 For what must hold before removing an exported symbol, and the `check:dead-code-candidate` refusal list, see [`docs/agents/dead-code-deletion.md`](docs/agents/dead-code-deletion.md).
+
+# Deleting tests, or letting a tool delete them for you
+
+For the 2026-08-31 whole-file truncation incident (`#Y30AXB`), the `check:diff-integrity` test-case floor and truncation-artefact rules, and how a deliberate reduction is recorded in `diff-integrity.json`, see [`docs/agents/test-deletion-guard.md`](docs/agents/test-deletion-guard.md).
 
 # Page and button wiring
 
