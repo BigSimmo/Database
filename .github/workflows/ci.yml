@@ -292,6 +292,15 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:ledger-write-discipline
 
+      # Refuses a diff that guts a test file of its cases, or commits a tool's truncation
+      # banner as source. Both are the #Y30AXB shape: a regenerated-not-edited file whose
+      # gutted suite would have merged on a green run had a merge conflict not intervened.
+      - name: Diff integrity
+        if: needs.changes.outputs.coverage_changed == 'true' || needs.changes.outputs.ui_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true' || needs.changes.outputs.docs_changed == 'true'
+        env:
+          DIFF_INTEGRITY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: npm run check:diff-integrity
+
       - name: PR mergeability workflow contract
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:pr-mergeability

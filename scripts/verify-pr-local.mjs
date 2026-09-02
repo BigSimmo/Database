@@ -7,7 +7,7 @@ import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE, findRunningProjectServer } from "./
 
 const isWindows = process.platform === "win32";
 // Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
-const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed"];
+const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed", "check:diff-integrity"];
 const docsScripts = [
   "sitemap:check",
   "check:repo-awareness-snapshot",
