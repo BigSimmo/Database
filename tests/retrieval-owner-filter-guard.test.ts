@@ -4,6 +4,20 @@ import { join } from "node:path";
 import ts from "@typescript/typescript6";
 import { describe, expect, it } from "vitest";
 
+import {
+  DERIVED_QUERY_INVENTORY,
+  PROOF_KINDS,
+  SCANNED_LIB_MODULES,
+  SCOPE_EXEMPTIONS,
+  analyzeRpcDispatch,
+  analyzeSource,
+  evaluateSites,
+  queriedTablesByTier,
+  scanRpcDispatch,
+  scanTenancy,
+  tableTiersFromDatabaseTypes,
+} from "../scripts/lib/tenancy-scan.mjs";
+
 // Guard for the retrieval owner-scope boundary (48h-review finding #3).
 //
 // The SQL `retrieval_owner_matches(owner_filter, row_owner_id)` now fails CLOSED when
@@ -287,5 +301,557 @@ describe("owner-scoped API table guard", () => {
       `Owner-scoped API table access must use withOwnerReadScope, an explicit owner_id filter/stamp, ` +
         `an owned-document helper, or a documented narrow exemption:\n${offenders.join("\n")}`,
     ).toEqual([]);
+  });
+});
+
+/*
+ * ---------------------------------------------------------------------------------------
+ * Mechanical tenancy scan (the five blind spots closed 2026-09-02).
+ *
+ * The suites above check the OLD contract: owner_filter RPC sources, and owner_id-bearing
+ * tables in `route.ts` files scoped somewhere in the enclosing function. Those assertions
+ * stay exactly as they were. The suites below add the stricter contract that
+ * scripts/lib/tenancy-scan.mjs implements — three table tiers, scope attributed per query
+ * CHAIN rather than per function, a declared inventory for join-through tables, a wider
+ * file set, and a pin on the one dynamic RPC dispatcher — and every rule here ships with a
+ * synthetic fixture proving it FAILS on the thing it claims to catch.
+ * ---------------------------------------------------------------------------------------
+ */
+
+type ScanTiers = ReturnType<typeof tableTiersFromDatabaseTypes>;
+
+/** Scan a synthetic module as if it lived at `relativePath`, using the given tier sets. */
+function scanFixture(relativePath: string, source: string, tiers: Partial<ScanTiers> = {}) {
+  return analyzeSource({
+    relativePath,
+    source,
+    tiers: {
+      direct: tiers.direct ?? new Set(["documents"]),
+      userKeyed: tiers.userKeyed ?? new Set(["user_favourites"]),
+      derived: tiers.derived ?? new Set(["document_chunks"]),
+    },
+  });
+}
+
+const FIXTURE_FILE = "src/app/api/synthetic/route.ts";
+
+describe("tenancy table tiers", () => {
+  it("splits generated table types into direct, user-keyed and derived tiers", () => {
+    const generated = [
+      "export type Database = {",
+      "  public: {",
+      "    Tables: {",
+      "      documents: {",
+      "        Row: {",
+      "          id: string;",
+      "          owner_id: string;",
+      "        };",
+      "        Insert: {",
+      "          id?: string;",
+      "        };",
+      "      };",
+      "      user_favourites: {",
+      "        Row: {",
+      "          content_key: string;",
+      "          user_id: string;",
+      "        };",
+      "        Insert: {",
+      "          content_key: string;",
+      "        };",
+      "      };",
+      "      document_chunks: {",
+      "        Row: {",
+      "          id: string;",
+      "          document_id: string;",
+      "        };",
+      "        Insert: {",
+      "          id?: string;",
+      "        };",
+      "      };",
+      "      api_versions: {",
+      "        Row: {",
+      "          id: string;",
+      "        };",
+      "        Insert: {",
+      "          id?: string;",
+      "        };",
+      "      };",
+      "    };",
+      "    Functions: {",
+      "      match_document_chunks: {",
+      "        Row: {",
+      "          owner_id: string;",
+      "        };",
+      "      };",
+      "    };",
+      "  };",
+      "};",
+    ].join("\n");
+
+    const tiers = tableTiersFromDatabaseTypes(generated);
+    expect([...tiers.direct]).toEqual(["documents"]);
+    expect([...tiers.userKeyed]).toEqual(["user_favourites"]);
+    expect([...tiers.derived]).toEqual(["document_chunks"]);
+    // A Functions entry that happens to name owner_id must not be mistaken for a table.
+    expect(tiers.direct.has("match_document_chunks")).toBe(false);
+    // A table with none of the three columns belongs to no tenancy tier.
+    expect(
+      tiers.direct.has("api_versions") || tiers.userKeyed.has("api_versions") || tiers.derived.has("api_versions"),
+    ).toBe(false);
+  });
+
+  it("keeps each configured tier exactly equal to the tables the scanned files query", () => {
+    const { tiers, direct, userKeyed, derived } = queriedTablesByTier(process.cwd());
+    // The tier sets are DERIVED from database.types.ts, so the assertion that matters is the
+    // other direction: every table the scanned files actually query must land in a tier, and
+    // the tier it lands in must match the generated column shape. An unclassified table
+    // queried by a scanned file would be absent from all three buckets below.
+    for (const table of direct) expect(tiers.direct.has(table), `${table} is not a direct-tier table`).toBe(true);
+    for (const table of userKeyed) expect(tiers.userKeyed.has(table), `${table} is not a user-keyed table`).toBe(true);
+    for (const table of derived) expect(tiers.derived.has(table), `${table} is not a derived-tier table`).toBe(true);
+    expect(direct.length + userKeyed.length + derived.length).toBeGreaterThan(0);
+
+    // The user-keyed tier is small and fully enumerated: withOwnerReadScope cannot be used
+    // on it (it filters owner_id), so every call site hand-rolls .eq("user_id", …).
+    expect([...tiers.userKeyed].sort()).toEqual(["user_favourite_sets", "user_favourites", "user_preferences"]);
+    expect(userKeyed).toEqual(["user_favourite_sets", "user_favourites", "user_preferences"]);
+  });
+});
+
+describe("per-chain owner scope (direct and user-keyed tiers)", () => {
+  it("accepts an owner predicate on the query's own chain and a sanctioned wrapper", () => {
+    const onChain = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("documents").select("id").eq("owner_id", user.id);
+      }`,
+    );
+    const wrapped = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return withOwnerReadScope(supabase.from("documents").select("id"), access.ownerId);
+      }`,
+    );
+    const stamped = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        return supabase.from("documents").insert({ owner_id: user.id, title });
+      }`,
+    );
+    const publicOverlay = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("documents").select("id").or("owner_id.eq." + id + ",owner_id.is.null");
+      }`,
+    );
+
+    for (const sites of [onChain, wrapped, stamped]) {
+      expect(sites).toHaveLength(1);
+      expect(sites[0].ownerScopedChain, JSON.stringify(sites[0].proofs)).toBe(true);
+    }
+    // `.or("owner_id.eq…")` is only recognised from a string literal; a concatenation is not.
+    expect(publicOverlay[0].ownerScopedChain).toBe(false);
+    expect(
+      scanFixture(
+        FIXTURE_FILE,
+        `export async function GET() {
+          return supabase.from("documents").select("id").or("owner_id.eq.abc,owner_id.is.null");
+        }`,
+      )[0].ownerScopedChain,
+    ).toBe(true);
+  });
+
+  it("attributes scope per QUERY, not per function — a scoped sibling query no longer covers an unscoped one", () => {
+    // This is blind spot C. Both guards that existed before asked whether a sanctioned token
+    // appeared anywhere in the enclosing function, so this handler passed.
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        const owned = await supabase.from("documents").select("id").eq("owner_id", user.id);
+        const everything = await supabase.from("documents").select("*");
+        return { owned, everything };
+      }`,
+    );
+    expect(sites).toHaveLength(2);
+    expect(sites.filter((site) => site.ownerScopedChain)).toHaveLength(1);
+
+    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [] });
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain("undeclared scope-exemption query");
+  });
+
+  it("requires a user_id predicate on the chain for user-keyed tables (blind spot B)", () => {
+    const scoped = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("user_favourites").select("content_key").eq("user_id", user.id);
+      }`,
+    );
+    const unscoped = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("user_favourites").select("content_key").eq("content_type", type);
+      }`,
+    );
+    expect(scoped[0].userScopedChain).toBe(true);
+    expect(unscoped[0].userScopedChain).toBe(false);
+    expect(evaluateSites({ sites: unscoped, exemptions: [], inventory: [] }).violations).toHaveLength(1);
+    // owner_id is NOT a substitute: these tables have no owner_id column at all.
+    const wrongColumn = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("user_favourites").select("content_key").eq("owner_id", user.id);
+      }`,
+    );
+    expect(wrongColumn[0].userScopedChain).toBe(false);
+  });
+
+  it("resolves an owner_id stamp through a locally built write payload", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        const labelRows = documents.map((document) => ({ owner_id: user.id, document_id: document.id }));
+        return supabase.from("documents").upsert(labelRows, { onConflict: "id" });
+      }`,
+    );
+    expect(sites[0].ownerScopedChain).toBe(true);
+
+    const unstamped = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        const labelRows = documents.map((document) => ({ document_id: document.id }));
+        return supabase.from("documents").upsert(labelRows, { onConflict: "id" });
+      }`,
+    );
+    expect(unstamped[0].ownerScopedChain).toBe(false);
+  });
+});
+
+describe("derived-tier inventory (blind spot A)", () => {
+  const derivedSource = `export async function GET() {
+        const { data: document } = await withOwnerReadScope(
+          supabase.from("documents").select("id").eq("id", id),
+          access.ownerId,
+        ).maybeSingle();
+        if (!document) return notFound();
+        return supabase.from("document_chunks").select("content").eq("document_id", id);
+      }`;
+
+  it("fails a join-through query that is not declared, even when the handler is owner-scoped", () => {
+    // Both older guards ignored document_chunks entirely: it has no owner_id column.
+    // check-owner-scope-api.mjs's own self-test still asserts the regex tier does not flag it.
+    const sites = scanFixture(FIXTURE_FILE, derivedSource);
+    const derived = sites.filter((site) => site.tier === "derived");
+    expect(derived).toHaveLength(1);
+
+    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [] });
+    expect(violations.filter((violation) => violation.includes("undeclared derived-inventory query"))).toHaveLength(1);
+  });
+
+  it("accepts the same query once it is declared with a verifiable owner-pinned document id", () => {
+    const sites = scanFixture(FIXTURE_FILE, derivedSource);
+    const inventory = [
+      {
+        file: FIXTURE_FILE,
+        table: "document_chunks",
+        fn: "GET",
+        queries: 1,
+        proof: PROOF_KINDS.OWNER_PINNED_DOCUMENT_ID,
+        identifier: "id",
+        reason: "fixture",
+      },
+    ];
+    expect(evaluateSites({ sites, exemptions: [], inventory }).violations).toEqual([]);
+
+    // The identity is checked in the AST, not trusted from the reason string: declaring a
+    // different identifier than the one the owner-scoped query pinned must fail.
+    const wrongIdentifier = evaluateSites({
+      sites,
+      exemptions: [],
+      inventory: [{ ...inventory[0], identifier: "otherId" }],
+    }).violations;
+    // Two violations: the entry matches nothing, and the query is therefore undeclared.
+    expect(wrongIdentifier).toHaveLength(2);
+    expect(wrongIdentifier.join("\n")).toContain("not the declared otherId");
+    expect(wrongIdentifier.join("\n")).toContain("undeclared derived-inventory query");
+  });
+
+  it("fails owner-pinned-document-id when the ownership proof is dropped from the scope", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        const { data: document } = await supabase.from("documents").select("id").eq("id", id).maybeSingle();
+        if (!document) return notFound();
+        return supabase.from("document_chunks").select("content").eq("document_id", id);
+      }`,
+    );
+    const violations = evaluateSites({
+      sites,
+      exemptions: [],
+      inventory: [
+        {
+          file: FIXTURE_FILE,
+          table: "document_chunks",
+          fn: "GET",
+          queries: 1,
+          proof: PROOF_KINDS.OWNER_PINNED_DOCUMENT_ID,
+          identifier: "id",
+          reason: "fixture",
+        },
+      ],
+    }).violations;
+    // The documents query lost its owner filter, so nothing pins `id` any more.
+    expect(violations.join("\n")).toContain("no owner-scoped documents query in this scope pins `id`");
+  });
+
+  it("verifies the documents!inner proof and fails when the owner filter is dropped", () => {
+    const joined = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase
+          .from("document_chunks")
+          .select("*, documents!inner(owner_id)")
+          .eq("documents.owner_id", user.id);
+      }`,
+    );
+    const entry = {
+      file: FIXTURE_FILE,
+      table: "document_chunks",
+      fn: "GET",
+      queries: 1,
+      proof: PROOF_KINDS.DOCUMENTS_INNER_JOIN,
+      reason: "fixture",
+    };
+    expect(evaluateSites({ sites: joined, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+
+    const unfiltered = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        return supabase.from("document_chunks").select("*, documents!inner(owner_id)").eq("status", "indexed");
+      }`,
+    );
+    const violations = evaluateSites({ sites: unfiltered, exemptions: [], inventory: [entry] }).violations;
+    expect(violations.join("\n")).toContain("does not filter `documents.owner_id`");
+  });
+
+  it("verifies the owned-document-helper proof and fails when the helper call is removed", () => {
+    const entry = {
+      file: FIXTURE_FILE,
+      table: "document_chunks",
+      fn: "PATCH",
+      queries: 1,
+      proof: PROOF_KINDS.OWNED_DOCUMENT_HELPER,
+      identifier: "id",
+      reason: "fixture",
+    };
+    const withHelper = scanFixture(
+      FIXTURE_FILE,
+      `export async function PATCH() {
+        const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
+        if (!document) return notFound();
+        return supabase.from("document_chunks").select("id").eq("document_id", id);
+      }`,
+    );
+    expect(evaluateSites({ sites: withHelper, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+
+    const withoutHelper = scanFixture(
+      FIXTURE_FILE,
+      `export async function PATCH() {
+        return supabase.from("document_chunks").select("id").eq("document_id", id);
+      }`,
+    );
+    expect(evaluateSites({ sites: withoutHelper, exemptions: [], inventory: [entry] }).violations.join("\n")).toContain(
+      "no owning-document helper in this scope was handed `id`",
+    );
+  });
+
+  it("verifies the owner-scoped-id-list proof and fails when the list is not locally derived", () => {
+    const entry = {
+      file: FIXTURE_FILE,
+      table: "document_chunks",
+      fn: "GET",
+      queries: 1,
+      proof: PROOF_KINDS.OWNER_SCOPED_ID_LIST,
+      identifier: "documentIds",
+      reason: "fixture",
+    };
+    const derivedList = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        const { data } = await supabase.from("documents").select("id").eq("owner_id", user.id);
+        const documentIds = data.map((row) => row.id);
+        return supabase.from("document_chunks").select("content").in("document_id", documentIds);
+      }`,
+    );
+    expect(evaluateSites({ sites: derivedList, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+
+    const requestSuppliedList = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        const { data } = await supabase.from("documents").select("id").eq("owner_id", user.id);
+        return supabase.from("document_chunks").select("content").in("document_id", body.documentIds);
+      }`,
+    );
+    expect(
+      evaluateSites({ sites: requestSuppliedList, exemptions: [], inventory: [entry] }).violations.join("\n"),
+    ).toContain("not the declared documentIds");
+  });
+
+  it("verifies the parent-document-verified proof and fails when no owner-scoped parent read remains", () => {
+    const entry = {
+      file: FIXTURE_FILE,
+      table: "document_chunks",
+      fn: "GET",
+      queries: 1,
+      proof: PROOF_KINDS.PARENT_DOCUMENT_VERIFIED,
+      reason: "fixture",
+    };
+    const verified = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        const { data: chunk } = await supabase.from("document_chunks").select("document_id").eq("id", id).maybeSingle();
+        const { data: document } = await withOwnerReadScope(
+          supabase.from("documents").select("id").eq("id", chunk.document_id),
+          access.ownerId,
+        ).maybeSingle();
+        return document ? chunk : notFound();
+      }`,
+    );
+    expect(evaluateSites({ sites: verified, exemptions: [], inventory: [entry] }).violations).toEqual([]);
+
+    const unverified = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        const { data: chunk } = await supabase.from("document_chunks").select("document_id").eq("id", id).maybeSingle();
+        return chunk;
+      }`,
+    );
+    expect(evaluateSites({ sites: unverified, exemptions: [], inventory: [entry] }).violations.join("\n")).toContain(
+      "the parent document is never verified",
+    );
+  });
+
+  it("fails a stale entry that no longer matches any query site", () => {
+    const violations = evaluateSites({
+      sites: [],
+      exemptions: [],
+      inventory: [
+        {
+          file: FIXTURE_FILE,
+          table: "document_chunks",
+          fn: "GET",
+          queries: 1,
+          proof: PROOF_KINDS.REVIEWED_INDIRECT,
+          reason: "fixture",
+        },
+      ],
+    }).violations;
+    expect(violations.join("\n")).toContain("No query site matched it at all");
+  });
+
+  it("fails when a scope grows an extra derived query beyond its declared count", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET() {
+        const a = supabase.from("document_chunks").select("content").eq("document_id", id);
+        const b = supabase.from("document_chunks").select("metadata").eq("document_id", id);
+        return [a, b];
+      }`,
+    );
+    const violations = evaluateSites({
+      sites,
+      exemptions: [],
+      inventory: [
+        {
+          file: FIXTURE_FILE,
+          table: "document_chunks",
+          fn: "GET",
+          queries: 1,
+          proof: PROOF_KINDS.REVIEWED_INDIRECT,
+          reason: "fixture",
+        },
+      ],
+    }).violations;
+    expect(violations.join("\n")).toContain("undeclared derived-inventory query");
+  });
+});
+
+describe("dynamic retrieval RPC dispatch (blind spot E)", () => {
+  it("flags a second dynamic .rpc() dispatch site and a non-literal dispatcher name", () => {
+    const secondDispatcher = analyzeRpcDispatch({
+      relativePath: "src/lib/synthetic-retrieval.ts",
+      source: `export async function callSomething(client, name, args) {
+        return client.rpc(name, args);
+      }`,
+    });
+    expect(secondDispatcher.dynamicRpcCalls).toHaveLength(1);
+    expect(secondDispatcher.dynamicRpcCalls[0].scopes).toContain("callSomething");
+    expect(secondDispatcher.dynamicRpcCalls[0].scopes).not.toContain("callVersionedRetrievalRpc");
+
+    const literalCall = analyzeRpcDispatch({
+      relativePath: "src/lib/rag/synthetic.ts",
+      source: `const result = await callVersionedRetrievalRpc(supabase, "match_v2", "match", args, signal);`,
+    });
+    expect(literalCall.dispatcherCallSites).toHaveLength(1);
+    expect(literalCall.dispatcherCallSites[0].literalNames).toBe(true);
+
+    const computedCall = analyzeRpcDispatch({
+      relativePath: "src/lib/rag/synthetic.ts",
+      source: `const result = await callVersionedRetrievalRpc(supabase, versionedName, legacyName, args, signal);`,
+    });
+    expect(computedCall.dispatcherCallSites[0].literalNames).toBe(false);
+  });
+
+  it("pins callVersionedRetrievalRpc as the only dynamic dispatcher in src/", () => {
+    const { dynamicRpcCalls, dispatcherCallSites, violations } = scanRpcDispatch(process.cwd());
+    expect(dynamicRpcCalls.length, "found no .rpc() calls at all — has the client API changed?").toBeGreaterThan(0);
+    expect(
+      dispatcherCallSites.length,
+      "found no callVersionedRetrievalRpc call sites — the retrieval RPC surface moved",
+    ).toBeGreaterThan(0);
+    expect(dispatcherCallSites.every((site) => site.literalNames)).toBe(true);
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+});
+
+describe("mechanical tenancy scan over the real surface", () => {
+  it("covers every .ts under src/app/api plus the named server-side read modules", () => {
+    const { sites } = scanTenancy(process.cwd());
+    const scannedPaths = new Set(sites.map((site) => site.file));
+    for (const modulePath of SCANNED_LIB_MODULES) {
+      expect(scannedPaths.has(modulePath), `${modulePath} produced no scanned query — is it still a read module?`).toBe(
+        true,
+      );
+    }
+    // /api/documents/images/batch is a bare re-export of /api/images/signed-urls and so has
+    // no query of its own; the re-exported module is what carries the inventory entry.
+    expect(scannedPaths.has("src/app/api/documents/images/batch/route.ts")).toBe(false);
+    expect(scannedPaths.has("src/app/api/images/signed-urls/route.ts")).toBe(true);
+  });
+
+  it("keeps every direct, user-keyed and derived query scoped on its chain or declared", () => {
+    const { violations, counts } = scanTenancy(process.cwd());
+    expect(counts.direct, "found no direct-tier queries — is the tier derivation stale?").toBeGreaterThan(0);
+    expect(counts.userKeyed, "found no user-keyed queries — is the tier derivation stale?").toBeGreaterThan(0);
+    expect(counts.derived, "found no derived-tier queries — is the tier derivation stale?").toBeGreaterThan(0);
+    expect(
+      violations,
+      "Every query on an owner_id / user_id / document_id table must carry its tenancy predicate on its own " +
+        "query chain, or be declared in SCOPE_EXEMPTIONS / DERIVED_QUERY_INVENTORY " +
+        `(scripts/lib/tenancy-scan.mjs) with the proof of ownership:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("documents every declared exemption and inventory entry in the tenancy review", () => {
+    const review = readFileSync(join(process.cwd(), "docs", "audit", "tenancy-defense-in-depth-review.md"), "utf8");
+    const lines = review.split("\n");
+    for (const entry of [...SCOPE_EXEMPTIONS, ...DERIVED_QUERY_INVENTORY]) {
+      expect(entry.reason.length, `${entry.file} / ${entry.table} has no reason`).toBeGreaterThan(40);
+      const documented = lines.some((line) => line.includes(entry.file) && line.includes(entry.table));
+      expect(
+        documented,
+        `${entry.file} / ${entry.table} (${entry.fn}) is not documented in docs/audit/tenancy-defense-in-depth-review.md`,
+      ).toBe(true);
+    }
   });
 });
