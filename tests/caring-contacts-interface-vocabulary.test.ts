@@ -9,6 +9,10 @@
 // and template literal under the workspace and caring-contacts app trees for the same wider
 // interface vocabulary (CARING_CONTACTS_PROHIBITED_LANGUAGE) already used by the overlay tests.
 //
+// #Z5P2BW and #0HYHTH later widened the roots from B3's two trees to every tree this feature
+// renders from, except the mockups. The scan-root comment below records which, and which are
+// deliberately left out.
+//
 // See docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md, "B3".
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -37,10 +41,35 @@ import { CARING_CONTACTS_PROHIBITED_LANGUAGE } from "./helpers/caring-contacts-p
 // frozen rows. That is what made the recorded workaround for the "lead" rule -- move the wording
 // down into `src/lib` -- move it somewhere UNWATCHED rather than somewhere exempt. Not merely
 // exempt from one rule: outside every prohibited-language check in the repository.
+//
+// #0HYHTH (2026-08-24) added the last two. The ban on "high risk", "safe", "engagement score" and
+// "risk score" ran against outgoing messages and the 24 frozen overlay rows, and B3 then added the
+// two trees above; everything else this feature renders was still policy held by people rather
+// than by software. `src/lib/caring-contacts-server/**` is deliberately outside the seal (it reads
+// environment variables, which the sealed domain may not) and holds demo-seed.ts, whose fixture
+// copy is what a demo-mode screen actually shows. `src/app/api/caring-contacts/**` carries the
+// refusal wording the workspace renders when a request is declined.
+//
+// Deliberately still unscanned, so that the omission is a decision rather than an oversight. The
+// two mockup trees (`src/components/caring-contacts/mockups/**` and
+// `src/app/mockups/caring-contacts/**`) 404 in production and hold the one prohibited phrase the
+// owner ruled under B4 to leave alone; the test below pins their exclusion. And this feature's
+// entries in the cross-cutting catalogues it does not own -- `src/lib/tools-catalog.ts`,
+// `src/lib/developer-area/**`, and others that mention it in passing. Those carry every feature's
+// copy, so covering them is a wider job than this rule and would need its own scoping decision.
+//
+// One thing to know before taking that job on, because an earlier draft of this comment claimed
+// the opposite and was wrong: `tools-catalog.ts` is NOT clean of this vocabulary. Its prescribing
+// entry reads `bestFor: "Safe and effective prescribing"`, which `\bsafe\b` matches. That is a
+// section title about prescribing practice, not a claim that a person is safe, so it is harmless
+// where it is -- but anyone widening the roots to that file will hit it immediately, and should
+// know it is expected rather than a regression they introduced.
 const SCAN_ROOTS = [
   path.join(process.cwd(), "src", "components", "caring-contacts", "workspace"),
   path.join(process.cwd(), "src", "app", "caring-contacts"),
   path.join(process.cwd(), "src", "lib", "caring-contacts"),
+  path.join(process.cwd(), "src", "lib", "caring-contacts-server"),
+  path.join(process.cwd(), "src", "app", "api", "caring-contacts"),
 ];
 
 function walk(dir: string): string[] {
@@ -262,6 +291,17 @@ const NON_INTERFACE_LITERAL_EXEMPTIONS: readonly {
       "exists -- and is never rendered; the wording a clinician reads for it lives in the " +
       "workspace tree, which this scan already covers.",
   },
+  {
+    file: path.join("src", "lib", "caring-contacts-server", "demo-seed.ts"),
+    text: "pathway-approve-clinical-programme-lead",
+    because:
+      "A demo-seed write label. It becomes the `idempotencyKey` on the audit entry that records " +
+      "which approval was written -- see writeAs in demo-seed.ts and audit.ts -- and nothing in " +
+      "the workspace or app trees renders an idempotencyKey, so it reaches the audit record and " +
+      "never a screen. Its hyphens are the whole reason it matches: the job-title exemption looks " +
+      "for a qualifier followed by a space, so `programme-lead` reads as a bare `lead` where " +
+      "`programme lead` does not.",
+  },
 ];
 
 /**
@@ -421,6 +461,23 @@ describe("caring-contacts interface vocabulary (B3)", () => {
     ]) {
       expect(scanned).toContain(path.join("src", "lib", "caring-contacts", file));
     }
+  });
+
+  it("reads the demo seed and the caring-contacts API routes (#0HYHTH)", () => {
+    // demo-seed.ts is the fixture copy a demo-mode screen actually shows; the API routes carry the
+    // refusal wording the workspace renders when a request is declined. Neither was read by any
+    // prohibited-language check before.
+    const scanned = SCAN_ROOTS.flatMap((root) => walk(root)).map((file) => path.relative(process.cwd(), file));
+    expect(scanned).toContain(path.join("src", "lib", "caring-contacts-server", "demo-seed.ts"));
+    expect(scanned.some((file) => file.startsWith(path.join("src", "app", "api", "caring-contacts")))).toBe(true);
+  });
+
+  it("keeps the mockup trees out of the scan, which is a ruling and not an oversight", () => {
+    // B4 ruled the one prohibited phrase in the mockups to be left alone, and mockups 404 in
+    // production. Widening a root to "all of src/components/caring-contacts" would quietly reverse
+    // that ruling, so the exclusion is asserted rather than left to the shape of the root paths.
+    const scanned = SCAN_ROOTS.flatMap((root) => walk(root)).map((file) => path.relative(process.cwd(), file));
+    expect(scanned.filter((file) => file.split(path.sep).includes("mockups"))).toEqual([]);
   });
 
   it("catches a prohibited word planted in a sealed-domain wording map", () => {
