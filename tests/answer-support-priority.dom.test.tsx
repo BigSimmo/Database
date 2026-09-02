@@ -150,12 +150,23 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
 
     const report = screen.getByTestId("answer-feedback-trigger");
     expect(report).toHaveAccessibleName("Report a problem with this answer");
+    // A dialog opener, not an in-flow disclosure: as a disclosure this list
+    // opened partly behind the fixed phone composer and could not scroll itself
+    // clear without hiding the phone chrome (see the comment on the Sheet).
+    expect(report).toHaveAttribute("aria-haspopup", "dialog");
     expect(report).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTestId("answer-review-panel")).not.toBeInTheDocument();
 
     await user.click(report);
-    const panel = screen.getByTestId("answer-review-panel");
+    expect(report).toHaveAttribute("aria-expanded", "true");
+    const sheet = await screen.findByTestId("answer-feedback-sheet");
+    // The sheet asks the question in its own header, so the panel inside it
+    // does not ask it a second time.
+    expect(within(sheet).getByText("What is wrong with this answer?")).toBeInTheDocument();
+    const panel = within(sheet).getByTestId("answer-review-panel");
     expect(panel).toHaveAttribute("data-tone", "problems");
+    expect(panel).toHaveAttribute("data-chrome", "bare");
+    expect(within(panel).queryByText("What is wrong with this answer?")).not.toBeInTheDocument();
     // The affirmative option is the thumb up, not an entry in a list opened to
     // report a fault — offering it here is a mis-click that records the
     // opposite of what the reader meant.

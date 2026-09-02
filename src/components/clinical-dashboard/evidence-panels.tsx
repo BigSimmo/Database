@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useId, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useCallback, useId, useRef, useState } from "react";
 import {
   Activity,
   CircleAlert,
@@ -25,6 +25,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 
+import { Sheet } from "@/components/ui/sheet";
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { ClinicalOutputPanel } from "@/components/clinical-dashboard/output-panel";
 import {
@@ -192,6 +193,8 @@ export function AnswerUtilityActions({
   onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeFeedback = useCallback(() => setFeedbackOpen(false), []);
   return (
     <section className="max-w-[68ch]" aria-label="Answer utilities">
       {/* Copy sits left; the two verdict controls sit right, as the approved
@@ -231,11 +234,13 @@ export function AnswerUtilityActions({
                 negative, because an unlabelled negative tells a reviewer
                 nothing about which claim failed. */}
             <button
+              ref={feedbackTriggerRef}
               id="answer-feedback-trigger"
               data-testid="answer-feedback-trigger"
               type="button"
               onClick={() => setFeedbackOpen((current) => !current)}
               className={cn(chatMicroAction, "min-w-12 justify-center px-2")}
+              aria-haspopup="dialog"
               aria-expanded={feedbackOpen}
               aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
               aria-label="Report a problem with this answer"
@@ -245,21 +250,45 @@ export function AnswerUtilityActions({
           </span>
         ) : null}
       </div>
-      {/* This panel deliberately does NOT scroll itself into view when it
-            opens, though it can open partly behind the fixed phone composer.
-            Every scripted scroll that would clear it is a downward scroll, and a
-            downward scroll is what hides the phone chrome; closing the panel then
-            shrinks the page back to the top without generating the upward travel
-            that reveals the chrome again, so the composer stays gone at the top
-            of the page. `ui-smoke`'s critical answer journey caught exactly that.
-            The options below the fold are reachable by scrolling — measured at
-            390x844, the last one clears the composer by 180px at full scroll —
-            so the remaining problem is that the list LOOKS complete, which wants
-            a sheet rather than a page scroll. Tracked, not bodged. */}
-      {onSubmitFeedback && feedbackOpen ? (
-        <div id="answer-feedback-detail" className="px-2 pb-2">
-          <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" />
-        </div>
+      {/* A Sheet, not an in-flow disclosure. As a disclosure this opened partly
+          behind the fixed phone composer, and it could not scroll itself clear:
+          every scripted scroll that would do it is a DOWNWARD scroll, downward
+          scroll is what hides the phone chrome, and closing the panel then
+          shrank the page back to the top without the upward travel that reveals
+          the chrome again — so the composer stayed gone. `ui-smoke`'s critical
+          answer journey caught exactly that, twice. The options were reachable
+          by scrolling (measured 390x844: the last one cleared the composer by
+          180px at full scroll), so the defect was never reachability — it was
+          that the list LOOKED complete when it was not.
+
+          A sheet answers both at once: it owns its own scrollport above the
+          composer, so nothing is clipped and no page scroll is needed, and it is
+          the same overlay the safety-findings control beside it already opens.
+          `mobilePlacement` defaults to "bottom", so this rises from the bottom
+          on a phone and is a centred dialog from `sm:` up. */}
+      {onSubmitFeedback ? (
+        <Sheet
+          id="answer-feedback-detail"
+          open={feedbackOpen}
+          onClose={closeFeedback}
+          returnFocusRef={feedbackTriggerRef}
+          title={answerFeedbackQuestion.problems.title}
+          description={answerFeedbackQuestion.problems.description}
+          closeLabel="Close report a problem"
+          testId="answer-feedback-sheet"
+          headerLeading={
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)]">
+              <ThumbsDown aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+          }
+          headerClassName="gap-2 p-2.5 sm:p-3"
+          titleClassName="text-base-minus leading-5"
+          contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
+        >
+          {/* The sheet header already asks the question, so the panel does not
+              ask it again. */}
+          <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" chrome="bare" />
+        </Sheet>
       ) : null}
     </section>
   );
@@ -1193,10 +1222,25 @@ function feedbackToneClass(tone: "success" | "warning" | "danger" | "neutral") {
   return toneNeutral;
 }
 
+/** The question the panel asks, so a Sheet header can ask it instead. */
+export const answerFeedbackQuestion = {
+  problems: {
+    title: "What is wrong with this answer?",
+    description:
+      "Name the fault so a reviewer can find it. This sends feedback for review; it does not change the answer.",
+  },
+  full: {
+    title: "Is the answer supported?",
+    description:
+      "Record whether the linked evidence supports the answer. This sends feedback for review; it does not change the answer.",
+  },
+} as const;
+
 export function AnswerFeedbackPanel({
   pending,
   onSubmit,
   tone = "full",
+  chrome = "card",
 }: {
   pending: AnswerFeedbackType | null;
   onSubmit: (feedbackType: AnswerFeedbackType) => void;
@@ -1207,29 +1251,36 @@ export function AnswerFeedbackPanel({
    * mis-click waiting to record the opposite of what they meant.
    */
   tone?: "full" | "problems";
+  /**
+   * `"bare"` drops the card's own border and its heading pair for a host that
+   * already carries them — the Sheet the answer surface opens, whose title and
+   * description ARE `answerFeedbackQuestion`. Asking the same question twice,
+   * once in the sheet header and again three lines below it, is the duplication
+   * this exists to avoid.
+   */
+  chrome?: "card" | "bare";
 }) {
   const problemsOnly = tone === "problems";
+  const bare = chrome === "bare";
   const options = problemsOnly
     ? answerFeedbackOptions.filter((item) => item.tone !== "success")
     : answerFeedbackOptions;
+  const question = answerFeedbackQuestion[problemsOnly ? "problems" : "full"];
   return (
     <section
       data-testid="answer-review-panel"
       data-tone={tone}
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+      data-chrome={chrome}
+      className={cn(!bare && "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3")}
       aria-label={problemsOnly ? "Report a problem" : "Answer review"}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">
-            {problemsOnly ? "What is wrong with this answer?" : "Is the answer supported?"}
-          </p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            {problemsOnly
-              ? "Name the fault so a reviewer can find it. This sends feedback for review; it does not change the answer."
-              : "Record whether the linked evidence supports the answer. This sends feedback for review; it does not change the answer."}
-          </p>
-        </div>
+        {bare ? null : (
+          <div>
+            <p className="text-sm font-semibold text-[color:var(--text)]">{question.title}</p>
+            <p className={cn("mt-1 text-xs leading-5", textMuted)}>{question.description}</p>
+          </div>
+        )}
         {pending ? (
           <span className={metadataPillDensity.dense}>
             <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
@@ -1237,7 +1288,7 @@ export function AnswerFeedbackPanel({
           </span>
         ) : null}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      <div className={cn("grid grid-cols-2 gap-2 sm:flex sm:flex-wrap", bare ? "mt-0" : "mt-3")}>
         {options.map((item) => {
           const Icon = item.icon;
           return (

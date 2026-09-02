@@ -2241,10 +2241,18 @@ test.describe("PsychSift UI smoke coverage", () => {
     const feedbackTrigger = utilities.getByTestId("answer-feedback-trigger");
     await expect(feedbackTrigger).toBeVisible();
     await expectMinTouchTarget(feedbackTrigger);
+    // The problem list is a Sheet, so it portals out of the utilities section
+    // and is looked up on the page. It has to be: as an in-flow disclosure it
+    // opened partly behind the fixed phone composer, and no scripted scroll can
+    // clear it without hiding the phone chrome.
     await feedbackTrigger.click();
-    await expect(utilities.getByTestId("answer-review-panel")).toBeVisible();
-    await feedbackTrigger.click();
+    const feedbackSheet = page.getByTestId("answer-feedback-sheet");
+    await expect(feedbackSheet).toBeVisible();
+    await expect(feedbackSheet.getByTestId("answer-review-panel")).toBeVisible();
     await expect(utilities.getByTestId("answer-review-panel")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(feedbackSheet).toHaveCount(0);
+    await expect(feedbackTrigger).toBeFocused();
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
     await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
@@ -3567,6 +3575,59 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(reviewDuePanel).toBeVisible();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
     await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
+  });
+
+  test("the problem list opens as a sheet that is fully readable on a phone", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium monitoring is required?");
+    await visibleAnswerSubmitButton(page).click();
+
+    const trigger = page.getByTestId("answer-feedback-trigger");
+    await expect(trigger).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await trigger.click();
+
+    const sheet = page.getByTestId("answer-feedback-sheet");
+    await expect(sheet).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    // The defect this replaced: as an in-flow disclosure the list opened partly
+    // behind the fixed phone composer, so it LOOKED complete when it was not.
+    // Every option must now be inside the viewport with the sheet at rest — no
+    // page scroll, and none of it under the composer.
+    const options = sheet.getByTestId("answer-review-panel").getByRole("button");
+    const optionCount = await options.count();
+    expect(optionCount).toBeGreaterThan(4);
+    const viewport = page.viewportSize()!;
+    for (let index = 0; index < optionCount; index += 1) {
+      const option = options.nth(index);
+      const box = await option.boundingBox();
+      expect(box, `option ${index} has no box`).toBeTruthy();
+      expect(box!.y, `option ${index} starts above the viewport`).toBeGreaterThanOrEqual(-1);
+      expect(box!.y + box!.height, `option ${index} runs past the viewport`).toBeLessThanOrEqual(viewport.height + 1);
+      // Production tap-target floor, not the generic WCAG 44px: 48px is what
+      // this repo ships and dropping to 44 reintroduces a known ui-smoke flake.
+      expect(box!.height, `option ${index} tap target`).toBeGreaterThanOrEqual(48);
+    }
+    // The affirmative verdict is the thumb up beside the trigger. Offering it
+    // inside a list opened to report a fault records the opposite of the intent.
+    await expect(sheet.getByRole("button", { name: /Verified/ })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+
+    await testInfo.attach("report-a-problem-sheet-phone", {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: "image/png",
+    });
+
+    // Dismissing returns the reader to the control they tapped, and leaves the
+    // phone composer where it was — the scroll-hide trap the old disclosure fell
+    // into when it tried to scroll itself clear.
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(visibleAnswerSubmitButton(page)).toBeVisible();
   });
 
   for (const viewport of [
