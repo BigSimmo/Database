@@ -145,11 +145,15 @@ const routeDescriptions: Record<string, string> = {
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
+  "/forms/search":
+    "Forms results surface: searches the WA MHA 2014 forms register by code, title and clinical purpose.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
   "/formulation/[slug]": "Formulation mechanism decision-support guide.",
   "/formulation/builder": "Structured clinical formulation builder.",
   "/formulation/compare": "Side-by-side mechanism comparison.",
   "/formulation/map": "Formulation mechanism domain map.",
+  "/formulation/search":
+    "Formulation results surface: searches mechanisms by pattern, clinical clue and hypothesis, and browses the full catalogue on an empty query.",
   "/medications": "Medication mode home.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Public privacy and data-processing transparency notice; governance approval pending.",
@@ -157,11 +161,21 @@ const routeDescriptions: Record<string, string> = {
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
+  "/services/search":
+    "Services results surface: searches the private services registry by need, catchment, eligibility and referral route.",
+  "/sources": "Sources catalogue home: the ranked clinical source catalogue and traceability entry point.",
+  "/sources/[sourceId]":
+    "Source traceability detail: identity, rating, locations and application usage for one clinical source.",
+  "/sources/method": "Sources rating method, limitations and status definitions.",
+  "/sources/publishers": "Publisher coverage across the clinical source catalogue.",
+  "/sources/topics": "Clinical source topics with filtered catalogue links.",
   "/specifiers": "Psychiatric specifier home and local search surface.",
   "/specifiers/[slug]": "Psychiatric specifier decision-support guide.",
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
+  "/specifiers/search":
+    "Specifiers results surface: searches diagnostic specifiers by presentation, episode pattern, course and severity, and browses the full catalogue on an empty query.",
   "/therapy-compass": "Therapy home (source-grounded therapy reference).",
   "/therapy-compass/[slug]": "Therapy record detail.",
   "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
