@@ -334,3 +334,107 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
     expect(result.corpusGrounding).toBeUndefined();
   });
 });
+
+// #000GN4 — the out-of-corpus guard is a hard pin on four eval controls, and nothing more.
+//
+// `clearlyOutsideCorpusMedicalPattern` exists so the four medical false-positive controls in
+// `rag-eval-cases.ts` hold `unsupported_correct_rate` at 1.0; deleting it was measured at 0.79
+// on 2026-07-03, because three of those four contain the word "dose" and are therefore not
+// soft-tail eligible, so `classifyCorpusGrounding` never sees them.
+//
+// It shipped as an unpinned regex literal whose entries had been transcribed from the controls'
+// own question text, including the bare tokens `ssri`, `antibiotic`, `pneumonia` and `dka`. That
+// refused in-corpus psychiatric queries content-blind, with zero retrieval, and cached the empty
+// result. No retrieval gate could catch it, for a precise reason: not one of the 36 golden
+// QUERIES matches this pattern in either form — `ssri` appears only in a case's
+// expectedContentTerms, never in a question — so the guard never fires during
+// eval:retrieval:quality at all.
+//
+// These assertions are the contract that replaced the literal. Both directions matter — a future
+// edit that widens the pattern back toward bare tokens fails the second block, and one that
+// narrows it past the controls fails the first. Only three of the second block's cases were
+// actually red on the old pattern (marked below); the rest are forward pins, which is the point
+// of writing a contract rather than only a regression test.
+describe("out-of-corpus guard (#000GN4)", () => {
+  async function load() {
+    const [{ analyzeClinicalQuery }, { shouldShortCircuitUnsupportedSearch }] = await Promise.all([
+      import("../src/lib/clinical-search"),
+      import("../src/lib/rag/rag-query-guard"),
+    ]);
+    return (query: string) => shouldShortCircuitUnsupportedSearch(query, analyzeClinicalQuery(query));
+  }
+
+  // Verbatim from src/lib/rag/rag-eval-cases.ts. Each declares
+  // `expectedQueryClass: "unsupported_or_general"`, and scripts/eval-utils.ts asserts it.
+  it.each([
+    "What is the diabetic ketoacidosis insulin protocol?",
+    "What antibiotic dose is recommended for community-acquired pneumonia?",
+    "What SSRI dose is recommended for adolescent depression?",
+    "What insulin dose should be used for hyperkalaemia?",
+  ])("still refuses the eval control %j", async (query) => {
+    expect(await (await load())(query)).toBe(true);
+  });
+
+  // The defect itself. These three were `true` on the old pattern and are `false` now — they
+  // are the red-provable core. "ssri" is an expectedContentTerms entry of the golden case
+  // `vector-gad-worry`, which expects a Generalised Anxiety document at rank 1, so the token is
+  // demonstrably in-corpus and a query carrying it must reach retrieval and be judged on what
+  // comes back.
+  it.each([
+    "Which SSRI is first line for generalised anxiety disorder?",
+    "ssri induced hyponatraemia monitoring",
+    "aspiration pneumonia risk in catatonia",
+  ])("no longer refuses the in-corpus query %j", async (query) => {
+    expect(await (await load())(query)).toBe(false);
+  });
+
+  // Forward pins, not defect proofs: each of these already reached retrieval on the old pattern,
+  // by a route that has nothing to do with the tokens — "SSRIs" escapes `\bssri\b` on the
+  // trailing s, the clozapine queries carry documentTitleTerms so the guard's
+  // `documentTitleTerms.length === 0` condition fails, and the guard's copy never held
+  // `ketamine sedation`. They are here so a future widening of the pattern cannot quietly take
+  // any of them.
+  it.each([
+    "Which SSRIs are first line for generalised anxiety disorder?",
+    "clozapine antibiotic prophylaxis",
+    "Which antibiotic interacts with clozapine?",
+    "ketamine sedation in acute behavioural disturbance",
+  ])("keeps reaching retrieval for %j", async (query) => {
+    expect(await (await load())(query)).toBe(false);
+  });
+
+  // The one behaviour change the clinical-search half makes on its own. That copy carried
+  // `ketamine sedation` and the guard's did not, so classifyRagQuery forced
+  // `unsupported_or_general` for these while the guard let them through — the divergence in its
+  // most consequential form, since the class selects the composition menu and second-stage
+  // rerank engagement (docs/rag-behaviour/behaviour-map.md) and is a search cache key
+  // component. Ketamine sedation is in corpus: tests/rag-routing.test.ts uses it as
+  // Agitation/Arousal document content.
+  it.each([
+    ["ketamine sedation dose", "medication_dose_risk"],
+    ["What is the ketamine sedation protocol?", "document_lookup"],
+  ])("classifies %j as %s rather than unsupported", async (query, expected) => {
+    const { classifyRagQuery } = await import("../src/lib/clinical-search");
+    expect(classifyRagQuery(query).queryClass).toBe(expected);
+  });
+
+  // The two copies of this pattern had diverged: clinical-search.ts carried `ketamine sedation`
+  // and rag-query-guard.ts did not, so the same query could be classified `unsupported_or_general`
+  // in one and still reach retrieval in the other. They now share one constant, matched against
+  // the normalized query in one place and the raw query in the other.
+  it("classifies and short-circuits the controls consistently across both call sites", async () => {
+    const [{ analyzeClinicalQuery, classifyRagQuery }, { shouldShortCircuitUnsupportedSearch }] = await Promise.all([
+      import("../src/lib/clinical-search"),
+      import("../src/lib/rag/rag-query-guard"),
+    ]);
+    // The hyphen is the case that makes the two normalizations disagree: `normalizeAnalysisText`
+    // folds it to a space before classifyRagQuery sees it, while the guard tests the raw string.
+    for (const query of [
+      "What antibiotic dose is recommended for community-acquired pneumonia?",
+      "What antibiotic dose is recommended for community acquired pneumonia?",
+    ]) {
+      expect(classifyRagQuery(query).queryClass).toBe("unsupported_or_general");
+      expect(shouldShortCircuitUnsupportedSearch(query, analyzeClinicalQuery(query))).toBe(true);
+    }
+  });
+});

@@ -7,6 +7,7 @@ import {
   medicationSafetyEntitiesInText,
 } from "@/lib/medication-entities";
 import { freshnessDecayPenalty, rankingConfig } from "@/lib/ranking-config";
+import { clearlyOutsideCorpusMedicalPattern } from "@/lib/rag/rag-query-guard";
 import type {
   ClinicalQueryAnalysis,
   ClinicalQueryIntent,
@@ -368,8 +369,11 @@ const broadSummaryPattern =
   /\b(summary|summarise|summarize|overview|explain|outline|tell me about|what should be considered)\b|\b(?:management|manage|managed|treatment|treat|therapy|care|approach|pathway)\s+(?:of|for|in)\b|\bhow\s+(?:is|are|should)\b.{0,80}\b(?:managed|treated)\b/i;
 const explicitDocumentTitleNoisePattern =
   /\b(?:newly uploaded|future|not uploaded|2027|airport|travel policy|gardening|equipment|checklist)\b/i;
-const outsideCorpusMedicalPattern =
-  /\b(?:diabetic ketoacidosis|dka|community acquired pneumonia|pneumonia|antibiotic|ssri|adolescent depression|hyperkalaemia|hyperkalemia|ketamine sedation)\b/i;
+// One source of truth with the retrieval short circuit. These two copies had already
+// diverged — this one carried `ketamine sedation`, the other did not — so a query could be
+// classified `unsupported_or_general` here and still reach retrieval there. Both now share
+// `clearlyOutsideCorpusMedicalPattern`, which is matched here against the normalized query
+// (hyphens folded to spaces) and there against the raw one; the pattern tolerates both.
 const shortClinicalSearchTerms = new Set(["ed", "im", "po", "pt"]);
 const simpleRequirementsQuestionPattern = /^\s*(?:what|which)\s+(?:are|is)\s+.+\brequirements?\s*\??\s*$/i;
 
@@ -533,7 +537,7 @@ function queryClassFromSignals(args: {
     explicitDocumentTitleNoisePattern.test(args.normalizedQuery)
   )
     return "document_lookup";
-  if (outsideCorpusMedicalPattern.test(args.normalizedQuery) && args.documentTitleTerms.length === 0)
+  if (clearlyOutsideCorpusMedicalPattern.test(args.normalizedQuery) && args.documentTitleTerms.length === 0)
     return "unsupported_or_general";
   if (
     /\bflow\s*chart|flowchart\b/i.test(args.normalizedQuery) &&

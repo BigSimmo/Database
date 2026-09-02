@@ -3,8 +3,40 @@ import type { ClinicalQueryAnalysis } from "@/lib/types";
 const clearlyNonClinicalConsumerPattern =
   /\b(coffee\s*machine|espresso|kitchen|recipe|holiday|hotel|restaurant|car|mortgage|insurance|gaming|laptop|phone|television|tv|washing\s*machine|air\s*fryer|vacuum|flight|airline)\b/i;
 
+/**
+ * Topics genuinely outside a psychiatric corpus, used to hard-pin the four medical
+ * false-positive controls in `rag-eval-cases.ts` at `unsupported_correct_rate` 1.0.
+ * Removing the guard outright was measured at 0.79 on 2026-07-03
+ * (`docs/process-hardening.md`), because three of those four controls contain the word
+ * "dose" and so are not soft-tail eligible — deleting this does not hand the decision to
+ * `classifyCorpusGrounding`, it hands it to the weak-support route gate.
+ *
+ * Every entry must be a DISEASE-SPECIFIC PHRASE, never a bare clinical token. The bare
+ * tokens `ssri`, `antibiotic`, `pneumonia`, `dka` and `ketamine sedation` were transcribed
+ * from the controls' own question text and refused in-corpus psychiatric queries with zero
+ * retrieval: `ssri` is an `expectedContentTerms` entry of the golden case `vector-gad-worry`
+ * (`scripts/fixtures/rag-retrieval-golden.json`), so "Which SSRI is first line for
+ * generalised anxiety disorder?" was refused content-blind (#000GN4).
+ *
+ * No retrieval gate could catch that, and it is worth being precise about why: not one of
+ * the 36 golden QUERIES matches this pattern in either its old or its narrowed form — `ssri`
+ * appears only in a case's expected content terms, never in a question — so the guard never
+ * fires during `eval:retrieval:quality` and that eval cannot move in either direction from a
+ * change here. The eval that discriminates is `eval:quality --rag-only`'s
+ * `unsupported_correct_rate`, which pins the four controls through `scripts/eval-utils.ts`.
+ * `tests/corpus-grounding.test.ts` pins both directions offline; keep it in lockstep.
+ *
+ * Dropping bare `dka` is a deliberate, separate loss: "What is the DKA protocol?" no longer
+ * refuses by pattern and falls to the weak-support route gate. The control spells the
+ * disease out, so no eval gate depends on the abbreviation.
+ *
+ * Matched against BOTH the raw query (here) and `normalizeAnalysisText`'s output
+ * (`clinical-search.ts`), which folds any non-alphanumeric run to a single space. The one
+ * hyphenated phrase therefore uses a bounded character class rather than a literal hyphen,
+ * so the raw path also catches an en dash, a non-breaking hyphen, or a double space.
+ */
 export const clearlyOutsideCorpusMedicalPattern =
-  /\b(?:diabetic ketoacidosis|dka|community acquired pneumonia|pneumonia|antibiotic|ssri|adolescent depression|hyperkalaemia|hyperkalemia)\b/i;
+  /\b(?:diabetic ketoacidosis|community[^a-z0-9]{1,3}acquired pneumonia|adolescent depression|hyperkalaemia|hyperkalemia)\b/i;
 
 export const unavailableDocumentNoisePattern =
   /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised|airport travel policy|gardening equipment checklist)\b/i;
