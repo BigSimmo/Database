@@ -278,3 +278,45 @@ describe("cross-site mutation blocking", () => {
     expect(response.status).not.toBe(403);
   });
 });
+
+describe("API CSRF guard beyond Sec-Fetch-Site: cross-site (L28)", () => {
+  function mutation(headers: Record<string, string>) {
+    return new NextRequest(new URL("http://localhost/api/documents"), { method: "POST", headers });
+  }
+
+  it("blocks a same-site request whose Origin is a sibling subdomain", async () => {
+    const response = await proxy(mutation({ "sec-fetch-site": "same-site", origin: "http://evil.localhost" }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("cross_site_forbidden");
+  });
+
+  it("blocks a request without Fetch Metadata whose Origin does not match the request host", async () => {
+    const response = await proxy(mutation({ origin: "https://attacker.example" }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("cross_site_forbidden");
+  });
+
+  it("blocks a request without Fetch Metadata or Origin whose Referer is another host", async () => {
+    const response = await proxy(mutation({ referer: "https://attacker.example/form" }));
+    expect(response.status).toBe(403);
+  });
+
+  it("allows a request without Fetch Metadata whose Origin matches the request host", async () => {
+    const response = await proxy(mutation({ origin: "http://localhost" }));
+    expect(response.status).not.toBe(403);
+  });
+
+  it("allows a non-browser client that sends neither Fetch Metadata, Origin nor Referer", async () => {
+    const response = await proxy(mutation({}));
+    expect(response.status).not.toBe(403);
+  });
+
+  it("does not apply the Origin check to webhook routes", async () => {
+    const request = new NextRequest(new URL("http://localhost/api/webhooks/supabase"), {
+      method: "POST",
+      headers: { origin: "https://attacker.example" },
+    });
+    const response = await proxy(request);
+    expect(response.status).not.toBe(403);
+  });
+});
