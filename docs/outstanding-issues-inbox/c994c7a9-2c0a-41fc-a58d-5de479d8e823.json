@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "c994c7a9-2c0a-41fc-a58d-5de479d8e823",
+  "createdOn": "2026-09-02",
+  "action": "update",
+  "payload": {
+    "id": "#QSHHGK",
+    "detail": "UPDATE 2026-09-02 (PR #2527): the missing TRIGGER now exists. .github/workflows/bundle-budget-refresh.yml runs weekly (Wednesday 04:40 UTC, deliberately off the crowded Sunday-evening cluster) plus workflow_dispatch, removes .next before building so the measurement is not read from a stale cache, and runs check-bundle-budget.mjs --refresh-baseline. It is REPORT ONLY: it publishes to a rolling bundle-budget-refresh issue and uploads the refreshed bundle-budget.json as an artifact, and never commits, pushes or opens a PR, because check-github-action-pins.mjs bans workflow-authored branch mutation and a baseline moved by a bot is one nobody reviewed. WHAT REMAINS, and why this row stays open: (1) no named refresh OWNER — the apply step is still a human action on the artifact the run produces; (2) the recorded baselineSource 0764fb58 STILL does not resolve, re-checked 2026-09-02 after deepening a container clone to 3419 commits, so the standing +5.2% remains unattributable to any reviewed change set; (3) the baseline numbers were deliberately NOT refreshed in PR #2527, because doing so would have silently absorbed that unattributable growth. The first run — scheduled, or dispatched once after merge — produces a measurement whose source resolves, and that is the point at which a refresh becomes reviewable and this row can close.",
+    "source": "session 2026-09-02, PR #2527",
+    "baseRowFingerprint": "2ebd6a3a17bb295805363f8c1e1c99920dc4a539313b102dcbcb8dc4a8acb3dd"
+  }
+}
