@@ -57,3 +57,20 @@ describe("M20: the worker's Python parsing stack has a vulnerability signal", ()
     expect(afterScan).toMatch(/exit 1/);
   });
 });
+
+describe("M25: the daily staging tenancy harness has a failure reporting path", () => {
+  it("is watched by notify-ci-failure.yml under its exact workflow name", () => {
+    const name = read(".github/workflows/staging-tenancy.yml")
+      .match(/^name:\s*(.+)$/m)?.[1]
+      ?.trim();
+    expect(name).toBe("Staging tenancy isolation");
+    const notify = read(".github/workflows/notify-ci-failure.yml");
+    const watched = notify.match(/workflows:\n((?:\s+(?:- |#).*\n)+)/)?.[1] ?? "";
+    const names = watched
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("- "))
+      .map((line) => line.slice(2).trim());
+    expect(names).toContain(name);
+  });
+});
