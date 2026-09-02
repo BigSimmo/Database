@@ -112,3 +112,16 @@ describe("M29: the live Web-Vitals default routes can produce a verdict", () => 
     expect(workflow).not.toMatch(/Record the verdict in docs\/outstanding-issues\.md against #017/);
   });
 });
+
+describe("L36: the advisory SAST workflow runs the same immutable Semgrep image as the blocking gate", () => {
+  it("pins sast.yml's container to the digest ci.yml's ingestion gate uses", () => {
+    const gateDigest = read(".github/workflows/ci.yml").match(/image: semgrep\/semgrep@(sha256:[0-9a-f]{64})/)?.[1];
+    expect(gateDigest).toBeDefined();
+    const advisory = read(".github/workflows/sast.yml").match(/^\s+image:\s*(\S+)\s*$/m)?.[1];
+    expect(advisory).toBeDefined();
+    // `tag@digest` keeps the human-readable version while the digest wins at
+    // pull time; a bare mutable tag can be re-pushed upstream.
+    expect(advisory).toMatch(/^semgrep\/semgrep(?::[0-9.]+)?@sha256:[0-9a-f]{64}$/);
+    expect(advisory!.split("@")[1]).toBe(gateDigest);
+  });
+});
