@@ -71,6 +71,33 @@ const clinicalRiskPatterns = [
   /^(?:src\/data|data|public\/therapy-compass-data)\//,
 ];
 
+/**
+ * Exact paths that live under `data/` but hold no clinical content at all.
+ *
+ * `clinicalRiskPatterns`' `data/` rule exists for clinical reference datasets
+ * shipped straight to clinicians — see its comment above. These two are
+ * generated REPOSITORY-METADATA exports for the developer hub: route and
+ * document inventories, the review-record corpus, and the outstanding-issues
+ * ledger. Nothing in either reaches a clinician.
+ *
+ * Sweeping them in had a cost worth stating, because it is the reason this list
+ * exists rather than the mere tidiness of a correct label: every ledger PR that
+ * regenerated one was blocked until its body carried a complete
+ * `## Clinical Governance Preflight` for a file holding no clinical data
+ * (`#Y090R5`, measured on PR #2299). Ticking clinical governance boxes
+ * reflexively on changes with no clinical output is precisely the habit that
+ * section exists to prevent, so a false positive here actively erodes the gate.
+ *
+ * EXACT paths, deliberately — never a prefix, and never a directory. A
+ * `data/`-wide carve-out would silently exempt the next clinical dataset added
+ * beside them, which is the failure direction this classifier must never take.
+ * Anything else under `data/` stays clinical-risk.
+ */
+const nonClinicalGeneratedDataPaths = new Set([
+  "data/repo-awareness-snapshot.json",
+  "data/outstanding-issues-snapshot.json",
+]);
+
 const operationalRiskPatterns = [
   /^\.github\/(?:actions|workflows)\//,
   /^(?:package|package-lock)\.json$/,
@@ -267,7 +294,9 @@ export function classifyPullRequestFiles(files) {
   const normalized = [...new Set((files ?? []).map(normalizePath).filter(Boolean))];
   return {
     files: normalized,
-    clinicalRisk: normalized.some((file) => clinicalRiskPatterns.some((pattern) => pattern.test(file))),
+    clinicalRisk: normalized.some(
+      (file) => !nonClinicalGeneratedDataPaths.has(file) && clinicalRiskPatterns.some((pattern) => pattern.test(file)),
+    ),
     operationalRisk: normalized.some((file) => operationalRiskPatterns.some((pattern) => pattern.test(file))),
     ragRanking: normalized.some((file) => ragRankingPatterns.some((pattern) => pattern.test(file))),
     migration: normalized.some((file) => migrationPatterns.some((pattern) => pattern.test(file))),
@@ -689,6 +718,18 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["src/data/therapies-index.json"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["public/therapy-compass-data/pathways.json"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["data/clinical-snapshot.json"]).clinicalRisk, true);
+  // Generated developer-hub metadata under `data/`: not clinical, so no
+  // governance preflight. Pinned per file, and paired with the assertion above
+  // proving the surrounding `data/` rule still bites for everything else.
+  assert.equal(classifyPullRequestFiles(["data/repo-awareness-snapshot.json"]).clinicalRisk, false);
+  assert.equal(classifyPullRequestFiles(["data/outstanding-issues-snapshot.json"]).clinicalRisk, false);
+  // The carve-out is per file, not a prefix: a neighbour keeps its risk, and a
+  // mixed PR is still clinical-risk because of the other file.
+  assert.equal(classifyPullRequestFiles(["data/repo-awareness-snapshot.json.bak"]).clinicalRisk, true);
+  assert.equal(
+    classifyPullRequestFiles(["data/repo-awareness-snapshot.json", "data/medications-snapshot.json"]).clinicalRisk,
+    true,
+  );
   // Unreviewed clinical content switches and mode reachability in src/lib (#P5542X).
   assert.equal(classifyPullRequestFiles(["src/lib/clinical-content-policy.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);

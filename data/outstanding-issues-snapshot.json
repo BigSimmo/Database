@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "362cc5dd50698e44481cfff76f578e075fa6a2bf",
-    "committed_at": "2026-08-27T20:30:32+08:00"
+    "sha": "d247db72afce3d28a45d496334927a6c5cb5762e",
+    "committed_at": "2026-09-02T03:17:21+00:00"
   },
   "counts": {
     "open": 75,

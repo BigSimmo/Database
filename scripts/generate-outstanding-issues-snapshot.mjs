@@ -243,10 +243,36 @@ function resolveRevision({ ledgerPath = LEDGER_PATH, snapshotPath = OUTPUT_PATH 
   return resolveMonotonicRevision(readLedgerRevision(ledgerPath), readCommittedRevision(snapshotPath));
 }
 
-export function generate({ ledgerPath = LEDGER_PATH, inboxDir = INBOX_DIR, snapshotPath = OUTPUT_PATH } = {}) {
+/**
+ * `includePending` defaults to FALSE, and that default is the point.
+ *
+ * `pending` is the one section derived from `docs/outstanding-issues-inbox/`
+ * rather than from the canonical ledger, so its value depends on every OTHER
+ * branch's queued requests. Writing it into the committed artefact is what made
+ * two concurrent ledger PRs conflict on a file neither of them was really
+ * changing (`#Y090R5`; PR #2284 conflicted twice in an hour and was closed
+ * rather than untangled). `check-outstanding-issues-snapshot.mjs` already
+ * excludes `pending` and `counts.pending` from comparison for exactly that
+ * reason — but excluding a field from the gate never stopped it conflicting in
+ * git, because the bytes still shipped. With eight requests queued, a plain
+ * `npm run docs:update` or `npm run build` rewrote the committed `pending` and
+ * re-armed the conflict for whoever committed the result.
+ *
+ * So the committed artefact carries an empty `pending`, and only the caller
+ * that needs the live list asks for it: `prebuild` passes `--with-pending`, so
+ * the Docker image — which regenerates this file during `next build` — still
+ * shows the developer hub the true set of unapplied requests. Nothing a reader
+ * sees is lost; what is lost is a conflict in a file nobody was editing.
+ */
+export function generate({
+  ledgerPath = LEDGER_PATH,
+  inboxDir = INBOX_DIR,
+  snapshotPath = OUTPUT_PATH,
+  includePending = false,
+} = {}) {
   return buildSnapshot({
     ledgerMarkdown: readFileSync(ledgerPath, "utf8"),
-    inboxRecords: readInboxRecords(inboxDir),
+    inboxRecords: includePending ? readInboxRecords(inboxDir) : [],
     revision: resolveRevision({ ledgerPath, snapshotPath }),
   });
 }
@@ -258,6 +284,9 @@ export function generate({ ledgerPath = LEDGER_PATH, inboxDir = INBOX_DIR, snaps
 // drive-letter leading slash — the guard would silently never fire and the
 // file would never be written.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate(), null, 2)}\n`, "utf8");
-  console.log(`[snapshot] wrote ${OUTPUT_PATH}`);
+  // Only `prebuild` passes this. See `generate()` for why the committed file
+  // deliberately carries an empty `pending`.
+  const includePending = process.argv.slice(2).includes("--with-pending");
+  writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate({ includePending }), null, 2)}\n`, "utf8");
+  console.log(`[snapshot] wrote ${OUTPUT_PATH}${includePending ? " (with pending inbox requests)" : ""}`);
 }
