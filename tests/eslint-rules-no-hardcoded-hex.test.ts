@@ -1,4 +1,5 @@
 import { Linter } from "eslint";
+import type { Rule } from "eslint";
 import { describe, expect, it } from "vitest";
 
 import rule from "../eslint-rules/no-hardcoded-hex.mjs";
@@ -13,7 +14,7 @@ function lint(code: string) {
     languageOptions: {
       parserOptions: { ecmaFeatures: { jsx: true }, ecmaVersion: "latest", sourceType: "module" },
     },
-    plugins: { local: { rules: { "no-hardcoded-hex": rule } } },
+    plugins: { local: { rules: { "no-hardcoded-hex": rule as Rule.RuleModule } } },
     rules: { "local/no-hardcoded-hex": "error" },
   });
 }

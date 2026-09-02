@@ -1,13 +1,6 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test } from "playwright/test";
+import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
-}
 
 test("image-only document tables use a compact status without the redundant warning panel @mockup", async ({
   page,

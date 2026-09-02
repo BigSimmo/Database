@@ -1,6 +1,7 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { PATIENT_PROFILE_STORAGE_KEY } from "../src/lib/patient-profile-storage";
 import { readPrimaryScrollGeometry } from "./playwright-scroll";
@@ -275,14 +276,6 @@ async function mockMedicationStressData(page: Page) {
   });
 }
 
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
-}
 
 async function openDailyActions(page: Page) {
   const trigger = page.getByRole("button", { name: /^Open .+ options$/ });

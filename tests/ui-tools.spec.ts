@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
@@ -303,14 +304,6 @@ async function waitForReactEventHandler(locator: Locator, eventName: "onChange" 
     .toBe(true);
 }
 
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
-}
 
 async function expectIdlePhoneHomeCentered(page: Page, homeTestId: string) {
   await expect(page.getByTestId(homeTestId)).toBeVisible();
