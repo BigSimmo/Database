@@ -10,7 +10,14 @@
  * No value imports here, and in particular no `import` of the generated JSON:
  * the types must be usable before the JSON file exists.
  */
-export const REPO_AWARENESS_SNAPSHOT_VERSION = "repo-awareness-snapshot-v1";
+/**
+ * v2 dropped `review_state.counts` and re-ordered `review_state.records` by
+ * `head`. Both are shape changes, so the version moves with them: a committed
+ * snapshot left at v1 fails `assertRepoAwarenessVersion` loudly instead of
+ * rendering a page from data whose order and totals no longer mean what the
+ * reader is told.
+ */
+export const REPO_AWARENESS_SNAPSHOT_VERSION = "repo-awareness-snapshot-v2";
 
 export type RouteArea = "product" | "mockup";
 
@@ -29,6 +36,25 @@ export type RoutesSection = {
   };
 };
 
+/**
+ * `sections[]` carries a name and nothing else, deliberately.
+ *
+ * It once carried per-section `documents` and `uncatalogued` totals — thirty
+ * numbers across fifteen sections that nothing read, because the documentation
+ * page computes `section.documents.length` at render from the list it is about
+ * to show. `#XHADPV` asked for that to be a decision rather than an omission,
+ * since it made the generator's "counts are computed once, so a count and its
+ * own list cannot disagree" rule carry an undocumented exception. The decision
+ * is to stop emitting them, and the rule it follows is the one stated on
+ * `ReviewStateSection` below: a count over a set that grows by append is
+ * derived at render; a count over a closed set stays generator-computed.
+ *
+ * `counts` here is that second case and stays. `documents` and `sections` are
+ * closed sets — they change only when someone deliberately adds a document or a
+ * section, never as a side effect of another branch's work — so a stored total
+ * cannot become a conflict, and computing it once in the generator keeps it
+ * honest against its own list.
+ */
 export type DocumentationSection = {
   documents: { path: string; section: string; catalogued: boolean }[];
   sections: { name: string }[];
@@ -64,9 +90,29 @@ export type ReviewRecord = {
   checks: string;
 };
 
+/**
+ * No `counts`, and that is the deliberate rule this file states once for the
+ * whole snapshot:
+ *
+ *   A count over an APPEND-ONLY set is derived at render. A count over a closed
+ *   set stays generator-computed.
+ *
+ * The generator rule "counts are computed once, so a count and its own list
+ * cannot disagree" holds for `routes` and `documentation`, whose lists change
+ * only when someone deliberately adds a route or a document. It cannot hold for
+ * an append-only set: every concurrent append changes the aggregate on BOTH
+ * sides, so a stored total is a guaranteed merge conflict that no ordering can
+ * disperse. `documentation.sections[]` already dropped its per-section
+ * `documents`/`uncatalogued` counts for the render-time list (`#XHADPV`, which
+ * asked for exactly this choice to be made deliberately rather than by
+ * omission); `review_state.counts` follows for the stronger reason (`#EFETZT`).
+ *
+ * Deriving loses nothing: `reviewStateCounts()` in `repo-awareness-snapshot.ts`
+ * computes both totals once from the very list the page renders, so they still
+ * cannot disagree with it.
+ */
 export type ReviewStateSection = {
   records: ReviewRecord[];
-  counts: { records: number; refs: number };
 };
 
 export type RepoAwarenessSnapshot = {
