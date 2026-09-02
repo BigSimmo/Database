@@ -711,16 +711,32 @@ const LEAD_JOB_TITLES_BOTH_PERMIT = [
   "Contact the service lead for details.",
 ];
 
-// The seven phrases Ruling [143] measured as divergent: the screen refused each one and the message
-// permitted it. Listed separately from the rest so a regression names which of the seven came back.
-const LEAD_PHRASES_RULING_143_MEASURED_DIVERGENT = [
+// Of the seven phrases Ruling [143] measured as divergent -- the screen refused each and the message
+// permitted it -- these two remain refused on both. Listed separately so a regression names which
+// came back. The other five were the plural job titles, which moved to the list below when the
+// owner decided their case on 2026-09-02.
+const LEAD_PHRASES_RULING_143_MEASURED_DIVERGENT = ["clinical lead capture", "team lead nurturing numbers"];
+
+// The plural job titles, and the one place these two definitions deliberately disagree.
+//
+// Ruling [143] refused `leads` outright on both surfaces, reasoning that nobody's job title is
+// plural. True of one person's title, false of a group of them: "the clinical leads met on Tuesday"
+// is ordinary English a clinician had no way to write. #AGRAKQ carried the point, and the owner
+// decided on 2026-09-02 to extend the job-title exemption to the plural ON THE SCREEN ONLY.
+//
+// So the screen must PERMIT these and the message must still REFUSE them -- and that is asserted
+// in both directions below rather than only the half that changed, because a later edit that
+// "tidied up" the message side to match would loosen the wording a discharged patient receives,
+// which is the one thing this decision was shaped to avoid. The invariant in the last test still
+// holds: it forbids a message permitting what the screen refuses, and this is the opposite
+// direction, which is why the decision could be taken here without weakening anything.
+const LEAD_PLURAL_JOB_TITLES_SCREEN_ONLY = [
   "team leads",
   "clinical leads",
   "programme leads",
   "service leads",
   "incident leads",
-  "clinical lead capture",
-  "team lead nurturing numbers",
+  "The clinical leads met on Tuesday.",
 ];
 
 // Commercial phrasing both surfaces already refused, kept as the control that the direction of the
@@ -739,6 +755,18 @@ describe('the "lead" rule is defined twice, and the message side is never the lo
       expect(screenRefuses(phrase), `screen refuses the job title ${JSON.stringify(phrase)}`).toBe(false);
       expect(messageRefusesLead(phrase), `message refuses the job title ${JSON.stringify(phrase)}`).toBe(false);
     }
+  });
+
+  it("permits plural job titles on the screen while a message still refuses them (owner decision, 2026-09-02)", () => {
+    for (const phrase of LEAD_PLURAL_JOB_TITLES_SCREEN_ONLY) {
+      expect(screenRefuses(phrase), `screen still refuses the plural job title ${JSON.stringify(phrase)}`).toBe(false);
+      expect(messageRefusesLead(phrase), `a message now permits ${JSON.stringify(phrase)}`).toBe(true);
+    }
+
+    // The exemption must not license what follows the word it exempts, exactly as on the singular.
+    expect(screenRefuses("clinical leads capture")).toBe(true);
+    expect(screenRefuses("sales leads")).toBe(true);
+    expect(screenRefuses("new leads")).toBe(true);
   });
 
   it("refuses on BOTH surfaces every phrase Ruling [143] measured as divergent", () => {
@@ -762,6 +790,7 @@ describe('the "lead" rule is defined twice, and the message side is never the lo
     // one list in future is still held to it. Reported as the offending phrases, not as a count.
     const everyPhrase = [
       ...LEAD_JOB_TITLES_BOTH_PERMIT,
+      ...LEAD_PLURAL_JOB_TITLES_SCREEN_ONLY,
       ...LEAD_PHRASES_RULING_143_MEASURED_DIVERGENT,
       ...LEAD_PHRASES_BOTH_ALREADY_REFUSED,
     ];
