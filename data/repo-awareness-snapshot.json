@@ -1851,6 +1851,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/branch-review-archival-policy.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/branch-review-index.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/branch-review-ledger.md",
         "section": "root",
         "catalogued": true
@@ -4437,8 +4447,8 @@
       }
     ],
     "counts": {
-      "documents": 580,
-      "catalogued": 111,
+      "documents": 582,
+      "catalogued": 113,
       "uncatalogued": 469,
       "sections": 21
     }
