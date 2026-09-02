@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "7e63c9b9a9a7f4443656faba47e181dee2ab5852",
-    "committed_at": "2026-09-02T09:17:18+00:00"
+    "sha": "60a87e86f48326daecc0b2c335a6fb43dc9a344f",
+    "committed_at": "2026-09-02T10:38:23+00:00"
   },
   "routes": {
     "modes": [
