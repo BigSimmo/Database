@@ -115,7 +115,7 @@ rendering the mappings in a form a human could read. That is a fair indication o
 what an hour of clinical reading would still turn up.
 
 **The coverage section is the honest boundary of the feature and the reviewer
-should read it first.** 35 of the catalogue's 328 medications sit outside both
+should read it first.** 26 of the catalogue's 330 medications sit outside both
 ends of every resolved interaction row, so entering one produces silence —
 which on screen is indistinguishable from "checked, nothing found". Most of that
 is genuine corpus coverage (including aperients, antibiotics, antidiabetics and
