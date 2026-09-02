@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "fad5e2698d964fa72208be23ee4b9bf125acafc7",
-    "committed_at": "2026-09-01T16:44:24Z"
+    "sha": "563896ea8b430830f0297e5f9ec6ae0644d88f99",
+    "committed_at": "2026-09-02T04:41:10+00:00"
   },
   "routes": {
     "modes": [
@@ -1481,6 +1481,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/agents/bug-hunter-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/claude-hook-scripts.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
         "path": "docs/agents/codex-cloud-environment.md",
         "section": "agents",
         "catalogued": false
@@ -1517,6 +1527,41 @@
       },
       {
         "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/dead-code-deletion.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/external-skill-precedence.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/pull-request-workflow.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/repository-skills-and-issues.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/upload-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/verification-gates.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/wiring-and-bundle-budget.md",
         "section": "agents",
         "catalogued": false
       },
@@ -4367,9 +4412,9 @@
       }
     ],
     "counts": {
-      "documents": 566,
+      "documents": 575,
       "catalogued": 111,
-      "uncatalogued": 455,
+      "uncatalogued": 464,
       "sections": 21
     }
   },
@@ -4382,6 +4427,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-02",
+        "ref": "claude/instruction-tiering-n9vs14",
+        "head": "563896ea8b430830f0297e5f9ec6ae0644d88f99",
+        "scope": "Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference files",
+        "outcome": "No findings. Reorganisation only: all 662 non-blank AGENTS.md lines verified byte-identical across the post-change tree; the 48 removed CLAUDE.md lines are restatements whose canonical text was located in the rules layer. Gate-parsed sections quarantined in place; every heading retained as a pointer so external section-name references still resolve. Two guards repaired that the move would otherwise have weakened (docs/agents added to workflow scope maps and userFacingProductSurfaces).",
+        "checks": "verify:cheap (12050 passed; 2 pre-existing shallow-clone failures reproduced on unmodified origin/main); 10 doc-parsing test files 151 passed; check:gate-manifest; check:skills; docs:check-links; docs:check-scripts; check:repo-awareness-snapshot; check:migration-role; check:pr-policy; check:codex-cloud; ci-change-scope self-test; format:check; CI green (Static PR checks + PR required)"
+      },
       {
         "date": "2026-09-02",
         "ref": "codex/smart-local-modes-20260901",
@@ -25680,8 +25733,8 @@
       }
     ],
     "counts": {
-      "records": 2662,
-      "refs": 1627
+      "records": 2663,
+      "refs": 1628
     }
   }
 }

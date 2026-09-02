@@ -7,6 +7,7 @@ Read these files before acting:
 
 - `AGENTS.md`
 - `CLAUDE.md`
+- `docs/agents/pull-request-workflow.md`
 - `docs/codex-review-protocol.md`
 - `.claude/skills/run-pr/SKILL.md`
 - `.codex-run-pr/context.json`
