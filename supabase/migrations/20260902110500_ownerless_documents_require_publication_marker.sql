@@ -39,8 +39,18 @@
 -- The predicate tests the JSON boolean, not its text rendering. `metadata->>'public_corpus'
 -- = 'true'` would also accept the STRING "true", which retrieval's public branch would then
 -- serve while src/lib/documents/is-public-document.ts (`metadata.public_corpus === true`)
--- refused it -- the same asymmetry as #ZBAC9D, one level down. `metadata->'public_corpus' =
--- 'true'::jsonb` is exactly the application's test.
+-- refused it -- the same asymmetry as #ZBAC9D, one level down. `metadata->'public_corpus'`
+-- against the jsonb literal is exactly the application's test.
+--
+-- It is compared with IS NOT DISTINCT FROM rather than `=`, and that is the whole constraint.
+-- A CHECK is satisfied when its expression evaluates to true OR to NULL, and `->` returns NULL
+-- for an absent key. So on an ownerless, unmarked, indexed row `=` gives
+-- false OR NULL OR false = NULL, and Postgres ACCEPTS it -- the constraint would have been a
+-- no-op against the one shape it exists to reject, while looking correct in review and passing
+-- a preview database that has no such rows. IS NOT DISTINCT FROM returns false for the absent
+-- key, so the disjunction is false and the write is rejected. Found in review on PR #2547.
+-- The preflight below always used `is distinct from`, which is why the scan and the constraint
+-- disagreed about the same predicate; they now agree.
 --
 -- Added NOT VALID only, following 20260827100000: the Supabase integration applies each
 -- migration in one transaction, and validating here would hold ADD CONSTRAINT's ACCESS
@@ -54,6 +64,7 @@ set local statement_timeout = '30s';
 do $migration$
 declare
   violating_count integer;
+  rollback_definition text;
 begin
   select count(*)::integer
   into violating_count
@@ -68,32 +79,38 @@ begin
       violating_count;
   end if;
 
-  -- Second scan, for a violation the first cannot see. The rows above are checked in their
+  -- Second check, for a hazard the first cannot see. The rows above are checked in their
   -- CURRENT (public-mode, marked) state; document_corpus_access_snapshots records what they
   -- were BEFORE activation, and set_document_corpus_access_mode('private') restores from it.
   -- A snapshot row that would land ownerless without a true marker makes the rollback abort
-  -- against this constraint. 20260902110200 widened the quarantine to cover exactly that, so
-  -- this scan should find nothing -- and if it does, that migration did not take effect and
-  -- the constraint must not land on top of a broken return-to-private control.
-  select count(*)::integer
-  into violating_count
-  from public.document_corpus_access_snapshots snapshot
-  join public.documents d on d.id = snapshot.document_id
-  left join auth.users existing_owner on existing_owner.id = snapshot.owner_id
-  join public.document_corpus_access_state state
-    on state.singleton and state.activation_id = snapshot.activation_id
-  where existing_owner.id is null
-    and not (
-      snapshot.owner_id is null
-      and snapshot.public_corpus_present
-      and snapshot.public_corpus_value = 'true'::jsonb
-    )
-    and d.status <> 'failed';
+  -- against this constraint, and the operator loses the documented return-to-private control
+  -- at the moment they need it. 20260902110200 widens the quarantine to cover exactly that.
+  --
+  -- This asserts the WIDENED FUNCTION IS INSTALLED. An earlier draft counted snapshot rows in
+  -- the forbidden landing shape instead, which was wrong in the way that matters: on a corpus
+  -- in public mode the legacy ownerless-unmarked population -- the one this whole migration
+  -- exists for, 2851 rows in production -- is precisely that shape, so the scan counted it and
+  -- aborted. 20260902110200 does not rewrite those snapshot rows and never claimed to; it
+  -- changes what the rollback DOES with them, from restore to quarantine. Testing the current
+  -- status of rows the rollback has not yet touched asked the wrong question, and would have
+  -- blocked this migration on production data while a preview database passed cleanly.
+  -- Found in review on PR #2547.
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure('public.set_document_corpus_access_mode(text)')
+         )
+  into rollback_definition;
 
-  if violating_count > 0 then
+  if rollback_definition is null then
     raise exception
-      'the active corpus-access snapshot holds % row(s) that set_document_corpus_access_mode(''private'') would restore as ownerless and unpublished, which this constraint would then reject -- aborting the rollback. Apply 20260902110200 first so those rows are quarantined instead.',
-      violating_count;
+      'public.set_document_corpus_access_mode(text) is absent, so the return-to-private control cannot be checked. Apply 20260902110200 before this constraint.';
+  end if;
+
+  if position(
+       'whenexisting_owner.idisnullandnotsnapshot.owner_idisnullandsnapshot.public_corpus_presentandsnapshot.public_corpus_value=''true''::jsonbthen''failed'''
+       in regexp_replace(replace(replace(lower(rollback_definition), '(', ''), ')', ''), '[[:space:]]+', '', 'g')
+     ) = 0 then
+    raise exception
+      'public.set_document_corpus_access_mode(text) does not carry the widened ownerless quarantine from 20260902110200, so returning to private mode would try to restore an ownerless, unpublished row and abort against this constraint. Apply 20260902110200 first.';
   end if;
 end
 $migration$;
@@ -105,7 +122,7 @@ alter table public.documents
   add constraint documents_ownerless_requires_publication_marker
   check (
     owner_id is not null
-    or metadata->'public_corpus' = 'true'::jsonb
+    or metadata->'public_corpus' is not distinct from 'true'::jsonb
     or status = 'failed'
   )
   not valid;

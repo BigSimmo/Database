@@ -66,7 +66,7 @@ begin
     end if;
 
     actual_normalized := btrim(regexp_replace(replace(replace(replace(replace(lower(coalesce(constraint_row.definition, '')), '::text', ''), '(', ''), ')', ''), ' ', ''), '[[:space:]]+', '', 'g'));
-    expected_normalized := btrim(regexp_replace(replace(replace(replace(replace(lower(coalesce('CHECK (owner_id IS NOT NULL OR metadata->''public_corpus'' = ''true''::jsonb OR status = ''failed'')', '')), '::text', ''), '(', ''), ')', ''), ' ', ''), '[[:space:]]+', '', 'g'));
+    expected_normalized := btrim(regexp_replace(replace(replace(replace(replace(lower(coalesce('CHECK (owner_id IS NOT NULL OR metadata->''public_corpus'' IS NOT DISTINCT FROM ''true''::jsonb OR status = ''failed'')', '')), '::text', ''), '(', ''), ')', ''), ' ', ''), '[[:space:]]+', '', 'g'));
     if actual_normalized is distinct from expected_normalized then
       mismatched_objects := array_append(
         mismatched_objects,

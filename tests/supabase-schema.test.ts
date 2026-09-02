@@ -2026,7 +2026,7 @@ describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () =
     expect(collapse(block)).toContain(
       collapse(`constraint documents_ownerless_requires_publication_marker check (
         owner_id is not null
-        or metadata->'public_corpus' = 'true'::jsonb
+        or metadata->'public_corpus' is not distinct from 'true'::jsonb
         or status = 'failed'
       )`),
     );
@@ -2039,8 +2039,37 @@ describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () =
   it("tests the JSON boolean rather than its text rendering", () => {
     const start = rawSchema.indexOf("constraint documents_ownerless_requires_publication_marker");
     const definition = rawSchema.slice(start, rawSchema.indexOf("),", start));
-    expect(definition).toContain("metadata->'public_corpus' = 'true'::jsonb");
+    expect(definition).toContain("metadata->'public_corpus' is not distinct from 'true'::jsonb");
     expect(definition).not.toContain("->>");
+  });
+
+  // The defect this constraint shipped with, and the reason it is pinned in both directions.
+  // A CHECK is satisfied when its expression is true OR NULL (PostgreSQL accepts an unknown
+  // result), and `metadata->'public_corpus'` is NULL whenever the key is absent. With `=`,
+  // an ownerless + unmarked + indexed row evaluated to false OR NULL OR false = NULL and was
+  // ACCEPTED — the constraint was a no-op against the single shape it exists to reject, and
+  // no preview database would show it, because none of them hold that shape. Found in review
+  // on PR #2547.
+  it("rejects an absent marker instead of letting NULL satisfy the check", () => {
+    const start = rawSchema.indexOf("constraint documents_ownerless_requires_publication_marker");
+    const definition = rawSchema.slice(start, rawSchema.indexOf("),", start));
+    expect(definition).toMatch(/metadata->'public_corpus'\s+is not distinct from\s+'true'::jsonb/);
+    expect(definition).not.toMatch(/metadata->'public_corpus'\s*=\s*'true'::jsonb/);
+  });
+
+  // The preflight scan and the constraint must express the SAME predicate. They disagreed
+  // before this fix — the scan was null-safe, the constraint was not — which is exactly how a
+  // migration passes its own preflight and then fails to constrain anything.
+  it("scans for violations with the same null-safe predicate it constrains with", () => {
+    const preflight = readFileSync(
+      new URL(
+        "../supabase/migrations/20260902110500_ownerless_documents_require_publication_marker.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(preflight).toContain("(metadata->'public_corpus') is distinct from 'true'::jsonb");
+    expect(preflight).toContain("or metadata->'public_corpus' is not distinct from 'true'::jsonb");
   });
 
   // The third arm is load-bearing, not a loophole: the rollback strips the publication marker
@@ -2134,11 +2163,17 @@ describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () =
     expect(rollbackFix).toContain("create or replace function public.set_document_corpus_access_mode");
     expect("20260902110200" < "20260902110500").toBe(true);
 
-    // The preflight scans the snapshot table too. The documents scan cannot see this: it
-    // checks rows in their current public-mode (marked) state, while the snapshot records
-    // what set_document_corpus_access_mode('private') would restore them to.
-    expect(constraintMigration).toContain("public.document_corpus_access_snapshots");
-    expect(constraintMigration).toContain("public.document_corpus_access_state");
+    // The constraint migration must verify the widened rollback is INSTALLED, not count
+    // snapshot rows. An earlier draft did the latter and was wrong in the way that matters:
+    // while the corpus is in public mode the legacy ownerless-unmarked population — the very
+    // rows this change exists for, 2851 in production — is exactly the shape that scan
+    // counted, so it would have aborted the migration on real data while a preview database
+    // with no such rows passed cleanly. 20260902110200 does not rewrite those snapshot rows
+    // and never claimed to; it changes what the rollback DOES with them. Found in review on
+    // PR #2547.
+    expect(constraintMigration).toContain("pg_catalog.to_regprocedure('public.set_document_corpus_access_mode(text)')");
+    expect(constraintMigration).toContain("pg_catalog.pg_get_functiondef");
+    expect(constraintMigration).not.toContain("from public.document_corpus_access_snapshots");
   });
 
   // The guard's definition comparison is the highest-risk logic in the change and cannot be
@@ -2158,14 +2193,14 @@ describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () =
         .trim();
 
     const expected = normalize(
-      "CHECK (owner_id IS NOT NULL OR metadata->'public_corpus' = 'true'::jsonb OR status = 'failed')",
+      "CHECK (owner_id IS NOT NULL OR metadata->'public_corpus' IS NOT DISTINCT FROM 'true'::jsonb OR status = 'failed')",
     );
 
     // How Postgres renders it: outer parens around the whole expression, parens around each
     // disjunct, and an explicit ::text cast on the status comparison.
     for (const render of [
-      "CHECK (((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) = 'true'::jsonb) OR (status = 'failed'::text)))",
-      "CHECK ((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) = 'true'::jsonb) OR ((status)::text = 'failed'::text))",
+      "CHECK (((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) IS NOT DISTINCT FROM 'true'::jsonb) OR (status = 'failed'::text)))",
+      "CHECK ((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) IS NOT DISTINCT FROM 'true'::jsonb) OR ((status)::text = 'failed'::text))",
     ]) {
       expect(normalize(render), render).toBe(expected);
     }
@@ -2185,7 +2220,7 @@ describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () =
       "utf8",
     );
     expect(guard).toContain(
-      "'CHECK (owner_id IS NOT NULL OR metadata->''public_corpus'' = ''true''::jsonb OR status = ''failed'')'",
+      "'CHECK (owner_id IS NOT NULL OR metadata->''public_corpus'' IS NOT DISTINCT FROM ''true''::jsonb OR status = ''failed'')'",
     );
   });
 });

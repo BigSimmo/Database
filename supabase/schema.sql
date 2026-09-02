@@ -84,9 +84,16 @@ create table if not exists public.documents (
   -- two-signal public test in src/lib/documents/is-public-document.ts, which tests the JSON
   -- boolean rather than its text rendering. The status arm is the quarantine from
   -- 20260826090000, widened by 20260902110200 to every ownerless landing state.
+  --
+  -- IS NOT DISTINCT FROM, not `=`. A CHECK constraint is satisfied when its expression is
+  -- true OR NULL, and `metadata->'public_corpus'` is NULL whenever the key is absent -- so
+  -- `= 'true'::jsonb` yields false-or-NULL-or-false = NULL for an ownerless, unmarked,
+  -- indexed row, and Postgres accepts precisely the row this constraint exists to reject.
+  -- Found in review on PR #2547; the preflight scan in 20260902110500 always used the
+  -- null-safe form, which is why it and the constraint disagreed.
   constraint documents_ownerless_requires_publication_marker check (
     owner_id is not null
-    or metadata->'public_corpus' = 'true'::jsonb
+    or metadata->'public_corpus' is not distinct from 'true'::jsonb
     or status = 'failed'
   ),
   search_tsv tsvector generated always as (
