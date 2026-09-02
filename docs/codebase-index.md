@@ -51,9 +51,9 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
-The product surface is **15 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+The product surface is **16 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
 answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
-prescribing, tools, calculators, therapy-compass, factsheets, dictionary.
+prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources.
 
 ### The two flows that matter
 
@@ -507,7 +507,7 @@ sequenceDiagram
 
 ### PsychSift surface
 
-- 15 app modes with unified search shell
+- 16 app modes with unified search shell
 - Documents mode: browse indexed guidelines, search, scope, and inspect cited answers; document uploads remain in the administrator backend
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
@@ -525,11 +525,10 @@ same pattern as the Care Plan and Caring Contacts prototypes: `"/mockups/ward-fl
 `DEVELOPER_GATED_PATH_PREFIXES` (`src/lib/developer-area/headers.ts`), so `src/proxy.ts` lets it
 through the blanket `/mockups` production block and `DeveloperAreaGate`
 (`src/app/mockups/ward-flow/layout.tsx`) requires a signed-in administrator instead of rendering
-the prototype to an anonymous visitor. The move only relocated and re-gated the route tree; the
-Tools catalogue entry (`src/lib/tools-catalog.ts`, id `ward-management`) still exists and now
-points at the gated path rather than being removed — a separate, not-yet-landed task drops it
-(and the applications-launcher, tools-search-results, and category-identity mentions that key off
-it) from clinical discovery entirely.
+the prototype to an anonymous visitor. The move relocated and re-gated the route tree, and the
+Tools catalogue entry (`src/lib/tools-catalog.ts`, id `ward-management`) has since been removed,
+along with the applications-launcher, tools-search-results, and category-identity mentions that
+keyed off it, so the developer hub panel is the only entry point.
 
 - **Design spec:** `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`
 - **Glossary:** `docs/ward-management-context.md` · **Decisions:** `docs/ward-management-decisions.md`
@@ -537,7 +536,7 @@ it) from clinical discovery entirely.
 - **Model:** `src/components/ward-management/ward-clock.ts` (the only module that reads the
   wall clock), `ward-model.ts` (domain types only), `ward-eligibility.ts` (the eight
   placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 22 units),
-  `ward-movements.ts` (48 movements, 6 bed releases), `ward-derivations.ts` (shared pure UI
+  `ward-movements.ts` (48 movements, 9 bed releases), `ward-derivations.ts` (shared pure UI
   derivations)
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
   workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`,
@@ -696,7 +695,7 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
   page: freshness stamp, count tiles, a "blocking now" callout, the recommended running order
   (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
-  and pending inbox requests. `/mockups/development/routes` — every page and all 15 modes, from
+  and pending inbox requests. `/mockups/development/routes` — every page and all 16 modes, from
   the repo awareness snapshot's route walk. `/mockups/development/documentation` — every tracked
   document, its area, and whether the codebase index lists it. `/mockups/development/test-health`
   — unstable and quarantined tests, from the flake ledger. `/mockups/development/review-state` —
