@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b2ac31a2-2e6c-47b6-a1fc-2687653a4e2b",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "tests/ui-ward-morning.spec.ts drives view controls that WB-DB-11 stopped rendering, so it cannot pass against the Phase 6 branch head",
+    "detail": "Found 2026-09-02 while correcting #YTR84P, and recorded separately because it is a different defect from the pinned-clock one and would be missed inside that row's prose. On branch claude/ward-flow-phases-6-7-design at 1888ad1: tests/ui-ward-morning.spec.ts clicks ward-morning-view-fixed and ward-morning-view-live (lines 51-52 and 195-206). Those test ids live in ViewControl (morning-page.tsx around lines 481-487), but owner decision WB-DB-11 ('ONE VIEW, ALWAYS LIVE') left MorningPage rendering MorningBody and nothing else, so ViewControl is exported and rendered by nothing. The spec therefore cannot pass as written. Same root cause as the D5 problem recorded in #YTR84P - the fixed/live split was removed while the code and tests that depend on it were left behind - so both should be settled by the same decision: either restore the fixed view, or retire it and remove the orphaned code and assertions together. SCOPE AND URGENCY: low. That branch's PR #2466 was closed unmerged on 2026-08-31 (299 commits ahead of main, mergeable_state dirty, titled 'DRAFT, not for merge'), and all of it is synthetic design scratch under src/app/mockups/ward-flow/**, which 404s in production. Nothing on main is affected. Recorded so it is not rediscovered from scratch by whoever takes the D5 decision. Offline only - the branch fetches normally from a cloud container with git fetch --depth=50 origin claude/ward-flow-phases-6-7-design.",
+    "source": "Claude Code cloud session 2026-09-02; read on origin/claude/ward-flow-phases-6-7-design at 1888ad1",
+    "issueUlid": "01M1GG77E3ZWJ71WTF17JNFQZZ"
+  }
+}
