@@ -140,3 +140,33 @@ describe("L37: the Secret Scan workflow holds only the permission it uses", () =
     expect(read("scripts/run-gitleaks-pinned.mjs")).not.toMatch(/--report-format|sarif/i);
   });
 });
+
+describe("L38: the @claude workflows enforce the collaborator boundary they describe", () => {
+  const trusted = `contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)`;
+  const trustedReview = `contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)`;
+
+  it.each([".github/workflows/claude.yml", ".github/workflows/claude-backlink.yml"])(
+    "%s admits only owner, member or collaborator authors",
+    (path) => {
+      const workflow = read(path);
+      const condition = workflow.match(/^    if: >\n((?:      .*\n)+)/m)?.[1] ?? "";
+      expect(condition).toContain("issue_comment");
+      // Every trigger arm carries its own association gate, so a read-only or
+      // outside account that can comment cannot start a run that holds
+      // write/id-token permissions.
+      const arms = condition.split(/\)\s*\|\|\s*\n/);
+      expect(arms.length).toBeGreaterThanOrEqual(3);
+      for (const arm of arms) {
+        expect(arm, `arm without an author_association gate:\n${arm}`).toMatch(
+          arm.includes("pull_request_review'") && !arm.includes("review_comment")
+            ? new RegExp(trustedReview.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+            : new RegExp(trusted.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+        );
+      }
+    },
+  );
+
+  it("describes the enforced gate in the claude.yml header", () => {
+    expect(read(".github/workflows/claude.yml")).toMatch(/owner, member or collaborator/i);
+  });
+});
