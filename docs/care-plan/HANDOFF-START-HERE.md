@@ -43,18 +43,20 @@ network. The patient-facing transformation is deterministic and rule-based, not 
 
 ## 3. Where everything is
 
-| Thing | Where |
-| --- | --- |
-| The product | `main`, 100 files. Merged as `e15b250cf` (PR #2383) |
-| **Build here** | `D:\Worktrees\Database\care-plan-next`, branch `claude/care-plan-next`, cut from `origin/main` @ `d3074946a` on 1 September 2026 |
-| The archive branch | `claude/care-plan-stage-b-9-11` @ `87b7b65a1` in `D:\Worktrees\Database\care-plan-impl`. **Superseded — do not build on it, do not delete it.** See the warning below |
-| The decision record | `docs/care-plan/sdd-ledger.md` — 65 rulings, 4 owner decisions, 65 deferred minors, 9 systemic lessons. **The single most important document here** |
-| Binding product authority | `docs/superpowers/specs/2026-08-20-care-plan-design.md` |
-| Binding glossary | `docs/care-plan-context.md`. Its preferred terms are required and its _Avoid_ terms are banned in code, copy, comments and tests |
-| What was verified, and what was not | `docs/care-plan/verification-report.md` |
-| Per-task briefs and reports | `docs/care-plan/reports/` |
-| Raw transcripts and review diffs | `D:\CarePlanHandoff` — outside git, 44 files, 37 MB. Backed up since 1 September 2026 |
-| Captured printed sheets | `.local/care-plan/atlas/` — git-ignored. Regenerate with `CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup` |
+| Thing                               | Where                                                                                                                                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The product                         | `main`, 100 files. Merged as `e15b250cf` (PR #2383)                                                                                                                          |
+| **Build here**                      | `D:\Worktrees\Database\care-plan-next`, branch `claude/care-plan-next`, cut from `origin/main` @ `d3074946a` on 1 September 2026                                             |
+| The archive branch                  | `claude/care-plan-stage-b-9-11` @ `87b7b65a1` in `D:\Worktrees\Database\care-plan-impl`. **Superseded — do not build on it, do not delete it.** See the warning below        |
+| The decision record                 | `docs/care-plan/sdd-ledger.md` — 65 rulings, 4 owner decisions, 65 deferred minors, 9 systemic lessons. **The single most important document here**                          |
+| Binding product authority           | `docs/superpowers/specs/2026-08-20-care-plan-design.md`                                                                                                                      |
+| Binding glossary                    | `docs/care-plan-context.md`. Its preferred terms are required and its _Avoid_ terms are banned in code, copy, comments and tests                                             |
+| What was verified, and what was not | `docs/care-plan/verification-report.md`                                                                                                                                      |
+| Per-task briefs and reports         | `docs/care-plan/reports/`                                                                                                                                                    |
+| Raw transcripts and review diffs    | `D:\CarePlanHandoff` — outside git, 44 files, 37 MB. Backed up since 1 September 2026                                                                                        |
+| Captured printed sheets             | `.local/care-plan/atlas/` — git-ignored, this machine only. Regenerate with `CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup`                                 |
+| **The three sheets, readable**      | `docs/care-plan/patient-facing-sheets/` — committed copies of the three `paper-*.txt` captures, added 2 September 2026 so a cloud session can read them. See its `README.md` |
+| Cloud-session brief and log         | `docs/care-plan/cloud-session.md` — read it first in any cloud session, and append to it                                                                                     |
 
 > **Do not delete `claude/care-plan-stage-b-9-11` or its worktree.** `main` has the product but not
 > this branch's 209-commit build history — every task's RED/GREEN steps and mutation controls,
@@ -63,12 +65,14 @@ network. The patient-facing transformation is deterministic and rule-based, not 
 
 ### Starting a build session
 
-```bash
-cd D:/Worktrees/Database/care-plan-next && npm ci --include=dev
-```
+**The install is already done — corrected 2 September 2026.** The previous text here, and the
+matching row in `worktree-ownership.md`, both said `care-plan-next` had no `node_modules` and to
+budget most of an hour for `npm ci`. That was wrong by the time it was written. Verified rather than
+assumed: `node scripts/check-installed-lock-parity.mjs` exits 0 over 783 package locations and 74,766
+files, with `next 16.3.3`, `react 19.2.8`, `typescript 6.0.3`, `vitest 4.1.11` and `playwright 1.62.1`
+all matching the lockfile, and both `tsc` and `vitest` execute.
 
-That install has not been run yet and takes a long time on this machine — budget most of an hour, and
-do not start it while another session is holding a test, build, lint or server lease. Then:
+So skip `npm ci` and go straight to:
 
 ```bash
 npm run ensure
@@ -76,6 +80,14 @@ npm run ensure
 
 and open the URL **it prints**. Never assume `localhost:3000`. Sign in as an administrator, then go
 to `/mockups/care-plan`.
+
+Re-run the parity check first if the worktree has sat unused across a dependency bump; if it ever
+fails, the install command is `npm ci --include=dev`, and it does take most of an hour on this
+machine — do not start it while another session holds a test, build, lint or server lease.
+
+**A transient failure that is not a broken install.** `vitest --version` failed once here with
+`fork: Resource temporarily unavailable` and succeeded on the immediate retry. That is this machine
+under memory pressure from concurrent sessions, not a missing dependency. Retry before diagnosing.
 
 If `care-plan-next` has gone stale by the time you start — `main` moves several times a day — cut a
 fresh one rather than merging a month of drift:

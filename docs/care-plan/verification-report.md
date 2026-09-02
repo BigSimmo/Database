@@ -539,10 +539,24 @@ only reason it was caught, and it is the strongest argument yet for that rule.
 2. **Mira's team-written sheet is not in the atlas.** It is proven by assertion in a real
    browser but is not one of the three papers a person can sit down and read. Ruling 62 pins the
    capture at three, so a fourth is a decision rather than an edit.
-3. **The clinician sheet's top-of-page boundary prints a count, not the five items**, which sit
-   far enough below that a page break can separate the pointer from its referent.
+3. ~~**The clinician sheet's top-of-page boundary prints a count, not the five items**, which sit
+   far enough below that a page break can separate the pointer from its referent.~~
+   **CLOSED — fixed on 26 August 2026, after this list was written; struck out 2 September 2026.**
+   Commit `9e100e31b`, _"fix(care-plan): print the safety boundary's own lines, not a count"_, on the
+   archive branch, and carried into `main` inside the squash `e15b250cf`. Verified two ways rather
+   than taken from the commit message: `prototype-ui.tsx` computes
+   `printsItsLines = medium === "print" && lines.length > 0` and renders `ContentList` with the full
+   items when true, falling back to the `({lines.length} listed)` anchor only on `medium === "screen"`,
+   where a count beside a jump link is the right affordance; and the captured artefact
+   `paper-management-plan.txt` shows all five warnings printed immediately under the boundary line,
+   with no count anywhere in the file. **This item was stale, not outstanding** — the only correction
+   of its kind found in the 2 September read-in.
 4. **The Personal Safety Plan repeats its crisis contacts** and states a confirmation date
-   nearly eleven months old without remarking on it.
+   nearly eleven months old without remarking on it. **Both confirmed by direct reading of
+   `paper-safety-plan.txt` on 2 September 2026**, and a third, smaller jar was noticed in the same
+   read and is offered to the copy pass rather than recorded as a defect: the footer calls the sheet
+   a _"Confidential clinical document"_ while its own opening line says _"This is your plan, in your
+   own words."_ That footer wording is the owner's decision D3 and is not reopened here.
 5. `expectNoReproach` on the paper, the `Awaiting Approval version 3` assertion, and the two
    geometry assertions have **no positive control of their own** — asserted, not demonstrated
    falsifiable.
