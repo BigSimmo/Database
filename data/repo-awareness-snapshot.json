@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "cdfb3fdda5533c126e76fecaf4e0352a6757249f",
-    "committed_at": "2026-09-02T11:12:52+00:00"
+    "sha": "fce054c83d8ee57c0ba9701b6855b11516dc1cc2",
+    "committed_at": "2026-09-02T15:15:38+00:00"
   },
   "routes": {
     "modes": [
@@ -345,16 +345,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/answer-evidence-popups",
-        "file": "src/app/mockups/answer-evidence-popups/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/answer-home-proposal",
-        "file": "src/app/mockups/answer-home-proposal/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/answer-loading-redesign",
         "file": "src/app/mockups/answer-loading-redesign/page.tsx",
         "area": "mockup"
@@ -650,33 +640,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/document-navigation-final-review",
-        "file": "src/app/mockups/document-navigation-final-review/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-navigation-pane",
-        "file": "src/app/mockups/document-navigation-pane/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/document-navigation-perfected",
         "file": "src/app/mockups/document-navigation-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-fused-directions",
-        "file": "src/app/mockups/document-phone-fused-directions/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-title",
-        "file": "src/app/mockups/document-phone-title/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-title-refined",
-        "file": "src/app/mockups/document-phone-title-refined/page.tsx",
         "area": "mockup"
       },
       {
@@ -1461,9 +1426,9 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 204,
+      "pages": 197,
       "product_pages": 67,
-      "mockup_pages": 137,
+      "mockup_pages": 130,
       "redirects": 18,
       "api": 60
     }
@@ -1847,6 +1812,16 @@
       },
       {
         "path": "docs/branch-cleanup-guide.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/branch-review-archival-policy.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/branch-review-index.md",
         "section": "root",
         "catalogued": true
       },
@@ -3024,6 +2999,11 @@
         "path": "docs/medication-lexicon-review-worklist.md",
         "section": "root",
         "catalogued": false
+      },
+      {
+        "path": "docs/mockup-retirement-policy.md",
+        "section": "root",
+        "catalogued": true
       },
       {
         "path": "docs/mode-aware-clinical-ask-local-handover.md",
@@ -4437,8 +4417,8 @@
       }
     ],
     "counts": {
-      "documents": 580,
-      "catalogued": 111,
+      "documents": 583,
+      "catalogued": 114,
       "uncatalogued": 469,
       "sections": 21
     }
@@ -10603,6 +10583,14 @@
         "scope": "testing-speed: phone-chrome keep-root, pr-local #167, explicit UI shards, viewport trim, playwright revision #255",
         "outcome": "implemented; focused + ci-workflow contracts green; Production UI wall-time confirmation pending first CI run",
         "checks": "vitest focused+ci-workflows; playwright-pr-shards --validate; check:playwright-browser-revision; check:outstanding-issues"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/gate-audit-ujhkqb",
+        "head": "4dcd8ddece3b4ec3cbe75cace784214eb7e14be9",
+        "scope": "prlanded",
+        "outcome": "merged clean, content diff empty against branch tip",
+        "checks": "verify:pr-local green (multiple re-runs across 8 conflict resolutions), full CI green after one confirmed flake (Production UI privacy-sticky-chrome strict-mode double-render, unrelated to this PR's diff) re-ran and passed"
       },
       {
         "date": "2026-07-28",
@@ -16813,6 +16801,14 @@
         "checks": "merge origin/main and/or conflict re-check only; no provider-backed checks run"
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-vocabulary-tmnc89",
+        "head": "969cc7f8889181758c93eb725e8eab7be6dc5e1e",
+        "scope": "prlanded",
+        "outcome": "Merged and verified. Two-dot content diff between the squash commit and the branch tip 21f4ef3da was empty, so all fifteen commits landed and nothing was orphaned by the squash+auto-merge race. The ~20 queued inbox requests it carried are applied by PR #2559, which rebased onto this squash and absorbed them; #Z5P2BW, #0HYHTH and #AGRAKQ are archived there, and the two follow-ups this branch filed (#686WHW, #1NMMZS) are added.",
+        "checks": "prlanded content diff empty; full CI green on 21f4ef3da (PR required, Build, Unit coverage, Production UI 1/2/3 + critical, Caring Contacts database, Safety and config checks, Lighthouse, Static PR checks, PR policy, PR mergeability, Semgrep, Gitleaks, GitGuardian); one review thread, resolved"
+      },
+      {
         "date": "2026-07-29",
         "ref": "claude/latency-fixes-2026-07-29",
         "head": "96a4c76da12b4478539b44fdc01a59ccfe791890",
@@ -17083,6 +17079,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "supersedes prior #1160 row: final HEAD after prettier site-map; merge origin/main clean; stale sitemap fixed; no threads",
         "checks": "vitest site-map pass; sitemap:check pass; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/mockup-retirement-xw0vmn",
+        "head": "9985c1709eff661f42a42be3744e585c831816a5",
+        "scope": "mockup retirement policy and sweep",
+        "outcome": "Reviewed by two fresh agents before push; both found real defects and all were fixed on this head. (1) An adversarial 'argue every candidate is still alive' pass withdrew two of nine retirement candidates. document-navigation-final is partly adopted, not superseded: production document-viewer/section-nav.tsx:143 renders its heading as the string 'flex items-baseline justify-between px-0.5 pb-2', which exists in exactly two files repo-wide (production and that draft at line 278) and is absent from document-navigation-perfected, so production is a hybrid of two drafts. document-phone-zero-chrome returned UNCERTAIN because the kept document-navigation-contract carries its 'zero new chrome, sheet not pane' thesis verbatim and both landed in the one squash 6230c4db, so authorship cannot be established. Both restored, along with their chrome-suppression branches in mockups-layout-client.tsx, which would otherwise have shipped a duplicate composer over both studies. Nine retirements became seven. That pass also confirmed the winner identification independently (flexGrow/weight/pending/Loader2 appear in perfected and in no other draft) and re-ran check:dead-code-candidate, reading every distinct refusal reason and pulling the pinning file for the two that could plausibly have been real; both were bare-name collisions. (2) A frontend-ui-reviewer pass on the full diff found that two doc corrections introduced by this branch were themselves false, both since verified with picomatch: mockups are NOT exempt from CodeRabbit (.coderabbit.yaml's '!mockups/**' is root-anchored and excludes only the repo-root notes directory) and NOT blind to knip (its ignore is a basename filter, so route page.tsx files and _/mockups/_* subtrees are still scanned; what suppresses findings is check:knip omitting unused-file analysis repo-wide). It also found the new gate advertised enforcement nothing invoked (no caller passed --diff), that the gate missed relative imports, dynamic imports, CSS composes and route-path literals, and that the sweep had consequently left four dead pathname branches in mockups-layout-client.tsx which the gate passed clean. All fixed with tests; check:mockups now runs --diff auto so all three modes are enforced in verify:cheap and CI. Two fail-open holes closed: listRouteSlugs returned [] on a missing route root (passing as '0 routes indexed'), and the Retired table's column order was trusted positionally. Three findings filed to the /issues inbox rather than fixed here: the calculators mockup still serving prescribing/ECT/admission directives that PR #2491 removed from production on clinical-safety grounds (those routes 404 in production, so not patient-facing); the loss of the repo's only source-text heading-hierarchy contract; and two pieces of pre-existing dead wiring. Note the heavy CI jobs are skipped on draft PRs by design in this repo, so server-side green is not yet demonstrated.",
+        "checks": "check:mockups (self-test + 72 routes indexed, 14 retired + 13 deleted files recorded and unreferenced); npm run test (947 files, 12098 passed, 4 skipped); lint; typecheck; check:gate-manifest (38 gates, 35 static, consistent); sitemap:check; docs:check-links (4742 refs); check:outstanding-issues; check:ledger-write-discipline; prettier --check on all changed files; bundle budget on two cold builds (mockups 611.6 KiB / 160 chunks / 133 routes, -0.3% vs baseline). check:dead-code-candidate --diff REFUSES (64/201) and is reported as refusing, not green: every refusal is a bare-symbol-name collision on a file-local or framework-convention identifier; no threshold or refusal-list entry was changed. Not run: verify:ui (only non-mockup change is the /mockups route-group shell, which 404s in production) and any provider-backed gate."
       },
       {
         "date": "2026-07-28",

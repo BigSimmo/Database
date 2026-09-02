@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "c9262f0d-18e1-4f9e-8f4b-d21aca644b94",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Retiring answer-evidence-popups removed the repo's only source-text heading-hierarchy contract, and the DOM-level coverage does not reach mockup gallery pages",
+    "issueUlid": "01M1G95MESWKFSV63JXKWC7ZFF"
+  }
+}
