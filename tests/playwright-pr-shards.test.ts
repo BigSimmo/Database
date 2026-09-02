@@ -79,6 +79,43 @@ describe("playwright PR UI shard groups", () => {
     expect(productionSpecFilePattern.test(path.basename(spec))).toBe(false);
   });
 
+  /**
+   * Two-way parity (audit M32). Every existing guard checked one direction — that what the
+   * production matcher selects is sharded, or that a NAMED spec is collected — so a spec the
+   * matchers never name was invisible to all of them: tests/ui-tools-show-all.spec.ts sat
+   * uncollected by any project for 17 days while appearing to be tested. Assert the other
+   * direction against the files on disk: every spec must be collected by the top-level
+   * testMatch and by at least one project matcher. The visual baseline spec is the one
+   * exception; playwright.visual.config.ts owns it.
+   */
+  it("collects every on-disk spec in the top-level testMatch and at least one project (M32)", () => {
+    const config = readFileSync(path.resolve("playwright.config.ts"), "utf8");
+    const visualConfig = readFileSync(path.resolve("playwright.visual.config.ts"), "utf8");
+    const visualOnly = /ui-visual-baseline\.spec\.ts/;
+    expect(visualConfig).toMatch(/testMatch:\s*\/.*ui-visual-\(artifacts\|baseline\)/);
+
+    const testMatch = testMatchFromConfig(config);
+    const projectPatterns = ["productionSpecPattern", "mockupSpecPattern", "seededSpecPattern"].map((name) =>
+      configPattern(config, name),
+    );
+    const orphans: string[] = [];
+    for (const file of readdirSync(path.resolve("tests")).filter((entry) => entry.endsWith(".spec.ts"))) {
+      const spec = `tests/${file}`;
+      if (visualOnly.test(spec)) continue;
+      const inTestMatch = testMatch.test(spec);
+      const inProject = projectPatterns.some((pattern) => pattern.test(spec));
+      if (!inTestMatch || !inProject) orphans.push(`${spec} (testMatch: ${inTestMatch}, project: ${inProject})`);
+    }
+    expect(orphans, `specs no Playwright project will ever collect: ${orphans.join(", ")}`).toEqual([]);
+  });
+
+  it("collects the phone launcher Show-all journey as a sharded production spec (M32)", () => {
+    const spec = "tests/ui-tools-show-all.spec.ts";
+    expect(existsSync(path.resolve(spec)), `${spec} is missing`).toBe(true);
+    expect(productionSpecFilePattern.test(path.basename(spec))).toBe(true);
+    expect(Object.values(prUiShardGroups).flat()).toContain(spec);
+  });
+
   it("keeps every shard non-empty and returns files for CI runners", () => {
     for (const shard of [1, 2, 3] as const) {
       const files = filesForPrUiShard(shard);
