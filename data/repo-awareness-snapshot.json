@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "228430f47c13b73bdcdce94b397d1efcbe2f5868",
-    "committed_at": "2026-09-02T07:54:30+00:00"
+    "sha": "c754d54588a4d29b2ab2368de1a7f6b1b6ed870d",
+    "committed_at": "2026-09-02T09:09:03+00:00"
   },
   "routes": {
     "modes": [
@@ -1574,6 +1574,11 @@
         "path": "docs/api-jobs-ops-surface.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/app-modes-decision-brief.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/archive/BRANCH_ARCHIVE_20260709.md",
@@ -4417,9 +4422,9 @@
       }
     ],
     "counts": {
-      "documents": 576,
+      "documents": 577,
       "catalogued": 111,
-      "uncatalogued": 465,
+      "uncatalogued": 466,
       "sections": 21
     }
   },

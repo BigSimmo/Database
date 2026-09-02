@@ -83,7 +83,7 @@ library and never reaches the internet.
 | **Documents**     | Hidden heading + 3 buttons           | The library, same query, answer-writing switched off     | The PDF reader: highlights, download, tagging, summarising  | The reader — everything real              | ~7,900 lines  |
 | **Services**      | No — redirects                       | A database table of service records (219 shipped)        | Shortlist and compare, catchment filters, referral rail     | Compare, filters, the record pages        | ~3,470 lines  |
 | **Forms**         | No — redirects                       | The **same table**, one column different                 | Statutory record pages, Act sections, form PDFs             | The record pages                          | ~3,540 lines  |
-| **Favourites**    | Yes — and a second, lighter one      | Nothing. Typing filters what is already on screen        | Making and reordering saved sets, pinning, Continue         | The only place saved things are organised | ~3,278 lines  |
+| **Favourites**    | Yes, one — at `/favourites`          | Nothing. Typing filters what is already on screen        | Making and reordering saved sets, pinning, Continue         | The only place saved things are organised | ~3,278 lines  |
 | **Differentials** | No — redirects                       | Its own table (232 records) _and_ the library            | Compare queue, presentation workflows, diagnosis map        | Browse, records, compare                  | ~9,640 lines  |
 | **DSM**           | No — redirects                       | A built-in list of 146 diagnoses                         | Side-by-side criteria matrix, diagnosis→differential links  | Compare and the bridge                    | ~2,216 lines  |
 | **Specifiers**    | No — redirects                       | A built-in list (12 written up, 585 stubs)               | A wizard that assembles conflict-checked diagnostic wording | The wizard                                | ~3,818 lines  |
@@ -147,8 +147,8 @@ to say nothing about whether the mode was substantial.
 That last point is the quiet result of the census. **The consolidation already done did not
 follow any principle.** It removed the front pages that happened to duplicate the shared home,
 which is a rendering fact, not a product fact. It left `/tools` and `/favourites` alone
-because each had content worth keeping — and both now have _two_ different front pages showing
-different things.
+because each had content worth keeping — and Tools now has _two_ different front pages showing
+different things, because it is the one mode deliberately excluded from the shared home.
 
 ---
 
@@ -419,6 +419,15 @@ are used elsewhere in this brief:
 
 - The therapy library holds **205** records, not 410. All 205 are marked "needs review" — the
   substance of the claim is right; the count is double.
+- **Argument two says Favourites has two homes. It does not** — and an earlier version of this
+  brief repeated that error before an automated review caught it. Visiting `/?mode=favourites`
+  renders the same generic shared home every other mode gets: the shared-home branch in
+  `ClinicalDashboard.tsx` sits above every mode-specific branch, and `shouldShowSharedHome`
+  excludes exactly one mode — `tools`. So Tools genuinely does have two different homes, and
+  Favourites has one, at `/favourites`. `tests/ui-smoke.spec.ts` pins this: a bare
+  `/?mode=favourites` link stays on the shared home, and only a submitted one goes to
+  `/favourites`. Everywhere else in this brief now says "one double-home"; argument two is
+  left as its author wrote it.
 - The three arguments quote different totals for how many files mention the mode list (60, 72, 85) and for the size of the mode test suite (4,000, 4,470, 6,688 lines). These are different
   ways of drawing the boundary, all defensible. The narrow measure — files naming the mode list
   or its type directly — is **72 files** and roughly **4,000 lines** of mode-plumbing tests. The
@@ -464,7 +473,7 @@ the same page with different words on it. Every real surface underneath stays ex
 is.
 
 **On screen:** The menu looks the same. The difference is that Tools, Favourites, Medication,
-Documents and Sources stop being special cases. The two double-homes collapse to one each —
+Documents and Sources stop being special cases, and the Tools double-home collapses to one —
 that part is a genuine repair, not a loss.
 
 **Home layouts:** One home layout, sixteen rows of copy. The mode-home template survives only
@@ -573,8 +582,9 @@ treats it as an exact synonym for Documents. It advertises a Forms pathway view 
 switched off in the source. Every session that reads that file either spends effort
 rediscovering the truth or repeats the error into new code.
 
-**The two double-homes drift further apart.** Tools and Favourites each render different
-content at two different addresses today. Nothing is keeping them in step.
+**The Tools double-home keeps drifting.** Tools renders different content at two different
+addresses today — a flat list at `/tools`, a fuller launcher at the shared home. Nothing is
+keeping the two in step.
 
 **The unfinished promises stay shipped.** A therapy library where every one of 205 records is
 marked "needs review" and the reviewed-only filter therefore returns nothing. A specifier
@@ -602,9 +612,9 @@ Forms mode ships five care-pathway records and the button that shows them is swi
 the source. The Save button on a patient factsheet writes to a place Favourites never reads.
 The Dictionary's "related terms" are the next few entries in the file, not related terms.
 
-**Two modes have two different homes each.** Tools shows a flat list at `/tools` and a proper
-launcher at the shared home. Favourites shows a full library at `/favourites` and a lighter,
-read-only version at the shared home. Nothing keeps either pair in step.
+**One mode has two different homes.** Tools shows a flat list at `/tools` and a proper
+launcher at the shared home, because it is the single mode excluded from the shared-home
+branch. Nothing keeps the pair in step. Favourites, by contrast, has one home: `/favourites`.
 
 **Code kept alive only by its own test.** One DSM component has no user of any kind except the
 test that imports it. One Dictionary page of 267 lines is unreachable.
