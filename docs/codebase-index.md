@@ -19,6 +19,60 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ---
 
+## Orientation summary
+
+The two blocks below were carried in `CLAUDE.md` until the instruction files were tiered.
+They are reproduced verbatim; the detailed maps that follow supersede nothing here.
+
+### Repository layout
+
+```
+src/app/          Next.js App Router — (search-app) route group, api/, auth/, mockups/
+src/components/   UI; clinical-dashboard/ is the shell, *-mockups.tsx are design scratch
+src/lib/          ~200 modules — rag/, supabase/, validation/, observability/,
+                  extractors/, webhooks/ are the extracted subdirectories
+src/data/         Static clinical content (DSM, formulation, therapies indexes)
+data/             Generated clinical snapshot exports loaded at runtime — regenerate, never hand-edit
+supabase/         migrations/ (source of truth), schema.sql (mirror), functions/
+worker/           Ingestion worker; worker/python/ is the OCR stack
+scripts/          gates, eval, reindex, governance, dev — counted and mapped in docs/scripts-index.md
+tests/            Vitest unit + Playwright E2E, side by side
+docs/             Runbooks, governance, plans; docs/README.md categorises them
+eslint-rules/     Repo-specific lint rules (see Conventions below)
+mockups/          Notes for the design-scratch routes under src/app/mockups/
+plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
+.claude/          Claude Code agents, skills, hooks, settings
+.agents/          Single-word skill catalogue (`npm run skills`)
+.cursor/          Cursor project rules and local-agent configuration
+.design-sync/     Generated design-system package metadata and validation notes
+.githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
+.vscode/          Shared VS Code workspace recommendations and settings
+```
+
+Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
+
+The product surface is **15 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
+prescribing, tools, calculators, therapy-compass, factsheets, dictionary.
+
+### The two flows that matter
+
+**Answer (read path).** `/api/answer` → `src/lib/rag/rag.ts` orchestrates: hybrid retrieval
+via Postgres RPCs (pgvector HNSW + tsvector/trigram) → `retrieval-selection` →
+`answer-ranking` → routed OpenAI generation (fast vs strong) → `answer-verification` and
+render policy → cited answer. If generation fails the quality gates it degrades to a
+deterministic **source-only** answer that still cites real documents — that is expected
+behaviour, not a bug. Responses cache in `rag_response_cache`.
+
+**Ingestion (write path).** `/api/upload` → private `clinical-documents` bucket + a row in
+`ingestion_jobs` → `worker/main.ts` (or the `indexing-v3-agent` Edge Function) claims the
+job → extract (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI
+embeddings → chunks, pages, images, embedding fields, index units, table facts → quality
+gates in `document_index_quality`. Reindex commits atomically per generation
+(`reindex-pipeline.ts`). Lifecycle detail: `docs/ingestion-state-machine.md`.
+
+Both paths are owner-scoped: `owner-scope.ts`, `query-privacy.ts`, `authorization.ts`.
+
 ## Top-level layout
 
 | Path        | Purpose                                                                                                                                                |
