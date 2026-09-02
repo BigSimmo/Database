@@ -3,7 +3,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { clearFavouritesStorage } from "@/components/favourites/favourites-storage";
+import { clearAccountScopedBrowserStorage } from "@/lib/account-scoped-browser-state";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
@@ -57,16 +57,12 @@ function clearAccountScopedBrowserState() {
   clearSignedUrlCache();
   // Patient physiology + medication list behind the prescribing alerts (audit M4).
   clearPatientProfile();
-  // Unscoped favourites pins / last-opened localStorage keys (audit L2).
-  clearFavouritesStorage();
-  // Caring Contacts plan draft — a patient's name and mobile from stage 3 on
-  // (audit L6). Loaded lazily: a static import would pull the whole workspace
-  // (schedule, message rules, synthetic contacts) into the shell bundle that
-  // every route downloads, so the removal lands a tick later instead. A failed
-  // chunk load is swallowed — there is no one to tell and nothing to recover.
-  void import("@/components/caring-contacts/workspace/plan-wizard/plan-draft")
-    .then((planDraft) => planDraft.clearCaringContactsBrowserState())
-    .catch(() => undefined);
+  // Component-owned stores this lib module may not import (tests/lib-layering):
+  // the unscoped favourites pins / last-opened keys (audit L2) and the Caring
+  // Contacts plan draft, a patient's name and mobile from stage 3 on (audit L6).
+  // The raw keys are removed here, synchronously, whether or not those modules
+  // are loaded in this page; the stores drop their caches on the event it fires.
+  clearAccountScopedBrowserStorage();
 }
 let browserSupabaseClient: SupabaseClient | null | undefined;
 let browserSupabaseClientConfig: string | null = null;

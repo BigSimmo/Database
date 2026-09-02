@@ -8,6 +8,9 @@
 // physiology profile (2026-09-02 audit, M4), the favourites pins / last-opened
 // keys (L2) and the Caring Contacts plan draft (L6).
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,6 +61,7 @@ import {
   loadFavouritePinnedIds,
   recordFavouriteOpened,
   resetFavouritesStorageForTesting,
+  subscribeFavouritesStorage,
   toggleFavouritePinnedId,
 } from "@/components/favourites/favourites-storage";
 import {
@@ -69,6 +73,11 @@ import {
   subscribeToPlanDraft,
   writePlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
+import {
+  ACCOUNT_TRANSITION_EVENT,
+  clearAccountScopedBrowserStorage,
+  subscribeAccountTransition,
+} from "@/lib/account-scoped-browser-state";
 import {
   EMPTY_PATIENT_PROFILE,
   PATIENT_PROFILE_STORAGE_KEY,
@@ -288,14 +297,132 @@ describe("account transitions clear the Caring Contacts plan draft (L6)", () => 
       await mountAuthenticated();
       seedDraft();
 
-      await transition.run();
-      await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent(transition.expectedStatus));
+      const onChange = vi.fn();
+      const unsubscribe = subscribeToPlanDraft(onChange);
+      try {
+        await transition.run();
+        await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent(transition.expectedStatus));
 
-      // The wizard module is loaded lazily by the auth provider so the global
-      // shell does not carry the Caring Contacts bundle; the clear lands a tick
-      // later, which is why this waits rather than asserting synchronously.
-      await waitFor(() => expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull());
-      expect(planDraftSnapshot()).toBeNull();
+        // Synchronous with the transition: the auth provider removes the key
+        // itself and the wizard module (when loaded) drops its cache and tells
+        // its subscribers in the same tick.
+        expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
+        expect(planDraftSnapshot()).toBeNull();
+        expect(onChange).toHaveBeenCalled();
+      } finally {
+        unsubscribe();
+      }
     });
   }
+});
+
+// The auth provider lives in src/lib, which must never import a component
+// module (tests/lib-layering.test.ts). So the raw keys are removed by a lib
+// seam that names them directly, and the component stores learn about it
+// through one window event. Two things follow, and both are pinned here:
+// the keys are gone whether or not the owning component module has been
+// loaded in this page (after a full navigation the Caring Contacts wizard is
+// not loaded, but the sessionStorage key still is), and the removal happens
+// BEFORE any subscriber runs, so a store can never re-read the old value.
+describe("the lib-side account-transition seam", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    resetFavouritesStorageForTesting();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    resetFavouritesStorageForTesting();
+  });
+
+  it("removes every account-scoped key itself, before the transition event reaches any subscriber", () => {
+    // Raw writes, as a previous page load would have left them — no component
+    // store is asked to write, so none is needed to clear.
+    window.localStorage.setItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY, JSON.stringify({ x: 1 }));
+    window.localStorage.setItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY, JSON.stringify(["x"]));
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify({ referralId: "SYN-REFERRAL-001" }));
+
+    const seenAtEvent: Array<string | null> = [];
+    const unsubscribe = subscribeAccountTransition(() => {
+      seenAtEvent.push(
+        window.localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY),
+        window.localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY),
+        window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY),
+      );
+    });
+    try {
+      clearAccountScopedBrowserStorage();
+    } finally {
+      unsubscribe();
+    }
+
+    expect(seenAtEvent).toEqual([null, null, null]);
+  });
+
+  it("dispatches exactly one window event per clear, and unsubscribing stops delivery", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeAccountTransition(listener);
+    clearAccountScopedBrowserStorage();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0]?.[0]).toBeInstanceOf(Event);
+    expect((listener.mock.calls[0]?.[0] as Event).type).toBe(ACCOUNT_TRANSITION_EVENT);
+
+    unsubscribe();
+    clearAccountScopedBrowserStorage();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes the component stores drop their memoised caches and notify, without lib importing them", () => {
+    // Fill both component caches through their own APIs, then clear through the
+    // lib seam only — the component modules must react to the event, because the
+    // auth provider can no longer call them directly.
+    recordFavouriteOpened("lithium-monitoring-guideline", 1_700_000_000_000);
+    toggleFavouritePinnedId("clozapine-initiation");
+    expect(
+      writePlanDraft({
+        ...emptyPlanDraft("SYN-REFERRAL-001", "SYN-PATHWAY-001"),
+        stage: "pathway",
+        assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+      }),
+    ).toBe(true);
+    expect(planDraftSnapshot()).not.toBeNull();
+
+    const favouritesChanged = vi.fn();
+    const draftChanged = vi.fn();
+    const unsubscribeFavourites = subscribeFavouritesStorage(favouritesChanged);
+    const unsubscribeDraft = subscribeToPlanDraft(draftChanged);
+    try {
+      clearAccountScopedBrowserStorage();
+    } finally {
+      unsubscribeFavourites();
+      unsubscribeDraft();
+    }
+
+    expect(favouritesChanged).toHaveBeenCalledTimes(1);
+    expect(draftChanged).toHaveBeenCalledTimes(1);
+    expect(loadFavouriteLastOpened()).toEqual({});
+    expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
+    expect(planDraftSnapshot()).toBeNull();
+  });
+
+  it("is the only route the auth provider takes: src/lib never imports a component store", () => {
+    // The layering gate proves this repository-wide; this pins the one file the
+    // audit fixes touched so a future 'quick' direct import fails here, beside
+    // the behaviour it would break, rather than only in tests/lib-layering.
+    const source = readFileSync(path.resolve("src/lib/supabase/client.tsx"), "utf8");
+    expect(/(?:from\s+|import\s*\()\s*["']@\/components\//.test(source)).toBe(false);
+    const seam = readFileSync(path.resolve("src/lib/account-scoped-browser-state.ts"), "utf8");
+    expect(/(?:from\s+|import\s*\()\s*["']@\/components\//.test(seam)).toBe(false);
+    for (const key of [
+      DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY,
+      DATABASE_FAVOURITES_PINNED_STORAGE_KEY,
+      PLAN_DRAFT_STORAGE_KEY,
+    ]) {
+      expect(seam, `the lib seam must name ${key} literally, so it clears without the component loaded`).toContain(
+        `"${key}"`,
+      );
+    }
+  });
 });
