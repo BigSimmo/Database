@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "fad5e2698d964fa72208be23ee4b9bf125acafc7",
-    "committed_at": "2026-09-01T16:44:24Z"
+    "sha": "d247db72afce3d28a45d496334927a6c5cb5762e",
+    "committed_at": "2026-09-02T03:17:21+00:00"
   },
   "routes": {
     "modes": [
@@ -1481,6 +1481,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/agents/bug-hunter-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/claude-hook-scripts.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
         "path": "docs/agents/codex-cloud-environment.md",
         "section": "agents",
         "catalogued": false
@@ -1517,6 +1527,41 @@
       },
       {
         "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/dead-code-deletion.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/external-skill-precedence.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/pull-request-workflow.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/repository-skills-and-issues.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/upload-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/verification-gates.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/wiring-and-bundle-budget.md",
         "section": "agents",
         "catalogued": false
       },
@@ -4367,9 +4412,9 @@
       }
     ],
     "counts": {
-      "documents": 566,
+      "documents": 575,
       "catalogued": 111,
-      "uncatalogued": 455,
+      "uncatalogued": 464,
       "sections": 21
     }
   },
