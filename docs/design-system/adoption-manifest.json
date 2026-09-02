@@ -1032,6 +1032,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/icon-button.dom.test.tsx",
+        "tests/require-lucide-icon-aria.test.ts",
         "tests/rsc-boundary.test.ts"
       ],
       "baseline": {
@@ -1812,6 +1813,7 @@
         "tests/ui-phone-scroll-page-owned.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-style-contract.spec.ts",
+        "tests/viewport-fill-contract.test.ts",
         "tests/xlsx-extraction-budget.test.ts"
       ],
       "baseline": {
