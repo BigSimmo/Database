@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "4a053221072a5c0050586741b483034ec046aeda",
-    "committed_at": "2026-09-02T20:09:56+00:00"
+    "sha": "dfa863e570eb3f9edc3b0b3ba8ae6a32f00d2c4d",
+    "committed_at": "2026-09-02T21:08:18+00:00"
   },
   "routes": {
     "modes": [
@@ -7565,6 +7565,14 @@
         "checks": "Offline only: full Vitest 2,404 passed/1 skipped, TypeScript, full ESLint, focused Vitest 56/56, sitemap check, `git diff --check`, production-readiness READY with expected missing-env warnings, identity-checked server at `http://localhost:3384`, and repaired Chromium journeys for Specifiers desktop/mobile, Formulation mobile, and explicit route-family separation all passed. No provider-backed or live API checks run."
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-rules-r7r2ih-3",
+        "head": "2631782a39ce277f055b53bce8a0418d43b66ac9",
+        "scope": "PR #2534 (#J7PZQP + #PAMATF, squashed to main): episode.ts, model.ts, repository.ts, schedule-view.ts, simulation.ts, message-policy.ts, both repository implementations, patient-overview.tsx, plan-activation.ts, the schedule route, the shared contract helper and their tests",
+        "outcome": "MERGED to main 2026-09-02. Episode carries patientDetailClearedAt instead of the screen inferring a clearance from a blank name; listSendableContacts gates on the owning plan in both stores, overturning Ruling 129 as Ruling 129A by explicit owner decision. Codex review found a genuine P2: under READ COMMITTED a clearance committing mid-getEpisode produced an episode reporting a completed clearance while still releasing name and mobile number — the fix reintroducing the defect class it exists to remove. Reproduced, fixed by reading every clearance-touched field in one statement, and pinned by a database contract test that pauses the read between statements. Merged with NO Bugbot or Cursor approval-agent review: both returned neutral because the Cursor account was at its spend limit (recorded as a separate ledger item).",
+        "checks": "LOCAL OFFLINE GATES, run in this container: typecheck exit 0; cc-guards 42 files / 1069 passed; caring-contacts db suite 2 files / 218 passed against a disposable local Postgres 16 (not the live Supabase project); message-policy + model + simulation + diff-integrity + interface-vocabulary 181 passed | 1 skipped; prettier --check clean on all files changed vs main; phantom-revert check clean (21 files, +904/-121, nothing outside caring-contacts). HOSTED CI: green on the main-based head — Production UI critical, Build, Static PR checks, Safety and config, Caring Contacts database, Semgrep, Gitleaks, GitGuardian, PR policy, PR mergeability. Hosted CI results named here were OBSERVED, not inherited: this Claude Code session read them directly from the GitHub check runs via the GitHub MCP tools, under Josh's standing instruction to babysit these PRs, which is the explicit confirmation the provider boundary requires for that read. Provider-backed gates NOT run: no eval:* retrieval canary, no verify:release, no check:supabase-project, no live Supabase or OpenAI test:live path, and no live-drift dispatch."
+      },
+      {
         "date": "2026-07-13",
         "ref": "origin/copilot/fix-one-more-time",
         "head": "2682cbade791fc07f09d23fa11908eead223d3c7",
@@ -9331,6 +9339,14 @@
         "scope": "supabase migrations, schema.sql (PR #2106 Phase 3 codification review)",
         "outcome": "Reviewed via supabase-schema-guardian: signatures, ordering, idempotency, schema.sql/migration consistency, RAG-impact claim, and guard-migration contract all verified correct against the diff. Fixed one concern (forensics runbook offered mark-applied-by-CLI as equal to db push for three migrations shipping no validation guard — narrowed to require db push and forbid migration repair) and added SET LOCAL lock_timeout/statement_timeout to the two migrations taking ACCESS EXCLUSIVE locks on hot tables (documents, ingestion_jobs, document_chunks), matching the 20260804110240 pattern. No schema.sql or function-body change from this review; no live Supabase access.",
         "checks": "check:migration-role passed; vitest tests/migration-history-guards+hosted-migration-role-guard+supabase-schema+drift-detection+search-health-index-coverage+guard-push.test.ts 141/141 passed; prettier --check on the edited doc passed; npm run format whole-tree no-op; drift:manifest Docker replay not run (Docker daemon unavailable in this sandbox) — CI Migration replay + Unit coverage + Static PR checks + PR required all green on the prior head and these edits are additive SQL/prose only"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-rules-r7r2ih-4",
+        "head": "3e7d010575ece57266be7bd0864e5e60de874d58",
+        "scope": "PR #2535 (#PAMATF): model.ts planSendingHold relocation and load-time invariant, both repository implementations' listSendableContacts, message-policy.ts plan-not-dispatchable, schedule-view.ts, simulation.ts, repository.ts port contract, plan-activation.ts, the phase-2b build record and HANDOVER, and their tests",
+        "outcome": "MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r7r2ih-3), not into main directly, so it reached main inside 2631782a3. Branch since deleted — but note it was accidentally RE-PUSHED after the merge and could not be deleted again from the cloud container (git push --delete returns 'the remote end hung up unexpectedly' then 'Everything up-to-date'); it is stale and must not be reused. This PR overturns Ruling 129 as Ruling 129A by explicit owner decision, recorded in the build record with the HANDOVER entry closed. Two pinned assertions were changed deliberately, not incidentally: the readmission test now expects zero sendable contacts (it had been pinning the defect) while additionally asserting all ten contacts still exist and are still scheduled, and the simulation's paused-plan case now sees the refusal at the read rather than the write. A review round found a third — the death-correction case would have passed from the plan gate alone — and it gained a per-contact state assertion.",
+        "checks": "LOCAL OFFLINE GATES, run in this container: typecheck exit 0; full offline unit suite 949 files / 12293 passed | 1 skipped; lint exit 0; prettier --check clean; cc-guards 42 files / 1069 passed; caring-contacts db suite 217 passed against a disposable local Postgres 16 (not the live Supabase project); mutation checks — removing the in-memory plan gate turns two contract assertions red, and making planSendingHold admit a paused plan turns the new Ruling 129A read/write agreement assertion red. HOSTED CI: none ran on this PR — repo CI is scoped to branches [main, release/**], so a PR whose base is another feature branch gets no pipeline at all. Its hosted proof is therefore the CI that ran on the main-based head AFTER this merged through into it (see the claude/caring-contacts-rules-r7r2ih-3 record at 2631782a3), not anything observed on this PR. Hosted CI results named here were OBSERVED, not inherited: this Claude Code session read them directly from the GitHub check runs via the GitHub MCP tools, under Josh's standing instruction to babysit these PRs, which is the explicit confirmation the provider boundary requires for that read. Provider-backed gates NOT run: no eval:* retrieval canary, no verify:release, no check:supabase-project, no live Supabase or OpenAI test:live path, and no live-drift dispatch."
       },
       {
         "date": "2026-08-12",
@@ -16629,6 +16645,14 @@
         "checks": "merge-tree clean"
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-rules-r7r2ih",
+        "head": "94a14a829312ab317b64064fe520a38481930db7",
+        "scope": "PR #2532 (#59JT7W + #RZVMPD, squashed to main): src/lib/caring-contacts/message-policy.ts, db/postgres-repository.ts, schedule-view.ts and their tests",
+        "outcome": "MERGED to main 2026-09-02. Closing-message refusal routed through the validateGovernedMessage chokepoint and widened to every message type; caseload list read narrowed to PLAN_LIST_COLUMNS. A clinical-governance review round caught the first draft granting a NEW permission (validateGovernedMessage returned valid:true for a standard message with no body at all) and masking the more serious record-level refusal behind 'write a body'; both fixed before merge. Bugbot reviewed and rated Low Risk.",
+        "checks": "LOCAL OFFLINE GATES, run in this container: typecheck exit 0; full offline unit suite 949 files / 12293 passed | 1 skipped; lint --max-warnings 0 exit 0; prettier --check clean; caring-contacts db suite 218 passed against a disposable local Postgres 16 (not the live Supabase project; assertNotClinicalKbProject refuses that ref by construction); cc-guards 1069 passed. HOSTED CI: green on the main-based head — PR required, Unit coverage, Build, Static PR checks, Safety and config, Caring Contacts database, Lighthouse budget, Semgrep, Gitleaks, GitGuardian, PR policy, PR mergeability. Hosted CI results named here were OBSERVED, not inherited: this Claude Code session read them directly from the GitHub check runs via the GitHub MCP tools, under Josh's standing instruction to babysit these PRs, which is the explicit confirmation the provider boundary requires for that read. Provider-backed gates NOT run: no eval:* retrieval canary, no verify:release, no check:supabase-project, no live Supabase or OpenAI test:live path, and no live-drift dispatch."
+      },
+      {
         "date": "2026-07-29",
         "ref": "codex/document-results-responsive-polish",
         "head": "94bef3d193f449e6396b1bf4688180281d260ca7",
@@ -19867,6 +19891,14 @@
         "scope": "PR #1490 merge conflict",
         "outcome": "merged origin/main; resolved outstanding-issues against #1508 IDs; kept pre-snapshot wording",
         "checks": "check:outstanding-issues,docs:check-links"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-rules-r7r2ih-2",
+        "head": "bdf300188da5ac7ac7f0b36eea1aab2d266cdc48",
+        "scope": "PR #2533 (#RZVMPD): db/postgres-repository.ts PLAN_LIST_COLUMNS, schedule-view.ts doc comment, tests/caring-contacts-domain-isolation.test.ts and the wire-level listPlans test",
+        "outcome": "MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r7r2ih), not into main directly, so it reached main inside 94a14a829. Branch since deleted. Two guards shipped with the fix and both were confirmed red against the pre-fix code: a static scan of the constant and its wiring, and a wire-level test recording every statement listPlans issues. Bugbot reviewed the final head and rated Low Risk. Clinical Governance Preflight completed voluntarily — the pr-policy classifier returns clinicalRisk:false for these paths, which is a substring accident rather than a judgement about patient mobile numbers and identifiers.",
+        "checks": "LOCAL OFFLINE GATES, run in this container: typecheck exit 0; full offline unit suite 949 files / 12293 passed | 1 skipped; lint exit 0; prettier --check clean; caring-contacts db suite 214 passed against a disposable local Postgres 16 (up from 213 by the new wire-level guard); domain-isolation 12 passed; mutation check — reverting listPlans to PLAN_COLUMNS turns both new guards red. HOSTED CI: none ran on this PR — repo CI is scoped to branches [main, release/**], so a PR whose base is another feature branch gets no pipeline at all. Its hosted proof is therefore the CI that ran on the main-based head AFTER this merged into it (see the claude/caring-contacts-rules-r7r2ih record at 94a14a829), not anything observed on this PR. Hosted CI results named here were OBSERVED, not inherited: this Claude Code session read them directly from the GitHub check runs via the GitHub MCP tools, under Josh's standing instruction to babysit these PRs, which is the explicit confirmation the provider boundary requires for that read. Provider-backed gates NOT run: no eval:* retrieval canary, no verify:release, no check:supabase-project, no live Supabase or OpenAI test:live path, and no live-drift dispatch."
       },
       {
         "date": "2026-07-24",
