@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (283 files) and the `package.json` script surface (284 entries),
+Curated map of `scripts/` (284 files) and the `package.json` script surface (285 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -90,7 +90,8 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `check-document-label-governance.ts`, `promote-public-documents-batch.ts`,
 `audit-public-document-approvals.ts`, `production-readiness.ts`, `check-supabase-project.ts`,
 `check-default-acl.ts`, `check-drift.ts`, `generate-drift-manifest.ts`,
-`check-migration-history-alignment.ts`.
+`check-migration-history-alignment.ts`, `check-chain-mirror-parity.ts` (offline — compares two
+captured `schema_drift_snapshot()` payloads, never contacts a database).
 
 ## RAG evaluation [live]
 

@@ -1,0 +1,6 @@
+{
+  "_comment": "Reviewed, documented divergence between what supabase/migrations/** BUILDS and what supabase/schema.sql DESCRIBES. Consumed by scripts/check-chain-mirror-parity.ts (npm run check:chain-mirror-parity) in the CI Migration replay job. This is NOT supabase/drift-allowlist.json and must never be merged with it: that file allowlists live-vs-mirror divergence, and an entry there blinds the live drift alarm. An entry here only says 'the chain and the mirror are knowingly different in this one place'.",
+  "_status": "EMPTY BY DESIGN. The gate ships report-only because the existing divergences cannot be enumerated offline - docs/database-drift-detection.md backlog item 10 already records ~13 chain-vs-mirror keys plus storage buckets that only schema.sql creates, but nobody has measured the current set. The first CI run prints exactly what belongs here; committing that list and adding --strict is the follow-up. Do not pre-seed guesses.",
+  "_entry_shape": "{ category: one of extensions|tables|views|functions|indexes|policies|constraints|triggers|storage_buckets, kind: missing_live|unexpected_live|mismatch, key: the snapshot key, reason: why this divergence is accepted rather than fixed (> 20 chars) }",
+  "entries": []
+}
