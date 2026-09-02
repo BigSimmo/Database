@@ -1,11 +1,11 @@
 ## Summary
 
-- Add `docs/branch-review-index.md`, a generated, human-readable index of the 576 immutable records in `docs/branch-review-records/`. Every filename there is a raw SHA-256 content address, so the directory cannot be navigated by hand, and the hash-filename to review-row join existed in no static artifact: `scripts/generate-repo-awareness-snapshot.ts` reads each record's path in `readReviewRecordRows` and then discards it in `buildReviewStateSection`, emitting only the six cells. The index supplies that missing join.
+- Add `docs/branch-review-index.md`, a generated, human-readable index of the 577 immutable records in `docs/branch-review-records/`. Every filename there is a raw SHA-256 content address, so the directory cannot be navigated by hand, and the hash-filename to review-row join existed in no static artifact: `scripts/generate-repo-awareness-snapshot.ts` reads each record's path in `readReviewRecordRows` and then discards it in `buildReviewStateSection`, emitting only the six cells. The index supplies that missing join.
 - Add `scripts/generate-branch-review-index.mjs` (`npm run ledger:index`, refreshed by `npm run docs:update`) plus `tests/branch-review-index.test.ts`. The generator reuses the existing corpus reader — `listLedgerRecordPaths` and `parseLedgerRows` from `scripts/branch-review-ledger.mjs` — rather than adding a third parser, which matters because four records carry escaped pipes that a naive split on the pipe character would mis-parse.
 - Add `docs/branch-review-archival-policy.md`, recording what may and may not be done to the append-only corpus with the enforcing code quoted at file and line, so the constraint is not re-derived by the next session.
 - Register both documents in `docs/README.md`, extend `docs/branch-review-records/README.md` with pointers, add the index to `GENERATED_CATALOGS` in `scripts/check-stale-docs.mjs` and to `.prettierignore`, and refresh the generated `docs/scripts-index.md` and `data/repo-awareness-snapshot.json`.
 
-**Deliberately not a gate.** Records are appended at roughly 26 a day (576 records spanning only 2026-08-12 to 2026-09-02, 570 of them in August). A byte-equality drift check on a file derived from that corpus would turn `main` red after nearly every merge and would conflict between concurrent pull requests. This is not a new judgement: `scripts/check-repo-awareness-snapshot.ts:21-28` already excludes `review_state` from `COMPARED_CONTENT_KEYS` for exactly this reason. So nothing is added to `verify:cheap:internal`, CI, `verify-pr-local.mjs`, or the pre-commit hook; `ledger:index:check` is advisory; and `npm run ledger:lookup` remains authoritative for "has this ref been reviewed?". The index states its own possible staleness in its header.
+**Deliberately not a gate.** Records are appended at roughly 26 a day (576 records spanning only 2026-08-12 to 2026-09-02, 570 of them in August). A byte-equality drift check on a file derived from that corpus would turn `main` red after nearly every merge and would conflict between concurrent pull requests. This is not a new judgement: `scripts/check-repo-awareness-snapshot.ts:22-41` already excludes `review_state` from `COMPARED_CONTENT_KEYS` for exactly this reason. So nothing is added to `verify:cheap:internal`, CI, `verify-pr-local.mjs`, or the pre-commit hook; `ledger:index:check` is advisory; and `npm run ledger:lookup` remains authoritative for "has this ref been reviewed?". The index states its own possible staleness in its header.
 
 **Scope note — no archival.** The task also asked whether records could be archived. They cannot, and the policy document records why with the code quoted. Editing a row is blocked (`check-branch-review-ledger.mjs:379-381` recomputes the filename as the sha256 of the row); compacting rows into one file is blocked (`:374-377`); deletion is forbidden by `docs/codex-review-protocol.md:65` and caught by nothing. Moving records into subdirectories is the dangerous one: the only reader is a non-recursive `readdirSync` filtered to `*.record.md` (`branch-review-ledger.mjs:172-180`), so a nested record disappears from `ledger:lookup`, from `check:branch-review-ledger`, and from the repo-awareness snapshot **while every gate still passes green**. No gate was weakened, exempted, or bypassed.
 
@@ -15,19 +15,19 @@ One incidental gain: because the index links every record relatively, `npm run d
 
 Local gates were selected to match the change (documentation, a new offline generator, and generated-document machinery) rather than running a broad gate that covers no plausible failure path here. All output quoted below is verbatim.
 
-- [x] `npm run check:ledger-write-discipline` — `Ledger write discipline passed for 45a3dcacb54a..HEAD.`
-- [x] `npm run check:branch-review-ledger` — `Branch review ledger guard passed: 880 live table records + 1206 archived + 576 immutable (880 under the 2026-07-29 machine-readable contract), immutable review writes, six cells each, no conflict markers, mojibake, heading records, or duplicates.`
-- [x] `npm run check:outstanding-issues` — `Outstanding-issues guard passed: 529 rows (75 open, 454 archived)` and `[snapshot] in step with data/outstanding-issues-snapshot.json (75 open, 8 pending)`
-- [x] `npm run check:repo-awareness-snapshot` — `[repo-awareness] in step with data/repo-awareness-snapshot.json (204 pages, 568 documents, 2662 reviews)`
-- [x] `npm run docs:check-links` — `docs link check passed: 5354 repo path references resolve.`
-- [x] `npm run docs:check-scripts` — `docs script-ref check passed: 1209 npm-run reference(s) resolve to real scripts.`
-- [x] `npm run docs:check-inventory` — `Docs inventory current: 284 script files, 286 npm scripts.`
+- [x] `npm run check:ledger-write-discipline` — `Ledger write discipline passed for c0ee4ddd5fdd..HEAD.`
+- [x] `npm run check:branch-review-ledger` — `Branch review ledger guard passed: 880 live table records + 1206 archived + 577 immutable (880 under the 2026-07-29 machine-readable contract), immutable review writes, six cells each, no conflict markers, mojibake, heading records, or duplicates.`
+- [x] `npm run check:outstanding-issues` — `[snapshot] in step with data/outstanding-issues-snapshot.json (70 open, 0 pending)`
+- [x] `npm run check:repo-awareness-snapshot` — `[repo-awareness] in step with data/repo-awareness-snapshot.json (204 pages, 578 documents, 2663 reviews)`
+- [x] `npm run docs:check-links` — `docs link check passed: 5412 repo path references resolve.`
+- [x] `npm run docs:check-scripts` — `docs script-ref check passed: 1222 npm-run reference(s) resolve to real scripts.`
+- [x] `npm run docs:check-inventory` — `Docs inventory current: 285 script files, 289 npm scripts.`
 - [x] `npm run ledger:index:check` — `[ledger:index] docs/branch-review-index.md is current.`
 - [x] `npm run format:check` — `All matched files use Prettier code style!`
-- [x] `npm run typecheck` — exit 0, `[gate-receipts] recorded a pass for "typecheck:internal" (6003 input files).`
+- [x] `npm run typecheck` — exit 0, `[gate-receipts] recorded a pass for "typecheck:internal" (6025 input files).`
 - [x] `npx eslint scripts/generate-branch-review-index.mjs tests/branch-review-index.test.ts` — exit 0, no output.
 - [x] `npx vitest run tests/branch-review-index.test.ts` — `Test Files  1 passed (1)`, `Tests  22 passed (22)`
-- [x] Regression sweep over every existing test this diff could disturb — `npx vitest run tests/docs-inventory.test.ts tests/repo-hygiene.test.ts tests/site-map.test.ts tests/repo-awareness-generator.test.ts tests/branch-review-index.test.ts` — `Test Files  5 passed (5)`, `Tests  133 passed (133)`
+- [x] Regression sweep over every existing test this diff could disturb, plus both workflow-contract suites — `npx vitest run tests/branch-review-index.test.ts tests/ci-cache-safety.test.ts tests/browser-test-plan.test.ts tests/docs-inventory.test.ts tests/repo-hygiene.test.ts tests/site-map.test.ts tests/repo-awareness-generator.test.ts` — `Test Files  7 passed (7)`, `Tests  245 passed (245)`
 
 Verification not run: `npm run verify:pr-local`, `npm run verify:ui` and `npm run verify:release` were deliberately skipped. The focused gates above cover this diff's plausible failure paths, no UI, routing, styling or browser behaviour changed, and no release confidence is claimed. CI remains the authoritative merge gate.
 
