@@ -270,7 +270,7 @@ export function FavouritesHub({
               aria-label="Choose favourite type"
             >
               <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <SelectedTabIcon className="h-3.5 w-3.5" />
+                <SelectedTabIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="grid min-w-0 gap-0.5">
                 <span className="text-2xs font-bold uppercase leading-none tracking-eyebrow text-[color:var(--text-muted)]">

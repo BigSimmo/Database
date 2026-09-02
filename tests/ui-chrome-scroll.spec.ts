@@ -300,11 +300,29 @@ test.describe("pages that fit the window have no scroll range", () => {
     { name: "dashboard mode home", route: "/?mode=documents" },
     { name: "standalone mode home", route: "/medications" },
     { name: "addon nav row route", route: "/factsheets/topics" },
+    // #6KR6BR: the 2026-08-27 sweep after PR #2419 reported 2px of residual
+    // range here at 1280x1200 and nowhere else. Re-measured 2026-09-02 across
+    // 1024/1280/1440 x 800/1200 at deviceScaleFactor 1 and 2, in both page
+    // states, it is 0 — the catalogue's content is a fixed 1018px tall, so a
+    // 1200px window clears it by 182px. Both states are pinned at the exact
+    // reported viewport so a future content-driven regression is caught here
+    // rather than by another ad-hoc sweep. The catalogue is static module data,
+    // so its length does not vary with demo vs live mode.
+    {
+      name: "calculators catalogue",
+      route: "/calculators/search",
+      viewport: { width: 1280, height: 1200 },
+    },
+    {
+      name: "calculators submitted results",
+      route: "/calculators/search?q=depression&run=1",
+      viewport: { width: 1280, height: 1200 },
+    },
   ];
 
-  for (const { name, route } of fitsWithoutScrolling) {
+  for (const { name, route, viewport = { width: 1440, height: 1200 } } of fitsWithoutScrolling) {
     test(`desktop: ${name} has zero scroll range`, async ({ page }) => {
-      await page.setViewportSize({ width: 1440, height: 1200 });
+      await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
       // Late chrome (composer portal, nav row, notices) mounts after first paint
