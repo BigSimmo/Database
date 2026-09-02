@@ -525,6 +525,98 @@ describe("rule 5b: resolveClosingContactMessageBody / closing-message-body-not-a
       ],
     });
   });
+
+  // -------------------------------------------------------------------------
+  // #59JT7W — the refusal is the CHOKEPOINT's, not this function's alone.
+  //
+  // These are the assertions that make the guard unbypassable. Before them, the rule lived only
+  // in `resolveClosingContactMessageBody`, so a sender that obtained a closing body some other
+  // way met no refusal at all. Now `validateGovernedMessage` -- which every sender must pass --
+  // holds it, and the function above delegates. Both halves are pinned, because either one
+  // drifting silently restores the bypass.
+  // -------------------------------------------------------------------------
+
+  it("the chokepoint refuses an absent closing body with the body-not-authored code", () => {
+    expect(validateGovernedMessage({ text: undefined, messageType: "closing" })).toEqual({
+      valid: false,
+      issues: [{ code: "closing-message-body-not-authored" }],
+    });
+  });
+
+  it("the chokepoint refuses a blank or whitespace-only closing body the same way", () => {
+    for (const text of ["", "   ", "\n\t "]) {
+      expect(validateGovernedMessage({ text, messageType: "closing" })).toEqual({
+        valid: false,
+        issues: [{ code: "closing-message-body-not-authored" }],
+      });
+    }
+  });
+
+  it("reports body-not-authored ALONE, never alongside the wrong-body codes", () => {
+    // The distinction is the whole point. `closing-message-missing-ending-statement` sends a
+    // maintainer looking for wording to correct; there is none to correct. Accumulating both
+    // would still refuse, but would refuse with a false diagnosis.
+    const result = validateGovernedMessage({ text: "", messageType: "closing" });
+    expect(result.valid).toBe(false);
+    if (result.valid) throw new Error("unreachable");
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues.map((issue) => issue.code)).not.toContain("closing-message-missing-ending-statement");
+    expect(result.issues.map((issue) => issue.code)).not.toContain("closing-message-missing-support-information");
+  });
+
+  it("refuses an unauthored body for every message type, not only closing", () => {
+    // Review finding. An earlier draft of this fix refused only `closing`, which left the
+    // chokepoint answering `valid: true` -- an explicit "this may be sent" -- for a standard
+    // message with no body at all. Widening `text` to `string | undefined` is what made that
+    // reachable, so the fix whose purpose is CLOSING a bypass would have opened a smaller one.
+    //
+    // `standard` and `first` report their own code: the closing one carries the specific A4
+    // meaning that no closing wording has ever been clinically authored, which says nothing about
+    // an ordinary message whose body a caller failed to supply.
+    for (const messageType of ["standard", "first"] as const) {
+      for (const text of [undefined, "", "   "]) {
+        expect(validateGovernedMessage({ text, messageType })).toEqual({
+          valid: false,
+          issues: [{ code: "message-body-not-authored" }],
+        });
+      }
+    }
+  });
+
+  it("still reports the record-level refusals when there is no body to check", () => {
+    // Review finding. The early return used to report the body issue ALONE, so a cancelled plan
+    // with no closing body said only "write a body" -- inviting an operator to author a closing
+    // message for a plan that can never send, and refusing them on the second attempt. The
+    // recoverable condition must not mask the unrecoverable one. State checks read no text, so a
+    // missing body makes none of them unanswerable.
+    expect(
+      validateGovernedMessage({
+        text: undefined,
+        messageType: "closing",
+        contactState: "cancelled",
+        planState: "withdrawn",
+      }),
+    ).toEqual({
+      valid: false,
+      issues: [
+        { code: "closing-message-body-not-authored" },
+        { code: "terminated-contact-dispatch-refused", state: "cancelled" },
+        { code: "terminated-contact-dispatch-refused", state: "withdrawn" },
+      ],
+    });
+  });
+
+  it("the adapter and the chokepoint agree on every authored/unauthored input", () => {
+    // One question, asked two ways, over both branches: an authored body (compliant or merely
+    // present-but-wrong) and an unauthored one (absent, empty, whitespace). If these ever
+    // disagree, the adapter has grown a second opinion and the bypass is back.
+    for (const body of [undefined, "", "   ", compliantClosingMessage, "wrong but present"]) {
+      const validated = validateGovernedMessage({ text: body, messageType: "closing" });
+      const chokepointSaysUnauthored =
+        !validated.valid && validated.issues.some((issue) => issue.code === "closing-message-body-not-authored");
+      expect(resolveClosingContactMessageBody(body).ok).toBe(!chokepointSaysUnauthored);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
