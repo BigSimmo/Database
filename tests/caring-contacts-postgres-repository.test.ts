@@ -617,3 +617,110 @@ describe("a retention clearance reaches every store of free text about the patie
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// #RZVMPD — the caseload list read fetches no patient column (postgres only).
+//
+// `tests/caring-contacts-domain-isolation.test.ts` scans the column constants and their wiring,
+// which is what catches a widened `PLAN_LIST_COLUMNS`. This is the other half: what the store
+// actually puts on the wire. A scan cannot see a second, hand-written list query added later that
+// never names the constant at all, and that is precisely the shape the original defect had --
+// `listPlans` selecting a list it was not narrowed for.
+//
+// It is stated as a property of EVERY statement the call issues rather than of one expected
+// string, so a future `listPlans` that fans out into more reads is held to the same rule instead
+// of quietly escaping it.
+// ---------------------------------------------------------------------------
+describe("the caseload list read never puts a patient column on the wire (postgres only)", () => {
+  /** 2026-03-02 11:00 AWST, the instant the shared contract fixes its own clock to. */
+  const NOW = "2026-03-02T03:00:00.000Z";
+
+  const COORDINATOR: Actor = {
+    id: actorId("COLUMNS-ACTOR"),
+    teamId: teamId("COLUMNS-TEAM"),
+    roles: ["coordinator"],
+  };
+
+  it("issues no statement naming patient_name, patient_mobile_number or patient_identifiers", async () => {
+    const issued: string[] = [];
+    const recorded = poolAsSqlConnectionPool(pool);
+    const store = createPostgresRepository(
+      {
+        async withConnection(work) {
+          return recorded.withConnection((connection) =>
+            work({
+              async query(text, values) {
+                issued.push(text);
+                return connection.query(text, values);
+              },
+            }),
+          );
+        },
+      },
+      fixedClock(NOW),
+    );
+
+    const PLAN = planId("COLUMNS-PLAN");
+    const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
+
+    const referral = await store.createReferral(
+      { referralId: referralId("COLUMNS-REFERRAL"), patientId: patientId("COLUMNS-PATIENT") },
+      context("columns-referral"),
+    );
+    expect(referral.ok).toBe(true);
+    const pathway = await store.savePathwayVersion(
+      {
+        version: {
+          id: pathwayVersionId("COLUMNS-PATHWAY"),
+          teamId: COORDINATOR.teamId,
+          state: "draft",
+          authorId: COORDINATOR.id,
+          approvals: [],
+          publishedAt: null,
+          retiredAt: null,
+          retirementUrgency: null,
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "Last one." },
+          },
+        },
+      },
+      context("columns-pathway"),
+    );
+    expect(pathway.ok).toBe(true);
+
+    const created = await store.createPlan(
+      {
+        planId: PLAN,
+        assurances: PLAN_ASSURANCE_VALUES,
+        referralId: referralId("COLUMNS-REFERRAL"),
+        patientId: patientId("COLUMNS-PATIENT"),
+        pathwayVersionId: pathwayVersionId("COLUMNS-PATHWAY"),
+        dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+        sendingPreference: "morning",
+        patientDetail: {
+          patientName: "Rowan Delacroix",
+          patientMobileNumber: "+61 491 570 156",
+          patientIdentifiers: ["UR-00219384"],
+          culturalIdentity: null,
+          preferredName: "Rowan",
+        },
+      },
+      context("columns-create"),
+    );
+    if (!created.ok) throw new Error(`createPlan refused: ${created.reason}`);
+
+    // Only what the caseload render costs. Everything above is fixture.
+    issued.length = 0;
+    const plans = await store.listPlans({ actor: COORDINATOR });
+
+    // Positive control: the read really ran and really returned the plan, so an empty `issued`
+    // cannot pass this test by doing nothing.
+    expect(plans.map((record) => record.plan.id)).toEqual([PLAN]);
+    expect(issued.some((text) => text.includes("from caring_contacts.plans"))).toBe(true);
+
+    for (const column of ["patient_name", "patient_mobile_number", "patient_identifiers"]) {
+      expect(issued.filter((text) => text.includes(column))).toEqual([]);
+    }
+  });
+});

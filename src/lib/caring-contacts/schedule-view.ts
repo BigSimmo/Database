@@ -29,7 +29,10 @@
 //
 // IT RELEASES NO PATIENT IDENTITY. Every field below comes from a `PlanRecord`, which carries none
 // -- the patient is named only by the synthetic `patientId`. A screen that needs names reads them
-// through `listPatientNames`, which is audited in its own right.
+// through `listPatientNames`, which is audited in its own right. Since #RZVMPD that is true of the
+// QUERY too and not only of the type: `listPlans` selects `PLAN_LIST_COLUMNS`, which names no
+// patient column, so a caseload render no longer pulls names, mobile numbers and identifiers into
+// the process merely to discard them.
 //
 // Pure and deterministic: no clock, no storage, no ambient time. The day being asked about is an
 // argument.
