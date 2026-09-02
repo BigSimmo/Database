@@ -131,14 +131,32 @@ const FICTIONAL_CONTACT_MARKER_PATTERN = new RegExp(
 // lead" is still exempt: "programme lead" is the qualifying pair actually adjacent to the word),
 // never merely because one of those words appears anywhere earlier in the message.
 //
-// RULING [143], 2026-08-27: three alternatives now, mirroring the interface definition in
-// `tests/helpers/caring-contacts-prohibited-language.ts` term for term, because that definition was
-// the stricter of the two and this is the surface a discharged patient reads.
+// RULING [143], 2026-08-27: three alternatives now, because the interface definition in
+// `tests/helpers/caring-contacts-prohibited-language.ts` was the stricter of the two and this is the
+// surface a discharged patient reads. The two were term for term identical from that date until
+// 2026-09-02; they are not any more, and alternative (1) is where they part.
 //
-//   1. `leads` (plural) is refused OUTRIGHT, with no job-title exemption. The single pattern this
-//      replaced put `leads?` behind the lookbehind, so "team leads", "clinical leads", "programme
-//      leads", "service leads" and "incident leads" all read as job titles and were permitted in a
-//      patient's message while the screen refused them. Nobody's title is plural.
+// DO NOT "TIDY" THIS PATTERN BACK INTO STEP WITH THE INTERFACE ONE. On 2026-09-02, after #AGRAKQ,
+// the owner extended the job-title exemption to the plural ON THE SCREEN ONLY, so a clinician may
+// write "the clinical leads met on Tuesday" and a message to a discharged patient still may not.
+// The message side is now deliberately the stricter of the two, which is the safe direction and the
+// whole reason the change was taken on one surface rather than both. Copying the interface
+// definition's plural branches down here would loosen the wording a patient receives, which nothing
+// asked for; the parity block in `tests/caring-contacts-interface-vocabulary.test.ts` asserts this
+// side still refuses each plural job title and will go red if you do it. The parity INVARIANT is
+// unaffected and still holds: it forbids a message permitting what the screen refuses, and a screen
+// permitting what a message refuses is the direction it deliberately allows.
+//
+//   1. `leads` (plural) is refused OUTRIGHT here, with no job-title exemption. The single pattern
+//      this replaced put `leads?` behind the lookbehind, so "team leads", "clinical leads",
+//      "programme leads", "service leads" and "incident leads" all read as job titles and were
+//      permitted in a patient's message while the screen refused them. The reasoning recorded in
+//      2026-08-27 was "nobody's title is plural" -- true of one person's title, false of a group of
+//      them, which is what #AGRAKQ established and what the screen-side change above answers. It is
+//      still the right rule HERE: no approved patient-visible message names a role at all, so the
+//      exemption buys this surface nothing and costs it the whole plural commercial family
+//      ("capture clinical leads", "unconverted service leads") that a preceding-verb construction
+//      puts beyond the reach of the companion list in (2).
 //   2. "lead" followed by a commercial companion word is refused even when an exempting word sits
 //      immediately before it, which is what "clinical lead capture" and "team lead nurturing
 //      numbers" exploited: the exemption licensed whatever followed the word it exempted.

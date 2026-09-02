@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3ceb4af2-3073-4d3d-8f60-eb1e126a015f",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#AGRAKQ",
+    "outcome": "Already fixed before this row could be acted on, and the row was stale. Ruling [143] (2026-08-27) put the same three-alternative 'lead' narrowing into tests/helpers/caring-contacts-prohibited-language.ts, and in fact ran the fix the other way: the interface helper was the STRICTER of the two definitions, so COMMERCIAL_LEAD_PATTERN in src/lib/caring-contacts/message-rules.ts was tightened to mirror it term for term rather than the reverse. Both now refuse 'leads' outright, refuse 'lead' before a commercial companion word even after a job-title qualifier, and otherwise exempt only incident/programme/clinical/service/team lead immediately before the word. Verified: the helper regex and COMMERCIAL_LEAD_PATTERN carry identical 'lead' clauses, and tests/caring-contacts-interface-vocabulary.test.ts pins 'clinical programme lead' and 'incident lead' as permitted on both surfaces. No code change was needed. What was corrected instead is the helper's docstring, which still described plain word-boundary matching and is why this row was filed against a file that had already been fixed.",
+    "baseRowFingerprint": "44aac365c59873fd32faa0503d08df87d1e7b15cfc430b7e49b431d45441758b"
+  }
+}
