@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "42f4e905-cce5-41f0-9a8a-7678eaad9895",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Two clinical-risk Caring Contacts fixes merged with no automated review, because the Cursor spend limit silently downgraded the approval agent and Bugbot to neutral",
+    "issueUlid": "01M1HW41T6ACWXN6TRZTKCGMG6"
+  }
+}
