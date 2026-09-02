@@ -10,8 +10,22 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const DEFAULT_JUNIT = "test-results/playwright-junit.xml";
-const DEFAULT_RESULTS = "test-results/playwright-results.json";
+/**
+ * Must match the junit `outputFile` in `playwright.visual.config.ts` — NOT the
+ * `playwright-junit.xml` that `playwright.config.ts` writes for the production-UI suite.
+ * Both defaults were originally copied from that other config, so this script read a
+ * report the visual suite never writes, took the "no report at all" branch on every real
+ * drift, and reported `infrastructure` instead of `pixel-drift`. That inverted the whole
+ * point of the classifier: the advisory path was unreachable and the job went hard red.
+ * `tests/classify-visual-baseline-outcome.test.ts` now parses the config and pins this.
+ */
+export const DEFAULT_JUNIT = "test-results/visual-junit.xml";
+/**
+ * The visual config registers only `list` and `junit` reporters, so there is no JSON
+ * report to read. Empty rather than a plausible-looking path: a default that can never
+ * exist is how the junit constant above went unnoticed. Callers may still pass one.
+ */
+const DEFAULT_RESULTS = "";
 
 const decode = (value) =>
   value
@@ -88,8 +102,8 @@ export function classifyVisualBaselineOutcome({
   resultsPath = DEFAULT_RESULTS,
   testResultsDir = "test-results",
 } = {}) {
-  const hasJunit = existsSync(junitPath);
-  const hasResults = existsSync(resultsPath);
+  const hasJunit = Boolean(junitPath) && existsSync(junitPath);
+  const hasResults = Boolean(resultsPath) && existsSync(resultsPath);
   if (!hasJunit && !hasResults) {
     return {
       kind: "infrastructure",
