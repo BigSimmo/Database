@@ -112,6 +112,58 @@ describe("chain vs schema.sql parity comparison", () => {
   });
 });
 
+describe("an extension only the migration chain creates is a divergence, not platform noise", () => {
+  const withExtension = (...names: string[]) => ({
+    ...EMPTY_SNAPSHOT,
+    extensions: names.map((name) => ({ name, schema: "extensions" })),
+  });
+
+  it("reports the real pg_cron case the reused comparator demoted to an info line", () => {
+    // 20260901033250_enable_staging_privacy_retention_schedules.sql runs
+    // `create extension if not exists pg_cron`; supabase/schema.sql never declares it.
+    // The live gate treats an extra live extension as platform provenance — correct there,
+    // where the platform provisions pg_net and pgsodium, and wrong here, where the "live"
+    // side is our own migration chain. Before the fix this pair reported nothing at all.
+    const result = compareChainAgainstMirror(withExtension(), withExtension("pg_cron"), []);
+    expect(result.findings).toEqual([{ category: "extensions", kind: "unexpected_live", key: "pg_cron" }]);
+    expect(result.infos.filter((info) => /extra live extension/i.test(info))).toEqual([]);
+  });
+
+  it("routes a genuinely image-provisioned extension through the parity allowlist instead", () => {
+    const entry: ParityAllowlistEntry = {
+      category: "extensions",
+      kind: "unexpected_live",
+      key: "pg_net",
+      reason: "provisioned by the Supabase emulator image, not created by any migration in the chain",
+    };
+    const result = compareChainAgainstMirror(withExtension(), withExtension("pg_net"), [entry]);
+    expect(result.findings).toEqual([]);
+    expect(result.allowed).toHaveLength(1);
+    // The entry must not also read as stale — that would print "remove them" beside the
+    // divergence it is deliberately holding.
+    expect(result.staleEntries).toEqual([]);
+  });
+
+  it("still reports an extension schema.sql declares that the chain never creates", () => {
+    const result = compareChainAgainstMirror(withExtension("vector"), withExtension(), []);
+    expect(result.findings).toEqual([
+      { category: "extensions", kind: "missing_live", key: "vector", detail: expect.anything() },
+    ]);
+  });
+
+  it("keeps pg_cron absent from the committed mirror, so this is a live divergence and not a fixture", () => {
+    const manifest = JSON.parse(readFileSync(join(process.cwd(), "supabase", "drift-manifest.json"), "utf8"));
+    const declared = (manifest.snapshot?.extensions ?? []).map((row: { name: string }) => row.name);
+    expect(declared.length).toBeGreaterThan(0);
+    expect(declared).not.toContain("pg_cron");
+    const migration = readFileSync(
+      join(process.cwd(), "supabase", "migrations", "20260901033250_enable_staging_privacy_retention_schedules.sql"),
+      "utf8",
+    );
+    expect(migration).toMatch(/create\s+extension\s+if\s+not\s+exists\s+pg_cron/i);
+  });
+});
+
 describe("chain-mirror allowlist is fail-closed", () => {
   const valid: ParityAllowlistEntry = {
     category: "functions",

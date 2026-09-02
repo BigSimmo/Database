@@ -224,6 +224,16 @@ pass; the finding is the point.
 
 ## Chain-vs-mirror parity (`npm run check:chain-mirror-parity`)
 
+**Extensions are compared, not excused.** `check:drift` treats an extension present on the live
+side but not in `schema.sql` as platform provenance and prints it as an info line — right for the
+live gate, where Supabase provisions `pg_net` and `pgsodium` that no migration creates. On this
+comparison the "live" side is the migration chain, which is our own code, so the parity script
+re-promotes those to `unexpected_live` findings. There is already a real one:
+`20260901033250_enable_staging_privacy_retention_schedules.sql` runs
+`create extension if not exists pg_cron` and `supabase/schema.sql` never declares it, so under the
+inherited rule the pair reported nothing at all. An extension the emulator image genuinely
+provisions belongs in `supabase/chain-mirror-allowlist.json` as a reviewed entry, one at a time.
+
 `check:drift` compares **live** against `supabase/schema.sql`. CI's `db-reset-verify`
 proves the migration chain **applies** (`supabase migration up --local`) and that the
 drift manifest is **not stale** (committed vs generated `schema_sha256`). Nothing

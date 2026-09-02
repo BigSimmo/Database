@@ -32,8 +32,12 @@ import { compareDriftSnapshots, type AllowlistEntry, type Finding } from "./chec
  * The chain side is the Supabase local emulator's database; the mirror side is
  * `drift:manifest`'s replay into the pinned bare `supabase/postgres` image plus
  * scripts/sql/drift-replay-scaffold.sql. Two different images, so some reported
- * difference will be platform provenance (extension sets, the storage schema,
- * role ACL arrays) rather than a real chain-vs-mirror divergence. Building both
+ * difference will be platform provenance (the storage schema, role ACL arrays)
+ * rather than a real chain-vs-mirror divergence. Extensions are deliberately NOT
+ * on that list: the live gate waves an extra "live" extension through as
+ * platform-provisioned, but here the "live" side is the migration chain, and
+ * doing so hid a real one (see SUPPRESSED_EXTENSION_INFO). An image-provisioned
+ * extension goes in the allowlist as a reviewed entry instead. Building both
  * sides identically would be better, but a mirror database created inside the
  * emulator does not inherit the `auth` schema that supabase/schema.sql needs for
  * its `references auth.users(id)` columns, and reproducing the emulator's chain
@@ -133,6 +137,44 @@ export function comparableSnapshot(snapshot: Record<string, unknown>): Record<st
  */
 const SUPPRESSED_INFO = /migration-history probe not present in the live snapshot/i;
 
+/**
+ * The live gate demotes an extension present only on the "live" side to an info
+ * line, because the hosted platform provisions pg_net, pgsodium and friends that
+ * a schema.sql replay never creates. That is right there and wrong here: on THIS
+ * comparison the "live" side is the migration chain, which is our own code, so
+ * the same demotion quietly excuses a genuine divergence.
+ *
+ * It already does. `20260901033250_enable_staging_privacy_retention_schedules.sql`
+ * runs `create extension if not exists pg_cron`, `supabase/schema.sql` never
+ * declares it, and a probe of the reused comparator on that pair returned
+ * `findings: []` — so even `--strict` would have passed it (Codex review).
+ *
+ * Extensions the chain builds and the mirror does not describe are therefore
+ * re-promoted to `unexpected_live` findings here. The asymmetry this gate really
+ * does have — the emulator image provisioning extensions neither side asked for
+ * — belongs in `supabase/chain-mirror-allowlist.json`, one reviewed entry at a
+ * time, not in a blanket rule that cannot tell the two cases apart.
+ */
+const SUPPRESSED_EXTENSION_INFO = /^extra live extension \(platform-provisioned\)/i;
+
+function extensionsByName(snapshot: Record<string, unknown>): Set<string> {
+  const rows = Array.isArray(snapshot.extensions) ? snapshot.extensions : [];
+  return new Set(
+    rows
+      .map((row) => (row && typeof row === "object" ? String((row as Record<string, unknown>).name ?? "") : ""))
+      .filter((name) => name !== ""),
+  );
+}
+
+/** Extensions the migration chain creates that supabase/schema.sql never declares. */
+export function chainOnlyExtensionFindings(mirror: Record<string, unknown>, chain: Record<string, unknown>): Finding[] {
+  const described = extensionsByName(mirror);
+  return [...extensionsByName(chain)]
+    .filter((name) => !described.has(name))
+    .sort()
+    .map((key) => ({ category: "extensions", kind: "unexpected_live", key }) as Finding);
+}
+
 export type ParityResult = {
   findings: Finding[];
   allowed: { entry: ParityAllowlistEntry; finding: Finding }[];
@@ -158,17 +200,32 @@ export function compareChainAgainstMirror(
     valid as unknown as AllowlistEntry[],
   );
 
-  const usedKeys = new Set(
-    comparison.allowed.map(({ finding }) => `${finding.category}|${finding.kind}|${finding.key}`),
-  );
-  return {
-    findings: comparison.findings,
-    allowed: comparison.allowed.map(({ entry, finding }) => ({
+  // Re-promoted before the allowlist is applied, so a chain-only extension can be
+  // excused only by a reviewed entry naming it — never by the blanket platform rule.
+  const promotedFindings: Finding[] = [];
+  const promotedAllowed: { entry: ParityAllowlistEntry; finding: Finding }[] = [];
+  for (const finding of chainOnlyExtensionFindings(mirror, chain)) {
+    const entry = valid.find(
+      (candidate) =>
+        candidate.category === finding.category && candidate.kind === finding.kind && candidate.key === finding.key,
+    );
+    if (entry) promotedAllowed.push({ entry, finding });
+    else promotedFindings.push(finding);
+  }
+
+  const allowed = [
+    ...comparison.allowed.map(({ entry, finding }) => ({
       entry: entry as unknown as ParityAllowlistEntry,
       finding,
     })),
+    ...promotedAllowed,
+  ];
+  const usedKeys = new Set(allowed.map(({ finding }) => `${finding.category}|${finding.kind}|${finding.key}`));
+  return {
+    findings: [...comparison.findings, ...promotedFindings],
+    allowed,
     staleEntries: allowlist.filter((entry) => !usedKeys.has(`${entry.category}|${entry.kind}|${entry.key}`)),
-    infos: comparison.infos.filter((info) => !SUPPRESSED_INFO.test(info)),
+    infos: comparison.infos.filter((info) => !SUPPRESSED_INFO.test(info) && !SUPPRESSED_EXTENSION_INFO.test(info)),
   };
 }
 
@@ -314,6 +371,59 @@ export function selfTest(): void {
   expect(
     notAllowed.findings.length === 1 && notAllowed.staleEntries.length === 1,
     "a malformed entry must never silence a finding",
+  );
+
+  // The real pg_cron case: the chain creates an extension schema.sql never
+  // declares. The reused live comparator demotes this to an info line, so before
+  // the fix this pair reported nothing at all and even --strict would have passed.
+  const chainOnlyExtension = compareChainAgainstMirror(
+    base,
+    { ...base, extensions: [{ name: "pg_cron", schema: "pg_catalog" }] },
+    [],
+  );
+  expect(
+    chainOnlyExtension.findings.length === 1 &&
+      chainOnlyExtension.findings[0].category === "extensions" &&
+      chainOnlyExtension.findings[0].kind === "unexpected_live" &&
+      chainOnlyExtension.findings[0].key === "pg_cron",
+    "an extension only the migration chain creates must be reported, not demoted to an info line",
+  );
+  expect(
+    chainOnlyExtension.infos.every((info) => !/extra live extension/i.test(info)),
+    "the demoting info line must not survive alongside the finding it was hiding",
+  );
+
+  // An extension genuinely provisioned by the emulator image goes through the
+  // parity allowlist, one reviewed entry at a time.
+  const allowedExtension = compareChainAgainstMirror(
+    base,
+    { ...base, extensions: [{ name: "pg_net", schema: "extensions" }] },
+    [
+      {
+        category: "extensions",
+        kind: "unexpected_live",
+        key: "pg_net",
+        reason: "provisioned by the Supabase emulator image, not by any migration in the chain",
+      },
+    ],
+  );
+  expect(
+    allowedExtension.findings.length === 0 &&
+      allowedExtension.allowed.length === 1 &&
+      allowedExtension.staleEntries.length === 0,
+    "a reviewed extension entry must consume its finding without reading as stale",
+  );
+
+  // An extension schema.sql declares and the chain never creates is the other
+  // direction, and was already a finding.
+  const missingExtension = compareChainAgainstMirror(
+    { ...base, extensions: [{ name: "vector", schema: "extensions" }] },
+    base,
+    [],
+  );
+  expect(
+    missingExtension.findings.length === 1 && missingExtension.findings[0].kind === "missing_live",
+    "an extension schema.sql declares but the chain never creates must still be reported",
   );
 
   // migration_history is stripped rather than allowlisted: the chain database
