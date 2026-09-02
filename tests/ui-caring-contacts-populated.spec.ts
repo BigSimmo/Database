@@ -108,17 +108,26 @@ function displayedWidthStates(page: Page) {
 }
 
 /**
- * Any element whose own box is wider than the viewport.
+ * Any element whose own box is wider than the viewport, split by why that is happening.
  *
- * Document overflow alone is not the whole question on a populated screen. A card that overruns
- * its column inside an `overflow-x-auto` region — the team ownership table's wrapper is exactly
- * that — produces no document overflow at all while still being unreadable, and a screen whose
- * body is `overflow-hidden` can clip a row silently. This reports the offenders by tag and class
- * so a failure names the element rather than only the width it happened at.
+ * Document overflow alone is not the whole question on a populated screen: something that overruns
+ * its column inside a region that governs horizontal overflow produces no document overflow at
+ * all. What it means for the clinician depends entirely on WHICH `overflow-x` governs it.
  *
- * Elements that scroll on purpose are excluded by their own computed `overflow-x`: a region that
- * declares itself scrollable is allowed to hold something wider than itself, which is the
- * sanctioned pattern for a data table.
+ * - `auto` / `scroll` — the region declared itself scrollable, so it is allowed to hold something
+ *   wider than itself and the reader can reach the rest. That is the sanctioned pattern for a wide
+ *   data table (the team ownership table's wrapper is exactly this), and it is exempt.
+ * - `hidden` — the region clips. Nothing scrolls, nothing overflows the document, and whatever did
+ *   not fit is simply absent from the screen with no indication it was ever there. That is the
+ *   silent failure this helper exists to catch, and it is reported as `clipped:`.
+ *
+ * The distinction is load-bearing here rather than theoretical: `workspacePanelFlush`
+ * (`workspace/surfaces.ts`) ends in `overflow-hidden`, and Reports, Guidance and Team are built
+ * from it. Lumping `hidden` in with the scrollable exemption would excuse those three screens from
+ * the one gate written for them.
+ *
+ * Offenders carry tag and class so a failure names the element rather than only the width it
+ * happened at.
  */
 function elementsWiderThanViewport(page: Page) {
   return page.evaluate(() => {
@@ -126,16 +135,19 @@ function elementsWiderThanViewport(page: Page) {
     for (const node of document.querySelectorAll<HTMLElement>("main *")) {
       const rect = node.getBoundingClientRect();
       if (rect.width <= window.innerWidth + 1) continue;
-      let scrollableAncestor = false;
-      for (let a: HTMLElement | null = node; a !== null; a = a.parentElement) {
+
+      // The nearest ancestor (or the node itself) that governs horizontal overflow decides. Null
+      // means nothing governs it and the box is overflowing in the open.
+      let governor: "scrolls" | "clips" | null = null;
+      for (let a: HTMLElement | null = node; a !== null && governor === null; a = a.parentElement) {
         const overflowX = getComputedStyle(a).overflowX;
-        if (overflowX === "auto" || overflowX === "scroll" || overflowX === "hidden") {
-          scrollableAncestor = true;
-          break;
-        }
+        if (overflowX === "auto" || overflowX === "scroll") governor = "scrolls";
+        else if (overflowX === "hidden") governor = "clips";
       }
-      if (scrollableAncestor) continue;
-      offenders.push(`${node.tagName.toLowerCase()}.${node.className.toString().slice(0, 80)}`);
+      if (governor === "scrolls") continue;
+
+      const label = `${node.tagName.toLowerCase()}.${node.className.toString().slice(0, 80)}`;
+      offenders.push(governor === "clips" ? `clipped:${label}` : `overflows:${label}`);
     }
     return offenders;
   });
@@ -165,10 +177,11 @@ for (const screen of SCREENS) {
         ).toBeLessThanOrEqual(2);
 
         // …and nothing inside the content is wider than the viewport unless it declared itself
-        // scrollable. See `elementsWiderThanViewport`.
+        // scrollable. `clipped:` means an `overflow-hidden` ancestor is silently hiding the excess;
+        // `overflows:` means it is spilling in the open. See `elementsWiderThanViewport`.
         expect(
           await elementsWiderThanViewport(page),
-          `elements wider than the viewport on ${screen.name} at ${width}px`,
+          `content wider than the viewport on ${screen.name} at ${width}px`,
         ).toEqual([]);
 
         // Exactly one width state is displayed, and it is the one the frozen module names. Two
