@@ -1,17 +1,16 @@
-Clinical Guide
+PsychSift
 
-Purpose: Clinical Guide is a local clinical knowledge-base interface for searching indexed source documents, reviewing evidence, and drafting source-backed clinical answers.
+Purpose: PsychSift is a private, local-first clinical knowledge-base interface for searching indexed source documents, reviewing evidence, and drafting source-backed clinical answers. It is a clinical reference prototype, not validated clinical decision support.
 
-Agent / codebase orientation: docs/codebase-index.md (module map, APIs, Supabase, worker). Route index: docs/site-map.md.
+Agent / codebase orientation: docs/codebase-index.md (module map, APIs, Supabase, worker). Route index: docs/site-map.md (generated).
 
 Key routes:
-- / opens the main dashboard. Use ?mode=answer, ?mode=documents, ?mode=tools, ?mode=differentials, or ?mode=prescribing to choose the workspace. ?mode=favourites redirects to /favourites.
-- /documents/search opens the documents search command centre after submitting a documents-mode query.
+- / opens the shared home. Add ?mode=<id> to choose the workspace; mode ids include answer, documents, services, forms, differentials, dsm, specifiers, formulation, prescribing, tools, calculators, therapy-compass, factsheets, dictionary and sources.
+- Bare mode paths such as /services, /forms and /differentials are compatibility redirects: unsubmitted they forward to /?mode=<id>; with ?q=...&run=1 they forward to that mode's own results surface (/services/search, /forms/search, /differentials/search).
+- /documents/search opens the documents search results after submitting a documents-mode query.
 - /documents/:id opens an indexed source document.
-- /services opens source-backed service records.
-- /forms opens source-backed forms.
-- /favourites opens saved clinical work.
-- /differentials opens differential-diagnosis support.
+- /sources opens the ranked clinical source catalogue; /sources/:sourceId shows one source's identity, rating, locations and application usage.
+- /favourites opens saved clinical work (requires a signed-in account).
 
 Authentication caveat: Private indexed documents, source files, and clinical answer generation can require a signed-in session or local no-auth development mode. Public static files do not imply access to private source content.
 

@@ -1475,7 +1475,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const llms = await page.request.get("/llms.txt");
     expect(llms.status()).toBe(200);
     const llmsText = await llms.text();
-    expect(llmsText).toContain("Clinical Guide");
+    expect(llmsText).toContain("PsychSift");
     expect(llmsText).toContain("rely on cited source evidence");
 
     await page.setViewportSize({ width: 1280, height: 900 });
