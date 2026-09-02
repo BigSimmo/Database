@@ -260,3 +260,27 @@ describe("L91: every CODEOWNERS pattern matches something in the tree", () => {
     expect(patterns).not.toContain("/src/lib/rag-*.ts");
   });
 });
+
+describe("L92: the Codex auto-resolve high-risk deployment-file list names files that exist", () => {
+  const workflow = read(".github/workflows/codex-autofix-review-comments.yml");
+  const line = workflow.split("\n").find((candidate) => /Dockerfile/.test(candidate) && /railway/.test(candidate));
+  const source = line?.match(/\/(\^.*\$)\/,?\s*$/)?.[1];
+  const pattern = source ? new RegExp(source) : null;
+
+  it("declares a deployment-file pattern", () => {
+    expect(pattern).not.toBeNull();
+  });
+
+  it.each(["Dockerfile", "Dockerfile.worker", "railway.app.json", "railway.worker.json"])(
+    "classifies %s as high risk",
+    (file) => {
+      expect(exists(file)).toBe(true);
+      expect(pattern!.test(file)).toBe(true);
+    },
+  );
+
+  it.each(["railway.json", "nixpacks.toml"])("does not keep naming the absent %s", (file) => {
+    expect(exists(file)).toBe(false);
+    expect(source).not.toContain(file.replace(".", "\\."));
+  });
+});
