@@ -116,9 +116,7 @@ if (update) {
       continue;
     }
     if (m.current !== m.ceiling) {
-      console.log(
-        `design-drift-ratchet: ${m.key} ${raising ? "raised" : "lowered"} ${m.ceiling} -> ${m.current}`,
-      );
+      console.log(`design-drift-ratchet: ${m.key} ${raising ? "raised" : "lowered"} ${m.ceiling} -> ${m.current}`);
     }
     ratchet[m.key].ceiling = m.current;
     ratchet[m.key].measuredAt = nowIso;
