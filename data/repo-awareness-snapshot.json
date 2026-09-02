@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "f159844f1c5e8cf22871479a58f0deea00691a81",
-    "committed_at": "2026-09-02T00:24:19+08:00"
+    "sha": "fad5e2698d964fa72208be23ee4b9bf125acafc7",
+    "committed_at": "2026-09-01T16:44:24Z"
   },
   "routes": {
     "modes": [
@@ -4382,6 +4382,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-02",
+        "ref": "codex/smart-local-modes-20260901",
+        "head": "1e03113f121483116afad23f6b370b0f62efa5c4",
+        "scope": "smart local modes integration",
+        "outcome": "Fixed calculator identity matches inside natural-language queries; no additional P0-P2 findings.",
+        "checks": "Focused calculators Vitest 18/18; npm run format; git diff --check."
+      },
       {
         "date": "2026-09-01",
         "ref": "codex/smart-local-modes-20260901 (PR #2508)",
@@ -25672,8 +25680,8 @@
       }
     ],
     "counts": {
-      "records": 2661,
-      "refs": 1626
+      "records": 2662,
+      "refs": 1627
     }
   }
 }
