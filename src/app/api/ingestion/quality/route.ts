@@ -423,14 +423,14 @@ export async function GET(request: Request) {
     // capped read as a complete one. `qualityResult` has no `.limit()` (one
     // row per document, itself already bounded by the document-window limit
     // above), so it is deliberately not in this list.
-    const cappedChildTables: Array<[string, typeof jobsResult]> = [
-      ["ingestion_jobs", jobsResult],
-      ["ingestion_job_stages", stagesResult],
-      ["document_pages", pagesResult],
-      ["document_images", imagesResult],
+    const cappedChildTables: Array<[string, unknown[] | null]> = [
+      ["ingestion_jobs", jobsResult.data],
+      ["ingestion_job_stages", stagesResult.data],
+      ["document_pages", pagesResult.data],
+      ["document_images", imagesResult.data],
     ];
     const partialTables = cappedChildTables
-      .filter(([, result]) => Array.isArray(result.data) && result.data.length >= CHILD_QUERY_ROW_CAP)
+      .filter(([, data]) => Array.isArray(data) && data.length >= CHILD_QUERY_ROW_CAP)
       .map(([table]) => table);
 
     return NextResponse.json({

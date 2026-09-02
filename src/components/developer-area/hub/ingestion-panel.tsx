@@ -188,10 +188,18 @@ function JobSection({
 function CheckedAt({ fetchedAt }: { fetchedAt: string }) {
   const freshness = resolveFreshnessFrom(fetchedAt, new Date(), { status: "live" });
   if (freshness.contentAt === null) return null;
+  // #L14: this client-rendered stamp followed the browser's clock while the
+  // server-rendered `FreshnessStamp` above it followed the container's (UTC
+  // on Railway) — an unlabelled eight-hour gap for a Perth reader on the one
+  // page that polls live. Pinned to Australia/Perth so both agree regardless
+  // of where either half renders, and the zone name is printed so a reader
+  // never has to guess which clock produced it.
   const time = new Date(freshness.contentAt).toLocaleTimeString("en-AU", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    timeZone: "Australia/Perth",
+    timeZoneName: "short",
   });
   const timeDistance = formatTimeDistance(freshness.ageHours, freshness.ageMinutes);
   return (

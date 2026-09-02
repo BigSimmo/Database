@@ -75,6 +75,18 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     expect(checkedAt).toHaveTextContent(/checked/i);
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live on demand/i);
   });
+
+  // #L14: this client-rendered line followed the browser clock while the
+  // shell's server-rendered stamp followed the container clock (UTC on
+  // Railway), an unlabelled eight-hour gap on the one page that polls live.
+  // Both now pin Australia/Perth and print the zone name.
+  it("prints the timezone on the live checked-at line, pinned to Australia/Perth", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(readyPayload()));
+    render(<DeveloperIngestionPage />);
+
+    const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
+    expect(checkedAt).toHaveTextContent(/AWST/);
+  });
 });
 
 describe("developer ingestion page — the four states (plan §4)", () => {
