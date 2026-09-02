@@ -442,3 +442,49 @@ npm run design-system:baselines:adopt -- \
 2. **Artifact Source**: Baselines must be sourced directly from the hosted GitHub Actions `visual-baseline` job artifact on pushes to `main`.
 3. **Reviewer Attestation**: `--reviewed-by` is required. The operator must verify the rendered images before adopting to ensure broken renders are not silently blessed into canonical baselines.
 4. **Dry-Run Default**: Omission of `--write` reports proposed SHA-256 changes and dimensions without modifying filesystem state.
+
+## 6a · Visual-baseline non-determinism hardening — 2 September 2026
+
+Five parallel agents audited every non-determinism class (time, data ordering, animation,
+fonts/async, environment) against the five capture targets' actual reachable component trees —
+not a fresh route sweep. The capture set is fixed by `canonicalCandidates` above and was not
+redesigned. One real, unmitigated race was found and fixed; everything else was confirmed
+already neutralized by the suite's existing `settle()` contract (demo-mode data,
+`reducedMotion: "reduce"`, `document.fonts.ready`, viewport-before-goto ordering) or is
+structurally unreachable from these five routes' default state.
+
+**Fixed:** `search-results-band`/`search-results-band-phone`. `SearchResultsHeaderBand` (the
+`[data-testid="search-query-ribbon"]` element the target clips) is unconditionally in the DOM in
+every status, including while `useRegistryRecords`'s first `/api/registry/records` round trip is
+still in flight — so `settle()`'s visibility check passed before the fetch resolved, and a
+capture could land on the `"loading"` state (spinner, no filter/sort row) or the settled
+`"ready"` state (real count + controls) depending on CI scheduling jitter. This is the same
+async-render race already recorded in §5 against this exact route (`/services?q=CMHT&run=1`, six
+runs there returned 6/5/4/3/3/9 distinct shapes) — same route, different surface. Fixed by
+waiting for the ribbon's own `data-status` attribute to leave `"loading"`/`"refetching"` before
+capture (`waitForRibbonSettled`, `tests/ui-visual-baseline.spec.ts`), rather than masking or
+widening the target.
+
+**Confirmed already covered, not re-litigated:** the Ward Flow pinned-clock fix (`a1aa449`,
+ledger `#YTR84P`) is unrelated — a different component tree, reachable only from non-production
+`/mockups/ward-flow`, not any of the five targets. No data-ordering risk exists on any of the
+five targets (every reachable `.sort()` has a real tiebreaker or a fixed pre-sort array; demo
+mode bypasses live queries entirely before any DB call is made). The `.answer-progress-dot`
+breathing-dot motion exception cannot appear on these five targets by default, since no query is
+ever submitted at capture time. Locale/date formatting reachable from these routes is hardcoded
+`en-AU`/`Australia/Perth`, not runner-locale-dependent.
+
+**Left open, not a target fix today:** no global clock pin exists (`page.clock.install()` or
+similar) — every currently-reachable time computation happens to be gated off by default state,
+not because time itself is frozen. If a future change adds a default-visible relative-time or
+greeting element to any of the five targets' components, nothing here would catch it. Also open:
+whether `/api/setup-status` could race a `DegradedNoticeFrame` banner into
+`dashboard-shell`/`therapy-compass-home` — no evidence found that it has, not proven safe either.
+Both are candidates for the next pass, not blockers for this one.
+
+This pass could not run the suite locally to confirm the fix reduces variance — no browser was
+available in the container this work was done in (see the PR that introduced this section for
+why). The fix is offline-typechecked and lint-clean only; the hosted `visual-baseline` CI job on
+`ubuntu-24.04` is the first real proof it works, and a human reviewing that job's candidate
+images is still required before any of these five targets can move to `committed` — see the
+adoption workflow above.
