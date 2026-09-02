@@ -39,7 +39,7 @@ export const ENRICH_USAGE = [
   "  --include-current        Also re-enrich documents whose enrichment is already current.",
 ].join("\n");
 
-export function parseEnrichArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): EnrichArgs {
+export function parseEnrichArgs(argv: string[], env: Record<string, string | undefined> = process.env): EnrichArgs {
   const args: EnrichArgs = {
     ownerEmail: env.RAG_EVAL_OWNER_EMAIL,
     ownerId: env.RAG_EVAL_OWNER_ID ?? env.LOCAL_NO_AUTH_OWNER_ID,

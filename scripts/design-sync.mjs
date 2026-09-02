@@ -46,7 +46,13 @@ export const DS_SYNC_PACKAGES = Object.freeze({
   geist: null,
 });
 
-/** `npm install` specifiers for the toolchain, or the reason the install must be refused. */
+/**
+ * `npm install` specifiers for the toolchain, or the reason the install must be refused.
+ *
+ * @param {Readonly<Record<string, string | null>>} [packages]
+ * @param {{ allowUnpinned?: boolean }} [options]
+ * @returns {{ error: string, specifiers?: undefined } | { error?: undefined, specifiers: string[] }}
+ */
 export function dsSyncInstallSpecifiers(packages = DS_SYNC_PACKAGES, { allowUnpinned = false } = {}) {
   const unpinned = Object.entries(packages)
     .filter(([, version]) => version === null)

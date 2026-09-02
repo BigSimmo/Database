@@ -13,7 +13,7 @@ const source = readFileSync(path.join(repositoryRoot, "scripts", "enrich-documen
 // calls OpenAI. It must follow the sibling backfill convention: dry-run by default, explicit
 // `--write`, explicit `--all-owners`, and a Supabase project check before any client exists.
 describe("enrich:documents guards", () => {
-  const noOwnerEnv = {} as NodeJS.ProcessEnv;
+  const noOwnerEnv: Record<string, string | undefined> = {};
 
   it("defaults to dry-run and never implies --all-owners from an empty owner environment", () => {
     expect(() => parseEnrichArgs([], noOwnerEnv)).toThrow(/--all-owners explicitly/);
@@ -23,7 +23,7 @@ describe("enrich:documents guards", () => {
   });
 
   it("keeps an owner-scoped run owner-scoped unless --all-owners is passed", () => {
-    const args = parseEnrichArgs([], { LOCAL_NO_AUTH_OWNER_ID: "owner-1" } as NodeJS.ProcessEnv);
+    const args = parseEnrichArgs([], { LOCAL_NO_AUTH_OWNER_ID: "owner-1" });
     expect(args.allOwners).toBe(false);
     expect(args.ownerId).toBe("owner-1");
     expect(args.write).toBe(false);

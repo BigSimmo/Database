@@ -22,7 +22,9 @@ const REMOTE_URL = "postgres://postgres:secret@db.example.supabase.co:5432/postg
 // never see the variable, and the explicit runner must only ever point at a loopback host.
 describe("caring-contacts database suites stay out of the default offline test run", () => {
   it("scrubs CARING_CONTACTS_DATABASE_URL from the offline environment unless the runner opted in", () => {
-    const environment = offlineTestEnvironment({ [CARING_CONTACTS_DATABASE_URL_KEY]: LOOPBACK_URL });
+    const environment: Record<string, string | undefined> = offlineTestEnvironment({
+      [CARING_CONTACTS_DATABASE_URL_KEY]: LOOPBACK_URL,
+    });
     // Blank, not deleted: an explicit value stops Vite/Next from repopulating the name
     // from a repository-local env file, and vitest.config.mts treats "" as "no database".
     expect(environment[CARING_CONTACTS_DATABASE_URL_KEY]).toBe("");
@@ -30,7 +32,7 @@ describe("caring-contacts database suites stay out of the default offline test r
   });
 
   it("keeps a loopback CARING_CONTACTS_DATABASE_URL when the explicit runner opted in", () => {
-    const environment = offlineTestEnvironment({
+    const environment: Record<string, string | undefined> = offlineTestEnvironment({
       [CARING_CONTACTS_DATABASE_URL_KEY]: LOOPBACK_URL,
       [CARING_CONTACTS_DB_TESTS_OPT_IN]: "1",
     });
