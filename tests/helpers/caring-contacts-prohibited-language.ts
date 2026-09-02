@@ -27,8 +27,39 @@
  * "the clinical leads" while a message still may not. The asymmetry is the safe direction and is
  * the whole reason it was taken on only one surface: loosening the wording a discharged patient
  * receives is the highest-consequence change available in this feature, and nothing needed it.
- * Commercial plurals are untouched -- "sales leads", "new leads" and "leads capture" are still
- * refused on both.
+ * Bare commercial plurals are untouched -- "sales leads", "new leads", "warm leads", "qualified
+ * leads", "leads capture" and a lone "Leads" are all still refused on both surfaces.
+ *
+ * WHAT THE PLURAL EXEMPTION LETS THROUGH, measured rather than assumed (review of 33e1ffd,
+ * 2026-09-02). It is wider than "plural job titles", and the reason is worth understanding before
+ * anyone widens it further. The companion list guards words that come AFTER the word, which is
+ * where singular commercial English puts them -- "lead generation", "lead capture". Plural
+ * commercial English puts them BEFORE -- "capture leads", "convert leads", "unconverted leads" --
+ * and nothing guards that position. So every one of these was refused before the plural exemption
+ * and is permitted now:
+ *
+ *     Capture clinical leads      Convert team leads         Nurture clinical leads
+ *     Generate service leads      Qualify incident leads     Score service leads
+ *     Unconverted service leads   clinical leads dashboard   team leads funnel
+ *     "Our team leads are up 20% this quarter."
+ *
+ * The singular pair has the same shape of hole -- "Capture the clinical lead" was already permitted
+ * on both surfaces before any of this -- so this is a pre-existing structural gap made easier to
+ * reach, not a new class of one. It was left open deliberately. Closing it by requiring a
+ * determiner ("the clinical leads") would refuse an ordinary screen heading of "Clinical leads" on
+ * a team roster, which is the exact wording the owner's decision existed to permit; closing it with
+ * a list of commercial verbs would rebuild the allowlist that `message-rules.ts` records as the
+ * original defect, because commercial vocabulary is open-ended. Tracked as its own outstanding
+ * issue rather than fixed here. If you widen this exemption again, measure this list first.
+ *
+ * Two smaller consequences of the same shape, also measured. `leads` as a VERB after a qualifier is
+ * now permitted -- "the team leads the review", "this programme leads to discharge" -- which is
+ * benign but is not a job title; without a qualifier it is still refused ("this leads to a
+ * referral"). And the lookbehind wants exactly one literal space, so "clinical-leads",
+ * "clinical  leads" and a line break between "clinical" and "leads" are all still refused. That
+ * last one is the practical trap: the raw-prose pass reads JSX text, so Prettier wrapping a line at
+ * that point produces a confusing refusal of wording that is now explicitly permitted. Rewrap
+ * rather than adding an exemption.
  *
  * The rest of the rule is written a second time, for messages, as `COMMERCIAL_LEAD_PATTERN` in
  * `src/lib/caring-contacts/message-rules.ts`. Nothing under `src/lib/caring-contacts/**` may

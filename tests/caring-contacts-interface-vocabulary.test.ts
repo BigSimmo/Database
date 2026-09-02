@@ -747,6 +747,11 @@ const LEAD_PHRASES_BOTH_ALREADY_REFUSED = [
   "sales lead generation",
   "Check out our new lead magnet.",
   "Please qualify this lead.",
+  // Added 2026-09-02 with the plural exemption. These two are what the plural COMPANION branch
+  // exists for -- an exempting qualifier must not license what follows it -- so they belong in the
+  // corpus the invariant walks, not as inline assertions that only ever check the screen half.
+  "clinical leads capture",
+  "sales leads",
 ];
 
 describe('the "lead" rule is defined twice, and the message side is never the looser one (Ruling [143])', () => {
@@ -762,11 +767,6 @@ describe('the "lead" rule is defined twice, and the message side is never the lo
       expect(screenRefuses(phrase), `screen still refuses the plural job title ${JSON.stringify(phrase)}`).toBe(false);
       expect(messageRefusesLead(phrase), `a message now permits ${JSON.stringify(phrase)}`).toBe(true);
     }
-
-    // The exemption must not license what follows the word it exempts, exactly as on the singular.
-    expect(screenRefuses("clinical leads capture")).toBe(true);
-    expect(screenRefuses("sales leads")).toBe(true);
-    expect(screenRefuses("new leads")).toBe(true);
   });
 
   it("refuses on BOTH surfaces every phrase Ruling [143] measured as divergent", () => {
