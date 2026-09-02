@@ -46,6 +46,7 @@ type PanelState =
       fetchedAt: string;
       jobs: IngestionJobRow[];
       activeJobCount: number;
+      failedJobCount: number;
       hasActiveJobs: boolean;
       pollAfterMs: number | null;
       pagination: IngestionPagination | null;
@@ -97,6 +98,10 @@ function asJobRow(value: unknown): IngestionJobRow | null {
 function parseReadyPayload(payload: Record<string, unknown>) {
   if (!Array.isArray(payload.jobs)) return null;
   if (typeof payload.activeJobCount !== "number") return null;
+  // #L15: required like activeJobCount, not defaulted to 0 — a response that
+  // omits it degrades to the fetch-error state rather than silently showing
+  // "0 failed" for a corpus that may have failures.
+  if (typeof payload.failedJobCount !== "number") return null;
   if (typeof payload.hasActiveJobs !== "boolean") return null;
   const jobs = payload.jobs.map(asJobRow).filter((job): job is IngestionJobRow => job !== null);
   const pollAfterMs = typeof payload.pollAfterMs === "number" ? payload.pollAfterMs : null;
@@ -108,6 +113,7 @@ function parseReadyPayload(payload: Record<string, unknown>) {
   return {
     jobs,
     activeJobCount: payload.activeJobCount,
+    failedJobCount: payload.failedJobCount,
     hasActiveJobs: payload.hasActiveJobs,
     pollAfterMs,
     pagination,
@@ -375,7 +381,14 @@ export function IngestionPanel() {
          * the one this page must not silently override.
          */}
         <CountTile testId="developer-ingestion-count-active" value={state.activeJobCount} label="active jobs" />
-        <CountTile testId="developer-ingestion-count-failed" value={failed.length} label="failed jobs" />
+        {/*
+         * #L15: this tile used to derive from `failed.length`, i.e. the
+         * current page (`bucketJobs(state.jobs)`), so older failures beyond
+         * the newest page vanished from the one number this page exists to
+         * answer. `failedJobCount` is the server's pre-pagination full count,
+         * same shape as `activeJobCount` above.
+         */}
+        <CountTile testId="developer-ingestion-count-failed" value={state.failedJobCount} label="failed jobs" />
         <CountTile testId="developer-ingestion-count-shown" value={state.jobs.length} label="jobs shown" />
       </div>
 

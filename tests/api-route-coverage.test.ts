@@ -167,6 +167,7 @@ describe("/api/ingestion/jobs", () => {
     expect(payload).toEqual({
       jobs: [],
       activeJobCount: 0,
+      failedJobCount: 0,
       hasActiveJobs: false,
       pollAfterMs: null,
       demoMode: true,
@@ -195,7 +196,14 @@ describe("/api/ingestion/jobs", () => {
       count: 1,
     });
     const activeCountChain = createQueryMock({ data: null, error: null, count: 1 });
-    const from = vi.fn().mockReturnValueOnce(jobsChain).mockReturnValueOnce(activeCountChain);
+    // #L15: the route now also runs a failed-jobs head count, same shape as
+    // activeCountChain, so the mock must answer a third `from()` call.
+    const failedCountChain = createQueryMock({ data: null, error: null, count: 3 });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(jobsChain)
+      .mockReturnValueOnce(activeCountChain)
+      .mockReturnValueOnce(failedCountChain);
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({ from, rpc: nonLimitedRateLimitRpc() }),
@@ -214,11 +222,15 @@ describe("/api/ingestion/jobs", () => {
     expect(payload.activeJobCount).toBe(1);
     expect(payload.hasActiveJobs).toBe(true);
     expect(payload.pollAfterMs).toBe(5_000);
+    expect(payload.failedJobCount).toBe(3);
     expect(payload.jobs).toHaveLength(1);
-    expect(from).toHaveBeenCalledTimes(2);
+    expect(from).toHaveBeenCalledTimes(3);
     expect(activeCountChain.in).toHaveBeenCalledWith("status", ["pending", "processing"]);
     expect(activeCountChain.eq).toHaveBeenCalledWith("documents.owner_id", ownerId);
     expect(activeCountChain.eq).toHaveBeenCalledWith("batch_id", "11111111-1111-4111-8111-111111111111");
+    expect(failedCountChain.eq).toHaveBeenCalledWith("status", "failed");
+    expect(failedCountChain.eq).toHaveBeenCalledWith("documents.owner_id", ownerId);
+    expect(failedCountChain.eq).toHaveBeenCalledWith("batch_id", "11111111-1111-4111-8111-111111111111");
   });
 });
 

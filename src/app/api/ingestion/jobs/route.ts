@@ -26,13 +26,24 @@ const ingestionJobsQuerySchema = z.object({
 
 type JobRow = StatusRow;
 
-function jobsResponse(jobs: JobRow[], activeJobCount: number, extra: Record<string, unknown> = {}) {
+function jobsResponse(
+  jobs: JobRow[],
+  activeJobCount: number,
+  failedJobCount: number,
+  extra: Record<string, unknown> = {},
+) {
   const hasActiveJobs = activeJobCount > 0;
   const pollAfterMs = hasActiveJobs ? ACTIVE_INDEXING_POLL_MS : null;
   return indexingListResponse(
     {
       jobs,
       activeJobCount,
+      // #L15: the hub's "failed jobs" tile used to derive from
+      // `bucketJobs(state.jobs)`, i.e. only the current page (default 100,
+      // newest first), so a corpus with more than 100 jobs could hide older
+      // failures from the number the page exists to answer. This is a
+      // pre-pagination head count, matching activeJobCount's own shape.
+      failedJobCount,
       hasActiveJobs,
       pollAfterMs,
       ...extra,
@@ -49,7 +60,7 @@ export async function GET(request: Request) {
       "Invalid ingestion jobs query.",
     );
     if (isDemoMode()) {
-      return jobsResponse([], 0, {
+      return jobsResponse([], 0, 0, {
         demoMode: true,
         pagination: emptyPagination(limit, offset),
       });
@@ -82,23 +93,37 @@ export async function GET(request: Request) {
       .select("id, documents!inner(owner_id)", { count: "exact", head: true })
       .eq("documents.owner_id", user.id)
       .in("status", ACTIVE_JOB_STATUSES);
+    // #L15: a pre-pagination full count, same shape as activeCountQuery, so
+    // the failed-jobs tile stops under-reporting once a corpus has more jobs
+    // than one page holds.
+    let failedCountQuery = supabase
+      .from("ingestion_jobs")
+      .select("id, documents!inner(owner_id)", { count: "exact", head: true })
+      .eq("documents.owner_id", user.id)
+      .eq("status", "failed");
 
     if (batchId) {
       query = query.eq("batch_id", batchId);
       activeCountQuery = activeCountQuery.eq("batch_id", batchId);
+      failedCountQuery = failedCountQuery.eq("batch_id", batchId);
     }
 
-    const [{ data, error, count }, { error: activeCountError, count: activeJobCount }] = await Promise.all([
-      query,
-      activeCountQuery,
-    ]);
+    const [
+      { data, error, count },
+      { error: activeCountError, count: activeJobCount },
+      { error: failedCountError, count: failedJobCount },
+    ] = await Promise.all([query, activeCountQuery, failedCountQuery]);
     if (error) throw new Error(error.message);
     if (activeCountError) throw new Error(activeCountError.message);
     if (typeof activeJobCount !== "number" || !Number.isInteger(activeJobCount) || activeJobCount < 0) {
       throw new Error("The active ingestion job count was unavailable.");
     }
+    if (failedCountError) throw new Error(failedCountError.message);
+    if (typeof failedJobCount !== "number" || !Number.isInteger(failedJobCount) || failedJobCount < 0) {
+      throw new Error("The failed ingestion job count was unavailable.");
+    }
     const jobs = parseStatusRows(data);
-    return jobsResponse(jobs, activeJobCount, {
+    return jobsResponse(jobs, activeJobCount, failedJobCount, {
       pagination: offsetPagination({ limit, offset, pageLength: jobs.length, count }),
     });
   } catch (error) {
