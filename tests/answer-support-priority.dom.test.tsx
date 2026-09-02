@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AnswerUtilityActions, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
 import type { AnswerState } from "@/components/ui/answer-state";
@@ -150,17 +150,57 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
 
     const report = screen.getByTestId("answer-feedback-trigger");
     expect(report).toHaveAccessibleName("Report a problem with this answer");
+    // A dialog opener, not an in-flow disclosure: as a disclosure this list
+    // opened partly behind the fixed phone composer and could not scroll itself
+    // clear without hiding the phone chrome (see the comment on the Sheet).
+    expect(report).toHaveAttribute("aria-haspopup", "dialog");
     expect(report).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTestId("answer-review-panel")).not.toBeInTheDocument();
 
     await user.click(report);
-    const panel = screen.getByTestId("answer-review-panel");
+    expect(report).toHaveAttribute("aria-expanded", "true");
+    const sheet = await screen.findByTestId("answer-feedback-sheet");
+    // The sheet asks the question in its own header, so the panel inside it
+    // does not ask it a second time.
+    expect(within(sheet).getByText("What is wrong with this answer?")).toBeInTheDocument();
+    const panel = within(sheet).getByTestId("answer-review-panel");
     expect(panel).toHaveAttribute("data-tone", "problems");
+    expect(panel).toHaveAttribute("data-chrome", "bare");
+    expect(within(panel).queryByText("What is wrong with this answer?")).not.toBeInTheDocument();
     // The affirmative option is the thumb up, not an entry in a list opened to
     // report a fault — offering it here is a mis-click that records the
     // opposite of what the reader meant.
     expect(within(panel).queryByRole("button", { name: /Verified/ })).not.toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: /Wrong source/ })).toBeInTheDocument();
+  });
+
+  it("closes the sheet on submission so the outcome notice is reachable", async () => {
+    // The dashboard reports every outcome — success, network failure, an expired
+    // feedback token, and synthetic demo answers — through the page-level notice
+    // alone, which renders outside this portaled modal. Leaving the sheet open
+    // puts that notice behind the backdrop with the page inert, so the tap reads
+    // as having done nothing. Codex P2 on PR #2541; it did not exist while the
+    // list was an in-flow disclosure.
+    const user = userEvent.setup();
+    const onSubmitFeedback = vi.fn();
+    render(
+      <AnswerUtilityActions
+        copied={false}
+        onCopy={() => undefined}
+        pendingFeedback={null}
+        onSubmitFeedback={onSubmitFeedback}
+      />,
+    );
+
+    const report = screen.getByTestId("answer-feedback-trigger");
+    await user.click(report);
+    const sheet = await screen.findByTestId("answer-feedback-sheet");
+    await user.click(within(sheet).getByRole("button", { name: /Wrong source/ }));
+
+    expect(onSubmitFeedback).toHaveBeenCalledTimes(1);
+    expect(onSubmitFeedback).toHaveBeenCalledWith("wrong_source");
+    await waitFor(() => expect(screen.queryByTestId("answer-feedback-sheet")).not.toBeInTheDocument());
+    expect(report).toHaveAttribute("aria-expanded", "false");
   });
 
   it("routes the safety sheet from the header chip now that the support card is gone", () => {
