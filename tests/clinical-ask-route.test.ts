@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
   retrieveExternal: vi.fn(),
   modeEnabled: vi.fn(),
   enabled: vi.fn(),
+  logWarn: vi.fn(),
+  logError: vi.fn(),
+}));
+vi.mock("@/lib/logger", () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: mocks.logWarn, error: mocks.logError },
 }));
 vi.mock("@/lib/public-api-access", () => ({ publicAccessContext: mocks.access }));
 vi.mock("@/lib/api-rate-limit", () => ({
@@ -185,6 +190,10 @@ describe("POST /api/clinical-ask/stream", () => {
     expect(mocks.modeEnabled).not.toHaveBeenCalled();
     expect(mocks.resolveScope).not.toHaveBeenCalled();
     expect(mocks.run).not.toHaveBeenCalled();
+    // A designed 404 is not a server fault: it must not write an error-level
+    // log line (which the Sentry Logs allowlist would forward) per probe.
+    expect(mocks.logError).not.toHaveBeenCalled();
+    expect(mocks.logWarn).not.toHaveBeenCalled();
   });
 
   it("keeps the SSE mode_unavailable frame for a mode on the emergency denylist", async () => {

@@ -169,8 +169,10 @@ export async function POST(request: Request) {
     // Answer before body parsing, the auth lookup, or the durable rate-limiter
     // write so a switched-off feature costs nothing and confirms nothing (L33).
     // The per-mode emergency denylist keeps its SSE `mode_unavailable` frame.
+    // `log: false`: a designed 404 is not a server fault, so it must not write
+    // the error-level "API request failed" line that Sentry Logs forwards.
     if (!clinicalAskEnabled()) {
-      return jsonError(new PublicApiError("Not found.", 404, { code: "not_found" }), 404);
+      return jsonError(new PublicApiError("Not found.", 404, { code: "not_found" }), 404, { log: false });
     }
     const body = await parseJsonBody(request, clinicalAskRequestSchema, "Invalid Clinical Ask request.");
     const supabase = createAdminClient();

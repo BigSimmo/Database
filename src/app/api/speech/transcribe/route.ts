@@ -20,8 +20,10 @@ export async function POST(request: Request) {
     // Dormant by default: when the Clinical Ask master flag is off this route
     // does not exist. Answer before any auth lookup, rate-limiter write, or
     // provider call so `CLINICAL_ASK_ENABLED=false` is a full rollback (M16).
+    // `log: false`: a designed 404 is not a server fault, so it must not write
+    // the error-level "API request failed" line that Sentry Logs forwards.
     if (!clinicalAskEnabled()) {
-      return noStore(jsonError(new PublicApiError("Not found.", 404, { code: "not_found" }), 404));
+      return noStore(jsonError(new PublicApiError("Not found.", 404, { code: "not_found" }), 404, { log: false }));
     }
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);

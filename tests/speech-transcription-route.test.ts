@@ -53,6 +53,10 @@ describe("POST /api/speech/transcribe", () => {
     expect(mocks.access).not.toHaveBeenCalled();
     expect(mocks.rate).not.toHaveBeenCalled();
     expect(mocks.transcribe).not.toHaveBeenCalled();
+    // A designed 404 is not a server fault: it must not write an error-level
+    // log line (which the Sentry Logs allowlist would forward) per probe.
+    expect(mocks.error).not.toHaveBeenCalled();
+    expect(mocks.warn).not.toHaveBeenCalled();
   });
 
   it.each([
