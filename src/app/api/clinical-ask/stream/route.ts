@@ -10,6 +10,7 @@ import { ClinicalAskSseEncoder, clinicalAskHeartbeatFrame } from "@/lib/clinical
 import { retrieveCatalogueEvidence } from "@/lib/clinical-ask/catalogue-evidence";
 import {
   authorityDomainsForProfile,
+  clinicalAskEnabled,
   clinicalAskExternalSearchEnabled,
   clinicalAskModeEnabled,
 } from "@/lib/clinical-ask/authority-registry";
@@ -164,6 +165,13 @@ function clinicalAskStream(
 
 export async function POST(request: Request) {
   try {
+    // Dormant by default: with the master flag off this route does not exist.
+    // Answer before body parsing, the auth lookup, or the durable rate-limiter
+    // write so a switched-off feature costs nothing and confirms nothing (L33).
+    // The per-mode emergency denylist keeps its SSE `mode_unavailable` frame.
+    if (!clinicalAskEnabled()) {
+      return jsonError(new PublicApiError("Not found.", 404, { code: "not_found" }), 404);
+    }
     const body = await parseJsonBody(request, clinicalAskRequestSchema, "Invalid Clinical Ask request.");
     const supabase = createAdminClient();
     const authStarted = Date.now();
