@@ -2192,18 +2192,32 @@ describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () =
         .replace(/\s+/g, "")
         .trim();
 
+    // NOT (x IS DISTINCT FROM y), not x IS NOT DISTINCT FROM y — even though the migration
+    // source writes the latter. Postgres does not store that spelling; the parser rewrites it.
+    // The first version of this guard expected the source spelling, and this test PASSED
+    // anyway, because it compared the normalizer against the same wrong render the guard
+    // used. Migration replay caught it on a real database. An offline reimplementation can
+    // only ever check the render you assumed, so the render below is the one CI actually
+    // observed from pg_get_constraintdef, quoted verbatim, not a hand-written guess.
     const expected = normalize(
-      "CHECK (owner_id IS NOT NULL OR metadata->'public_corpus' IS NOT DISTINCT FROM 'true'::jsonb OR status = 'failed')",
+      "CHECK (owner_id IS NOT NULL OR NOT (metadata->'public_corpus' IS DISTINCT FROM 'true'::jsonb) OR status = 'failed')",
     );
 
-    // How Postgres renders it: outer parens around the whole expression, parens around each
-    // disjunct, and an explicit ::text cast on the status comparison.
     for (const render of [
-      "CHECK (((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) IS NOT DISTINCT FROM 'true'::jsonb) OR (status = 'failed'::text)))",
-      "CHECK ((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) IS NOT DISTINCT FROM 'true'::jsonb) OR ((status)::text = 'failed'::text))",
+      // Observed on 2026-09-02, run 33604053672, head 4862888a.
+      "CHECK (((owner_id IS NOT NULL) OR (NOT ((metadata -> 'public_corpus'::text) IS DISTINCT FROM 'true'::jsonb)) OR (status = 'failed'::text)))",
+      "CHECK ((owner_id IS NOT NULL) OR (NOT ((metadata -> 'public_corpus'::text) IS DISTINCT FROM 'true'::jsonb)) OR ((status)::text = 'failed'::text))",
     ]) {
       expect(normalize(render), render).toBe(expected);
     }
+
+    // The spelling the source uses must NOT normalize to the same string. If it did, this
+    // test would go on passing through exactly the mistake that broke Migration replay.
+    expect(
+      normalize(
+        "CHECK (((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) IS NOT DISTINCT FROM 'true'::jsonb) OR (status = 'failed'::text)))",
+      ),
+    ).not.toBe(expected);
 
     // The ::jsonb cast is deliberately NOT stripped — it is what makes the predicate test the
     // JSON boolean rather than its text rendering, so a `->>`/text variant must NOT normalize
@@ -2220,7 +2234,7 @@ describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () =
       "utf8",
     );
     expect(guard).toContain(
-      "'CHECK (owner_id IS NOT NULL OR metadata->''public_corpus'' IS NOT DISTINCT FROM ''true''::jsonb OR status = ''failed'')'",
+      "'CHECK (owner_id IS NOT NULL OR NOT (metadata->''public_corpus'' IS DISTINCT FROM ''true''::jsonb) OR status = ''failed'')'",
     );
   });
 });

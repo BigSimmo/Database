@@ -26,6 +26,16 @@
 -- rendering, so it is part of what this guard pins.
 -- tests/supabase-schema.test.ts reimplements this normalizer and asserts it against a
 -- hard-coded pg_get_constraintdef render, so the highest-risk logic here is covered
+--
+-- The expected literal spells the constraint as NOT (x IS DISTINCT FROM y), NOT as
+-- x IS NOT DISTINCT FROM y, even though the source migration writes the latter. Postgres
+-- does not store that spelling: the parser rewrites it, and pg_get_constraintdef renders
+-- CHECK (((owner_id IS NOT NULL) OR (NOT ((metadata -> 'public_corpus'::text) IS DISTINCT
+-- FROM 'true'::jsonb)) OR (status = 'failed'::text))). The first version of this guard
+-- expected the source spelling and failed Migration replay on exactly that mismatch. An
+-- offline test cannot catch it: reimplementing the normalizer only ever checks the render
+-- you assumed, and the assumption was the bug. Anything added to this comparison must be
+-- confirmed against a real pg_get_constraintdef, not against a hand-written render.
 -- offline rather than only on the target.
 
 set local search_path = public, extensions, pg_catalog;
@@ -66,7 +76,7 @@ begin
     end if;
 
     actual_normalized := btrim(regexp_replace(replace(replace(replace(replace(lower(coalesce(constraint_row.definition, '')), '::text', ''), '(', ''), ')', ''), ' ', ''), '[[:space:]]+', '', 'g'));
-    expected_normalized := btrim(regexp_replace(replace(replace(replace(replace(lower(coalesce('CHECK (owner_id IS NOT NULL OR metadata->''public_corpus'' IS NOT DISTINCT FROM ''true''::jsonb OR status = ''failed'')', '')), '::text', ''), '(', ''), ')', ''), ' ', ''), '[[:space:]]+', '', 'g'));
+    expected_normalized := btrim(regexp_replace(replace(replace(replace(replace(lower(coalesce('CHECK (owner_id IS NOT NULL OR NOT (metadata->''public_corpus'' IS DISTINCT FROM ''true''::jsonb) OR status = ''failed'')', '')), '::text', ''), '(', ''), ')', ''), ' ', ''), '[[:space:]]+', '', 'g'));
     if actual_normalized is distinct from expected_normalized then
       mismatched_objects := array_append(
         mismatched_objects,
