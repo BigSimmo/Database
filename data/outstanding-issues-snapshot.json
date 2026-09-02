@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "362cc5dd50698e44481cfff76f578e075fa6a2bf",
-    "committed_at": "2026-08-27T20:30:32+08:00"
+    "sha": "d247db72afce3d28a45d496334927a6c5cb5762e",
+    "committed_at": "2026-09-02T03:17:21+00:00"
   },
   "counts": {
     "open": 75,
@@ -10,7 +10,7 @@
     "p2": 51,
     "p3": 22,
     "queued": 7,
-    "pending": 0,
+    "pending": 10,
     "resolved": 454
   },
   "queue": [
@@ -769,5 +769,66 @@
       "added": "2026-08-24"
     }
   ],
-  "pending": []
+  "pending": [
+    {
+      "request_id": "372fe535-7009-498c-bc6c-059d9ad66ce1",
+      "action": "update",
+      "summary": "#EG4Q7W: detail → STILL OPEN AND LARGER THAN RECORDED; re-measured against origin/main d1bb2c197 on 2026-09-02. A done request for this row (97bbfd51) claimed the file had been modularized into five cohesive domain modules (core, plans, contacts, referrals-pathways, assignments). That claim is false against current main and the request was cancelled, so nothing was lost -- but the reason recorded on the cancellation ('target issue is no longer in Open items on current main') was also wrong, since the row was and remains open. Recording the measurement so a third attempt does not start from either error. MEASURED: src/lib/caring-contacts/db/postgres-repository.ts is a single file of 2,500 lines. It has not been split, and it is now about 420 lines LARGER than the ~2,080 this row recorded when it was filed. There are no sibling domain modules beside it under db/. The original recommendation is unchanged and still applies: the split is pure structure with no behaviour change, every method's set_config / set local role preamble must survive it intact because this file is the code half of row-level security, and the existing shared contract suite is the proof that it did.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "59f035ef-381b-4877-b27a-fa26f1048a32",
+      "action": "done",
+      "summary": "#0HYHTH: Resolved; verified against origin/main d1bb2c197 on 2026-09-02. The row's claim was that the prohibited-language check ran only against outgoing messages and the 24 frozen overlay rows, so interface strings elsewhere in the workspace were governed by people rather than by software. tests/caring-contacts-interface-vocabulary.test.ts now exists (18 KB) and closes that: it walks SCAN_ROOTS on disk, strips comments and className values, and asserts that no remaining quoted literal or JSX text matches CARING_CONTACTS_PROHIBITED_LANGUAGE, the single shared vocabulary in tests/helpers/caring-contacts-prohibited-language.ts. The scan roots are deliberately narrow so that src/components/caring-contacts/mockups/** is excluded by construction rather than by a special-case skip, and the suite carries its own fixture-directory self-tests (a quoted-literal fixture and a JSX-text fixture) so the scan is proved able to fail rather than merely observed passing. THE KNOWN RESIDUE IS TRACKED SEPARATELY AND IS NOT LOST BY THIS CLOSE: a pending inbox add (ULID 01M0VR9XRYZ5P2BW2GHVKFHDKJ) records that this scan cannot express a job title and that the workaround pushes role copy into src/lib/caring-contacts/**, which no vocabulary scan reaches. Related open row #AGRAKQ covers the plural job-title collision in the shared helper. HISTORY: a done request for this row (b1630592) was cancelled on 2026-08-31 with the reason 'target issue is no longer in Open items on current main'. That premise was wrong -- the row was and remained open -- so the close was lost rather than applied. This request re-closes it on directly verified evidence.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "60d75939-a2e4-44a7-af96-203ed2f2ca9c",
+      "action": "add",
+      "summary": "The calculators mockup still serves prescribing, ECT and admission directives that PR #2491 removed from production on clinical-safety grounds",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "74ec59ed-9eb1-411b-ab10-bcc9d5a67b84",
+      "action": "done",
+      "summary": "#PWZYY8: Resolved; verified against origin/main d1bb2c197 on 2026-09-02. Both halves of the row are closed. THE LINT RULE IS NO LONGER BLIND: eslint-rules/require-lucide-icon-aria.mjs:51-52 now resolves a JSX tag named Icon or ActiveIcon in addition to a direct lucide-react import, so an icon received as an icon: LucideIcon prop and rendered bare is flagged, with an autofix that inserts aria-hidden=\"true\". THE CALL SITES ARE MARKED: all four components the row named by name in src/components/clinical-dashboard/document-ui.tsx (DocumentBadge:82, DocumentActionLink:132, DocumentActionAnchor:149, DocumentActionButton:166) carry aria-hidden=\"true\", and evidence-panels.tsx:1257 -- the site the row cited as inconsistent with its own Loader2 sibling -- now matches that sibling. MEASURED, not sampled: a scan of every <Icon> and <ActiveIcon> element in non-mockup src/**/*.tsx finds 184 sites, 182 of which declare aria-hidden, aria-label, aria-labelledby, role or title. The two that do not are both in src/components/settings-search-mockups/settings-search-mockup-page.tsx, which is design scratch and outside the production gates. NOTE, not a blocker: the rule's own header comment (line 9) still reads that icons passed around as icon: LucideIcon values are out of scope, which line 51 has since falsified. A stale comment, not a coverage hole. HISTORY: a done request for this row (d6e41550) was cancelled on 2026-08-31 with the reason 'target issue is no longer in Open items on current main'. That premise was wrong -- the row was and remained open -- so the close was lost rather than applied. This request re-closes it on directly verified evidence rather than on the cancelled claim.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "8ba1e31f-b2f4-4a95-a9f4-69ab4340b619",
+      "action": "done",
+      "summary": "#XHADPV: Resolved; verified against origin/main d1bb2c197 on 2026-09-02. The row asked for a deliberate choice between rendering the stored per-section counts and no longer emitting them, and the second option was taken. Reading the committed artifact rather than the generator: data/repo-awareness-snapshot.json now carries 21 entries under documentation.sections, and the union of every key across all of them is exactly {name}. The documents and uncatalogued fields the row counted as 30 dead numbers are gone from the snapshot entirely, so the generator no longer emits a count that could disagree with its own list, and the documentation page's habit of computing section.documents.length at render is now the only source of a count rather than an undocumented exception to the plan's rule. Section count has grown from the 15 the row recorded to 21, which is ordinary growth in the documentation set and not a change of contract.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "8da94bed-bb86-433e-9ad3-c4ac92a7331b",
+      "action": "update",
+      "summary": "#59JT7W: detail → RE-VERIFIED STILL OPEN against origin/main d1bb2c197 on 2026-09-02. A done request (c862828e) claimed this was resolved because resolveClosingContactMessageBody and tests/caring-contacts-message-policy.test.ts exist. It was cancelled, and cancelling it was correct -- but for a different reason than the one recorded, so pinning the measurement here to stop a third attempt closing the row on the same mistake. The function existing was never what this row asked for. MEASURED: grep for resolveClosingContactMessageBody across src/**/*.ts and src/**/*.tsx returns exactly two hits -- its own definition at src/lib/caring-contacts/message-policy.ts:208, and a prose mention in a doc comment at src/lib/caring-contacts/message-copy.ts:121. There is still no production caller. The tests at tests/caring-contacts-message-policy.test.ts:477 exercise the function directly, which proves the refusal is correct but not that anything is obliged to ask for it, so the guard remains one a future sender can bypass by resolving a closing body some other way. The row's own stop rule is unchanged and still binding: do not record approved copy item A4 as closed. The blocker is also unchanged -- PlannedContact in schedule.ts carries messageType and no body, so there is still no seam to wire this to, and inventing one means deciding where an authored closing body comes from.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "c49cd04d-6485-430a-9b70-3c10c7cb3e03",
+      "action": "done",
+      "summary": "#5YKAQ5: Resolved; verified against origin/main d1bb2c197 on 2026-09-02. The row asked for the fallback to be dropped so that a missing publishable key disables tracing rather than escalating to the service-role secret. That is exactly what the code now does. In src/sentry.server.config.ts, supabaseTracingIntegrations() reads NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY and returns an empty integration list when either is absent, so no Supabase client is constructed at all. Proved by absence as well as by reading: grep for SERVICE_ROLE across src/sentry.server.config.ts returns zero matches, so the secret is no longer instantiated in that file under any branch. The privacy posture the row noted as already correct is unchanged -- the integration still sets sendOperationData: false, so no PostgREST filter values or mutation bodies reach Sentry -- and the whole path stays inert unless a DSN is set and the tracing sample rate is above zero.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "da8e92bb-f6ac-40a5-a6d8-b2927997730f",
+      "action": "update",
+      "summary": "#AGRAKQ: detail → NARROWED TO PLURALS; re-measured against origin/main d1bb2c197 on 2026-09-02 by executing the pattern, not by reading it. A done request (461a406d) claimed the plural case was fixed and was cancelled; the cancellation's stated reason was wrong (the row is open), but the outcome is right, because the plural case is NOT fixed. HALF DONE: tests/helpers/caring-contacts-prohibited-language.ts now carries the same negative lookbehind the message rules use -- (?<!\\b(?:incident|programme|clinical|service|team) )\\blead\\b -- so both examples this row named by name now pass. Run against the live pattern: 'incident lead' ok, 'team lead' ok, 'clinical lead' ok, 'programme lead' ok. STILL BROKEN: the alternation also contains a bare \\bleads\\b with no lookbehind, and it sits ahead of the narrowed branch, so every plural job title is still flagged -- 'clinical leads' matches on 'leads', as do 'programme leads' and 'Clinical Leads'. The commercial sense the branch exists to catch ('sales leads', 'lead generation') is correctly still flagged, so the fix is to extend the same modifier lookbehind to the plural branch rather than to delete it. Reusing COMMERCIAL_LEAD_PATTERN from src/lib/caring-contacts/message-rules.ts line 81 remains the cheapest route, and the alternative the row already allows -- recording why interface copy should be stricter than message copy -- is still open as a decision.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "ee0de317-ae07-433a-9456-5997de14bc7b",
+      "action": "add",
+      "summary": "Two pieces of dead wiring found beside the mockup surface: an orphaned production component and a proxy redirect for a route that no longer exists",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "f20b4b9f-00bb-4f82-8958-ef926eedb5bd",
+      "action": "done",
+      "summary": "#DVRZA4: Resolved; verified against origin/main d1bb2c197 on 2026-09-02. The asymmetry the row recorded is gone. .prettierignore now lists both generated data snapshots, each with its own reason comment: data/outstanding-issues-snapshot.json at line 53 (generated by scripts/generate-outstanding-issues-snapshot.mjs, ignored so regeneration stays churn-free and check:outstanding-issues-snapshot compares like with like) and data/repo-awareness-snapshot.json at line 57 (generated by scripts/generate-repo-awareness-snapshot.ts, ignored so the generator's own formatting is preserved for check:repo-awareness-snapshot). The row explicitly left the direction open -- add the newer entry or remove the older one -- and it was settled by adding the newer one, which is the direction that keeps both generators authoritative over their own output.",
+      "created_at": "2026-09-02"
+    }
+  ]
 }

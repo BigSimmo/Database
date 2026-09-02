@@ -47,7 +47,7 @@ describe("mockup index parsing", () => {
   const markdown = [
     "# Project Mockups",
     "",
-    "`answer-home-proposal` — Active study.",
+    "`example-study` — Active study.",
     "`document-search/source` — nested route rolls up.",
     "",
     RETIRED_SECTION_HEADING,
@@ -72,7 +72,7 @@ describe("mockup index parsing", () => {
 
   it("treats only the retired section as a retirement record", () => {
     expect(retiredSlugs(markdown).has("document-navigation-pane")).toBe(true);
-    expect(retiredSlugs(markdown).has("answer-home-proposal")).toBe(false);
+    expect(retiredSlugs(markdown).has("example-study")).toBe(false);
   });
 
   /**
@@ -133,8 +133,8 @@ describe("index audit", () => {
 
 describe("module specifiers", () => {
   it("builds the @/ alias a survivor would import by", () => {
-    expect(moduleSpecifiersFor("src/components/answer-home-proposal-mockups.tsx")).toContain(
-      "@/components/answer-home-proposal-mockups",
+    expect(moduleSpecifiersFor("src/components/example-study-mockups.tsx")).toContain(
+      "@/components/example-study-mockups",
     );
   });
 
@@ -223,16 +223,16 @@ describe("deletion audit", () => {
   });
 
   /**
-   * The inversion that makes this repository dangerous: `answer-chat-perfected-v2` imports
-   * `answer-chat-perfected`, so deleting "the older generation" breaks the newer one.
+   * The inversion that makes this repository dangerous: `example-round-two` imports
+   * `example-round-one`, so deleting "the older generation" breaks the newer one.
    */
   it("refuses deleting a base module a newer generation still imports", () => {
     const result = runAudit(
-      ["src/components/answer-chat-perfected-mockups.tsx"],
-      ["src/components/answer-chat-perfected-v2-mockups.tsx"],
+      ["src/components/example-round-one-mockups.tsx"],
+      ["src/components/example-round-two-mockups.tsx"],
       {
-        "src/components/answer-chat-perfected-v2-mockups.tsx":
-          'import { Composer } from "@/components/answer-chat-perfected-mockups";',
+        "src/components/example-round-two-mockups.tsx":
+          'import { Composer } from "@/components/example-round-one-mockups";',
       },
     );
     expect(result.violations.join()).toContain("a surviving module");

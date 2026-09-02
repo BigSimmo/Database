@@ -14,8 +14,8 @@
  *      `/mockups/caring-contacts`, `/mockups/care-plan` and `/mockups/ward-flow` are live in
  *      production behind `DeveloperAreaGate` (src/proxy.ts) and linked from Settings. Any
  *      policy keyed on the path `src/app/mockups/**` hits them too.
- *   3. Filename supersession is systematically backwards. `answer-chat-perfected-v2` IMPORTS
- *      `answer-chat-perfected`; dictionary rounds 2 and 3 both import round 1; the privacy
+ *   3. Filename supersession is systematically backwards. `example-round-two` IMPORTS
+ *      `example-round-one`; dictionary rounds 2 and 3 both import round 1; the privacy
  *      study imports the privacy winner. Deleting "the older generation" breaks the newer one
  *      in at least five families.
  *
@@ -336,7 +336,7 @@ function selfTest({ stdout = console.log, stderr = console.error } = {}) {
   const markdown = [
     "# Project Mockups",
     "",
-    "`answer-home-proposal` — Active study.",
+    "`example-study` — Active study.",
     "",
     RETIRED_SECTION_HEADING,
     "",
@@ -351,19 +351,17 @@ function selfTest({ stdout = console.log, stderr = console.error } = {}) {
 
   check("retiredSection stops at the next heading", !retiredSection(markdown).includes("not-a-retired-slug"));
   check("retiredSlugs finds the recorded slug", retiredSlugs(markdown).has("document-navigation-pane"));
-  check("retiredSlugs excludes live entries", !retiredSlugs(markdown).has("answer-home-proposal"));
+  check("retiredSlugs excludes live entries", !retiredSlugs(markdown).has("example-study"));
   check(
     "retiredSlugs never treats the successor column as retired",
     !retiredSlugs(markdown).has("document-navigation-perfected"),
   );
-  check("mentionedSlugs sees the live entry", mentionedSlugs(markdown).has("answer-home-proposal"));
+  check("mentionedSlugs sees the live entry", mentionedSlugs(markdown).has("example-study"));
   check("inlineCodeSpans unwraps backticks", inlineCodeSpans("a `b` c").join() === "b");
 
   check(
     "moduleSpecifiersFor builds the @/ alias",
-    moduleSpecifiersFor("src/components/answer-home-proposal-mockups.tsx").includes(
-      "@/components/answer-home-proposal-mockups",
-    ),
+    moduleSpecifiersFor("src/components/example-study-mockups.tsx").includes("@/components/example-study-mockups"),
   );
   check(
     "moduleSpecifiersFor strips a trailing /index",

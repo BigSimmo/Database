@@ -93,9 +93,9 @@ together, which is why the dates looked undifferentiated.
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `document-navigation-perfected`    | **Shipped.** Its weighted `flexGrow: section.weight` track and `pending` spinner exist in `document-viewer/section-nav.tsx` and in no other draft; rule 22 of `docs/search-chrome-behaviour.md`, added by the same commit, names that "weighted position track". |
 | `document-navigation-contract`     | Active reference — superseded as a build, but it is the origin of rule 22 and keeps that rule's illustrated rationale.                                                                                                                                           |
-| `document-navigation-final-review` | Superseded — unweighted track, no pending state. **Superseded — recommend removing.**                                                                                                                                                                            |
-| `document-navigation-final`        | Superseded — its two-column grid was reversed by the review round; production is a single-column list. **Superseded — recommend removing.**                                                                                                                      |
-| `document-navigation-pane`         | Superseded — `section-nav.tsx` refuses its thesis in the same commit that added it. **Superseded — recommend removing.**                                                                                                                                         |
+| `document-navigation-final-review` | Retired 2026-09-02 — unweighted track, no pending state.                                                                                                                                                                                                         |
+| `document-navigation-final`        | Retired 2026-09-02 — its two-column grid was reversed by the review round; production is a single-column list.                                                                                                                                                   |
+| `document-navigation-pane`         | Retired 2026-09-02 — `section-nav.tsx` refuses its thesis in the same commit that added it.                                                                                                                                                                      |
 
 ### Document phone chrome — four rounds, no recorded winner
 
@@ -104,7 +104,7 @@ together, which is why the dates looked undifferentiated.
 chrome, sheet not pane" contract but not the drawn row.
 
 `document-phone-title`, `document-phone-title-refined`, `document-phone-fused-directions` and
-`document-phone-zero-chrome` are all **superseded — recommend removing**.
+`document-phone-zero-chrome` were all retired 2026-09-02.
 
 ### Document search & viewer
 
@@ -171,8 +171,8 @@ bodies and three production source comments, which the earlier pass did not sear
 | `answer-chat-perfected-v2` | Shipped — applied to the live answer surface by #2388; `answer-content.tsx` cites this route as the approved reference.                                                                        |
 | `answer-loading-redesign`  | Shipped — direction B, applied 2026-08-27; `AnswerProgressStepper` is gone.                                                                                                                    |
 | `answer-chat-redesign`     | Superseded as a design (direction A won) but **kept**: it is the three-way comparison the winner was chosen from, cited by the answer handover doc and by `answer-chat-perfected-mockups.tsx`. |
-| `answer-evidence-popups`   | Superseded — the five-tab Evidence sheet #2362 explicitly replaced. **Superseded — recommend removing.**                                                                                       |
-| `answer-home-proposal`     | Superseded — its copy never shipped, and #1512 overtook it before its own PR merged. **Superseded — recommend removing.**                                                                      |
+| `answer-evidence-popups`   | Retired 2026-09-02 — the five-tab Evidence sheet #2362 explicitly replaced.                                                                                                                    |
+| `answer-home-proposal`     | Retired 2026-09-02 — its copy never shipped, and #1512 overtook it before its own PR merged.                                                                                                   |
 
 ### Factsheets
 
@@ -205,15 +205,24 @@ here for a route that still exists fails it too. Recover any of these from git h
 alternatives need re-reading — that is the archive, and a second copy of design scratch is the
 problem this policy exists to prevent.
 
-| Retired    | Route                        | Superseded by                | Evidence                                                           |
-| ---------- | ---------------------------- | ---------------------------- | ------------------------------------------------------------------ |
-| 2026-08-09 | `breadcrumb-header`          | Direction 02, shipped        | Removed once 02 shipped; the write-up below is the durable record. |
-| 2026-08-27 | `favourites-command-console` | `favourites-phone-perfected` | Written successor plus a confirmed import search.                  |
-| 2026-08-27 | `favourites-command-desk`    | `favourites-phone-perfected` | As above.                                                          |
-| 2026-08-27 | `favourites-library-view`    | `favourites-phone-perfected` | As above.                                                          |
-| 2026-08-27 | `favourites-review-console`  | `favourites-phone-perfected` | As above.                                                          |
-| 2026-08-27 | `favourites-set-board`       | `favourites-phone-perfected` | As above.                                                          |
-| 2026-08-27 | `favourites-set-navigator`   | `favourites-phone-perfected` | As above.                                                          |
+| Retired    | Route                              | Superseded by                    | Evidence                                                                                                                                       |
+| ---------- | ---------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-09 | `breadcrumb-header`                | Direction 02, shipped            | Removed once 02 shipped; the write-up below is the durable record.                                                                             |
+| 2026-08-27 | `favourites-command-console`       | `favourites-phone-perfected`     | Written successor plus a confirmed import search.                                                                                              |
+| 2026-08-27 | `favourites-command-desk`          | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-library-view`          | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-review-console`        | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-set-board`             | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-set-navigator`         | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-09-02 | `document-navigation-pane`         | `document-navigation-perfected`  | `section-nav.tsx` refuses its anchored-rail thesis in `6230c4db`, the same commit that added both.                                             |
+| 2026-09-02 | `document-navigation-final`        | `document-navigation-perfected`  | Its two-column grid was reversed by the review round ("grid labels truncated three of seven sections"); production is a single-column list.    |
+| 2026-09-02 | `document-navigation-final-review` | `document-navigation-perfected`  | Immediate predecessor: unweighted track and no pending state, where production is weighted and has one.                                        |
+| 2026-09-02 | `document-phone-title`             | `document-navigation-perfected`  | Recommends a drop pane; production uses the shared `Sheet`.                                                                                    |
+| 2026-09-02 | `document-phone-title-refined`     | `document-navigation-perfected`  | Still a pane, and keeps `Plus` in the row where production uses `Ellipsis`.                                                                    |
+| 2026-09-02 | `document-phone-fused-directions`  | `document-navigation-perfected`  | Commits to "a pane that pushes the document down rather than covering it" — what production refuses.                                           |
+| 2026-09-02 | `document-phone-zero-chrome`       | `document-navigation-perfected`  | Its "zero new chrome, sheet not pane" contract was adopted; its drawn row (single-line title, no track) never was.                             |
+| 2026-09-02 | `answer-home-proposal`             | Not applicable — nothing adopted | Its corpus-name subtitle and governance line never shipped; #1512 removed the badge independently, hours before this mockup's own PR merged.   |
+| 2026-09-02 | `answer-evidence-popups`           | `answer-chat-perfected`          | #2362 names the five-tab Evidence sheet as one of "four mental models for one question" and replaced all four with one source rail and drawer. |
 
 Their shared component folder `favourites-page-mockups/` went with them on 2026-08-27. That
 retirement — a named written successor **and** a confirmed import search — is the precedent the

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "fad5e2698d964fa72208be23ee4b9bf125acafc7",
-    "committed_at": "2026-09-01T16:44:24Z"
+    "sha": "9d74b367583a6d78dbddd8e27b683263a5c5e7fc",
+    "committed_at": "2026-09-02T04:53:21+00:00"
   },
   "routes": {
     "modes": [
@@ -345,16 +345,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/answer-evidence-popups",
-        "file": "src/app/mockups/answer-evidence-popups/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/answer-home-proposal",
-        "file": "src/app/mockups/answer-home-proposal/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/answer-loading-redesign",
         "file": "src/app/mockups/answer-loading-redesign/page.tsx",
         "area": "mockup"
@@ -645,43 +635,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/document-navigation-final",
-        "file": "src/app/mockups/document-navigation-final/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-navigation-final-review",
-        "file": "src/app/mockups/document-navigation-final-review/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-navigation-pane",
-        "file": "src/app/mockups/document-navigation-pane/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/document-navigation-perfected",
         "file": "src/app/mockups/document-navigation-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-fused-directions",
-        "file": "src/app/mockups/document-phone-fused-directions/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-title",
-        "file": "src/app/mockups/document-phone-title/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-title-refined",
-        "file": "src/app/mockups/document-phone-title-refined/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-zero-chrome",
-        "file": "src/app/mockups/document-phone-zero-chrome/page.tsx",
         "area": "mockup"
       },
       {
@@ -1461,9 +1416,9 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 204,
+      "pages": 195,
       "product_pages": 67,
-      "mockup_pages": 137,
+      "mockup_pages": 128,
       "redirects": 18,
       "api": 60
     }
@@ -2961,6 +2916,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/mockup-retirement-policy.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/mode-aware-clinical-ask-local-handover.md",
         "section": "root",
         "catalogued": true
@@ -4367,8 +4327,8 @@
       }
     ],
     "counts": {
-      "documents": 566,
-      "catalogued": 111,
+      "documents": 567,
+      "catalogued": 112,
       "uncatalogued": 455,
       "sections": 21
     }
