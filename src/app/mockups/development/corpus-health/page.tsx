@@ -74,7 +74,9 @@ function QualitySpreadNote({ spread }: { spread: QualitySpread }) {
             All {spread.documents} scored documents carry the identical score {spread.score.toFixed(2)}.
           </strong>{" "}
           A single repeated value cannot rank or separate anything, so the quality figures on this page are not usable
-          as a measure of any document until scoring writes real values.
+          as a measure of any document. That is not by itself evidence that scoring is broken: the score starts at 1.00
+          and only subtracts penalties, so a corpus that extracted cleanly can legitimately land on the same value for
+          every document. Read the issues and metrics on the rows below before concluding anything about the scorer.
           {spread.score === 0 ? (
             <>
               {" "}
