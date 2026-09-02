@@ -99,3 +99,58 @@ twice. The smallest-correct-gate rule above still decides which gate is right; t
 only decides whether that gate has anything left to tell you before you push.
 
 <!-- END:verification-gates -->
+
+## The browser gate is narrowed, not deferred
+
+`npm run verify:ui` is the most expensive run here — 646 Chromium tests, ~25 minutes —
+and CI repeats it wholesale: `Production UI critical` and the three `Production UI`
+shards are guarded on `ui_changed`, so any change touching a browser surface gets the
+full suite on GitHub whether or not it ran locally first.
+
+The arbiter above cannot help with it. Its lever is deferral, and `ui` is in
+`NEVER_DEFER_CLASSES` — pushing a UI change with **no** browser evidence is not a bet
+this repository takes, and that stays true. The lever here is a different one: run the
+part of the suite the diff can actually break.
+
+```bash
+npm run plan:browser              # dry run: the level it chose, the specs, and why
+npm run plan:browser -- --run     # execute that plan
+npm run plan:browser -- --full    # force the whole suite
+```
+
+Four levels, and only the middle two are a saving:
+
+| Level     | When                                                     | What runs                                                                              |
+| --------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `none`    | no browser surface changed                               | nothing — CI skips Production UI for this scope too                                    |
+| `changed` | a `ui-*.spec.ts` changed                                 | those specs, **complete** — never grepped, since the diff rewrote their own assertions |
+| `focused` | changed UI source attributable to specs                  | the owning specs, complete                                                             |
+| `full`    | shared foundation, unattributable file, or unknown scope | `verify:ui`                                                                            |
+
+**Attribution is evidence, not a table.** A spec owns a changed file when both contain
+the same literal — a `data-testid` the source renders and the spec asks for, or a route
+the source defines and the spec navigates to. Component names are deliberately not
+matched: a spec never names a component, so a match there would be a comment, and a
+comment is not proof a journey covers the code.
+
+**It fails closed, the opposite of the arbiter.** A file with no owning spec, a shared
+foundation (`globals.css`, any shared style root, the Playwright config, the runner, the
+shell/chrome coordinator set), a browser-lane path it cannot classify, or a deleted
+file all escalate to the full suite on their own. The arbiter's bug costs a redundant
+run; this one's would cost an unrun journey, so the defaults point the other way.
+
+Non-negotiable, and the reason the saving is allowed at all:
+
+- **A narrowed run is not the UI gate.** Report it as "focused browser proof at level
+  `<x>`, full suite left to CI" — never "verify:ui passed". `check:browser-test-plan`
+  and `tests/browser-test-plan.test.ts` pin that wording in the runner itself.
+- **CI is untouched.** The planner advises local work only; GitHub runs exactly what it
+  ran before, and no required check may be weakened to save local time.
+- **Dry run by default.** `--run` executes; nothing happens without it.
+- **When CI will NOT repeat it** — a browser-lane change on a scope where the Production
+  UI jobs are skipped — the planner says so and tells you to consider `--full`, because
+  there the local run is the only browser evidence there will be.
+
+Cloud sessions are told this at SessionStart by `.claude/hooks/testing-policy.sh`, which
+is read-only, exits 0 on every path, and states the reporting rules alongside the
+commands.
