@@ -13,9 +13,21 @@ loadEnvConfig(process.cwd());
  * when the remote history table contains versions that are absent locally
  * (common after rename/renumber without history repair).
  *
- * This script prints remote-only / local-only versions and exits 1 when any
- * remote-only versions remain. It is intended for workflow_dispatch / live
+ * This script prints remote-only / local-only versions and exits 1 when either
+ * side is missing a version. It is intended for workflow_dispatch / live
  * alignment checks (uses service-role secrets).
+ *
+ * WHY LOCAL-ONLY IS ALSO FATAL: AGENTS.md makes "check:drift AND
+ * check:migration-history green" the gate that a migration merged to main
+ * actually reached production. check:drift compares the object inventory only,
+ * so a migration whose effect is a pg_cron job row, a COMMENT ON, an ALTER
+ * DATABASE SET, a data-only fix or a grant on a non-public schema leaves no
+ * trace it can see. While a merged-but-unapplied version was merely printed as
+ * "pending apply", both halves stayed green for that class — the #Q5JHBJ
+ * failure shape this programme exists for. The push-triggered run can start
+ * before the Supabase integration's apply (measured at 34 s), so pending
+ * versions are re-read a bounded number of times before the run fails, and
+ * `--allow-pending` remains available for a deliberate pre-apply check.
  *
  * TRANSPORT: the history table lives in the `supabase_migrations` schema, which
  * this project does not expose to the Data API — a direct PostgREST read returns
@@ -34,6 +46,102 @@ export const MIGRATION_HISTORY_VERSIONS_MIGRATION = "20260820120000_migration_hi
 
 type RemoteRow = { version: string; name: string | null };
 type RemoteRead = { rows: RemoteRow[]; source: "rpc" | "accept-profile" };
+
+export type AlignmentDiff = { remoteOnly: string[]; localOnly: string[] };
+
+/** Number of history reads before pending versions are treated as unapplied. */
+export const PENDING_SETTLE_ATTEMPTS = 4;
+/** Wait between those reads; 4 attempts covers ~90 s against a ~34 s apply. */
+export const PENDING_SETTLE_MS = 30_000;
+
+export function parseAlignmentOptions(argv: string[]): { allowPending: boolean } {
+  return { allowPending: argv.includes("--allow-pending") };
+}
+
+export function diffMigrationHistory(local: Iterable<string>, remote: Iterable<string>): AlignmentDiff {
+  const localSet = new Set(local);
+  const remoteSet = new Set(remote);
+  return {
+    remoteOnly: [...remoteSet].filter((version) => !localSet.has(version)).sort(),
+    localOnly: [...localSet].filter((version) => !remoteSet.has(version)).sort(),
+  };
+}
+
+function versionList(versions: string[]): string {
+  return versions.length > 10
+    ? `${versions.slice(0, 10).join(", ")}, … ${versions.length - 10} more`
+    : versions.join(", ");
+}
+
+/**
+ * The single verdict. Returns null only when the histories agree (or when
+ * pending versions were explicitly allowed); never downgrades either side to a
+ * warning.
+ */
+export function alignmentFailureMessage(diff: AlignmentDiff, options: { allowPending: boolean }): string | null {
+  const problems: string[] = [];
+  if (diff.remoteOnly.length > 0) {
+    problems.push(
+      `${diff.remoteOnly.length} remote migration version(s) are missing from supabase/migrations ` +
+        `(${versionList(diff.remoteOnly)}). Hosted Supabase Preview will fail until local files exist ` +
+        `for those versions (or remote history is repaired).`,
+    );
+  }
+  if (!options.allowPending && diff.localOnly.length > 0) {
+    problems.push(
+      `${diff.localOnly.length} local migration version(s) are absent from live migration history ` +
+        `(${versionList(diff.localOnly)}). A merged migration that never applied is silent drift: ` +
+        `check:drift compares object state only, so effects outside that inventory (cron job rows, ` +
+        `COMMENT ON, ALTER DATABASE SET, data-only fixes, grants on non-public schemas) leave no other ` +
+        `signal. Re-run once the Supabase integration has applied them, or pass --allow-pending for a ` +
+        `deliberate pre-apply check.`,
+    );
+  }
+  return problems.length > 0 ? problems.join("\n") : null;
+}
+
+/**
+ * Read live history, and when versions are still pending re-read a bounded
+ * number of times: the live-drift run is triggered by the push that merges the
+ * migration, so it can legitimately observe history a few seconds before the
+ * integration applies it.
+ */
+export async function resolveAlignment(args: {
+  localVersions: string[];
+  readRemote: () => Promise<RemoteRead>;
+  allowPending: boolean;
+  attempts?: number;
+  waitMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+  log?: (message: string) => void;
+}): Promise<{ diff: AlignmentDiff; read: RemoteRead }> {
+  const attempts = Math.max(1, args.attempts ?? PENDING_SETTLE_ATTEMPTS);
+  const waitMs = args.waitMs ?? PENDING_SETTLE_MS;
+  const sleep = args.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const log = args.log ?? ((message: string) => console.log(message));
+
+  let read = await args.readRemote();
+  let diff = diffMigrationHistory(
+    args.localVersions,
+    read.rows.map((row) => row.version),
+  );
+
+  for (let attempt = 1; attempt < attempts; attempt += 1) {
+    if (args.allowPending || diff.localOnly.length === 0) break;
+    log(
+      `${diff.localOnly.length} version(s) not yet in live history; re-reading in ${Math.round(waitMs / 1000)}s ` +
+        `(attempt ${attempt + 1}/${attempts}) in case the Supabase integration is still applying them.`,
+    );
+    await sleep(waitMs);
+    read = await args.readRemote();
+    diff = diffMigrationHistory(
+      args.localVersions,
+      read.rows.map((row) => row.version),
+    );
+  }
+
+  return { diff, read };
+}
 
 function localMigrationVersions(migrationsDir: string): string[] {
   return readdirSync(migrationsDir)
@@ -129,38 +237,39 @@ async function main() {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
   }
 
+  const { allowPending } = parseAlignmentOptions(process.argv.slice(2));
   const migrationsDir = join(process.cwd(), "supabase/migrations");
-  const local = new Set(localMigrationVersions(migrationsDir));
-  console.log(`Local migration versions: ${local.size}`);
+  const localVersions = localMigrationVersions(migrationsDir);
+  console.log(`Local migration versions: ${localVersions.length}`);
 
-  const { rows: remoteRows, source } = await fetchRemoteVersions(url, serviceKey);
-  const remote = new Set(remoteRows.map((row) => row.version));
-  const remoteOnly = [...remote].filter((version) => !local.has(version)).sort();
-  const localOnly = [...local].filter((version) => !remote.has(version)).sort();
+  const { diff, read } = await resolveAlignment({
+    localVersions,
+    readRemote: () => fetchRemoteVersions(url, serviceKey),
+    allowPending,
+  });
 
-  console.log(`Remote migration versions: ${remote.size} (read via ${source})`);
-  console.log(`Remote-only (Preview blockers): ${remoteOnly.length}`);
-  for (const version of remoteOnly) {
-    const row = remoteRows.find((item) => item.version === version);
+  console.log(`Remote migration versions: ${read.rows.length} (read via ${read.source})`);
+  console.log(`Remote-only (Preview blockers): ${diff.remoteOnly.length}`);
+  for (const version of diff.remoteOnly) {
+    const row = read.rows.find((item) => item.version === version);
     console.log(`  - ${version}${row?.name ? ` (${row.name})` : ""}`);
   }
-  console.log(`Local-only (pending apply): ${localOnly.length}`);
-  for (const version of localOnly.slice(0, 30)) {
+  console.log(
+    `Local-only (${allowPending ? "pending apply, allowed" : "merged but not applied"}): ${diff.localOnly.length}`,
+  );
+  for (const version of diff.localOnly.slice(0, 30)) {
     console.log(`  - ${version}`);
   }
-  if (localOnly.length > 30) {
-    console.log(`  … ${localOnly.length - 30} more`);
+  if (diff.localOnly.length > 30) {
+    console.log(`  … ${diff.localOnly.length - 30} more`);
   }
 
-  if (remoteOnly.length > 0) {
-    throw new Error(
-      `${remoteOnly.length} remote migration version(s) are missing from supabase/migrations. ` +
-        `Hosted Supabase Preview will fail until local files exist for those versions ` +
-        `(or remote history is repaired).`,
-    );
+  const failure = alignmentFailureMessage(diff, { allowPending });
+  if (failure) {
+    throw new Error(failure);
   }
 
-  console.log("Migration history alignment OK: every remote version exists locally.");
+  console.log("Migration history alignment OK: local and live migration history hold the same versions.");
 }
 
 const invokedDirectly = process.argv[1] && /check-migration-history-alignment\.(ts|mts|js)$/.test(process.argv[1]);

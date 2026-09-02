@@ -179,6 +179,32 @@ look would be worse than the red job it replaced. When neither path works the
 failure names the remedy: apply `20260820120000` through the normal linked
 migration workflow. Pinned by `tests/migration-history-alignment.test.ts`.
 
+**Local-only versions fail the run too (2026-09-02).** A version in
+`supabase/migrations` that live history does not hold is a migration that merged
+and never applied, and it used to be printed as `Local-only (pending apply)`
+while the step exited 0. That mattered because `AGENTS.md` makes _both_ this
+check and `check:drift` the post-merge proof that a merged migration reached
+production, and `check:drift` compares the object inventory only — views,
+tables, indexes, policies, triggers, functions, extensions, constraints and
+storage buckets. A migration whose effect lies outside that inventory leaves no
+other signal at all:
+
+| Effect class                 | Example in this repo                                                       |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `pg_cron` job rows           | `20260901033250` unschedules and reschedules the four retention purge jobs |
+| `COMMENT ON`                 | the catalog comments guarded by `20260819110100`                           |
+| `ALTER DATABASE … SET`       | session defaults; nothing in the snapshot reads them                       |
+| Data-only fixes              | backfills and corrective `update` statements                               |
+| Grants on non-public schemas | `20260901033250` grants on schema `cron`                                   |
+
+So the check now fails on local-only versions and names them. Because the
+push-triggered `live-drift` run starts before the Supabase integration's apply
+(measured at 34 s), it re-reads live history up to four times, 30 s apart,
+before calling a version unapplied; `npm run check:migration-history --
+--allow-pending` restores the old informational behaviour for a deliberate
+pre-apply check. Do not use that flag in the post-merge gate — the pending
+versions are exactly what it exists to catch.
+
 ## Guard-migration contract
 
 **Rule (also in `AGENTS.md`, "Supabase project safety"): any mark-applied
