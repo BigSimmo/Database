@@ -89,7 +89,10 @@ export function normalizeRepoPath(file) {
  */
 export function listRouteSlugs(root, fileSystem = NODE_FILE_SYSTEM) {
   const base = resolve(root, ...MOCKUP_ROUTE_ROOT.split("/"));
-  if (!fileSystem.existsSync(base)) return [];
+  // Fail closed. Returning [] here made auditIndex pass with "0 routes indexed", which is
+  // indistinguishable from a healthy repo and is exactly the soft-skip this gate must not do.
+  if (!fileSystem.existsSync(base))
+    throw new Error(`${MOCKUP_ROUTE_ROOT} does not exist — cannot audit the mockup surface`);
   return fileSystem
     .readdirSync(base, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !NON_ROUTE_ENTRIES.has(entry.name))
@@ -132,12 +135,30 @@ export function retiredSection(markdown) {
  * LIVE winner, and reading every code span in the section made that winner look retired — a
  * bug caught by this check against its own first record on 2026-09-02.
  */
+export const RETIRED_TABLE_HEADER = ["Retired", "Route", "Superseded by", "Evidence"];
+
 export function retiredSlugs(markdown) {
+  const section = retiredSection(markdown);
+  if (!section.trim()) return new Set();
+  const rows = section.split(/\r?\n/).filter((line) => line.trim().startsWith("|"));
+  if (!rows.length) return new Set();
+
+  // Column order is load-bearing — the Route column records the retirement, the "Superseded by"
+  // column names a LIVE route. Reordering the table silently changes what the record means, so
+  // the header is verified rather than assumed.
+  const header = rows[0]
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+  if (header.join("|") !== RETIRED_TABLE_HEADER.join("|")) {
+    throw new Error(
+      `the "${RETIRED_SECTION_HEADING}" table header must be ${RETIRED_TABLE_HEADER.join(" | ")} — found ${header.join(" | ") || "<none>"}`,
+    );
+  }
+
   const slugs = new Set();
-  for (const line of retiredSection(markdown).split(/\r?\n/)) {
-    if (!line.trim().startsWith("|")) continue;
+  for (const line of rows.slice(1)) {
     const cells = line.split("|").map((cell) => cell.trim());
-    // `| Retired | Route | Superseded by | Evidence |` → cells[1] is the date, cells[2] the route.
     const route = inlineCodeSpans(cells[2] ?? "")[0];
     if (!route) continue;
     slugs.add(route.replace(/^\/mockups\//u, "").replace(/\/.*$/u, ""));
@@ -210,19 +231,46 @@ export function deletedRouteSlugs(deletedFiles, survivingSlugs) {
   return [...slugs].sort();
 }
 
-/** Module specifiers that could resolve to a deleted file, for import-graph safety. */
+/**
+ * Every specifier a survivor could name a deleted file by.
+ *
+ * The alias form alone was not enough: 59 files in this surface import by relative path, and a
+ * first version of this gate missed `./x`, `../../x`, `dynamic(() => import("./x"))` and CSS
+ * `composes … from "./x.module.css"` — every one of which the policy claims to cover. Matching
+ * is anchored on a quote OR a slash (see `referencePattern`) so a relative prefix cannot hide a
+ * reference.
+ */
 export function moduleSpecifiersFor(file) {
   const path = normalizeRepoPath(file);
   const withoutExtension = path.replace(/\.(tsx?|mjs|jsx?)$/u, "");
   const specifiers = new Set();
+
   if (withoutExtension.startsWith("src/")) {
     const aliased = `@/${withoutExtension.slice("src/".length)}`;
     specifiers.add(aliased);
     if (aliased.endsWith("/index")) specifiers.add(aliased.slice(0, -"/index".length));
   }
+
+  // A route directory is referenced by its URL, never by a module specifier — the four dead
+  // `pathname === "/mockups/<slug>"` branches this gate first shipped without are why.
+  if (path.startsWith(`${MOCKUP_ROUTE_ROOT}/`)) {
+    const slug = path.slice(MOCKUP_ROUTE_ROOT.length + 1).split("/")[0];
+    if (slug && !NON_ROUTE_ENTRIES.has(slug)) specifiers.add(`/mockups/${slug}`);
+  }
+
+  // The bare tail, so `./name`, `../../dir/name` and a CSS-module `composes` source all match.
   const basename = withoutExtension.split("/").pop();
-  if (basename && basename !== "index" && basename !== "page") specifiers.add(basename);
+  if (basename && basename !== "index" && basename !== "page") {
+    specifiers.add(basename);
+    if (path.endsWith(".css")) specifiers.add(path.split("/").pop());
+  }
   return [...specifiers];
+}
+
+/** A reference to `specifier` that survives a relative prefix. */
+export function referencePattern(specifier) {
+  const escaped = specifier.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`(?:["'\`]|/)${escaped}["'\`]`, "u");
 }
 
 /** Every tracked text file that survives the diff, with its contents. */
@@ -250,8 +298,27 @@ function survivingSources(root, runGit, fileSystem, deleted) {
  * Audit a deletion diff. Every refusal here exists because the survey found a real file that
  * would have been wrongly removed by a reachability scan.
  */
-export function auditDeletions(base, { root = process.cwd(), runGit = sh, fileSystem = NODE_FILE_SYSTEM } = {}) {
+/**
+ * Resolve the base a deletion is measured against.
+ *
+ * `auto` lets one npm script be enforced locally, in verify:cheap and in CI without each caller
+ * knowing the branch shape. It fails closed: an unresolvable base is a refusal, not a skip.
+ */
+export function resolveDiffBase(base, { root = process.cwd(), runGit = sh, env = process.env } = {}) {
+  if (base !== "auto") return base;
+  const configured = env.MOCKUP_RETIREMENT_BASE;
+  if (configured) return configured;
+  const merged = runGit(["merge-base", "origin/main", "HEAD"], root).trim();
+  if (!merged) throw new Error("could not resolve a diff base — pass --diff <ref> or set MOCKUP_RETIREMENT_BASE");
+  return merged;
+}
+
+export function auditDeletions(
+  rawBase,
+  { root = process.cwd(), runGit = sh, fileSystem = NODE_FILE_SYSTEM, env = process.env } = {},
+) {
   const violations = [];
+  const base = resolveDiffBase(rawBase, { root, runGit, env });
   const deleted = deletedMockupFiles(base, { root, runGit });
   if (!deleted.length) return { deleted: [], violations };
 
@@ -289,8 +356,7 @@ export function auditDeletions(base, { root = process.cwd(), runGit = sh, fileSy
         continue;
       }
       for (const specifier of specifiers) {
-        const pattern = new RegExp(`["'\`]${specifier.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")}["'\`]`, "u");
-        if (!pattern.test(body)) continue;
+        if (!referencePattern(specifier).test(body)) continue;
         const kind = survivor.startsWith("tests/")
           ? "a committed test"
           : survivor.startsWith("scripts/") || survivor.startsWith("worker/")
@@ -319,7 +385,7 @@ export function parseArguments(argv) {
   const diffIndex = argv.indexOf("--diff");
   if (diffIndex !== -1) {
     const base = argv[diffIndex + 1];
-    if (!base || base.startsWith("--")) throw new Error("--diff requires a base ref");
+    if (!base || base.startsWith("--")) throw new Error("--diff requires a base ref (or the literal `auto`)");
     return { mode: "diff", base, json };
   }
   const unknown = [...options].filter((option) => !["--json", "--diff", "--self-test"].includes(option));

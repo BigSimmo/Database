@@ -110,14 +110,18 @@ problem this policy exists to prevent, not a solution to it.
 
 `npm run check:mockups` reads files only — no build, no network.
 
-| Mode            | Enforces                                                                                                                                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| default         | **Index completeness** — every route directory under `src/app/mockups/` has an entry in `mockups/README.md`. **Index accuracy** — nothing listed as retired still exists on disk                                                                                                      |
-| `--diff <base>` | **Tier B refusal** — a deletion under a developer-gated prefix fails. **Tier C and import-graph safety** — a deleted file still imported, named as a string, or read from disk by any survivor fails. **Evidence of record** — a deleted route absent from `## Retired mockups` fails |
-| `--self-test`   | The parser and classifier assertions, as required of every gate in this repository                                                                                                                                                                                                    |
+| Mode                                                                                                    | Enforces                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| default                                                                                                 | **Index completeness** — every route directory under `src/app/mockups/` has an entry in `mockups/README.md`. **Index accuracy** — nothing listed as retired still exists on disk                                                                                                                                                                                                                           |
+| `--diff <base>` (run as `--diff auto` inside `check:mockups`, so it is enforced everywhere the gate is) | **Tier B refusal** — a deletion under a developer-gated prefix fails. **Tier C and import-graph safety** — a deleted file still imported, named as a string literal, reached by a relative or dynamic import, referenced by a CSS `composes`, named by its `/mockups/<slug>` URL, or read from disk by any survivor fails. **Evidence of record** — a deleted route absent from `## Retired mockups` fails |
+| `--self-test`                                                                                           | The parser and classifier assertions, as required of every gate in this repository                                                                                                                                                                                                                                                                                                                         |
 
-The check fails **closed**: an unreadable file or an unanswerable question is a refusal, never
-a pass.
+The check fails **closed**: an unreadable file, a missing route root, a reordered Retired-table
+header, or an unresolvable diff base is a refusal, never a pass.
+
+`auto` resolves the base from `MOCKUP_RETIREMENT_BASE` if set, otherwise the merge base with
+`origin/main`. That is what lets one script name cover local runs, `verify:cheap` and CI without
+each caller knowing the branch shape.
 
 Note what it deliberately does _not_ do. It never decides that something is superseded, and it
 never clears a candidate — reachability is exactly what proved insufficient. It makes the
@@ -128,10 +132,23 @@ written record the gate and refuses everything the record does not cover.
 - **It extends no gate exemption.** Mockups are exempt from `require-button-wiring` and
   `tests/route-reachability.test.ts`, and separately from `no-hardcoded-hex`,
   `require-z-index-ladder`, `require-lucide-icon-aria`, `check:icon-scale`,
-  `check:design-system-contract`, the required Playwright lane, CodeRabbit, and `knip`
-  entirely (`knip.json`). That list is what already exists, recorded here because AGENTS.md
-  and CLAUDE.md understated it until 2026-09-02. Nothing here widens it, and the surface stays
-  typechecked and stays inside the `mockups` bundle bucket.
+  `check:design-system-contract`, and the required Playwright lane. That list is what already
+  exists, recorded here because AGENTS.md and CLAUDE.md understated it until 2026-09-02.
+
+  Two exemptions are commonly assumed and do **not** exist. **CodeRabbit reviews mockup source
+  like production code**: `.coderabbit.yaml`'s `!mockups/**` is root-anchored and excludes only
+  the repo-root `mockups/` notes directory, not `src/app/mockups/**` or `*-mockups.tsx`. And
+  **`knip` can see most of this surface**: its ignore is a _basename_ filter (`**/*mockup*`), so
+  `*-mockups.tsx` is exempt while the `src/app/mockups/<slug>/page.tsx` routes and the
+  `*/mockups/**` subtrees are not — `knip --include files` reports inside them today. What
+  suppresses those findings is `check:knip` running only
+  `--include dependencies,unlisted,unresolved,duplicates`, which omits unused-file and
+  unused-export analysis repo-wide. That is not a mockup carve-out, and it is why this policy
+  cannot lean on knip.
+
+  Nothing here widens any exemption, and the surface stays typechecked and stays inside the
+  `mockups` bundle bucket.
+
 - **Never refresh the mockups bundle baseline downward toward zero.** `compareToBudget` in
   `scripts/check-bundle-budget.mjs` treats growth from a zero baseline as `+Infinity` and
   hard-fails, which would turn a 25%-tolerance hygiene ceiling into a zero-tolerance gate on

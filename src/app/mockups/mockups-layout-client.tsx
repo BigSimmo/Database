@@ -12,14 +12,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
   const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
   const isDocumentTopNavigationMockup = pathname === "/mockups/document-top-navigation";
-  const isDocumentNavigationPaneMockup = pathname === "/mockups/document-navigation-pane";
-  const isDocumentPhoneTitleMockup = pathname.startsWith("/mockups/document-phone-");
   // Draws its own universal top bar and document composer inside every frame, so
   // the shared composer would read as a second, real search bar over the study.
   const isDocumentNavigationContractMockup =
-    pathname === "/mockups/document-navigation-contract" ||
-    pathname === "/mockups/document-navigation-perfected" ||
-    pathname.startsWith("/mockups/document-navigation-final");
+    pathname === "/mockups/document-navigation-contract" || pathname === "/mockups/document-navigation-perfected";
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
@@ -58,7 +54,6 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Owns the also-matches panel as the subject; shared composer chrome would
   // sit on top of a study about results-card identity.
   const isAlsoMatchesAccentMockup = pathname === "/mockups/also-matches-accents";
-  const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
   // Every direction in this study draws its own top bar, transcript and
   // composer inside phone/desktop frames — the reference system under review
   // sits directly between them, so shared chrome would read as a second real
@@ -164,11 +159,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
             ? "favourites"
             : isTherapyNavigationMockup
               ? "therapy-compass"
-              : isDocumentSearchMockup ||
-                  isDocumentTopNavigationMockup ||
-                  isDocumentNavigationPaneMockup ||
-                  isDocumentPhoneTitleMockup ||
-                  isDocumentNavigationContractMockup
+              : isDocumentSearchMockup || isDocumentTopNavigationMockup || isDocumentNavigationContractMockup
                 ? "documents"
                 : "answer"
       }
@@ -177,8 +168,6 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
-        !isDocumentNavigationPaneMockup &&
-        !isDocumentPhoneTitleMockup &&
         !isDocumentNavigationContractMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
@@ -192,7 +181,6 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
-        !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
@@ -225,7 +213,6 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
-        !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&

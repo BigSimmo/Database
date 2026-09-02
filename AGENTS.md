@@ -280,19 +280,26 @@ action must perform one; a page that ships must be reachable.
   route has no inbound nav link unless it is consciously added to that test's documented
   allowlist (redirect targets / legacy-compat routes). Both run in `verify:cheap` and CI. Mockups
   (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both. **Corrected
-  2026-09-02: "and from nothing else" was wrong** — a survey of the actual rule and config sources
-  found mockups are also exempt from `local/no-hardcoded-hex`, `local/require-z-index-ladder` and
+  2026-09-02: "and from nothing else" was wrong** — reading the actual rule and config sources,
+  mockups are also exempt from `local/no-hardcoded-hex`, `local/require-z-index-ladder` and
   `local/require-lucide-icon-aria` (`eslint.config.mjs`), from `check:icon-scale` and
-  `check:design-system-contract`, from the required Playwright lane (they run in the advisory
-  `chromium-mockups` project), from CodeRabbit (`.coderabbit.yaml`), and from **`knip` entirely**
-  (`knip.json` ignores `**/*mockup*`), so the repo's own unused-code detector cannot see this
-  surface at all. Note also that the three exemption globs disagree with each other, so
-  `care-plan/mockups/**`, `caring-contacts/mockups/**` and `ward-management/**` are exempt from
-  fewer rules than the depth-1 `*-mockups.tsx` files. Mockups are still compiled like any other
-  source: they are typechecked, and their client chunks are still weighed by
-  `check:bundle-budget` — against the separate `mockups` scratch budget, not the `production` one
-  (reconciled 2026-08-09; see "Bundle budget" below). Do not read "exempt" as "free", and do not
-  read this correction as licence to widen the list.
+  `check:design-system-contract`, and from the required Playwright lane (mockup specs carry
+  `@mockup` and the `chromium` project sets `grepInvert`; `chromium-mockups` is advisory).
+  Two exemptions people assume and that do NOT exist, both verified by glob semantics on
+  2026-09-02: **CodeRabbit reviews mockup source normally** — `.coderabbit.yaml`'s `!mockups/**`
+  is root-anchored and excludes only the repo-root `mockups/` notes directory, not
+  `src/app/mockups/**` or `*-mockups.tsx`; and **`knip` is not blind to this surface** —
+  `knip.json` ignores files whose _basename_ contains `mockup`, so `*-mockups.tsx` is exempt but
+  the 70 `src/app/mockups/<slug>/page.tsx` routes and the `*/mockups/**` subtrees are not.
+  (`check:knip` does run `--include dependencies,unlisted,unresolved,duplicates`, omitting
+  unused-file and unused-export analysis — but that is repo-wide, not a mockup carve-out.)
+  Note too that the three exemption globs disagree with each other, so `care-plan/mockups/**`,
+  `caring-contacts/mockups/**` and `ward-management/**` are exempt from fewer rules than the
+  depth-1 `*-mockups.tsx` files. Mockups are still compiled like any other source: they are
+  typechecked, and their client chunks are still weighed by `check:bundle-budget` — against the
+  separate `mockups` scratch budget, not the `production` one (reconciled 2026-08-09; see
+  "Bundle budget" below). Do not read "exempt" as "free", and do not read this correction as
+  licence to widen the list.
 - **Retiring a mockup is governed by `docs/mockup-retirement-policy.md`**, enforced by
   `npm run check:mockups`. Deleting one needs a written successor plus a clean import search, not a
   reachability scan and not a `-v2`/`-final`/`-perfected` suffix — in this repo a mockup and the

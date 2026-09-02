@@ -192,8 +192,10 @@ These fail builds, so they are worth knowing before you write code:
 - **Mockups are exempt from more gates than these docs used to admit.** `src/app/mockups/**` and `*-mockups.tsx`
   sit outside the **wiring** and **reachability** gates — and, corrected 2026-09-02, also outside
   `no-hardcoded-hex`, `require-z-index-ladder`, `require-lucide-icon-aria`, `check:icon-scale`,
-  `check:design-system-contract`, the required Playwright lane, CodeRabbit, and **`knip` entirely**,
-  so the repo's own unused-code detector is blind to this surface. Nor do they all 404 in
+  `check:design-system-contract` and the required Playwright lane. They are **not** exempt from
+  CodeRabbit (`.coderabbit.yaml`'s `!mockups/**` is root-anchored and only excludes the repo-root
+  notes directory) and **not** wholly exempt from `knip` (its ignore is a _basename_ filter, so
+  `*-mockups.tsx` is exempt but the route `page.tsx` files are not). Nor do they all 404 in
   production: `/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan` and
   `/mockups/ward-flow` are live behind an administrator gate and linked from Settings. Retiring any
   mockup is governed by `docs/mockup-retirement-policy.md` (`npm run check:mockups`). They are still

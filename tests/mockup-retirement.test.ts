@@ -8,6 +8,8 @@ import {
   main,
   mentionedSlugs,
   moduleSpecifiersFor,
+  referencePattern,
+  resolveDiffBase,
   parseArguments,
   readDeveloperGatedPrefixes,
   retiredSection,
@@ -125,6 +127,25 @@ describe("index audit", () => {
     expect(auditIndex("/repo", fs).violations).toHaveLength(0);
   });
 
+  /** Returning [] here would pass with "0 routes indexed", indistinguishable from a healthy repo. */
+  it("fails closed when the mockup route root is missing entirely", () => {
+    const fs = fakeRepo({ "mockups/README.md": "# M\n" }, {});
+    expect(() => auditIndex("/repo", fs)).toThrow(/does not exist/);
+  });
+
+  it("refuses a Retired table whose columns have been reordered", () => {
+    const markdown = [
+      "# M",
+      "",
+      RETIRED_SECTION_HEADING,
+      "",
+      "| Route | Retired | Superseded by | Evidence |",
+      "| --- | --- | --- | --- |",
+      "| `gone` | 2026-09-02 | `winner` | Evidence. |",
+    ].join("\n");
+    expect(() => retiredSlugs(markdown)).toThrow(/table header must be/);
+  });
+
   it("fails closed when the index cannot be read", () => {
     const fs = fakeRepo({}, { [MOCKUP_ROUTE_ROOT]: ["a-route"] });
     expect(auditIndex("/repo", fs).violations.join()).toContain("unreadable");
@@ -147,6 +168,57 @@ describe("module specifiers", () => {
   it("never matches on a bare page or index basename", () => {
     expect(moduleSpecifiersFor("src/app/mockups/foo/page.tsx")).not.toContain("page");
     expect(moduleSpecifiersFor("src/components/bar/index.ts")).not.toContain("index");
+  });
+
+  it("covers a deleted route by its URL, not just by module path", () => {
+    expect(moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/gone/page.tsx`)).toContain("/mockups/gone");
+  });
+
+  /**
+   * The first version of this gate matched only a quote immediately before the specifier, so a
+   * relative prefix hid the reference. 59 files in this surface import relatively, and the sweep
+   * that introduced this gate left four dead `pathname === "/mockups/<slug>"` branches behind.
+   */
+  it.each([
+    ["alias import", 'import X from "@/components/example-study-mockups";'],
+    ["relative sibling", 'import X from "./example-study-mockups";'],
+    ["relative parent", 'import X from "../../components/example-study-mockups";'],
+    ["dynamic import", 'dynamic(() => import("./example-study-mockups"))'],
+  ])("catches a reference by %s", (_label, body) => {
+    const specifiers = moduleSpecifiersFor("src/components/example-study-mockups.tsx");
+    expect(specifiers.some((specifier) => referencePattern(specifier).test(body))).toBe(true);
+  });
+
+  it("does not match an unrelated module with a similar path", () => {
+    const specifiers = moduleSpecifiersFor("src/components/example-study-mockups.tsx");
+    expect(specifiers.some((s) => referencePattern(s).test('import Y from "@/components/other";'))).toBe(false);
+  });
+
+  it("catches a CSS module reached only through composes", () => {
+    const specifiers = moduleSpecifiersFor("src/components/example-shell.module.css");
+    const body = 'composes: base from "./example-shell.module.css";';
+    expect(specifiers.some((specifier) => referencePattern(specifier).test(body))).toBe(true);
+  });
+});
+
+/** `ProcessEnv` requires NODE_ENV, so build fixtures from it rather than casting the type away. */
+const fakeEnv = (extra: Record<string, string> = {}): NodeJS.ProcessEnv => ({ NODE_ENV: "test", ...extra });
+
+describe("diff base resolution", () => {
+  it("passes an explicit ref through untouched", () => {
+    expect(resolveDiffBase("origin/main", { runGit: () => "" })).toBe("origin/main");
+  });
+
+  it("prefers MOCKUP_RETIREMENT_BASE when resolving auto", () => {
+    expect(resolveDiffBase("auto", { runGit: () => "", env: fakeEnv({ MOCKUP_RETIREMENT_BASE: "abc123" }) })).toBe("abc123");
+  });
+
+  it("falls back to the merge base with origin/main", () => {
+    expect(resolveDiffBase("auto", { runGit: () => "deadbeef\n", env: fakeEnv() })).toBe("deadbeef");
+  });
+
+  it("fails closed when no base can be resolved", () => {
+    expect(() => resolveDiffBase("auto", { runGit: () => "", env: fakeEnv() })).toThrow(/could not resolve a diff base/);
   });
 });
 

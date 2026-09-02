@@ -14,7 +14,7 @@ npm run sitemap:check
 ## Mockup index, by topic
 
 A quick-scan catalogue of every route under `src/app/mockups/` and what state it's in, so
-nobody has to open 79 folders to find out what's still useful. `docs/site-map.md` remains
+nobody has to open 70 folders to find out what's still useful. `docs/site-map.md` remains
 the authoritative list of exact live paths (regenerate it after any change here); this
 table exists to group those paths by topic and record a status for each one.
 

@@ -292,7 +292,7 @@
     "check:pr-mergeability": "node scripts/pr-mergeability.mjs --self-test && node scripts/check-pr-mergeability-workflow.mjs",
     "design-system:baselines:adopt": "node scripts/adopt-visual-baselines.mjs",
     "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs",
-    "check:mockups": "node scripts/check-mockup-retirement.mjs --self-test && node scripts/check-mockup-retirement.mjs",
+    "check:mockups": "node scripts/check-mockup-retirement.mjs --self-test && node scripts/check-mockup-retirement.mjs && node scripts/check-mockup-retirement.mjs --diff auto",
     "check:stale-docs": "node scripts/check-stale-docs.mjs"
   },
   "dependencies": {
