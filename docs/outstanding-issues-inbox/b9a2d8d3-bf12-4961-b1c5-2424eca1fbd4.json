@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "b9a2d8d3-bf12-4961-b1c5-2424eca1fbd4",
+  "createdOn": "2026-09-02",
+  "action": "update",
+  "payload": {
+    "id": "#4STSM1",
+    "summary": "Caring Contacts synthetic production build: Phases 1 and 2 built and merged; Phase 3 planned but not built",
+    "detail": "SUPERSEDES the original row, which said the implementation plan was unwritten and named part one as the next step. Verified against main at 45a3dca on 2026-09-02: part one's plan is docs/superpowers/plans/2026-08-19-caring-contact-domain-and-datastore.md with its eleven test-first tasks, and it landed - the sealed domain layer (36 modules under src/lib/caring-contacts/), eight migrations under caring-contacts/supabase/migrations/, and 73 caring-contacts test files are all on main. Phase 2 landed too, under docs/superpowers/plans/2026-08-24-caring-contact-phase-2b-screens.md, with the production workspace routes under src/app/caring-contacts/. WHAT REMAINS is Phase 3, 'make it demonstrable' (spec §10, §2.9 and the rehearsed demonstration path), which spec §13 said folds into the Phase 2 pull request 'unless it grows' - Phase 2B merged without it, so it grew and now needs its own PR. Its plan was written in PR #2520 as docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md: eleven test-first tasks in five groups covering the advanceable demo clock and its production-absence proof, the seed extended from five patients to twelve across all nine required states, the §2.9 bounded clinical-record plan summary with its exclusions asserted as absences, training mode isolated at the store seam, and the five-minute path as a tracked document plus an executable journey. The plan is DRAFT, not approved for execution, and carries four questions for the owner - none blocking its first task: (1) is the §2.9 summary a print view or a saveable file (the plan assumes print, the safer half); (2) contact detail and system states exist as mockup routes with no production equivalent - Phase 2 gap or deliberate; (3) are the five existing seeded patient names kept and seven added; (4) spec §14's four open decisions remain open, of which the patient-visible reply wording is spoken aloud during the demonstration. NEXT STEP is owner approval of the plan, then subagent-driven execution of its Task 1.",
+    "source": "Verified repo read at main 45a3dca; plan written in PR #2520, 2026-09-02",
+    "baseRowFingerprint": "ddc443f426acd498d865fd57f30fa1e28770de7fc7a6437dc3eb0ee4de6e1e30"
+  }
+}

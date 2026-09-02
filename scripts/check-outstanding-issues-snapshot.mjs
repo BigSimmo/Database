@@ -24,6 +24,9 @@ const FIX = "node scripts/generate-outstanding-issues-snapshot.mjs";
  *
  * Excluding them fails safe: every canonical ledger content difference (open,
  * queue, counts.open, counts.p1..p3, counts.queued, counts.resolved) is still caught.
+ *
+ * Excluding `pending` from the VALUE comparison is not the same as permitting it
+ * in the committed file, and `compareSnapshots` enforces the difference below.
  */
 const COMPARED_CONTENT_KEYS = ["queue", "open"];
 
@@ -50,6 +53,23 @@ export function compareSnapshots(committed, regenerated) {
     if (JSON.stringify(committed?.[key]) !== JSON.stringify(regenerated[key])) {
       differences.push(`${key} differs from the ledger`);
     }
+  }
+
+  // `pending` is excluded from the value comparison above, but the committed
+  // file must still be EMPTY of it. Excluding a field from comparison never
+  // stopped it conflicting in git — the bytes still ship, and their value
+  // depends on every other branch's queued requests, which is the whole of
+  // `#Y090R5`. The generator defaults to an empty `pending` for exactly this
+  // reason, but `prebuild` passes `--with-pending` so the built image can show
+  // the true list, and `prebuild` also runs on any local `npm run build`. That
+  // leaves a dirtied working tree a developer can commit by accident, which
+  // re-arms the conflict. This is the backstop that makes the invariant
+  // enforced rather than merely conventional.
+  if (Array.isArray(committed?.pending) && committed.pending.length > 0) {
+    differences.push(
+      `pending: the committed snapshot carries ${committed.pending.length} inbox request(s); it must be empty. ` +
+        "A local `npm run build` rewrites it via `prebuild --with-pending` — re-run the generator with no flag to clear it.",
+    );
   }
 
   const topLevelKeys = new Set([...Object.keys(regenerated), ...Object.keys(committed ?? {})]);
