@@ -290,8 +290,10 @@ export function SearchProgressBanner({ message, onStop }: { message: string; onS
  *
  * The rail degrades to nothing rather than to a placeholder: the preview unit is
  * gated behind `NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER` (#100 Phase
- * 1) and is off by default, so today the line and the prose placeholder are the
- * whole wait. Nothing here invents a source to fill the space.
+ * 1), which is ON unless explicitly set to `false` (2026-08-27 owner decision —
+ * see `src/lib/client-env.ts`). When the server emits no preview, or rendering is
+ * rolled back, the line and the prose placeholder are the whole wait. Nothing
+ * here invents a source to fill the space.
  */
 export function AnswerProgress({
   events,
