@@ -49,11 +49,16 @@ const KNOWN_ORPHAN_VERSIONS: Record<string, string> = {
 const NEUTRALIZED_MIGRATIONS: Record<string, string> = {
   "20260607183245":
     "Remote history placeholder — the equivalent schema changes are tracked in later consolidated migrations.",
-  "20260614185707": "Remote history placeholder — superseded by 20260615001000_indexing_reliability_recovery.sql.",
-  "20260620015106": "Remote history placeholder — superseded by 20260620000000_retrieval_accuracy_speed.sql.",
-  "20260620021712": "Remote history placeholder — superseded by 20260616001000_ingestion_job_state_rpcs.sql.",
-  "20260620021731": "Remote history placeholder — superseded by 20260616001000_ingestion_job_state_rpcs.sql.",
-  "20260623125600": "Remote history placeholder — superseded by 20260623030000_api_rate_limits.sql.",
+  "20260614185707":
+    "Remote history placeholder — the equivalent schema changes are tracked locally in 20260615001000_indexing_reliability_recovery.sql.",
+  "20260620015106":
+    "Remote history placeholder — the equivalent schema changes are tracked locally in 20260620000000_retrieval_accuracy_speed.sql.",
+  "20260620021712":
+    "Remote history placeholder — the equivalent schema changes are tracked locally in 20260616001000_ingestion_job_state_rpcs.sql.",
+  "20260620021731":
+    "Remote history placeholder — the equivalent schema changes are tracked locally in 20260616001000_ingestion_job_state_rpcs.sql.",
+  "20260623125600":
+    "Remote history placeholder — the equivalent schema changes are tracked locally in 20260623030000_api_rate_limits.sql.",
   "20260629100000":
     "Duplicate of 20260629060603_rag_queries_retention.sql; both versions reached remote history, so this one is kept inert to preserve ordering without re-running the purge function or cron schedule.",
   "20260702170000":
