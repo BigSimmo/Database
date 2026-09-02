@@ -1198,8 +1198,6 @@
         "src/components/AccessibleTable.tsx",
         "src/components/answer/AnswerFooter.tsx",
         "src/components/calculators/calculator-sheet.tsx",
-        "src/components/calculators/clinical-console.tsx",
-        "src/components/calculators/directory-grid.tsx",
         "src/components/calculators/search-detail.tsx",
         "src/components/clinical-dashboard/favourites-hub.tsx",
         "src/components/specifiers/specifier-reference-page.tsx",
