@@ -118,6 +118,18 @@ const ingestionQualityQuerySchema = z.object({
   limit: queryInteger({ fallback: 120, min: 1, max: 200 }),
 });
 
+// Hosted Supabase/PostgREST silently caps a single response at 1,000 rows —
+// the same limit search-scope.ts already names and pages around (#075). This
+// route's child reads (pages, images, jobs, stages) had no `.limit()` at all,
+// so a corpus whose newest documents-window holds more than 1,000 combined
+// pages/images/jobs/stages would have rows dropped past the cut with no
+// error, and the review heuristics below would score whichever rows survived
+// as if that were the whole document set — a document past the cut can be
+// reported clean when it is not (#M11). Bounding explicitly, rather than
+// relying on the platform default, lets the route detect exactly hitting the
+// cap and say so instead of staying silent.
+const CHILD_QUERY_ROW_CAP = 1000;
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -380,27 +392,46 @@ export async function GET(request: Request) {
         .from("ingestion_jobs")
         .select("id,document_id,status,stage,error_message,updated_at")
         .in("document_id", documentIds)
-        .order("updated_at", { ascending: false }),
+        .order("updated_at", { ascending: false })
+        .limit(CHILD_QUERY_ROW_CAP),
       supabase
         .from("ingestion_job_stages")
         .select(
           "id,document_id,job_id,stage_name,stage_status,error_message,metadata,artifact_counts,finished_at,started_at",
         )
         .in("document_id", documentIds)
-        .order("started_at", { ascending: false }),
+        .order("started_at", { ascending: false })
+        .limit(CHILD_QUERY_ROW_CAP),
       supabase
         .from("document_pages")
         .select("document_id,page_number,text,ocr_used,metadata")
-        .in("document_id", documentIds),
+        .in("document_id", documentIds)
+        .limit(CHILD_QUERY_ROW_CAP),
       supabase
         .from("document_images")
         .select("document_id,page_number,source_kind,searchable,metadata")
-        .in("document_id", documentIds),
+        .in("document_id", documentIds)
+        .limit(CHILD_QUERY_ROW_CAP),
     ]);
 
     for (const result of [qualityResult, jobsResult, stagesResult, pagesResult, imagesResult]) {
       if (result.error) throw new Error(result.error.message);
     }
+
+    // A result that lands exactly on the explicit cap means rows may have
+    // been cut off (#M11) — report which tables so a caller does not treat a
+    // capped read as a complete one. `qualityResult` has no `.limit()` (one
+    // row per document, itself already bounded by the document-window limit
+    // above), so it is deliberately not in this list.
+    const cappedChildTables: Array<[string, typeof jobsResult]> = [
+      ["ingestion_jobs", jobsResult],
+      ["ingestion_job_stages", stagesResult],
+      ["document_pages", pagesResult],
+      ["document_images", imagesResult],
+    ];
+    const partialTables = cappedChildTables
+      .filter(([, result]) => Array.isArray(result.data) && result.data.length >= CHILD_QUERY_ROW_CAP)
+      .map(([table]) => table);
 
     return NextResponse.json({
       items: buildReviewItems({
@@ -411,6 +442,7 @@ export async function GET(request: Request) {
         pages: parseListRows(pagesResult.data, pageRowSchema),
         images: parseListRows(imagesResult.data, imageRowSchema),
       }).slice(0, 80),
+      ...(partialTables.length > 0 ? { partial: true, partialTables } : {}),
     });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
