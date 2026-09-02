@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
@@ -35,6 +35,26 @@ describe("PatientProfilePanel — physiological input validation", () => {
     expect(allergy).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(allergy);
     expect(screen.getByRole("button", { name: "Penicillin" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("separates a recorded hepatic 'None' from a status that was never entered", () => {
+    renderPanel();
+    const group = screen.getByRole("radiogroup", { name: "Hepatic impairment" });
+
+    // Nothing entered yet: the control says so instead of showing "None", which
+    // the engine reads as an answer that clears a hepatic gate.
+    expect(within(group).getByRole("radio", { name: "Not recorded" })).toHaveAttribute("aria-checked", "true");
+    expect(within(group).getByRole("radio", { name: "None" })).toHaveAttribute("aria-checked", "false");
+    expect(storedProfile().hepatic ?? null).toBeNull();
+
+    fireEvent.click(within(group).getByRole("radio", { name: "None" }));
+    // "None" is written through as a real value, so the gate counts as assessed.
+    expect(storedProfile().hepatic).toBe("none");
+    expect(within(group).getByRole("radio", { name: "None" })).toHaveAttribute("aria-checked", "true");
+    expect(within(group).getByRole("radio", { name: "Not recorded" })).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.click(within(group).getByRole("radio", { name: "Not recorded" }));
+    expect(storedProfile().hepatic).toBeNull();
   });
 
   it("flags an out-of-range eGFR with an accessible error and never stores it", () => {

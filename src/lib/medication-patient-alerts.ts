@@ -72,9 +72,35 @@ export type PatientAlertResult = {
    * Distinct inputs (e.g. ["eGFR", "hepatic status"]) referenced by a
    * contraindication on this medication that could not be evaluated because the
    * profile did not supply them — so a blank field is never read as an
-   * all-clear. Rendered as a single hint, not per row.
+   * all-clear. Rendered as a single hint, not per row. Collected whether or not
+   * the row fired on some other criterion: a row that fires on age while eGFR is
+   * blank still has an unevaluated renal criterion.
+   *
+   * This field is what the result-row verdict's green-to-grey degrade reads. Its
+   * MEANING is unchanged — contraindication rows only, never the advisory tier —
+   * but it is not untouched: collecting gates from fired rows too makes it a
+   * strict superset of what it used to hold, so the degrade now fires on
+   * medications where it previously stayed green. That direction is deliberate
+   * and only ever more conservative; it never clears a degrade that used to fire.
    */
   unassessed: string[];
+  /**
+   * The same thing one tier down: distinct inputs referenced by an advisory row
+   * (`dose-adjust`, `caution`, `monitor`, or any future action that is neither a
+   * contraindication nor `info`) that could not be evaluated. Kept separate from
+   * `unassessed` because the consequence differs — an unread contraindication
+   * gate can hide a reason not to prescribe, while an unread dosing gate hides a
+   * dose or a monitoring step. `action: "info"` rows are excluded from both:
+   * they carry no action to miss. Rendered as its own hint, never merged into
+   * the contraindication sentence.
+   */
+  unassessedAdvisory: string[];
+  /**
+   * How many advisory rows contributed to `unassessedAdvisory` (rows, not
+   * inputs). The clinician-facing sentence counts entries, and one input can be
+   * shared by many rows, so the count cannot be derived from the array.
+   */
+  unassessedAdvisoryCount: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -326,13 +352,16 @@ function factorLabelsFor(patient: MedicationPatientMetadata): string[] {
 /**
  * Evaluate every patient-tagged row of a medication against the entered profile.
  * Only fields present in the profile are tested (partial profiles are normal).
- * Contraindication rows that fire on a numeric/categorical gate the clinician
- * did not supply are surfaced separately as `unassessed`, so a missing input is
- * never read as an all-clear.
+ * Any row whose numeric/categorical gate the clinician did not supply is
+ * surfaced separately — `unassessed` for contraindication rows, and
+ * `unassessedAdvisory` for dosing/monitoring/caution rows — so a missing input is
+ * never read as an all-clear at either tier.
  */
 export function evaluatePatientAlerts(record: MedicationRecord, profile: PatientProfile): PatientAlertResult {
   const considerations: MedicationConsideration[] = [];
   const unassessed = new Set<string>();
+  const unassessedAdvisory = new Set<string>();
+  let unassessedAdvisoryCount = 0;
 
   for (const section of record.sections ?? []) {
     for (const row of section.rows ?? []) {
@@ -353,8 +382,23 @@ export function evaluatePatientAlerts(record: MedicationRecord, profile: Patient
           reasons,
           factorLabels: factorLabelsFor(patient),
         });
-      } else if (patient.action === "contraindication") {
+      }
+
+      // Gates are collected independently of whether the row fired. A row that
+      // fires on age but cannot read eGFR has still left its renal criterion
+      // unevaluated, and reporting no gap there is exactly the false all-clear
+      // this partition exists to prevent.
+      if (missingGates.length === 0) continue;
+      // `info` rows carry no action to miss, so an unread gate on one is noise
+      // rather than a safety gap. Every other action — including an unknown one
+      // a future catalogue export might introduce — lands in the advisory tier,
+      // because the conservative direction is to state the gap, not drop it.
+      if (patient.action === "info") continue;
+      if (patient.action === "contraindication") {
         for (const gate of missingGates) unassessed.add(gate);
+      } else {
+        for (const gate of missingGates) unassessedAdvisory.add(gate);
+        unassessedAdvisoryCount += 1;
       }
     }
   }
@@ -375,6 +419,8 @@ export function evaluatePatientAlerts(record: MedicationRecord, profile: Patient
     counts,
     highestTone: considerations[0]?.tone ?? null,
     unassessed: Array.from(unassessed).sort(),
+    unassessedAdvisory: Array.from(unassessedAdvisory).sort(),
+    unassessedAdvisoryCount,
   };
 }
 

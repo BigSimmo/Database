@@ -14,6 +14,7 @@ import {
   verdictSummaryBadge,
 } from "@/components/clinical-dashboard/medication-considerations";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
+import { toneSuccess } from "@/components/primitive-recipes/recipes";
 import { getMedicationRecord } from "@/lib/medication-snapshot";
 import { PATIENT_PROFILE_STORAGE_KEY } from "@/lib/patient-profile-storage";
 import type { MedicationRecord } from "@/lib/medications";
@@ -95,6 +96,182 @@ describe("interactions block on the medication detail page", () => {
 
     // The success notice must not be the story here; the review notice is.
     expect(container.textContent).toMatch(/could not be matched automatically/i);
+  });
+});
+
+describe("considerations block — an unread gate is never an all-clear", () => {
+  // One contraindication row gated on eGFR and one dose-adjust row gated on
+  // hepatic status, so each tier has exactly one unread input to report.
+  function gatedRecord(): MedicationRecord {
+    return {
+      ...(getMedicationRecord("acamprosate") as MedicationRecord),
+      slug: "gate-fixture-med",
+      sections: [
+        {
+          title: "Contraindications",
+          type: "contra",
+          rows: [
+            {
+              key: "Renal",
+              val: "row text",
+              patient: { factors: ["renal"], action: "contraindication", match: { egfr: { lt: 30 } } },
+            },
+            {
+              key: "Hepatic",
+              val: "row text",
+              patient: { factors: ["hepatic"], action: "dose-adjust", match: { hepatic: ["severe"] } },
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  function renderGated() {
+    return render(
+      <PatientProfileProvider>
+        <MedicationConsiderations record={gatedRecord()} />
+      </PatientProfileProvider>,
+    );
+  }
+
+  it("degrades the empty state out of the success tone when a gate could not be read", () => {
+    seedProfile({ ageYears: 40 });
+    const { container } = renderGated();
+
+    const notice = screen
+      .getByText(/No considerations matched the details entered/i)
+      .closest('[role="status"], [role="alert"]');
+    expect(notice).not.toBeNull();
+    // The green all-clear is the specific thing that must not render above an
+    // "enter eGFR" sentence.
+    for (const token of toneSuccess.split(" ")) {
+      expect(notice?.className ?? "").not.toContain(token);
+    }
+    expect(container.textContent).not.toMatch(/No matching considerations for the entered patient profile/i);
+    expect(container.textContent).toMatch(/Some checks could not be run/i);
+  });
+
+  it("names the blocking and advisory gaps in separate sentences", () => {
+    seedProfile({ ageYears: 40 });
+    const { container } = renderGated();
+
+    expect(container.textContent).toMatch(
+      /Not assessed\. Contraindication checks for this medication use eGFR, which this profile does not include\. Enter it, or check the source, before treating this panel as complete\./,
+    );
+    expect(container.textContent).toMatch(
+      /Not assessed\. 1 dosing and monitoring entry uses hepatic status, which this profile does not include\. Enter it to complete that check\./,
+    );
+  });
+
+  it("keeps the success tone once every gate has an answer", () => {
+    // hepatic "none" is a recorded answer, not a blank — the criterion was read.
+    seedProfile({ ageYears: 40, egfr: 90, crcl: 90, hepatic: "none" });
+    const { container } = renderGated();
+
+    const notice = screen
+      .getByText(/No matching considerations for the entered patient profile/i)
+      .closest('[role="status"], [role="alert"]');
+    expect(notice?.className ?? "").toContain(toneSuccess.split(" ")[0]);
+    expect(container.textContent).not.toMatch(/Not assessed\./);
+  });
+
+  it("agrees the verb with the entry count and the pronoun with the input count", () => {
+    // Two advisory entries, two unread inputs. The list gets a serial "and" so it
+    // cannot run into the relative clause that follows it.
+    const record = {
+      ...(getMedicationRecord("acamprosate") as MedicationRecord),
+      slug: "plural-advisory-fixture",
+      sections: [
+        {
+          title: "Special populations",
+          type: "spec",
+          rows: [
+            {
+              key: "Renal",
+              val: "row text",
+              patient: { factors: ["renal"], action: "dose-adjust", match: { egfr: { lt: 30 } } },
+            },
+            {
+              key: "QTc",
+              val: "row text",
+              patient: { factors: ["qtc"], action: "monitor", match: { qtc: { gte: 500 } } },
+            },
+          ],
+        },
+      ],
+    } as MedicationRecord;
+
+    seedProfile({ ageYears: 40 });
+    const { container } = render(
+      <PatientProfileProvider>
+        <MedicationConsiderations record={record} />
+      </PatientProfileProvider>,
+    );
+
+    expect(container.textContent).toMatch(
+      /Not assessed\. 2 dosing and monitoring entries use QTc and eGFR, which this profile does not include\. Enter them to complete those checks\./,
+    );
+    expect(container.textContent).not.toMatch(/to see whether/i);
+  });
+
+  it("never invites deferring an alert that already fired: no 'to see whether' over a live advisory row", () => {
+    // The shape the corpus really has — lithium-carbonate-ir-sr's "Renal
+    // Impairment" dose-adjust row is factors renal + allergy-nsaid gated on eGFR.
+    // An NSAID allergy fires it while eGFR stays blank, so the row renders above
+    // as a live clinical alert. Telling the clinician to enter eGFR "to see
+    // whether it applies" would read as permission to defer acting on it.
+    const record = {
+      ...(getMedicationRecord("acamprosate") as MedicationRecord),
+      slug: "fired-advisory-fixture",
+      sections: [
+        {
+          title: "Special populations",
+          type: "spec",
+          rows: [
+            {
+              key: "Renal Impairment",
+              val: "Reduce dose and monitor levels.",
+              patient: {
+                factors: ["renal", "allergy-nsaid"],
+                action: "dose-adjust",
+                match: { egfr: { lt: 30 } },
+              },
+            },
+          ],
+        },
+      ],
+    } as MedicationRecord;
+
+    seedProfile({ allergies: ["nsaid"] });
+    const { container } = render(
+      <PatientProfileProvider>
+        <MedicationConsiderations record={record} />
+      </PatientProfileProvider>,
+    );
+
+    // The row fired and is on screen as a consideration.
+    expect(screen.getByTestId("patient-consideration-spec:Renal Impairment")).toBeInTheDocument();
+    expect(container.textContent).toMatch(/NSAID allergy/i);
+    // …and the advisory sentence below it never puts applicability back in
+    // question over a row that has already fired.
+    expect(container.textContent).not.toMatch(/to see whether/i);
+    // It still reports the unread gate, as an incomplete check rather than an
+    // open question.
+    expect(container.textContent).toMatch(
+      /Not assessed\. 1 dosing and monitoring entry uses eGFR, which this profile does not include\. Enter it to complete that check\./,
+    );
+  });
+
+  it("still reports a row's other unread gate after that row has fired", () => {
+    // eGFR 20 fires the contraindication; hepatic status is still unread, and the
+    // advisory sentence must say so rather than being swallowed by the alert.
+    seedProfile({ ageYears: 40, egfr: 20, crcl: 20 });
+    const { container } = renderGated();
+
+    expect(container.textContent).toMatch(
+      /Not assessed\. 1 dosing and monitoring entry uses hepatic status, which this profile does not include\./,
+    );
   });
 });
 

@@ -13,7 +13,23 @@ import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
 import type { AllergyClass, HepaticSeverity, ScrUnit } from "@/lib/medication-patient-alerts";
 import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from "@/lib/patient-profile-storage";
 
-const HEPATIC_OPTIONS: { value: HepaticSeverity; label: string }[] = [
+/**
+ * "Not recorded" is a real segment, not the absence of a selection.
+ *
+ * The engine already treats `hepatic: "none"` as present-and-non-firing (it
+ * tests `hepatic !== "none"` rather than falsiness), so "assessed, no
+ * impairment" clears a hepatic gate while a null leaves it unassessed. Storing
+ * "None" as null collapsed those two states into one: selecting None was
+ * indistinguishable from never touching the field, and the control then
+ * displayed "None" for a profile that recorded nothing at all. The sentinel is
+ * a display-only value — it is written through as `null`, never stored.
+ */
+const HEPATIC_UNRECORDED = "unrecorded" as const;
+
+type HepaticSegment = HepaticSeverity | typeof HEPATIC_UNRECORDED;
+
+const HEPATIC_OPTIONS: { value: HepaticSegment; label: string }[] = [
+  { value: HEPATIC_UNRECORDED, label: "Not recorded" },
   { value: "none", label: "None" },
   { value: "mild", label: "Mild" },
   { value: "moderate", label: "Moderate" },
@@ -306,8 +322,8 @@ export function PatientProfilePanel({
           </span>
           <SegmentedControl
             ariaLabelledBy="patient-hepatic-label"
-            value={profile.hepatic ?? "none"}
-            onChange={(value) => updateField("hepatic", value === "none" ? null : value)}
+            value={profile.hepatic ?? HEPATIC_UNRECORDED}
+            onChange={(value) => updateField("hepatic", value === HEPATIC_UNRECORDED ? null : value)}
             options={HEPATIC_OPTIONS}
             layout="equal"
           />
