@@ -97,6 +97,13 @@
       "Bash(npm run verify:pr-local)",
       "Bash(npm run verify:pr-local --*)",
       "Bash(npm run verify:phone-chrome)",
+      "Bash(npm run plan:browser)",
+      "Bash(npm run plan:browser --*)",
+      "Bash(npm run arbiter)",
+      "Bash(npm run arbiter --*)",
+      "Bash(npm run arbiter:status)",
+      "Bash(npm run receipts)",
+      "Bash(npm run check:browser-test-plan)",
       "Bash(npm run ensure)",
       "Bash(npm run skills)",
       "Bash(npm run docs:check-index)",
@@ -305,6 +312,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/issues-surface.sh\"",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/testing-policy.sh\"",
+            "timeout": 15
           }
         ]
       }
