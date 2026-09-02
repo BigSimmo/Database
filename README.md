@@ -343,7 +343,7 @@ unavailable.
 
 Report vulnerabilities privately — see `SECURITY.md`. Do not open a public issue for
 a security problem. Threat models and the privacy assessment live under `docs/`
-(`rag-injection-threat-model.md`, `tenancy-defense-in-depth-review.md`,
+(`rag-injection-threat-model.md`, `audit/tenancy-defense-in-depth-review.md`,
 `privacy-impact-assessment.md`).
 
 ## License, ownership, and contributions
