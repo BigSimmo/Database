@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "362cc5dd50698e44481cfff76f578e075fa6a2bf",
-    "committed_at": "2026-08-27T20:30:32+08:00"
+    "sha": "d247db72afce3d28a45d496334927a6c5cb5762e",
+    "committed_at": "2026-09-02T03:17:21+00:00"
   },
   "counts": {
-    "open": 75,
+    "open": 70,
     "p1": 2,
-    "p2": 51,
-    "p3": 22,
+    "p2": 49,
+    "p3": 19,
     "queued": 7,
     "pending": 0,
-    "resolved": 454
+    "resolved": 459
   },
   "queue": [
     {
@@ -310,33 +310,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#0HYHTH",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Caring Contacts: nothing checks screen wording against the prohibited-vocabulary list",
-      "detail": "The prohibited-language check runs against outgoing messages and the 24 frozen overlay rows only. No gate scans interface strings elsewhere in the workspace, so the ban on words such as high risk, safe, engagement score and risk score is currently policy held by people rather than by software. Copy review Part 5 item 2 records the same gap.",
-      "source": "docs/caring-contacts/copy-review.md Part 5; Phase 2A deferred list",
-      "added": "2026-08-24"
-    },
-    {
-      "id": "#PWZYY8",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Icons passed as icon props render with no aria-hidden, and the lint rule is structurally blind to it",
-      "detail": "eslint-rules/require-lucide-icon-aria.mjs only inspects JSX whose tag name is a direct lucide-react import; its own doc comment scopes out icons passed as icon: LucideIcon values. At least nine production components destructure icon: Icon and render it with no aria-hidden, aria-label, role or title and no aria-hidden ancestor, so a bare svg reaches the accessibility tree. DocumentBadge, DocumentActionLink, DocumentActionAnchor and DocumentActionButton alone are used 62 times across 9 production files. evidence-panels.tsx:1185 omits it in the same ternary as a correctly marked Loader2 sibling, showing the omission is inconsistent rather than deliberate. FIX: add aria-hidden at the sites, or extend the rule to flag a tag name resolved from a destructured LucideIcon prop.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
-      "id": "#5YKAQ5",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "sentry.server.config falls back to the service-role key when the publishable key is absent",
-      "detail": "src/sentry.server.config.ts:54 reads NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or else SUPABASE_SERVICE_ROLE_KEY. Server-only file and sendOperationData is false, so no key or PHI reaches Sentry and the risk is contained - but the fallback broadens where the secret is instantiated for no benefit. If the publishable key is missing, tracing should be disabled rather than escalated. FIX: drop the fallback.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#ZK460W",
       "priority": "P2",
       "type": "issue",
@@ -427,15 +400,6 @@
       "added": "2026-08-18"
     },
     {
-      "id": "#DVRZA4",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "prettierignore lists one generated data snapshot but not its sibling",
-      "detail": "data/outstanding-issues-snapshot.json is in .prettierignore; data/repo-awareness-snapshot.json, added by Phase 2, is not. The repo-awareness file passes prettier --check today, so nothing is broken and this is latent rather than live. The asymmetry makes the one listed entry read as arbitrary. Resolve it in whichever direction is right - the answer may well be removing the older entry rather than adding the newer one.",
-      "source": "Phase 2 whole-branch review, PR #2359",
-      "added": "2026-08-25"
-    },
-    {
       "id": "#CJCH2E",
       "priority": "P3",
       "type": "issue",
@@ -449,7 +413,7 @@
       "priority": "P3",
       "type": "rec",
       "summary": "Caring Contacts: postgres-repository.ts is ~2,080 lines and holds five self-contained clusters",
-      "detail": "src/lib/caring-contacts/db/postgres-repository.ts would split naturally into sibling modules under db/. Pure structure, no behaviour change; the file is the code half of row-level security so any split must keep every method's set_config/set local role preamble intact and be proved by the existing shared contract suite.",
+      "detail": "STILL OPEN AND LARGER THAN RECORDED; re-measured against origin/main d1bb2c197 on 2026-09-02. A done request for this row (97bbfd51) claimed the file had been modularized into five cohesive domain modules (core, plans, contacts, referrals-pathways, assignments). That claim is false against current main and the request was cancelled, so nothing was lost -- but the reason recorded on the cancellation ('target issue is no longer in Open items on current main') was also wrong, since the row was and remains open. Recording the measurement so a third attempt does not start from either error. MEASURED: src/lib/caring-contacts/db/postgres-repository.ts is a single file of 2,500 lines. It has not been split, and it is now about 420 lines LARGER than the ~2,080 this row recorded when it was filed. There are no sibling domain modules beside it under db/. The original recommendation is unchanged and still applies: the split is pure structure with no behaviour change, every method's set_config / set local role preamble must survive it intact because this file is the code half of row-level security, and the existing shared contract suite is the proof that it did.",
       "source": "docs/caring-contacts/phase-2a-build-record.md deferred list item 2",
       "added": "2026-08-24"
     },
@@ -458,7 +422,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Caring Contacts: the closing-message refusal is a guard that cannot fire",
-      "detail": "resolveClosingContactMessageBody in src/lib/caring-contacts/message-policy.ts was added 2026-08-24 for approved copy item A4 ('refuse loudly rather than send nothing when a plan reaches its end with no closing message'). It is a standalone function and nothing obliges any caller to use it, so unlike the A1 fictional-contact check -- which rides validateGovernedMessage, a chokepoint every future sender must pass -- it can be bypassed simply by resolving a closing body some other way. PlannedContact (schedule.ts) carries messageType and no body, so no seam exists to wire it to yet, and inventing one would require deciding where an authored closing body comes from. DO NOT record A4 as closed: the owner's approved outcome is not achieved today. When the message-body seam is built, this function must become the only path to a closing body.",
+      "detail": "RE-VERIFIED STILL OPEN against origin/main d1bb2c197 on 2026-09-02. A done request (c862828e) claimed this was resolved because resolveClosingContactMessageBody and tests/caring-contacts-message-policy.test.ts exist. It was cancelled, and cancelling it was correct -- but for a different reason than the one recorded, so pinning the measurement here to stop a third attempt closing the row on the same mistake. The function existing was never what this row asked for. MEASURED: grep for resolveClosingContactMessageBody across src/**/*.ts and src/**/*.tsx returns exactly two hits -- its own definition at src/lib/caring-contacts/message-policy.ts:208, and a prose mention in a doc comment at src/lib/caring-contacts/message-copy.ts:121. There is still no production caller. The tests at tests/caring-contacts-message-policy.test.ts:477 exercise the function directly, which proves the refusal is correct but not that anything is obliged to ask for it, so the guard remains one a future sender can bypass by resolving a closing body some other way. The row's own stop rule is unchanged and still binding: do not record approved copy item A4 as closed. The blocker is also unchanged -- PlannedContact in schedule.ts carries messageType and no body, so there is still no seam to wire this to, and inventing one means deciding where an authored closing body comes from.",
       "source": "Task C review finding, 2026-08-24; confirmed by controller and reviewer independently",
       "added": "2026-08-24"
     },
@@ -488,15 +452,6 @@
       "detail": "caring-contacts/supabase/migrations/0001_caring_contacts_foundation.sql lines 146, 172, 218 and 227 declare plan_id/contact_id references without the team_id composite that Rulings 25 and 27 later made mandatory, so a row written by one team can point at another team's plan or contact. Verified in the migration text 2026-08-24. Decide whether to add the composite keys by migration or record the exception; a bare key already caught one real cross-team defect.",
       "source": "docs/caring-contacts/phase-2a-build-record.md (Rulings 25/27); Phase 2A deferred list",
       "added": "2026-08-24"
-    },
-    {
-      "id": "#XHADPV",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "repo-awareness snapshot emits two per-section documentation counts that nothing reads",
-      "detail": "documentation.sections[] carries documents and uncatalogued for all 15 sections; grep shows only .name is consumed, by documentsBySection for ordering. The documentation page shows section.documents.length computed at render instead. Rendering the live list is arguably SAFER than trusting a stored number, but it means the plan's 'counts are computed once by the generator so a count and its own list cannot disagree' rule has an undocumented exception, and 30 dead numbers ride in the committed snapshot. Pick one deliberately: render the stored counts, or stop emitting them. Deferred from the Phase 2 fix wave because it changes either the data contract or a page, which is a design decision rather than a cleanup.",
-      "source": "Phase 2 whole-branch review, PR #2359",
-      "added": "2026-08-25"
     },
     {
       "id": "#1S81R8",
@@ -548,7 +503,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "Caring Contacts: the interface prohibited-language helper has the same 'lead' job-title collision B2 just fixed for messages",
-      "detail": "tests/helpers/caring-contacts-prohibited-language.ts matches /\\bleads?\\b/, so it flags the ordinary English job titles 'the incident lead' and 'the clinical programme lead' exactly as the message validator used to before item B2 narrowed it on 2026-08-24. Out of B2's scope, which was explicitly limited to the message rules. Apply the same commercial-sense narrowing, or record why interface copy should be stricter than message copy.",
+      "detail": "NARROWED TO PLURALS; re-measured against origin/main d1bb2c197 on 2026-09-02 by executing the pattern, not by reading it. A done request (461a406d) claimed the plural case was fixed and was cancelled; the cancellation's stated reason was wrong (the row is open), but the outcome is right, because the plural case is NOT fixed. HALF DONE: tests/helpers/caring-contacts-prohibited-language.ts now carries the same negative lookbehind the message rules use -- (?<!\\b(?:incident|programme|clinical|service|team) )\\blead\\b -- so both examples this row named by name now pass. Run against the live pattern: 'incident lead' ok, 'team lead' ok, 'clinical lead' ok, 'programme lead' ok. STILL BROKEN: the alternation also contains a bare \\bleads\\b with no lookbehind, and it sits ahead of the narrowed branch, so every plural job title is still flagged -- 'clinical leads' matches on 'leads', as do 'programme leads' and 'Clinical Leads'. The commercial sense the branch exists to catch ('sales leads', 'lead generation') is correctly still flagged, so the fix is to extend the same modifier lookbehind to the plural branch rather than to delete it. Reusing COMMERCIAL_LEAD_PATTERN from src/lib/caring-contacts/message-rules.ts line 81 remains the cheapest route, and the alternative the row already allows -- recording why interface copy should be stricter than message copy -- is still open as a decision.",
       "source": "Task C implementer concern 3, 2026-08-24",
       "added": "2026-08-24"
     },
@@ -700,9 +655,9 @@
       "id": "#YTR84P",
       "priority": "P2",
       "type": "task",
-      "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
-      "detail": "WardFlowProvider's initialNow prop silently discarded its value: the render body forced elapsed=0 when pinned, so now was always NOW_ANCHOR (642, 10:42) whatever instant was passed. Latent, never active - all 40 initialNow call sites pass NOW_ANCHOR, and the live app never passes the prop - but it made every time-of-day branch untestable through the real provider. FIXED and PROVEN in commit 62f798c2a on branch claude/serene-heyrovsky-7a5e53 (base be65b8a1b), worktree D:\\Repos\\Database\\.claude\\worktrees\\nostalgic-vaughan-7ee231: 40/40 existing call sites stayed green (92 tests), whole ward suite 519 passed, typecheck/lint/prettier pass, and a mutation test showed 3 of 4 new tests going red with 'Expected 450 / Received 642'. RISK: that branch has never been pushed, has no upstream and no PR, so the work exists on one machine only. NEXT ACTIONS, all on claude/ward-flow-phases-6-7-design (which was ACTIVELY ADVANCING when this was written - a53a3a994 to 0d29dd734 in one session, so confirm ownership before editing): (1) cherry-pick 62f798c2a or re-apply the two-line change; (2) write the spec D5 pre-08:00 test through the real provider by rendering MorningPage inside WardFlowProvider initialNow={7*60+30} - today D5 is proven at the pure-function level only, not through the rendered page; (3) remove the now-misleading NullHandoverHarness and its doc comments in tests/ward-morning-page.dom.test.tsx, which describe the defect as present-tense fact (DirectFrozenHarness may still earn its place as a unit-level check - judgement call, not a mechanical delete); (4) decide whether claude/serene-heyrovsky-7a5e53 should be closed as redundant or pushed as its own low-risk two-file PR - owner's call. Full handover with evidence, traps and do-not-reopen list: docs/ward-flow-pinned-clock-handover.md (committed 3fd861418 on the same branch, so it is also unpushed). Offline only - no provider, Supabase, OpenAI or CI access needed for any step.",
-      "source": "Claude Code session 2026-08-27; handover doc docs/ward-flow-pinned-clock-handover.md",
+      "summary": "Ward Flow pinned clock: the provider fix is on main; D5's rendered branch is untested AND unrendered, so it needs an owner decision before any test",
+      "detail": "CORRECTED 2026-09-02 from a cloud session, verified against origin/main 45a3dca and origin/claude/ward-flow-phases-6-7-design 1888ad1. Four of this row's claims were stale and its central NEXT ACTION was not executable as written. (1) THE FIX IS ON MAIN. ward-flow-provider.tsx uses the pinned instant verbatim, and tests/ward-flow-provider.dom.test.tsx already pins 450 (07:30) and 1265 (21:05) asserting now is not NOW_ANCHOR. Action (1) is done. (2) claude/serene-heyrovsky-7a5e53 is REDUNDANT - close it; that answers action (4). Do not cherry-pick 62f798c2a; it is already superseded. (3) The morning page is not on main at all, and the Phase 6 branch fixed the same defect independently on 2026-08-30, so 'still carries the defect' is false everywhere. That branch IS reachable from a cloud container: git fetch --depth=50 origin claude/ward-flow-phases-6-7-design. (4) The blast radius is 51 call sites across 20 test files (47 NOW_ANCHOR, 4 deliberately not), not 40. (5) NullHandoverHarness and DirectFrozenHarness NO LONGER EXIST on that branch; action (3) has no target and should not be searched for. THE ONE REMAINING ACTION IS NOT A TEST, IT IS A DECISION. Action (2) said to render MorningPage inside WardFlowProvider initialNow={7*60+30}. THAT TEST CANNOT PASS, for a reason unrelated to the clock: owner decision WB-DB-11 ('ONE VIEW, ALWAYS LIVE') removed the fixed/live split, so MorningPage renders MorningBody and nothing else. NoHandoverYet (which holds 'The 08:00 handover has not been taken for this day'), ViewControl, buildFrozenMorning and the FrozenMorning/MorningView types are all exported and NONE is rendered or called. Pinning before 08:00 renders the ordinary live page. So D5 must first be either retired with the fixed view, or the fixed view restored - only then is initialNow={7*60+30} the right mechanism, and the pinned-clock fix has already made it available. Coverage as measured: D5's clock rule is well covered (ward-morning-rollup.test.ts pins morningHandoverInstant null at 07:59 and 01:00) but its RENDERED failure branch has NO coverage of any kind. SEPARATE UNRECORDED BREAKAGE FOUND: tests/ui-ward-morning.spec.ts still clicks ward-morning-view-fixed/-live, which ViewControl holds and nothing renders, so that spec cannot pass against branch head. CONTEXT FOR WEIGHING ANY OF THIS: the branch's PR #2466 was CLOSED UNMERGED on 2026-08-31 - 299 commits ahead, 276 files, mergeable_state dirty, titled 'DRAFT, not for merge' - and all of it is design scratch under src/app/mockups/ward-flow/**, which 404s in production. DONE THIS PASS on main: correction blocks above the retained buggy snippet in docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md and docs/ward-flow-phase-3-workspace/task-4-brief.md (the only places that still TAUGHT the defect); docs/ward-flow-pinned-clock-handover.md rewritten to be true; and two mutation-proven screen-level tests in tests/ward-discharge-board.dom.test.tsx driving releaseBand's two now-dependent branches through a rendered board (both red under the reintroduced defect, all six pre-existing tests green). Still open because the D5 decision is real and untaken. Offline only.",
+      "source": "Claude Code cloud session 2026-09-02; verified against origin/main 45a3dca, origin/claude/ward-flow-phases-6-7-design 1888ad1, and closed PR #2466",
       "added": "2026-08-27"
     },
     {
