@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "59f035ef-381b-4877-b27a-fa26f1048a32",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#0HYHTH",
+    "outcome": "Resolved; verified against origin/main d1bb2c197 on 2026-09-02. The row's claim was that the prohibited-language check ran only against outgoing messages and the 24 frozen overlay rows, so interface strings elsewhere in the workspace were governed by people rather than by software. tests/caring-contacts-interface-vocabulary.test.ts now exists (18 KB) and closes that: it walks SCAN_ROOTS on disk, strips comments and className values, and asserts that no remaining quoted literal or JSX text matches CARING_CONTACTS_PROHIBITED_LANGUAGE, the single shared vocabulary in tests/helpers/caring-contacts-prohibited-language.ts. The scan roots are deliberately narrow so that src/components/caring-contacts/mockups/** is excluded by construction rather than by a special-case skip, and the suite carries its own fixture-directory self-tests (a quoted-literal fixture and a JSX-text fixture) so the scan is proved able to fail rather than merely observed passing. THE KNOWN RESIDUE IS TRACKED SEPARATELY AND IS NOT LOST BY THIS CLOSE: a pending inbox add (ULID 01M0VR9XRYZ5P2BW2GHVKFHDKJ) records that this scan cannot express a job title and that the workaround pushes role copy into src/lib/caring-contacts/**, which no vocabulary scan reaches. Related open row #AGRAKQ covers the plural job-title collision in the shared helper. HISTORY: a done request for this row (b1630592) was cancelled on 2026-08-31 with the reason 'target issue is no longer in Open items on current main'. That premise was wrong -- the row was and remained open -- so the close was lost rather than applied. This request re-closes it on directly verified evidence.",
+    "baseRowFingerprint": "08f9d018b80f1a0aca922377738235df2c8e2b61036f31f93ea5b645e3abfaf8"
+  }
+}
