@@ -1,5 +1,7 @@
 # Care Plan — Claude start here
 
+> **Status (2026-09-02):** superseded. All eleven implementation tasks landed on `main` in PR #2383 (2026-08-26) and the branch named below no longer exists; do not resume it. Current state: `docs/codebase-index.md` § Care Plan and `docs/care-plan/sdd-ledger.md`.
+
 **Last updated:** 22 August 2026 (Australia/Perth)  
 **Implementation status:** Tasks 1–8 complete, reviewed and committed. Task 9 (Patient Plan) is on this branch. Tasks 10–11 not started.  
 **Design status:** Approved  
