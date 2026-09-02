@@ -14,13 +14,57 @@
 # THREE SWITCHES, ALL OFF.
 #   1. `vars.REINDEX_REAPER_ENABLED == 'true'` gates the whole job. Unset today, so scheduled
 #      runs skip and a dispatch does nothing. Setting ONLY this arms a read-only weekly probe.
-#   2. `github.event.client_payload.apply == 'true'` — per-run intent, from a trusted dispatch.
-#   3. `vars.REINDEX_REAPER_APPLY == 'true'` — standing repository consent.
+#   2. `github.event.client_payload.apply` — per-run intent, from a trusted dispatch. It is
+#      NOT the GitHub expression `== 'true'`: the payload value is rendered into the env var
+#      APPLY_REQUESTED and compared in the shell, so a JSON boolean `true` renders as the
+#      string "true" and arms the gate. That is deliberate, and stated here because an
+#      earlier draft of this header documented the stricter expression form it does not use.
+#   3. `vars.REINDEX_REAPER_APPLY` — standing repository consent, compared the same way.
 # Deletion requires 1 AND 2 AND 3. Neither 2 nor 3 alone deletes anything, and the scheduled
-# path is evaluated first so `--apply` is unreachable from cron by construction.
+# path is evaluated first so `--apply` is unreachable from cron by construction. Gate 1 is a
+# GitHub expression and so compares case-insensitively; gates 2 and 3 are normalised to match
+# (`is_true`), and any value that is neither true nor false raises a visible warning rather
+# than silently downgrading the run to a dry run.
 #
 # Dry run is the default on every path. The blast radius is why this is not a
-# `workflow_dispatch` button.
+# `workflow_dispatch` button. `scripts/check-github-action-pins.mjs` refuses any workflow that
+# can reach `--apply` on this script without all three gates, resolving npm aliases, env
+# indirection and line continuations first, so the guard covers the class and not just this file.
+#
+# ------------------------------------------------------------------------------------------
+# WHAT THIS DESIGN DOES NOT GIVE YOU. Read before arming anything.
+#
+# * "Three gates" is arithmetically true, but only ONE of them is per-run. Gates 1 and 3 are
+#   repository variables: set once, true forever. Once REINDEX_REAPER_APPLY is on, the only
+#   remaining per-run control is `client_payload.apply` on a `repository_dispatch` — and
+#   dispatch needs only `contents: write`, which every collaborator PAT holds and which at
+#   least two agent-driven workflows in this repo already have (`codex-run-pr-operator.yml`
+#   via `secrets.GH_TOKEN`, and `claude.yml`, which any non-bot comment containing `@claude`
+#   can trigger). The safe way to arm the apply path is a GitHub Environment with REQUIRED
+#   REVIEWERS on a separate apply job, so a human approves each deletion. That environment
+#   does not exist yet and is not referenced here on purpose: naming a missing environment in
+#   an `environment:` key makes GitHub auto-create it UNPROTECTED, which would read as safer
+#   than it is. Create the protected environment first, then wire it, then consider arming.
+#
+# * The probe will very likely be permanently red. The RPC's predicate treats every
+#   generation-bearing row as eligible on any document whose `metadata.index_generation_id` is
+#   absent — so documents that predate generation stamping, first ingests that crashed before
+#   commit, and any metadata edit that drops the key all register as abandoned forever. That is
+#   a weekly alert with no way to clear it short of fixing the data, and the remediation it
+#   invites is the destructive path. Safer shapes, either of which should land before this is
+#   left running: report the counts to the job summary or an artifact and alert only on a
+#   DELTA; or exclude metadata-key-absent documents from the abandoned signal until a
+#   migration backfills the stamp.
+#
+# * The apply path has no owner scoping and no row ceiling: seven deletes, one transaction, a
+#   180s statement timeout. That is the RPC's pre-existing defect rather than this workflow's,
+#   and it is exactly why arming must not be a bare repository variable. A migration adding a
+#   row ceiling and a keep-most-recent-generation guard should land before REINDEX_REAPER_APPLY
+#   is ever set.
+#
+# * The concurrency group below serialises reaper against reaper only. Nothing here prevents a
+#   reaper run overlapping a live reindex; the RPC's open-job re-check narrows that window but
+#   does not close it.
 name: Reindex reaper
 
 on:
@@ -83,47 +127,97 @@ jobs:
       - name: Guard Supabase project identity
         run: npm run check:supabase-project
 
+      # continue-on-error keeps the job alive long enough to record WHY the probe
+      # stopped: exit 2 means abandoned rows were detected, any other non-zero means
+      # the probe itself could not run. The final step re-raises, so the run is still
+      # red — this is a diagnosis capture, not a suppression.
       - name: Reap abandoned reindex generations
         id: reaper
+        continue-on-error: true
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # Gates 2 and 3. Both must read "true" before anything is deleted.
           APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}
           APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}
         run: |
+          is_true() {
+            case "$1" in
+              [Tt][Rr][Uu][Ee]) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+          warn_gate() {
+            case "$2" in
+              "" | [Tt][Rr][Uu][Ee] | [Ff][Aa][Ll][Ss][Ee]) ;;
+              *)
+                echo "::warning::$1 is set to '$2', which is neither true nor false. Only 'true' arms this gate, so it is being treated as OFF and this run stays a dry run."
+                ;;
+            esac
+          }
+          warn_gate APPLY_REQUESTED "$APPLY_REQUESTED"
+          warn_gate APPLY_ALLOWED "$APPLY_ALLOWED"
+          set +e
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             # Scheduled runs are READ-ONLY. This branch is evaluated first and never
             # falls through, so --apply is unreachable from cron even if both apply
             # gates are somehow open.
             echo "Scheduled read-only probe; alerting if abandoned staged rows are found."
             npm run reindex:cleanup-staged -- --alert-on-abandoned
-          elif [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then
+          elif is_true "$APPLY_REQUESTED" && is_true "$APPLY_ALLOWED"; then
             echo "Both apply gates open — deleting abandoned staged generation rows."
             npm run reindex:cleanup-staged -- --apply --yes
           else
             echo "Dry run (set repo var REINDEX_REAPER_APPLY=true and dispatch client_payload.apply=true to delete)."
             npm run reindex:cleanup-staged
           fi
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
 
+      # Exit 2 is the probe's detection signal (see abandonedReindexGenerationAlertExitCode);
+      # 1 is a real error and an empty code means the probe never ran at all. Those are
+      # different problems and must not share one alert body.
       - name: Open or update alert issue
-        if: failure() && github.event_name == 'schedule'
+        if: ${{ !cancelled() && github.event_name == 'schedule' && steps.reaper.outputs.code != '0' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PROBE_EXIT_CODE: ${{ steps.reaper.outputs.code }}
         with:
           script: |
             const label = "reindex-reaper";
+            const probeExitCode = process.env.PROBE_EXIT_CODE || "";
+            const detected = probeExitCode === "2";
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const detail = detected
+              ? [
+                  "ABANDONED ROWS DETECTED. The read-only probe completed and found staged",
+                  "reindex-generation rows with no live generation (exit 2). Nothing was deleted.",
+                  "",
+                  "Triage read-only first: run `npm run reindex:cleanup-staged` (dry run by default)",
+                  "and read the per-table counts. Expect a standing non-zero count: a document whose",
+                  "`metadata.index_generation_id` is missing makes ALL of its artifact rows eligible,",
+                  "so pre-stamping documents register as abandoned permanently. Confirm the counts are",
+                  "MOVING before treating this as new leakage.",
+                  "",
+                  "Do NOT reach for the destructive cleanup on the strength of this alert. That RPC",
+                  "deletes generation-bearing artifact rows across seven tables for every tenant, with",
+                  "no owner scoping and no row ceiling.",
+                ]
+              : [
+                  `THE PROBE COULD NOT RUN (exit code ${probeExitCode || "none recorded"}).`,
+                  "This is an infrastructure or configuration failure, not a detection: a failed",
+                  "install, a missing SUPABASE_SERVICE_ROLE_KEY, an unreachable Supabase, or a crash",
+                  "before the probe reported. No conclusion about abandoned rows can be drawn from it.",
+                  "",
+                  "Open the run log and fix the cause. Nothing was deleted and nothing was measured.",
+                ];
             const body = [
-              `Reindex reaper probe failed on ${new Date().toISOString()}.`,
+              `Reindex reaper probe ${detected ? "detected abandoned rows" : "failed to run"} on ${new Date().toISOString()}.`,
               "",
               `Run: ${runUrl}`,
               "",
-              "Either abandoned staged reindex-generation rows were detected, or Supabase was",
-              "unreachable. Triage read-only first: `npm run reindex:cleanup-staged` (dry run by",
-              "default) and read the per-table counts. Do NOT reach for the apply path on the",
-              "strength of this alert — a transient outage looks the same, and the cleanup RPC",
-              "deletes generation-bearing artifact rows across seven tables for every tenant",
-              "with no owner scoping. A document whose `metadata.index_generation_id` is missing",
-              "makes ALL of its artifact rows eligible.",
+              ...detail,
             ].join("\n");
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -147,3 +241,12 @@ jobs:
                 body,
               });
             }
+
+      # continue-on-error above would otherwise let a failed probe report a green run.
+      - name: Re-raise the probe outcome
+        if: ${{ !cancelled() && steps.reaper.outputs.code != '0' }}
+        env:
+          PROBE_EXIT_CODE: ${{ steps.reaper.outputs.code }}
+        run: |
+          echo "::error::Reindex reaper probe exit code: ${PROBE_EXIT_CODE:-none recorded (the probe never ran)}"
+          exit 1

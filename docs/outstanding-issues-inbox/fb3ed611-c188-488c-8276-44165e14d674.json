@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fb3ed611-c188-488c-8276-44165e14d674",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Reindex reaper: the storage-object half of the abandoned-generation cleanup is still missing",
+    "detail": "PARTIAL PROGRESS, recorded here so it is not tracked only in code comments. The DETECTION half landed on branch claude/reindex-reaper: scripts/cleanup-abandoned-reindex-generations.ts gained a read-only --alert-on-abandoned flag whose pure decision function (abandonedReindexGenerationAlertExitCode in src/lib/reindex-pipeline.ts) exits 2 when a dry run finds abandoned staged rows, and .github/workflows/reindex-reaper.yml runs it as a weekly read-only probe that opens or updates an alert issue. That workflow ships INERT (repo variable REINDEX_REAPER_ENABLED is unset) and its destructive apply path is triple-gated and statically guarded by scripts/check-github-action-pins.mjs. WHAT REMAINS, and what this row exists for: the storage-object half. cleanup_abandoned_document_index_generations deletes generation-bearing rows across seven artifact tables, but nothing enqueues storage_cleanup_jobs rows for the objects those generations left behind, so a crash mid-reindex still leaks Storage objects that no schedule revisits. The recorded fix is for the commit RPC to enqueue storage_cleanup_jobs rows for superseded generations at commit time. That is a migration, it deploys to the live clinical database on merge, and it was deliberately excluded from the detection batch. THREE PREREQUISITES the same review recorded, all of which should land before the repo variable REINDEX_REAPER_APPLY is ever set: (1) the RPC has no owner scoping and no row ceiling -- seven deletes in one transaction under a 180s statement timeout -- so a migration adding a row ceiling and a keep-most-recent-generation guard should come first; (2) the RPC's predicate makes every generation-bearing row eligible on any document whose metadata.index_generation_id is absent, so documents predating generation stamping will register as abandoned forever and the weekly probe will very likely be permanently red until either a backfill migration lands or the probe alerts on a delta rather than an absolute count; (3) arming the apply path safely needs a GitHub Environment with required reviewers on a separate apply job, because two of the three gates are standing repository variables and only client_payload.apply is per-run. Full reasoning is in the header of .github/workflows/reindex-reaper.yml.",
+    "source": "review of branch claude/reindex-reaper, 2026-09-02",
+    "issueUlid": "01M1G9RKB5RP00FZ56D7TE2A1Y"
+  }
+}

@@ -60,7 +60,7 @@ describe("reindex reaper workflow", () => {
     );
     expect(runStep).toContain("APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}");
     expect(runStep).toContain("APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}");
-    expect(runStep).toContain('elif [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then');
+    expect(runStep).toContain('elif is_true "$APPLY_REQUESTED" && is_true "$APPLY_ALLOWED"; then');
 
     // Comments describing the gates are not gates, so compare executable lines only.
     const executable = runStep
@@ -98,6 +98,81 @@ describe("reindex reaper workflow", () => {
     expect(invocations).toHaveLength(3);
   });
 
+  it("compares both apply gates case-insensitively and says so when a value is neither true nor false", () => {
+    const workflow = readFileSync(workflowPath, "utf8").replace(/\r\n/g, "\n");
+    const runStep: string = yamlBlock(
+      yamlBlock(workflow, "reindex-reaper:", 2),
+      "- name: Reap abandoned reindex generations",
+      6,
+    );
+
+    // Gate 1 is a GitHub expression, which compares case-insensitively, so `TRUE`
+    // arms it. Gates 2 and 3 are shell compares and must not disagree: an operator
+    // who arms with `TRUE` would otherwise get a silent dry run.
+    expect(runStep).toContain("[Tt][Rr][Uu][Ee]) return 0 ;;");
+    expect(runStep).toMatch(/^\s+is_true\(\) \{$/m);
+
+    // And a value that is neither true nor false is reported rather than swallowed.
+    expect(runStep).toContain('warn_gate APPLY_REQUESTED "$APPLY_REQUESTED"');
+    expect(runStep).toContain('warn_gate APPLY_ALLOWED "$APPLY_ALLOWED"');
+    expect(runStep).toContain("::warning::$1 is set to '$2', which is neither true nor false.");
+  });
+
+  it('separates "rows were detected" from "the probe could not run"', () => {
+    const workflow = readFileSync(workflowPath, "utf8").replace(/\r\n/g, "\n");
+    const job: string = yamlBlock(workflow, "reindex-reaper:", 2);
+    const runStep: string = yamlBlock(job, "- name: Reap abandoned reindex generations", 6);
+
+    // The probe's own exit code carries the distinction: 2 is detection
+    // (abandonedReindexGenerationAlertExitCode), anything else non-zero is a real
+    // failure, and an empty code means the probe never ran.
+    expect(runStep).toContain("continue-on-error: true");
+    expect(runStep).toContain("code=$?");
+    expect(runStep).toContain('echo "code=$code" >> "$GITHUB_OUTPUT"');
+    expect(runStep).toContain('exit "$code"');
+
+    const alertStep: string = yamlBlock(job, "- name: Open or update alert issue", 6);
+    expect(alertStep).toContain("PROBE_EXIT_CODE: ${{ steps.reaper.outputs.code }}");
+    expect(alertStep).toContain('const detected = probeExitCode === "2";');
+    expect(alertStep).toContain("ABANDONED ROWS DETECTED.");
+    expect(alertStep).toContain("THE PROBE COULD NOT RUN");
+    // The two bodies must actually differ, not just be selected between.
+    expect(alertStep).toContain("const detail = detected");
+
+    // continue-on-error must not turn a broken probe into a green run.
+    const reRaise: string = yamlBlock(job, "- name: Re-raise the probe outcome", 6);
+    expect(reRaise).toContain("if: ${{ !cancelled() && steps.reaper.outputs.code != '0' }}");
+    expect(reRaise).toContain("exit 1");
+  });
+
+  it("documents the gate semantics it actually implements, and the limits it does not fix", () => {
+    const header = readFileSync(workflowPath, "utf8")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .filter((line) => line.startsWith("#"))
+      .join("\n");
+
+    // The implementation is a shell string compare on a rendered env var, not the
+    // GitHub expression `== 'true'` an earlier header claimed. A JSON boolean true
+    // renders as "true" and arms the gate; the prose must not be stricter than that.
+    expect(header).toContain("NOT the GitHub expression");
+    expect(header).toMatch(/renders as the\n#\s+string "true" and arms the gate/);
+
+    // Standing repo state vs per-run consent, and the environment that would fix it.
+    expect(header).toMatch(/only ONE of them is per-run/);
+    expect(header).toMatch(/REQUIRED\n#\s+REVIEWERS/);
+    expect(header).toMatch(/auto-create it UNPROTECTED/);
+    // Naming an environment that does not exist yet would create it unprotected.
+    expect(readFileSync(workflowPath, "utf8")).not.toMatch(/^\s+environment:/m);
+
+    // The probe's known permanent-red risk, the missing row ceiling, and the
+    // reindex-overlap window are recorded rather than coded around.
+    expect(header).toMatch(/permanently red/);
+    expect(header).toMatch(/index_generation_id` is\n#\s+absent/);
+    expect(header).toMatch(/row ceiling/);
+    expect(header).toMatch(/serialises reaper against reaper only/);
+  });
+
   it("pins the production Supabase identity and never names the stale project ref", () => {
     const workflow = readFileSync(workflowPath, "utf8").replace(/\r\n/g, "\n");
     expect(workflow).toContain("NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co");
@@ -128,7 +203,9 @@ describe("reindex reaper workflow", () => {
     expect(permissions).toContain("contents: read");
     expect(permissions).toContain("issues: write");
 
-    expect(workflow).toContain("if: failure() && github.event_name == 'schedule'");
+    expect(workflow).toContain(
+      "if: ${{ !cancelled() && github.event_name == 'schedule' && steps.reaper.outputs.code != '0' }}",
+    );
     expect(workflow).toContain("npm run reindex:cleanup-staged");
   });
 });
