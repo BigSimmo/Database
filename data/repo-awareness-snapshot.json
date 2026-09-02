@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "6df416abc004ad7c1601e6a5503a956cdb5c8f64",
-    "committed_at": "2026-09-02T10:58:40+00:00"
+    "sha": "cdfb3fdda5533c126e76fecaf4e0352a6757249f",
+    "committed_at": "2026-09-02T11:12:52+00:00"
   },
   "routes": {
     "modes": [
@@ -1774,6 +1774,11 @@
         "path": "docs/audit/design-audit-2026-07-17.md",
         "section": "audit",
         "catalogued": true
+      },
+      {
+        "path": "docs/audit/gate-consolidation-audit-2026-09-02.md",
+        "section": "audit",
+        "catalogued": false
       },
       {
         "path": "docs/audit/latency-audit-2026-07-28.md",
@@ -4432,9 +4437,9 @@
       }
     ],
     "counts": {
-      "documents": 579,
+      "documents": 580,
       "catalogued": 111,
-      "uncatalogued": 468,
+      "uncatalogued": 469,
       "sections": 21
     }
   },
