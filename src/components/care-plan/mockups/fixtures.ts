@@ -243,6 +243,17 @@ export const syntheticCmhtContacts = [
  * The only non-fictional contact details in the prototype. Verified against the
  * public sources below on 20 August 2026. If a number or an availability window
  * has changed since, correct it here rather than anywhere it is displayed.
+ *
+ * Re-verification cadence: **every 12 months from the newest `verifiedOn`
+ * below**, and before any of these contacts is reused outside the
+ * administrator-gated `/mockups` prototype. Nothing ages these dates
+ * automatically, so a stale `verifiedOn` is invisible until someone checks: the
+ * next due date is 20 August 2027. Re-verify each number and availability window
+ * against its `sourceUrl` (the WA Health service pages), then move the
+ * `verifiedOn` date only for the entries actually re-checked. These strings
+ * render on the printed Personal Safety Plan and Patient Plan, which is the one
+ * place the prototype's "everything is synthetic" framing does not protect the
+ * reader - a dead or redirected crisis number would print as guidance.
  */
 export const publicCrisisContacts = [
   {

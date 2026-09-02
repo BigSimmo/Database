@@ -26,6 +26,13 @@ The **only real details** are the public crisis numbers, and they are real delib
 20 August 2026 and recorded as such in the specification: `000`, MHERL `1300 555 788` (Perth
 metropolitan) and `1800 676 822` (Peel), and Rurallink `1800 552 002`.
 
+**Re-verify these four numbers every 12 months** - next due **20 August 2027** - and again before any
+of them is reused outside the administrator-gated `/mockups` prototype. Nothing in the repository ages
+the `verifiedOn` dates in `src/components/care-plan/mockups/fixtures.ts`, so a number that has been
+redirected or retired stays on the page until a person checks it against the WA Health service pages
+recorded as each contact's `sourceUrl`. Correct the number and its `verifiedOn` in that fixture file,
+never in a rendered sheet.
+
 ## Two things to know before using them as evidence
 
 1. **`paper-patient-plan.txt` has no real content.** All eight of its section bodies hold the
