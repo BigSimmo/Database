@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "81f20b9d-c84b-4929-8528-91e2fc8b4a01",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#ZM8902",
+    "outcome": "Closed in PR #2520. The checker itself already resolved relative markdown links against the containing file, so the class was not skipped - a probe document linking to ../../caring-contacts/design-handoff.md was reported as MISSING. What was absent was the half the row turns on, 'a check that cannot fail': tests/check-docs-links.test.ts covered only two helper exports, leaving the link classification one refactor away from reopening. main()'s per-document collection is now exported as collectDocumentFailures({ target, markdown, targetAnchorsCache }), so the gate and its tests run one implementation, and three tests pin the exact escaped shape, including that the checked count rises when the link is present so 'resolved' cannot be confused with 'skipped'. Watched failing under a deliberate mutation before being trusted; gate output unchanged at 4736 references.",
+    "baseRowFingerprint": "e0cb0b2ba16e320375b7ed3ecfa90b5eecca46e24b1b3ee1cf8419eb7ba2c3c7"
+  }
+}

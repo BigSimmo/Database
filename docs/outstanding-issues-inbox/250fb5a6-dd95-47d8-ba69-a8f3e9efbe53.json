@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "250fb5a6-dd95-47d8-ba69-a8f3e9efbe53",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#875H6T",
+    "outcome": "Closed in PR #2520. All six assigned in docs/ward-flow-roadmap.md, each with its reason recorded under the file's own rule that an unexplained assignment gets moved by the next person who finds it inconvenient. Phase 6: the sixty-second guided tour and named demo-clock moments - every beat the tour scripts already exists after Phase 5 (priority queue, coordinator screen, discharge confirmation, egress board), so neither needs anything built first and both serve what Phase 6 was promoted for. Phase 8: 'why not here?' (the inverse of decision 14's can-take-them overlay, needing Phase 7's bed-type matching and Phase 8's distance) and the out-of-area ledger (where its own text already put it). Phase 9: the ward prediction track record (needs accumulated history, and a sixth figure would reopen decision 13) and 'waiting since' (Phase 9 already names waiting-time equity). No new phase and no rewritten phase description; the enhancements themselves remain to be built inside those phases.",
+    "baseRowFingerprint": "a586ec1e08f840531922e1632a23534dd84b07c0871da1ef5112417fa72fc592"
+  }
+}
