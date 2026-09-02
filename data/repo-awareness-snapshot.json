@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "2631782a39ce277f055b53bce8a0418d43b66ac9",
-    "committed_at": "2026-09-02T19:42:59+00:00"
+    "sha": "f04d1a897bf922a195bc5a818a11d9d46425cfc3",
+    "committed_at": "2026-09-02T20:27:35+00:00"
   },
   "routes": {
     "modes": [
@@ -2831,6 +2831,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/drift-measurement-2026-09-02.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/FIX-GUIDE.md",
         "section": "design-system",
         "catalogued": true
@@ -4437,9 +4442,9 @@
       }
     ],
     "counts": {
-      "documents": 587,
+      "documents": 588,
       "catalogued": 115,
-      "uncatalogued": 472,
+      "uncatalogued": 473,
       "sections": 21
     }
   },
