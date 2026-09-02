@@ -221,6 +221,35 @@ describe("medications API", () => {
     expect(payload.governance?.acamprosate?.validationStatus).toBe("unverified");
   });
 
+  it("re-derives the public governance map instead of caching it for the process lifetime", async () => {
+    // The public/demo governance map is memoised so the route does not remap every
+    // record per request. Source freshness is a function of the reading clock, so a
+    // lifetime cache would re-freeze exactly what read-time derivation unfreezes: a
+    // long-lived process started before a record aged out would keep serving the
+    // pre-ageing status until it happened to restart.
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    type GovernancePayload = {
+      governance?: Record<string, { sourceStatus?: string }>;
+    };
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-09-02T00:00:00.000Z"));
+      const first = (await (await GET(request("/api/medications"))).json()) as GovernancePayload;
+      expect(first.governance?.acamprosate?.sourceStatus).toBe("current");
+
+      // Well past the 365-day review interval for the whole catalogue.
+      vi.setSystemTime(new Date("2028-09-02T00:00:00.000Z"));
+      const second = (await (await GET(request("/api/medications"))).json()) as GovernancePayload;
+      expect(second.governance?.acamprosate?.sourceStatus).toBe("review_due");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("serves an identity-only slim catalog for fields=index", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });

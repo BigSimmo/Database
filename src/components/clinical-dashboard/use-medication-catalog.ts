@@ -24,7 +24,10 @@ type MedicationCatalogResponse = {
   matches?: MedicationCatalogMatch[];
   interpretation?: MedicationCatalogInterpretation;
   total: number;
-  governance?: Record<string, { sourceStatus: string; validationStatus: string }>;
+  governance?: Record<
+    string,
+    { sourceStatus: string; validationStatus: string; sourceCheckedAt?: string | null; sourcesRecorded?: boolean }
+  >;
   demoMode?: boolean;
 };
 
@@ -33,6 +36,8 @@ type MedicationDetailResponse = {
   governance?: {
     sourceStatus: string;
     validationStatus: string;
+    sourceCheckedAt?: string | null;
+    sourcesRecorded?: boolean;
   };
   demoMode?: boolean;
 };
