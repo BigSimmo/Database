@@ -402,6 +402,18 @@ export const userFacingProductSurfaces = [
   "README.md",
   "SECURITY.md",
   "docs/README.md",
+  // The agent-rule reference files that AGENTS.md now delegates to. They carry
+  // prose moved verbatim out of AGENTS.md, so they need the same retired-name guard.
+  "docs/agents/bug-hunter-shortcut.md",
+  "docs/agents/claude-hook-scripts.md",
+  "docs/agents/codex-cloud-environment.md",
+  "docs/agents/dead-code-deletion.md",
+  "docs/agents/external-skill-precedence.md",
+  "docs/agents/pull-request-workflow.md",
+  "docs/agents/repository-skills-and-issues.md",
+  "docs/agents/upload-shortcut.md",
+  "docs/agents/verification-gates.md",
+  "docs/agents/wiring-and-bundle-budget.md",
   "docs/clinical-badge-system-guide.md",
   "docs/clinical-governance.md",
   "docs/codebase-index.md",
