@@ -3187,6 +3187,49 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(JSON.stringify(after)).not.toContain("UR-00219384");
       });
 
+      it("carries the clearance instant on the episode, so no screen has to infer it (#J7PZQP)", async () => {
+        // The clearance instant was already recorded by both stores -- the in-memory map and the
+        // `retention_state` row -- and read back by nothing. So the patient overview decided a
+        // clearance had happened from `patientName === ""`, and told a clinician so in as many
+        // words: that a reason was given, that a clearance removed it, and that the removal is
+        // irreversible.
+        //
+        // That inference rested entirely on `z.string().min(1)` in the plans API route. The column
+        // is `not null` with NO CHECK against the empty string, and neither store's `createPlan`
+        // validates a non-blank name, so `''` is a legal stored value that means two things at
+        // once. Carrying the fact directly is what makes the sentinel stop being load-bearing.
+        //
+        // Pinned in the SHARED suite because the two stores hold it in completely different places
+        // and only an external assertion catches one of them forgetting.
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-instant-withdraw"),
+          ),
+        );
+
+        // An episode that has ENDED but has not been cleared carries no instant. Without this the
+        // assertion below could pass on a store that returned the completion instant, or any
+        // non-null date, for every ended episode.
+        const beforeClearance = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(beforeClearance?.planDates.completedAt).not.toBeNull();
+        expect(beforeClearance?.patientDetailClearedAt).toBeNull();
+
+        unwrap(await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-instant")));
+
+        const afterClearance = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(afterClearance?.patientDetailClearedAt).toBeInstanceOf(Date);
+        expect(Number.isNaN(afterClearance?.patientDetailClearedAt?.getTime())).toBe(false);
+
+        // And it is a fact in its own right, not a restatement of the blank name: an episode that
+        // was never cleared reports null even though this suite's clock and fixtures are otherwise
+        // identical.
+        const untouched = await createActivePlan(store);
+        expect((await store.getEpisode(untouched.plan.id, { actor: TEAM_LEAD_A }))?.patientDetailClearedAt).toBeNull();
+      });
+
       it("clears the reason a first contact was moved, which is free text a clinician wrote", async () => {
         // Ruling 105, and the point of that ruling most likely to be missed. The reason is not on
         // ../retention's list of identifying fields -- that list names name, mobile number,

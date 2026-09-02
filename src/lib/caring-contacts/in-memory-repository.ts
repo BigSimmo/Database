@@ -1449,6 +1449,14 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         culturalIdentity: stored.patientDetail.culturalIdentity,
         preferredName: stored.patientDetail.preferredName,
         firstContactReason: stored.patientDetail.firstContactReason,
+        // #J7PZQP: the clearance instant, carried rather than inferred from a blank name. The map
+        // already held it; nothing read it back until now.
+        // Copied, like every other Date this projection hands out, so a caller cannot mutate the
+        // store's own record of when the clearance happened.
+        patientDetailClearedAt: (() => {
+          const cleared = retentionCleared.get(planId)?.clearedAt;
+          return cleared === undefined ? null : new Date(cleared.getTime());
+        })(),
         planDates: {
           dischargeAt: new Date(stored.dischargeAt.getTime()),
           completedAt: stored.completedAt === null ? null : new Date(stored.completedAt.getTime()),

@@ -413,7 +413,18 @@ function EpisodeOverview({
         ) : null}
         {episode !== null && episode.patientName === "" ? (
           <div className="mt-3 min-w-0">
-            <NoNameHeldNotice />
+            {/*
+              THE ABSENCE IS OBSERVED HERE; THE CAUSE IS NOT INFERRED FROM IT (#J7PZQP).
+              "No name is held" is a true reading of a blank name. "A retention clearance emptied
+              it" is a separate claim, and this screen used to derive the second from the first --
+              which held only because a Zod schema at the API route happened to reject a blank name
+              on the way in. The episode now carries the clearance instant, so the notice is told
+              whether one was recorded rather than deducing it.
+            */}
+            <NoNameHeldNotice
+              patientDetailClearedAt={episode.patientDetailClearedAt}
+              mobileNumberHeld={episode.patientMobileNumber !== ""}
+            />
           </div>
         ) : null}
 
@@ -719,11 +730,18 @@ function FirstContactReason({ moved, episode }: { moved: string; episode: Episod
     );
   }
 
-  // The episode WAS released and holds no reason. A blank name is the retention clearance's own
-  // value, and this screen may read it as the clearance for the same reason `NoNameHeldNotice`
-  // does: an actor who may not read an episode receives no episode at all, so a blank name here can
-  // only be the clearance.
-  if (episode.patientName === "") {
+  // The episode WAS released, holds no reason, and CARRIES A RECORDED CLEARANCE (#J7PZQP).
+  //
+  // This used to read `episode.patientName === ""` and conclude the clearance from it. The comment
+  // here said "a blank name here can only be the clearance", which was not true of the domain: the
+  // column is `not null` with no CHECK, neither store's `createPlan` validates a non-blank name,
+  // and the whole guarantee was `z.string().min(1)` in the plans API route. A plan that reached the
+  // store with a blank name any other way made this screen tell a clinician that a reason was
+  // given, that a clearance removed it, and that the removal is irreversible -- three definite
+  // statements about a live record, from a sentinel that meant two things at once.
+  //
+  // The instant is now carried on the episode, so this is a read rather than a deduction.
+  if (episode.patientDetailClearedAt !== null) {
     return (
       <>
         <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
@@ -1071,10 +1089,29 @@ function EpisodeNotPermittedNotice() {
  *
  * `CLEARED_PATIENT_DETAIL` is what both stores write once a retention clearance is recorded, and
  * an emptied field IS the cleared value. This screen can name the cause where the directory could
- * not: an actor who may not read an episode receives no episode at all, so a blank name on an
- * episode that WAS released is the clearance rather than the role.
+ * not: an actor who may not read an episode receives no episode at all, so the role is ruled out.
+ *
+ * BUT THE CLEARANCE IS NOW READ, NOT DEDUCED (#J7PZQP). Ruling the role out is not the same as
+ * ruling the clearance in. `patient_name` is `not null` with no CHECK and neither store's
+ * `createPlan` validates it, so the only thing that made a blank name mean "cleared" was
+ * `z.string().min(1)` at the plans API route -- one schema, at one edge, guarding a sentence this
+ * screen states as fact on a patient record. `patientDetailClearedAt` is that fact, carried. When
+ * it is null the absence is still reported, because it is real; the cause simply is not named.
+ *
+ * THE MOBILE NUMBER IS READ TOO, FOR THE SAME REASON (review finding). The first version of this
+ * fix still said "and no mobile number is held for it either" on BOTH branches. On the cleared
+ * branch that is sound -- `markRetentionCleared` empties the name, the number, the identifiers and
+ * the cultural identity in one transaction. On the not-cleared branch it is another unchecked
+ * claim deduced from the blank name, which is the exact defect this whole change exists to close,
+ * reintroduced inside the fix. `Episode.patientMobileNumber` is right there, so it is consulted.
  */
-function NoNameHeldNotice() {
+function NoNameHeldNotice({
+  patientDetailClearedAt,
+  mobileNumberHeld,
+}: {
+  patientDetailClearedAt: Date | null;
+  mobileNumberHeld: boolean;
+}) {
   const heading = "No name is held for this patient";
   return (
     <div
@@ -1088,14 +1125,33 @@ function NoNameHeldNotice() {
       </p>
       <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
         <span className="font-medium text-[color:var(--text)]">Why: </span>
-        This episode holds no patient name, so the heading above is the synthetic identifier, and no mobile number is
-        held for it either. A retention clearance removes the name, the mobile number, the identifiers and the cultural
-        identity together once an episode has ended, and that is the one thing in this workspace that empties them.
+        {patientDetailClearedAt === null ? (
+          <>
+            This episode holds no patient name, so the heading above is the synthetic identifier
+            {mobileNumberHeld
+              ? ", though a mobile number is still held for it"
+              : ", and no mobile number is held for it either"}
+            . No retention clearance is recorded against this episode, so this screen cannot say why the name is absent,
+            and will not guess.
+          </>
+        ) : (
+          <>
+            This episode holds no patient name, so the heading above is the synthetic identifier, and no mobile number
+            is held for it either. A retention clearance removed the name, the mobile number, the identifiers and the
+            cultural identity together after the episode ended.
+          </>
+        )}
       </p>
       <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
         <span className="font-medium text-[color:var(--text)]">What changes it: </span>
-        Nothing, here or anywhere. A clearance is not reversible, and the plan and its schedule below are what the
-        record still holds.
+        {patientDetailClearedAt === null ? (
+          <>Nothing, here or anywhere. The plan and its schedule below are what the record still holds.</>
+        ) : (
+          <>
+            Nothing, here or anywhere. A clearance is not reversible, and the plan and its schedule below are what the
+            record still holds.
+          </>
+        )}
       </p>
     </div>
   );

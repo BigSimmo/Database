@@ -72,6 +72,11 @@ function baseEpisode(overrides: Partial<Episode> = {}): Episode {
     // Free text a clinician wrote about this patient, so de-identification must drop it with the
     // other identifying fields rather than carry it into the reporting projection.
     firstContactReason: "Patient asked to wait until she is home from her sister's.",
+    // An episode that has ended but has NOT been cleared. `deidentifyEpisode` must drop this field
+    // like every other one it does not name, so the default here is the un-cleared value: were it
+    // pre-set to an instant, the assertion that a de-identified episode carries no clearance would
+    // be satisfied by a value that was never there.
+    patientDetailClearedAt: null,
     planDates: {
       dischargeAt: new Date("2019-08-05T02:00:00.000Z"),
       completedAt: new Date("2019-08-19T02:00:00.000Z"), // 2019-08-19 10:00 AWST

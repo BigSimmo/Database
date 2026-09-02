@@ -2472,8 +2472,18 @@ export function createPostgresRepository(
         // `preferred_name` rides the SAME query rather than a third round trip: it is narrowed for
         // exactly the reason the reason is -- patient content that a list read must never pull --
         // and the two are wanted at precisely the same moment.
+        //
+        // `retention_state.cleared_at` rides the SAME query for the same reason `preferred_name`
+        // does, rather than a third round trip (#J7PZQP). It is a LEFT join because a plan that has
+        // never been cleared has no row there at all, and that absence is the answer -- an inner
+        // join would drop the episode entirely. `retention_state` is team-scoped by its own
+        // row-level policy exactly as `plans` is, and this runs inside `runRead`, so the team
+        // preamble applies to both sides of the join.
         const detailRow = await connection.query(
-          "select first_contact_reason, preferred_name from caring_contacts.plans where id = $1",
+          `select p.first_contact_reason, p.preferred_name, r.cleared_at
+             from caring_contacts.plans p
+             left join caring_contacts.retention_state r on r.plan_id = p.id
+            where p.id = $1`,
           [planId],
         );
         const reasonValue = detailRow.rows[0]?.first_contact_reason;
@@ -2484,6 +2494,12 @@ export function createPostgresRepository(
         // name a retention clearance removed.
         const preferredNameValue = detailRow.rows[0]?.preferred_name;
         const preferredName = isAbsent(preferredNameValue) ? null : textOf(preferredNameValue);
+        // Absent means no clearance has been recorded -- either the left join above supplied no
+        // row at all, or it supplied one whose `cleared_at` is still null, which the schema permits
+        // for an episode that has ended but has not yet been cleared. Both are "not cleared", and
+        // neither is deduced from a blank patient name.
+        const clearedAtValue = detailRow.rows[0]?.cleared_at;
+        const patientDetailClearedAt = isAbsent(clearedAtValue) ? null : instantOf(clearedAtValue);
 
         const detail: StoredPatientDetail = {
           patientName: textOf(planRow.patient_name),
@@ -2503,6 +2519,7 @@ export function createPostgresRepository(
           culturalIdentity: detail.culturalIdentity,
           preferredName: detail.preferredName,
           firstContactReason: detail.firstContactReason,
+          patientDetailClearedAt,
           planDates: {
             dischargeAt: instantOf(planRow.discharge_at),
             completedAt:
