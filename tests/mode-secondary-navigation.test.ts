@@ -28,6 +28,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Review"],
   factsheets: ["Search", "Topics"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
+  sources: ["Catalogue", "Topics", "Publishers", "Method"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -46,6 +47,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "therapy-compass": "/therapy-compass",
   factsheets: "/factsheets",
   dictionary: "/dictionary",
+  sources: "/sources",
 };
 
 /**
@@ -67,9 +69,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 15 modes with the approved destinations and no Home item", () => {
+  it("covers all 16 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(15);
+    expect(appModeIds).toHaveLength(16);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -100,7 +102,7 @@ describe("mode secondary navigation registry", () => {
     for (const modeId of appModeIds) {
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: false }),
-      ).toBe(false);
+      ).toBe(modeId === "sources");
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: true }),
       ).toBe(true);
@@ -143,6 +145,16 @@ describe("mode secondary navigation registry", () => {
       isModeSecondaryNavigationRoute({
         modeId: "specifiers",
         pathname: "/specifiers/with-anxious-distress",
+        hasSubmittedSearch: false,
+      }),
+    ).toBe(false);
+    for (const pathname of ["/sources", "/sources/topics", "/sources/publishers", "/sources/method"]) {
+      expect(isModeSecondaryNavigationRoute({ modeId: "sources", pathname, hasSubmittedSearch: false })).toBe(true);
+    }
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "sources",
+        pathname: "/sources/src_detail",
         hasSubmittedSearch: false,
       }),
     ).toBe(false);
@@ -347,6 +359,29 @@ describe("mode secondary navigation registry", () => {
         ),
       }),
     ).toBe("/therapy-compass/compare?q=trauma&run=1&ids=cbt%2Cact&topic=Anxiety&density=dense");
+
+    for (const [itemId, href] of [
+      ["catalogue", "/sources"],
+      ["topics", "/sources/topics"],
+      ["publishers", "/sources/publishers"],
+    ] as const) {
+      expect(
+        modeSecondaryNavigationHref({
+          modeId: "sources",
+          itemId,
+          href,
+          currentSearchParams: new URLSearchParams("q=RANZCP&usedBy=dictionary&band=A"),
+        }),
+      ).toBe(`${href}?q=RANZCP&usedBy=dictionary`);
+    }
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "sources",
+        itemId: "method",
+        href: "/sources/method",
+        currentSearchParams: new URLSearchParams("q=RANZCP&usedBy=dictionary"),
+      }),
+    ).toBe("/sources/method");
   });
 
   it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
@@ -361,6 +396,7 @@ describe("mode secondary navigation registry", () => {
       "dsm",
       "factsheets",
       "formulation",
+      "sources",
       "specifiers",
       "therapy-compass",
     ]);
@@ -414,6 +450,11 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/topics/assessment-and-measurement")).toBe(
       "topics",
     );
+    expect(activeModeSecondaryNavigationId("sources", "/sources")).toBe("catalogue");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/topics")).toBe("topics");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/publishers")).toBe("publishers");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/method")).toBe("method");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/src_detail")).toBeNull();
 
     // The `registry[modeId][0]?.id` fallback is gone. A mode with no branch and
     // no entries has no current destination, rather than silently lighting its
@@ -454,6 +495,7 @@ describe("information page classification", () => {
     "/dsm/diagnoses/major-depressive-disorder",
     "/dsm/diagnoses/major-depressive-disorder/differentials",
     "/documents/11111111-1111-4111-8111-111111111111",
+    "/sources/src_example",
   ])("classifies %s as an information page", (pathname) => {
     expect(isInformationPage(pathname)).toBe(true);
   });
@@ -472,6 +514,10 @@ describe("information page classification", () => {
     "/differentials/compare",
     "/dsm/compare",
     "/documents/search",
+    "/sources",
+    "/sources/topics",
+    "/sources/publishers",
+    "/sources/method",
   ])("does not classify workflow route %s as an information page", (pathname) => {
     expect(isInformationPage(pathname)).toBe(false);
   });

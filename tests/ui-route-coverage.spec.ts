@@ -411,6 +411,13 @@ test.describe("previously uncovered production routes", () => {
     await page.keyboard.press("Space");
     await expect(compare).toHaveAccessibleName("In compare tray");
     await expect(page).toHaveURL(/\/therapy-compass\/search/);
+    // The set commits to component state first and reaches the URL through a
+    // `router.replace` soft navigation, so the accessible name flips before
+    // `page.url()` carries `ids`. Reading the URL straight after that name
+    // assertion is a race — it lost once under full-suite load on 2026-09-01
+    // (`ids` read as null) and passes in isolation. Wait for the parameter
+    // itself rather than for the route it was already on.
+    await expect(page).toHaveURL(/[?&]ids=/);
     const stayedPut = new URL(page.url());
     expect(stayedPut.searchParams.get("q")).toBe("CBT");
     expect(stayedPut.searchParams.get("ids")).toBeTruthy();

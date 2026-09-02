@@ -64,7 +64,8 @@ Smaller top-level directories that are easy to miss:
 - **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
 - **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (15):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary
+- **Modes (16):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary, Sources
+  - **Sources catalogue:** `/sources` provides a read-only, quality-banded catalogue with Topics, Publishers, Method and source-detail traceability; `/dictionary/sources` redirects into its Dictionary-filtered view.
   - **Therapy review disclosure.** Therapy was `devOnly` while its 205-record catalogue awaited qualified-clinician sign-off. That hid the mode from production navigation, 404'd `/therapy-compass` in the route layout, and made `therapyRecordsForEnvironment` filter every record out — so all 205 detail/brief/sheet routes and every universal-search therapy hit 404'd for real users while working locally. The owner's decision (2026-08-19) replaced the gate with disclosure: reachability is no longer conditioned on review status anywhere, and the caveat is stated instead — catalogue-wide by `TherapyReviewNotice` above the Therapy home hero (counts from the generated `THERAPY_CATALOGUE_SUMMARY.needsReviewCount`, kept in step by the index generator's check mode), and per record by the `reviewStatus` badge on every card, detail page, brief, sheet, comparison, pathway, and universal-search result. `therapyNeedsReview` survives as the label source only. Pinned by `tests/app-modes.test.ts` (reachability), `tests/therapy-review-regressions.test.ts` (the notice and the per-record badges), and `tests/therapy-pr-unblocking-contract.test.ts` (the retired `PLAYWRIGHT_OFFLINE_MODE` bypass that existed only to reach the gated route).
 
 ### Product pages (`src/app/`)
@@ -89,7 +90,8 @@ Smaller top-level directories that are easy to miss:
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                                                                                                  | `src/app/(search-app)/dsm/`                                                                                                                                                        |
 | `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                                                                                                                                            | `src/app/(search-app)/documents/`                                                                                                                                                  |
 | `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`                                                                                                                                                                                                 | `src/app/(search-app)/factsheets/`                                                                                                                                                 |
-| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare, Sources                                                                                                                                                               | `src/app/(search-app)/dictionary/`                                                                                                                                                 |
+| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare                                                                                                                                                                        | `src/app/(search-app)/dictionary/`                                                                                                                                                 |
+| `/sources`, `/sources/topics`, `/sources/publishers`, `/sources/method`, `/sources/[sourceId]`                                                                                                                                                                                  | `src/app/(search-app)/sources/`                                                                                                                                                    |
 | `/favourites`                                                                                                                                                                                                                                                                   | `src/app/(search-app)/favourites/page.tsx`                                                                                                                                         |
 | `/forms`, `/forms/[slug]`                                                                                                                                                                                                                                                       | `src/app/(search-app)/forms/`                                                                                                                                                      |
 | `/medications`, `/medications/[slug]`                                                                                                                                                                                                                                           | `src/app/(search-app)/medications/`                                                                                                                                                |
@@ -166,11 +168,12 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Source governance and metadata
 
-| Module                                                                                                                 | Role                                             |
-| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`                                               | Source provenance and governance                 |
-| `documents/` (`is-public-document.ts`), `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels, organization, and public boundary checks |
-| `table-review.ts`, `accessible-table-normalization.ts`                                                                 | Table facts                                      |
+| Module                                                                                                                 | Role                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`                                               | Source provenance and governance                                                     |
+| `sources/`                                                                                                             | Client-safe catalogue contracts, deterministic ratings, provider adapters and loader |
+| `documents/` (`is-public-document.ts`), `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels, organization, and public boundary checks                                     |
+| `table-review.ts`, `accessible-table-normalization.ts`                                                                 | Table facts                                                                          |
 
 ### Supabase, auth, env
 
@@ -601,6 +604,19 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `scripts/check-outstanding-issues-snapshot.mjs` regenerates the snapshot in memory and compares
   its content keys (`queue`, `open`, `pending`) against the committed file, failing with the fix
   command on any mismatch — this is what makes a stale snapshot impossible to ship.
+  `resolveQualitySpread`) verifies the signed-in administrator through `createSupabaseServerClient`,
+  then reads `public.documents` and `public.document_index_quality` through the server-only
+  `createAdminClient`. `authenticated` has no table `SELECT` privilege on either table, so every
+  service-role query explicitly filters `owner_id` to that verified user. The admin client bypasses
+  RLS, making that application-enforced filter the access boundary; tests cover non-administrator
+  denial and fail if any recorded query omits it. Every failure reports as `null` and never as `0`, and each read is guarded
+  separately, because on this panel `0` is the reassuring answer and a rejected request must not be
+  able to impersonate it. Counts are computed in Postgres (`head: true`) rather than by counting
+  fetched rows, which PostgREST would cap. `resolveQualitySpread` is the pure derivation that tells
+  a real score distribution apart from every document carrying one repeated placeholder — the
+  reading that would otherwise make the quality half of the panel look like a measurement.
+  `src/lib/developer-area/clinical-answer-failures.ts` (`resolveClinicalAnswerFailures`,
+  `referencedQuestionCount`) is its sibling over the ledger and the RAG eval case list.
 - **Routes:** `/mockups/development` (`page.tsx`, Server Component) — the grouped hub: environment
   strip, a blocking-items callout when the ledger has P1s, then one section per non-empty panel
   group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
@@ -621,8 +637,14 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   experience, since `DeveloperAreaGate` no-ops outside production while the endpoint still enforces
   administrator auth everywhere — genuinely zero jobs, and the fetch itself failing) and buckets any
   job `status` this panel does not recognise (the column is a plain `string`, not an enum) under its
-  own "Other status" section, verbatim, rather than dropping it. All six inherit `DeveloperAreaGate`
-  from `layout.tsx`.
+  own "Other status" section, verbatim, rather than dropping it.
+  `/mockups/development/clinical-answer-failures` — open ledger items that name one of the
+  repository's clinical eval questions by case id, presented as references rather than as verdicts.
+  `/mockups/development/corpus-health` (`corpus-health/page.tsx`, Server Component) — the library at
+  rest rather than in flight: counts by status, documents that finished `indexed` with zero chunks,
+  failures with the recorded reason, and the extraction-quality distribution. It authenticates via
+  the user-session client, then reads through the server-only, owner-filtered admin path. Every page
+  in this directory inherits `DeveloperAreaGate` from `layout.tsx`.
 - **Components:** `src/components/developer-area/developer-hub-nav-header.tsx` (`"use client"`,
   owns the hub's in-page section table and mounts `InPageNavHeader`) and
   `src/components/developer-area/hub/` — `freshness-stamp.tsx`, `environment-strip.tsx`,
@@ -688,7 +710,7 @@ terminology: `docs/care-plan-context.md`; build history and rulings: `docs/care-
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes**: all 15 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while four routes still own a functional home of their own — `/medications` (the Prescribing workspace, with dose/safety/monitoring checks), `/favourites` (a hub), `/tools` (a launcher) and `/documents` (dashboard-owned: browse, recent documents and the document-search empty state). None of those four is a duplicate of the shared home; each is its mode’s only functional surface. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. The other ten modes were consolidated onto the shared home: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary` and `/therapy-compass` are now `redirect()` stubs (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
+- **Mode homes**: all 16 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while five routes still own a functional home of their own — `/medications` (the Prescribing workspace, with dose/safety/monitoring checks), `/favourites` (a hub), `/tools` (a launcher), `/documents` (dashboard-owned: browse, recent documents and the document-search empty state) and `/sources` (the source catalogue). None of those five is a duplicate of the shared home; each is its mode’s only functional surface. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. The other ten modes were consolidated onto the shared home: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary` and `/therapy-compass` are now `redirect()` stubs (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
 - **Information (detail) pages**: catalogue/record routes under each mode (`/services/[slug]`, `/forms/[slug]`, `/medications/[slug]`, `/specifiers/[slug]`, `/formulation/[slug]`, `/factsheets/[slug]`, `/dictionary/[slug]`, `/dictionary/topics/[slug]`, `/therapy-compass/[slug]`, `/dsm/diagnoses/[slug]`, …). Route detection: `src/lib/information-pages.ts` (`isInformationPage`). Shared outer chrome: `src/components/information-page-shell.tsx` (`InformationPageShell`, breadcrumbs, optional footer). Specifier/formulation mode shells re-export that primitive. Intentional opt-outs: document viewer and the differentials presentation workflow.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
 - **Results routing**: each consolidated mode owns its submitted searches at `<mode>/search` (`/services/search` → `ServicesNavigatorPage`, `/forms/search` → `FormsSearchResultsPage`, `/differentials/search` → `DifferentialsHome` results view, `/formulation/search` → local mechanism results, and the same shape for dsm, dictionary, factsheets, specifiers, calculators, therapy-compass and documents). That split is not cosmetic: the bare path redirects to the shared home, so routing a submitted query back at it would loop — `consolidatedModeHomeModeIds` drives both halves from one list, and `tests/consolidated-mode-home-redirect.test.ts` pins the no-loop property. `/favourites` and `/tools` keep filtering in place on their own routes. Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. Bare `/?mode=<id>` always renders the shared home with that mode preselected; only a submitted deep link (`q` plus `run=1`) resolves onward to the mode's own search surface.

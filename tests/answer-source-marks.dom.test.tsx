@@ -375,29 +375,22 @@ describe("source-only disclosure", () => {
     );
   });
 
-  it("places review-due status beside Source-only and keeps the cited-page route", async () => {
-    const user = userEvent.setup();
-    const onOpenStateSource = vi.fn();
+  it("no longer renders the overdue control in the answer body", () => {
+    // Owner decision, 2026-09-01: the overdue-sources control moved out of the
+    // answer body and into the evidence-gaps disclosure, which is where the
+    // other statements about this answer's evidence live. `NaturalLanguageAnswer`
+    // therefore takes no answer-state props at all any more; the status row it
+    // still owns is the Source-only disclosure alone.
+    //
+    // The caution itself is not hidden by the move — `VerificationNotice` keeps
+    // stating it in words on the default view — and the control's new home is
+    // pinned by `answer-support-priority.dom.test.tsx`.
     render(
       <NaturalLanguageAnswer
         text={ANSWER}
         query="clozapine monitoring"
         sourceOnly
         sourceOnlyVerificationState="stale_evidence"
-        answerState={{
-          kind: "stale_evidence",
-          sourceCount: 2,
-          overdue: [
-            {
-              sourceId: "doc-chunk-a",
-              title: "Clozapine monitoring protocol",
-              locator: "p. 8",
-              reviewDueOn: "2025-11-01",
-              status: "review_due",
-            },
-          ],
-        }}
-        onOpenStateSource={onOpenStateSource}
         bestSource={null}
         sources={[]}
         sourceLinks={[]}
@@ -409,33 +402,17 @@ describe("source-only disclosure", () => {
 
     const row = screen.getByTestId("answer-source-status-row");
     expect(within(row).getByTestId("source-only-disclosure")).toBeInTheDocument();
-    const reviewDue = within(row).getByTestId("retrieval-state-stale-toggle");
-    expect(reviewDue).toHaveTextContent(/Review due\s*· 1 source/);
-    await user.click(reviewDue);
-    await user.click(screen.getByRole("button", { name: "Open Clozapine monitoring protocol, p. 8" }));
-    expect(onOpenStateSource).toHaveBeenCalledWith("doc-chunk-a", "p. 8");
+    expect(screen.queryByTestId("retrieval-state-stale-toggle")).not.toBeInTheDocument();
   });
 
-  it("keeps review-due status in the source row when the answer is synthesized", () => {
+  it("renders no status row at all when the answer is synthesized", () => {
+    // The row existed for two reasons; one of them has moved out, so a
+    // synthesized answer that is merely stale now has nothing to put in it.
     render(
       <NaturalLanguageAnswer
         text={ANSWER}
         query="clozapine monitoring"
         sourceOnly={false}
-        answerState={{
-          kind: "stale_evidence",
-          sourceCount: 2,
-          overdue: [
-            {
-              sourceId: "doc-chunk-a",
-              title: "Clozapine monitoring protocol",
-              locator: "p. 8",
-              reviewDueOn: "2025-11-01",
-              status: "review_due",
-            },
-          ],
-        }}
-        onOpenStateSource={vi.fn()}
         bestSource={null}
         sources={[]}
         sourceLinks={[]}
@@ -445,8 +422,7 @@ describe("source-only disclosure", () => {
       />,
     );
 
-    const row = screen.getByTestId("answer-source-status-row");
-    expect(within(row).queryByTestId("source-only-disclosure")).not.toBeInTheDocument();
-    expect(within(row).getByTestId("retrieval-state-stale-toggle")).toHaveTextContent(/Review due\s*· 1 source/);
+    expect(screen.queryByTestId("answer-source-status-row")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("retrieval-state-stale-toggle")).not.toBeInTheDocument();
   });
 });

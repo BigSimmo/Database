@@ -1,13 +1,19 @@
-import { readFileSync } from "node:fs";
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // resolveHubEnvironmentFacts() supplies three of the four facts on the developer
 // hub's environment strip. Two of its rules are the reason it exists rather than
-// being inlined into the page: the document count must be scoped to the caller's
-// own documents by the database, and a count it could not read must report as
-// absent rather than as zero. An empty corpus and a failed query look identical
-// on screen if that second rule ever slips.
+// being inlined into the page: the document count must be confined to the
+// caller's own documents, and a count it could not read must report as absent
+// rather than as zero. An empty corpus and a failed query look identical on
+// screen if that second rule ever slips.
+//
+// The first rule used to be delegated to row-level security. It cannot be: the
+// `authenticated` role holds no table privilege on `public.documents`
+// (`schema.sql:5299`, re-applied by migration `20260725000000`), so the
+// owner-read policy sits behind a privilege the role does not have and the read
+// returned permission denied on every hub load. The count now goes through the
+// service-role client with an explicit `owner_id` filter, which makes that
+// filter the whole guarantee — so it is asserted on the issued query below.
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -15,7 +21,7 @@ afterEach(() => {
 });
 
 type LoadOptions = {
-  user?: { id: string; email?: string } | null;
+  user?: { id: string; email?: string; app_metadata?: Record<string, unknown> } | null;
   count?: number | null;
   error?: { message: string } | null;
   demoMode?: boolean;
@@ -24,7 +30,9 @@ type LoadOptions = {
   rejectAuth?: boolean;
 };
 
-const selectCalls: { columns: string; options: unknown }[] = [];
+const selectCalls: { columns: string; options: unknown; filters: [string, unknown][] }[] = [];
+
+const ADMINISTRATOR = { site_role: "administrator" };
 
 async function load({
   user = null,
@@ -37,6 +45,9 @@ async function load({
   selectCalls.length = 0;
   vi.doMock("server-only", () => ({}));
   vi.doMock("@/lib/env", () => ({ isDemoMode: () => demoMode }));
+  // The user client identifies the caller and reads no table; the service-role
+  // client performs the count. Mocked apart, so a read issued through the wrong
+  // one shows up as a missing call rather than passing silently.
   vi.doMock("@/lib/supabase/server", () => ({
     createSupabaseServerClient: vi.fn(async () => ({
       auth: {
@@ -45,10 +56,27 @@ async function load({
           return { data: { user } };
         }),
       },
+    })),
+  }));
+  vi.doMock("@/lib/supabase/admin", () => ({
+    createAdminClient: vi.fn(() => ({
       from: vi.fn(() => ({
         select: vi.fn((columns: string, options: unknown) => {
-          selectCalls.push({ columns, options });
-          return rejectCount ? Promise.reject(new Error("fetch failed")) : Promise.resolve({ count, error });
+          const call = { columns, options, filters: [] as [string, unknown][] };
+          const chain = {
+            eq(column: string, value: unknown) {
+              call.filters.push([column, value]);
+              return chain;
+            },
+            then(resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) {
+              selectCalls.push(call);
+              return (rejectCount ? Promise.reject(new Error("fetch failed")) : Promise.resolve({ count, error })).then(
+                resolve,
+                reject,
+              );
+            },
+          };
+          return chain;
         }),
       })),
     })),
@@ -80,16 +108,16 @@ describe("resolveHubEnvironmentFacts", () => {
       documentCount: null,
       email: null,
     });
-    // Not merely "returns null": the query must not run at all. Row-level
-    // security would correctly return 0 rows to an anonymous caller, and
-    // rendering that as "0 documents" would state something false about the
-    // corpus rather than about the session.
+    // Not merely "returns null": the query must not run at all. There is no
+    // owner id to filter on, so the count would be a whole-table count across
+    // every account — and reporting it as "N documents" would state something
+    // false about this account's corpus.
     expect(selectCalls).toHaveLength(0);
   });
 
   it("reports the owner's document count and email for a signed-in user", async () => {
     const { resolveHubEnvironmentFacts } = await load({
-      user: { id: "user-1", email: "clinician@example.com" },
+      user: { id: "user-1", email: "clinician@example.com", app_metadata: ADMINISTRATOR },
       count: 2851,
     });
 
@@ -98,26 +126,38 @@ describe("resolveHubEnvironmentFacts", () => {
       documentCount: 2851,
       email: "clinician@example.com",
     });
-    expect(selectCalls).toEqual([{ columns: "id", options: { count: "exact", head: true } }]);
+    expect(selectCalls).toEqual([
+      { columns: "id", options: { count: "exact", head: true }, filters: [["owner_id", "user-1"]] },
+    ]);
   });
 
   it("keeps an empty corpus distinct from a count it could not read", async () => {
-    const empty = await load({ user: { id: "user-1" }, count: 0 });
+    const empty = await load({ user: { id: "user-1", app_metadata: ADMINISTRATOR }, count: 0 });
     await expect(empty.resolveHubEnvironmentFacts()).resolves.toMatchObject({ documentCount: 0 });
 
     vi.resetModules();
-    const failed = await load({ user: { id: "user-1" }, count: 0, error: { message: "permission denied" } });
+    const failed = await load({
+      user: { id: "user-1", app_metadata: ADMINISTRATOR },
+      count: 0,
+      error: { message: "permission denied" },
+    });
     await expect(failed.resolveHubEnvironmentFacts()).resolves.toMatchObject({ documentCount: null });
   });
 
   it("reports a missing count as unavailable rather than as zero", async () => {
-    const { resolveHubEnvironmentFacts } = await load({ user: { id: "user-1" }, count: null });
+    const { resolveHubEnvironmentFacts } = await load({
+      user: { id: "user-1", app_metadata: ADMINISTRATOR },
+      count: null,
+    });
 
     await expect(resolveHubEnvironmentFacts()).resolves.toMatchObject({ documentCount: null });
   });
 
   it("has no email to report for a user record that carries none", async () => {
-    const { resolveHubEnvironmentFacts } = await load({ user: { id: "user-1" }, count: 3 });
+    const { resolveHubEnvironmentFacts } = await load({
+      user: { id: "user-1", app_metadata: ADMINISTRATOR },
+      count: 3,
+    });
 
     await expect(resolveHubEnvironmentFacts()).resolves.toMatchObject({ email: null, documentCount: 3 });
   });
@@ -131,7 +171,7 @@ describe("resolveHubEnvironmentFacts", () => {
    */
   it("degrades to unavailable when the count read rejects instead of returning an error", async () => {
     const { resolveHubEnvironmentFacts } = await load({
-      user: { id: "user-1", email: "clinician@example.com" },
+      user: { id: "user-1", email: "clinician@example.com", app_metadata: ADMINISTRATOR },
       rejectCount: true,
       demoMode: false,
     });
@@ -157,24 +197,46 @@ describe("resolveHubEnvironmentFacts", () => {
   });
 
   /**
-   * The owner-scoping guarantee is structural, not behavioural: it holds because
-   * this module uses the cookie-bound user client, which row-level security
-   * scopes to `owner_id = auth.uid()`. The service-role admin client bypasses RLS
-   * entirely, so importing it here would silently turn one account's count into
-   * every account's — with no failing assertion anywhere, because the mock in the
-   * tests above would still answer. A source assertion is the only thing that can
-   * catch that substitution.
+   * The owner-scoping guarantee, and the reason this replaced a source assertion
+   * that the module used the cookie-bound user client and never the admin one.
+   *
+   * That assertion was backwards. The user client reads nothing here:
+   * `schema.sql:5299` revokes all `public` table privileges from
+   * `authenticated`, migration `20260725000000` re-applies the revoke after
+   * every earlier grant, and no later migration restores it — so the
+   * `documents owner read` policy sits behind a privilege the role does not
+   * hold and the count returned permission denied on every hub load. The read
+   * goes through the service-role client, which is not subject to that policy,
+   * which makes the explicit filter the entire guarantee rather than a second
+   * layer over it. Asserting it on the issued query is what stops the count
+   * from silently becoming a total across every account.
    */
-  it("reads through the user-session client and never the service-role client", () => {
-    const source = readFileSync(new URL("../src/lib/developer-area/environment-facts.ts", import.meta.url), "utf8");
-    // Import statements only. The module's own comment names `createAdminClient`
-    // to explain why it is wrong here, so a whole-file substring search for that
-    // identifier would fail on the documentation rather than on the code.
-    const imports = source.split("\n").filter((line) => line.startsWith("import "));
+  it("filters the count by the caller's own owner id", async () => {
+    const { resolveHubEnvironmentFacts } = await load({
+      user: { id: "user-1", email: "clinician@example.com", app_metadata: ADMINISTRATOR },
+      count: 2851,
+    });
+    await resolveHubEnvironmentFacts();
 
-    expect(imports.some((line) => line.includes('"@/lib/supabase/server"'))).toBe(true);
-    expect(imports.some((line) => line.includes("supabase/admin"))).toBe(false);
-    // Catches a dynamic import or a re-export that no import line would show.
-    expect(source).not.toContain("supabase/admin");
+    expect(selectCalls).toHaveLength(1);
+    expect(selectCalls[0]!.filters).toContainEqual(["owner_id", "user-1"]);
+  });
+
+  it("counts nothing for a signed-in user without the administrator claim", async () => {
+    const { resolveHubEnvironmentFacts } = await load({
+      user: { id: "user-2", email: "someone@example.com", app_metadata: {} },
+      count: 2851,
+    });
+
+    // The same claim `DeveloperAreaGate` checks. The owner filter would already
+    // confine the count to this caller's own documents, so this is defence in
+    // depth — but the email is still reported, because it was already read and
+    // a named account is more useful than a blank strip.
+    await expect(resolveHubEnvironmentFacts()).resolves.toEqual({
+      demoMode: false,
+      documentCount: null,
+      email: "someone@example.com",
+    });
+    expect(selectCalls).toHaveLength(0);
   });
 });
