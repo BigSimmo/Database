@@ -166,35 +166,46 @@ Bundling saves PR/CI-invocation count, not verification rigor — every bundled 
 
 <!-- END:pull-request-workflow -->
 
-## Ledger PRs trip the clinical-governance gate, and the checklist is matched literally
+## Ledger PRs: keep them off the snapshot, and what the governance gate really catches
 
-Every ledger PR touches `data/outstanding-issues-snapshot.json`. `classifyPullRequestFiles` in
-`scripts/pr-policy.mjs` marks anything under `data/` as clinical-risk — that is where generated
-clinical exports live, so the rule fails closed over the whole directory. It is working as
-designed; the file genuinely sits in a clinical-export directory. **Do not narrow the classifier
-to make a bookkeeping PR pass.**
+**An inbox-only ledger PR must not touch the snapshot.** `npm run issues:add|update|queue|done`
+writes one immutable request under `docs/outstanding-issues-inbox/` and nothing else — that is
+what makes those PRs merge-safe against each other. Only `npm run issues:reconcile`, the
+deliberately serialized operation, edits `docs/outstanding-issues.md` and regenerates
+`data/outstanding-issues-snapshot.json` (it does so itself; see `ledger-inbox.mjs`). Running
+`npm run snapshot:issues` on a feature branch re-creates by hand the shared-file conflict the
+inbox design exists to avoid.
 
-The consequence: the moment such a PR is marked ready for review, `pr-policy` blocks it until the
-body carries a complete `## Clinical Governance Preflight` with **all seven boxes checked**. On a
-diff containing no executable file every item is trivially and verifiably true, so answering them
-is honest rather than box-ticking — but say why beside each, in prose.
+**The committed snapshot's `pending` list must be empty** (#2530). The generator defaults to
+that; `prebuild --with-pending` fills it for the built image, and a local `npm run build` can
+therefore leave a dirtied tree that is easy to commit by accident.
+`check:outstanding-issues-snapshot` now fails on a non-empty `pending` as the backstop.
 
-**The trap that costs a CI cycle.** Items are matched by exact string equality
-(`checkedEntries.some((entry) => entry === item)`), so a checked line must reproduce the template
-wording _and nothing else_. Appending an explanation to the line — `- [x] <item> — because ...` —
-silently fails to match and the gate rejects a body that looks complete. Copy the seven lines
-verbatim from `.github/pull_request_template.md` and put the reasoning in a paragraph beneath
-them.
+**Ledger PRs no longer trip the clinical-governance gate.** They did until #2530, which added
+`nonClinicalGeneratedDataPaths` to `scripts/pr-policy.mjs`, exempting
+`data/outstanding-issues-snapshot.json` and `data/repo-awareness-snapshot.json` by **exact path**
+from the `data/` clinical-risk rule. Everything else under `data/` is still clinical-risk, which
+is the direction that carve-out must never widen. So do not expect the Preflight on a ledger PR,
+and do not add one reflexively — #2530's own reasoning is that ticking clinical boxes on changes
+with no clinical output erodes the gate.
 
-**Check the body offline instead of learning this from CI.** `evaluatePullRequestPolicy` is
-exported for exactly this, and it is the same function the workflow calls:
+**When a PR genuinely is clinical-risk, the checklist is matched literally.**
+`governanceItemSatisfied` compares with exact string equality
+(`checkedEntries.some((entry) => entry === item)`), so a checked line must reproduce the wording
+in `.github/pull_request_template.md` and nothing else. Appending a reason to the line —
+`- [x] <item> — because ...` — silently fails to match, and the gate rejects a body that looks
+complete. Copy the seven lines verbatim and put the reasoning in a paragraph beneath them.
+
+**Check any PR body offline rather than learning this from CI.** `evaluatePullRequestPolicy` is
+exported for it, and is the same function the workflow calls:
 
 ```bash
 node -e "import('./scripts/pr-policy.mjs').then(m=>{
   const body=require('fs').readFileSync('/tmp/body.md','utf8');
-  console.log(m.evaluatePullRequestPolicy({title:'...', body, files:['data/outstanding-issues-snapshot.json']}));
+  console.log(m.evaluatePullRequestPolicy({title:'...', body, files:['path/one','path/two']}));
 })"
 ```
 
-Expect `ok: true` with empty `errors` before pushing. Note also that undrafting escalates CI to
-the full heavy set — build and all browser shards — even for a diff with no code in it.
+Expect `ok: true` with empty `errors` before pushing. Note separately that marking a PR ready for
+review escalates CI to the full heavy set — build and all browser shards — even for a diff with no
+executable file in it, and that it buys no CodeRabbit review (see the correction above).
