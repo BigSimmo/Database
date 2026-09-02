@@ -103,6 +103,8 @@ npm run docs:check-links
 - [claude-cloud.md](claude-cloud.md) — Claude Code on the web container parity: tiered provisioner and checked-in user profile
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
 - [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (historical tables + immutable records), write with `npm run ledger:append`, and convert a pre-system active-branch row with `npm run ledger:migrate-legacy`
+- [branch-review-archival-policy.md](branch-review-archival-policy.md) — what may and may not be done to the immutable records under `docs/branch-review-records/`; which operations are blocked by code, which are forbidden by policy but caught by nothing, and why foldering or deleting a record is silent history loss
+- [branch-review-index.md](branch-review-index.md) — **Generated** browsable index of every immutable review record; regenerate with `npm run ledger:index`, refresh with `npm run docs:update`, check currency with `npm run ledger:index:check`. It may lag the corpus, so `npm run ledger:lookup` stays authoritative
 
 ## Plans and workstreams (living)
 
@@ -128,16 +130,17 @@ npm run docs:check-links
 
 ## Subdirectory map
 
-| Directory                        | What lives there                                                                                                      |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [rag-behaviour/](rag-behaviour/) | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.** |
-| [prompts/](prompts/)             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                        |
-| [codex/](codex/)                 | Per-lens Codex ultra-review output folders, one per review dimension                                                  |
-| [evidence/](evidence/)           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                              |
-| [audit/](audit/)                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                 |
-| [redesign/](redesign/)           | Premium redesign plans, decision log, token adoption                                                                  |
-| [superpowers/](superpowers/)     | Agent-authored plans and specs                                                                                        |
-| [archive/](archive/)             | Completed phase plans, superseded designs, old progress logs — never current guidance                                 |
+| Directory                                        | What lives there                                                                                                                                                                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [rag-behaviour/](rag-behaviour/)                 | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.**                                                                                    |
+| [prompts/](prompts/)                             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                                                                                                           |
+| [codex/](codex/)                                 | Per-lens Codex ultra-review output folders, one per review dimension                                                                                                                                     |
+| [evidence/](evidence/)                           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                                                                                                                 |
+| [audit/](audit/)                                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                                                                                                    |
+| [redesign/](redesign/)                           | Premium redesign plans, decision log, token adoption                                                                                                                                                     |
+| [superpowers/](superpowers/)                     | Agent-authored plans and specs                                                                                                                                                                           |
+| [branch-review-records/](branch-review-records/) | Immutable one-row review records — one file per review — named for the SHA-256 of the row. **Append-only: never edit, delete, or move into subdirectories** ([policy](branch-review-archival-policy.md)) |
+| [archive/](archive/)                             | Completed phase plans, superseded designs, old progress logs — never current guidance                                                                                                                    |
 
 ## Point-in-time records (historical — do not update)
 

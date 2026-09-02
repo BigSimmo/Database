@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (283 files) and the `package.json` script surface (284 entries),
+Curated map of `scripts/` (284 files) and the `package.json` script surface (286 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -151,6 +151,9 @@ preserved, in which case generated assets return to their exact pre-review state
 
 - `branch-review-ledger.mjs` — the **only** way to read or write `docs/branch-review-ledger.md`
   (`ledger:lookup` / `ledger:append` / `ledger:dedupe` / `ledger:rotate`). Never hand-write a row.
+- `generate-branch-review-index.mjs` — renders `docs/branch-review-index.md` from that same
+  corpus (`ledger:index`), giving the sha256-named record files a human-readable index.
+  `ledger:index:check` is advisory and gates nothing; see `docs/branch-review-archival-policy.md`.
 - `merge-branch-review-ledger.mjs` — the `merge=ledger` union driver from `.gitattributes`;
   `check-branch-review-ledger.mjs` fails if that protection is lost.
 - `sync-open-pr-branches.mjs` (`sync:pr-branches`), `sync-pr-branches.mjs` (compatibility entry point) — anti-churn sync for stale open PR heads;
