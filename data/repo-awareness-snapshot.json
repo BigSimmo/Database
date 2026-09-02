@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "4dcd8ddece3b4ec3cbe75cace784214eb7e14be9",
-    "committed_at": "2026-09-02T11:44:43+00:00"
+    "sha": "d1e4ae742945a1553a3bf36252a4a8095d7c4471",
+    "committed_at": "2026-09-02T12:46:21+00:00"
   },
   "routes": {
     "modes": [
@@ -16821,6 +16821,14 @@
         "scope": "Run PR re-sync sweep",
         "outcome": "Re-check only: still CONFLICTING vs origin/main. Semantic conflicts include privacy/page.tsx, answer-render-policy.ts, answer-request.ts, source-authority-metadata.ts, upload/bulk routes, settings-dialog, drift-manifest (+ more). Merge aborted; no force-resolve.",
         "checks": "merge origin/main and/or conflict re-check only; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-vocabulary-tmnc89",
+        "head": "969cc7f8889181758c93eb725e8eab7be6dc5e1e",
+        "scope": "prlanded",
+        "outcome": "Merged and verified. Two-dot content diff between the squash commit and the branch tip 21f4ef3da was empty, so all fifteen commits landed and nothing was orphaned by the squash+auto-merge race. The ~20 queued inbox requests it carried are applied by PR #2559, which rebased onto this squash and absorbed them; #Z5P2BW, #0HYHTH and #AGRAKQ are archived there, and the two follow-ups this branch filed (#686WHW, #1NMMZS) are added.",
+        "checks": "prlanded content diff empty; full CI green on 21f4ef3da (PR required, Build, Unit coverage, Production UI 1/2/3 + critical, Caring Contacts database, Safety and config checks, Lighthouse, Static PR checks, PR policy, PR mergeability, Semgrep, Gitleaks, GitGuardian); one review thread, resolved"
       },
       {
         "date": "2026-07-29",
