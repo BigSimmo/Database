@@ -105,6 +105,15 @@ proposing its removal — this is a gap to close, not a redundancy to cut.** Con
 that it's currently orphaned (confirmed by grepping every workflow file); the decision to wire
 it in vs. formally retire it is Josh's.
 
+> **Correction (Stage 4, verification-router):** this finding is wrong as stated. Grepping
+> workflow YAML for the npm-script name misses an indirect invocation: `package.json`'s
+> `build:internal` chain runs `check-client-bundle-secrets.mjs` after `next build`, and CI's
+> `build` job runs `npm run build` on every PR where `build_changed` is true. The check **does**
+> run, in CI, blocking — through `build:internal`, not as its own named step. The real issue is
+> narrower than "orphaned": the npm-script alias `check:client-bundle-secrets` itself is what's
+> unwired everywhere (never invoked under that name), which is a naming/discoverability problem,
+> not a coverage gap. See the verification-router response below for the full trace.
+
 **G3. Nothing in the repo asserts a floor on Playwright test count.** `docs/outstanding-issues.md`
 already documents a near-miss: PR #2481 dropped 74 of `ui-smoke.spec.ts`'s 82 tests under an
 unrelated commit message, with squash auto-merge armed, and was only kept off `main` by an
@@ -131,6 +140,16 @@ rule does nothing else). This does lose the "instant, in-editor" feedback speed 
 rule versus a script that only runs in `verify:cheap`/CI-conditional — that tradeoff is real
 and is exactly the kind of thing the red team below was asked to argue against.
 
+> **Correction (Stage 4, red team):** the "strict superset" claim above does not survive
+> tracing the actual regex. `check:design-system-contract`'s CSS z-index detector only matches
+> a bare integer literal (`/^-?\d+$/`) — it would **not** catch `z-index: var(--z-sidebar-flyout, 50)`,
+> the exact live example this finding cited as proof of superset coverage. The CSS half is also
+> a ratchet against a baseline (tolerates existing debt, blocks only growth), not a hard zero
+> gate like the ESLint rule. Combined with the `verify:pr-local` gap (G1) — `check:design-system-contract`
+> never runs there, so removing the ESLint rule removes all _local_ z-index enforcement for
+> anyone following the recommended PR-handoff workflow — this proposal should be treated as
+> **MIXED, not safe as originally framed**. See the red team response below for the full trace.
+
 **C2. `brand:check` and `check:assets` both validate the same single file
 (`src/app/icon.svg`) for different, non-overlapping properties** (generator-equivalence vs.
 required-substring presence). Neither is redundant in coverage — this is a proposal to merge
@@ -146,6 +165,18 @@ reduction as C2) would cut two of the 78 `check:*` entries without touching dete
 Not proposing this for `brand:check`/`check:assets` vs. `design-system-contract` beyond what
 C2 already covers, since those two check a genuinely different file class.
 
+> **Correction (Stage 4, red team): this proposal is factually wrong — withdrawn, not just
+> flagged.** `check-type-scale.mjs`'s own header states it is "already wired into `verify:cheap`
+> with the backlog cleared to 0, so this is a hard zero gate (no baseline) — **unlike the
+> ratcheting design-system contract**" — the script's own author directly contradicts "same
+> family" framing. `check:design-system-contract` enforces most of its metrics via a baseline
+> ratchet that tolerates pre-existing debt; folding a hard-zero gate into that architecture
+> risks silently downgrading "must never regress from zero" into "must not get worse than
+> whatever's already there." This family is also the specific, named precedent
+> `check:gate-manifest`'s own header cites for why it exists at all ("type/icon/brand being
+> promoted after that exact miss"). **Reclassify C3 as LOAD-BEARING, do not touch** — see the
+> red team response below.
+
 ### Tier 3 — real overlap where consolidation needs a judgment call, not just an implementation merge
 
 **J1. `check:cross-mode-index` (the standalone script) and
@@ -160,6 +191,15 @@ because the standalone `--check` invocation is currently listed explicitly in CI
 — removing it changes what those chains do, even if nothing regresses. `check:therapy-data-index`
 was checked for the same pattern and does **not** have this duplication (no equivalent
 standalone Vitest test was found for it).
+
+> **Note (Stage 4, red team):** the factual premise holds up on inspection, but the red team
+> points out this proposal runs directly against this document's own G3 caution above — G3
+> warns that "a consolidation that also removes a distinct test file without anyone noticing"
+> recreates the exact PR #2481 blind spot (mass Playwright test deletion with no gate catching
+> it). J1 proposes eliminating the independent, non-Vitest detector and making the whole
+> defense rest on one test file surviving, plus (per verification-router below) makes detection
+> newly dependent on the `test` gate's own arbiter-deferral state, which it isn't today. Not
+> withdrawn, but Josh should weigh this tension directly rather than read J1 as a clean win.
 
 **J2. `check:playwright-pr-shards` and `check:playwright-browser-revision` are both
 local-only diagnostic CLIs whose actual protective logic already runs automatically
@@ -385,13 +425,151 @@ specific gate if the table line isn't enough to act on.
 
 ## Stage 4 — adversarial review
 
-The two responses below are from fresh agents that saw only the synthesis above (Tiers 1–4 and
-the never-touch list), not this audit's working reasoning. A third, `verification-router`,
-checked the synthesis against how the repo actually routes verification today. All three are
-reproduced verbatim, disagreements included.
+Three fresh agents reviewed the synthesis above (Tiers 1–4 and the never-touch list) without
+seeing this audit's working reasoning or the eight family reports underneath it — only the
+document itself. Two argued opposite directions (every proposed change is load-bearing; the
+proposal doesn't go far enough) and a third, `verification-router`, checked the synthesis
+against how the repo's routing actually works today. Corrections they found are already
+folded inline above as blockquotes at the relevant finding; this section is their full,
+verbatim responses, disagreements and all — deliberately not smoothed into one voice.
 
-<!-- STAGE4_RED_TEAM_PLACEHOLDER -->
+**Where they landed, at a glance:**
 
-<!-- STAGE4_BLUE_TEAM_PLACEHOLDER -->
+| Finding                                                                                                                                                                              | Original stance           | Where it landed after Stage 4                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1 (z-index ladder → design-system-contract)                                                                                                                                         | Safe implementation merge | **MIXED** — "strict superset" claim disproven on the cited example; removing it also strips all _local_ enforcement per G1                                                                                 |
+| C2 (brand:check + check:assets merge)                                                                                                                                                | Safe implementation merge | **MIXED** — the split was deliberate (avoids an `svgo` lockfile/audit-classification trap); same `check:gate-manifest` precedent family as C3                                                              |
+| C3 (type-scale/icon-scale → design-system-contract)                                                                                                                                  | Safe implementation merge | **WITHDRAWN — reclassified LOAD-BEARING.** Factually wrong: the target script is explicitly a hard-zero gate, not the ratcheting family it was claimed to match                                            |
+| J1 (drop cross-mode-index `--check`, keep only the Vitest test)                                                                                                                      | Judgment call             | **Tension acknowledged, not resolved** — runs against the document's own G3 caution; also creates a new arbiter-deferral dependency                                                                        |
+| J2 (re-label shard/browser-revision CLIs as diagnostic)                                                                                                                              | Judgment call             | **Substance confirmed safe; execution risk flagged** — both script names are hard-coded into multiple agent runbooks; a rename (not just a label change) would need `check:docs-script-refs` to stay green |
+| G2 (`check:client-bundle-secrets` orphaned)                                                                                                                                          | Real gap, wire it in      | **CORRECTED** — it already runs, blocking, via the `build:internal` chain; the real issue is the npm-script alias is unwired, not the detection                                                            |
+| G1 (`verify:pr-local` heavy-scope gap)                                                                                                                                               | Real gap                  | **Confirmed accurate** by direct source read                                                                                                                                                               |
+| Blue team's cross-family finds (`no-hardcoded-hex`, `check:repo-awareness-snapshot`, Tier-4 retirement cases, `check:skills` hardcoded counts, workflow trigger/schedule collisions) | —                         | **New findings, not in the original synthesis** — see blue team response in full below                                                                                                                     |
 
-<!-- STAGE4_VERIFICATION_ROUTER_PLACEHOLDER -->
+---
+
+### Red team
+
+_Prompted to argue every gate proposed for removal or merger is load-bearing._
+
+# Adversarial review — gate-consolidation-audit-2026-09-02
+
+I read the audit in full and then read the actual source: `eslint-rules/require-z-index-ladder.mjs`, `scripts/design-system-contract-utils.mjs`, `scripts/check-design-system-contract.mjs`, `scripts/design-system-contract-baseline.json`, `scripts/generate-brand-assets.ts`, `scripts/check-assets.mjs`, `scripts/check-type-scale.mjs`, `scripts/check-icon-scale.mjs`, `scripts/check-gate-manifest.mjs`, `scripts/build-cross-mode-differentials-index.mjs`, `tests/cross-mode-differentials-index.test.ts`, `scripts/check-playwright-browser-revision.mjs`, `scripts/playwright-browser-preflight.mjs`, `scripts/playwright-pr-shards.mjs`, `tests/playwright-pr-shards.test.ts`, `scripts/check-docs-script-refs.mjs`, `scripts/verify-pr-local.mjs`, `eslint.config.mjs`, and `.github/workflows/ci.yml`. Two of the five proposals rest on a factual claim that direct reading disproves.
+
+#### C1 — fold `require-z-index-ladder` into `check:design-system-contract`
+
+**MIXED — do not remove the ESLint rule as proposed.**
+
+The ladder sets are genuinely identical: `require-z-index-ladder.mjs` line 11 and `design-system-contract-utils.mjs` line 766 both define `{0,5,10,20,30,40,60,80-85,95,100,110}`. But the document's proof that the script is a "strict superset" is wrong on its own cited example. `check-design-system-contract`'s CSS z-index detector (`design-system-contract-utils.mjs` line 1867) is `prop === "z-index" && /^-?\d+$/.test(declaration.value.trim())` — it only matches a bare integer literal. `sidebar-live-shell.module.css:145` is `z-index: var(--z-sidebar-flyout, 50);` — a `var()` expression, not a bare integer — so this specific "live example" the audit cites as proof would **not** actually be flagged today. Worse, even where the CSS check does fire, it isn't a hard gate: it's recorded via `recordDebt("rawCssZIndices", …)`, which is compared against `design-system-contract-baseline.json` (`value <= baselineValue`, current baseline 4, all in `globals.css`) — a ratchet that tolerates existing debt and only blocks growth. The TSX class-level check (`unapprovedZIndexFindings`) is a hard `assert(length === 0)`, but the CSS half is not. So "strict superset" is not established; the audit's own evidence for it doesn't survive tracing the regex.
+
+The more consequential problem is routing. `scripts/verify-pr-local.mjs` line 34 defines `staticHeavyScripts = ["lint", "typecheck", "test"]` — it runs `lint` (which carries the ESLint rule) but never runs `check:design-system-contract`, a fact the audit's own G1 finding already established. `CLAUDE.md` recommends `verify:pr-local` as "the gate for PR handoff." If z-index enforcement is removed from lint and relies solely on `check:design-system-contract`, a contributor following that recommended workflow gets zero local z-index enforcement — the violation would only surface in CI's `static_heavy_changed` conditional step, after push, generating exactly the CI round-trip this repo's arbiter philosophy exists to avoid. Scoping also isn't identical: `eslint.config.mjs`'s `MOCKUP_IGNORES` (glob-based) and `design-system-contract-utils.mjs`'s `isPrototype()` (substring-based, plus an extra `/favourites-page-mockups/` carve-out) are close but not the same test, and the ESLint rule covers `.js/.jsx` while the script only walks `.css/.ts/.tsx` — currently moot (zero `.js/.jsx` under `src`) but not a structural guarantee.
+
+#### C2 — merge `brand:check`/`check:assets` implementations
+
+**MIXED.** `check-assets.mjs`'s own header explains the separation was deliberate: it exists specifically "so as not to require an `svgo` lockfile delta," because adding `svgo` would flip CI's `lockfile_changed` classification and make pre-existing `exceljs`/`brace-expansion` audit highs blocking. That's a CI-classification decision, not an accident — a merge needs to preserve it. The two scripts also run on different engines today (`generate-brand-assets.ts` via `run-tsx.mjs`, importing the TypeScript `@/lib/brand-mark` source; `check-assets.mjs` is a dependency-free `.mjs`), so "one script" has to pick a host format, and picking the `.mjs` side risks losing the real `@/` path-aliased source of truth in favor of a hand-copied literal. Both already share the identical `static_heavy_changed` CI trigger, so that specific risk is low. The larger risk: `check-gate-manifest.mjs`'s own header names **this exact script family** — "type/icon/brand being promoted after that exact miss" — as one of only two documented incidents that caused `check:gate-manifest` to be built at all. This isn't a generic risk; it's the specific, cited precedent for what goes wrong when this family of scripts gets restructured. At least ten maintained docs (`docs/design-system/GATES.md`, `docs/testing.md`, `docs/design-system-contract.md`, etc.) reference `brand:check`/`check:assets` by name, and `docs:check-scripts` (blocking in `verify:cheap` and CI) exists specifically to fail on a stale reference after a rename.
+
+#### C3 — fold `check:type-scale`/`check:icon-scale` into `check:design-system-contract`
+
+**LOAD-BEARING — do not touch.** This is the clearest factual error in the document. `check-type-scale.mjs`'s own header states: "Already wired into `verify:cheap` with the backlog cleared to 0, so this is a hard zero gate (no baseline) — **unlike the ratcheting design-system contract**." That is the script's author directly contradicting the audit's claim that it is "structurally identical in shape and routing... same family." `check:design-system-contract` enforces most of its metrics via a baseline ratchet (`value <= baselineValue` against `design-system-contract-baseline.json`), which by design tolerates pre-existing debt. Folding a hard-zero gate into that architecture risks silently converting "must never regress from zero" into "must not get worse than whatever's already there" — the precise silent-downgrade the tier claims won't happen, contradicted by the target file's own documented intent. This carries the same `check:gate-manifest` precedent as C2 (this family is literally the type/icon/brand incident named in that script's header) and the same doc-reference exposure via `docs:check-scripts`.
+
+#### J1 — drop `check:cross-mode-index`'s `--check` mode, keep only the Vitest test
+
+**MIXED, lean load-bearing.** Unlike C1/C3, the factual premise here checks out: `build-cross-mode-differentials-index.mjs`'s own comment describes the two mechanisms accurately as complementary detectors of the same drift. The objection is structural, not factual. This document itself, one section earlier (Tier 1, finding G3), states: "PR #2481 dropped 74 of `ui-smoke.spec.ts`'s 82 tests under an unrelated commit message, with squash auto-merge armed, and was only kept off `main` by an incidental merge conflict — 'No gate would have caught it.' ... a consolidation that also removes a distinct test file without anyone noticing would recreate exactly that risk with no backstop." J1 then proposes doing exactly that for cross-mode-index: eliminating the independent, non-Vitest detector and making the entire defense rest on the survival of one test file — the audit warns against its own next recommendation three paragraphs later. A standalone script also doesn't depend on any file-to-test mapping heuristic; a bare `npm run check:cross-mode-index --check` in `verify:cheap:internal` runs unconditionally, while a Vitest-only detector's reliability in a `test:focused` iterative loop depends on that mapping correctly associating `data/differentials-snapshot.json` changes with this specific test. `check:therapy-data-index` was checked for the same pattern and found not to duplicate — so this is a narrow, single-instance ask, which somewhat limits the blast radius, but the redundancy-removal argument still runs directly against the document's own G3 caution.
+
+#### J2 — re-label `check:playwright-pr-shards`/`check:playwright-browser-revision` as diagnostic, not gates
+
+**GENUINELY SAFE in substance, real risk in execution.** Both claims check out on inspection: `playwright-browser-preflight.mjs` imports `playwrightBrowserRevisionCheck` directly from `check-playwright-browser-revision.mjs`, and `tests/playwright-pr-shards.test.ts` imports `prUiSpecProfiles`/`productionSpecFilePattern` directly from `scripts/playwright-pr-shards.mjs` — these are shared modules, not reimplementations, and neither script appears anywhere in `verify:cheap:internal` or `.github/workflows/ci.yml` today (confirmed by direct grep). So relabeling costs nothing in coverage. The risk is entirely in what "re-labeled" means in practice. These exact script names are hard-coded, verbatim, into operational runbooks other AI agents follow with no other context: `docs/codex-cloud.md` step 1 literally says "Run `npm run check:installed-lock-parity` and `npm run check:playwright-browser-revision`," and the same name appears in `docs/agents/cursor-cloud.md`, `docs/testing.md`, `docs/development-speed-playbook.md`, multiple `docs/prompts/*` handovers, and several immutable `branch-review-ledger`/`branch-review-records` rows. `check-docs-script-refs.mjs`'s own header states its purpose is precisely to stop "a renamed/removed script [leaving] stale instructions that the agents (Codex/Claude/Cursor) then follow" — it is blocking in `verify:cheap` and CI. An actual rename fails that gate outright; even a same-named "diagnostic, not gate" recharacterization risks an agent deprioritizing a check tied to two dated, real incidents (`#255`, `#312`) precisely because "not a gate" reads as "skip it" under this repo's own smallest-gate philosophy. If the change stays confined to prose in whatever document currently counts "78 `check:*` gates," it's safe; if it touches the npm script names themselves, it isn't.
+
+---
+
+### Blue team
+
+_Prompted to argue the consolidation does not go far enough._
+
+# Where the consolidation audit stopped short
+
+I read the full audit document, including all eight per-family tables and the Tier 1–4 findings. It is careful, well-evidenced work — but it is conservative in a way its own stated premise ("the sheer count is itself a problem") doesn't justify. Below is a ranked list of what should also be on the table, each backed by reading the actual scripts rather than pattern-matching names.
+
+#### 1. `no-hardcoded-hex` is C1 all over again, and the document's own table sits it right next to the finding it should have triggered
+
+C1 flagged `require-z-index-ladder` as a true duplicate of `check:design-system-contract`'s z-index sub-check, because both assert the same rule and the script is a superset. I read `scripts/design-system-contract-utils.mjs` and found the _identical_ relationship exists for colour, and the document missed it even though the lint family's own table lists `no-hardcoded-hex` (ROUTINE, "no incident found") one row above `require-z-index-ladder` (ROUTINE, "duplicate found").
+
+`no-hardcoded-hex` (`eslint-rules/no-hardcoded-hex.mjs`) flags one narrow shape: `bg-[#…]`, `text-[#…]`, `border-[#…]` Tailwind arbitrary-value literals. `check:design-system-contract`'s `RAW_COLOR` pattern (`/#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi`) scans the _entire text_ of every non-exempt `.css/.ts/.tsx` file, ratcheted to a **zero baseline that only shrinks** (`rawColorLiterals` metric, asserted `<= baseline` on every run). A string like `bg-[#123abc]` contains `#123abc`, which the raw-color regex matches directly — there's no scope where the ESLint rule fires and the script wouldn't already have caught the same literal as a `rawColorLiterals` regression. The exemption list in `RAW_COLOR_EXEMPTIONS` covers only theme-token files, brand artwork, diagnostic visualisations, and a print sheet — none of it overlaps the Tailwind-utility literals the ESLint rule targets. This is a strict superset relationship, exactly like C1, just for a different value class. **Proposal: retire `no-hardcoded-hex` the same way C1 proposes retiring the z-index ladder rule**, and note the loss of in-editor instant feedback as the same real, acknowledged tradeoff C1 already names.
+
+_(Editorial note added after Stage 4 assembly: the red team's finding above shows C1's own "strict superset" claim for z-index did not survive tracing the regex — the CSS half of `check:design-system-contract` is a ratchet, not a hard gate, and misses `var()`-expression z-indices. Whether the *colour* superset claim here holds up to the same scrutiny was not independently re-checked; the same verification the red team applied to C1 should be applied before acting on this one.)_
+
+#### 2. `check:repo-awareness-snapshot` is a cross-family duplication engine the eight-way split was structurally unable to see
+
+This is the single biggest miss. `check:repo-awareness-snapshot` sits in the "static/consistency" table as one ROUTINE line ("no incident found"). Reading `scripts/generate-repo-awareness-snapshot.ts` shows it isn't one check — it's four, and three of the four re-derive facts another family's gates already own:
+
+- **Routes.** `buildRoutesSection()` calls `collectSiteMapData()` straight out of `scripts/generate-site-map.ts` — the exact generator `sitemap:check` (docs/workflow family) uses to validate `docs/site-map.md`. Both gates now independently serialize the same route discovery into two separate committed artifacts (`docs/site-map.md` and `data/repo-awareness-snapshot.json`), each requiring its own regeneration command (`sitemap:update` vs `snapshot:repo-awareness`) and each failing separately on the same underlying route change.
+- **Documentation.** `buildDocumentationSection()` computes `catalogued`/`uncatalogued` doc counts against `docs/README.md`. That's the same question `docs:check-index` (`scripts/check-codebase-index-coverage.mjs`) asks about `docs/codebase-index.md` — "is the doc navigation index stale relative to what's on disk" — just pointed at a different catalogue file. `docs:check-inventory` (`scripts/update-docs-inventory.mjs`) is a third variant of the same concern, checking two headline counts (script files, npm scripts) in `docs/scripts-index.md`.
+- **Review state.** `buildReviewStateSection()` and its helper `splitRecordCells()` independently re-parse `docs/branch-review-ledger.md` plus the archive and immutable records, with their own escape-aware 6-column row parser. That is a second, separately maintained parser of the exact format the "ledger trio" (`check:branch-review-ledger`, `check:outstanding-issues`, `check:ledger-write-discipline`) exists specifically to protect — the document calls that trio "the strongest-evidenced cluster in the entire audit" (5 named incidents) in the very next table, without connecting the dots that a fourth, independent parser of the same frozen format is exactly the kind of drift risk that cluster was built to eliminate.
+
+None of this was flagged because the static-family agent owns `check:repo-awareness-snapshot` and the docs/workflow-family agent owns `sitemap:check`/`docs:check-index`/the ledger trio — different agents, no cross-reference, and the synthesis step didn't re-scan for it either. **Proposal: this needs a real architectural decision, not a script merge** — either the snapshot generator should read the _outputs_ of `generate-site-map.ts` and the ledger tooling rather than re-deriving them from raw inputs, or the four generated artifacts (`docs/site-map.md`, `docs/codebase-index.md`, `docs/scripts-index.md`, `data/repo-awareness-snapshot.json`) should be reduced to fewer sources of truth. This is a bigger finding than anything in Tier 2/3 and belongs above them, not in a single ROUTINE table row.
+
+#### 3. Retirement cases the document declined to make, despite naming its own evidence
+
+The document's Tier 4 treats "ROUTINE, no incident found" as "genuinely undetermined." For several of these, the absence of evidence _is_ the evidence, given how well this repo otherwise documents incidents (the document says so itself in its evidence-base section):
+
+- **`check:maintainability-budgets`** (`scripts/check-maintainability-budgets.mjs`) is a hardcoded 4-file line-count ceiling (`ClinicalDashboard.tsx`, `rag.ts`, `DocumentViewer.tsx`, `indexing-v3-agent/index.ts`). It has never caught anything per the audit's own row, it duplicates no other gate's _intent_, but it also protects nothing a code reviewer wouldn't notice on any PR that grows one of four named files by hundreds of lines — and every time one of those files is deliberately restructured, the budget has to be hand-edited anyway (the comments in the file already describe two such manual edits). This is busywork with a maintenance tax, not protection.
+- **`check:env-parity`** is offline-by-default and only checks _names_, not values, and its provider-backed modes (`--gh`, `--railway`) already require explicit confirmation under this repo's own provider boundary. The offline default's blast radius is a local `.env.local` typo — something that fails loudly the moment the app tries to read the missing var. No incident, no unique failure mode that doesn't self-report elsewhere.
+- **`check:local-presence`** exists to auto-fill three local-only HMAC secrets. Its only failure mode is "a dev doesn't have a local secret," which breaks obviously and immediately on first use of the feature that needs it (safety-identifier hashing, health probe). It is a convenience script mislabeled as a gate.
+- **`docs:check-inventory`** (two integers: script file count, npm script count) is now doubly redundant per point 2 above — even setting the repo-awareness overlap aside, it's a documentation-freshness check whose entire failure surface is "someone added a script and forgot to run `npm run docs:update`," already caught in spirit by `docs:check-index`'s broader coverage check.
+- **`check:coverage-inventory`** sits inside the CI `coverage` job with `test:coverage` right next to it — the document itself only found "no incident found," and offers no account of what distinct failure class it catches that a coverage-floor regression (which `test:coverage` already guards, per PR #1383/ledger #192) would miss.
+
+#### 4. `check:skills`'s hardcoded per-surface counts are brittle busywork wearing a load-bearing costume
+
+`scripts/list-database-skills.mjs` hardcodes `expectedRepositorySkillSurfaceCounts: { Codex: 43, Claude: 8, Cursor: 15, "PsychSift plugin": 1 }`. Every time a skill is added or removed on any of four surfaces, this literal has to be hand-edited or the gate goes red for a reason unrelated to skill quality. The document calls this "thin evidence" and leaves it as-is. The frontmatter-validation half of this script (checking `short_description`/`default_prompt` presence and shape) is legitimate and load-bearing in spirit; the hardcoded-count assertion is not — it's an anti-pattern that makes routine, expected repository growth look like a gate failure. Separating them, and dropping the count assertion specifically, is a low-risk cut the document had the material to recommend and didn't.
+
+#### 5. Structural bloat the per-gate framing genuinely cannot see
+
+Two findings only show up by reading workflow trigger blocks side by side, which a `check:*`-script-scoped audit never does:
+
+- **Three workflows fire on the identical event triple.** `claude.yml`, `claude-backlink.yml`, and `codex-autofix-review-comments.yml` all trigger on exactly `issue_comment: [created]`, `pull_request_review_comment: [created]`, `pull_request_review: [submitted]`. Every PR review comment in the repo now spins up to three separate GitHub Actions runners, each independently evaluating its own `if:` gate to decide whether to do anything. They serve different purposes (respond to @claude, post a session backlink, ask Codex to auto-resolve), but nothing stops them from being jobs inside one workflow sharing one trigger block — which would cut the 23-workflow count by two with zero coverage loss, the same "implementation-only merge" logic Tier 2 already applies to `brand:check`/`check:assets`.
+- **Three scheduled workflows fire at the same instant, weekly.** `ci.yml`, `docker-image.yml`, and `eval-canary.yml` all carry `cron: "0 18 * * 0"` — Sunday 18:00 UTC, exactly. `live-drift.yml` was deliberately staggered 30 minutes later ("aligned with the existing Sunday off-peak cadence," per its own comment), which shows someone _did_ think about stagger for one of these four — just not the other three, which now collide on runner queue time every week. This is a cheap, concrete fix (offset two of the three by a few minutes) that a gate-by-gate audit has no way to notice, because none of these are `check:*` scripts — they're scheduling metadata.
+
+#### The meta-point the conservative framing obscures
+
+The document's own opening names the problem as _count_, not _risk_: "the sheer count is itself a problem: the clearest symptom is that the repo needed a dedicated `gates` skill." But Tier 4's disposition — "genuinely undetermined; not proposing removal without more signal than 'no incident found'" — quietly flips the burden of proof. For `check:drift`, `check:owner-scope`, the RAG canary: guilty-until-proven-innocent is exactly right, and the document is correct not to touch any of them. For a zero-incident, zero-cost, narrow-scope hygiene script, treating "no incident" as insufficient grounds for removal is backwards relative to the stated goal — it guarantees the count never shrinks, because nothing routine will ever accumulate an incident large enough to clear that bar on its own. The document also never corrects its own headline "78 `check:*` scripts" framing even though its own tables show at least five entries (`test:focused`, `check:playwright-pr-shards`, `check:playwright-browser-revision`, `check:base-freshness`, `check:stale-docs`) are explicitly _not gates_ by the document's own description ("never fails by design," "diagnostic convenience," "dev-loop tool, not a gate"). Recategorizing those out of the count is a free, zero-risk consolidation of the number itself that the document had all the material to make and left undone.
+
+---
+
+### Verification-router
+
+_Prompted to check the synthesis against how the repo actually routes verification today._
+
+# Verification Router review: gate-consolidation-audit-2026-09-02.md
+
+#### 1. Fact-checking the document's routing claims against source
+
+**G1 (`verify:pr-local` heavy-scope gap) — confirmed accurate by direct read.** `scripts/verify-pr-local.mjs` line 34 is literally `const staticHeavyScripts = ["lint", "typecheck", "test"];`. The `docsScripts` and `workflowScripts` arrays (lines 11–32) and the `static_heavy_changed` branch (lines 119–137) never reference `check:knip`, `check:maintainability-budgets`, `brand:check`, `check:assets`, `check:therapy-data-index`, `check:cross-mode-index`, `check:mha-act-sections`, `check:type-scale`, `check:icon-scale`, or `check:design-system-contract`. I confirmed all ten of those _are_ present as `static_heavy_changed`-conditional steps in `.github/workflows/ci.yml`'s `static-pr` job (lines 323–391) and _are_ in `verify:cheap:internal` in `package.json`. So the gap is real exactly as described: a contributor who runs only `verify:pr-local` before a product-code push gets none of this generated-artifact-drift protection locally, and only finds out post-push via CI.
+
+**check:gate-manifest — confirmed, and more narrowly scoped than the prose implies.** `scripts/check-gate-manifest.mjs` parses `verify:cheap:internal` from `package.json` and asserts every gate in it (mapped through a small `CI_EQUIVALENT` table, e.g. `test → test:coverage`) appears as a `run: npm run <gate>` line inside the `static-pr` job specifically (or elsewhere in `ci.yml` for the mapped equivalent). It says nothing about `verify:pr-local` — the one-way invariant is `verify:cheap` vs. CI only. The document's summary line ("CI must run at least what `verify:cheap:internal` runs, never less") is correct; a reader could mistake it for also covering `verify:pr-local`, which it does not, and G1 is exactly the proof that it doesn't. Worth being explicit about that boundary since it matters for point 2.
+
+**G2 (`check:client-bundle-secrets` "orphaned") — this is where the document is wrong, and it's the most consequential correction here.** Grepping `.github/workflows/*.yml` for the literal string `client-bundle-secrets` does return zero hits, which is what the audit reports. But `package.json` line 26 shows `"build:internal": "node scripts/guard-next-build.mjs && npm run check:upload-limit-parity && node ... next build --webpack && node scripts/check-client-bundle-secrets.mjs"`, and `"build": "node scripts/run-heavy.mjs --npm-script build:internal"`. CI's `build` job (`ci.yml` line ~583) runs `run: npm run build` on every PR where `build_changed` is true — which is most product PRs (the `buildPatterns` list covers `src`, `data`, `worker`, `public`, config files). `scripts/run-heavy.mjs` propagates the child exit code via `process.exit(exitCode)`, and the `&&` chain means a non-zero exit from `check-client-bundle-secrets.mjs` fails `npm run build`, which fails the required `Build` job. So the check **does run, in CI, blocking, in exactly the place the document itself proposes wiring it** ("right after the build step, since it needs `.next/static` to exist") — it's just invoked through `build:internal` rather than as its own named `npm run check:client-bundle-secrets` step. The document's method (grep for the npm-script name in workflow YAML) missed an indirect invocation path that `check-gate-manifest.mjs`'s own `aggregatesRunning()` logic is specifically built to catch for gates _inside_ its scope — but `check:client-bundle-secrets` isn't in `verify:cheap:internal`, so that machinery never got applied to it here. G2 should be downgraded from "orphaned load-bearing gap" to "the npm-script alias is genuinely unwired everywhere, but the underlying detection already runs and blocks via `build`" — a documentation/naming clarity issue, not a coverage gap.
+
+I did not independently re-verify the family-table incident citations (PR numbers, ledger entries) — those rest on the document's own evidence-gathering pass, which I'm taking on its word rather than re-deriving.
+
+#### 2. Would Tier 2/3, if implemented, violate the manifest invariant or arbiter/receipts contracts?
+
+No, but with one real interaction worth surfacing. `check-gate-manifest.mjs` also asserts two documented _counts_ stay in sync with the actual chain: CLAUDE.md's "N static/consistency gates" (currently 34, confirmed by grep) and the gates skill's "check X of Y" (currently 37, i.e. 34 + lint/typecheck/test). C2 (merge `brand:check`+`check:assets`) and C3 (fold `type-scale`/`icon-scale` into `design-system-contract`) each reduce the static-gate count, so implementing them correctly _requires_ touching `package.json`'s `verify:cheap:internal`, the corresponding `static-pr` steps in `ci.yml`, CLAUDE.md's count, and the gates skill's count together — and `check:gate-manifest` will fail closed on any of those four being missed. That's the invariant working as a forcing function, not a landmine. Also worth noting: since none of C1/C2/C3/J1's target scripts are in `verify:pr-local` today (per G1), consolidating them changes nothing about what `verify:pr-local` runs before or after — a clean non-interaction.
+
+J1 (drop the standalone `check:cross-mode-index --check` and rely solely on `tests/cross-mode-differentials-index.test.ts` inside `npm run test`) does interact with the arbiter in a way the document doesn't mention. I confirmed `npm run test` always routes through `scripts/run-vitest.mjs`, which calls `gate-arbiter.mjs`'s `arbitrate()` on _every_ invocation — including the nested `npm run test` inside `verify:cheap:internal`'s `&&` chain, not just a standalone `npm test`. `test`/`vitest` is an `ARBITRATED_GATE` with a `CLEAN_WINDOW_BY_CLASS` (12 clean "source"-class runs before deferral is even recommended, and only under opt-in `GATE_ARBITER=enforce`). Today, `check:cross-mode-index` is a separate, non-arbitrated npm script, so it always executes inside `verify:cheap` regardless of the `test` gate's arbiter state. After J1, cross-mode-index detection becomes fully dependent on a gate that _can_ be advisory-deferred. This isn't a violation of any contract — deferral is opt-in and advisory by design — but it is a real compounding-risk point the document should name rather than silently accept, since it changes an always-on detector into one gated behind another gate's own deferral policy.
+
+Receipts (`gate-receipts.mjs`) only memoize `lint`, `typecheck`, and non-coverage Vitest identities by content signature. None of the Tier 2/3 target scripts are receipt-memoized gates, so there's no signature-collision risk from renaming or merging them.
+
+#### 3. Is the document's own recommended verification tier for itself correct?
+
+The diff is `docs/audit/gate-consolidation-audit-2026-09-02.md` only (confirmed: `git diff --stat origin/main...HEAD` shows exactly one file, 397 insertions, zero deletions). I traced this through `scripts/ci-change-scope.mjs`: `docPatterns` matches `docs/**` and `*.md` generally, this file isn't the generated medication-lexicon report, and it matches none of `sourcePatterns`/`dbPatterns`/`workflowPatterns`/`buildPatterns`. So it classifies as `docs_changed: true`, `static_heavy_changed: false`, `docs_only: true`. Per AGENTS.md's own pyramid this is squarely Tier 1 ("documentation... relevant format/docs check only"), and the correct command is `npm run verify:pr-local` (its `docs_changed` branch: `check:runtime`, `check:installed-lock-parity`, `format:changed`, plus the doc-integrity chain — `sitemap:check`, `check:repo-awareness-snapshot`, `docs:check-index`, `docs:check-inventory`, `docs:check-scripts`, `docs:check-links`, the three ledger checks). Not `verify:cheap` — AGENTS.md is explicit that `verify:cheap` isn't the default for a documented-low-risk PR-handoff change. I also checked whether the new file needs any index entry: `check-docs-links.mjs` and `check-docs-script-refs.mjs` both explicitly exclude `docs/audit/` from their scan scope, so this file needs no companion edit elsewhere, and I confirmed `npx prettier --check` on the file passes cleanly. So the smallest correct gate here is real and cheap, and there's no reason it wasn't run.
+
+The drafting session doesn't appear to have run or reported it, though — the document states "Nothing in this document has been acted on" and lists no verification evidence at all (no gate name, no decisive output line), which is a real gap against AGENTS.md's own "paste the decisive line" rule. Before this is pushed and a PR opened, I'd run `npm run verify:pr-local` (docs branch) and quote its summary line, plus commit any `format:changed` fix it surfaces.
+
+#### 4. Confident-but-subtly-wrong claims
+
+- **G2's "wired nowhere" framing** (§1 above) is the clearest case — contradicted by `package.json`'s `build:internal` chain and CI's `build` job.
+- **The Tier-1/Tier-2 framing slightly understates how `check-gate-manifest.mjs`'s count self-test constrains implementation.** The document treats C2/C3 as "implementation-only, zero coverage loss," which is true for detection but not for the mechanical blast radius — four files must move together (`package.json`, `ci.yml`, `CLAUDE.md`, `.claude/skills/gates/SKILL.md`) or CI goes red on the count check alone, independent of whether the merged assertions are correct.
+- **J1 undersells the arbiter interaction** noted in §2 — worth adding a line rather than treating it as a pure "faster, same answer" swap.
+- Everything else I spot-checked (the unconditional `static-pr` steps, `ci-change-scope.mjs`'s scope flags, the receipts/arbiter gate-identity boundaries, `docs/audit/` exclusion from the doc-index scans) matched the document's description on direct source read.
+
+Files read for this review: `docs/audit/gate-consolidation-audit-2026-09-02.md`, `scripts/verify-pr-local.mjs`, `scripts/check-gate-manifest.mjs`, `scripts/gate-arbiter.mjs`, `scripts/ci-change-scope.mjs`, `.github/workflows/ci.yml`, `package.json`, `scripts/run-heavy.mjs`, `scripts/run-vitest.mjs`, `CLAUDE.md`, `.claude/skills/gates/SKILL.md`.
