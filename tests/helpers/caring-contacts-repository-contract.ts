@@ -201,7 +201,16 @@ let extensionPlanSequence = 0;
  */
 async function createActivePlan(
   store: CaringContactRepository,
-  options: { actor?: Actor; culturalIdentity?: string } = {},
+  options: {
+    actor?: Actor;
+    culturalIdentity?: string;
+    /**
+     * Stops before `activatePlan`, returning the plan as CREATED. Its schedule already exists and
+     * every contact is already `scheduled` -- which is the state #PAMATF is about, and which no
+     * other fixture here can produce because they all activate.
+     */
+    leaveAsDraft?: boolean;
+  } = {},
 ): Promise<PlanRecord> {
   extensionPlanSequence += 1;
   const suffix = String(extensionPlanSequence);
@@ -245,6 +254,8 @@ async function createActivePlan(
       writeContext(actor, `ext-create-${suffix}`),
     ),
   );
+
+  if (options.leaveAsDraft === true) return created;
 
   return unwrap(
     await store.activatePlan(
@@ -857,10 +868,20 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
       it("stores an absorbed contact as terminal, so it can never reach a dispatch list", async () => {
         const store = await newStore();
         await createPlanParents(store, COORDINATOR_A);
-        unwrap(
+        const created = unwrap(
           await store.createPlan(
             createInput({ firstContactDate: "2026-03-09", firstContactReason: "Patient asked to start later" }),
             writeContext(COORDINATOR_A, "key-create"),
+          ),
+        );
+        // Activated, so this case measures ABSORPTION and nothing else. It used to read the
+        // sendable list off a plan still in `draft`, which was only possible because that list had
+        // no plan gate (#PAMATF); the nine below would otherwise be nine messages offered for a
+        // plan nobody had started, which is the defect rather than the subject.
+        unwrap(
+          await store.activatePlan(
+            { planId: PLAN_ID, expectedVersion: created.plan.version },
+            writeContext(COORDINATOR_A, "key-activate-absorbed"),
           ),
         );
 
@@ -923,7 +944,116 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
 
         expect(outcome.record.plan.state).toBe("paused");
         expect(outcome.contactsCancelled).toBe(0);
-        expect(await store.listSendableContacts(PLAN_ID, { actor: COORDINATOR_A })).toHaveLength(10);
+
+        // NOTHING WAS CANCELLED, AND NOTHING IS SENDABLE. Those are two different facts and this
+        // case is the reason both have to be stated (#PAMATF).
+        //
+        // This assertion used to read `toHaveLength(10)`, because `listSendableContacts` filtered
+        // on the contact alone: a readmission pauses the plan WITHOUT touching its contacts, which
+        // is the whole point of a hold, so all ten stayed `scheduled` and the read went on offering
+        // them. It was pinning the defect. A paused plan sends nothing -- that is what pausing is.
+        //
+        // The hold's reversibility is still proven, by `listContacts` below: the ten contacts are
+        // all still there, all still `scheduled`, so resuming the plan restores them. A read that
+        // had cancelled them could not pass both assertions.
+        expect(await store.listSendableContacts(PLAN_ID, { actor: COORDINATOR_A })).toHaveLength(0);
+        const held = await store.listContacts(PLAN_ID, { actor: COORDINATOR_A });
+        expect(held).toHaveLength(10);
+        expect(held.every((entry) => entry.contact.state === "scheduled")).toBe(true);
+      });
+
+      it("keeps the read gate and the write gate agreeing on every plan state (Ruling [129A])", async () => {
+        // THE PRICE RULING [129] PREDICTED, PINNED RATHER THAN ACCEPTED.
+        //
+        // [129] declined to gate the read precisely because it would duplicate `requiresActivePlan`
+        // on the write -- "two places to keep in step where there is now one". #PAMATF overturned
+        // that with owner approval, which makes keeping them in step this suite's job. Nothing else
+        // enforces it: the load-time invariant in ./model ties `planSendingHold` to
+        // `TERMINAL_PLAN_STATES` only, and says nothing about the write.
+        //
+        // Stated as an equivalence over every reachable plan state, not as two separate lists, so
+        // the assertion is the agreement itself. Whichever gate a future change moves, this fails.
+        const store = await newStore();
+
+        // THE THREE STATES WHERE THE PLAN GATE IS WHAT DECIDES. The ended states are deliberately
+        // excluded: `withdrawPlan` and a recorded death run every unsent contact through `cancel`,
+        // so there is no `scheduled` contact left and BOTH gates refuse on the CONTACT rather than
+        // on the plan -- an agreement that would hold even if the plan gate were deleted. Including
+        // them would make this pass for the wrong reason. Their plan-side classification is pinned
+        // instead by the load-time invariant in ./model against `TERMINAL_PLAN_STATES`.
+        for (const target of ["draft", "active", "paused"] as const) {
+          const plan = await createActivePlan(store, { leaveAsDraft: true });
+          const id = plan.plan.id;
+          let version = plan.plan.version;
+
+          if (target !== "draft") {
+            version = unwrap(
+              await store.activatePlan(
+                { planId: id, expectedVersion: version },
+                writeContext(COORDINATOR_A, `gates-activate-${target}`),
+              ),
+            ).plan.version;
+          }
+          if (target === "paused") {
+            version = unwrap(
+              await store.pausePlan(
+                { planId: id, expectedVersion: version },
+                writeContext(COORDINATOR_A, "gates-pause"),
+              ),
+            ).plan.version;
+          }
+
+          // A contact to aim the write at, taken from the full list so a held plan still has one --
+          // `listSendableContacts` is the very thing under test and cannot be the source here.
+          const contacts = await store.listContacts(id, { actor: COORDINATOR_A });
+          const target_ = contacts.find((entry) => entry.contact.state === "scheduled");
+          if (!target_) throw new Error(`no scheduled contact for a ${target} plan`);
+
+          const readAdmits = (await store.listSendableContacts(id, { actor: COORDINATOR_A })).length > 0;
+          const write = await store.startContactDispatch(
+            { planId: id, contactId: target_.contact.id, expectedContactVersion: target_.contact.version },
+            writeContext(DISPATCHER_A, `gates-dispatch-${target}`),
+          );
+          const writeAdmits = write.ok || write.reason !== REPOSITORY_REFUSALS.contactDispatchRequiresActivePlan;
+
+          expect({ target, readAdmits, writeAdmits }).toEqual({ target, readAdmits: writeAdmits, writeAdmits });
+          // Positive control on the pair: `active` must be the state where BOTH admit, so an
+          // implementation that refused everywhere would agree with itself and still fail here.
+          expect({ target, readAdmits }).toEqual({ target, readAdmits: target === "active" });
+        }
+      });
+
+      it("offers nothing sendable until a plan is started, and again once it is (#PAMATF)", async () => {
+        // Contacts are written `scheduled` at CREATION -- the schedule is built when the plan is,
+        // not when it is activated -- and no plan lifecycle write touches them. So a read keyed on
+        // the contact alone announced a plan nobody had started as ten messages about to go out.
+        //
+        // Not a live send hole: both stores already refuse to OPEN a dispatch on a non-active plan.
+        // It is the read a dispatcher will trust that was wrong, and Ruling [129] said to fix the
+        // name or the gate before anything was built that dispatches.
+        const store = await newStore();
+        const draft = await createActivePlan(store, { leaveAsDraft: true });
+
+        // Positive control: the contacts really are there and really are `scheduled`, so the empty
+        // list below is the plan gate acting rather than the schedule never having been built.
+        const plannedWhileDraft = await store.listContacts(draft.plan.id, { actor: COORDINATOR_A });
+        expect(plannedWhileDraft.length).toBeGreaterThan(0);
+        expect(plannedWhileDraft.every((entry) => entry.contact.state === "scheduled")).toBe(true);
+
+        expect(draft.plan.state).toBe("draft");
+        expect(await store.listSendableContacts(draft.plan.id, { actor: COORDINATOR_A })).toEqual([]);
+
+        unwrap(
+          await store.activatePlan(
+            { planId: draft.plan.id, expectedVersion: draft.plan.version },
+            writeContext(COORDINATOR_A, "pamatf-activate"),
+          ),
+        );
+
+        // And the gate opens, so it is a gate rather than a blanket refusal.
+        expect((await store.listSendableContacts(draft.plan.id, { actor: COORDINATOR_A })).length).toBe(
+          plannedWhileDraft.length,
+        );
       });
 
       it("records a death as a hospital status event, not as a service safety stop", async () => {

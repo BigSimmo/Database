@@ -7,8 +7,10 @@
 import {
   TERMINAL_DISPATCH_REFUSED_CONTACT_STATES,
   TERMINAL_PLAN_STATES,
+  planSendingHold,
   type ContactState,
   type MessageType,
+  type PlanSendingHold,
   type PlanState,
 } from "./model";
 import { PROVISIONAL_MESSAGE_RULES } from "./message-rules";
@@ -101,7 +103,11 @@ export type GovernedMessageInput = {
   contactState?: ContactState;
   /**
    * Plan state, if evaluated in the context of an existing plan.
-   * Messages cannot be dispatched to plans that have ended (withdrawn, cancelled, completed).
+   *
+   * Messages cannot be dispatched to a plan that has ended (withdrawn, cancelled, completed), and
+   * since #PAMATF nor to one that has not started or is paused. A draft and a paused plan used to
+   * pass this check: it tested `TERMINAL_PLAN_STATES` only, which names the three ended states, so
+   * the two halves of "this plan is not sending" were split between a list here and nothing at all.
    */
   planState?: PlanState;
 };
@@ -129,7 +135,13 @@ export type MessageValidationIssue =
   | { code: "message-body-not-authored" }
   | { code: "contains-patient-mobile" }
   | { code: "solicits-reply" }
-  | { code: "terminated-contact-dispatch-refused"; state: ContactState | PlanState };
+  | { code: "terminated-contact-dispatch-refused"; state: ContactState | PlanState }
+  /**
+   * The owning plan is not sending -- it has not been started, or it is paused. Its own code, not
+   * `terminated-contact-dispatch-refused`: a draft plan has not ended, and reporting it as though
+   * it had would name the wrong reason for the right refusal. `hold` says which.
+   */
+  | { code: "plan-not-dispatchable"; state: PlanState; hold: PlanSendingHold };
 
 export type ValidationResult = { valid: true } | { valid: false; issues: MessageValidationIssue[] };
 
@@ -240,8 +252,20 @@ function appendStateIssues(input: GovernedMessageInput, issues: MessageValidatio
     issues.push({ code: "terminated-contact-dispatch-refused", state: input.contactState });
   }
 
-  if (input.planState && TERMINAL_PLAN_STATES.includes(input.planState)) {
-    issues.push({ code: "terminated-contact-dispatch-refused", state: input.planState });
+  if (input.planState) {
+    // The ended states keep their existing code, so nothing that reads it changes meaning.
+    if (TERMINAL_PLAN_STATES.includes(input.planState)) {
+      issues.push({ code: "terminated-contact-dispatch-refused", state: input.planState });
+    } else {
+      // #PAMATF: and the other two ways a plan is not sending, which previously passed. The stores
+      // already refuse to OPEN a dispatch on a non-active plan (`requiresActivePlan`), so this is
+      // defence in depth rather than the only gate -- but it is the gate a sender reaches with a
+      // message in hand, and it was the one that said yes.
+      const hold = planSendingHold(input.planState);
+      if (hold !== null) {
+        issues.push({ code: "plan-not-dispatchable", state: input.planState, hold });
+      }
+    }
   }
 }
 
