@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "42fd3baa-589b-4f2e-9434-dc259810b9ef",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Corpus health panel and the hub document count have never been seen against the real library",
+    "detail": "Both merged (#2504, #2512) and both were built in a cloud container with no live database and no browser, so every test uses stand-in data. Confirmation needs a machine with live Supabase config and a signed-in administrator: run npm run ensure, open /mockups/development and check the environment strip shows a real document count rather than 'document count unavailable', then open /mockups/development/corpus-health and check the four status tiles show numbers rather than 'Not read'. Then read the extraction-quality section and record which of the five spread cases resolveQualitySpread reports. An unverified report says every document may carry an identical placeholder quality_score, which would make the quality half of the panel meaningless; the panel is built to name that condition rather than hide it, so if it reports 'uniform' that confirms the rumour and is a finding against the scoring pipeline, not a panel problem. Full context, including the privilege trap both fixes exist for and the closed variant check, is in docs/corpus-health-panel-handover.md.",
+    "source": "docs/corpus-health-panel-handover.md",
+    "issueUlid": "01M1G7CN84JFBWWH12GPP28E9C"
+  }
+}
