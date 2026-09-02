@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1eb6df92-f59b-46bc-9cf4-8c50482c25c6",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#Z61JRT",
+    "outcome": "Resolved; verified against origin/main 45a3dcacb54a6f5901986b9ea194448ff61e19cc on 2026-09-02, and confirmed against the live project. The getPublicUrl branch this row describes no longer exists: src/app/api/images/signed-urls/route.ts now signs every valid image uniformly through createSignedUrls at :100-110, with a comment at :94-96 recording that the singular route always signs regardless of corpus visibility and that matching it avoids a silent breakage if the bucket policy is ever tightened. The route no longer imports isPublicDocument at all, and a grep for getPublicUrl across src, worker, scripts and supabase returns zero matches repo-wide. Landed in b22639b (PR #2399, 2026-08-27). The latent privacy edge the row warned about is closed on both sides. The bucket was NOT flipped public: a read-only live query on 2026-09-02 returns storage.buckets.public = false for both clinical-images and clinical-documents, matching the on-conflict re-assertion in 20260717139000_create_storage_buckets.sql, which re-pins false on every replay. And isPublicDocument was tightened separately under #N8B176, so a non-null owner carrying public_corpus metadata can no longer take a public branch anywhere. Flipping the bucket would also not have produced a working read path: the storage RLS policy \"image storage owner read\" keys on the first path segment equalling auth.uid(), which a published ownerless document never satisfies, so signed URLs minted with the service-role key are the only mechanism that serves public-corpus figures. Residual defect logged separately as a new inbox request: createSignedUrls per-item errors are still swallowed, so a single failed path yields HTTP 200 with that image silently absent from the urls map.",
+    "baseRowFingerprint": "771bf38cbb4fe4cc9b2af1cae29cbb94af41b940d05d77bd1037ecb3d1796231"
+  }
+}
