@@ -4,8 +4,9 @@ Curated map of `scripts/` (289 files) and the `package.json` script surface (294
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
-Every top-level `.mjs`/`.ts`/`.cjs` script is named below; the remaining files are fixtures, SQL,
-subfolder helpers, and small shared helpers grouped rather than itemised.
+Most top-level `.mjs`/`.ts`/`.cjs` scripts are named below (the 2026-09-02 audit counted 44 that are
+not yet catalogued — see `docs/audit/full-repository-audit-2026-09-02.md`); the remaining files are
+fixtures, SQL, subfolder helpers, and small shared helpers grouped rather than itemised.
 
 > The two counts in the sentence above are generated facts, not prose. Keep them in the exact
 > `(N files)` / `(N entries)` shape — tooling rewrites that sentence by regex.
@@ -153,8 +154,8 @@ PDF's sha256, size, and whether opening it needs a user password; offline, fails
 
 - `branch-review-ledger.mjs` — the **only** way to read or write `docs/branch-review-ledger.md`
   (`ledger:lookup` / `ledger:append` / `ledger:dedupe` / `ledger:rotate`). Never hand-write a row.
-- `merge-branch-review-ledger.mjs` — the `merge=ledger` union driver from `.gitattributes`;
-  `check-branch-review-ledger.mjs` fails if that protection is lost.
+- `merge-branch-review-ledger.mjs` — historical: the `merge=ledger` union driver it implemented was
+  removed from `.gitattributes` (ledger #133); the script is retained for reference only.
 - `sync-open-pr-branches.mjs` (`sync:pr-branches`), `sync-pr-branches.mjs` (compatibility entry point) — anti-churn sync for stale open PR heads;
   refuses a missing or bot `gh` identity. `sweep-merged-branches.mjs` — merged-branch sweep.
 - `reconciliation-preflight.mjs`, `reconciliation-evidence-pack.mjs` — broad chat/worktree
