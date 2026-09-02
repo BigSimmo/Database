@@ -30,7 +30,28 @@ Measurement window is trailing 24 h unless stated; "page" means the loudest
 channel available (today: GitHub issue from the canary + host alert; later:
 host-native alerting per `docs/deployment-architecture.md`).
 
+**Automation status — read this before trusting a threshold.** Only two of the
+objectives below are actually computed and alerted by this repository: the
+hybrid-RPC error rate and the degraded/source-only answer rate, both from
+`answerSloSnapshot` (`src/lib/observability/answer-slo.ts`), surfaced on the
+`/api/health?deep=1` deep probe and raised by the ops digest as
+`OPS_HYBRID_RPC_ERROR_RATE_*` and `OPS_DEGRADED_ANSWER_RATE_*`
+(`scripts/lib/operational-alerts.mjs`, whose complete code list is
+`OPS_ANSWER_SLO_UNKNOWN`, `OPS_HYBRID_RPC_ERROR_RATE_{UNKNOWN,WARNING,PAGE}`,
+`OPS_DEGRADED_ANSWER_RATE_{UNKNOWN,WARNING,PAGE}`,
+`OPS_PROJECTED_DAILY_SPEND_WARNING` and `OPS_EVAL_CANARY_STALE_WARNING`).
+
+Nothing in this repository computes an answer-latency percentile, a source-gap
+rate, or an unsupported rate, and no alert code exists for any of them. Their
+"warn" and "page" rows below are **targets with a hand-run SQL probe, not
+alerts**: a breach is invisible until an operator runs the query. Each such
+section is labelled `Manual SQL - not alerted`. Do not cite an unlabelled
+threshold as evidence of monitoring coverage, and if one of these is wired up
+later, add its `OPS_*` code here and remove the label in the same change.
+
 ### Latency — answer p95 by route mode
+
+_Manual SQL - not alerted. No code computes these percentiles; run the query below._
 
 | Route mode (`metadata->>'routing_mode'`) | SLO (p95) | Warn               | Page               |
 | ---------------------------------------- | --------- | ------------------ | ------------------ |
@@ -64,6 +85,8 @@ Sentry metric alert criteria for production database query span duration. Guards
 
 ### Quality — source-gap rate
 
+_Manual SQL - not alerted. No code computes this rate._
+
 Share of answered queries whose confidence collapsed to a gap
 (`fallback_reason` or support modules report `source_gap`).
 
@@ -72,6 +95,8 @@ Share of answered queries whose confidence collapsed to a gap
   suggests retrieval, enrichment, or corpus regression, not user behavior).
 
 ### Quality — unsupported rate
+
+_Manual SQL - not alerted. No code computes this rate._
 
 Share of queries with `routing_mode = 'unsupported'` or
 `confidence = 'unsupported'`. A base rate is legitimate (out-of-corpus
@@ -93,6 +118,8 @@ where created_at > now() - interval '24 hours';
 ```
 
 ### Reliability — hybrid_rpc_errors rate
+
+_Alerted: `OPS_HYBRID_RPC_ERROR_RATE_{UNKNOWN,WARNING,PAGE}` via `answerSloSnapshot`._
 
 Share of queries whose metadata contains a non-empty `hybrid_rpc_errors` map.
 This is the direct guard against the historical silent-RPC-death incident, so
@@ -118,6 +145,8 @@ Complementary standing checks: `search_schema_health()` via
 canary below (fails closed on quality regression).
 
 ### Reliability — degraded/source-only answer rate
+
+_Alerted: `OPS_DEGRADED_ANSWER_RATE_{UNKNOWN,WARNING,PAGE}` via `answerSloSnapshot`._
 
 `RAG_PROVIDER_MODE=auto` silently degrades to deterministic "Source-only"
 answers when generation fails quality gates. Expected occasionally; a spike
@@ -289,7 +318,8 @@ cost lower bounds:
 
 The §2 reliability SQL is now also a scrape. An **authorized deep probe** —
 `GET /api/health?deep=1` with the `x-health-deep-token: $HEALTH_DEEP_PROBE_SECRET`
-header (same operator gate as the Supabase probe) — returns three counter blocks:
+header (same operator gate as the Supabase probe) — returns up to four counter
+blocks (each is omitted when its probe is unavailable):
 
 - **`slo`** — `answerSloSnapshot` (`src/lib/observability/answer-slo.ts`) counts
   `rag_queries` over the trailing `windowMinutes` (60) and reports
@@ -321,6 +351,11 @@ header (same operator gate as the Supabase probe) — returns three counter bloc
   not a liveness gate: a sustained near-zero rate during a known duplicate-heavy
   ward round means cache keys, cache settings, or replica dilution should be
   investigated before adding app replicas.
+
+- **`spend`** — `spendSnapshot` (`src/lib/observability/spend-metrics.ts`),
+  gated exactly like `slo` on the admin client. It carries the projected daily
+  answer-generation spend that raises `OPS_PROJECTED_DAILY_SPEND_WARNING`; it is
+  a cost signal, not a liveness or quality gate.
 
 ```jsonc
 // GET /api/health?deep=1  (authorized, live)
