@@ -149,6 +149,27 @@ export const CLEAN_WINDOW_BY_CLASS = new Map([
  */
 export const NEVER_DEFER_CLASSES = new Set(["db", "rag", "deps", "container", "workflow", "ui", "unknown"]);
 
+/**
+ * Gates whose waste is answered by NARROWING, not by deferral.
+ *
+ * The browser suite is the most expensive run in the repository and CI repeats it
+ * wholesale, so it looks like the arbiter's problem — but `ui` is in
+ * `NEVER_DEFER_CLASSES` and must stay there: pushing a UI change with no browser
+ * evidence at all is not a bet this repository takes. The answer is to run the part
+ * of the suite the diff can actually break, which is a selection question rather
+ * than a run-or-skip one, and `scripts/browser-test-plan.mjs` answers it.
+ *
+ * Naming them here means asking the arbiter about one gets that answer instead of
+ * the bare "nothing to weigh", which reads as "no saving available" and is exactly
+ * backwards for the gate with the largest saving on offer.
+ */
+export const NARROWED_GATES = new Map([
+  ["test:e2e", "npm run plan:browser"],
+  ["test:e2e:pr", "npm run plan:browser"],
+  ["test:e2e:chromium", "npm run plan:browser"],
+  ["verify:ui", "npm run plan:browser"],
+]);
+
 function projectRootFromHere() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
@@ -621,6 +642,11 @@ export function arbitrate({ projectRoot, gate, args = [], env = process.env, now
   const run = (reason) => finalise({ action: "run", gate, changeClass: "n/a", reason, evidence, mode });
 
   if (!mode.enabled) return run(mode.reason);
+  if (NARROWED_GATES.has(gate)) {
+    return run(
+      `${gate} is narrowed, not deferred — run \`${NARROWED_GATES.get(gate)}\` for the smallest browser selection that covers this change`,
+    );
+  }
   if (!ARBITRATED_GATES.has(gate)) return run(`${gate} is not an arbitrated gate — nothing to weigh`);
 
   // A receipt is stronger than any yield argument: the gate already exited 0 on
