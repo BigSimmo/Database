@@ -687,7 +687,7 @@ function SearchRecordResults({
                   </p>
                   <Link
                     href={recordRoute(service.slug)}
-                    className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
+                    className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)]"
                   >
                     <span className="line-clamp-2">{service.title}</span>
                   </Link>
