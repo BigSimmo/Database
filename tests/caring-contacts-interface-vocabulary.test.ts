@@ -329,6 +329,57 @@ function isExemptOffence(relativePath: string, text: string): boolean {
   );
 }
 
+/**
+ * How many times each declared term may legitimately appear as a QUOTED LITERAL in the definition
+ * site: exactly the number of times it is written inside the `prohibitedTerms` array itself.
+ *
+ * Raised by the Codex review of 91c6766. Matching on text alone said "this literal is one of the
+ * declared terms" when the question is "this literal IS the declaration". If message-rules.ts later
+ * gained a rendered label whose whole literal happened to equal a banned word -- a stop-reason or
+ * status wording of exactly `"safe"` -- text equality could not tell it from the array entry, and
+ * the scan would stay green on the one file that also holds the sentences a discharged patient
+ * reads. That is the same failure the whole-file exemption had, returning through a narrower door.
+ *
+ * A budget closes it without an AST. The array declares each term once, so one occurrence of each
+ * is explained and a second is not, whatever it is or wherever it sits. Fails closed: if the
+ * declaration cannot be located, or the literals parsed out of it do not match
+ * `PROVISIONAL_MESSAGE_RULES.prohibitedTerms` exactly, this throws rather than exempting anything.
+ * That cross-check is what ties the text parsed here to the value the application actually uses, so
+ * the two cannot drift apart silently.
+ */
+function declaredTermBudget(source: string): Map<string, number> {
+  // Anchored on the VALUE, `prohibitedTerms: Object.freeze([`, not on the bare field name: the
+  // first `prohibitedTerms:` in the file is the type declaration, `readonly string[]`, whose `]`
+  // closes an empty range. That mistake produced an empty budget rather than a wrong one, and the
+  // cross-check below caught it -- which is the fail-closed behaviour working, and the reason the
+  // cross-check is not optional.
+  const start = source.indexOf("prohibitedTerms: Object.freeze([");
+  const end = start === -1 ? -1 : source.indexOf("]", start);
+  if (start === -1 || end === -1) {
+    throw new Error(
+      `could not locate the prohibitedTerms declaration in ${PROHIBITED_VOCABULARY_DEFINITION_SITE}; ` +
+        "the definition-site exemption is not safe to apply without it",
+    );
+  }
+
+  const budget = new Map<string, number>();
+  for (const literal of extractStringAndTemplateLiterals(source.slice(start, end + 1))) {
+    const term = literal.trim().toLowerCase();
+    budget.set(term, (budget.get(term) ?? 0) + 1);
+  }
+
+  const declared = [...budget.keys()].sort();
+  const expected = [...DECLARED_PROHIBITED_TERMS].sort();
+  if (declared.join("\u0000") !== expected.join("\u0000")) {
+    throw new Error(
+      `the prohibitedTerms literals parsed from ${PROHIBITED_VOCABULARY_DEFINITION_SITE} ` +
+        `(${JSON.stringify(declared)}) do not match PROVISIONAL_MESSAGE_RULES.prohibitedTerms ` +
+        `(${JSON.stringify(expected)})`,
+    );
+  }
+  return budget;
+}
+
 type Offence = { readonly file: string; readonly text: string; readonly label: string };
 
 /**
@@ -337,23 +388,44 @@ type Offence = { readonly file: string; readonly text: string; readonly label: s
  * `applyExemptions` is false only in the anti-rot tests below, which need to see what the
  * exemptions are actually suppressing.
  */
-function findOffencesInFile(file: string, applyExemptions = true): Offence[] {
-  const source = readFileSync(file, "utf8");
-  const relativePath = path.relative(process.cwd(), file);
+function findOffencesInSource(relativePath: string, source: string, applyExemptions = true): Offence[] {
+  const isDefinitionSite = relativePath === PROHIBITED_VOCABULARY_DEFINITION_SITE;
+  // Consumed as literals are seen, so the SECOND `"safe"` in this file is reported even though the
+  // first -- the declaration itself -- is not.
+  const budget = applyExemptions && isDefinitionSite ? declaredTermBudget(source) : new Map<string, number>();
+
   const offences: Offence[] = [];
   const record = (text: string, label: string) => {
     if (applyExemptions && isExemptOffence(relativePath, text)) return;
     offences.push({ file: relativePath, text, label });
   };
+
   for (const literal of extractInterfaceStrings(source)) {
-    if (CARING_CONTACTS_PROHIBITED_LANGUAGE.test(literal)) {
-      record(literal, "");
+    if (!CARING_CONTACTS_PROHIBITED_LANGUAGE.test(literal)) continue;
+    if (isDefinitionSite) {
+      const remaining = budget.get(literal.trim().toLowerCase()) ?? 0;
+      if (applyExemptions && remaining > 0) {
+        budget.set(literal.trim().toLowerCase(), remaining - 1);
+        continue;
+      }
+      offences.push({ file: relativePath, text: literal, label: "" });
+      continue;
     }
+    record(literal, "");
   }
+
+  // The raw pass blanks every quoted literal, so in this tree it can only ever surface identifiers
+  // and regex source -- here, "conversion" and "lead" out of COMMERCIAL_LEAD_PATTERN. A rendered
+  // label is always a literal, so nothing this pass reports in the definition site can be one, and
+  // the budget above does not apply to it.
   for (const match of scanRawProseForProhibitedLanguage(source)) {
     record(match, " (raw prose, e.g. JSX text)");
   }
   return offences;
+}
+
+function findOffencesInFile(file: string, applyExemptions = true): Offence[] {
+  return findOffencesInSource(path.relative(process.cwd(), file), readFileSync(file, "utf8"), applyExemptions);
 }
 
 /** The same offences, rendered for a failure message: the file, how it was found, and the text. */
@@ -629,6 +701,44 @@ describe("the sealed-domain exemptions stay narrow, and cannot rot (#Z5P2BW)", (
     expect(isExemptOffence(anyFile, "no-safe-disclosure\nand a second line of swallowed copy")).toBe(false);
     expect(isExemptOffence(anyFile, `no-safe-disclosure${" x".repeat(80)}`)).toBe(false);
     expect(isExemptOffence(PROHIBITED_VOCABULARY_DEFINITION_SITE, `safe${" x".repeat(80)}`)).toBe(false);
+  });
+
+  it("reports a second literal equal to a banned term in the definition site, not just the declaration", () => {
+    // The Codex review of 91c6766, and the falsifiability proof it asked for. Matching on text
+    // alone said "this literal is one of the declared terms" when the question is "this literal IS
+    // the declaration", so a rendered label in that file whose whole literal happened to equal a
+    // banned word would have been exempted -- in the one file that also holds the sentences a
+    // discharged patient reads. Proved against the REAL source with one line added, rather than a
+    // hand-built fixture, so the parse being exercised is the one that runs in anger.
+    const definitionSite = path.join(process.cwd(), PROHIBITED_VOCABULARY_DEFINITION_SITE);
+    const realSource = readFileSync(definitionSite, "utf8");
+    expect(findOffencesInSource(PROHIBITED_VOCABULARY_DEFINITION_SITE, realSource)).toEqual([]);
+
+    const withPlantedLabel = `const PLANTED_STOP_REASON_LABEL = "safe";\n${realSource}`;
+    const offences = findOffencesInSource(PROHIBITED_VOCABULARY_DEFINITION_SITE, withPlantedLabel);
+    expect(offences.map((offence) => offence.text)).toEqual(["safe"]);
+
+    // A whole prohibited phrase, and a term that is not a single word, behave the same way.
+    const withPlantedPhrase = `const PLANTED = "engagement score";\n${realSource}`;
+    expect(findOffencesInSource(PROHIBITED_VOCABULARY_DEFINITION_SITE, withPlantedPhrase).map((o) => o.text)).toEqual([
+      "engagement score",
+    ]);
+  });
+
+  it("refuses to exempt anything when it cannot find or trust the declaration", () => {
+    // Fail closed. A budget that cannot be built is not a licence to exempt on text alone -- that
+    // is the behaviour this replaced. Both failure modes throw rather than returning no offences:
+    // the declaration missing entirely, and a declaration whose literals disagree with the value
+    // the application actually uses.
+    expect(() => findOffencesInSource(PROHIBITED_VOCABULARY_DEFINITION_SITE, 'const x = "safe";')).toThrow(
+      /could not locate the prohibitedTerms declaration/,
+    );
+
+    const definitionSite = path.join(process.cwd(), PROHIBITED_VOCABULARY_DEFINITION_SITE);
+    const withDroppedTerm = readFileSync(definitionSite, "utf8").replace('    "high risk",\n', "");
+    expect(() => findOffencesInSource(PROHIBITED_VOCABULARY_DEFINITION_SITE, withDroppedTerm)).toThrow(
+      /do not match PROVISIONAL_MESSAGE_RULES\.prohibitedTerms/,
+    );
   });
 
   it("keeps no literal exemption that has stopped matching anything", () => {
