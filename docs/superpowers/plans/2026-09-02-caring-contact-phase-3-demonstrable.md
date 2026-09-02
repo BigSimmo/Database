@@ -72,9 +72,11 @@ Copy these into every task dispatch. They bind every task.
 - **No ambient time, still.** Phase 3 adds a clock a human can move; it does not add a clock a module can
   read. Every domain function keeps taking its clock as an argument.
 - **Timezone `Australia/Perth`** (AWST, UTC+8, no daylight saving), display locale `en-AU`.
-- **Non-production affordances are gated the way `mockupsEnabled()` in `src/lib/env.ts` is gated**:
-  present in dev and test, absent from a production build unless explicitly opted in, and **asserted
-  absent by test**. A demo clock that ships to production is a clinical-safety defect, not a cosmetic one.
+- **Non-production affordances take the shape of the `mockupsEnabled()` gate in `src/lib/env.ts` but
+  not its escape hatch**: present in dev and test, and **unconditionally absent from a production build**,
+  asserted by test. `mockupsEnabled()` allows a production opt-in via `NEXT_PUBLIC_MOCKUPS_ENABLED`; the
+  demo clock gets no such flag, because a control that advances clinical schedules shipping to production
+  is a clinical-safety defect, not a cosmetic one, and a flag is exactly how that happens by accident.
 - **Synthetic data is obviously synthetic.** Patients are plainly fictional; mobile numbers come from
   `DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS` in `synthetic-contacts.ts` and nowhere else. The existing
   `synthetic-marker.tsx` treatment stays visible.
@@ -134,6 +136,22 @@ task adds the download path; nothing built here is discarded.
 someone's head.** A rehearsal nobody can re-run is a rehearsal that rots at the next merge. Cost if
 wrong: one Playwright journey's maintenance.
 
+**Ruling [7] — the demo clock gets no production opt-in, diverging from the letter of spec §10.1.**
+§10.1 says both "never present in a production build" AND "guarded by the same environment-gate pattern
+as `mockupsEnabled`". Those two clauses conflict, because `mockupsEnabled()` _does_ ship in production
+when its public flag is set. For a control that advances clinical schedules the absolute clause wins:
+the plan takes the gate's shape and drops its escape hatch. Raised by the Codex review of this plan
+(2026-09-02), which caught the plan contradicting its own Global Constraints. Cost if wrong: nobody can
+demonstrate the clock from a production build, which is the intended state.
+
+**Ruling [8] — `check:production-readiness` is run at the closing gate rather than skipped.** Spec §11
+excludes it; `docs/agents/verification-gates.md` requires it for environment and clinical-output changes,
+and Phase 3 is both. The deciding fact is that `scripts/production-readiness.ts` validates configuration
+and makes no live provider call, so the provider boundary is not what §11's exclusion protects — the
+command simply cannot pass without local configuration. Running it and recording the result keeps a real
+environment regression visible. Also raised by the Codex review. Cost if wrong: one extra local command
+whose output is a known configuration failure; the owner can strike this ruling and restore §11's text.
+
 ---
 
 ## Group A — The clock you can move (2 tasks)
@@ -149,11 +167,15 @@ wrong: one Playwright journey's maintenance.
 - [ ] **Task 2 — The control surface, and its absence in production.** A demo-clock control in
       `src/components/caring-contacts/workspace/`, mounted from the workspace shell, offering jumps to the
       cadence points a reviewer asks for (day 1, week 1, month 1, month 6, month 12) and a return to now.
-      Gate it exactly as `mockupsEnabled()` in `src/lib/env.ts` gates the mockup routes — available in dev
-      and test, absent from a production build without an explicit opt-in. Tests: a DOM test that the
+      Gate it in the shape of `mockupsEnabled()` in `src/lib/env.ts` — **but with no production opt-in**.
+      `mockupsEnabled()` returns true in production when `NEXT_PUBLIC_MOCKUPS_ENABLED` is set; the demo
+      clock must have no equivalent escape hatch. `process.env.NODE_ENV === "production"` denies it
+      unconditionally, whatever any flag says (Ruling 7). Tests: a DOM test that the
       control renders and moves the workspace's clock; a DOM test that every jump target states, in place,
       what changed and why (§4.4); and **a production-build test asserting the control is absent**, which
-      must fail when the gate is removed. Wire every button per `docs/wiring-conventions.md`.
+      must fail when the gate is removed **and must also fail with the opt-in flag set to `true`** — the
+      flag is the failure mode this task exists to prevent. Wire every button per
+      `docs/wiring-conventions.md`.
 
 **Checkpoint A:** `npx vitest run` over the caring-contacts clock and demo-control tests, plus
 `npm run lint` on the changed files. The clock moves and cannot ship.
@@ -255,8 +277,16 @@ Per spec §11, and nothing broader than the change needs:
   watched failing under a removed gate before it is trusted.
 - DOM tests per screen, including the explained-automation and empty-state contracts.
 - One `npm run verify:pr-local` and one `npm run verify:ui` for the whole pull request, not per task.
-- **No provider-backed gate.** `check:production-readiness` stays intentionally gated without live
-  configuration.
+- **`npm run check:production-readiness` runs once at the closing gate, and its output is recorded**
+  (Ruling 8). Spec §11 says it "remains intentionally gated without live configuration"; that is true of
+  its result, not a reason to skip the command. `scripts/production-readiness.ts` validates configuration
+  and makes no live OpenAI or Supabase call, so running it crosses no provider boundary, and
+  `docs/agents/verification-gates.md` requires it for environment and clinical-output changes — which
+  Phase 3's §2.9 document and production-gated demo clock both are. Record what it reports, including any
+  failure that is only the absence of local configuration; that is expected here and is not a Phase 3
+  regression, but it must be stated rather than assumed.
+- **No other provider-backed gate.** No live OpenAI or Supabase call, no `check:supabase-project`, no
+  `verify:release`, no eval dispatch.
 - Evidence is never compressed: paste the decisive line from each gate. Exit code 0 alone is not proof.
 
 ---
