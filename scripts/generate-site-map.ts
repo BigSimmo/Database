@@ -711,7 +711,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
     ),
     ...section("Known caveats and stale-path flags", [
       "- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.",
-      "- `/mockups/favourites-hub` is a legacy compatibility route and should redirect to `/favourites`.",
+      "- `/mockups/favourites-hub` (to `/favourites`) and `/mockups/medication-prescribing` (to `/medications/acamprosate`) are page-level compatibility redirects that work in development only; in production the proxy's mockup block returns 404 before either page renders. `/mockups/document-search-command` is the one mockup path that still redirects in production, via `staticRouteRedirects` in `src/proxy.ts`.",
       "- Registry-backed service and form pages may show sign-in, load-error, or in-app not-found states for missing per-user records.",
       "- Live user registries may contain additional service or form slugs beyond the seeded/demo slugs listed here.",
       "- `/documents/[id]` is intentionally summarized as a route family; individual document IDs are private runtime data.",

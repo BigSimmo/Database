@@ -271,8 +271,12 @@ Shared mockup chrome is suppressed because each frame draws its own top bar and 
   `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow`, so compliant crawlers do not index them. This header is a
   crawler policy, not access control; `robots.txt` intentionally allows crawling so per-response indexing policy can
   be observed.
-- `/mockups/favourites-hub` is a legacy compatibility route and redirects to `/favourites`.
-- `/mockups/medication-prescribing` redirects to `/medications/acamprosate`; prescribing mode also lives at `/?mode=prescribing`.
+- `/mockups/favourites-hub` (to `/favourites`) and `/mockups/medication-prescribing` (to `/medications/acamprosate`;
+  prescribing mode also lives at `/?mode=prescribing`) are page-level `redirect()` compatibility routes that work **in
+  development only**: in production `src/proxy.ts` returns 404 for every non-developer-gated `/mockups/**` path before
+  either page renders, so neither forwards there. The one mockup path that still redirects in production is
+  `/mockups/document-search-command` (to `/documents/search`), because it is resolved in the proxy's
+  `staticRouteRedirects` ahead of that block.
 
 ## Synthetic document-search assets
 
