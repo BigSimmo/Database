@@ -8,6 +8,7 @@ import {
   historyEntryProblems,
   type AllowlistEntry,
 } from "../scripts/check-drift";
+import { stripMigrationSql } from "./helpers/migration-sql";
 
 /**
  * Guard-migration contract (docs/database-drift-detection.md, plan phase 6.2).
@@ -54,14 +55,14 @@ function createsObject(sql: string, object: string): boolean {
   return patterns.some((pattern) => pattern.test(sql));
 }
 
-/** SQL with block/line comments removed and whitespace collapsed. */
-function stripSql(sql: string): string {
-  return sql
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/--[^\n]*/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+/**
+ * SQL with block/line comments removed and whitespace collapsed.
+ *
+ * Shared with `tests/migration-history-placeholders.test.ts`: both contracts have
+ * to answer "does this file execute anything?" the same way, and two copies of the
+ * normalizer is how they would come to disagree about the same file.
+ */
+const stripSql = stripMigrationSql;
 
 /**
  * Executable SQL only: comments and single-quoted string literals removed, except
