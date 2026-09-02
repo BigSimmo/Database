@@ -1,7 +1,12 @@
 import { CountTile, META_CLASS, PanelSection } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { REVIEW_STATE_PAGE_SIZE, ReviewStateTable } from "@/components/developer-area/hub/review-state-table";
-import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
+import {
+  loadRepoAwarenessSnapshot,
+  resolveRepoFreshness,
+  reviewRecordsNewestFirst,
+  reviewStateCounts,
+} from "@/lib/developer-area/repo-awareness-snapshot";
 
 /**
  * The synchronous, directly-testable half of the review-state route. This
@@ -15,7 +20,13 @@ import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer
 export function ReviewStatePageContent({ requestedPage = 1 }: { requestedPage?: number }) {
   const snapshot = loadRepoAwarenessSnapshot();
   const freshness = resolveRepoFreshness(snapshot, new Date());
-  const { records, counts } = snapshot.review_state;
+  // Both derived here, not read from the snapshot. The stored order is by
+  // `head` so that concurrent appends merge cleanly, and the stored totals were
+  // removed for the same reason — see `ReviewStateSection` in
+  // `repo-awareness-types.ts`. Presentation order and totals are this page's
+  // job, and both come from the same array it renders.
+  const records = reviewRecordsNewestFirst(snapshot.review_state.records);
+  const counts = reviewStateCounts(records);
 
   const totalPages = Math.max(1, Math.ceil(records.length / REVIEW_STATE_PAGE_SIZE));
   const page = Math.min(Math.max(1, requestedPage), totalPages);

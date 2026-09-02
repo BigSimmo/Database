@@ -10,7 +10,14 @@
  * No value imports here, and in particular no `import` of the generated JSON:
  * the types must be usable before the JSON file exists.
  */
-export const REPO_AWARENESS_SNAPSHOT_VERSION = "repo-awareness-snapshot-v1";
+/**
+ * v2 dropped `review_state.counts` and re-ordered `review_state.records` by
+ * `head`. Both are shape changes, so the version moves with them: a committed
+ * snapshot left at v1 fails `assertRepoAwarenessVersion` loudly instead of
+ * rendering a page from data whose order and totals no longer mean what the
+ * reader is told.
+ */
+export const REPO_AWARENESS_SNAPSHOT_VERSION = "repo-awareness-snapshot-v2";
 
 export type RouteArea = "product" | "mockup";
 
@@ -64,9 +71,29 @@ export type ReviewRecord = {
   checks: string;
 };
 
+/**
+ * No `counts`, and that is the deliberate rule this file states once for the
+ * whole snapshot:
+ *
+ *   A count over an APPEND-ONLY set is derived at render. A count over a closed
+ *   set stays generator-computed.
+ *
+ * The generator rule "counts are computed once, so a count and its own list
+ * cannot disagree" holds for `routes` and `documentation`, whose lists change
+ * only when someone deliberately adds a route or a document. It cannot hold for
+ * an append-only set: every concurrent append changes the aggregate on BOTH
+ * sides, so a stored total is a guaranteed merge conflict that no ordering can
+ * disperse. `documentation.sections[]` already dropped its per-section
+ * `documents`/`uncatalogued` counts for the render-time list (`#XHADPV`, which
+ * asked for exactly this choice to be made deliberately rather than by
+ * omission); `review_state.counts` follows for the stronger reason (`#EFETZT`).
+ *
+ * Deriving loses nothing: `reviewStateCounts()` in `repo-awareness-snapshot.ts`
+ * computes both totals once from the very list the page renders, so they still
+ * cannot disagree with it.
+ */
 export type ReviewStateSection = {
   records: ReviewRecord[];
-  counts: { records: number; refs: number };
 };
 
 export type RepoAwarenessSnapshot = {

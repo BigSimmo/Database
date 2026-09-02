@@ -286,6 +286,15 @@ const perfExclusionPatterns = [
   // perf_changed and the job failed mobile TBT +32.7% against a baseline
   // the same change cannot move.
   "data/outstanding-issues-snapshot.json",
+  // Same reasoning, same developer hub, sibling artefact:
+  // `src/lib/developer-area/repo-awareness-snapshot.ts` imports this JSON and
+  // the only route importers are under `src/app/mockups/development/`. It was
+  // missed when the sibling was carved out, and it is the more frequent one —
+  // every `ledger:append` regenerates it, so a routine handoff paid a
+  // ~7-minute Lighthouse run against a budget the change cannot move
+  // (`#EFETZT`, whose measured cost is "one full CI round trip" per
+  // occurrence).
+  "data/repo-awareness-snapshot.json",
 ];
 
 function isPerfChangedPath(filePath) {
@@ -1020,6 +1029,11 @@ function selfTest() {
   // cannot reach a budgeted route. Closing the last P1 on PR #2302 otherwise
   // forced Lighthouse onto a docs/ledger reconcile.
   assertScope("perf-off-for-outstanding-issues-snapshot", ["data/outstanding-issues-snapshot.json"], {
+    perf_changed: false,
+  });
+  // The sibling developer-hub snapshot, carved out for the same reason. Pinned
+  // separately because it was the one the original carve-out missed.
+  assertScope("perf-off-for-repo-awareness-snapshot", ["data/repo-awareness-snapshot.json"], {
     perf_changed: false,
   });
   assertScope("perf-on-for-build-config", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {

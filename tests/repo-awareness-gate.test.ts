@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { checkRepoAwarenessSnapshot, compareSnapshots } from "../scripts/check-repo-awareness-snapshot";
+import {
+  checkRepoAwarenessSnapshot,
+  compareSnapshots,
+  isGitRepository,
+} from "../scripts/check-repo-awareness-snapshot";
 import { generate } from "../scripts/generate-repo-awareness-snapshot";
 
 const regenerated = generate();
@@ -40,7 +44,6 @@ describe("compareSnapshots", () => {
 
   it("ignores review_state differences to eliminate concurrent review record merge conflicts", () => {
     const committed = structuredClone(regenerated);
-    committed.review_state.counts.records += 1;
     committed.review_state.records = [
       {
         date: "2026-08-28",

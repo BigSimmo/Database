@@ -444,30 +444,47 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
       const head = rawHead.replaceAll("`", "");
       return { date, ref, head, scope, outcome, checks };
     })
-    // Newest first, then ref, head and scope. That is NOT guaranteed to be a
-    // total order: 21 records in the current corpus share a date, ref AND head,
-    // because one branch can be reviewed twice at one commit under different
-    // scopes, and nothing structurally prevents two records sharing all four.
+    // Ordered by `head` — a DISPERSING key, not a presentational one. This is
+    // the whole point of the ordering, so do not "restore" newest-first here.
     //
-    // Determinism therefore rests on two further facts, not on the comparator:
-    // `readReviewRecordRows` sorts filenames and preserves row order within
-    // each file, so its output order is the same on every platform, and
-    // `Array.prototype.sort` is specified stable, so ties keep that order. If
-    // either ever stops holding — records merged from a
-    // second source, or an unsorted glob — this comparator will start flapping
-    // the staleness gate for exactly those records, and no test will say why.
+    // The corpus holds 2,662 records across only 53 distinct dates, so a
+    // date-descending order put every new record into the same dense block at
+    // the head of the array. Two branches each appending one review record —
+    // the ordinary handoff — therefore inserted on the same lines and produced
+    // a hard conflict in the committed snapshot, which sets
+    // `mergeable_state=dirty` on GitHub. That suppresses `refs/pull/<n>/merge`,
+    // so `pull_request` CI does not run at all and the check list reads empty
+    // rather than red (`#EFETZT`; twice in fifteen minutes on PR #2413).
+    //
+    // A commit sha is uniformly distributed hex — 2,323 distinct values here —
+    // so concurrent appends land hundreds of lines apart and git's three-way
+    // merge resolves both hunks with no conflict. Newest-first is presentation
+    // and belongs to the page: `ReviewStatePageContent` sorts before paginating.
+    //
+    // `head` alone is NOT a total order — a branch reviewed twice at one commit
+    // under different scopes repeats it — so date, ref and scope break ties.
+    // Even those four are not provably total, and determinism therefore rests
+    // on two further facts, not on the comparator: `readReviewRecordRows` sorts
+    // filenames and preserves row order within each file, so its output order
+    // is the same on every platform, and `Array.prototype.sort` is specified
+    // stable, so ties keep that order. If either ever stops holding — records
+    // merged from a second source, or an unsorted glob — this comparator will
+    // start flapping the staleness gate for exactly those records, and no test
+    // will say why.
     .sort(
       (left, right) =>
-        right.date.localeCompare(left.date) ||
-        left.ref.localeCompare(right.ref) ||
         left.head.localeCompare(right.head) ||
+        left.date.localeCompare(right.date) ||
+        left.ref.localeCompare(right.ref) ||
         left.scope.localeCompare(right.scope),
     );
 
-  return {
-    records,
-    counts: { records: records.length, refs: new Set(records.map((record) => record.ref)).size },
-  };
+  // No `counts` here, deliberately — see `ReviewStateSection` in
+  // `repo-awareness-types.ts`. An aggregate over an append-only set changes on
+  // BOTH sides of every concurrent append, so a stored count is a guaranteed
+  // conflict no ordering can disperse. `reviewStateCounts()` derives it once at
+  // render instead, so a count and its own list still cannot disagree.
+  return { records };
 }
 
 /**
@@ -511,12 +528,23 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
  *
  * Docs are a `*.md` glob rather than the `docs/` directory: inbox JSON and
  * other non-emitted files under that tree must not advance the stamp.
+ *
+ * The review corpus is excluded from that glob, mirroring `EXCLUDED_DOC_PREFIXES`.
+ * Appending a review record writes `docs/branch-review-records/<sha>.record.md`,
+ * which the bare glob matched — so every handoff moved this stamp on both the
+ * feature branch and `main`, and two lines that always differ are a conflict no
+ * amount of dispersal in `review_state.records` can avoid (`#EFETZT`). Dropping
+ * a true input is the sanctioned direction stated above: it can only understate
+ * freshness, never overstate it. The rotated archives go with it for the same
+ * reason.
  */
 const REVISION_INPUTS = [
   "src/app",
   "src/lib/app-modes.ts",
   "src/lib/consolidated-mode-home-redirect.ts",
   ":(glob)docs/**/*.md",
+  ":(exclude,glob)docs/branch-review-records/**",
+  ":(exclude,glob)docs/archive/branch-review-ledger-*.md",
   "tests/flake-ledger.json",
   "scripts/generate-site-map.ts",
 ];

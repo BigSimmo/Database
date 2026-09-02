@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "52120ceb-7c70-4c40-b401-c4bbd051903d",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#EFETZT",
+    "outcome": "Fixed the merge-conflict half. The committed snapshot now carries only content that can merge: review_state.records is ordered by head (a uniformly distributed sha) instead of date-descending, so two branches appending a review record insert hundreds of lines apart and git resolves both hunks; review_state.counts is gone because an aggregate over an append-only set changes on both sides of every append and no ordering can disperse that (reviewStateCounts() derives it at render); and REVISION_INPUTS now excludes docs/branch-review-records/** and the rotated archives, so a ledger:append no longer moves captured_revision. Snapshot version bumped to repo-awareness-snapshot-v2 so a stale committed file fails loudly. The staleness half was already fixed by the COMPARED_CONTENT_KEYS exclusion. Also carved data/repo-awareness-snapshot.json into ci-change-scope perfExclusionPatterns, mirroring the sibling: regenerating it was flipping perf_changed and forcing a ~7-minute Lighthouse run against a budget the change cannot move, which was part of this row's measured per-occurrence cost.",
+    "baseRowFingerprint": "6925801b83cc83fc17f4c83405e29ddbdc69e3cd26cae804e2d22ab05df1aae6"
+  }
+}

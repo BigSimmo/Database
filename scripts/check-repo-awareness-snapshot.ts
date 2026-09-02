@@ -24,6 +24,18 @@ const FIX = "npm run snapshot:repo-awareness";
  *
  * Excluding them fails safe: every deterministic content difference in routes,
  * documentation, and test health is still caught.
+ *
+ * Excluding a key from comparison was never enough on its own, though, and
+ * `#EFETZT` is what that cost: the un-compared content still shipped in the
+ * committed file, still changed on both sides of every append, and still
+ * conflicted — which sets `mergeable_state=dirty`, suppresses
+ * `refs/pull/<n>/merge`, and leaves the check list empty rather than red. So the
+ * two excluded keys now carry only content that CAN merge: `captured_revision`
+ * no longer moves for a review-record append (`REVISION_INPUTS` excludes the
+ * review corpus), and `review_state` is ordered by `head` and stores no
+ * aggregate totals. Anything added back here must satisfy the same rule — if it
+ * is too volatile to compare, it is too volatile to commit in a conflicting
+ * shape.
  */
 const COMPARED_CONTENT_KEYS = ["routes", "documentation", "test_health"] as const;
 
@@ -135,7 +147,8 @@ export function checkRepoAwarenessSnapshot(options: CheckSnapshotOptions = {}): 
 
   log(
     `[repo-awareness] in step with ${outputPath} (${regenerated.routes.counts.pages} pages, ` +
-      `${regenerated.documentation.counts.documents} documents, ${regenerated.review_state.counts.records} reviews)`,
+      `${regenerated.documentation.counts.documents} documents, ` +
+      `${regenerated.review_state.records.length} reviews)`,
   );
   return 0;
 }
