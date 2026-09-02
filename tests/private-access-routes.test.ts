@@ -2208,7 +2208,17 @@ describe("private document API access", () => {
 
   it("refuses to retry a job a live worker still holds (IDX-C3, B6)", async () => {
     const client = createSupabaseMock();
-    client.rpc.mockResolvedValueOnce(ok({ outcome: "active_worker" }));
+    // The route now consumes the ingestion_admin rate-limit bucket (its own
+    // consume_api_rate_limit RPC call) before retry_ingestion_job_if_idle
+    // (#L43), so a plain mockResolvedValueOnce would intercept that earlier
+    // call instead. Target the retry RPC by name and fall through to the
+    // mock's normal per-name behaviour (including the rate-limit check) for
+    // everything else.
+    const baseRpc = client.rpc.getMockImplementation()!;
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "retry_ingestion_job_if_idle") return ok({ outcome: "active_worker" });
+      return baseRpc(name, args);
+    });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
@@ -2234,12 +2244,18 @@ describe("private document API access", () => {
 
   it("re-queues a stale/non-processing job without resetting the live index (IDX-C3, IDX-H1, B6)", async () => {
     const client = createSupabaseMock();
-    client.rpc.mockResolvedValueOnce(
-      ok({
-        outcome: "queued",
-        job: { id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" },
-      }),
-    );
+    // Same reason as the previous test: target the retry RPC by name so the
+    // earlier rate-limit consume call keeps its own normal behaviour (#L43).
+    const baseRpc = client.rpc.getMockImplementation()!;
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "retry_ingestion_job_if_idle") {
+        return ok({
+          outcome: "queued",
+          job: { id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" },
+        });
+      }
+      return baseRpc(name, args);
+    });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 

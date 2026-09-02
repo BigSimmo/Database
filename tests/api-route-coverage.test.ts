@@ -57,6 +57,28 @@ function createQueryMock<T>(result: { data: T; error: { message: string } | null
 
 const authenticationErrorMockClass = class AuthenticationError extends Error {};
 
+// The administrator ingestion routes (/api/jobs, /api/ingestion/jobs,
+// /api/ingestion/batches) consult the shared `ingestion_admin` rate-limit
+// bucket via `supabase.rpc("consume_api_rate_limit", ...)` before they touch
+// `from()` (#L32, #L43). A bare `{ from }` admin-client double has no `rpc`
+// method, so calling it throws instead of resolving — this stub reports the
+// bucket not exhausted so the routes proceed to the query assertions each
+// test actually cares about.
+function nonLimitedRateLimitRpc() {
+  return vi.fn(async () => ({
+    data: [
+      {
+        limited: false,
+        limit_value: 60,
+        remaining: 59,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+    ],
+    error: null,
+  }));
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
@@ -109,7 +131,9 @@ describe("/api/jobs", () => {
       error: null,
     });
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
-    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: vi.fn(() => chain) }) }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ from: vi.fn(() => chain), rpc: nonLimitedRateLimitRpc() }),
+    }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: authenticationErrorMockClass,
       requireAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
@@ -173,7 +197,9 @@ describe("/api/ingestion/jobs", () => {
     const activeCountChain = createQueryMock({ data: null, error: null, count: 1 });
     const from = vi.fn().mockReturnValueOnce(jobsChain).mockReturnValueOnce(activeCountChain);
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
-    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from }) }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ from, rpc: nonLimitedRateLimitRpc() }),
+    }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: authenticationErrorMockClass,
       requireAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
@@ -206,7 +232,9 @@ describe("/api/ingestion/batches", () => {
       error: null,
     });
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
-    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: vi.fn(() => chain) }) }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ from: vi.fn(() => chain), rpc: nonLimitedRateLimitRpc() }),
+    }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: authenticationErrorMockClass,
       requireAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),

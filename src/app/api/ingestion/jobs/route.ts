@@ -7,6 +7,7 @@ import {
   parseStatusRows,
   type StatusRow,
 } from "@/lib/api-list-response";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -56,6 +57,19 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
+
+    // The hub polls this route every ACTIVE_INDEXING_POLL_MS while a job is
+    // active, so it shares the ingestion-quality route's limiter bucket
+    // rather than going unlimited (#L32).
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "ingestion_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many ingestion administration requests. Retry shortly.", rateLimit);
+    }
 
     let query = supabase
       .from("ingestion_jobs")
