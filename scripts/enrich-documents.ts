@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "@/lib/supabase/database.types";
 import { createHash } from "node:crypto";
 import { type EnrichArgs, parseEnrichArgs } from "./lib/enrich-documents-args";
+import { findOwnerIdByEmail } from "./lib/find-owner-id-by-email";
 
 loadEnvConfig(process.cwd());
 
@@ -12,21 +13,6 @@ type MetadataRow = { id?: string; document_id: string; metadata?: unknown; sourc
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
-}
-
-async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string) {
-  const normalized = email.trim().toLowerCase();
-  const perPage = 1000;
-
-  for (let page = 1; page < 50; page += 1) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) throw new Error(error.message);
-    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalized);
-    if (user?.id) return user.id;
-    if (data.users.length < perPage) break;
-  }
-
-  throw new Error(`No Supabase Auth user found for ${email}. Sign in once before enriching documents.`);
 }
 
 async function loadDocuments(supabase: SupabaseAdmin, args: EnrichArgs, ownerId?: string) {
@@ -489,7 +475,7 @@ async function main() {
     !args.allOwners && args.ownerId
       ? args.ownerId
       : args.ownerEmail && !args.allOwners
-        ? await findOwnerIdByEmail(supabase, args.ownerEmail)
+        ? await findOwnerIdByEmail(supabase, args.ownerEmail, { purpose: "enriching documents" })
         : undefined;
   const loadedDocuments = await loadDocuments(supabase, args, ownerId);
   const coverage = await loadEnrichmentCoverage(
