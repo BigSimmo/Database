@@ -5,6 +5,7 @@ import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@s
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
@@ -38,6 +39,24 @@ export const AUTH_EMAIL_STORAGE_KEY = "clinical.dashboard.lastAuthEmail";
 const AUTH_CALLBACK_PATH = "/auth/callback";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Account-transition boundary: sign-out, session expiry, and a change of the
+ * signed-in user in the same tab. On a shared workstation the next person must
+ * not inherit the previous person's clinical context, so every identity-bound
+ * or patient-specific browser store is cleared here, in one place — adding a
+ * store means adding it to this list, not to one of the three call sites.
+ *
+ * Deliberately NOT the initial signed-out boot path: that must keep the guest
+ * answer-thread snapshot (see `initializeSession`).
+ */
+function clearAccountScopedBrowserState() {
+  clearPersistedAnswerThread();
+  clearRecentQueries();
+  clearSignedUrlCache();
+  // Patient physiology + medication list behind the prescribing alerts (audit M4).
+  clearPatientProfile();
+}
 let browserSupabaseClient: SupabaseClient | null | undefined;
 let browserSupabaseClientConfig: string | null = null;
 
@@ -262,9 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // account-switch SIGNED_IN can let mounted signed-image hooks re-paint
       // the previous user's still-cached URL via requestAnimationFrame.
       if (publishedUserIdRef.current !== nextUserId) {
-        clearPersistedAnswerThread();
-        clearRecentQueries();
-        clearSignedUrlCache();
+        clearAccountScopedBrowserState();
       }
       publishedUserIdRef.current = nextUserId;
       setSession(nextSession);
@@ -386,9 +403,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError("Sign out failed. Please try again.");
       return;
     }
-    clearPersistedAnswerThread();
-    clearRecentQueries();
-    clearSignedUrlCache();
+    clearAccountScopedBrowserState();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
@@ -398,9 +413,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const markSessionExpired = useCallback(() => {
     invalidateAuthRequests();
-    clearPersistedAnswerThread();
-    clearRecentQueries();
-    clearSignedUrlCache();
+    // Also wipes an in-progress patient context when a transient refresh
+    // failure is reported as expiry — accepted: a stale profile surviving to the
+    // next sign-in is the worse failure on a shared workstation.
+    clearAccountScopedBrowserState();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");

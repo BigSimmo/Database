@@ -4,7 +4,12 @@
 // pregnancy/lactation, allergy classes) — deliberately NOT PHI. It is kept in
 // `sessionStorage` so it survives navigation between the prescribing search and
 // a medication detail page within a tab session, but clears when the tab closes
-// (appropriate for transient patient context on a shared workstation).
+// (appropriate for transient patient context on a shared workstation). It is
+// also patient-specific decision-support context, so the auth provider removes
+// it through `clearPatientProfile` at every account transition — sign-out,
+// session expiry and a change of signed-in user — the same boundary that clears
+// recent queries: the next clinician at the same tab must never have their
+// prescribing alerts evaluated against the previous patient's physiology.
 //
 // Exposed as an external store (snapshot + subscribe + write) so React can read
 // it via `useSyncExternalStore` — the same pattern as `use-theme.ts` /
@@ -187,6 +192,20 @@ export function writePatientProfile(profile: PatientProfile): void {
     window.sessionStorage.setItem(PATIENT_PROFILE_STORAGE_KEY, JSON.stringify(profile));
   } catch {
     // Persistence is a convenience only; ignore quota/availability errors.
+  }
+  window.dispatchEvent(new Event(PATIENT_PROFILE_CHANGE_EVENT));
+}
+
+// Account-transition clear (sign-out, session expiry, user change). Dispatches
+// the store's own change event rather than relying on the `storage` event, which
+// browsers only fire in *other* tabs: mounted medication surfaces cache the
+// parsed snapshot by raw string and must re-read an empty profile in this tab.
+export function clearPatientProfile(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(PATIENT_PROFILE_STORAGE_KEY);
+  } catch {
+    // Storage may be unavailable; the snapshot then reads as empty anyway.
   }
   window.dispatchEvent(new Event(PATIENT_PROFILE_CHANGE_EVENT));
 }
