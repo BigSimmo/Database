@@ -43,8 +43,27 @@ const phoneMoreDestinations: readonly WorkspaceDestination[] = ["Templates", ...
 
 type MoreDestination = WorkspaceDestination | "System states";
 
-const moreDestinations: readonly { label: MoreDestination; description: string; icon: NavigationIcon }[] = [
-  { label: "Templates", description: "Governed pathways, messages and approval history", icon: FileText },
+/**
+ * `phoneOnly` marks a destination the RAIL already carries above 768px.
+ *
+ * Templates sits in `desktopDestinations` and was also listed here unconditionally, so from 768px
+ * up it was reachable from two places at once — and the More button's own selected state is
+ * computed from `desktopMoreDestinations`, which deliberately omits Templates, so opening More
+ * while on Templates showed a Templates row that was not marked current. The row now hides exactly
+ * where the rail shows it, which is the same derivation `phoneMoreDestinations` above already uses.
+ */
+const moreDestinations: readonly {
+  label: MoreDestination;
+  description: string;
+  icon: NavigationIcon;
+  phoneOnly?: boolean;
+}[] = [
+  {
+    label: "Templates",
+    description: "Governed pathways, messages and approval history",
+    icon: FileText,
+    phoneOnly: true,
+  },
   { label: "Team", description: "Ownership, capacity and unclaimed work", icon: Users },
   { label: "Guidance", description: "Programme boundaries and operational guidance", icon: BookOpen },
   { label: "Reports", description: "Aggregate operational reporting", icon: ClipboardList },
@@ -131,7 +150,7 @@ export function CaringContactShellFrame({
 
   const navigationItemClass = (selected: boolean) =>
     cn(
-      "group flex min-h-tap min-w-0 items-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
+      "group flex min-h-tap min-w-0 items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium transition-colors lg:justify-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
       selected
         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--rule-accent)]"
         : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -139,12 +158,21 @@ export function CaringContactShellFrame({
 
   return (
     <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] md:flex">
-      <aside className="sticky top-0 hidden h-dvh w-20 shrink-0 flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-chrome)] md:flex">
-        <div className="flex min-h-[var(--header-h)] items-center justify-center border-b border-[color:var(--border)] px-4">
+      {/*
+        The rail widens and names its destinations from `lg:` up.
+
+        It was `w-20` at EVERY width with every label `sr-only`, no tooltip and no `title`, so a
+        1920px viewport spent 1840px of space on an 80px column in which seven destinations were
+        told apart by lucide glyphs alone. The phone dock below carries visible labels, which left
+        the phone more legible than the desktop. This is the same `md:w-20 lg:w-64` shape the
+        production workspace shell already uses, so the two surfaces now agree.
+      */}
+      <aside className="sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-chrome)] md:flex md:w-20 lg:w-64">
+        <div className="flex min-h-[var(--header-h)] items-center justify-center gap-3 border-b border-[color:var(--border)] px-4 lg:justify-start lg:px-5">
           <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]">
             <HeartHandshake aria-hidden="true" className="size-icon-lg" />
           </span>
-          <div className="sr-only">
+          <div className="sr-only min-w-0 lg:not-sr-only">
             <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
               Caring Contacts
             </p>
@@ -157,10 +185,10 @@ export function CaringContactShellFrame({
             <Link
               href={`${CARING_CONTACT_MOCKUP_ROUTES.newPlan}?stage=agreement`}
               aria-label="Start new caring-contact referral"
-              className="flex min-h-tap w-full items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--command)] px-0 text-[color:var(--command-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-tap w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[color:var(--command)] px-0 text-[color:var(--command-contrast)] lg:px-4 shadow-[var(--e1)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
-              <Plus aria-hidden="true" className="size-icon-md" />
-              <span className="sr-only">New referral</span>
+              <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+              <span className="truncate sr-only lg:not-sr-only">New referral</span>
             </Link>
           ) : (
             <Button
@@ -168,9 +196,9 @@ export function CaringContactShellFrame({
               icon={Plus}
               onClick={onStartReferral}
               aria-label="Start new caring-contact referral"
-              className="w-full px-0"
+              className="w-full px-0 lg:px-4"
             >
-              <span className="sr-only">New referral</span>
+              <span className="truncate sr-only lg:not-sr-only">New referral</span>
             </Button>
           )}
         </div>
@@ -190,7 +218,7 @@ export function CaringContactShellFrame({
                 className={navigationItemClass(selected)}
               >
                 <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
-                <span className="sr-only">{label}</span>
+                <span className="truncate sr-only lg:not-sr-only">{label}</span>
               </Link>
             ) : (
               <button
@@ -203,7 +231,7 @@ export function CaringContactShellFrame({
                 className={navigationItemClass(selected)}
               >
                 <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
-                <span className="sr-only">{label}</span>
+                <span className="truncate sr-only lg:not-sr-only">{label}</span>
               </button>
             );
           })}
@@ -214,30 +242,36 @@ export function CaringContactShellFrame({
             <Link
               href={CARING_CONTACT_MOCKUP_ROUTES.guidance}
               aria-label="Help and guidance"
-              className="flex min-h-tap w-full items-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:justify-start"
             >
               <CircleHelp aria-hidden="true" className="size-icon-lg shrink-0" />
-              <span className="sr-only">Help and guidance</span>
+              <span className="truncate sr-only lg:not-sr-only">Help and guidance</span>
             </Link>
           ) : (
             <button
               type="button"
               onClick={() => selectDestination("Guidance")}
-              className="flex min-h-tap w-full items-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:justify-start"
             >
               <CircleHelp aria-hidden="true" className="size-icon-lg shrink-0" />
-              <span className="sr-only">Help and guidance</span>
+              <span className="truncate sr-only lg:not-sr-only">Help and guidance</span>
             </button>
           )}
           <button
             type="button"
             onClick={() => setAnnouncement("Settings are outside this synthetic prototype")}
-            className="flex min-h-tap w-full items-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:justify-start"
           >
             <Settings aria-hidden="true" className="size-icon-lg shrink-0" />
-            <span className="sr-only">Settings</span>
+            <span className="truncate sr-only lg:not-sr-only">Settings</span>
           </button>
-          <div className="mt-2 hidden items-center gap-3 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3">
+          {/*
+            The signed-in coordinator, which until now could never appear: this card was `hidden`
+            with no responsive unhide at any breakpoint, so it was dead chrome advertising an
+            account menu that does not exist. It belongs to the widened rail, so it appears with the
+            labels and nowhere else. The chevron is gone with it — there is no menu behind it.
+          */}
+          <div className="mt-2 hidden items-center gap-3 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3 lg:flex">
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[color:var(--surface-inset)] text-xs font-semibold">
               AE
             </span>
@@ -245,59 +279,77 @@ export function CaringContactShellFrame({
               <span className="block truncate text-sm font-semibold">Alex Example</span>
               <span className="block truncate text-xs text-[color:var(--text-muted)]">Coordinator</span>
             </span>
-            <ChevronDown aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" />
           </div>
         </div>
       </aside>
 
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-[var(--z-raised)] border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)]/95 backdrop-blur-md forced-colors:bg-[Canvas]">
-          <div className="flex min-h-[var(--header-h)] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-            <div className="flex min-w-0 items-center gap-3 md:hidden">
-              <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]">
-                <HeartHandshake aria-hidden="true" className="size-icon-lg" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">Caring Contacts</p>
-                <p className="truncate text-xs text-[color:var(--text-muted)]">{title}</p>
+          {/*
+            The header shares `<main>`'s measure cap, and must.
+
+            It used to be `px-4 sm:px-6 lg:px-8` with no `max-w`, while the content below is
+            `mx-auto w-full max-w-6xl`. So once the viewport passed roughly 1232px the two stopped
+            agreeing: the team switcher stayed pinned to the viewport gutter while the page title
+            centred itself in the capped column. Measured drift — 0px at 1024 and 1280, 72px at
+            1440, and 312px at 1920, where the switcher sat at x=112 and the title at x=424. The
+            wider the screen, the more the chrome and the page it frames looked like two unrelated
+            layouts.
+          */}
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto flex min-h-[var(--header-h)] w-full max-w-6xl items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3 md:hidden">
+                <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]">
+                  <HeartHandshake aria-hidden="true" className="size-icon-lg" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">Caring Contacts</p>
+                  <p className="truncate text-xs text-[color:var(--text-muted)]">{title}</p>
+                </div>
               </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                onOpenTeamSwitcher ? onOpenTeamSwitcher() : setAnnouncement("Example Aftercare Team remains selected")
-              }
-              className="hidden min-h-tap items-center gap-2 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:flex"
-            >
-              Example Aftercare Team
-              <ChevronDown aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" />
-            </button>
-
-            <div className="ml-auto flex items-center gap-2">
-              <span
-                data-testid="caring-contact-synthetic-marker"
-                className="hidden rounded-[var(--radius-sm)] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] sm:inline-flex forced-colors:border-[CanvasText]"
-                title={FICTIONAL_DATA_MARKER}
-              >
-                Synthetic prototype
-              </span>
               <button
                 type="button"
-                onClick={() => setAnnouncement("No new notifications")}
-                aria-label="Notifications"
-                className="grid h-tap w-tap place-items-center rounded-[var(--radius-md)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                onClick={() =>
+                  onOpenTeamSwitcher ? onOpenTeamSwitcher() : setAnnouncement("Example Aftercare Team remains selected")
+                }
+                className="hidden min-h-tap items-center gap-2 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:flex"
               >
-                <Bell aria-hidden="true" className="size-icon-lg" />
+                Example Aftercare Team
+                <ChevronDown aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" />
               </button>
-              <span className="hidden size-8 place-items-center rounded-full bg-[color:var(--surface-inset)] text-xs font-semibold sm:grid">
-                AE
-              </span>
+
+              <div className="ml-auto flex items-center gap-2">
+                <span
+                  data-testid="caring-contact-synthetic-marker"
+                  className="hidden rounded-[var(--radius-sm)] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] sm:inline-flex forced-colors:border-[CanvasText]"
+                  title={FICTIONAL_DATA_MARKER}
+                >
+                  Synthetic prototype
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAnnouncement("No new notifications")}
+                  aria-label="Notifications"
+                  className="grid h-tap w-tap place-items-center rounded-[var(--radius-md)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                >
+                  <Bell aria-hidden="true" className="size-icon-lg" />
+                </button>
+                <span className="hidden size-8 place-items-center rounded-full bg-[color:var(--surface-inset)] text-xs font-semibold sm:grid">
+                  AE
+                </span>
+              </div>
             </div>
           </div>
         </header>
 
-        <main className="min-w-0 px-4 pb-24 pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
+        {/*
+          The phone reserve is derived from the dock below rather than guessed at. `pb-24` was a
+          flat 96px against a dock that is `min-h-[var(--space-10)]` (64px) PLUS
+          `pb-[var(--safe-area-bottom)]` — so on a handset with a 34px home-indicator inset the dock
+          is 98px tall and the last 2px of every page sat underneath it.
+        */}
+        <main className="min-w-0 px-4 pb-[calc(var(--space-10)+var(--safe-area-bottom)+2rem)] pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <div className="mb-6 flex min-w-0 flex-col gap-4 border-b border-[color:var(--border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
@@ -382,13 +434,16 @@ export function CaringContactShellFrame({
         mobileSize="content"
       >
         <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)]">
-          {moreDestinations.map(({ label, description: itemDescription, icon: Icon }) =>
+          {moreDestinations.map(({ label, description: itemDescription, icon: Icon, phoneOnly }) =>
             !routable && label === "System states" ? null : routable ? (
               <Link
                 key={label}
                 href={destinationHref(label)}
                 onClick={() => setMoreOpen(false)}
-                className="flex min-h-tap w-full items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-[color:var(--focus)]"
+                className={cn(
+                  "flex min-h-tap w-full items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-[color:var(--focus)]",
+                  phoneOnly && "md:hidden",
+                )}
               >
                 <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--surface-inset)] text-[color:var(--clinical-accent)] forced-colors:border forced-colors:border-[CanvasText]">
                   <Icon aria-hidden="true" className="size-icon-md" />
@@ -404,7 +459,10 @@ export function CaringContactShellFrame({
                 key={label}
                 type="button"
                 onClick={() => selectDestination(label as WorkspaceDestination)}
-                className="flex min-h-tap w-full items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-[color:var(--focus)]"
+                className={cn(
+                  "flex min-h-tap w-full items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-[color:var(--focus)]",
+                  phoneOnly && "md:hidden",
+                )}
               >
                 <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--surface-inset)] text-[color:var(--clinical-accent)] forced-colors:border forced-colors:border-[CanvasText]">
                   <Icon aria-hidden="true" className="size-icon-md" />

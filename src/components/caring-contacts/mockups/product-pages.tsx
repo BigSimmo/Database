@@ -47,12 +47,13 @@ import {
   OneWayBoundary,
   PatientIdentityStrip,
   PersonAvatar,
+  productInset,
   ProductSection,
+  productSectionHeadingPad,
+  productSurface,
   ScheduleList,
   SectionHeading,
   StatusChip,
-  productInset,
-  productSurface,
 } from "./product-ui";
 
 type TodayPageProps = {
@@ -93,6 +94,7 @@ export function TodayProductPage({ onReviewReferral, onOpenPatients, onOpenSched
             title="Referrals to review"
             description="Ordered by the next eligible contact window after discharge."
             action={<StatusChip tone="info">3 new</StatusChip>}
+            className={productSectionHeadingPad}
           />
           <article
             className="border-t border-[color:var(--border)] px-5 py-5 sm:px-6"
@@ -133,6 +135,7 @@ export function TodayProductPage({ onReviewReferral, onOpenPatients, onOpenSched
             title="Needs action"
             description="Observable operational work with an owner and remedy."
             action={<StatusChip tone="warning">2 items</StatusChip>}
+            className={productSectionHeadingPad}
           />
           <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
             <button
@@ -182,6 +185,7 @@ export function TodayProductPage({ onReviewReferral, onOpenPatients, onOpenSched
               View schedule
             </Button>
           }
+          className={productSectionHeadingPad}
         />
         <div className="grid min-w-0 border-t border-[color:var(--border)] sm:grid-cols-3">
           {sendingWindows.map((window, index) => (
@@ -224,6 +228,7 @@ export function TodayProductPage({ onReviewReferral, onOpenPatients, onOpenSched
           title="Recent activity"
           description="Operational actions only—no message or clinical detail."
           icon={History}
+          className={productSectionHeadingPad}
         />
         <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
           {recentActivity.map((item) => (
@@ -461,11 +466,12 @@ export function PatientOverviewProductPage({ onViewPlan }: { onViewPlan: () => v
               View plan
             </Button>
           }
+          className={productSectionHeadingPad}
         />
         <div className="border-t border-[color:var(--border)] px-5 py-5 sm:px-6">
           <ol
             aria-label="Ten-contact continuity"
-            className="grid grid-cols-2 gap-2 md:hidden"
+            className="grid grid-cols-2 gap-2 xl:hidden"
             data-testid="caring-contact-continuity-compact"
           >
             {syntheticPlannedContacts.map((contact, index) => (
@@ -494,9 +500,19 @@ export function PatientOverviewProductPage({ onViewPlan }: { onViewPlan: () => v
               </li>
             ))}
           </ol>
+          {/*
+            The wide strip appears only once it FITS, which `md:` was not.
+
+            Its inner row is `min-w-[46rem]` (736px). At the `md:` breakpoint the content column is
+            768 - 80 rail - 48 main gutter - 48 card padding = about 592px, so the strip arrived
+            144px too wide and immediately became a nested horizontal scroller inside a card — and
+            it did so at exactly the width where the readable two-column version below it was
+            switched off. It needs roughly 1128px of viewport to fit, so `xl:` (1280) is the first
+            named breakpoint that can hold it; the compact grid covers everything below.
+          */}
           <div
             aria-label="Ten-contact continuity"
-            className="hidden overflow-x-auto polished-scroll md:block"
+            className="hidden overflow-x-auto polished-scroll xl:block"
             data-testid="caring-contact-continuity-wide"
           >
             <div className="flex min-w-[46rem] items-start">
@@ -531,13 +547,23 @@ export function PatientOverviewProductPage({ onViewPlan }: { onViewPlan: () => v
 
       <div className="grid gap-5 lg:grid-cols-2">
         <ProductSection labelledBy="next-contacts-heading" className="overflow-hidden">
-          <SectionHeading id="next-contacts-heading" title="Next three contacts" icon={CalendarDays} />
+          <SectionHeading
+            id="next-contacts-heading"
+            title="Next three contacts"
+            icon={CalendarDays}
+            className={productSectionHeadingPad}
+          />
           <div className="border-t border-[color:var(--border)]">
             <ScheduleList limit={3} />
           </div>
         </ProductSection>
         <ProductSection labelledBy="chronology-heading" className="overflow-hidden">
-          <SectionHeading id="chronology-heading" title="Chronology" icon={History} />
+          <SectionHeading
+            id="chronology-heading"
+            title="Chronology"
+            icon={History}
+            className={productSectionHeadingPad}
+          />
           <ol className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)] px-5">
             {[
               ["Transport receipt recorded", "15 Aug 2026, 10:00 am AWST", "Delivered"],
@@ -660,7 +686,12 @@ export function PlanDetailProductPage({
         </div>
 
         <ProductSection labelledBy="plan-timeline-heading" className="overflow-hidden">
-          <SectionHeading id="plan-timeline-heading" title="Plan timeline" icon={CalendarDays} />
+          <SectionHeading
+            id="plan-timeline-heading"
+            title="Plan timeline"
+            icon={CalendarDays}
+            className={productSectionHeadingPad}
+          />
           <div className="border-t border-[color:var(--border)]">
             <ScheduleList />
           </div>
@@ -1026,6 +1057,7 @@ export function ScheduleProductPage({
           title="Named exceptions"
           description="Kept separate from routine sending windows."
           icon={AlertTriangle}
+          className={productSectionHeadingPad}
         />
         {selectedHasException ? (
           <button
@@ -1134,6 +1166,7 @@ export function TemplatesProductPage({ onOpenOverlay }: { onOpenOverlay?: (overl
           title="Version library"
           description="Current, retired and pending governed records."
           icon={FileText}
+          className={productSectionHeadingPad}
         />
         <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
           {governedLibraryRecords.map((record) => {
@@ -1272,7 +1305,7 @@ export function TeamProductPage({ onOpenOverlay }: { onOpenOverlay?: (overlayId:
           }
         />
         <div
-          className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)] md:hidden"
+          className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)] xl:hidden"
           data-testid="team-mobile-roster"
         >
           {syntheticTeamMembers.map((member, index) => (
@@ -1321,8 +1354,14 @@ export function TeamProductPage({ onOpenOverlay }: { onOpenOverlay?: (overlayId:
             <p className="text-sm text-[color:var(--text-muted)]">No owner · escalates after 60 minutes</p>
           </article>
         </div>
+        {/*
+          Same correction as the continuity strip: the table is `min-w-[42rem]` (672px) against
+          roughly 592px of content column at `md:`, so it scrolled horizontally from the moment it
+          replaced the card roster that did fit. `xl:` is the first named breakpoint with room for
+          it.
+        */}
         <div
-          className="hidden overflow-x-auto border-t border-[color:var(--border)] polished-scroll md:block"
+          className="hidden overflow-x-auto border-t border-[color:var(--border)] polished-scroll xl:block"
           data-testid="team-desktop-table"
         >
           <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
@@ -1390,6 +1429,7 @@ export function GuidanceProductPage() {
             title="Incident and downtime"
             description="Conservative operational behaviour when systems are unavailable."
             icon={ShieldCheck}
+            className={productSectionHeadingPad}
           />
           <ul className="space-y-3 border-t border-[color:var(--border)] px-5 py-5 text-sm leading-6 text-[color:var(--text-muted)] sm:px-6">
             {[
@@ -1466,6 +1506,7 @@ export function ReportsProductPage() {
           title="Operational reporting"
           description="Aggregate service measures only. No clinical outcome, response or engagement inference."
           icon={ListChecks}
+          className={productSectionHeadingPad}
         />
         <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
           {[
