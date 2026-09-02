@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { selectedScripts } from "../scripts/verify-pr-local.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
@@ -138,6 +139,42 @@ describe("CI cache safety", () => {
     expect(requiredNeeds).toContain("caring-contacts-db");
     expect(workflow).toContain("CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}");
     expect(workflow).toContain('require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"');
+  });
+
+  /**
+   * `verify:pr-local` is documented as the risk-routed PR mirror, yet until audit M24
+   * its heavy plan selected only lint/typecheck/test: the migration-role,
+   * function-grant and owner-scope guards — the three built to stop the incident
+   * shapes that reach the live clinical database on merge — ran only in CI after
+   * push. Pin the mirror the other way round from `check:gate-manifest` (which
+   * holds CI to the local verify:cheap chain): every static-pr step gated on
+   * `static_heavy_changed` must also be in the local heavy plan.
+   */
+  it("mirrors every static-heavy static-pr step in the verify:pr-local heavy plan (M24)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr, "static-pr job not found in ci.yml").not.toBe("");
+    const heavySteps: string[] = [];
+    for (const step of staticPr.split(/\n\s+- name: /).slice(1)) {
+      const condition = /\n\s+if: ([^\n]+)/.exec(step)?.[1] ?? "";
+      const script = /\n\s+run: npm run ([\w:.-]+)\s*$/m.exec(step)?.[1];
+      if (script && condition.includes("static_heavy_changed == 'true'")) heavySteps.push(script);
+    }
+    expect(heavySteps).toEqual(
+      expect.arrayContaining(["check:migration-role", "check:function-grants", "check:owner-scope"]),
+    );
+
+    const heavyPlan = selectedScripts({ static_heavy_changed: true }, false) as string[];
+    const missing = heavySteps.filter((script) => !heavyPlan.includes(script));
+    expect(
+      missing,
+      `static-pr runs these for static_heavy scope but verify:pr-local does not: ${missing.join(", ")}`,
+    ).toEqual([]);
+
+    // Docs-only scope stays focused: the tenancy/database guards are heavy-scope steps.
+    const docsPlan = selectedScripts({ docs_changed: true }, false) as string[];
+    for (const guard of ["check:migration-role", "check:function-grants", "check:owner-scope"]) {
+      expect(docsPlan, `${guard} leaked into the docs-only plan`).not.toContain(guard);
+    }
   });
 
   it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
