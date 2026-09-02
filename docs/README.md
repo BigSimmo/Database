@@ -30,7 +30,7 @@ npm run docs:check-links
 - [mockup-retirement-policy.md](mockup-retirement-policy.md) — when a mockup may be deleted, who decides, what evidence is required, and the three tiers that keep developer-gated prototypes out of cleanup scope
 - [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
-- [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
+- [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states (dated 2026-07-07 race analysis; the lease is heartbeated and fenced since 2026-07-08 — see its status banner)
 - [design-system/README.md](design-system/README.md) — front door for the v2 design system (tokens, components, gates)
 - [design-system.md](design-system.md) — live-layer notes during the v1→v2 transition (superseded as spec)
 - [design-system/SPEC.md](design-system/SPEC.md) — the complete v2 design system: roles, rules, rationale (never values)

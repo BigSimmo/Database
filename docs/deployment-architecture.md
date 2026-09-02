@@ -335,11 +335,18 @@ Semantics of `claim_ingestion_jobs` (migration
   failure time. Claims take `FOR UPDATE SKIP LOCKED` over the job _and_ its
   document row, rank one job per document, and exclude any document that
   already has a _fresh_ processing job.
-- **There is no heartbeat.** The worker never refreshes `locked_at` mid-job.
-  If the worker dies, the job sits in `processing` until `locked_at` is older
-  than the stale window (`p_stale_after_minutes`, default 45, worker-side
+- **The lease is heartbeated and fenced** (since 2026-07-08, migration
+  `20260708130000_ingestion_concurrency_rpc_hardening.sql` and
+  `updateJobProgress` in `worker/main.ts`). A live worker refreshes `locked_at`
+  on each persisted progress write, at least once per third of the stale window
+  and on a 60 s timer during extraction, guarded by `locked_by = workerId` so a
+  reclaimed worker cannot resurrect its lease. If the worker dies, the job sits
+  in `processing` until `locked_at` is older than the stale window
+  (`p_stale_after_minutes`, default 45, worker-side
   `WORKER_STALE_AFTER_MINUTES`), after which any worker reclaims it
-  (`stage = 'reclaimed stale job'`).
+  (`stage = 'reclaimed stale job'`). `complete_ingestion_job` and
+  `fail_or_retry_ingestion_job` take `p_worker_id` and return `ok:false` to a
+  caller that lost the lease, so the reclaiming worker owns the outcome.
 - **Dead-lettering is implicit.** Because attempts are consumed at claim, a
   crash-looping job exhausts `max_attempts` (default 3) after ~3 stale windows
   and becomes terminally `failed` — the de-facto dead-letter state. Recovery is
