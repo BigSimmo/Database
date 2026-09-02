@@ -343,12 +343,13 @@ review decision must be based on. The index is a browsing convenience, refreshed
 
 The measured facts, as of 2026-09-02:
 
-- 577 entries in `docs/branch-review-records/` — 576 records plus this directory's README —
-  totalling 2.4 MB.
-- That is more than half of the 1,144 tracked Markdown files under `docs/`.
-- `docs/` now outweighs `src/`: 26 MB against 23 MB by apparent size (`du -sh --apparent-size`),
-  32 MB against 23 MB by allocated blocks (`du -sh`). Quote the method with the number — the two
-  differ by ~6 MB here because `docs/` holds thousands of small files, and a figure without its
+- 589 entries in `docs/branch-review-records/` — 588 records plus this directory's README —
+  totalling 0.39 MB by apparent size (`du -sh --apparent-size`) and 2.4 MB by allocated blocks
+  (`du -sh`; each small record occupies a whole 4 KiB block).
+- That is half of the 1,177 tracked Markdown files under `docs/`.
+- `docs/` now outweighs `src/`: 26 MB against 18 MB by apparent size (`du -sh --apparent-size`),
+  31 MB against 22 MB by allocated blocks (`du -sh`). Quote the method with the number — the two
+  differ by ~5 MB here because `docs/` holds thousands of small files, and a figure without its
   method invites a later reader to "correct" it to the other one. Either way the documentation
   tree is larger than the application it documents.
 
