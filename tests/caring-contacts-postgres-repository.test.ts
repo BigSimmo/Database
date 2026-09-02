@@ -724,3 +724,151 @@ describe("the caseload list read never puts a patient column on the wire (postgr
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// #J7PZQP — a clearance landing MID-READ cannot produce a half-cleared episode.
+//
+// `runRead` opens a bare `begin`, so the transaction is READ COMMITTED and every statement in it
+// takes a fresh snapshot. `markRetentionCleared` blanks the patient columns, clears the reason and
+// preferred name, deletes the cultural identity and writes `retention_state.cleared_at`, all in one
+// transaction -- so a clearance committing between two statements of `getEpisode` is seen by the
+// later statement and not the earlier one.
+//
+// While nothing read `cleared_at` back, that was survivable: the fields disagreed and no caller
+// concluded anything from it. Carrying the clearance instant made the disagreement load-bearing --
+// an episode reporting a completed clearance while still releasing the name and the mobile number,
+// which the patient overview renders as "a retention clearance removed the name, the mobile number,
+// the identifiers and the cultural identity" beside the name and the mobile number.
+//
+// Raised by Codex review on PR #2534, which asked for exactly this: a database contract test that
+// pauses the read between the statements. This is that test. It is postgres-only because there is
+// no statement boundary to pause in the in-memory store, and no isolation level either.
+// ---------------------------------------------------------------------------
+describe("a clearance committing mid-read cannot half-clear an episode (postgres only)", () => {
+  /** 2026-03-02 11:00 AWST, the instant the shared contract fixes its own clock to. */
+  const NOW = "2026-03-02T03:00:00.000Z";
+
+  const COORDINATOR: Actor = {
+    id: actorId("RACE-CLEAR-ACTOR"),
+    teamId: teamId("RACE-CLEAR-TEAM"),
+    roles: ["coordinator"],
+  };
+
+  it("never reports a clearance while still releasing the name and mobile number", async () => {
+    const PLAN = planId("RACE-CLEAR-PLAN");
+    const writer = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+    const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
+
+    expect(
+      (
+        await writer.createReferral(
+          { referralId: referralId("RACE-CLEAR-REFERRAL"), patientId: patientId("RACE-CLEAR-PATIENT") },
+          context("race-clear-referral"),
+        )
+      ).ok,
+    ).toBe(true);
+    expect(
+      (
+        await writer.savePathwayVersion(
+          {
+            version: {
+              id: pathwayVersionId("RACE-CLEAR-PATHWAY"),
+              teamId: COORDINATOR.teamId,
+              state: "draft",
+              authorId: COORDINATOR.id,
+              approvals: [],
+              publishedAt: null,
+              retiredAt: null,
+              retirementUrgency: null,
+              snapshot: {
+                cadenceLabels: ["Day 3"],
+                messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "Last one." },
+              },
+            },
+          },
+          context("race-clear-pathway"),
+        )
+      ).ok,
+    ).toBe(true);
+
+    const created = await writer.createPlan(
+      {
+        planId: PLAN,
+        assurances: PLAN_ASSURANCE_VALUES,
+        referralId: referralId("RACE-CLEAR-REFERRAL"),
+        patientId: patientId("RACE-CLEAR-PATIENT"),
+        pathwayVersionId: pathwayVersionId("RACE-CLEAR-PATHWAY"),
+        dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+        sendingPreference: "morning",
+        patientDetail: {
+          patientName: "Rowan Delacroix",
+          patientMobileNumber: "+61 491 570 156",
+          patientIdentifiers: ["UR-00219384"],
+          culturalIdentity: null,
+          preferredName: "Rowan",
+        },
+      },
+      context("race-clear-create"),
+    );
+    if (!created.ok) throw new Error(`createPlan refused: ${created.reason}`);
+    const activated = await writer.activatePlan(
+      { planId: PLAN, expectedVersion: created.value.plan.version },
+      context("race-clear-activate"),
+    );
+    if (!activated.ok) throw new Error(`activatePlan refused: ${activated.reason}`);
+    const withdrawn = await writer.withdrawPlan(
+      { planId: PLAN, expectedVersion: activated.value.plan.version, origin: "patient" },
+      context("race-clear-withdraw"),
+    );
+    if (!withdrawn.ok) throw new Error(`withdrawPlan refused: ${withdrawn.reason}`);
+
+    // THE PAUSE. The reader's own connection is wrapped so that the first statement naming the
+    // plans table -- `readPlanRecord`'s select -- is followed by a clearance committed on a
+    // DIFFERENT connection, before the reader issues anything else. That is the window.
+    let cleared = false;
+    const base = poolAsSqlConnectionPool(pool);
+    const reader = createPostgresRepository(
+      {
+        async withConnection(work) {
+          return base.withConnection((connection) =>
+            work({
+              async query(text, values) {
+                const result = await connection.query(text, values);
+                if (!cleared && text.includes("from caring_contacts.plans") && text.includes("for update") === false) {
+                  cleared = true;
+                  const outcome = await writer.markRetentionCleared({ planId: PLAN }, context("race-clear-mark"));
+                  if (!outcome.ok) throw new Error(`markRetentionCleared refused: ${outcome.reason}`);
+                }
+                return result;
+              },
+            }),
+          );
+        },
+      },
+      fixedClock(NOW),
+    );
+
+    const episode = await reader.getEpisode(PLAN, { actor: COORDINATOR });
+
+    // Positive control: the window was really entered. Without this the assertions below would pass
+    // on a run where the clearance never happened at all, which is the shape of a race test that
+    // proves nothing.
+    expect(cleared).toBe(true);
+
+    expect(episode).not.toBeNull();
+    if (episode === null) throw new Error("unreachable");
+
+    // THE INVARIANT. Whichever snapshot this read landed on, the episode must be internally
+    // consistent: a reported clearance means the identifying detail is gone, and detail still
+    // present means no clearance is reported. The half-and-half state is what must not exist.
+    if (episode.patientDetailClearedAt !== null) {
+      expect(episode.patientName).toBe("");
+      expect(episode.patientMobileNumber).toBe("");
+      expect(episode.patientIdentifiers).toEqual([]);
+      expect(episode.culturalIdentity).toBeNull();
+    } else {
+      expect(episode.patientName).toBe("Rowan Delacroix");
+      expect(episode.patientMobileNumber).toBe("+61 491 570 156");
+    }
+  });
+});
