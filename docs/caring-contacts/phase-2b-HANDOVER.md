@@ -115,10 +115,12 @@ than merely alter them. A populated screen needs its own server with `CARING_CON
   sits in, whether that array is filtered, or what CSS governs the element. The general orphan scan is the
   same shape for the whole app. **It proves a route is referenced in source, not that it is reachable at
   any viewport a user can have.** Found because Templates shipped unreachable below 768px while passing.
-- **`listSendableContacts` means "not individually stopped", not "should be sent now"** (Ruling [129]).
-  The behaviour is correct and the send gate exists at the write (`requiresActivePlan`), but the name
-  promises more than the function delivers. Rename it, or give it a plan-state-aware sibling, before
-  anything is built that dispatches.
+- ~~**`listSendableContacts` means "not individually stopped", not "should be sent now"** (Ruling [129]).~~
+  **CLOSED 2026-09-02 by `#PAMATF` (Ruling [129A]), which overturns [129] with owner approval.** The read
+  now consults the owning plan's state through `planSendingHold`, so the name is true: a draft or paused
+  plan offers nothing sendable. [129] declined this to avoid duplicating the write gate, and that cost is
+  real — the shared repository contract now asserts the read and `requiresActivePlan` agree for every
+  `PlanState`, so the two cannot drift. The write gate itself is unchanged. Do not re-file this.
 - `middayOf` and `awstCalendarDayOffset` both spell midday, and nothing pins them equal.
 - **A hand-maintained test gate drifts silently from the suites that exist.** `test:cc-guards` names its
   suites as literal paths in `package.json`. Nothing adds a suite when one is written, and nothing warns
