@@ -284,3 +284,36 @@ describe("L92: the Codex auto-resolve high-risk deployment-file list names files
     expect(source).not.toContain(file.replace(".", "\\."));
   });
 });
+
+describe("L129: every override in package.json matches a lock entry and has a recorded rationale", () => {
+  type LockPackage = { version?: string };
+  const lock = JSON.parse(read("package-lock.json")) as { packages: Record<string, LockPackage> };
+  const overrides = (JSON.parse(read("package.json")) as { overrides: Record<string, unknown> }).overrides;
+  const majorsOf = (name: string) =>
+    new Set(
+      Object.entries(lock.packages)
+        .filter(([path]) => path === `node_modules/${name}` || path.endsWith(`/node_modules/${name}`))
+        .map(([, entry]) => entry.version?.split(".")[0]),
+    );
+
+  it("keeps no major-scoped override that matches nothing in the lock", () => {
+    const dead = Object.keys(overrides)
+      .filter((key) => /^[^@].*@\d+$/.test(key))
+      .filter((key) => {
+        const [name, major] = key.split("@");
+        return !majorsOf(name).has(major);
+      });
+    expect(dead).toEqual([]);
+  });
+
+  it("records why each override exists in the dependency checklist", () => {
+    const doc = read("docs/framework-dependency-modernization-checklist.md");
+    const section = doc.slice(doc.indexOf("## Overrides"));
+    expect(section.length).toBeGreaterThan(0);
+    for (const key of Object.keys(overrides)) {
+      const name = key.replace(/@\d+$/, "");
+      const recorded = section.includes(`\`${key}\``) || section.includes(`\`${name}\``);
+      expect(recorded, `no rationale recorded for override ${key}`).toBe(true);
+    }
+  });
+});
