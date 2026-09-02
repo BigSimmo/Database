@@ -755,4 +755,60 @@ describe("rule 9: terminated-contact-dispatch-refused", () => {
     };
     expect(validateGovernedMessage(input)).toEqual({ valid: true });
   });
+
+  // -------------------------------------------------------------------------
+  // #PAMATF — a plan that has not STARTED, or is paused, is also not dispatchable.
+  //
+  // This check tested `TERMINAL_PLAN_STATES` only, which names the three ENDED states, so a draft
+  // and a paused plan passed the chokepoint carrying a message. The two halves of "this plan is not
+  // sending" were split between a list here and nothing at all.
+  // -------------------------------------------------------------------------
+
+  it("refuses a plan that has not been started, naming the hold rather than calling it terminated", () => {
+    const result = validateGovernedMessage({
+      text: "Thinking of you today.",
+      messageType: "standard",
+      contactState: "scheduled",
+      planState: "draft",
+    });
+    // Its OWN code. A draft plan has not ended, and reporting it as terminated would be the right
+    // refusal for the wrong reason -- the same distinction rule 5b draws for an unauthored body.
+    expect(result).toEqual({
+      valid: false,
+      issues: [{ code: "plan-not-dispatchable", state: "draft", hold: "planNotStarted" }],
+    });
+  });
+
+  it("refuses a paused plan, and keeps paused distinguishable from not-started", () => {
+    const result = validateGovernedMessage({
+      text: "Thinking of you today.",
+      messageType: "standard",
+      contactState: "scheduled",
+      planState: "paused",
+    });
+    expect(result).toEqual({
+      valid: false,
+      issues: [{ code: "plan-not-dispatchable", state: "paused", hold: "planPaused" }],
+    });
+  });
+
+  it("leaves the ended states reporting the code they always did", () => {
+    // Nothing that reads `terminated-contact-dispatch-refused` changes meaning: the new code is
+    // additive, covering states that previously reported nothing at all.
+    for (const planState of ["withdrawn", "cancelled", "completed"] as const) {
+      const result = validateGovernedMessage({ text: "Thinking of you today.", messageType: "standard", planState });
+      expect(result).toEqual({
+        valid: false,
+        issues: [{ code: "terminated-contact-dispatch-refused", state: planState }],
+      });
+    }
+  });
+
+  it("refuses every plan state except active, so no hold can be left unhandled", () => {
+    const permitted = (["draft", "active", "paused", "withdrawn", "cancelled", "completed"] as const).filter(
+      (planState) =>
+        validateGovernedMessage({ text: "Thinking of you today.", messageType: "standard", planState }).valid,
+    );
+    expect(permitted).toEqual(["active"]);
+  });
 });

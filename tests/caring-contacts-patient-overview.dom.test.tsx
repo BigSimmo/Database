@@ -574,6 +574,70 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
     expect(note).not.toHaveTextContent(/retention clearance/i);
   });
 
+  it("claims no clearance for a blank name that no clearance produced (#J7PZQP)", async () => {
+    // THE DEFECT, STATED AS A TEST. This branch used to be selected by `patientName === ""`, so an
+    // episode holding a blank name for any other reason made the screen tell a clinician three
+    // definite things about a live record: that a reason was given, that a clearance removed it,
+    // and that the removal is irreversible.
+    //
+    // The state is reachable: `patient_name` is `not null` with NO CHECK against the empty string,
+    // and neither store's `createPlan` validates a non-blank name. The only thing standing between
+    // a blank name and this screen was `z.string().min(1)` in the plans API route -- one schema, at
+    // one edge, holding up a sentence stated as fact on a patient record.
+    //
+    // The episode is overridden rather than written through the store because the domain refuses a
+    // moved first contact with no reason, so no sequence of real writes reaches "blank name, no
+    // reason, never cleared". That is the point: the component must not depend on which states
+    // happen to be constructible today. It is the same override technique the preferred-name case
+    // below uses, and the surrounding record is still the store's own.
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo", {
+      firstContactDate: ABSORBING_FIRST_CONTACT_DAY,
+      firstContactReason: "Patient was interstate for the first week.",
+    });
+    const record = await store.getPlan(id, { actor: demoActorForRole("coordinator") });
+    const episode = await store.getEpisode(id, { actor: demoActorForRole("coordinator") });
+    if (record === null || episode === null) throw new Error("the fixture plan was not readable");
+
+    // Positive control: this episode really was never cleared, so the assertions below are the
+    // screen declining to claim a clearance rather than there being nothing to claim one about.
+    expect(episode.patientDetailClearedAt).toBeNull();
+
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={episodeView({
+          record,
+          episode: { ...episode, patientName: "", firstContactReason: null },
+          otherPlanCount: 0,
+        })}
+      />,
+    );
+
+    const note = screen.getByRole("note", { name: "First contact moved from the usual day" });
+    expect(note).not.toHaveTextContent(/retention clearance has since removed it/i);
+    expect(note).not.toHaveTextContent(/A clearance is not reversible/i);
+    // POSITIVELY, not only by absence. Asserting what a branch no longer says leaves whatever it
+    // now says unpinned, and the reason branch has four outcomes. This one rests on a real domain
+    // invariant -- a moved first contact REQUIRES a reason, so a null reason must predate the
+    // field -- rather than on the name sentinel, which is what makes it still true here.
+    expect(note).toHaveTextContent(/created before reasons were kept with the plan/i);
+    expect(note).toHaveTextContent(/Nobody failed to give one/i);
+
+    // And the identity notice reports the absence -- which is real -- without naming a cause it
+    // cannot know. Saying nothing at all would be the opposite failure.
+    const identity = screen.getByRole("note", { name: "No name is held for this patient" });
+    expect(identity).toHaveTextContent(/cannot say why the name is absent, and will not guess/i);
+    expect(identity).not.toHaveTextContent(/A retention clearance removed the name/i);
+
+    // AND IT DOES NOT CLAIM THE MOBILE NUMBER IS GONE (review finding). This episode still holds
+    // one; only the name was blanked. Deducing "no number either" from a blank name is the same
+    // unchecked inference this whole change removes, and an earlier draft of the fix kept it.
+    expect(episode.patientMobileNumber).not.toBe("");
+    expect(identity).toHaveTextContent(/a mobile number is still held for it/i);
+    expect(identity).not.toHaveTextContent(/no mobile number is held for it either/i);
+  });
+
   it("shows the discharge day the whole calendar hangs off", async () => {
     const { store } = spiedStore();
     await createPlan(store, "plan-solo");
