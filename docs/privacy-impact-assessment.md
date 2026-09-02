@@ -70,15 +70,16 @@ material.
 
 ## 2. System overview and data classification
 
-| Data category                                                             | Where it lives                                                                                                                                         | Sensitivity                                | Notes                                                                                                                              |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                                                    | Lowâ€“Medium                               | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                           |
-| Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) for retrieval embedding and, when selected, answer synthesis | **High (potential PHI)**                   | The primary incidental-PHI vector; embedding egress can occur even when the final answer is source-only.                           |
-| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload`                                        | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available. |
-| Safety-plan working content                                               | React memory in the current browser tab; user-directed clipboard, print, or PDF output                                                                 | **High (sensitive health information)**    | No patient-identifier field; not sent to the application service or stored by PsychSift. Exported copies leave this boundary.      |
-| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                                                  | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                    |
-| Audit trail                                                               | `audit_logs`                                                                                                                                           | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                   |
-| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                                             | Lowâ€“Medium                               | Redacted query text; per-owner.                                                                                                    |
+| Data category                                                             | Where it lives                                                                                                                                         | Sensitivity                                | Notes                                                                                                                                 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                                                    | Lowâ€“Medium                               | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                              |
+| Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) for retrieval embedding and, when selected, answer synthesis | **High (potential PHI)**                   | The primary incidental-PHI vector; embedding egress can occur even when the final answer is source-only.                              |
+| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload`                                        | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available.    |
+| Safety-plan working content                                               | React memory in the current browser tab; user-directed clipboard, print, or PDF output                                                                 | **High (sensitive health information)**    | No patient-identifier field; not sent to the application service or stored by PsychSift. Exported copies leave this boundary.         |
+| Answer threads and recent queries in the browser                          | `window.sessionStorage`, owner-scoped keys `clinical-kb-answer-thread:<ownerId>` and `clinical-kb-recent-queries:<ownerId>`                            | **High (raw query text + derived answer)** | Raw query text, generated answer, and source excerpts for up to 12 turns, 12-hour TTL; last 5 raw queries. Tab-scoped; see section 6. |
+| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                                                  | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                       |
+| Audit trail                                                               | `audit_logs`                                                                                                                                           | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                      |
+| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                                             | Lowâ€“Medium                               | Redacted query text; per-owner.                                                                                                       |
 
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
 experienced psychiatrist in Perth"_ ([src/lib/rag/rag.ts](../src/lib/rag/rag.ts)) â€” i.e. a **WA psychiatry**
@@ -275,13 +276,15 @@ which is why the query-hash approach (not raw storage) is the right primary cont
 
 ## 6. Retention and purge
 
-| Data                 | Retention              | Mechanism                                                                                                            | Live status                                                                     |
-| -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `rag_queries`        | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                   | **Active** (jobid 11, verified live)                                            |
-| `rag_retrieval_logs` | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                     | **Active** (jobid 12, verified live)                                            |
-| `rag_query_misses`   | 90 days                | `purge_expired_rag_query_misses(90)`, `pg_cron` `purge-rag-query-misses` @ 03:45 UTC                                 | **Active** (jobid 13, verified live 2026-07-14)                                 |
-| `rag_response_cache` | ~5 min read TTL        | `expires_at` filtered on read; `purge_expired_rag_response_cache(1000)`, hourly `pg_cron` `purge-rag-response-cache` | **Active** (jobid 16, verified live 2026-07-14); obsolete unbounded job removed |
-| `audit_logs`         | Indefinite (by design) | Documented in [migration 20260702120000](../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql)     | Intentional; "do not add purge without compliance review"                       |
+| Data                   | Retention              | Mechanism                                                                                                                                       | Live status                                                                     |
+| ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `rag_queries`          | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                                              | **Active** (jobid 11, verified live)                                            |
+| `rag_retrieval_logs`   | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                                                | **Active** (jobid 12, verified live)                                            |
+| `rag_query_misses`     | 90 days                | `purge_expired_rag_query_misses(90)`, `pg_cron` `purge-rag-query-misses` @ 03:45 UTC                                                            | **Active** (jobid 13, verified live 2026-07-14)                                 |
+| `rag_response_cache`   | ~5 min read TTL        | `expires_at` filtered on read; `purge_expired_rag_response_cache(1000)`, hourly `pg_cron` `purge-rag-response-cache`                            | **Active** (jobid 16, verified live 2026-07-14); obsolete unbounded job removed |
+| `audit_logs`           | Indefinite (by design) | Documented in [migration 20260702120000](../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql)                                | Intentional; "do not add purge without compliance review"                       |
+| Browser answer thread  | 12 h (or tab close)    | `window.sessionStorage` TTL + `New chat`, sign-out, and account-change clears ([answer-thread-storage.ts](../src/lib/answer-thread-storage.ts)) | Client-side only; no server job to verify                                       |
+| Browser recent queries | Tab close              | `window.sessionStorage`; cleared by Settings > Privacy and security ([recent-query-storage.ts](../src/lib/recent-query-storage.ts))             | Client-side only; no server job to verify                                       |
 
 **Verification (live `cron.job` query, 2026-07-06):**
 
@@ -303,6 +306,22 @@ cache purge jobs onto the existing bounded hourly purge. The remaining retention
   [migration 20260629060603](../supabase/migrations/20260629060603_rag_queries_retention.sql)) â€”
   fine on live (pg_cron present) but **preview/branch databases silently skip scheduling**. Not a
   production risk, but worth noting for any secondary environment that retains real data.
+
+**Browser-side retention (not a server control).** A completed answer keeps the raw query text, the
+generated answer, and the source excerpts for up to 12 turns (up to 4.5 MB) in `window.sessionStorage` under
+the owner-scoped key `clinical-kb-answer-thread:<ownerId>`, with a 12-hour TTL
+([`answerThreadTtlMs`](../src/lib/answer-thread-storage.ts)); signed-out visitors share the
+`guest-tab-session` owner key. The last five raw queries per owner are stored under
+`clinical-kb-recent-queries:<ownerId>` ([recent-query-storage.ts](../src/lib/recent-query-storage.ts)).
+Session storage dies with the tab, and the thread is additionally cleared by `New chat`, sign-out, and an
+account change; recent queries are cleared from Settings > Privacy and security. The residual control
+question is a **shared clinical workstation** where a tab is left open: incidental PHI in a typed query
+remains restorable there until the TTL expires or the tab closes. Behaviour is pinned by
+[tests/answer-thread-storage.test.ts](../tests/answer-thread-storage.test.ts),
+[tests/use-answer-thread-bootstrap.test.ts](../tests/use-answer-thread-bootstrap.test.ts), and
+[tests/recent-query-storage.test.ts](../tests/recent-query-storage.test.ts). Any move of this content to
+`localStorage`, or any widening beyond the owner-scoped keys, is a deviation from this assessment and
+needs governance review.
 
 ---
 
