@@ -9671,6 +9671,7 @@ language plpgsql
 security definer
 set search_path = ''
 set lock_timeout = '15s'
+set statement_timeout = '120s'
 as $$
 declare
   v_state public.document_corpus_access_state%rowtype;
@@ -9728,6 +9729,8 @@ begin
     from public.documents d
     on conflict (activation_id, document_id) do nothing;
 
+    -- ALTER TABLE takes an ACCESS EXCLUSIVE lock. The trigger bypass is
+    -- therefore invisible to concurrent sessions and rolls back on failure.
     execute 'alter table public.documents disable trigger documents_require_publication_approval';
     update public.documents d
     set
@@ -9743,6 +9746,30 @@ begin
         or coalesce(d.metadata, '{}'::jsonb)->'public_corpus' is distinct from 'true'::jsonb
       );
     execute 'alter table public.documents enable trigger documents_require_publication_approval';
+
+    -- The three derived tables whose own owner_id reaches a retrieval owner
+    -- predicate. Bounded to rows that still carry the snapshotted document
+    -- owner, so the private branch restores exactly this set.
+    update public.document_labels l
+    set owner_id = null, updated_at = now()
+    from public.document_corpus_access_snapshots snapshot
+    where snapshot.activation_id = v_activation_id
+      and snapshot.document_id = l.document_id
+      and l.owner_id = snapshot.owner_id;
+
+    update public.document_summaries s
+    set owner_id = null, updated_at = now()
+    from public.document_corpus_access_snapshots snapshot
+    where snapshot.activation_id = v_activation_id
+      and snapshot.document_id = s.document_id
+      and s.owner_id = snapshot.owner_id;
+
+    update public.document_table_facts f
+    set owner_id = null
+    from public.document_corpus_access_snapshots snapshot
+    where snapshot.activation_id = v_activation_id
+      and snapshot.document_id = f.document_id
+      and f.owner_id = snapshot.owner_id;
 
     update public.document_corpus_access_state
     set
@@ -9791,6 +9818,34 @@ begin
     where snapshot.activation_id = v_activation_id and snapshot.document_id = d.id;
     execute 'alter table public.documents enable trigger documents_require_publication_approval';
 
+    -- Restore the derived owners this activation published. The inner join to
+    -- auth.users keeps a deleted owner unrestorable rather than reattaching a
+    -- stale uuid that the owner foreign key would reject anyway; those rows
+    -- stay ownerless beside their quarantined document.
+    update public.document_labels l
+    set owner_id = existing_owner.id, updated_at = now()
+    from public.document_corpus_access_snapshots snapshot
+    join auth.users existing_owner on existing_owner.id = snapshot.owner_id
+    where snapshot.activation_id = v_activation_id
+      and snapshot.document_id = l.document_id
+      and l.owner_id is null;
+
+    update public.document_summaries s
+    set owner_id = existing_owner.id, updated_at = now()
+    from public.document_corpus_access_snapshots snapshot
+    join auth.users existing_owner on existing_owner.id = snapshot.owner_id
+    where snapshot.activation_id = v_activation_id
+      and snapshot.document_id = s.document_id
+      and s.owner_id is null;
+
+    update public.document_table_facts f
+    set owner_id = existing_owner.id
+    from public.document_corpus_access_snapshots snapshot
+    join auth.users existing_owner on existing_owner.id = snapshot.owner_id
+    where snapshot.activation_id = v_activation_id
+      and snapshot.document_id = f.document_id
+      and f.owner_id is null;
+
     update public.document_corpus_access_state
     set mode = 'private', activation_id = null, activated_at = null, updated_at = now()
     where singleton;
@@ -9821,7 +9876,7 @@ end;
 $$;
 
 comment on function public.set_document_corpus_access_mode(text) is
-  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows; private mode restores surviving owners and quarantines deleted-owner rows from document and retrieval reads without rewriting derived artifacts.';
+  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows together with the three derived owner columns that are themselves retrieval visibility decisions (document_labels, document_summaries, document_table_facts); private mode restores surviving owners and quarantines deleted-owner rows from document and retrieval reads. Derived artifacts filtered through their parent document owner are never rewritten.';
 
 revoke all on function public.set_document_corpus_access_mode(text)
   from public, anon, authenticated, service_role;
