@@ -131,7 +131,11 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "routes",
     name: "Routes and modes",
-    summary: "Every page and all 15 modes",
+    // #L81: was "all 15 modes" — src/lib/app-modes.ts has carried 16 modes
+    // (none devOnly) since before this audit, and the routes page itself
+    // renders "App modes · 16" from the snapshot directly under this card.
+    // Count-free now so a future mode addition cannot drift this again.
+    summary: "Every page and every app mode",
     group: "reference",
     phase: 1,
     href: "/mockups/development/routes",
