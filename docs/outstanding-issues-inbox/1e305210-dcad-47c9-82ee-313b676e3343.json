@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "1e305210-dcad-47c9-82ee-313b676e3343",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "da8e92bb-f6ac-40a5-a6d8-b2927997730f",
+    "reason": "Superseded by the fix, and its finding is preserved rather than discarded. This update was RIGHT on the measurement and I was wrong to have closed the row over it: it established that the bare \\bleads\\b alternative sits ahead of the narrowed branch with no lookbehind, so every plural job title was still refused. That is exactly what has now been fixed, so an update describing the row as half done no longer describes it. One part of it should not be carried forward, which is why this is a cancel and not a merge: it proposed reusing COMMERCIAL_LEAD_PATTERN from src/lib/caring-contacts/message-rules.ts as the cheapest route, and since Ruling [143] on 2026-08-27 that pattern is term for term identical to the interface helper and carries the same bare \\bleads\\b, so reusing it would have changed nothing. The actual fix was to extend the existing job-title lookbehind to the plural, and to add a matching plural commercial-companion branch ahead of it so the exemption cannot license what follows the word it exempts. A done request follows with the outcome and the owner decision behind it."
+  }
+}
