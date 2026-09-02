@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "74f5d2b4-02bb-43ae-9fd5-2e78c5a717d9",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two test suites fail on a shallow clone, and the failure names a manifest rather than the clone depth",
+    "issueUlid": "01M1HW3BVC77NJE2ZG49Q2E7FR"
+  }
+}
