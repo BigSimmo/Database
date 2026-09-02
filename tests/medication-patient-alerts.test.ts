@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { composeMedicationVerdict } from "@/lib/medication-interactions";
 import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import {
   evaluatePatientAlerts,
@@ -150,13 +151,108 @@ describe("evaluatePatientAlerts — factor triggers", () => {
 });
 
 describe("evaluatePatientAlerts — partial / empty profile and unassessed", () => {
-  it("only evaluates supplied fields", () => {
+  it("only evaluates supplied fields, and reports the unread gate in the advisory tier", () => {
     const record = recordWith({ factors: ["renal"], action: "caution", match: { egfr: { lt: 30 } } });
-    // eGFR not supplied → caution row simply does not fire, and (not a
-    // contraindication) does not surface as unassessed.
+    // eGFR not supplied → the caution row does not fire, but the criterion was
+    // never evaluated, so it is stated as an advisory gap. It must NOT reach the
+    // contraindication tier, which drives the verdict's green→grey degrade.
     const result = evaluatePatientAlerts(record, { ageYears: 40 });
     expect(result.considerations).toHaveLength(0);
     expect(result.unassessed).toHaveLength(0);
+    expect(result.unassessedAdvisory).toEqual(["eGFR"]);
+    expect(result.unassessedAdvisoryCount).toBe(1);
+    // Supplied and non-firing: assessed, so neither tier reports a gap.
+    const assessed = evaluatePatientAlerts(record, { ageYears: 40, egfr: 50 });
+    expect(assessed.considerations).toHaveLength(0);
+    expect(assessed.unassessed).toHaveLength(0);
+    expect(assessed.unassessedAdvisory).toHaveLength(0);
+    expect(assessed.unassessedAdvisoryCount).toBe(0);
+  });
+
+  it("keeps collecting a row's remaining gates after it fires on another one", () => {
+    // Fires on pregnancy while eGFR is blank: the renal criterion is still
+    // unevaluated, and a fired row reporting no gap was the second discard.
+    const contra = recordWith({
+      factors: ["pregnancy", "renal"],
+      action: "contraindication",
+      match: { egfr: { lt: 30 } },
+    });
+    const fired = evaluatePatientAlerts(contra, { pregnant: true });
+    expect(reasons(fired.considerations)).toContain("Pregnancy");
+    expect(fired.unassessed).toEqual(["eGFR"]);
+    expect(fired.unassessedAdvisory).toHaveLength(0);
+
+    const advisory = recordWith({
+      factors: ["pregnancy", "renal"],
+      action: "dose-adjust",
+      match: { egfr: { lt: 30 } },
+    });
+    const firedAdvisory = evaluatePatientAlerts(advisory, { pregnant: true });
+    expect(reasons(firedAdvisory.considerations)).toContain("Pregnancy");
+    expect(firedAdvisory.unassessed).toHaveLength(0);
+    expect(firedAdvisory.unassessedAdvisory).toEqual(["eGFR"]);
+    expect(firedAdvisory.unassessedAdvisoryCount).toBe(1);
+  });
+
+  it("keeps the advisory tier out of the result-row verdict tone", () => {
+    // The workspace feeds only the contraindication tier into the verdict, so an
+    // advisory gap must not degrade a green row to grey. Pinned here because the
+    // partition is exactly what could change that by accident.
+    const record = recordWith({ factors: ["renal"], action: "caution", match: { egfr: { lt: 30 } } });
+    const alerts = evaluatePatientAlerts(record, { ageYears: 40 });
+    expect(alerts.unassessedAdvisory).toHaveLength(1);
+    const verdict = composeMedicationVerdict({
+      considerationTone: alerts.highestTone,
+      considerationCount: alerts.considerations.length,
+      unassessedCount: alerts.unassessed.length,
+      interactionTone: null,
+      interactionCount: 0,
+      unresolvedRowCount: 0,
+      unreachableCounterpartyCount: 0,
+    });
+    expect(verdict.tone).toBe("success");
+    expect(verdict.incomplete).toBe(false);
+  });
+
+  it("excludes info rows from both tiers", () => {
+    const record = recordWith({ factors: ["renal"], action: "info", match: { egfr: { lt: 30 } } });
+    const result = evaluatePatientAlerts(record, { ageYears: 40 });
+    expect(result.unassessed).toHaveLength(0);
+    expect(result.unassessedAdvisory).toHaveLength(0);
+    expect(result.unassessedAdvisoryCount).toBe(0);
+  });
+
+  it("counts advisory entries as rows, not as inputs", () => {
+    const record: MedicationRecord = {
+      ...recordWith({ factors: ["renal"], action: "monitor", match: { egfr: { lt: 30 } } }),
+      sections: [
+        {
+          title: "Test section",
+          type: "mon",
+          rows: [
+            {
+              key: "A",
+              val: "row text",
+              patient: { factors: ["renal"], action: "monitor", match: { egfr: { lt: 30 } } },
+            },
+            {
+              key: "B",
+              val: "row text",
+              patient: { factors: ["renal"], action: "dose-adjust", match: { egfr: { lt: 20 } } },
+            },
+            {
+              key: "C",
+              val: "row text",
+              patient: { factors: ["qtc"], action: "caution", match: { qtc: { gte: 450 } } },
+            },
+          ],
+        },
+      ],
+    };
+    const result = evaluatePatientAlerts(record, { ageYears: 40 });
+    // One shared input across two rows plus a second input: three entries, two inputs.
+    expect(result.unassessedAdvisory).toEqual(["QTc", "eGFR"]);
+    expect(result.unassessedAdvisoryCount).toBe(3);
   });
 
   it("flags a contraindication gate that could not be assessed", () => {
@@ -169,6 +265,19 @@ describe("evaluatePatientAlerts — partial / empty profile and unassessed", () 
     const assessed = evaluatePatientAlerts(record, { egfr: 50 });
     expect(assessed.considerations).toHaveLength(0);
     expect(assessed.unassessed).toHaveLength(0);
+  });
+
+  it("treats a recorded hepatic 'none' as assessed, and a never-entered one as a gap", () => {
+    const record = recordWith({ factors: ["hepatic"], action: "contraindication", match: { hepatic: ["severe"] } });
+    // "None" is a real answer: the criterion was evaluated and did not fire.
+    const recorded = evaluatePatientAlerts(record, { ageYears: 40, hepatic: "none" });
+    expect(recorded.considerations).toHaveLength(0);
+    expect(recorded.unassessed).toHaveLength(0);
+    expect(recorded.unassessedAdvisory).toHaveLength(0);
+    // Never entered: the same blank the panel used to store for "None".
+    const notRecorded = evaluatePatientAlerts(record, { ageYears: 40 });
+    expect(notRecorded.considerations).toHaveLength(0);
+    expect(notRecorded.unassessed).toEqual(["hepatic status"]);
   });
 
   it("treats an empty profile as empty and surfaces no considerations", () => {
@@ -206,14 +315,21 @@ describe("evaluatePatientAlerts — bare-renal fail-safe (no false all-clear on 
     expect(reasons(evaluatePatientAlerts(record, { egfr: 20 }).considerations)).toContain("Renal impairment (eGFR 20)");
   });
 
-  it("leaves non-contraindication bare-renal rows unchanged (unassessed is contraindication-only)", () => {
-    // This is why the ||-guard is a no-op on the current corpus: every existing
-    // bare-renal row is advisory (monitor/dose-adjust/caution/info), and missingGates
-    // is only promoted to unassessed for contraindication rows.
+  it("routes a non-contraindication bare-renal row to the advisory tier, never the blocking one", () => {
+    // Every existing bare-renal row in the corpus is advisory
+    // (monitor/dose-adjust/caution/info). The ||-guard fires for them too, but
+    // its gate belongs in the advisory tier: `unassessed` stays
+    // contraindication-only so the verdict's green→grey degrade keeps its meaning.
     const record = recordWith({ factors: ["renal"], action: "monitor", match: {} });
     const result = evaluatePatientAlerts(record, { crcl: 90 });
     expect(result.considerations).toHaveLength(0);
     expect(result.unassessed).toHaveLength(0);
+    expect(result.unassessedAdvisory).toEqual(["eGFR or CrCl"]);
+    expect(result.unassessedAdvisoryCount).toBe(1);
+    // Both renal inputs present and non-firing: assessed at the advisory tier too.
+    const both = evaluatePatientAlerts(record, { egfr: 90, crcl: 90 });
+    expect(both.unassessed).toHaveLength(0);
+    expect(both.unassessedAdvisory).toHaveLength(0);
   });
 });
 

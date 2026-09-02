@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "730dbc7bfa67bc8ebbee1f8ea107ce3dd2ffcf27",
-    "committed_at": "2026-09-02T19:44:14+00:00"
+    "sha": "b78571115b609fdda841ed1bcb8106fdbfa96a63",
+    "committed_at": "2026-09-02T20:36:37+00:00"
   },
   "routes": {
     "modes": [
@@ -1861,12 +1861,22 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/cloud-session.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/complete-work-ledger.md",
         "section": "care-plan",
         "catalogued": false
       },
       {
         "path": "docs/care-plan/conversation-transcript-2026-08-21.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/HANDOFF-2026-08-24-SUPERSEDED.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -1882,6 +1892,11 @@
       },
       {
         "path": "docs/care-plan/interaction-matrix.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/patient-facing-sheets/README.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -4417,9 +4432,9 @@
       }
     ],
     "counts": {
-      "documents": 583,
+      "documents": 586,
       "catalogued": 114,
-      "uncatalogued": 469,
+      "uncatalogued": 472,
       "sections": 21
     }
   },
@@ -24551,6 +24566,14 @@
         "scope": "Run PR sweep: main sync",
         "outcome": "before: CI already green on prior head; branch behind main only (mergeable_state: behind), confirmed clean via git merge-tree. No fix needed. Synced via mcp__github__update_pull_request_branch (authenticated human identity). No unresolved review threads. CI re-running on new head.",
         "checks": "no local gate re-run needed (prior head was fully green); no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/care-plan-next (PR #2528)",
+        "head": "f71db1dbaa78b14109363183a3ed9f6e84810259",
+        "scope": "Run PR sweep: review threads + main sync",
+        "outcome": "Fixed 1 of 3 Codex P2 threads: added the in-file SUPERSEDED banner to HANDOFF-2026-08-24-SUPERSEDED.md. Two threads replied to and left open for the owner: the reserved-fiction-range mobile numbers and the capture provenance both require regenerating the captures from a pinned commit using the git-ignored evidence atlas, which is not reachable from a cloud session, and hand-editing the captures would falsify the provenance the second thread is about. Merged origin/main (65 behind, merge-tree clean, no conflicts).",
+        "checks": "prettier --check . (All matched files use Prettier code style!); docs:check-links (4811 references resolve); check:repo-awareness-snapshot (in step, 579 documents); no provider-backed checks run"
       },
       {
         "date": "2026-07-25",
