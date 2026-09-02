@@ -142,7 +142,7 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 | Gate                                      | What it is                                                                                                                                                                                   |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                     |
-| `npm run verify:cheap`                    | The broad local gate: 34 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
+| `npm run verify:cheap`                    | The broad local gate: 35 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
 | `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection. |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                    |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                      |
@@ -189,9 +189,15 @@ These fail builds, so they are worth knowing before you write code:
   clinical-risk diff lacks a complete `## Clinical Governance Preflight` or a RAG-surface
   diff lacks a satisfying `RAG impact:` line. Write those in full prose from
   `.github/pull_request_template.md`, structure verbatim — paraphrasing silently fails.
-- **Mockups are exempt from two gates, not all of them.** `src/app/mockups/**` and `*-mockups.tsx`
-  are design scratch and 404 in production, so they sit outside the **wiring** and **reachability**
-  gates — and nothing else. They are still compiled: they are typechecked like any source, and their
+- **Mockups are exempt from more gates than these docs used to admit.** `src/app/mockups/**` and `*-mockups.tsx`
+  sit outside the **wiring** and **reachability** gates — and, corrected 2026-09-02, also outside
+  `no-hardcoded-hex`, `require-z-index-ladder`, `require-lucide-icon-aria`, `check:icon-scale`,
+  `check:design-system-contract`, the required Playwright lane, CodeRabbit, and **`knip` entirely**,
+  so the repo's own unused-code detector is blind to this surface. Nor do they all 404 in
+  production: `/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan` and
+  `/mockups/ward-flow` are live behind an administrator gate and linked from Settings. Retiring any
+  mockup is governed by `docs/mockup-retirement-policy.md` (`npm run check:mockups`). They are still
+  compiled: they are typechecked like any source, and their
   client chunks are still weighed by `check:bundle-budget` — but since 2026-08-09 against a separate
   `mockups` scratch baseline (tolerance 25%), not the `production` one (tolerance 10%). That split
   reconciled `/issues` `#013` and `#252`: the old single total charged design scratch against a

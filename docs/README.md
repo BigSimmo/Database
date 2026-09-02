@@ -27,6 +27,7 @@ npm run docs:check-links
 - [frontend-architecture.md](frontend-architecture.md) — shell, routing, dashboard module structure
 - [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
+- [mockup-retirement-policy.md](mockup-retirement-policy.md) — when a mockup may be deleted, who decides, what evidence is required, and the three tiers that keep developer-gated prototypes out of cleanup scope
 - [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states

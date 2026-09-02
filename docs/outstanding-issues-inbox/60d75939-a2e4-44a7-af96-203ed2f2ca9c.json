@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "60d75939-a2e4-44a7-af96-203ed2f2ca9c",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The calculators mockup still serves prescribing, ECT and admission directives that PR #2491 removed from production on clinical-safety grounds",
+    "issueUlid": "01M1G736K10JGJTKXM4A3QKVY9"
+  }
+}
