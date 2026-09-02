@@ -1,4 +1,5 @@
 import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { clinicalAskEnabled } from "@/lib/clinical-ask/authority-registry";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { transcribeClinicalAskAudio } from "@/lib/openai";
@@ -16,6 +17,12 @@ const noStore = (response: Response) => {
 
 export async function POST(request: Request) {
   try {
+    // Dormant by default: when the Clinical Ask master flag is off this route
+    // does not exist. Answer before any auth lookup, rate-limiter write, or
+    // provider call so `CLINICAL_ASK_ENABLED=false` is a full rollback (M16).
+    if (!clinicalAskEnabled()) {
+      return noStore(jsonError(new PublicApiError("Not found.", 404, { code: "not_found" }), 404));
+    }
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
     const rateLimit = await consumeSubjectApiRateLimit({
