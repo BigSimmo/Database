@@ -1,9 +1,60 @@
 # Decision: restoring automated review coverage (`#CCZ4HB`)
 
-- **Status:** recommendation, awaiting the user's decision
-- **Issue:** `#CCZ4HB` (P1, recommendation), recorded 2026-08-18
+- **Status:** decided 2026-08-22 (accept intermittent CodeRabbit review; no cap change) and
+  the row closed — but see the 2026-09-02 correction below, which removes the premise that
+  decision rested on. The header below was never updated when the decision was taken.
+- **Issue:** `#CCZ4HB` (recommendation, now closed), recorded 2026-08-18
 - **Written:** 2026-08-22
 - **Scope:** analysis only. No product code, workflow, or configuration was changed by this document.
+
+---
+
+## CORRECTION, 2026-09-02: the operative blocker is an eligibility gate, not the budget
+
+**Read this before acting on anything below.** The analysis that follows diagnoses a
+budget/rate problem and recommends conserving review credits. That diagnosis does not describe
+what is stopping CodeRabbit today, and every recommendation derived from it is aimed at the
+wrong constraint.
+
+**What was observed.** On 2026-09-02, across PRs #2522 and #2542, CodeRabbit posted the same
+message three times, verbatim:
+
+> This repository does not receive automatic reviews because it has fewer than 10 stars.
+
+The same run configuration reported `Plan: Team` and `Review profile: CHILL`, reading
+`.coderabbit.yaml`. The GitHub API confirms the premise: `BigSimmo/Database` has
+`stargazers_count: 0`.
+
+**Why that matters.** This is a categorical eligibility gate, not a consumption limit. While it
+holds, freeing credits cannot produce a review — so lever 1 (exclude docs-only PRs), lever 2
+(stop bookkeeping-only PRs), and lever 3 (raise the spend cap) cannot reach the stated goal of
+restoring CodeRabbit coverage, however sound they are on their own merits.
+
+**A second, separate gate.** While a PR is a draft, CodeRabbit reports instead: _"Draft PRs are
+not automatically reviewed by default."_ So a draft PR is skipped for that reason, and an
+undrafted one for the star count. Undrafting does not buy a review.
+
+**The doc's "two robot reviewers" framing is also out of date.**
+
+| Reviewer        | State on 2026-09-02                                                                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CodeRabbit      | Blocked by the star-count eligibility gate. Not reviewing.                                                                                                            |
+| Codex connector | **Working.** Reviewed both PRs and raised a correct P2 finding on #2522 — a handover document that contradicted its own status banner — which was fixed in `87ee0c7`. |
+| Cursor Bugbot   | _"Bugbot couldn't run — usage limit reached."_ This is the tool actually hitting a spend limit, and it is not one of the two this document analyses.                  |
+
+So automated review coverage is **not** absent, as the summary below states. It is Codex-only,
+for a reason this document does not name.
+
+**What is NOT verified, and must be before acting.** I did not check CodeRabbit's published
+policy, changelog, or support channels. Whether the star gate is new, whether it applies to the
+Team plan as configured, whether a private or paid repository is exempt, and whether it can be
+waived are all unknown. **The next step is to ask the vendor, not to act on this inference.** If
+the gate turns out to be waivable or misapplied, the budget analysis below may become the
+operative constraint again — which is why it is preserved in full rather than rewritten.
+
+**What still stands.** The measurement work below is unaffected and remains useful: about a
+quarter of merged PRs are prose-only, the caveat that merge share is not credit share, and the
+argument against a same-file branch gate (87% of PRs would trip it).
 
 ---
 
