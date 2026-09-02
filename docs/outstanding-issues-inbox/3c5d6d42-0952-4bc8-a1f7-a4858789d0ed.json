@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3c5d6d42-0952-4bc8-a1f7-a4858789d0ed",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#CTA8CR",
+    "outcome": "Fixed in PR #2520. Verified against main at 45a3dca: the two sites the row named, and docs/database-remediation-coordination.md:159, were already corrected before this session, and the third instance the row cited as the convention had its pointer added by PR #2476. One bare claim survived at the Phase 4 production-push step, where the pre-flight's 'exactly the four new versions' reading was offered as confirmation that auto-deploy is off - the precise inference §D4 refutes, since it tested deploy-while-open rather than deploy-on-merge. It now carries the same one-line superseded pointer. The claim itself stands: the document's convention is to point forward, not rewrite a forensics record.",
+    "baseRowFingerprint": "702c44c81097ecc58d5eb1d31de14d87c93b7fe3418892ee2e434aaf0c0c3155"
+  }
+}
