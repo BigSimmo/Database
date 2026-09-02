@@ -129,16 +129,17 @@ npm run docs:check-links
 
 ## Subdirectory map
 
-| Directory                        | What lives there                                                                                                      |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [rag-behaviour/](rag-behaviour/) | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.** |
-| [prompts/](prompts/)             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                        |
-| [codex/](codex/)                 | Per-lens Codex ultra-review output folders, one per review dimension                                                  |
-| [evidence/](evidence/)           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                              |
-| [audit/](audit/)                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                 |
-| [redesign/](redesign/)           | Premium redesign plans, decision log, token adoption                                                                  |
-| [superpowers/](superpowers/)     | Agent-authored plans and specs                                                                                        |
-| [archive/](archive/)             | Completed phase plans, superseded designs, old progress logs — never current guidance                                 |
+| Directory                        | What lives there                                                                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [agents/](agents/)               | Agent-rule reference files `AGENTS.md` delegates to by name — the full text of rules its always-loaded core only points at |
+| [rag-behaviour/](rag-behaviour/) | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.**      |
+| [prompts/](prompts/)             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                             |
+| [codex/](codex/)                 | Per-lens Codex ultra-review output folders, one per review dimension                                                       |
+| [evidence/](evidence/)           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                                   |
+| [audit/](audit/)                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                      |
+| [redesign/](redesign/)           | Premium redesign plans, decision log, token adoption                                                                       |
+| [superpowers/](superpowers/)     | Agent-authored plans and specs                                                                                             |
+| [archive/](archive/)             | Completed phase plans, superseded designs, old progress logs — never current guidance                                      |
 
 ## Point-in-time records (historical — do not update)
 
