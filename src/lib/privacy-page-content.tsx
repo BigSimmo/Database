@@ -130,9 +130,10 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     id: "who-can-access",
     heading: "Who can access your data",
     short: "Access",
-    gist: "Owner-scoped rows · private buckets · time-limited links",
+    gist: "Shared public corpus · owner-scoped rows · private buckets",
     body: [
-      "Every document, log row, and saved item is stamped with the account that owns it, and database row-level security restricts reads to that owner. There is no shared corpus across accounts: another signed-in user cannot search, retrieve, or cite your uploads.",
+      "There are two tiers here, and the difference matters. Reference documents the operator has published to the shared public corpus are searchable, retrievable, and citable by every account, and by anyone who reaches the site without signing in. That is deliberate: the corpus is guideline and reference material rather than patient data, and it is what the search and answer features read.",
+      "Everything else stays with its account. Uploads that have not been published, along with your log rows and saved items, are stamped with the account that owns them, and database row-level security restricts reads to that owner, so another signed-in user cannot search, retrieve, or cite them. Publishing a document into the shared corpus is an operator action; another user cannot trigger it.",
       "Document and image files sit in private storage buckets with no direct browser access. A file opens through a short-lived link that the server mints only after checking that your account owns the parent record, and those links expire after ten minutes by default. Within that window the link is usable by anyone holding it, so treat a copied link as the document itself.",
       "Administrative access is a separate question from user access. Server-side work such as ingestion runs with elevated database credentials that are never exposed to the browser, and privileged actions are written to an append-only audit record. The operator of the deployment can also reach stored data through the database provider's own console; who holds that access is an operator control, not an application one.",
     ],

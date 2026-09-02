@@ -115,4 +115,19 @@ describe("privacy page interaction", () => {
     expect(gist?.textContent).toContain("30-day queries");
     expect(gist?.getAttribute("aria-hidden")).toBeNull();
   });
+
+  /**
+   * M7: migrations promote indexed documents to the null-owner public corpus and
+   * `/api/search` serves it to unauthenticated callers, so the notice must not
+   * claim owner isolation is the only access tier.
+   */
+  it("describes the shared public corpus alongside owner-scoped uploads", () => {
+    render(<PrivacyQuietSignalPage />);
+
+    const { panel } = panelFor("Who can access your data");
+    expect(panel.textContent).not.toContain("There is no shared corpus across accounts");
+    expect(panel.textContent).toContain("shared public corpus");
+    expect(panel.textContent).toContain("without signing in");
+    expect(panel.textContent).toContain("row-level security");
+  });
 });
