@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "fe3bd38328f7b5a149d694181f8a30208bda4cb4",
-    "committed_at": "2026-09-02T07:57:49+00:00"
+    "sha": "63bdae5434061ba42f55d51f65598879c96c063f",
+    "committed_at": "2026-09-02T08:23:32+00:00"
   },
   "routes": {
     "modes": [
@@ -3401,16 +3401,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/scripts-index.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/scripts-index.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
         "path": "docs/search-chrome-behaviour.md",
         "section": "root",
         "catalogued": true
@@ -4427,8 +4417,8 @@
       }
     ],
     "counts": {
-      "documents": 578,
-      "catalogued": 113,
+      "documents": 576,
+      "catalogued": 111,
       "uncatalogued": 465,
       "sections": 21
     }
