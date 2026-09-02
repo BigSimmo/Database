@@ -132,6 +132,53 @@ describe("clinical safety findings", () => {
     expect(findings[0].text).not.toMatch(/Source mentions|PAE-PRO-0338|Page 5 of 5|Chunk index/i);
   });
 
+  // Audit M9: the document-code scrub carried the `i` flag, so
+  // `[A-Z]{2,}(?:-[A-Z0-9]+)+` matched any lowercase hyphenated word after
+  // protocol/policy/procedure and deleted the subject of the sentence.
+  it("keeps ordinary hyphenated phrases after protocol, policy or procedure (M9)", () => {
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote: "Follow the clozapine protocol re-challenge only after haematology review.",
+        },
+        {
+          chunk_id: "chunk-2",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 2,
+          chunk_index: 1,
+          section_heading: null,
+          quote: "Per local policy co-prescribing of two antipsychotics requires senior review first.",
+        },
+        {
+          chunk_id: "chunk-3",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 3,
+          chunk_index: 2,
+          section_heading: null,
+          quote: "Procedure post-operative delirium monitoring: repeat FBC daily.",
+        },
+      ],
+      sources: [],
+    });
+
+    const texts = findings.map((finding) => finding.text).join(" | ");
+    expect(texts).toContain("protocol re-challenge");
+    expect(texts).toContain("policy co-prescribing");
+    expect(texts).toContain("post-operative delirium monitoring");
+  });
+
   it("sorts safety findings by clinical severity", () => {
     const findings: SafetyFinding[] = [
       {

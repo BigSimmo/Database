@@ -64,7 +64,17 @@ function conciseSourceText(text: string) {
   const normalized = normalizeText(
     (sourceTextForCompactDisplay(useful.text || text) || sourceTextForDisplay(text))
       .replace(/\bsource mentions\s*:?\s*/gi, "")
-      .replace(/\b(?:procedure|policy|protocol)\s+[A-Z]{2,}(?:-[A-Z0-9]+)+(?:\/\d+)?\b[\s.:-]*/gi, "")
+      // Audit M9: this scrub removes a document code such as
+      // "Procedure PAE-PRO-0338/16". With the `i` flag it also matched any
+      // lowercase hyphenated word, so "protocol re-challenge",
+      // "policy co-prescribing" and "procedure post-operative" lost the subject
+      // of the sentence in a rendered Safety finding. The keyword stays
+      // case-insensitive by spelling; the code itself must be upper case and
+      // must contain a digit, which every real code does.
+      .replace(
+        /\b(?:[Pp]rocedure|[Pp]olicy|[Pp]rotocol)\s+(?=[A-Z0-9/-]*\d)[A-Z]{2,}(?:-[A-Z0-9]+)+(?:\/\d+)?\b[\s.:-]*/g,
+        "",
+      )
       .replace(/\bpage\s+\d+\s+of\s+\d+\b[\s.:-]*/gi, "")
       .replace(/\bchunk\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]+\b[\s.:-]*/gi, ""),
   );
