@@ -17,12 +17,15 @@
   --rs-heading: var(--text-heading);
   --rs-muted: var(--text-muted);
   --rs-disabled: var(--disabled);
+  --rs-space-3: 0.1875rem;
   --rs-space-4: 0.25rem;
   --rs-space-6: 0.375rem;
   --rs-space-8: 0.5rem;
   --rs-space-10: 0.625rem;
   --rs-space-12: 0.75rem;
   --rs-space-16: 1rem;
+  /* The count pill sets its own height, so its text box must not add leading. */
+  --rs-leading-none: 1;
   --rs-tap: var(--spacing-tap);
   --rs-menu-width: 16rem;
   --rs-menu-gap: var(--rs-space-8);
@@ -162,11 +165,11 @@
   min-width: 0.875rem;
   height: 0.875rem;
   place-items: center;
-  padding: 0 0.1875rem;
+  padding: 0 var(--rs-space-3);
   border-radius: var(--radius-md);
   background: var(--rs-blue);
   color: var(--rs-canvas);
   font-size: var(--text-2xs);
   font-weight: 600;
-  line-height: 1;
+  line-height: var(--rs-leading-none);
 }

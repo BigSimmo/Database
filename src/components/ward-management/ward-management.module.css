@@ -199,7 +199,7 @@
   flex-shrink: 0;
   width: 2rem;
   height: 0.0625rem;
-  margin: 0.25rem 0 0.625rem;
+  margin: var(--ward-space-4) 0 var(--ward-space-10);
   background: var(--ward-border);
 }
 
@@ -307,7 +307,7 @@
   display: grid;
   width: 3rem;
   height: 3rem;
-  margin-top: 0.5rem;
+  margin-top: var(--ward-space-8);
   place-items: center;
   border: 0.0625rem solid var(--ward-blue-border);
   border-radius: var(--radius-pill, 9999px);
@@ -390,7 +390,7 @@
 
 .stageNumber {
   align-self: start;
-  margin-top: 0.125rem;
+  margin-top: var(--ward-space-2);
   font-size: var(--text-2xs);
   font-weight: 700;
 }
@@ -421,7 +421,7 @@
 }
 
 .stage b {
-  margin-top: 0.125rem;
+  margin-top: var(--ward-space-2);
   font-size: var(--text-sm);
   font-weight: 700;
   line-height: var(--ward-leading-compact);
@@ -438,7 +438,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--ward-space-6);
-  margin-top: 0.625rem;
+  margin-top: var(--ward-space-10);
   color: var(--ward-muted);
   font-size: var(--text-2xs);
   font-weight: 650;
@@ -566,7 +566,7 @@
 }
 
 .workspaceSummary h2 {
-  margin-top: 0.25rem;
+  margin-top: var(--ward-space-4);
   color: var(--ward-heading);
   font-size: var(--text-2xl);
   font-weight: 650;
@@ -574,7 +574,7 @@
 }
 
 .workspaceSummary p {
-  margin-top: 0.25rem;
+  margin-top: var(--ward-space-4);
   color: var(--ward-muted);
   font-size: var(--text-sm);
 }
@@ -645,7 +645,7 @@
 }
 
 .workspaceGrid h3 {
-  margin-top: 1rem;
+  margin-top: var(--ward-space-16);
   color: var(--ward-heading);
   font-size: var(--text-xs);
   font-weight: 650;
@@ -654,7 +654,7 @@
 .factList {
   display: grid;
   gap: var(--ward-space-10);
-  margin-top: 0.75rem;
+  margin-top: var(--ward-space-12);
 }
 
 .factList div {
@@ -681,7 +681,7 @@
 .timeline {
   display: grid;
   gap: var(--ward-space-10);
-  margin-top: 0.75rem;
+  margin-top: var(--ward-space-12);
   list-style: none;
 }
 
@@ -761,7 +761,7 @@
 }
 
 .contextPanel p {
-  margin-top: 0.5rem;
+  margin-top: var(--ward-space-8);
   color: var(--ward-muted);
   font-size: var(--text-sm);
   line-height: var(--ward-leading-prose);
@@ -908,7 +908,7 @@
   flex-wrap: wrap;
   gap: var(--ward-space-10);
   align-items: flex-end;
-  margin-top: 0.75rem;
+  margin-top: var(--ward-space-12);
 }
 
 .blockerLabel {

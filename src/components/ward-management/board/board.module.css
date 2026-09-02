@@ -592,7 +592,7 @@
   border-style: dashed;
   border-color: var(--border-strong);
   background: transparent;
-  color: var(--text-soft);
+  color: var(--text-muted);
 }
 
 /*
@@ -2112,9 +2112,9 @@
 .leaving {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
+  gap: var(--wb-space-8);
+  margin-top: var(--wb-space-12);
+  padding-top: var(--wb-space-12);
   border-top: 1px solid var(--border);
 }
 
@@ -2126,9 +2126,9 @@
 
 .leavingSelect {
   min-height: 3rem;
-  padding: 0 0.75rem;
+  padding: 0 var(--wb-space-12);
   border: 1px solid var(--wb-control-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -2136,9 +2136,9 @@
 
 .leavingButton {
   min-height: 3rem;
-  padding: 0 1rem;
+  padding: 0 var(--wb-space-16);
   border: 1px solid var(--clinical-accent);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   background: var(--clinical-accent);
   color: var(--clinical-accent-contrast);
   font: inherit;
@@ -2159,9 +2159,9 @@
  */
 .awayButton {
   min-height: 3rem;
-  padding: 0 1rem;
+  padding: 0 var(--wb-space-16);
   border: 1px solid var(--wb-control-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   font: inherit;

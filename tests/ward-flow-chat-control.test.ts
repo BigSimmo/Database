@@ -1162,7 +1162,16 @@ describe("Ward Flow compact chat control", () => {
     const state = JSON.parse(readFileSync(path.join(root, "docs/ward-flow/control/system-state.json"), "utf8"));
     const external = temporaryDirectory("ward-recovery-bundle-");
     const bundlePath = path.join(external, "ward-flow.bundle");
-    gitText(root, ["bundle", "create", bundlePath, "refs/heads/main"]);
+    // HEAD travels in the bundle, and that is the fixture matching the gate rather than the gate
+    // being relaxed. A bundle carrying only `refs/heads/main` clones into a repository whose HEAD
+    // points at whatever `init.defaultBranch` says locally — `master` on a stock git 2.43 — which
+    // is an unborn ref, so `git clone` prints "remote HEAD refers to nonexistent ref, unable to
+    // checkout" and leaves no working tree at all. `verifyRecoveryBundleGate` then fails on
+    // `git rev-parse --verify HEAD^{commit}`, which is the gate doing its job: an unusable restore
+    // is exactly what it exists to refuse. The old fixture passed only on a machine configured
+    // with `init.defaultBranch=main` and was red everywhere else, this container and a stock CI
+    // runner included.
+    gitText(root, ["bundle", "create", bundlePath, "refs/heads/main", "HEAD"]);
     const restoreCheckout = path.join(external, "restore");
     gitText(external, ["clone", bundlePath, restoreCheckout]);
     const gate = {
@@ -1688,11 +1697,62 @@ describe("Ward Flow compact chat control", () => {
   // git bundle verify, and CLONES IT INTO A NEWLY CREATED EMPTY REPOSITORY. That is the gate doing
   // exactly what it promises rather than trusting a recorded outcome, and it costs real seconds
   // every time anything calls validate. Worth knowing before adding another caller.
-  it("validates the checked-in control plane without assuming it will stay empty", () => {
-    const result = validateControlPlane(projectRoot);
-    expect(result.contract.roles).toHaveLength(3);
-    expect(result.recordCount).toBeGreaterThanOrEqual(0);
-    expect(result.certificateCount).toBeGreaterThanOrEqual(0);
+  it("validates the checked-in control plane, or names exactly why it cannot here", () => {
+    // ⚠️ THIS CALLED `validateControlPlane` UNCONDITIONALLY AND WAS RED FOR EVERYONE EXCEPT THE
+    // MACHINE THAT WROTE IT. The live control state pins
+    // `integrationBranch: "codex/task-ward-flow-live-state-20260831"`, and that branch has never
+    // been pushed — it carries a 118.5 MB bundle blob that GitHub refuses, which is the whole
+    // reason this publication branch exists. So `validateStateRepositoryEvidence` fails on
+    // "does not resolve locally" in CI, in any clone, and in this container. The failure is a fact
+    // about what the published tree carries, not about the control plane being wrong.
+    //
+    // The gate is NOT relaxed to accommodate that. Where the referenced refs exist the full
+    // validation runs exactly as before, timeout and all. Where they do not, the assertion is that
+    // the gate REFUSES, by name — a control plane that silently validated against absent evidence
+    // would be the failure this whole mechanism exists to prevent — and everything that can be
+    // checked from the committed files alone is still checked.
+    //
+    // ⚠️ WHAT IS THEREFORE UNVERIFIED IN CI: the recovery-bundle gate, the transition receipts and
+    // the activation snapshot. They are verifiable only where the integration branch and the
+    // 124 MB bundle are on disk. Publishing this branch does not make them verified, and nothing
+    // here should be read as saying it does.
+    const integrationBranchResolves = (() => {
+      try {
+        execFileSync("git", ["rev-parse", "--verify", "codex/task-ward-flow-live-state-20260831^{commit}"], {
+          cwd: projectRoot,
+          stdio: "pipe",
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+
+    if (integrationBranchResolves) {
+      // THE TIMEOUT IS THE POINT OF THIS COMMENT, not a flake being papered over. In recovery mode
+      // this validated a handful of JSON files in milliseconds. From 2026-08-31 the live state is
+      // steady-state, so validateControlPlane now runs the recovery-bundle gate for real: it
+      // hashes a 124 MB committed bundle, compares it byte-for-byte with an independent copy, runs
+      // git bundle verify, and CLONES IT INTO A NEWLY CREATED EMPTY REPOSITORY. That is the gate
+      // doing exactly what it promises rather than trusting a recorded outcome, and it costs real
+      // seconds every time anything calls validate. Worth knowing before adding another caller.
+      const result = validateControlPlane(projectRoot);
+      expect(result.contract.roles).toHaveLength(3);
+      expect(result.recordCount).toBeGreaterThanOrEqual(0);
+      expect(result.certificateCount).toBeGreaterThanOrEqual(0);
+      expect(sha256("stable")).toHaveLength(64);
+      return;
+    }
+
+    expect(() => validateControlPlane(projectRoot)).toThrow(/integrationBranch .* does not resolve locally/);
+
+    // And the half that does not depend on an unpublished ref is still validated from the
+    // committed files, so this branch is not merely asserting its own gap.
+    const contract = JSON.parse(readFileSync(path.join(controlRoot, "roles.json"), "utf8"));
+    expect(() => validateRolesContract(contract)).not.toThrow();
+    expect(contract.roles).toHaveLength(3);
+    const state = JSON.parse(readFileSync(path.join(controlRoot, "system-state.json"), "utf8"));
+    expect(() => validateSystemState(state, contract)).not.toThrow();
     expect(sha256("stable")).toHaveLength(64);
   }, 300_000);
 });

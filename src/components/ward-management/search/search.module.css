@@ -15,6 +15,8 @@
   --ps-space-24: 1.5rem;
   --ps-space-48: var(--spacing-tap);
   --ps-leading-body: 1.4;
+  /* The one measure on this screen that runs to a second line: a referral note is prose. */
+  --ps-leading-prose: 1.5;
 
   display: grid;
   min-height: 100dvh;
@@ -278,7 +280,7 @@
 .referralNote {
   color: var(--text-muted);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: var(--ps-leading-prose);
 }
 
 .tableScroll {
