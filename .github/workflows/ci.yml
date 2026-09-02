@@ -295,8 +295,12 @@ jobs:
       # Refuses a diff that guts a test file of its cases, or commits a tool's truncation
       # banner as source. Both are the #Y30AXB shape: a regenerated-not-edited file whose
       # gutted suite would have merged on a green run had a merge conflict not intervened.
+      # Deliberately unconditional, matching verify:pr-local's commonScripts. Rule 2 is an
+      # all-file invariant: a tool truncation banner lands in YAML or markdown as easily as in
+      # a spec, and a workflow-only diff sets none of the scope predicates (verify with
+      # `node scripts/ci-change-scope.mjs --files .github/workflows/ci.yml`), so any predicate
+      # list here is a hole. The gate only diffs and parses changed files, so it is cheap.
       - name: Diff integrity
-        if: needs.changes.outputs.coverage_changed == 'true' || needs.changes.outputs.ui_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true' || needs.changes.outputs.docs_changed == 'true'
         env:
           DIFF_INTEGRITY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: npm run check:diff-integrity

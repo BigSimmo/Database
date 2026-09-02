@@ -490,7 +490,12 @@ export function evaluate({ base, git = NODE_GIT, config, readWorkingFile }) {
       continue;
     }
 
-    const afterSource = afterPath ? readAfter(afterPath) : null;
+    // A rename OUT of a test filename (tests/a.test.ts -> src/a.ts) leaves the bodies intact
+    // but the runner no longer discovers any of them, so the after-state is zero however many
+    // `test(...)` calls the destination still contains. Counting the destination would report
+    // 20 -> 20 and pass on a diff that silently removed twenty cases from the suite.
+    const afterIsTestFile = afterPath !== null && isTestFile(afterPath);
+    const afterSource = afterIsTestFile ? readAfter(/** @type {string} */ (afterPath)) : null;
     const before = countTestCases(beforeSource, beforePath);
     const after = afterSource === null ? 0 : countTestCases(afterSource, afterPath ?? beforePath);
     verdicts.push(

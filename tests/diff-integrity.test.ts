@@ -414,6 +414,37 @@ describe("evaluate", () => {
     expect(result.verdicts[0].message).toContain("refusing to pass without the before-state");
   });
 
+  it("counts a rename out of a test filename as total loss, not as unchanged", () => {
+    // tests/a.test.ts -> src/a.ts keeps every `test(...)` body, so counting the destination
+    // reports 20 -> 20 and passes, even though the runner discovers none of them any more.
+    const source = Array.from({ length: 20 }, (_, index) => `test("case ${index}", () => {});`).join("\n");
+    const git = (args: string[]) =>
+      args[0] === "diff" && args[1] === "--name-status"
+        ? ["R100", "tests/a.test.ts", "src/a.ts", ""].join("\0")
+        : args[0] === "show"
+          ? source
+          : "";
+    const result = evaluate({ base: "d".repeat(40), git, config, readWorkingFile: () => source });
+    const verdict = result.verdicts[0];
+    expect(verdict.before).toBe(20);
+    expect(verdict.after).toBe(0);
+    expect(result.aggregate.ok).toBe(false);
+  });
+
+  it("still follows a rename that stays within test filenames", () => {
+    const source = Array.from({ length: 20 }, (_, index) => `test("case ${index}", () => {});`).join("\n");
+    const git = (args: string[]) =>
+      args[0] === "diff" && args[1] === "--name-status"
+        ? ["R100", "tests/a.test.ts", "tests/b.test.ts", ""].join("\0")
+        : args[0] === "show"
+          ? source
+          : "";
+    const result = evaluate({ base: "e".repeat(40), git, config, readWorkingFile: () => source });
+    expect(result.verdicts[0].before).toBe(20);
+    expect(result.verdicts[0].after).toBe(20);
+    expect(result.aggregate.ok).toBe(true);
+  });
+
   it("counts an added spec towards the aggregate so a replacement nets out", () => {
     const before = Array.from({ length: 20 }, (_, index) => `test("case ${index}", () => {});`).join("\n");
     const after = Array.from({ length: 20 }, (_, index) => `test("moved ${index}", () => {});`).join("\n");
@@ -434,6 +465,28 @@ describe("evaluate", () => {
     expect(result.aggregate.after).toBe(20);
     expect(result.aggregate.ok).toBe(true);
     expect(result.verdicts.every((verdict) => verdict.ok)).toBe(true);
+  });
+});
+
+describe("CI wiring", () => {
+  const workflow = readFileSync(resolve(REPOSITORY_ROOT, ".github/workflows/ci.yml"), "utf8");
+
+  it("runs the gate unconditionally, because any scope predicate is a hole", () => {
+    // A workflow-only diff sets coverage_changed, ui_changed, static_heavy_changed and
+    // docs_changed all false (node scripts/ci-change-scope.mjs --files .github/workflows/ci.yml),
+    // so a predicate list would skip the gate exactly where rule 2's all-file invariant still
+    // applies: a truncation banner lands in YAML as easily as in a spec.
+    const step = workflow.slice(workflow.indexOf("- name: Diff integrity"));
+    const body = step.slice(0, step.indexOf("- name:", 1));
+    expect(body).toContain("run: npm run check:diff-integrity");
+    expect(body).not.toMatch(/^\s*if:/m);
+  });
+
+  it("passes the base SHA the same way the other diff-based gates do", () => {
+    const step = workflow.slice(workflow.indexOf("- name: Diff integrity"));
+    const body = step.slice(0, step.indexOf("- name:", 1));
+    expect(body).toContain("DIFF_INTEGRITY_BASE_SHA:");
+    expect(body).toContain("github.event.pull_request.base.sha");
   });
 });
 
