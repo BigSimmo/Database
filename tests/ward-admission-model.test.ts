@@ -143,8 +143,12 @@ describe("admission vocabulary", () => {
     ]);
   });
 
-  it("holds five pull-release reasons, none of them free text", () => {
-    expect(PULL_RELEASE_REASONS).toHaveLength(5);
+  // ⚠️ FOUR since 2026-09-03: the owner struck "Placed elsewhere". A pull is released because THIS
+  // admission is not happening, and where the person went instead belongs on a different record.
+  // The MEMBERS are named in `tests/ward-pull-release-reasons.test.ts` — one place per fact — so
+  // this keeps the property that test does not state: that none of them is free text.
+  it("holds four pull-release reasons, none of them free text", () => {
+    expect(PULL_RELEASE_REASONS).toHaveLength(4);
     for (const reason of PULL_RELEASE_REASONS) {
       expect(typeof reason).toBe("string");
     }
@@ -302,9 +306,13 @@ describe("daysInBed — two different clocks", () => {
     });
     const now = DAY_ZERO + MINUTES_PER_DAY + 3 * MINUTES_PER_DAY;
 
-    expect(daysInBed(pulledADayBeforeArriving, now)).toBe(3);
-    // Stated as its own assertion so the failure message names the defect: 4 is the pulledAt answer.
-    expect(daysInBed(pulledADayBeforeArriving, now)).not.toBe(4);
+    // The comment here used to say the second assertion made the failure message name the defect.
+    // It could not: after `.toBe(3)` the value is 3 and the negative was already decided. The
+    // defect is named in the message instead, where a failure prints it.
+    expect(
+      daysInBed(pulledADayBeforeArriving, now),
+      "days in bed counts from arrivedAt, never from pulledAt — 4 is the pulledAt answer",
+    ).toBe(3);
   });
 
   it("returns null for someone who has not arrived", () => {

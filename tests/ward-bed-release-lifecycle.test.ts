@@ -61,8 +61,13 @@ describe("ward bed release lifecycle", () => {
     });
 
     expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-002").confirmedAt).toBe(laterInstant);
+    // ⚠️ THE CHANGE IS THE POINT OF THIS TEST, so it is asserted first. `originalConfirmedAt`
+    // is pinned different from `laterInstant` at the top of this test, so once the exact
+    // `.toBe` passed this line could not fail — the one assertion carrying the actual claim,
+    // that the timestamp MOVED, was the one that could not report it. Ordered this way both
+    // are live.
     expect(release(next, "WR-002").confirmedAt).not.toBe(originalConfirmedAt);
+    expect(release(next, "WR-002").confirmedAt).toBe(laterInstant);
   });
 
   /**

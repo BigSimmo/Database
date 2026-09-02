@@ -13,6 +13,7 @@
  * designed for and the desktop layout only adapts upward from it.
  */
 .screen {
+  --wf-border: var(--neutral-500);
   --ri-space-4: 0.25rem;
   --ri-space-6: 0.375rem;
   --ri-space-8: 0.5rem;
@@ -53,7 +54,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ri-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--ri-space-8) var(--ri-space-12);
 }
@@ -135,7 +136,7 @@
 .fieldCard {
   display: grid;
   gap: var(--ri-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   margin: 0;
@@ -152,7 +153,7 @@
 .select {
   min-height: var(--ri-space-48);
   width: 100%;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--ri-space-10);
@@ -189,7 +190,7 @@
    <fieldset> with `display: grid` takes its <legend> out of flow in Chrome; here the legend is
    laid out as an ordinary block above the two choices. */
 .choiceCard {
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   margin: 0;
@@ -224,7 +225,7 @@
   flex: 1 1 8rem;
   align-items: center;
   gap: var(--ri-space-10);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--ri-space-14);
@@ -258,7 +259,7 @@
 }
 
 .destinationOption {
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: var(--ri-space-12) var(--ri-space-14);
@@ -384,7 +385,7 @@
    every route to the reason below — so `:disabled` would never match. The control keeps its full
    48px tap target and stays focusable; it simply stops reading as the thing to press. */
 .submit[aria-disabled="true"] {
-  border-color: var(--border);
+  border-color: var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   color: var(--text-muted);
   cursor: not-allowed;
@@ -435,7 +436,7 @@
 .section {
   display: grid;
   gap: var(--ri-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   margin: 0;
@@ -462,7 +463,7 @@
    `.matchGovernance`. */
 .decidedNote {
   margin: 0;
-  border-left: 0.125rem solid var(--border);
+  border-left: 0.125rem solid var(--wf-border, var(--neutral-500));
   padding-left: var(--ri-space-8);
   color: var(--text);
   font-size: var(--text-xs);
@@ -482,7 +483,7 @@
 
 .table th,
 .table td {
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding: var(--ri-space-6) var(--ri-space-8);
   text-align: left;
   vertical-align: top;
@@ -548,7 +549,7 @@
 }
 
 .card {
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
 }
@@ -639,7 +640,7 @@
 .matchPanel {
   display: grid;
   gap: var(--ri-space-12);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   padding: var(--ri-space-12) var(--ri-space-14);
@@ -675,7 +676,7 @@
    page, so it must not compete with the referral heading directly above it. */
 .matchGovernance {
   margin: 0;
-  border-left: 0.125rem solid var(--border);
+  border-left: 0.125rem solid var(--wf-border, var(--neutral-500));
   padding-left: var(--ri-space-8);
   color: var(--text-muted);
   font-size: var(--text-3xs);
@@ -724,7 +725,7 @@
  * available within an hour" is answerable without opening anything.
  */
 .bandGroup {
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
 }
@@ -810,7 +811,7 @@
 .syntheticNotice,
 .allNotRecorded {
   margin: 0;
-  border-left: 0.125rem solid var(--border);
+  border-left: 0.125rem solid var(--wf-border, var(--neutral-500));
   padding-left: var(--ri-space-8);
   color: var(--text-muted);
   font-size: var(--text-3xs);
@@ -829,7 +830,7 @@
   min-height: var(--ri-space-48);
   align-items: center;
   justify-content: center;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   padding: 0 var(--ri-space-14);
@@ -855,7 +856,7 @@
 .matchRowDeclines {
   display: grid;
   gap: var(--ri-space-6);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   padding: var(--ri-space-10) var(--ri-space-12);
 }
@@ -945,7 +946,7 @@
 .matchOverrideRow {
   display: grid;
   gap: var(--ri-space-8);
-  border-top: 0.0625rem solid var(--border);
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding-top: var(--ri-space-8);
 }
 
@@ -957,7 +958,7 @@
 
 .matchOverrideSelect {
   min-height: var(--ri-space-48);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--ri-space-8);
@@ -985,7 +986,7 @@
 }
 
 .matchOverrideButton[aria-disabled="true"] {
-  border-color: var(--border);
+  border-color: var(--wf-border, var(--neutral-500));
   color: var(--text-muted);
 }
 
@@ -997,7 +998,7 @@
 .declineControls {
   display: grid;
   gap: var(--ri-space-8);
-  border-top: 0.0625rem solid var(--border);
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding-top: var(--ri-space-12);
 }
 
@@ -1307,5 +1308,20 @@
   .outcomeDetailRefusals,
   .matchPanel > p {
     color: CanvasText;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --wf-border: var(--border);
   }
 }

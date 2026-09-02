@@ -19,7 +19,10 @@ import { CommunityIndex } from "../src/components/ward-management/community/comm
  * renders each route's real component tree to a string without needing `document`. The two
  * mocks below are the same ones that file needs for the same reasons: `ClinicalRail` renders
  * `next/link` anchors, and `ContextualBackLink` (mounted by `WardPatientWorkspace`) calls
- * `next/navigation`'s `useRouter` synchronously during render.
+ * `next/navigation`'s `useRouter` synchronously during render — and, since this file also renders
+ * `AddPatientForm` and `ReferralIntakeForm`, `useSearchParams` for the same reason. This is the
+ * `node` project with no `window` at all, so the mock returns an always-empty `URLSearchParams`
+ * rather than reading a real querystring nothing here has.
  */
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string; [key: string]: unknown }) =>
@@ -33,6 +36,7 @@ const router = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
@@ -113,27 +117,7 @@ function routeToPattern(route: string): RegExp {
 
 const wardFlowRoutes = collectWardFlowRoutes(WARD_FLOW_ROOT);
 const staticRoutes = wardFlowRoutes.filter((entry) => !entry.dynamic).map((entry) => entry.route);
-/**
- * Routes under `/mockups/ward-flow` that render nothing and forward. They are deliberately held
- * out of the D8 dynamic-link analysis below, and the reason is the analysis's own subject: it asks
- * "what in `src/` can reach an instance of this route". Live code linking to a superseded address
- * would be the defect, not the coverage — a redirect stub with no inbound href is the stub working.
- * The same set, with the same reasoning, is declared in tests/ward-landmarks.test.ts.
- *
- * `/patients/[patientId]` is here from 2026-09-03. The publication branch split it in two — the
- * movement workspace it actually served became `/movements/[movementId]`, and the person record it
- * was misnamed after became `/people/[patientId]` — and then deleted it. `check:mockups --diff
- * auto` refused that deletion, correctly: `/mockups/ward-flow` is Tier B in
- * docs/mockup-retirement-policy.md, live behind DeveloperAreaGate, so removing one of its routes
- * is a product decision the cleanup gate has no record that can satisfy. It is a redirect now.
- *
- * ⚠️ Held out, NOT hidden: the enumeration pin above counts it, and the assertion below names it,
- * so adding a stub still costs somebody a decision.
- */
-const REDIRECT_ONLY_ROUTES = new Set<string>([`${ROUTE_PREFIX}/patients/[patientId]`]);
-
-const allDynamicRoutes = wardFlowRoutes.filter((entry) => entry.dynamic).map((entry) => entry.route);
-const dynamicRoutes = allDynamicRoutes.filter((route) => !REDIRECT_ONLY_ROUTES.has(route));
+const dynamicRoutes = wardFlowRoutes.filter((entry) => entry.dynamic).map((entry) => entry.route);
 const dynamicPatterns = wardFlowRoutes.filter((entry) => entry.dynamic).map((entry) => routeToPattern(entry.route));
 
 describe("Ward Flow route enumeration (sanity check on the scan itself)", () => {
@@ -165,10 +149,7 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     // front door `community/[teamId]` shipped without, and it was registered in ward-nav.ts in the
     // same change that moved this number, because an index nothing links to makes nothing more
     // reachable than it already was.
-    // 33, not 32: 2026-09-03 restored `/patients/[patientId]` as a redirect-only stub after
-    // `check:mockups --diff auto` refused its deletion under the Tier B rule. It is counted here
-    // and excluded from the dynamic-link analysis below by REDIRECT_ONLY_ROUTES.
-    expect(wardFlowRoutes.length).toBe(33);
+    expect(wardFlowRoutes.length).toBe(32);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
@@ -483,12 +464,6 @@ describe("Ward Flow dynamic routes — what links them, and what they leave orph
   it("scanned real routes and real source, and counts a prose mention as a link in neither direction", () => {
     // Written out in full rather than counted. A fifth dynamic route arriving here should cost
     // somebody a decision about how its instances are reached, not a number.
-    // The redirect-only stub is named separately rather than folded in: it renders nothing, so
-    // every per-route figure below would be meaningless for it, and leaving it out silently is
-    // exactly the drift REDIRECT_ONLY_ROUTES exists to prevent.
-    expect([...allDynamicRoutes].filter((route) => REDIRECT_ONLY_ROUTES.has(route))).toEqual([
-      "/mockups/ward-flow/patients/[patientId]",
-    ]);
     expect([...dynamicRoutes].sort()).toEqual([
       "/mockups/ward-flow/board/[unitId]",
       "/mockups/ward-flow/community/[teamId]",
@@ -744,6 +719,39 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
    * full at the `referral-intake` entry in `ward-nav.ts`, where a decision is visible rather than
    * an absence.
    */
+  /**
+   * ⚠️ **WRITTEN BECAUSE ANOTHER FILE CITED A GUARD THAT DID NOT EXIST — AND THEN BECAUSE THE FIRST
+   * VERSION OF THIS TEST COULD NOT FIRE.**
+   *
+   * `referral-intake.tsx` reads `PATIENT_SEARCH_HREF` off `WARD_NAV` (id `"search"`) and offers it
+   * as the ONLY way out of the screen a clinician sees when a `?patientId=` link names nobody on
+   * file. Its comment claimed this file would fail if that entry were removed. **It would not
+   * have: this file referenced `"search"` nowhere.**
+   *
+   * ⚠️ **AND THE FIRST FIX WAS ALSO WRONG, WHICH IS THE MORE USEFUL HALF.** While the component
+   * still did `find(…)!.href`, deleting the entry threw `TypeError: Cannot read properties of
+   * undefined (reading 'href')` at MODULE LOAD — and because this file imports
+   * `ReferralIntakeForm`, the whole file reported `Tests no tests`. **It never collected, so the
+   * test written to catch the removal could not run.** A guard that dies with the thing it guards
+   * is not a guard, and `Tests no tests` reads as a red like any other on a summary line.
+   *
+   * The component now uses `?.href` and renders the link only when it resolves, so the refusal
+   * still explains itself with or without a way out — and this test can actually fire.
+   *
+   * Do not delete it to make a `WARD_NAV` edit pass: a clinician reaching that screen has already
+   * hit one broken link, and the recovery route is the whole point of it.
+   */
+  it("keeps the patient search in WARD_NAV, because the referral intake offers it as the only way out of a refusal", () => {
+    const search = WARD_NAV.find((item) => item.id === "search");
+    expect(
+      search,
+      'WARD_NAV no longer holds id "search" — referral-intake.tsx offers that href as the only ' +
+        "recovery route from its unknown-patient refusal, so removing it leaves a clinician who " +
+        "followed a broken link with a dead end and no way back to the person search.",
+    ).toBeDefined();
+    expect(search?.href, "the patient search href must resolve to a real route").toBe("/mockups/ward-flow/search");
+  });
+
   it("puts BOTH the referral board and the intake form in the rail, and neither replaces the other", () => {
     const board = WARD_NAV.find((item) => item.href === "/mockups/ward-flow/referrals");
     expect(board, "the referral board must be a WARD_NAV destination, not an unlisted exemption").toBeDefined();
@@ -944,8 +952,8 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
   it("RENDERABLE_ROUTES covers every route the filesystem scan found except the redirect-only stub, and nothing else", () => {
     const scanned = new Set(wardFlowRoutes.map((entry) => entry.route));
     const mapped = new Set(RENDERABLE_ROUTES.map((entry) => entry.route));
-    const redirectOnly = new Set<string>([`${ROUTE_PREFIX}/constellation`, ...REDIRECT_ONLY_ROUTES]);
-    const uncovered = [...scanned].filter((route) => !redirectOnly.has(route) && !mapped.has(route));
+    const redirectOnly = `${ROUTE_PREFIX}/constellation`;
+    const uncovered = [...scanned].filter((route) => route !== redirectOnly && !mapped.has(route));
     const stale = [...mapped].filter((route) => !scanned.has(route));
     expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);

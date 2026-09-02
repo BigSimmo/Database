@@ -117,11 +117,23 @@ describe("wardStatistics — empty-bed time (pulledAt to arrivedAt)", () => {
     const admission = anAdmission({ state: "departed", pulledAt, arrivedAt, leftAt });
     const statistics = wardStatistics(UNIT, [admission], now);
 
-    expect(statistics.averageEmptyBedMinutes).toBe(30);
-    // Named individually so a red run says exactly which wrong clock pairing produced it.
-    expect(statistics.averageEmptyBedMinutes).not.toBe(1030); // pulledAt -> now
-    expect(statistics.averageEmptyBedMinutes).not.toBe(500); // arrivedAt -> leftAt
-    expect(statistics.averageEmptyBedMinutes).not.toBe(1000); // arrivedAt -> now
+    /*
+     * ⚠️ THREE `.not.toBe(…)` ASSERTIONS STOOD HERE UNTIL 2026-09-03 AND NONE OF THEM COULD EVER
+     * FIRE. Once `.toBe(30)` passes the value IS 30, so each was decided before it ran.
+     *
+     * The comment above them read: "Named individually so a red run says exactly which wrong clock
+     * pairing produced it." **That was a false claim about what a failure would tell you.** No red
+     * run has ever named a clock pairing, and nobody reading the file could have known — the
+     * sentence describing the diagnostic sat directly above three assertions incapable of
+     * delivering it.
+     *
+     * The pairings now live in the message, which is the only text a failure actually prints.
+     */
+    expect(
+      statistics.averageEmptyBedMinutes,
+      "empty-bed minutes measures pulledAt -> arrivedAt. 1030 means it measured pulledAt -> now, " +
+        "500 means arrivedAt -> leftAt, 1000 means arrivedAt -> now",
+    ).toBe(30);
   });
 
   it("excludes an admission that has not arrived — the bed is still empty, not measurably so yet", () => {
@@ -156,10 +168,13 @@ describe("wardStatistics — average length of stay", () => {
     const statistics = wardStatistics(UNIT, [stillHere, alreadyLeft], now);
 
     // stillHere: 6 days (arrivedAt -> now). alreadyLeft: 2 days (arrivedAt -> leftAt). Average: 4.
-    expect(statistics.averageLengthOfStayDays).toBe(4);
-    // Named wrong answers a broken swap would produce, so a red run says which swap happened.
-    expect(statistics.averageLengthOfStayDays).not.toBe(6); // both measured to now
-    expect(statistics.averageLengthOfStayDays).not.toBe(2); // both measured to leftAt (or 0 for stillHere)
+    // Same shape as the empty-bed run above, removed for the same reason: "a red run says which
+    // swap happened" was a promise two dead assertions could not keep. The swaps are in the message.
+    expect(
+      statistics.averageLengthOfStayDays,
+      "length of stay measures arrivedAt -> leftAt for somebody gone and arrivedAt -> now for " +
+        "somebody still here. 6 means both were measured to now, 2 means both were measured to leftAt",
+    ).toBe(4);
   });
 
   it("excludes an admission that has not arrived — there is no stay to measure yet", () => {

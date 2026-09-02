@@ -401,20 +401,6 @@ const LINKED_BUT_INVISIBLE_TO_THIS_SCAN: ReadonlyMap<string, string> = new Map([
     "Linked via therapyRecordHref(slug, 'sheet') — bindings.tsx:405. Composed the same way; the compiler " +
       "enforces the artifact union, so this is correct code that this instrument cannot observe.",
   ],
-  [
-    "/caring-contacts/patients/[patientId]",
-    "Linked via patientRoute(row.patientId) — patients-directory-client.tsx:558. Built in " +
-      "src/lib/caring-contacts-routes.ts:55 from CARING_CONTACTS_ROUTES.patients + an encoded id, so " +
-      "no contiguous literal exists for any scan to match. Verified by reading the call site, not " +
-      "by trusting the prose mentions of this path in the same file's comments.",
-  ],
-  [
-    "/caring-contacts/templates/[pathwayId]",
-    "Linked via pathwayRoute(version.id) — templates-library.tsx:516. Built in " +
-      "src/lib/caring-contacts-routes.ts:137 the same way. Its own file also NAMES this path in a " +
-      "backticked comment, which is exactly the rescue the stripped/unstripped comparison below " +
-      "refuses to accept as evidence.",
-  ],
 ]);
 
 describe("production dynamic route reachability", () => {
@@ -422,13 +408,6 @@ describe("production dynamic route reachability", () => {
     // Written out in full rather than counted. A seventeenth production dynamic route arriving here
     // should cost somebody a decision about how its instances are reached, not a number.
     expect([...dynamicRoutes].sort()).toEqual([
-      // The three caring-contacts/sources entries arrived on 2026-09-03 with the merge into
-      // `main`. Each cost the decision this list asks for rather than a bumped number: `/sources/
-      // [sourceId]` is reached by an ordinary literal href and needs nothing; the two
-      // caring-contacts routes are reached through route builders and are recorded in
-      // LINKED_BUT_INVISIBLE_TO_THIS_SCAN with the call site that reaches them.
-      "/caring-contacts/patients/[patientId]",
-      "/caring-contacts/templates/[pathwayId]",
       "/dictionary/[slug]",
       "/dictionary/topics/[slug]",
       "/differentials/diagnoses/[slug]",
@@ -441,7 +420,6 @@ describe("production dynamic route reachability", () => {
       "/formulation/[slug]",
       "/medications/[slug]",
       "/services/[slug]",
-      "/sources/[sourceId]",
       "/specifiers/[slug]",
       "/therapy-compass/[slug]",
       "/therapy-compass/[slug]/brief",
@@ -526,7 +504,7 @@ describe("production dynamic route reachability", () => {
     // The old cross-cover was luck, not design: emptying the map made the OTHER test start
     // reporting these two as unexplained orphans, so something went red — a different test failing
     // for a different reason, which is the coincidence-not-a-guard shape this file exists to name.
-    expect(LINKED_BUT_INVISIBLE_TO_THIS_SCAN.size, "the map is empty, so the loop below asserts nothing").toBe(4);
+    expect(LINKED_BUT_INVISIBLE_TO_THIS_SCAN.size, "the map is empty, so the loop below asserts nothing").toBe(2);
     const orphans = new Set(orphansUnder(true));
     for (const [route, reason] of LINKED_BUT_INVISIBLE_TO_THIS_SCAN) {
       expect(dynamicRoutes, `${route} is recorded here but is no longer a dynamic route`).toContain(route);
@@ -557,46 +535,19 @@ describe("production dynamic route reachability", () => {
     expect(hrefsIn(stripComments(commented)), "stripped, only the real one survives").toEqual(["/factsheets/${slug}"]);
   });
 
-  it("no route is rescued from the orphan list by a path written inside a comment", () => {
-    // A known-positive control first: the hazard text really is in the tree, so a later reader does
-    // not dismiss the therapy-compass orphan entries as stale.
+  it("the therapy-compass prose mention is present, and is not what keeps those routes unmatched", () => {
+    // A known-positive control: the hazard text really is in the tree, so a later reader does not
+    // dismiss the orphan entries as stale. It is bare prose, not a quoted literal, so `hrefsIn` never
+    // reads it either way — which is why the orphan set is identical stripped and unstripped. Were
+    // the extractor ever loosened to bare substrings, this equality would break and should.
     const informationPages = readFileSync(path.join(SRC_DIR, "lib", "information-pages.ts"), "utf8");
     expect(
       informationPages,
       "the comment this file's LINKED_BUT_INVISIBLE_TO_THIS_SCAN entries cite must still exist",
     ).toContain("therapy-compass/[slug]/brief");
-
-    // ⚠️ THIS ASSERTED SET EQUALITY — stripped orphans === unstripped orphans — UNTIL 2026-09-03,
-    // on the stated ground that the tree's prose mentions were unquoted and so invisible to
-    // `hrefsIn` either way. The merge into `main` made that false rather than merely stale: the
-    // caring-contacts files write their own route paths in BACKTICKS inside doc comments, which
-    // `hrefsIn` reads as template literals. Two routes are therefore orphans when comments are
-    // stripped and not when they are kept.
-    //
-    // Restoring the equality would mean either loosening the strip or deleting the assertion, and
-    // both give a comment the power to vouch for a route. The property that actually matters
-    // survives instead, and is stronger than the equality was: a route may be rescued from the
-    // orphan list by comment text ONLY if a human has already recorded, in
-    // LINKED_BUT_INVISIBLE_TO_THIS_SCAN, the real call site that reaches it. Prose alone still
-    // vouches for nothing.
-    const rescuedByComments = orphansUnder(true).filter((route) => !orphansUnder(false).includes(route));
-    const unexplained = rescuedByComments.filter((route) => !LINKED_BUT_INVISIBLE_TO_THIS_SCAN.has(route));
-    expect(
-      unexplained,
-      "These routes look linked only because their path is written inside a comment. A comment " +
-        "reaches nothing. Wire each into real navigation, or record the call site that already " +
-        "does in LINKED_BUT_INVISIBLE_TO_THIS_SCAN: " +
-        unexplained.join(", "),
-    ).toEqual([]);
-
-    // Anti-vacuity: the filter above is only a guard while the two scans genuinely disagree. If
-    // they ever agree again, this test has stopped exercising its own subject and should be read
-    // rather than trusted.
-    expect(
-      rescuedByComments.length,
-      "stripped and unstripped orphans now agree, so the filter above cannot fail — find out why " +
-        "before deleting this: either the comments changed or the extractor did.",
-    ).toBeGreaterThan(0);
+    expect(orphansUnder(true).sort(), "stripped and unstripped agree today: the mention is unquoted").toEqual(
+      orphansUnder(false).sort(),
+    );
   });
 
   it("a static sibling that RENDERS never vouches; one that REDIRECTS does", () => {
@@ -664,7 +615,7 @@ describe("production dynamic route reachability", () => {
     expect(hrefShape("/documents/${id}#pdf-preview-section")).toEqual(["documents", DYNAMIC]);
   });
 
-  it("prefix matching would swallow an invisible route, which is why shape matching is used", () => {
+  it("prefix matching would swallow both invisible routes, which is why shape matching is used", () => {
     // The cheap design: truncate a route at its first `[` and ask whether that prefix appears.
     // `/therapy-compass/[slug]/brief` truncates to `/therapy-compass/`, satisfied by the existing
     // `/therapy-compass/${record.slug}` — so the cheap version reports nothing unmatched and is green
@@ -673,22 +624,11 @@ describe("production dynamic route reachability", () => {
     const prefixCovered = (route: string) =>
       scannedFiles.some((file) => hrefsIn(file.stripped).some((href) => href.startsWith(prefixOf(route))));
 
-    // ⚠️ THIS LOOPED `toBe(true)` OVER EVERY ENTRY UNTIL 2026-09-03, WHEN THE MERGE INTO `main`
-    // ADDED TWO ENTRIES THE TRAP DOES NOT CATCH. That is a fact about those routes, not a fault in
-    // either matcher: nothing under src/ writes a literal beginning `/caring-contacts/patients/`,
-    // so prefix matching reports them unmatched too. Asserting otherwise would have forced a
-    // fabricated href into the tree to satisfy a test. The trap demonstration is kept exactly, on
-    // the entries where it applies, with a floor so it can never quietly apply to none.
-    const swallowedByPrefix = [...LINKED_BUT_INVISIBLE_TO_THIS_SCAN.keys()].filter(prefixCovered);
-    expect(
-      swallowedByPrefix.length,
-      "no invisible route is covered by prefix matching any more, so this test no longer " +
-        "demonstrates the trap it exists for. Read it before deleting it.",
-    ).toBeGreaterThan(0);
-
-    // The property that holds for EVERY entry, prefix-swallowed or not: shape matching still
-    // reports it, which is the reason each needs a written reason rather than a matcher tweak.
     for (const orphan of LINKED_BUT_INVISIBLE_TO_THIS_SCAN.keys()) {
+      expect(
+        prefixCovered(orphan),
+        `${orphan} is invisible to this scan, yet PREFIX matching would have passed it — this is the trap`,
+      ).toBe(true);
       expect(orphansUnder(true), `${orphan} must still be an orphan under shape matching`).toContain(orphan);
     }
   });

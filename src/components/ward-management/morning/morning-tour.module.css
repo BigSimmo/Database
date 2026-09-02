@@ -4,6 +4,7 @@
  * custom property this file needs is declared here, never borrowed from another module's scope.
  */
 .tour {
+  --wf-border: var(--neutral-500);
   --mt-space-4: 0.25rem;
   --mt-space-8: 0.5rem;
   --mt-space-10: 0.625rem;
@@ -68,7 +69,7 @@
 .caption {
   display: grid;
   gap: var(--mt-space-4);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   padding: var(--mt-space-10) var(--mt-space-12);
@@ -126,5 +127,20 @@
 @media print {
   .tour {
     display: none !important;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .tour {
+    --wf-border: var(--border);
   }
 }

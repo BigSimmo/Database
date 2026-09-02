@@ -29,6 +29,11 @@ import { COMMUNITY_TEAM_PAGES } from "../src/components/ward-management/communit
  * `document.addEventListener`, all effect/handler-only). `next/navigation`'s `useRouter` is
  * different: `ContextualBackLink` (used by `WardPatientWorkspace`) calls it synchronously during
  * render, so it needs the same module mock tests/ward-patient-page.dom.test.tsx already uses.
+ * `useSearchParams` is the same story for `AddPatientForm` and `ReferralIntakeForm`: this is the
+ * `node` project, with no `window` at all, so the mock returns an always-empty `URLSearchParams`
+ * rather than the `new URLSearchParams(window.location.search)` the jsdom suites use — there is
+ * no real querystring for `renderToStaticMarkup` to read here, and both forms already treat an
+ * absent value as a real case (see each file's own comment).
  */
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string; [key: string]: unknown }) =>
@@ -42,6 +47,7 @@ const router = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
@@ -106,18 +112,7 @@ const wardFlowRoutes = collectWardFlowRoutes(WARD_FLOW_ROOT);
  * coverage test below fails loudly if this set and the filesystem scan ever disagree on anything
  * else.
  */
-/*
- * `/patients/[patientId]` joined this set on 2026-09-03, and it is the second entry for exactly
- * the first one's reason: an address that worked must keep working. The Ward Flow publication
- * branch split that route in two — the movement workspace it actually served moved to
- * `/movements/[movementId]`, and the person record it was misnamed after gained
- * `/people/[patientId]` — and deleted it. `check:mockups --diff auto` refused the deletion:
- * `/mockups/ward-flow` is Tier B in docs/mockup-retirement-policy.md, live in production behind
- * DeveloperAreaGate, so removing one of its routes is a product decision that sits outside the
- * cleanup gate entirely. The route is therefore a redirect stub, not a page: it renders nothing
- * and forwards to whichever of the two successors the id belongs to.
- */
-const REDIRECT_ONLY_ROUTES = new Set<string>([`${ROUTE_PREFIX}/constellation`, `${ROUTE_PREFIX}/patients/[patientId]`]);
+const REDIRECT_ONLY_ROUTES = new Set<string>([`${ROUTE_PREFIX}/constellation`]);
 
 type RouteRender = { route: string; render: () => ReactNode };
 
@@ -195,7 +190,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 33 (31 renderable + 2 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 32 (31 renderable + 1 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
     // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 21, not 20: Phase 8 Task 5
@@ -218,7 +213,7 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     // page that gives `community/[teamId]`'s teams a way in that is not typing a URL. Registered in
     // ward-nav.ts in the same change, because an index nothing links to makes nothing reachable.
     // 30 renderable + 1 redirect-only (`/constellation`) = 31.
-    expect(wardFlowRoutes.length).toBe(33);
+    expect(wardFlowRoutes.length).toBe(32);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {

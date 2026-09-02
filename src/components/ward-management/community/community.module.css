@@ -14,6 +14,8 @@
  * sentences that stop an empty list being read as an all-clear.
  */
 .screen {
+  --wf-border: var(--neutral-500);
+  --wf-border-strong: var(--text-muted);
   --cm-space-4: 0.25rem;
   --cm-space-6: 0.375rem;
   --cm-space-8: 0.5rem;
@@ -51,7 +53,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cm-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--cm-space-8) var(--cm-space-12);
 }
@@ -113,7 +115,7 @@
 /* Quieter than the notices above: it qualifies the lists rather than disclaiming a claim. */
 .provenance {
   margin: 0;
-  border-left: 0.125rem solid var(--border);
+  border-left: 0.125rem solid var(--wf-border, var(--neutral-500));
   padding-left: var(--cm-space-10);
   color: var(--text-muted);
   font-size: var(--text-3xs);
@@ -123,7 +125,7 @@
 .section {
   display: grid;
   gap: var(--cm-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   padding: var(--cm-space-12) var(--cm-space-14);
@@ -191,7 +193,7 @@
 .card {
   display: grid;
   gap: var(--cm-space-4);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   padding: var(--cm-space-10) var(--cm-space-12);
@@ -215,7 +217,7 @@
 .teamSwitcher {
   display: grid;
   gap: var(--cm-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   padding: var(--cm-space-12) var(--cm-space-14);
@@ -236,7 +238,7 @@
   display: flex;
   min-height: var(--cm-tap);
   align-items: center;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   padding: var(--cm-space-8) var(--cm-space-12);
@@ -247,7 +249,7 @@
 }
 
 .teamLink:hover {
-  border-color: var(--border-strong);
+  border-color: var(--wf-border-strong, var(--text-muted));
   color: var(--text-heading);
 }
 
@@ -277,5 +279,21 @@
 
   .teamList {
     grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and 8.21:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --wf-border: var(--border);
+    --wf-border-strong: var(--border-strong);
   }
 }

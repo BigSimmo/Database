@@ -1075,6 +1075,28 @@ export function isCoordinatorBusyResult(error) {
  * exclusive/shared leases as `npm run lint` / `npm run typecheck:source`.
  * Short wait + busy → fail-open (CI still enforces both).
  */
+/**
+ * ⚠️ "IT FAILED" AND "IT NEVER STARTED" ARE DIFFERENT FACTS, AND THIS GUARD REPORTED THEM IN
+ * IDENTICAL WORDS UNTIL 2026-09-03.
+ *
+ * A push of a 992-commit branch was refused with `lint failed`, and eslint had never been spawned:
+ * the changed-file list built a 56,570-byte argument vector against Windows' 32,767-byte limit, so
+ * the process was refused and the only output was the sentence "The command line is too long."
+ * Nothing in the message distinguished that from a real lint error, and both natural readings are
+ * wrong — assume the code is broken, or assume the guard is noise and override it.
+ *
+ * A check that never launched has found NOTHING. It is not evidence of a defect and it is not
+ * evidence of cleanliness. Saying exactly that is the whole fix.
+ */
+const NEVER_LAUNCHED_CODES = new Set(["ENAMETOOLONG", "E2BIG", "ENOENT", "EACCES", "ENOMEM"]);
+
+export function isNeverLaunchedFailure(error, output) {
+  if (error && NEVER_LAUNCHED_CODES.has(error.code)) return true;
+  const text = `${output ?? ""}
+${error?.message ?? ""}`;
+  return /command line is too long/i.test(text) || /argument list too long/i.test(text);
+}
+
 function runStaticCheck(root, script, forwarded, label) {
   try {
     execFileSync(
@@ -1096,7 +1118,7 @@ function runStaticCheck(root, script, forwarded, label) {
     if (isCoordinatorBusyResult(error) || isCoordinatorBusyOutput(output) || isCoordinatorBusyOutput(error?.message)) {
       return { ok: true, busy: true, output: output || String(error?.message ?? error) };
     }
-    return { ok: false, label, output };
+    return { ok: false, label, output, neverLaunched: isNeverLaunchedFailure(error, output) };
   }
 }
 
@@ -1240,7 +1262,23 @@ export function staticGuard(changedFiles, options = {}) {
     ok: false,
     message:
       failures
-        .map((f) => `${f.label} failed (CI's "Static PR checks"/"Build" would fail too):\n\n${f.output}\n`)
+        .map((f) =>
+          f.neverLaunched
+            ? `${f.label} COULD NOT RUN — the command was never launched, so NOTHING WAS CHECKED:
+
+` +
+              `${f.output || "(no output at all: the process never started)"}
+
+` +
+              `  This is not a ${f.label} failure. This guard does not know whether your code is clean.
+` +
+              `  Run \`npm run ${f.label}\` directly to find out before deciding what to do.
+`
+            : `${f.label} failed (CI's "Static PR checks"/"Build" would fail too):
+
+${f.output}
+`,
+        )
         .join("\n") +
       dirtyNote +
       `\n  Fix, commit, then push again.\n` +

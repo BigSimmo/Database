@@ -450,19 +450,11 @@ function CapacityView() {
     leaveUsable: breakdowns.reduce((sum, entry) => sum + entry.breakdown.leaveUsable, 0),
   };
   const excludedBeyondToday = breakdowns.reduce((sum, entry) => sum + entry.breakdown.excludedBeyondToday, 0);
-  // Six cards, named explicitly rather than derived from `Object.entries` — that keeps this list
-  // exactly the figures spec D6 names, in the order it names them, and makes a "total" card
-  // impossible to add by accident the way looping over a totals object invited. The sixth,
-  // `blocked-releases`, arrived with the bed-model rework of 2026-08-28: it is a CROSS-CUT of
-  // Confirmed today and Expected today, never a sum with them and never a subtraction from
-  // them, and its label is deliberately not the bare word "Blocked" — the per-unit rows below
-  // already use that for physically blocked BEDS (`unitCapacity().blocked`), which is a
-  // different fact. See `BED_RELEASE_BLOCKED_FIGURE_LABEL`.
-  //
-  // Spec D9 (#WG24JB): the confirmed and expected cards link straight to the discharge board.
-  // (`expected-today` is the card D9 named "predicted"; the bed-model rework renamed the figure
-  // to `expectedToday`, so the destination follows the figure rather than the old label.) The
-  // href comes from WARD_NAV — the single source of Ward Flow destinations — so the rail and
+  // Five cards, named explicitly rather than derived from `Object.entries` — that keeps this
+  // list exactly the five figures spec D6 names, in the order it names them, and makes a sixth
+  // "total" card impossible to add by accident the way looping over a totals object invited.
+  // Spec D9 (#WG24JB): confirmed and predicted pending discharge cards link directly to the discharge board.
+  // The href comes from WARD_NAV (the single source of Ward Flow destinations) so the rail and
   // these cards cannot drift apart if the discharge route is ever renamed or regrouped.
   const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
   const headlineCards: { key: string; label: string; value: number; href?: string }[] = [

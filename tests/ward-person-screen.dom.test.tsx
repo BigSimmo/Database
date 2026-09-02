@@ -156,6 +156,37 @@ describe("a person's own screen", () => {
     const refer = screen.getByTestId("ward-person-refer");
     expect(refer).toBeInTheDocument();
     expect(refer).toHaveTextContent(/refer/i);
+    // Owner ruling 9, 2026-09-03: the control's wording is "Refer Patient". Asserted exactly,
+    // because the `/refer/i` above passes against any sentence containing the word.
+    expect(refer).toHaveTextContent(/^Refer Patient$/);
+  });
+
+  /**
+   * ⚠️ THE LINK'S QUERY KEY, WHICH NOTHING TESTED UNTIL NOW — owner ruling 9, 2026-09-03.
+   *
+   * Found by attacking the patient-link privacy change: renaming this key from `patientId` to
+   * `patient` left **75 tests green** across `ward-person-screen`, `ward-referral-destinations`
+   * and `ward-referral-model`, while every referral raised from this screen recorded NOBODY —
+   * and the paragraph below the button went on saying "recorded against this person", itself
+   * pinned by one of those passing tests. **A false sentence held up by a green test.**
+   *
+   * ⚠️ WHY THE EXISTING COVERAGE COULD NOT SEE IT: the end-to-end test sets the URL BY HAND
+   * (`window.history.pushState(..., "?patientId=PT-001")`) and only then renders the intake. It
+   * hardcodes the exact string this component is supposed to build, so producer and reader look
+   * jointly tested and are not. And no browser journey reaches this screen at all — checked with
+   * a control, after a first control came back empty and proved nothing.
+   *
+   * This asserts the producer's half of the contract: the key by name, and the id encoded.
+   */
+  it("builds the referral link with the patientId key, so the intake can read it back", () => {
+    renderPerson();
+    const href = screen.getByTestId("ward-person-refer").getAttribute("href");
+
+    expect(href, "the Refer control must link somewhere").toBeTruthy();
+    // The key by NAME. A test that only checked the id appeared somewhere in the href would pass
+    // against `?patient=PT-001`, which is precisely the rename that broke nothing and everything.
+    expect(href).toContain(`patientId=${encodeURIComponent(someone.id)}`);
+    expect(href).toContain("/mockups/ward-flow/referrals/new");
   });
 
   it("says the referral IS recorded against this person, and promises no history", () => {

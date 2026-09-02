@@ -72,18 +72,6 @@ function expectedColumn(table: HTMLElement): string[] {
     .map((row) => within(row).getAllByRole("cell")[2]?.textContent ?? "");
 }
 
-/** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch, so this suite can
- * move the shared clock without shifting the seed under it — mirrors `ClockAdvancer` in
- * ward-escalation.dom.test.tsx and ward-flow-clock-consistency.dom.test.tsx. */
-function ClockAdvancer({ minutes }: { minutes: number }) {
-  const { now, dispatch } = useWardFlow();
-  return (
-    <button type="button" onClick={() => dispatch({ type: "ADVANCE_CLOCK", role: "demo", now, minutes })}>
-      advance clock
-    </button>
-  );
-}
-
 describe("DischargeBoard", () => {
   it("groups releases under Blocked, Confirmed, Expected, Discharged today, in that exact order", () => {
     renderBoard();
@@ -227,31 +215,51 @@ describe("DischargeBoard", () => {
   });
 
   /**
+   * ⚠️ **HARNESS FOR THE TWO TESTS BELOW.** They need `now` to move while the FIXTURE STAYS PUT,
+   * and on this line that is `ADVANCE_CLOCK` rather than a second render: the reducer adds to
+   * `state.clockOffsetMinutes` without reseeding, and the provider computes
+   * `now = NOW_ANCHOR + anchorOffsetMinutes + elapsed + state.clockOffsetMinutes`.
+   *
+   * ⚠️ The role is `demo`, and it is not interchangeable: the reducer refuses this event from any
+   * other role with "ADVANCE_CLOCK requires role demo". Moving the clock is a demonstration
+   * control, not a clinical act, so no ward or coordinator role may do it.
+   */
+  function ClockAdvancer({ minutes }: { minutes: number }) {
+    const { dispatch, now } = useWardFlow();
+    return (
+      <button type="button" onClick={() => dispatch({ type: "ADVANCE_CLOCK", role: "demo", now, minutes })}>
+        advance the clock
+      </button>
+    );
+  }
+
+  /**
    * Both tests below exist because of #YTR84P. `WardFlowProvider`'s `initialNow` prop once
    * discarded its value — the render body forced `elapsed = 0` when pinned, so a pinned provider
-   * always served `NOW_ANCHOR` (642, 10:42) whatever instant it was handed. Each drives one of
-   * `releaseBand`'s two `now`-dependent branches (`ward-bed-availability.ts`) through a real
+   * always served `NOW_ANCHOR` (642, 10:42) whatever instant it was handed. The provider now
+   * serves the instant it is given, and these are the first tests that spend that: each drives one
+   * of `releaseBand`'s two `now`-dependent branches (`ward-bed-availability.ts`) through a real
    * rendered screen rather than by calling the pure function directly, which is what
-   * `tests/ward-bed-availability.test.ts` already does. No other DOM suite can see this defect,
-   * since every one of them pins `NOW_ANCHOR` and never moves it.
+   * `tests/ward-bed-availability.test.ts` already does. That is a defect no other DOM suite can
+   * see, since every one of them pins `NOW_ANCHOR` and never moves it.
    *
-   * ⚠️ REWRITTEN 2026-09-03, WHEN THE WARD FLOW PUBLICATION BRANCH MERGED. Both tests used to move
-   * the clock by re-pinning `initialNow` to a later instant. That mechanism no longer expresses
-   * what they are asserting, and the reason is a deliberate design decision on the other branch
-   * rather than an accident of the merge: `initialNow` now positions THE WHOLE DEMONSTRATION DAY,
-   * seed included (`seedWardFlowStateAt`), so re-pinning it moves the fixture by exactly the same
-   * offset and every band stays where it was. That is the property
-   * `tests/ward-provider-initial-now.dom.test.tsx` states outright — "MOVES THE SEED WITH IT, so
-   * the world does not disagree with the clock" — and it is what stops a pinned render showing a
-   * clock its own data contradicts.
+   * ⚠️ **THE MECHANISM CHANGED ON THIS LINE, AND THE REASON IS A DESIGN DIFFERENCE RATHER THAN A
+   * DEFECT ON EITHER SIDE.** As written on `main` these tests moved `now` by rendering a SECOND
+   * provider at a later `initialNow`. Here, `initialNow` also moves the demo day: the provider
+   * derives `anchorOffsetMinutes = initialNow - NOW_ANCHOR` and seeds with
+   * `seedWardFlowStateAt(offset)`, so **fixture and clock travel together**, every release stays
+   * the same distance in the future, and the band never changes. That is deliberate — it keeps the
+   * demo day coherent at any pinned instant — and it is the later decision, so it stands.
    *
-   * So the clock is advanced here the way the demonstration itself advances it: an `ADVANCE_CLOCK`
-   * event, which adds to `clockOffsetMinutes` and leaves the seed where it is. **That is the same
-   * property these tests were written to hold** — the world stays put, the clock passes an
-   * expected instant, and the band must move — reached through the mechanism the merged provider
-   * actually offers. A provider that ignored the clock still renders the unmoved band and still
-   * fails. The value-of-`initialNow` half these tests were originally filed for is covered
-   * directly, and more exactly, by `ward-provider-initial-now.dom.test.tsx`.
+   * `ADVANCE_CLOCK` is this line's equivalent of "move `now` past the fixture": it moves the clock
+   * WITHOUT reseeding, which is exactly the axis these tests need. ⚠️ **The property that matters
+   * is unchanged — both branches are still driven THROUGH A RENDERED SCREEN, never by calling
+   * `releaseBand` directly. A translation that ended up testing the pure function would have lost
+   * the thing these tests are for.**
+   *
+   * ⚠️ **They also use this line's GROUP NAMES.** `main` says `released-today` and `predicted`;
+   * here they are `discharged-today` and `expected`. The first is not cosmetic: "released" was
+   * renamed on 2026-08-30 because it reads as release from detention.
    */
   it("moves a confirmed release from By midday to Now once the clock passes its expected instant", () => {
     // The confirmed group is WR-001 (expectedAt NOW_ANCHOR + 45 = 687) and WR-004 (+30 = 672) in
@@ -260,25 +268,24 @@ describe("DischargeBoard", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <DischargeBoard />
-        <ClockAdvancer minutes={58} />
+        <ClockAdvancer minutes={700 - NOW_ANCHOR} />
       </WardFlowProvider>,
     );
 
     expect(expectedColumn(screen.getByTestId("ward-discharge-table-confirmed"))).toEqual(["By midday", "By midday"]);
 
     // 11:40 — past both expected instants, still the same operating day, still before midday. The
-    // ONLY thing that differs between the two assertions is the clock, so a board that ignored it
-    // would render "By midday" twice.
-    fireEvent.click(screen.getByRole("button", { name: "advance clock" }));
+    // ONLY thing that differs is the clock: same mount, same fixture, same releases.
+    fireEvent.click(screen.getByRole("button", { name: "advance the clock" }));
 
     expect(expectedColumn(screen.getByTestId("ward-discharge-table-confirmed"))).toEqual(["Now", "Now"]);
   });
 
-  it("drops yesterday's discharged row out of Discharged today when the clock is the next operating day", () => {
-    // `releaseBand`'s other `now`-dependent branch: a released bed counts as discharged TODAY for
-    // its own operating day only. WR-008 is released with confirmedAt NOW_ANCHOR - 15 (627, day 0),
-    // so a clock a full day later must drop it — the same-clock-time trap the band comment warns
-    // about, since 627 + 1440 falls at the identical time of day.
+  it("drops yesterday's discharged row out of Discharged today when the clock reaches the next operating day", () => {
+    // `releaseBand`'s other `now`-dependent branch: a discharged bed counts as discharged TODAY for
+    // its own operating day only. WR-008 is discharged with confirmedAt NOW_ANCHOR - 15 (627,
+    // day 0), so a clock a full day later must drop it — the same-clock-time trap the band comment
+    // warns about, since 627 + 1440 falls at the identical time of day.
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <DischargeBoard />
@@ -286,8 +293,11 @@ describe("DischargeBoard", () => {
       </WardFlowProvider>,
     );
 
+    // ⚠️ ASSERTED BEFORE THE CLOCK MOVES, so "the group is empty afterwards" cannot pass because it
+    // was empty all along — the row has to be there first for its disappearance to mean anything.
     expect(screen.getByTestId("ward-discharge-table-discharged-today")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "advance clock" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "advance the clock" }));
 
     // Empty groups render their reason note instead of a table, so the table must be gone entirely.
     expect(screen.getByTestId("ward-discharge-group-discharged-today-empty")).toBeInTheDocument();
@@ -296,15 +306,13 @@ describe("DischargeBoard", () => {
     // Dropped from the group is not the same as dropped from the board: WR-008 must still be
     // declared at the foot, which is the half a "the group is empty" assertion cannot reach.
     const excluded = screen.getByTestId("ward-discharge-excluded");
+    expect(excluded).toHaveTextContent(/^1\b/);
     expect(excluded.textContent?.toLowerCase()).not.toContain("none");
 
-    // The other releases are untouched: every fixture expectedAt falls at or before
+    // The other eight releases are untouched: every fixture expectedAt falls at or before
     // EVENING_SHIFT_END_MINUTES (1320), so none of them is excluded by the day-later clock.
     const listed = ["blocked", "confirmed", "expected"]
-      .map((key) => {
-        const table = screen.queryByTestId(`ward-discharge-table-${key}`);
-        return table ? within(table).getAllByRole("row").length - 1 : 0;
-      })
+      .map((key) => within(screen.getByTestId(`ward-discharge-table-${key}`)).getAllByRole("row").length - 1)
       .reduce((sum, count) => sum + count, 0);
     expect(listed).toBe(8);
   });

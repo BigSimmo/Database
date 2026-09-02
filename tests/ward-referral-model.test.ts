@@ -1085,7 +1085,7 @@ describe("Referral privacy — structural", () => {
  * logic those components render, independent of React.
  */
 describe("Task 5 — referral board ordering (referralQueueOrder, recentlyDecidedReferrals)", () => {
-  it("orders the real fixture's two queued referrals by urgency, then by longest wait — RF-001 (raised 40 min ago) before RF-005 (raised 20 min ago), both tier 2", () => {
+  it("orders the real fixture's queued referrals by urgency, then by longest wait — RF-001 (raised 40 min ago) before RF-005 (raised 20 min ago), both tier 2", () => {
     const queuedIds = referralQueueOrder(referrals).map((referral) => referral.id);
     // RF-009 joined the fixture on 2026-08-30 as the only referral addressed to an emergency
     // department — before it, the ED hub's inbox was empty for every department and its screen was
@@ -1380,5 +1380,49 @@ describe("the patient link is a pointer, and the guard still refuses everything 
       "a referral raised with nobody on file was given a patient anyway — an invented link is worse " +
         "than an absent one, because it points at a real person who was never referred",
     ).toBeUndefined();
+  });
+
+  /**
+   * ⚠️ THE THIRD STATE, ASSERTED AGAINST THE REDUCER ITSELF, NOT THROUGH THE SCREEN.
+   *
+   * `referral-intake.tsx` now refuses at load — before a clinician answers a single question —
+   * when the `?patientId=` in the URL names nobody, so this exact reducer guard is no longer
+   * reachable through ordinary use of that screen. An unreachable guard is exactly what somebody
+   * deletes six months later after grepping for callers, so this test dispatches
+   * `RECEIVE_REFERRAL` directly with an id naming nobody and proves the rejection independently of
+   * the UI that now stands in front of it. See `tests/ward-referral-destinations.dom.test.tsx`'s
+   * "the referral intake refuses at load for a patientId naming nobody" for the screen-level half.
+   */
+  it("⚠️ refuses RECEIVE_REFERRAL outright when patientId names nobody the reducer already holds", () => {
+    const seeded = seedWardFlowState();
+    const fabricatedId = "PT-does-not-exist";
+    expect(
+      seeded.patients.some((patient) => patient.id === fabricatedId),
+      "the fabricated id must actually be absent from the seed, or this test proves nothing",
+    ).toBe(false);
+
+    const base = {
+      type: "RECEIVE_REFERRAL" as const,
+      role: "community" as const,
+      now: NOW_ANCHOR,
+      ageBand: "Adult" as const,
+      destinations: [{ kind: "community_team" as const, teamName: "Inner City Clinic" }],
+      homeRegion: HOME_REGIONS[0],
+      suburb: { kind: "named" as const, name: "Cannington" },
+      source: "community" as const,
+      urgency: 2 as const,
+      originSiteCode: "RPH",
+      transportNeeded: false,
+    };
+
+    const before = seeded.referrals.length;
+    const after = wardFlowReducer(seeded, { ...base, patientId: fabricatedId as Referral["patientId"] });
+
+    expect(after.referrals, "a fabricated patient link must not create a referral").toHaveLength(before);
+    const rejection = after.rejections[after.rejections.length - 1];
+    expect(rejection?.attempted, "the rejection recorded is not the RECEIVE_REFERRAL attempt").toBe("RECEIVE_REFERRAL");
+    expect(rejection?.reason).toBe(
+      `RECEIVE_REFERRAL patientId must name a patient this system already holds, and ${fabricatedId} names none`,
+    );
   });
 });

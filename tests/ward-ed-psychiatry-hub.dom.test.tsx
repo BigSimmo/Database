@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 
 // Same reason as the sibling dom suites (ward-ed-screen.dom.test.tsx, ward-screen.dom.test.tsx):
 // `ClinicalRail` renders next/link anchors and this suite never checks routing, so a plain <a>
-// avoids an App Router context jsdom cannot provide.
+// avoids an App Router context jsdom cannot provide. `ReferralIntakeForm` also reads the URL
+// through `next/navigation`'s `useSearchParams`, which jsdom has no App Router context for either.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
     <a href={href} {...rest}>
@@ -1392,8 +1397,11 @@ describe("the words the hub puts on the two clocks", () => {
     expect(running.referral.term).toBe("Since referral");
     expect(running.referral.value).toBe("20m waiting");
     expect(stopped.referral.term).toBe("Referral to triage");
-    expect(stopped.referral.value).toBe("3h 00m, stopped at triage");
+    // ⚠️ Named assertion first — after the exact `.toBe` it could never fire in either
+    // direction, so the sentence about a finished span still reading as a live wait was
+    // unreachable.
     expect(stopped.referral.value, "a span that ended reads as a wait still being served").not.toContain("waiting");
+    expect(stopped.referral.value).toBe("3h 00m, stopped at triage");
   });
 
   it("labels the department clock as running from triage, and never as an arrival", () => {
@@ -1411,9 +1419,12 @@ describe("the words the hub puts on the two clocks", () => {
   it("says nothing numeric for somebody who is not in the department yet", () => {
     const lines = edReferralClockLines({ sinceReferral: 40, sinceReferralRunning: true, inDepartment: undefined });
 
-    expect(lines.department.value).toBe("Not in department yet");
+    // ⚠️ BOTH negatives first. The named one was dead after the exact `.toBe`, and so was the
+    // em-dash check below it for the same reason — a second one the scan flagged only as part
+    // of the first pair. Ordered this way, each can actually report.
     expect(lines.department.value, "a zero for an absent clock reads as just triaged").not.toMatch(/\d/);
     expect(lines.department.value).not.toBe("—");
+    expect(lines.department.value).toBe("Not in department yet");
   });
 
   /**

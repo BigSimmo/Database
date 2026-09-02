@@ -25,7 +25,7 @@ const TARGET_MOVEMENT_ID = "WF-308";
  * actually produce.
  */
 function ShortlistHarness() {
-  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, referrals, now, dispatch } = useWardFlow();
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
   const movement = movements.find((candidate) => candidate.id === TARGET_MOVEMENT_ID);
   return (
@@ -34,6 +34,7 @@ function ShortlistHarness() {
       now={now}
       units={units}
       bedReleases={bedReleases}
+      referrals={referrals}
       selectedUnitId={selectedUnitId}
       onSelectUnit={setSelectedUnitId}
       dispatch={dispatch}
@@ -191,7 +192,7 @@ describe("the override form says what the bed failed on, in text a coordinator c
   const NON_REFERABLE_STAGE_MOVEMENT = "WF-011";
 
   function OverrideHarness({ movementId }: { movementId: string }) {
-    const { movements, units, bedReleases, now, dispatch } = useWardFlow();
+    const { movements, units, bedReleases, referrals, now, dispatch } = useWardFlow();
     const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
     return (
       <ShortlistPanel
@@ -199,6 +200,7 @@ describe("the override form says what the bed failed on, in text a coordinator c
         now={now}
         units={units}
         bedReleases={bedReleases}
+        referrals={referrals}
         selectedUnitId={selectedUnitId}
         onSelectUnit={setSelectedUnitId}
         dispatch={dispatch}

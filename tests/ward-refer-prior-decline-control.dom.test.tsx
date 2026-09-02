@@ -34,7 +34,7 @@ const OVERRIDE_SENTENCE = "Use Override instead";
 const MOVEMENT_ID = "WF-009";
 
 function Harness({ movementId }: { movementId: string }) {
-  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, referrals, now, dispatch } = useWardFlow();
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
   return (
     <ShortlistPanel
@@ -42,6 +42,7 @@ function Harness({ movementId }: { movementId: string }) {
       now={now}
       units={units}
       bedReleases={bedReleases}
+      referrals={referrals}
       selectedUnitId={selectedUnitId}
       onSelectUnit={setSelectedUnitId}
       dispatch={dispatch}

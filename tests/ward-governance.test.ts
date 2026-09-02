@@ -42,8 +42,11 @@ describe("changeAudit", () => {
       kind: "legal_status",
       by: "Duty psychiatrist",
     });
-    expect(audit[0].detail).toBe("Voluntary → Detained awaiting examination · Recorded by treating team");
-    expect(audit[0].detail).not.toMatch(/recorded_by_treating_team/);
+    expect(
+      audit[0].detail,
+      "an audit line must read as a sentence a clinician can act on, never as the raw reason code " +
+        "recorded_by_treating_team",
+    ).toBe("Voluntary → Detained awaiting examination · Recorded by treating team");
   });
 
   it("labels a hold-released reason, never the raw snake_case value", () => {
@@ -61,8 +64,14 @@ describe("changeAudit", () => {
     const entries = changeAudit(after.movements).filter((entry) => entry.kind === "pull_released");
     expect(entries).toHaveLength(1);
     expect(entries[0].detail).toBe(changeReasonLabels.bed_needed_for_another_patient);
-    expect(entries[0].detail).toBe("Bed needed elsewhere");
-    expect(entries[0].detail).not.toMatch(/bed_needed_for_another_patient/);
+    // ⚠️ The assertion above stays: pinning the label against its own constant AND against a
+    // hand-written literal is two different checks, and only the literal catches the constant
+    // changing underneath the test.
+    expect(
+      entries[0].detail,
+      "an audit line must read as a sentence a clinician can act on, never as the raw reason code " +
+        "bed_needed_for_another_patient",
+    ).toBe("Bed needed elsewhere");
   });
 
   // Ordered-pair assertion by design (per the brief's own rule): each row asserts `at`, `kind`

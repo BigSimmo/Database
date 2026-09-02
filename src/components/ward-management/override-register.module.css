@@ -32,10 +32,14 @@
 }
 
 .entry {
+  /* Declared HERE, not on a root class: this module has no wrapper — `.entry` is a SIBLING of
+     `.placeholder` and `.list`, so a token declared there would never reach it. A custom property
+     works perfectly well on the element that uses it. */
+  --wf-border: var(--neutral-500);
   display: grid;
   min-width: 0;
   gap: var(--or-space-6);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   padding: var(--or-space-10);
@@ -65,4 +69,19 @@
   color: var(--text-muted);
   font-size: var(--text-3xs);
   line-height: var(--or-leading-body);
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .entry {
+    --wf-border: var(--border);
+  }
 }

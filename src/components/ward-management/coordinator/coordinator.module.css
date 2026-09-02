@@ -1,5 +1,7 @@
 .screen {
   composes: descendantKillWithScroll from "../ward-reduced-motion.module.css";
+  --wf-border: var(--neutral-500);
+  --wf-border-strong: var(--text-muted);
   --co-space-2: 0.125rem;
   --co-space-6: 0.375rem;
   --co-space-8: 0.5rem;
@@ -70,7 +72,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--co-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--co-space-8) var(--co-space-20);
 }
@@ -128,7 +130,7 @@
 .overrideRegion,
 .shortlistRegion {
   min-width: 0;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--e0);
@@ -166,7 +168,7 @@
   min-height: var(--co-space-48);
   flex: 0 0 auto;
   align-items: center;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--co-space-12);
@@ -214,7 +216,7 @@
   min-height: var(--co-space-48);
   align-content: start;
   gap: var(--co-space-2);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   padding: var(--co-space-8) var(--co-space-10);
   background: var(--surface-subtle);
@@ -400,7 +402,7 @@
   width: 100%;
   min-height: var(--co-space-48);
   gap: var(--co-space-2);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   padding: var(--co-space-6) var(--co-space-8);
   background: var(--surface);
@@ -581,7 +583,7 @@
 }
 
 .diagramConnectorDemand {
-  stroke: var(--border-strong);
+  stroke: var(--wf-border-strong, var(--text-muted));
   stroke-width: 0.0625rem;
 }
 
@@ -603,7 +605,7 @@
 }
 
 .diagramArrowDemand {
-  fill: var(--border-strong);
+  fill: var(--wf-border-strong, var(--text-muted));
 }
 
 .diagramArrowRouteEligible {
@@ -742,7 +744,7 @@
 .diagramEdCard {
   display: grid;
   gap: var(--co-space-2);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   padding: var(--co-space-8) var(--co-space-10);
@@ -812,7 +814,7 @@
   min-height: var(--co-space-48);
   align-content: start;
   gap: var(--co-space-2);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: var(--co-space-8) var(--co-space-10);
@@ -871,7 +873,7 @@
 .diagramBedChip {
   display: inline-flex;
   align-items: center;
-  border: 0.0625rem solid var(--border-strong);
+  border: 0.0625rem solid var(--wf-border-strong, var(--text-muted));
   border-radius: var(--radius-xs);
   padding: 0 var(--co-space-6);
   font-size: var(--text-3xs);
@@ -897,7 +899,7 @@
 }
 
 .diagramBedChip[data-state="occupied"] {
-  border-color: var(--border-strong);
+  border-color: var(--wf-border-strong, var(--text-muted));
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
@@ -1073,7 +1075,7 @@
 .shortlistHeader {
   display: grid;
   gap: var(--co-space-2);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding-bottom: var(--co-space-10);
 }
 
@@ -1147,7 +1149,7 @@
 }
 
 .shortlistSuggestedBadge {
-  border: 0.0625rem dashed var(--border-strong);
+  border: 0.0625rem dashed var(--wf-border-strong, var(--text-muted));
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
@@ -1261,7 +1263,7 @@
   width: 100%;
   min-height: var(--co-space-48);
   gap: var(--co-space-2);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: var(--co-space-8) var(--co-space-10);
@@ -1353,7 +1355,7 @@
   grid-template-columns: auto auto minmax(0, 1fr);
   align-items: baseline;
   gap: var(--co-space-2) var(--co-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: var(--co-space-6) var(--co-space-8);
@@ -1417,7 +1419,7 @@
 .shortlistDeclineRow {
   display: grid;
   gap: var(--co-space-2);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   padding: var(--co-space-6) var(--co-space-8);
@@ -1434,7 +1436,7 @@
 }
 
 .shortlistScoreDetails {
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   padding: var(--co-space-8) var(--co-space-10);
@@ -1475,7 +1477,7 @@
 .shortlistActions {
   display: grid;
   gap: var(--co-space-8);
-  border-top: 0.0625rem solid var(--border);
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding-top: var(--co-space-10);
 }
 
@@ -1554,13 +1556,13 @@
 
 .shortlistConfirmButton[aria-disabled="true"] {
   cursor: not-allowed;
-  border-color: var(--border);
+  border-color: var(--wf-border, var(--neutral-500));
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
 
 .shortlistOverrideButton {
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface);
   color: var(--text-heading);
 }
@@ -1573,7 +1575,7 @@
 .shortlistOverrideForm {
   display: grid;
   gap: var(--co-space-6);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   padding: var(--co-space-10);
@@ -1587,7 +1589,7 @@
 
 .shortlistOverrideSelect {
   min-height: var(--co-space-48);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--co-space-8);
@@ -1601,7 +1603,7 @@
   align-items: center;
   justify-content: center;
   justify-self: start;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--co-space-14);
@@ -1625,7 +1627,7 @@
 }
 
 .exceptionsDrawer {
-  border-top: 0.0625rem solid var(--border);
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--co-space-8) var(--co-space-20);
 }
@@ -1635,7 +1637,7 @@
   min-height: var(--co-space-48);
   align-items: center;
   gap: var(--co-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--co-space-14);
@@ -1734,7 +1736,7 @@
   grid-template-columns: 1.125rem minmax(0, 1fr);
   align-items: start;
   gap: var(--co-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   padding: var(--co-space-8) var(--co-space-10);
   background: var(--surface);
@@ -1807,7 +1809,7 @@
  */
 .refusalsSection {
   margin-top: var(--co-space-12);
-  border-top: 0.0625rem solid var(--border);
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding-top: var(--co-space-8);
 }
 
@@ -1827,7 +1829,7 @@
 .refusalRow {
   display: grid;
   gap: var(--co-space-2);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   padding: var(--co-space-8) var(--co-space-10);
   background: var(--surface);
@@ -1911,7 +1913,7 @@
     bottom: 0;
     left: 0;
     flex-wrap: nowrap;
-    border-top: 0.0625rem solid var(--border);
+    border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
     background: var(--surface);
     box-shadow: var(--e2);
     padding: var(--co-shortlist-bar-pad-y) var(--co-space-20) var(--co-shortlist-bar-safe-bottom);
@@ -2456,5 +2458,21 @@
   .shortlistHeader .shortlistAcceptedBadge,
   .shortlistHeader .shortlistReferredBadge {
     padding-inline: 0;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and 8.21:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --wf-border: var(--border);
+    --wf-border-strong: var(--border-strong);
   }
 }

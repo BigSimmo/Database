@@ -125,8 +125,13 @@ describe("acceptance", () => {
     // Two sessions found the defect on screen while this test sat green, demanding it. The
     // inversion is the point: a guard can be precise, mutation-proof and pointed the wrong way.
     for (const withdrawn of target.withdrawnReferrals) {
-      expect(withdrawn.reason).toBe("another_unit_accepted");
+      // ⚠️ THE NAMED ASSERTION RUNS FIRST, or it cannot run at all. After the exact `.toBe` it
+      // was dead in both directions: if the `.toBe` passed, the reason was exactly
+      // `another_unit_accepted` and this was trivially true; if it failed, execution stopped
+      // here. So the one sentence a reader needs — that a losing ward must never be told who
+      // won — could never be shown. Found by scanning for the shape, not by reading.
       expect(withdrawn.reason, "the losing ward must not be told who won").not.toContain("RPH Adult Secure");
+      expect(withdrawn.reason).toBe("another_unit_accepted");
     }
   });
 
@@ -1295,8 +1300,12 @@ describe("bed release flagging", () => {
 
     const flagged = after.bedReleases.at(-1)!;
     expect(flagged.expectedAt).toBe(laterToday);
-    expect(releaseBand(flagged, NOW)).toBe("by-1600");
+    // ⚠️ `releaseBand` reads only its two arguments, so both calls return the same value and
+    // the negative could not report after the exact `.toBe`. "Not now" is the clinically
+    // meaningful half — a release banded as immediate when it is not is what misleads a
+    // coordinator — so it leads.
     expect(releaseBand(flagged, NOW)).not.toBe("now");
+    expect(releaseBand(flagged, NOW)).toBe("by-1600");
   });
 
   it("appends a expected release when no blocker is given", () => {

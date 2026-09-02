@@ -570,12 +570,46 @@ describe("matching stays independent of the bed-release model", () => {
     return { text: out, balanced: mode === "code" || mode === "line" };
   }
 
-  function importStatementsOf(source: string): string[] {
-    return withoutComments(source).match(/import\s+[\s\S]*?;/g) ?? [];
+  /**
+   * ⚠️ **THIS IS THE SECOND GUARD TO HAVE HAD THIS EXACT DEFECT, AND THAT IS THE POINT.**
+   *
+   * It used to be `importStatementsOf`, matching `/import\s+[\s\S]*?;/g` — text beginning with the
+   * literal word `import`, and nothing else. So
+   * `export { BedRelease } from "./ward-model";` was **invisible to it**.
+   *
+   * `tests/ward-referral-screen-boundary.test.ts` (FD-23) had the identical hole, written by a
+   * different hand, and it was fixed hours before this one. **Two guards failing on the same
+   * statement form is not two bugs — it is one wrong assumption about what an import looks like,
+   * made twice.** A grep for `match(/import` across `tests/` and `scripts/` found exactly three
+   * hits: FD-23's (fixed), this one, and `ward-travel-grouping.test.ts:889` — which is **not** a
+   * third instance, because it inspects one hand-written sample inside its own self-test and never
+   * scans real source. The `/g` is the tell: the guards sweep files, that one does not.
+   *
+   * ⚠️ **AND THE BLAST RADIUS IS NOT ONLY THE VOCABULARY CHECK.** This is used twice — by
+   * `importsMention` below, and by the graph walk further down that decides **which files get
+   * swept at all**. A module reachable ONLY by a re-export was never visited, so nothing inside it
+   * was scanned either. That defeats this guard's own defence against reaching a forbidden name
+   * through an intermediate module, one level above where anyone was looking.
+   *
+   * ⚠️ **THE FALSE POSITIVE THIS MUST NOT CREATE:** `export const x = 1;` has **no `from` clause**
+   * and is not a module edge. A widened regex that reddens honest code trades a silent hole for a
+   * loud one, so the `from` is required and the case is pinned below.
+   *
+   * Renamed because `importStatementsOf` had become a lie about what it returns — a name that
+   * describes what a function used to do is a false claim, not merely stale, and the type checker
+   * cannot see it.
+   */
+  const RE_EXPORT_WITH_SOURCE = /export\s+(?:type\s+)?(?:\{[\s\S]*?\}|\*(?:\s+as\s+[$\w]+)?)\s+from\s+[\s\S]*?;/g;
+
+  function moduleEdgeStatementsOf(source: string): string[] {
+    const text = withoutComments(source);
+    const imports = text.match(/import\s+[\s\S]*?;/g) ?? [];
+    const reExports = text.match(RE_EXPORT_WITH_SOURCE) ?? [];
+    return [...imports, ...reExports];
   }
 
   function importsMention(source: string, needle: RegExp) {
-    return importStatementsOf(source).some((statement) => needle.test(statement));
+    return moduleEdgeStatementsOf(source).some((statement) => needle.test(statement));
   }
 
   function specifierOf(statement: string): string | null {
@@ -610,7 +644,10 @@ describe("matching stays independent of the bed-release model", () => {
       if (visited.has(file)) continue;
       const source = readFileSync(file, "utf8");
       visited.set(file, source);
-      for (const statement of importStatementsOf(source)) {
+      // ⚠️ The graph walk, and the half nobody noticed: this decides WHICH FILES GET SWEPT. While
+      // this read only `import` statements, a module reachable solely by a re-export was never
+      // visited and nothing inside it was scanned either.
+      for (const statement of moduleEdgeStatementsOf(source)) {
         const specifier = specifierOf(statement);
         if (!specifier) continue;
         const resolved = resolveLocalImport(specifier, file);
@@ -689,6 +726,36 @@ describe("matching stays independent of the bed-release model", () => {
       importsMention('import { Referral } from "./ward-model";', BED_RELEASE_IDENTIFIER),
       "a PLAIN unrelated import matched the release model — the identifier check is too broad",
     ).toBe(false);
+
+    /*
+     * ⚠️ THE LIMIT, PINNED RATHER THAN COMMENTED — because a limitation written only in prose is a
+     * claim nothing checks, and this repository has twice been bitten by a comment vouching for a
+     * guard that did not exist.
+     *
+     * What `moduleEdgeStatementsOf` covers: an `import` statement, and a re-export THAT CARRIES A
+     * SOURCE. What it does not: an export with no `from` clause, which is not a module edge at all.
+     * The second half is as load-bearing as the first — a widened matcher that treated
+     * `export const x = 1;` as an edge would redden honest code, trading a silent hole for a loud
+     * one.
+     */
+    expect(
+      importsMention('export { BedRelease } from "./ward-model";', BED_RELEASE_IDENTIFIER),
+      "a sourced RE-EXPORT of the release model was invisible — this is the hole itself, and it is " +
+        "the same one FD-23 had: one wrong assumption about what an import looks like, made twice",
+    ).toBe(true);
+    expect(
+      importsMention('export type { BedRelease } from "./ward-model";', BED_RELEASE_IDENTIFIER),
+      "a sourced TYPE re-export was invisible — a type-only leak is still a leak to this contract",
+    ).toBe(true);
+    expect(
+      moduleEdgeStatementsOf('export * from "./ward-model";'),
+      "`export * from` is a real module edge and must be walked, even though it names nothing",
+    ).toHaveLength(1);
+    expect(
+      moduleEdgeStatementsOf("export const BedRelease = 1;\nexport default 2;\n"),
+      "an export with NO `from` clause was treated as a module edge — that is a false positive, " +
+        "and a guard that reddens honest code is worse than the hole it closed",
+    ).toEqual([]);
 
     // And a string literal that merely LOOKS like a comment must survive untouched, or the
     // stripper would corrupt module specifiers rather than clean them — which would break the

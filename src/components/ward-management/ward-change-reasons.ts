@@ -221,7 +221,7 @@ export const withdrawalReasonLabels: Record<WithdrawalReason, string> = {
   // Says the referral ended and that the referrer ended it. Asserts nothing about the person, and
   // names no destination — a ward reading this learns that it may stop holding the request, which
   // is the whole of what it needs.
-  referrer_withdrew: "Withdrawn — the referrer no longer needs this bed.",
+  referrer_withdrew: "Withdrawn by the referrer.",
 };
 
 export const OVERRIDE_REASONS = [
@@ -302,15 +302,21 @@ export type BedPreparationNote = (typeof BED_PREPARATION_NOTES)[number];
  *   - `this_setting_cannot_continue_current_care` — a CATCH-ALL, and a catch-all gets chosen instead
  *     of the specific reason, which degrades the data it exists to produce.
  *
- * ⚠️ THE TRADE-OFF, stated so it is reversible: dropping the catch-all forces a choice among six.
- * Better for data quality, WORSE when none of the six fits and somebody must pick the nearest wrong
- * one. One edit here reverses it.
+ * ⚠️ THE TRADE-OFF WAS STATED HERE AS REVERSIBLE, AND THE OWNER REVERSED IT ON 2026-09-03.
+ * The catch-all is BACK, so the list is SEVEN. His ruling: a coordinator sometimes has a reason
+ * that is none of the six, and forcing them to pick the nearest wrong one is worse than the data
+ * cost of a catch-all — the argument this comment made for dropping it, decided the other way by
+ * the person whose data it is.
+ *
+ * ⚠️ THE PARAGRAPH ABOVE IS KEPT BECAUSE IT WAS THE REASONING, NOT BECAUSE IT IS THE CURRENT
+ * STATE. A reader who finds it and stops would otherwise carry away a list of six. The key and
+ * label restored are VERBATIM from `e6b7afb91`, the commit that removed them.
  *
  * ⚠️ AND THE SETTING-SHAPED RULE SURVIVED THE CUT ON PURPOSE. Every one of the six still describes
  * what a SETTING cannot do rather than a fact about the person — the property that dissolved the
  * who-may-see-a-reason question above. A future edit that adds a person-shaped reason back does not
  * merely add a word; it reopens that question and reintroduces the filtering rule the reword
- * removed. `tests/ward-change-reasons.test.ts` pins the six and their labels.
+ * removed. `tests/ward-change-reasons.test.ts` pins the EIGHT and their labels.
  *
  * REPLACING THEM IS ONE EDIT HERE plus the labels below. Nothing else authors this list.
  */
@@ -321,6 +327,27 @@ export const URGENT_MARK_REASONS = [
   "no_psychiatric_cover_at_this_site",
   "needs_medical_care_unavailable_here",
   "escort_in_place_and_unsustainable",
+  // ⚠️ THE CATCH-ALL, RESTORED ON THE OWNER'S RULING OF 2026-09-03. It was dropped when the
+  // ten placeholders were cut to six (`e6b7afb91`), which left a coordinator whose reason is
+  // none of the six with nothing to choose. Key and label are VERBATIM from the commit that
+  // removed them, not re-invented — he approved restoring the dropped wording, so the dropped
+  // wording is what goes back.
+  "this_setting_cannot_continue_current_care",
+  // ⚠️ PLACEHOLDER COPY — OWNER DECISION OUTSTANDING. He ruled on 2026-09-03 that the entry above,
+  // though the broadest of the four that were dropped, is NOT a true "none of these apply", and
+  // approved adding one. The SHAPE is his; these exact words are a session's stand-in and he has
+  // not confirmed them.
+  //
+  // ⚠️ IT IS DELIBERATELY VAGUE, on his stated reasoning: A WRONG REASON IN A CLINICAL RECORD IS
+  // WORSE THAN A VAGUE ONE. A coordinator whose situation fits none of the seven previously had to
+  // pick the nearest wrong one, and that wrong reason is what a receiving ward then reads.
+  //
+  // ⚠️ NEVER GIVE THIS ONE A FREE-TEXT BOX (WB-DB-16). "Other, please specify" is how clinical
+  // free text re-enters a system that removed it on purpose. It stays a bare option.
+  //
+  // It also breaks this list's setting-shaped rule by construction — it describes nothing about
+  // the setting OR the person, which is precisely why it cannot be mistaken for a clinical claim.
+  "another_reason_not_listed",
 ] as const;
 export type UrgentMarkReason = (typeof URGENT_MARK_REASONS)[number];
 
@@ -335,6 +362,8 @@ export const changeReasonLabels: Record<
   needs_medical_care_unavailable_here: "Needs medical care unavailable here",
   safety_of_others_in_this_setting: "Safety of others in this setting",
   escort_in_place_and_unsustainable: "Escort in place and unsustainable",
+  this_setting_cannot_continue_current_care: "This setting cannot continue current care",
+  another_reason_not_listed: "Another reason, not listed here",
   reassessed: "Reassessed",
   new_information: "New information",
   correcting_an_error: "Correcting an error",

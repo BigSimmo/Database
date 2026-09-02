@@ -189,6 +189,9 @@ describe("ward capacity headline (Task 7)", () => {
     const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
     expect(dischargeHref).toBeTruthy();
     expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveAttribute("href", dischargeHref);
+    // RENAMED predicted -> expected on this line by 390eba058, "A discharge is EXPECTED,
+    // confirmed or discharged". Main's copy of this assertion still said "predicted"; the
+    // href behaviour it checks is unchanged and is main's, the vocabulary is ours.
     expect(screen.getByTestId("ward-capacity-headline-expected-today")).toHaveAttribute("href", dischargeHref);
     expect(screen.getByTestId("ward-capacity-headline-available-now")).not.toHaveAttribute("href");
 

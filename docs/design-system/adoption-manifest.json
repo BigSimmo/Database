@@ -1033,6 +1033,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/icon-button.dom.test.tsx",
+        "tests/require-lucide-icon-aria.test.ts",
         "tests/rsc-boundary.test.ts"
       ],
       "baseline": {
@@ -1216,7 +1217,8 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/dose-line.dom.test.tsx",
-        "tests/ui-v2-answer-safety.dom.test.tsx"
+        "tests/ui-v2-answer-safety.dom.test.tsx",
+        "tests/ward-flow-seam.test.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1816,6 +1818,7 @@
         "tests/ui-phone-scroll-page-owned.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-style-contract.spec.ts",
+        "tests/viewport-fill-contract.test.ts",
         "tests/xlsx-extraction-budget.test.ts"
       ],
       "baseline": {

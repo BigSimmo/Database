@@ -262,8 +262,11 @@ describe("Movement.blocker — the staleness that made it wrong on screen", () =
     });
 
     expect(referred.rejections).toHaveLength(0);
-    expect(movement(referred, movementId).blocker).toBe(STAGE_TRANSITION_BLOCKERS.referred);
-    expect(movement(referred, movementId).blocker).not.toBe("Awaiting coordinator referral");
+    expect(
+      movement(referred, movementId).blocker,
+      'a referred movement waits on the receiving ward, not on the coordinator — "Awaiting ' +
+        'coordinator referral" is the stage BEFORE this one and would mean the referral never left',
+    ).toBe(STAGE_TRANSITION_BLOCKERS.referred);
   });
 
   /**
@@ -600,8 +603,10 @@ describe("Movement.blocker — clearing is represented, never guessed at", () =>
     });
     // "No blocker" means nobody ever recorded one; this means somebody looked and said it is gone.
     // The same distinction "None — in transit" and "None — handover complete" exist to preserve.
-    expect(movement(cleared, target.id).blocker).toBe("None — cleared");
-    expect(movement(cleared, target.id).blocker).not.toBe("No blocker");
+    expect(
+      movement(cleared, target.id).blocker,
+      '"No blocker" would mean nobody ever recorded one; this must say somebody looked and said it ' + "is gone",
+    ).toBe("None — cleared");
   });
 
   it("permits exactly the roles that may record one — never narrower", () => {

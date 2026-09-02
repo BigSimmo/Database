@@ -17,9 +17,9 @@ import {
 import { useState } from "react";
 
 import { ContextualBackLink } from "@/components/contextual-back-link";
-import { MissingValue } from "@/components/ui/missing-value";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { formatInstant, formatInstantWithDay } from "@/components/ward-management/ward-clock";
+import { MissingValue } from "@/components/ui/missing-value";
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,

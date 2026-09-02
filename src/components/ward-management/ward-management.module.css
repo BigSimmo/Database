@@ -5,8 +5,8 @@
   --ward-canvas: var(--surface);
   --ward-chrome: var(--surface-chrome);
   --ward-subtle: var(--surface-subtle);
-  --ward-border: var(--border);
-  --ward-border-strong: var(--border-strong);
+  --ward-border: var(--neutral-500);
+  --ward-border-strong: var(--text-muted);
   --ward-text: var(--text);
   --ward-heading: var(--text-heading);
   --ward-muted: var(--text-muted);
@@ -69,7 +69,7 @@
   --ward-blue-border: var(--clinical-accent-border);
   --ward-canvas: var(--surface);
   --ward-chrome: var(--surface-chrome);
-  --ward-border: var(--border);
+  --ward-border: var(--neutral-500);
   --ward-heading: var(--text-heading);
   --ward-muted: var(--text-muted);
   --ward-space-6: 0.375rem;
@@ -199,7 +199,7 @@
   flex-shrink: 0;
   width: 2rem;
   height: 0.0625rem;
-  margin: var(--ward-space-4) 0 var(--ward-space-10);
+  margin: 0.25rem 0 0.625rem;
   background: var(--ward-border);
 }
 
@@ -307,7 +307,7 @@
   display: grid;
   width: 3rem;
   height: 3rem;
-  margin-top: var(--ward-space-8);
+  margin-top: 0.5rem;
   place-items: center;
   border: 0.0625rem solid var(--ward-blue-border);
   border-radius: var(--radius-pill, 9999px);
@@ -390,7 +390,7 @@
 
 .stageNumber {
   align-self: start;
-  margin-top: var(--ward-space-2);
+  margin-top: 0.125rem;
   font-size: var(--text-2xs);
   font-weight: 700;
 }
@@ -421,7 +421,7 @@
 }
 
 .stage b {
-  margin-top: var(--ward-space-2);
+  margin-top: 0.125rem;
   font-size: var(--text-sm);
   font-weight: 700;
   line-height: var(--ward-leading-compact);
@@ -438,7 +438,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--ward-space-6);
-  margin-top: var(--ward-space-10);
+  margin-top: 0.625rem;
   color: var(--ward-muted);
   font-size: var(--text-2xs);
   font-weight: 650;
@@ -566,7 +566,7 @@
 }
 
 .workspaceSummary h2 {
-  margin-top: var(--ward-space-4);
+  margin-top: 0.25rem;
   color: var(--ward-heading);
   font-size: var(--text-2xl);
   font-weight: 650;
@@ -574,7 +574,7 @@
 }
 
 .workspaceSummary p {
-  margin-top: var(--ward-space-4);
+  margin-top: 0.25rem;
   color: var(--ward-muted);
   font-size: var(--text-sm);
 }
@@ -645,7 +645,7 @@
 }
 
 .workspaceGrid h3 {
-  margin-top: var(--ward-space-16);
+  margin-top: 1rem;
   color: var(--ward-heading);
   font-size: var(--text-xs);
   font-weight: 650;
@@ -654,7 +654,7 @@
 .factList {
   display: grid;
   gap: var(--ward-space-10);
-  margin-top: var(--ward-space-12);
+  margin-top: 0.75rem;
 }
 
 .factList div {
@@ -681,7 +681,7 @@
 .timeline {
   display: grid;
   gap: var(--ward-space-10);
-  margin-top: var(--ward-space-12);
+  margin-top: 0.75rem;
   list-style: none;
 }
 
@@ -761,7 +761,7 @@
 }
 
 .contextPanel p {
-  margin-top: var(--ward-space-8);
+  margin-top: 0.5rem;
   color: var(--ward-muted);
   font-size: var(--text-sm);
   line-height: var(--ward-leading-prose);
@@ -908,7 +908,7 @@
   flex-wrap: wrap;
   gap: var(--ward-space-10);
   align-items: flex-end;
-  margin-top: var(--ward-space-12);
+  margin-top: 0.75rem;
 }
 
 .blockerLabel {
@@ -949,4 +949,29 @@
   border-color: var(--ward-border);
   background: var(--ward-canvas);
   color: var(--ward-muted);
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
+ *
+ * The border aliases above deliberately SEVER the chain to `--border`. Measured against
+ * `--surface`, the background every one of these screens paints, `--border` sits at 1.21:1 in
+ * light mode and 1.42:1 in dark — far below the 3:1 a boundary needs, so the dividers were very
+ * nearly invisible. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and
+ * 8.21:1.
+ *
+ * ⚠️ But severing that chain would ALSO cost a high-contrast user the system border colour, which
+ * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
+ * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
+ * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ */
+@media (forced-colors: active) {
+  .patientWorkspace {
+    --ward-border: var(--border);
+    --ward-border-strong: var(--border-strong);
+  }
+
+  .clinicalRail {
+    --ward-border: var(--border);
+  }
 }

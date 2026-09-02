@@ -335,3 +335,30 @@ valuable state the list can be in and it looks exactly like the failure.**
 different screens even when they hold the same rows.** A record is sorted by when; a worklist is
 sorted by what is most overdue. **Naming a list is choosing which one it is, and it is usually done
 by accident.**
+
+## `another_reason_not_listed` — the eighth urgent-mark reason, 2026-09-03
+
+⚠️ **PLACEHOLDER COPY. The owner approved the SHAPE, not these words.**
+
+His ruling: the catch-all restored earlier that day (`this_setting_cannot_continue_current_care`)
+is the broadest of the four options that had been dropped, **but it is not a true "none of these
+apply"**, and he approved adding a genuine one.
+
+|           |                                   |
+| --------- | --------------------------------- |
+| Key       | `another_reason_not_listed`       |
+| Label     | "Another reason, not listed here" |
+| Chosen by | a session, not the owner          |
+| Confirmed | **NO**                            |
+
+**His stated reasoning, which shaped the wording: A WRONG REASON IN A CLINICAL RECORD IS WORSE THAN
+A VAGUE ONE.** A coordinator whose situation fits none of the seven previously had to pick the
+nearest wrong one, and that wrong reason is what a receiving ward then reads. **So this entry is
+deliberately vague and deliberately claims nothing** — about the setting or the person.
+
+⚠️ **It must never gain a free-text box (WB-DB-16).** "Other, please specify" is how clinical free
+text re-enters a system that removed it on purpose. It stays a bare option.
+
+**It also breaks the list's setting-shaped rule by construction** — every other entry says what the
+CURRENT SETTING cannot do. That is not an oversight: a none-of-these that described a setting would
+be making exactly the claim it exists to avoid.

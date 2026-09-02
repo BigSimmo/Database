@@ -13,19 +13,21 @@
   --rs-canvas: var(--surface);
   --rs-raised: var(--surface-raised);
   --rs-subtle: var(--surface-subtle);
-  --rs-border: var(--border);
+  --rs-border: var(--neutral-500);
   --rs-heading: var(--text-heading);
   --rs-muted: var(--text-muted);
   --rs-disabled: var(--disabled);
+  /* The count badge, added 2026-09-03, needs a pad and a leading the scale did not carry. Declared
+     here with every other local token rather than written inline, which is what the design-system
+     contract counts as a raw literal. */
   --rs-space-3: 0.1875rem;
+  --rs-leading-none: 1;
   --rs-space-4: 0.25rem;
   --rs-space-6: 0.375rem;
   --rs-space-8: 0.5rem;
   --rs-space-10: 0.625rem;
   --rs-space-12: 0.75rem;
   --rs-space-16: 1rem;
-  /* The count pill sets its own height, so its text box must not add leading. */
-  --rs-leading-none: 1;
   --rs-tap: var(--spacing-tap);
   --rs-menu-width: 16rem;
   --rs-menu-gap: var(--rs-space-8);
@@ -172,4 +174,24 @@
   font-size: var(--text-2xs);
   font-weight: 600;
   line-height: var(--rs-leading-none);
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
+ *
+ * The border aliases above deliberately SEVER the chain to `--border`. Measured against
+ * `--surface`, the background every one of these screens paints, `--border` sits at 1.21:1 in
+ * light mode and 1.42:1 in dark — far below the 3:1 a boundary needs, so the dividers were very
+ * nearly invisible. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and
+ * 8.21:1.
+ *
+ * ⚠️ But severing that chain would ALSO cost a high-contrast user the system border colour, which
+ * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
+ * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
+ * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ */
+@media (forced-colors: active) {
+  .switcher {
+    --rs-border: var(--border);
+  }
 }

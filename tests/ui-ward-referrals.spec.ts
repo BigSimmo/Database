@@ -152,7 +152,7 @@ const WRONG_AGE_UNIT_ID = "rph-older-adult";
  * unnoticed, because `tests/ward-*` selects only the Vitest files. A count written where nothing
  * can fail is the defect, not the number.
  */
-const SEEDED_QUEUED = 3;
+const SEEDED_QUEUED = 4;
 // Seven since 2026-09-01, not six: RF-007 was split into a ward-only referral and RF-010, a
 // community-only one accepted by a clinic 24 days before the anchor. So the decided section gained
 // a row and the queued section did not. Updated deliberately here rather than found later —
@@ -181,7 +181,12 @@ const ACCEPTING_UNITS = 13;
  * Ordered as `referralQueueOrder` orders it (urgency tier, then longest wait), matching the pin in
  * `tests/ward-referral-model.test.ts`, so the two files can be read against each other.
  */
-const SEEDED_QUEUED_IDS = new Set(["RF-001", "RF-009", "RF-005"]);
+// RF-011 appended 2026-09-03. It joined the seed as the one multi-destination referral, so
+// FD-23 could be SEEN on the running app rather than only asserted in a unit test -- and this
+// list was not extended with it, so the browser journey failed on a fixture assumption rather
+// than a rendering fault. The order matches the pin in tests/ward-referral-model.test.ts,
+// which the doc comment above says these two files should be readable against.
+const SEEDED_QUEUED_IDS = new Set(["RF-001", "RF-009", "RF-005", "RF-011"]);
 
 /**
  * Phase 8, Task 10. A (home region, unit) pair the synthetic table puts OUT OF AREA, searched out

@@ -330,12 +330,41 @@ function withoutComments(source: string): string {
   return scanSource(source).text;
 }
 
-function importStatementsOf(source: string): string[] {
-  return withoutComments(source).match(/import\s+[\s\S]*?;/g) ?? [];
+/**
+ * Every re-export statement that carries a `from` clause — `export { … } from "…"`,
+ * `export type { … } from "…"`, `export * from "…"`, with or without `as ns` — which is a module
+ * edge exactly the way an `import` is: it names another module and binds (or forwards) its
+ * exports. `export const x = 1;` has no `from` clause and is deliberately NOT matched — see the
+ * pinned test below, because treating a value export as a module edge would make every ordinary
+ * `export` in the codebase widen the ward-only graph to wherever its value happened to originate.
+ */
+const RE_EXPORT_WITH_SOURCE = /export\s+(?:type\s+)?(?:\{[\s\S]*?\}|\*(?:\s+as\s+[$\w]+)?)\s+from\s+[\s\S]*?;/g;
+
+/**
+ * Every module-graph edge in `source`: a plain `import` statement, or a sourced re-export.
+ *
+ * ⚠️ **THIS USED TO BE `importStatementsOf`, AND ITS NAME WAS THE BUG.** It fed both the
+ * vocabulary check below (`importsMention`) and the graph walk (`collectModuleGraph`), and its
+ * old body — `/import\s+[\s\S]*?;/g` — matched text beginning with the literal word `import` and
+ * nothing else. `export { Referral as EveryDestination } from "@/…/ward-model";` is invisible to
+ * that pattern, so a ward-facing file could name the full referral record through a re-export and
+ * both the vocabulary check AND the traversal that decides which files even get scanned would
+ * pass it by. The traversal miss is the sharper one: a module reachable ONLY through a re-export
+ * edge from a ward-facing entry never entered the graph at all, so nothing inside it was ever
+ * checked either — proven live before this fix by re-exporting `ward-statistics.ts` from
+ * `ward-screen.tsx` and watching all twelve tests in this file stay green with a `Referral` import
+ * sitting one hop away. Widening the extractor fixes both call sites at once, which is why it is
+ * one function rather than two.
+ */
+function moduleEdgeStatementsOf(source: string): string[] {
+  const text = withoutComments(source);
+  const imports = text.match(/import\s+[\s\S]*?;/g) ?? [];
+  const reExports = text.match(RE_EXPORT_WITH_SOURCE) ?? [];
+  return [...imports, ...reExports];
 }
 
 function importsMention(source: string, needle: RegExp): boolean {
-  return importStatementsOf(source).some((statement) => needle.test(statement));
+  return moduleEdgeStatementsOf(source).some((statement) => needle.test(statement));
 }
 
 function specifierOf(statement: string): string | null {
@@ -367,7 +396,7 @@ function collectModuleGraph(entryFiles: readonly string[]): Map<string, string> 
     if (visited.has(file)) continue;
     const source = readFileSync(file, "utf8");
     visited.set(file, source);
-    for (const statement of importStatementsOf(source)) {
+    for (const statement of moduleEdgeStatementsOf(source)) {
       const specifier = specifierOf(statement);
       if (!specifier) continue;
       const resolved = resolveLocalImport(specifier, file);
@@ -391,10 +420,14 @@ function wardOnlyModules(): Map<string, string> {
  */
 const REFERRAL_BEARING_MODULES = /(^|\/)(ward-model|ward-referrals|ward-referral-visibility)$/;
 
-/** The import clause — what sits between `import` and `from` — with a leading `type` removed. */
+/** The import (or re-export) clause — what sits between `import`/`export` and `from` — with a
+ *  leading `type` removed. Strips `export` as well as `import` now that `moduleEdgeStatementsOf`
+ *  feeds this function re-export statements too: without that, `export { X } from "…"` kept its
+ *  leading "export" and never started with `{`, so `isNamedOnlyImport` below would misclassify
+ *  every plain named re-export as the namespace/default shape it exists to catch. */
 function importClauseOf(statement: string): string {
   return statement
-    .replace(/^\s*import\s+/, "")
+    .replace(/^\s*(?:import|export)\s+/, "")
     .replace(/^type\s+/, "")
     .trimStart();
 }
@@ -420,7 +453,7 @@ function isNamedOnlyImport(statement: string): boolean {
  * guard stops being available.
  */
 function namespaceOrDefaultReferralImports(source: string): string[] {
-  return importStatementsOf(source).filter((statement) => {
+  return moduleEdgeStatementsOf(source).filter((statement) => {
     const specifier = specifierOf(statement);
     if (!specifier || !REFERRAL_BEARING_MODULES.test(specifier)) return false;
     return !isNamedOnlyImport(statement);
@@ -565,6 +598,50 @@ describe("FD-23 at the screen boundary", () => {
     );
     // And the balance flag must be able to report false, or the sweep applying it proves nothing.
     expect(scanSource("const a = `unterminated").balanced).toBe(false);
+  });
+
+  it("treats a sourced re-export as a module edge, and a value export as no edge at all", () => {
+    // PART A'S OWN LIMIT, PINNED RATHER THAN COMMENTED. What `moduleEdgeStatementsOf` covers: a
+    // plain `import`, and a re-export that carries a `from` clause, in every shape this repo uses.
+    // If any of these four ever again returns nothing, the graph walk and the vocabulary check both
+    // silently narrow back to import-only — the exact hole this file was written to close.
+    for (const statement of [
+      'import { Referral } from "./ward-model";',
+      'export { Referral } from "./ward-model";',
+      'export type { Referral } from "./ward-model";',
+      'export * from "./ward-model";',
+    ]) {
+      expect(moduleEdgeStatementsOf(statement), `not recognised as a module edge: ${statement}`).toHaveLength(1);
+    }
+    // And each of those shapes must actually carry the forbidden vocabulary through to the check
+    // that reads them — a statement extracted but never tested against `FULL_REFERRAL_VOCABULARY`
+    // would look identical to one this file forgot to wire up.
+    for (const statement of [
+      'export { Referral } from "./ward-model";',
+      'export type { Referral } from "./ward-model";',
+    ]) {
+      expect(importsMention(statement, FULL_REFERRAL_VOCABULARY), statement).toBe(true);
+    }
+    // `export * from "./ward-model";` names no identifier at all — it is a real module edge (the
+    // graph walk must still follow it, proven live in the fix history above) but it is not, by
+    // itself, a vocabulary HIT: the forbidden name only appears once something downstream imports
+    // it by name, and that import is what the vocabulary check catches.
+    expect(importsMention('export * from "./ward-model";', FULL_REFERRAL_VOCABULARY)).toBe(false);
+
+    // WHAT IT DOES NOT COVER, pinned in the other direction. `export const x = 1;` has no `from`
+    // clause, so it must never be read as a module edge — or every ordinary value export in the
+    // codebase would wrongly extend the ward-only graph to wherever `x`'s value happened to
+    // originate. This is the main false-positive risk in widening the extractor at all.
+    for (const statement of [
+      "export const x = 1;",
+      "export function helper() {}",
+      "export default function Component() {}",
+    ]) {
+      expect(
+        moduleEdgeStatementsOf(statement),
+        `a value/declaration export was treated as a module edge: ${statement}`,
+      ).toEqual([]);
+    }
   });
 
   it("computes a ward-only set that still contains the ward's own modules", () => {

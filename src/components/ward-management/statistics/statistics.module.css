@@ -20,8 +20,8 @@
  *      possible and the population is empty. Quieter than an absence, distinct from a count.
  */
 .screen {
-  /* A headline figure is set tight: it is one line of numerals, never a paragraph. */
-  --st-leading-figure: 1.15;
+  --wf-border: var(--neutral-500);
+  --wf-border-strong: var(--text-muted);
   --st-space-4: 0.25rem;
   --st-space-6: 0.375rem;
   --st-space-8: 0.5rem;
@@ -59,7 +59,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--st-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--st-space-8) var(--st-space-12);
 }
@@ -132,7 +132,7 @@
 .index {
   display: grid;
   gap: var(--st-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   padding: var(--st-space-12) var(--st-space-14);
@@ -177,7 +177,7 @@
   flex-direction: column;
   justify-content: center;
   gap: var(--st-space-4);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   padding: var(--st-space-10) var(--st-space-12);
@@ -211,7 +211,7 @@
 .section {
   display: grid;
   gap: var(--st-space-12);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   padding: var(--st-space-12) var(--st-space-14);
@@ -241,7 +241,7 @@
 .figure {
   display: grid;
   gap: var(--st-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   padding: var(--st-space-12) var(--st-space-14);
@@ -268,7 +268,7 @@
   color: var(--text-heading);
   font-size: var(--text-2xl-minus);
   font-weight: 700;
-  line-height: var(--st-leading-figure);
+  line-height: 1.15;
 }
 
 .headlineCaption {
@@ -318,7 +318,7 @@
  */
 .nothingToAverage {
   margin: 0;
-  border-left: 0.125rem solid var(--border-strong);
+  border-left: 0.125rem solid var(--wf-border-strong, var(--text-muted));
   padding-left: var(--st-space-10);
   color: var(--text);
   font-size: var(--text-xs);
@@ -345,7 +345,7 @@
   display: flex;
   flex-direction: column;
   margin: 0;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   padding: 0;
   list-style: none;
@@ -356,7 +356,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--st-space-12);
-  border-top: 0.0625rem solid var(--border);
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding: var(--st-space-6) var(--st-space-12);
 }
 
@@ -406,5 +406,21 @@
 @media (max-width: 40rem) {
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and 8.21:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --wf-border: var(--border);
+    --wf-border-strong: var(--border-strong);
   }
 }

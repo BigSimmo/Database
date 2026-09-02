@@ -108,6 +108,30 @@ export function referralDestinationLabels(referral: Referral): string[] {
 /** Human label for where a referral is addressed. Exhaustive by `switch` on the union, so a fifth
  *  destination cannot be added without this failing to compile. */
 export function referralDestinationLabel(destination: ReferralDestination): string {
+  // ⚠️ AN ED DESTINATION CARRIES ITS PURPOSE INTO EVERY LABEL, ON THE OWNER'S RULING OF
+  // 2026-09-03: "it is not a bed request when a patient is referred to the ED from community or
+  // from another ED doctor."
+  //
+  // This function used to return the KIND alone, so a declined ED row rendered as
+  // "Emergency department: No suitable bed" whatever the referral had actually asked for — a
+  // request for psychiatric review, read back as a refused bed.
+  //
+  // ⚠️ THE RULE WAS ALREADY WRITTEN DOWN AND THIS CALLER DID NOT FOLLOW IT.
+  // `referralPurposeLabel` below states it as a SAFETY rule, not a presentational one: every row
+  // showing an ED referral must show the purpose, because since the FD-18 correction every
+  // referral is declinable — so a declinable row with no stated purpose is indistinguishable from
+  // a bed request. That is the conflation the whole `purpose` axis exists to prevent, and the
+  // label that every board composes its rows from was the one place still dropping it.
+  //
+  // Derived from `referralPurposeLabel`, never respelled here — one home for that wording, so the
+  // ED's own screen and every board that names a destination cannot drift apart.
+  if (destination.kind === "emergency_department") {
+    // ⚠️ PARENTHESES, NOT AN EM DASH, and the reason is visible only in situ: the boards prefix
+    // these lines with their own em dash — "Also refused — <label>: <reason>" — so a dash here
+    // produced "Also refused — Emergency department — For psychiatric review: ...", where the
+    // two dashes carry different meanings and the reader has to guess which clause is which.
+    return `${referralDestinationKindLabel(destination.kind)} (${referralPurposeLabel(destination.purpose)})`;
+  }
   return referralDestinationKindLabel(destination.kind);
 }
 

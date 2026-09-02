@@ -4,6 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 
 // Same reason as every sibling dom suite: `ClinicalRail` renders next/link anchors and this suite
 // never checks routing, so a plain <a> avoids an App Router context jsdom cannot provide.
+// `ReferralIntakeForm` also reads the URL through `next/navigation`'s `useSearchParams`, which
+// jsdom has no App Router context for either.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
     <a href={href} {...rest}>

@@ -238,7 +238,12 @@ export const LEAVING_DESTINATIONS: readonly {
 export const PULL_RELEASE_REASONS = [
   "Clinical condition changed",
   "Transport unavailable",
-  "Placed elsewhere",
+  // ⚠️ "Placed elsewhere" WAS HERE AND THE OWNER STRUCK IT, 2026-09-03. A pull is released
+  // because THIS admission is not happening; where the person went instead is a different
+  // fact, on a different record, and offering it here invites a ward to write another unit's
+  // business into its own release note. `tests/ward-pull-release-reasons.test.ts` asserts it
+  // is gone, because nothing on `Admission` carries one of these yet — so without a pin its
+  // removal is invisible and its return would be too.
   "Admission declined",
   "Pulled in error",
 ] as const;

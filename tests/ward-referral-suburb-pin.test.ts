@@ -64,7 +64,13 @@ import { describe, expect, it, vi } from "vitest";
 
 // Same reason as tests/ward-landmarks.test.ts: `ClinicalRail` (rendered by the intake form) uses
 // next/link, and this suite never checks routing, so a plain <a> avoids an App Router context the
-// node project cannot provide.
+// node project cannot provide. The intake form also reads the URL through `next/navigation`'s
+// `useSearchParams`; this is the `node` project with no `window` at all, so the mock returns an
+// always-empty `URLSearchParams` rather than reading a real querystring nothing here has.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string; [key: string]: unknown }) =>
     createElement("a", { href, ...rest }, children),

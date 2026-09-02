@@ -656,7 +656,7 @@ test.describe("@mockup Role switcher — the loop", () => {
     expect(destinationUnit, "fixture assumption: rph-adult-secure resolves to a real unit").toBeDefined();
 
     function switcherTrigger() {
-      return page.getByRole("button", { name: "Switch role" });
+      return page.getByRole("button", { name: "Change view" });
     }
 
     /**
@@ -823,7 +823,7 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     await page.setViewportSize({ width: 1600, height: 1100 });
 
     function switcherTrigger() {
-      return page.getByRole("button", { name: "Switch role" });
+      return page.getByRole("button", { name: "Change view" });
     }
     async function switchTo(menuItemName: string) {
       await switcherTrigger().click();
@@ -841,10 +841,15 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     await expect(bedGrid).toContainText("Ready 1");
     await expect(bedGrid).toContainText("Held 1");
 
-    const holdButton = wardScreen.getByTestId("ward-pull-WF-003");
-    await expect(holdButton).toBeVisible();
-    await expect(holdButton).not.toHaveAttribute("aria-disabled");
-    await expect(holdButton).not.toHaveAttribute("title");
+    // ⚠️ The testid below is the PULL one, not the older spelling. The merge with main took
+    // main's copy of this line, and main predates this line's rename of that control -- so the
+    // query looked for a testid the ward screen no longer renders, while line 83 of this same
+    // file already used the current one. The file contradicted itself and only a browser run
+    // could see it.
+    const pullButton = wardScreen.getByTestId("ward-pull-WF-003");
+    await expect(pullButton).toBeVisible();
+    await expect(pullButton).not.toHaveAttribute("aria-disabled");
+    await expect(pullButton).not.toHaveAttribute("title");
 
     // --- Step 2: confirm zero allocatable beds, on this same page, no reload. ---
     await wardScreen.getByTestId("ward-capacity-input").fill("0");
@@ -860,8 +865,8 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     // --- Step 4: the Hold control must stop advertising an action the reducer would now
     // refuse — the reviewer's Proof 2 ("hold button ... aria-disabled = null ... nothing
     // happened"). It must carry BOTH aria-disabled and a stated reason naming this ward. ---
-    await expect(holdButton).toHaveAttribute("aria-disabled", "true");
-    await expect(holdButton).toHaveAttribute("title", /No allocatable bed remains at RPH Adult Secure/);
+    await expect(pullButton).toHaveAttribute("aria-disabled", "true");
+    await expect(pullButton).toHaveAttribute("title", /No allocatable bed remains at RPH Adult Secure/);
 
     // --- Step 5: click through to the coordinator — the role switcher's real <Link>, never a
     // goto. Coordinator is never ambiguous (spec §9: "Statewide — no ward or department"). ---

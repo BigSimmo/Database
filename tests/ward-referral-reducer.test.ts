@@ -1269,7 +1269,11 @@ describe("what a recorded reason may and may not buy past", () => {
     const unit = state.units[0];
     const asked = eligibility(movement, unit, NOW).gates.map((gate) => gate.gate);
 
-    expect(asked).toEqual([
+    expect(
+      asked,
+      "the PLACEMENT path never asks age or legal_status — it derives the requirement from the " +
+        "person's own legalStatus, so those two names belong to the front door",
+    ).toEqual([
       "authorisation",
       "cohort",
       "security",
@@ -1306,8 +1310,10 @@ describe("what a recorded reason may and may not buy past", () => {
     // requirement from the person's own `legalStatus`, the front door from what the referral ASKS
     // for (`involuntaryBedNeeded`). Those can disagree — a referral may not request an involuntary
     // bed for a detained patient. That is a question about the data, not a missing check.
-    expect(asked).not.toContain("age");
-    expect(asked).not.toContain("legal_status");
+    // The two assertions that stood here could not fire — the `toEqual` above pins the whole list,
+    // so "age" and "legal_status" were already known to be absent. The reasoning above is kept as a
+    // comment because it is design rationale rather than a failure diagnostic; the omission itself
+    // is named in that assertion's message.
 
     // Anti-vacuity: a helper returning [] would satisfy both `not.toContain` assertions.
     expect(asked.length).toBeGreaterThan(6);
@@ -1329,7 +1335,11 @@ describe("what a recorded reason may and may not buy past", () => {
       (gate) => gate.gate,
     );
 
-    expect(askedAtTheFrontDoor).toEqual([
+    expect(
+      askedAtTheFrontDoor,
+      "the FRONT DOOR never asks authorisation, cohort or prior_decline — each path omits exactly " +
+        "what the other's naming covers",
+    ).toEqual([
       "age",
       "legal_status",
       "sex_designation",
@@ -1343,8 +1353,8 @@ describe("what a recorded reason may and may not buy past", () => {
 
     // The two the FRONT DOOR never asks, stated explicitly for the same reason as above — and note
     // they are the mirror image: each path omits exactly what the other's naming covers.
-    expect(askedAtTheFrontDoor).not.toContain("authorisation");
-    expect(askedAtTheFrontDoor).not.toContain("cohort");
-    expect(askedAtTheFrontDoor).not.toContain("prior_decline");
+    // Three assertions stood here and none could fire, for the same reason as the placement list
+    // above: the `toEqual` pins the whole list. The mirror-image point is kept as a comment; the
+    // omissions are named in that assertion's message.
   });
 });

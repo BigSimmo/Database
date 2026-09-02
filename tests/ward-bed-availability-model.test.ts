@@ -19,8 +19,11 @@ describe("bed release model", () => {
    * the test immediately below pins that it can sit on either.
    */
   it("has three lifecycle stages in the order a bed moves through them, and blocked is not one of them", () => {
-    expect(BED_RELEASE_STATES).toEqual(["expected", "confirmed", "discharged"]);
-    expect(BED_RELEASE_STATES).not.toContain("blocked");
+    expect(
+      BED_RELEASE_STATES,
+      "blocked is not a lifecycle stage — a blocked discharge is an expected one carrying a blocker, " +
+        "and adding it here would make the stage a place a bed can rest rather than a reason it cannot",
+    ).toEqual(["expected", "confirmed", "discharged"]);
   });
 
   /**
@@ -43,8 +46,44 @@ describe("bed release model", () => {
       "Nothing outstanding",
     ]);
     expect(BED_RELEASE_WAITING_ON).toContain("Nothing outstanding");
-    expect(BED_RELEASE_WAITING_ON).not.toContain("likely");
-    expect(BED_RELEASE_WAITING_ON).not.toContain("possible");
+  });
+
+  /**
+   * ⚠️ **A CHECK THAT MEANT SOMETHING, IMPLEMENTED AS SOMETHING ELSE.** Until 2026-09-03 the test
+   * above ended with `.not.toContain("likely")` and `.not.toContain("possible")`. `toContain` on an
+   * ARRAY tests element membership, so those asserted no entry *equals* the bare word "likely" —
+   * which nothing ever will, because every entry is a full label like "Awaiting accommodation".
+   * Permanently green, and about nothing.
+   *
+   * The intent is legible and worth keeping: **a ward says what it is waiting on, it does not
+   * hedge.** "Likely home Friday" is a guess wearing the clothes of a plan, and a bed-flow board
+   * carrying guesses is one a coordinator cannot count. Ward Lead's ruling, 2026-09-03: a broken
+   * attempt at a real check is worth more than its absence, because somebody once decided this
+   * property mattered.
+   *
+   * ⚠️ **AND IT LIVES IN ITS OWN TEST FOR A REASON I GOT WRONG FIRST.** The obvious place was at the
+   * end of the test above — where I initially put it, and where it would have been DEAD BY ORDER,
+   * the very defect this session spent the night removing. That test opens by pinning the whole
+   * array with `toEqual`, so anything asserted after it is already decided; a mutation aborts at
+   * the `toEqual` and never reaches the loop at all. Caught because the mutation produced a
+   * failure from the wrong assertion. Standing alone, this test fails on its own evidence and
+   * prints its own sentence.
+   */
+  it("never hedges — a ward states what it is waiting on rather than guessing", () => {
+    const hedgingWords = ["likely", "possible", "probably", "perhaps", "maybe", "hopefully", "should"];
+    expect(hedgingWords.length, "an empty hedging list would make the loop below vacuous").toBeGreaterThan(0);
+    expect(BED_RELEASE_WAITING_ON.length, "an empty label list would make the loop below vacuous").toBeGreaterThan(0);
+
+    for (const label of BED_RELEASE_WAITING_ON) {
+      for (const word of hedgingWords) {
+        expect(
+          label.toLowerCase().includes(word),
+          `"${label}" hedges: it contains "${word}". A ward states what it is waiting on; a label ` +
+            "that guesses turns a bed-flow board into a list of hopes, and a coordinator cannot " +
+            "plan a discharge against a hope.",
+        ).toBe(false);
+      }
+    }
   });
 
   /**

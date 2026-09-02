@@ -644,6 +644,14 @@ describe("the out-of-area ledger", () => {
     // Two different facts. The bed has been gone since the pull; this ledger measures how long
     // somebody has been away from home, which starts when they get there. The pull-to-arrival gap
     // is a real figure and deliberately not surfaced here.
+    /*
+     * ⚠️ DETERMINED BY THE FIXTURE, NOT BY THE ASSERTION ABOVE — the same shape as
+     * ward-travel-bands.test.ts:143. This test seeds `pulledAt` and `arrivedAt` to different
+     * instants, so once the line above pins the clock to `NOW - arrivedAt` this one follows.
+     * Kept rather than deleted because it is the only statement in the file that the ledger measures
+     * time away from home and not time the bed has been gone, and a reader checking only these two
+     * lines would not be able to tell that it was already decided.
+     */
     expect(entries[0].sinceArrival).not.toBe(NOW - pulledAt);
   });
 

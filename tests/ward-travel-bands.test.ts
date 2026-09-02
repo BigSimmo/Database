@@ -140,6 +140,17 @@ describe("travel bands", () => {
     };
 
     expect(unitTravelBand(referral, divergent.unit)).toBe(travelBand(divergent.region, divergent.unit.siteCode));
+    /*
+     * ⚠️ THIS ASSERTION IS DETERMINED, BUT NOT BY THE LINE ABOVE IT — BY THE FIXTURE, AND THAT IS
+     * WHY IT IS STILL HERE. `divergent` is searched for at the top of this test precisely so that
+     * `travelBand(region, originSiteCode)` differs from `travelBand(region, unit.siteCode)`. Given
+     * that construction, the assertion above forces this one.
+     *
+     * A reader checking only these two lines would call it live and be wrong; a reader applying the
+     * dead-by-order rule mechanically would delete it and lose the statement that the band follows
+     * the UNIT's site rather than the referral's origin. Kept, and the reason written here, because
+     * the next reader will not find it either — which is the whole lesson of the 2026-09-03 scan.
+     */
     expect(unitTravelBand(referral, divergent.unit)).not.toBe(travelBand(divergent.region, divergent.originSiteCode));
   });
 

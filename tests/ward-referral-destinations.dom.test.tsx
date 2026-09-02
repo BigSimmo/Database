@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Same reason as every sibling dom suite: `ClinicalRail` renders next/link anchors and this suite
 // never checks routing, so a plain <a> avoids an App Router context jsdom cannot provide.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
     <a href={href} {...rest}>
@@ -35,6 +39,7 @@ import {
   SUBURB_UNKNOWN_REASONS,
 } from "@/components/ward-management/ward-model";
 import { referrals as seededReferrals } from "@/components/ward-management/ward-movements";
+import { WARD_NAV } from "@/components/ward-management/ward-nav";
 import { allEmergencyDepartments, allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 /**
@@ -495,5 +500,57 @@ describe("the referral intake carries the person through, or records none", () =
           "at a real person who was never referred, which is worse than an absent one",
       ).toBe("none");
     });
+  });
+});
+
+/**
+ * ⚠️ THE FRONT-DOOR RULING: a `patientId` that names nobody is refused BEFORE the form appears,
+ * never only at Send. The reducer's own `RECEIVE_REFERRAL` refusal (`ward-flow-reducer.ts`,
+ * `tests/ward-referral-model.test.ts`) is unchanged and stays reachable by anything that dispatches
+ * the event directly — this describe block is the screen's own, independent refusal, proved at the
+ * DOM the same way the two tests above prove the read half of the same link.
+ *
+ * THREE STATES, and only the third changes here: no `?patientId=` at all is a real case (a referral
+ * raised by opening this form directly, tested above and again below); a `?patientId=` naming a
+ * real person is unchanged; a `?patientId=` naming nobody is what this task turns into a refusal.
+ * Collapsing the first into the third — refusing an ABSENT id too — would close the front door this
+ * form exists to keep open, which is why the second and third tests below sit beside the first.
+ */
+describe("the referral intake refuses at load for a patientId naming nobody, not only at Send", () => {
+  afterEach(() => {
+    window.history.pushState({}, "", "/");
+  });
+
+  it("⚠️ shows the refusal and the route to the person search, never the form, for a patientId naming nobody", () => {
+    window.history.pushState({}, "", "/mockups/ward-flow/referrals/new?patientId=PT-999");
+    renderForm();
+
+    expect(screen.getByTestId("ward-referral-intake-unknown-patient")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-referral-intake-form")).not.toBeInTheDocument();
+
+    // The route is read off `WARD_NAV` here too, not retyped, for the same reason
+    // `referral-intake.tsx`'s own `PATIENT_SEARCH_HREF` is: a hand-typed copy of the path could
+    // agree with a stale route and never notice the day it moved.
+    const expectedSearchHref = WARD_NAV.find((item) => item.id === "search")?.href;
+    expect(expectedSearchHref, "the person search disappeared from WARD_NAV").toBeTruthy();
+    expect(screen.getByTestId("ward-referral-intake-unknown-patient-search")).toHaveAttribute(
+      "href",
+      expectedSearchHref,
+    );
+  });
+
+  it("still loads the form when the patientId names a real person", () => {
+    window.history.pushState({}, "", "/mockups/ward-flow/referrals/new?patientId=PT-001");
+    renderForm();
+
+    expect(screen.getByTestId("ward-referral-intake-form")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-referral-intake-unknown-patient")).not.toBeInTheDocument();
+  });
+
+  it("still loads the form, with nobody attached, when there is no patientId at all — the real front-door case", () => {
+    renderForm();
+
+    expect(screen.getByTestId("ward-referral-intake-form")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-referral-intake-unknown-patient")).not.toBeInTheDocument();
   });
 });

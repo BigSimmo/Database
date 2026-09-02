@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -224,10 +223,7 @@ describe("regression fixture — real surfaces against origin/main", () => {
   const SURFACES: Array<{ surface: string; expectedSeed: number }> = [
     { surface: "src/components/ward-management", expectedSeed: 85 },
     { surface: "src/lib/rag", expectedSeed: 36 },
-    // 34 -> 56 on 2026-09-03: the merge with `main` brought in every Caring Contacts file
-    // added there since this branch forked. Legitimate drift, updated as the assertion
-    // message above instructs — the script is untouched.
-    { surface: "src/components/caring-contacts", expectedSeed: 56 },
+    { surface: "src/components/caring-contacts", expectedSeed: 34 },
     { surface: "worker", expectedSeed: 14 },
   ];
 
@@ -262,27 +258,7 @@ describe("regression fixture — real surfaces against origin/main", () => {
     expect(Number(closureCount)).toBeGreaterThanOrEqual(expectedSeed);
   });
 
-  /**
-   * ⚠️ REWRITTEN 2026-09-03, WHEN THIS BRANCH WAS BROUGHT LEVEL WITH `main`, AND THE REWRITE IS
-   * THE FINDING RATHER THAN A REPAIR.
-   *
-   * This asserted a large invisible share unconditionally. It could only ever pass while the
-   * branch was BEHIND `origin/main`, because the tool measures upstream drift — what moved on the
-   * reference side that this branch does not have. Bring the branch level and the honest answer is
-   * zero, by construction: there is no ground that has moved. The old assertion therefore read
-   * "this branch is stale" while claiming to read "the script still classifies".
-   *
-   * The anti-vacuity concern behind it is real and is kept, not dropped: a script silently
-   * reporting zero invisible for `worker` would be broken and nobody would know. So a zero is now
-   * accepted ONLY alongside independent proof that there is genuinely nothing upstream to see —
-   * `git rev-list --count HEAD..origin/main` at zero. A broken script cannot produce that; a
-   * merged branch produces it every time. When there IS drift, the original property is asserted
-   * exactly as before.
-   *
-   * The classification itself is proven independently of any branch state by
-   * `splitByFindability` above, which is where that guarantee belongs.
-   */
-  it("worker: the invisible share stays large whenever there is upstream ground to have moved", () => {
+  it("worker: the invisible share stays large — this is the case the tool exists for", () => {
     const { exitCode, stdout, stderr } = runAgainstRealRepo("worker");
     expect(stderr).toBe("");
     expect(exitCode).toBe(0);
@@ -296,27 +272,8 @@ describe("regression fixture — real surfaces against origin/main", () => {
     const [, changed, findable, invisible] = changedMatch as RegExpExecArray;
 
     expect(Number(findable) + Number(invisible)).toBe(Number(changed));
-    // Branch-independent, so it holds on every run: worker's closure is an order of magnitude
-    // larger than its own file list, which is the whole reason a name search misses things.
-    expect(Number(ratio)).toBeGreaterThan(5);
-
-    if (Number(changed) === 0) {
-      const behind = Number(
-        execFileSync("git", ["rev-list", "--count", "HEAD..origin/main"], {
-          cwd: REPOSITORY_ROOT,
-          encoding: "utf8",
-        }).trim(),
-      );
-      expect(
-        behind,
-        "the tool reported zero changed dependencies for worker, so this branch must actually be " +
-          "level with origin/main. If it is behind and the count is still zero, the script has " +
-          "stopped classifying and this is the failure the assertion below exists to catch.",
-      ).toBe(0);
-      return;
-    }
-
-    // A script that reports 0 invisible for worker while its ground HAS moved is broken.
+    // A script that reports 0 invisible for worker is broken and nobody would know.
     expect(Number(invisible)).toBeGreaterThan(10);
+    expect(Number(ratio)).toBeGreaterThan(5);
   });
 });

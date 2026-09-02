@@ -137,8 +137,11 @@ describe("a journey raised from a referral resolves back to that exact referral"
     // assertion the second referral above exists for: `WF-901` substitutes to `RF-901`, and the
     // link points at `RF-902`.
     expect(movement.id).toBe("WF-901");
-    expect(movement.referralId).toBe("RF-902");
-    expect(movement.referralId).not.toBe(movement.id.replace(/^WF-/, "RF-"));
+    expect(
+      movement.referralId,
+      "the link must be the referral's real id, never one substituted from the movement id — " +
+        "WF-901 substitutes to RF-901, and this movement's referral is RF-902",
+    ).toBe("RF-902");
   });
 
   it("keeps the two records distinct — the journey names the referral, the referral is unchanged", () => {

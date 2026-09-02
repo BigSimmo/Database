@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
 
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { duplicateCandidates } from "@/components/ward-management/ward-patients";
@@ -89,28 +89,27 @@ function answeredDraft(draft: PatientDraft): AnsweredDraft | undefined {
 /** The id `aria-describedby` on Add patient points at while it is unavailable. */
 const UNAVAILABLE_REASON_ID = "ward-add-patient-unavailable-reason";
 
-function subscribeToNothing() {
-  return () => undefined;
-}
-
 /**
- * The `?name=` query parameter — carried here from `patient-search.tsx`'s empty state — read in a
- * way that is safe across hydration. This screen is a Client Component rendered by a Server
- * Component page (`src/app/mockups/ward-flow/people/new/page.tsx`, outside this file's editable
- * scope) with no `<Suspense>` boundary, so it is server-rendered before hydration; the server has
- * no querystring to read at all. `useSyncExternalStore`'s server-snapshot argument
- * (`readNamePrefillServerSnapshot` below) is what React uses for that render AND for the client's
- * first hydrating render, so both agree with the blank HTML the server actually sent — no
- * mismatch. Only once hydration has committed does React call the real `readNamePrefillFromLocation`
- * and, if it differs, schedule an ordinary re-render with the true value. This is the same tool
- * `client-hydration-boundary.tsx` already uses in this codebase for the identical class of
- * problem: a browser-only value that must not disagree with the server's own render.
+ * The `?name=` query parameter — carried here from `patient-search.tsx`'s empty state.
+ *
+ * ⚠️ **`useSearchParams`, NOT a hand-rolled `useSyncExternalStore`.** A prior version of this file
+ * read `window.location.search` through `useSyncExternalStore` with a subscribe function that
+ * never notified — so a `?name=` change that did not remount this component (browser back/forward,
+ * or any future in-place navigation to this same route) was silently never picked up. Next 16's own
+ * `useSearchParams` docs describe exactly the property that hook was standing in for: it "is
+ * re-rendered on the client with the latest `searchParams`". Read it at
+ * `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-search-params.md` before
+ * touching this again.
+ *
+ * No `<Suspense>` boundary wraps this screen (`src/app/mockups/ward-flow/people/new/page.tsx`,
+ * outside this file's editable scope). The docs describe a build-time failure for a *static* route
+ * that calls this hook with no boundary — this repository has not opted into Cache Components
+ * validation (no `cacheComponents` / `instantInsights` / `instant` in `next.config.ts`), and these
+ * are mockup routes for which prerendering buys nothing, so `npm run build` is what actually proves
+ * whether that applies here rather than either assumption.
  */
-function readNamePrefillFromLocation(): string {
-  return new URLSearchParams(window.location.search).get("name")?.trim() ?? "";
-}
-function readNamePrefillServerSnapshot(): string {
-  return "";
+function readNamePrefill(searchParams: ReturnType<typeof useSearchParams>): string {
+  return searchParams.get("name")?.trim() ?? "";
 }
 
 /**
@@ -150,6 +149,7 @@ const NEAR_MATCH_MINIMUM_TERM_LENGTH = 4;
 export function AddPatientForm() {
   const { now, dispatch, patients } = useWardFlow();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [draft, setDraft] = useState<PatientDraft>(initialDraft);
   const [lastRejection, setLastRejection] = useState<string | undefined>(undefined);
   // Gates the unanswered-fields notice below between a static hint (present from mount, because
@@ -235,14 +235,9 @@ export function AddPatientForm() {
   ].filter((patient, index, all) => all.findIndex((other) => other.id === patient.id) === index);
   const foundSomething = exactMatches.length > 0 || nearMatches.length > 0;
 
-  // See `readNamePrefillFromLocation`'s own comment above for why this is a sync-external-store
-  // read rather than a plain `window.location` read: "" until hydration has committed, then the
-  // real `?name=` value (or still "" if there wasn't one).
-  const namePrefillFromUrl = useSyncExternalStore(
-    subscribeToNothing,
-    readNamePrefillFromLocation,
-    readNamePrefillServerSnapshot,
-  );
+  // See `readNamePrefill`'s own comment above: `useSearchParams` re-renders this component on the
+  // client with the latest `?name=`, so this is live rather than a one-shot read.
+  const namePrefillFromUrl = readNamePrefill(searchParams);
   // Applies that prefill to Given name exactly once, the moment it first becomes non-empty — see
   // `initialDraft`'s own comment for the judgement call on why the whole string lands in THIS one
   // field. Calling `setDraft` here, DURING RENDER rather than inside a `useEffect`, is the pattern
@@ -250,8 +245,11 @@ export function AddPatientForm() {
   // (react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes): React
   // discards the stale render and immediately re-renders with the corrected state, rather than
   // committing a stale paint and only fixing it a tick later from an effect. `appliedNamePrefill`
-  // is the guard that makes this run once — without it, a render triggered by any OTHER change
-  // (typing in a field) would see `namePrefillFromUrl` still non-empty and fire again.
+  // is the guard that makes this run once — without it, `namePrefillFromUrl` is now LIVE (unlike
+  // the old inert `useSyncExternalStore` read), so a later `?name=` change — or a render triggered
+  // by any OTHER change, such as typing in a field — would see it still non-empty and fire again,
+  // overwriting whatever the clinician has since typed. The guard is what keeps this a one-time
+  // prefill rather than a value that fights the user's own edits.
   const [appliedNamePrefill, setAppliedNamePrefill] = useState(false);
   if (!appliedNamePrefill && namePrefillFromUrl !== "") {
     setAppliedNamePrefill(true);

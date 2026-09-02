@@ -136,13 +136,14 @@ describe("the ward screen says pull, never hold, about an incoming patient", () 
 /** Mirrors `ShortlistHarness` in ward-shortlist.dom.test.tsx: the real provider state handed to
  *  the panel, so this reads the live reducer's own movement rather than a hand-built one. */
 function ShortlistHarness({ movementId }: { movementId: string }) {
-  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, referrals, now, dispatch } = useWardFlow();
   return (
     <ShortlistPanel
       movement={movements.find((candidate) => candidate.id === movementId)}
       now={now}
       units={units}
       bedReleases={bedReleases}
+      referrals={referrals}
       selectedUnitId={undefined}
       onSelectUnit={() => {}}
       dispatch={dispatch}

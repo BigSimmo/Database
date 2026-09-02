@@ -24,6 +24,7 @@ import {
   destinationUnit,
   elapsedLabel,
   blockingGate,
+  referralForMovement,
   shortlistCandidates,
   referralBlockedReason,
   needsNoRecordedReason,
@@ -39,8 +40,10 @@ import {
   type BedRelease,
   type LegalStatus,
   type Movement,
+  type Referral,
   type Unit,
 } from "@/components/ward-management/ward-model";
+import { referralSuburbLabel } from "@/components/ward-management/ward-referrals";
 import { operationalScore, urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
@@ -75,6 +78,18 @@ type ShortlistPanelProps = {
   now: Instant;
   units: Unit[];
   bedReleases: BedRelease[];
+  /**
+   * Every front-door referral this state holds — the same live collection `useWardFlow()` hands
+   * back, never a filtered subset. Added so this panel can resolve `movement.referralId` back to
+   * its referral and read `referral.suburb`.
+   *
+   * ⚠️ **COORDINATOR-ONLY, BY WHICH FILE THIS IS.** Nothing here restricts what a caller could pass
+   * — this is a screen-scoping decision, not a runtime one, the same way `ward-referral-visibility`'s
+   * own doc comment frames FD-23. `ShortlistPanel` lives under `coordinator/` and nothing under
+   * `ward/` imports it, so passing the full `referrals` array here cannot by itself put a suburb on
+   * a ward-facing screen. Owner ruling, 2026-09-02: a coordinator may see a patient's suburb.
+   */
+  referrals: Referral[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
   dispatch: Dispatch<WardFlowEvent>;
@@ -209,6 +224,7 @@ export function ShortlistPanel({
   now,
   units,
   bedReleases,
+  referrals,
   selectedUnitId,
   onSelectUnit,
   dispatch,
@@ -358,6 +374,22 @@ export function ShortlistPanel({
   const originLabel = originEd
     ? `Currently at ${originEd.siteCode} — ${originEd.name}`
     : "Currently at an unresolved department";
+
+  /**
+   * Owner ruling, 2026-09-02: a coordinator may see the suburb a referred patient is from —
+   * `PD-3`'s permission reaches this field precisely because a suburb is a service area, never an
+   * address. Resolved the same way every other reader of a referral does: `referralForMovement`
+   * (`ward-derivations.ts`) joins `movement.referralId` back to `referrals`, and
+   * `referralSuburbLabel` (`ward-referrals.ts`) turns the resulting `ReferralSuburb` into the one
+   * shared wording a screen shows — never a second copy of "Suburb not known" written here.
+   *
+   * ⚠️ **`undefined` FOR A MOVEMENT WITH NO REFERRAL, AND THAT IS MOST OF THEM.** Most seeded
+   * movements carry no `referralId` at all (see that field's own doc comment on `Movement`), so
+   * this line is absent rather than a placeholder for the common case — the same conservative
+   * failure the rest of this panel already holds to.
+   */
+  const referral = referralForMovement(movement, referrals);
+  const suburbLabel = referral ? referralSuburbLabel(referral.suburb) : undefined;
 
   // A form with no `dueAt` is never breached — `undefined` must never reach `clockState`'s
   // arithmetic. As of the 2026-08-23 product-owner correction, neither a Form 1A nor a Form 3B
@@ -617,6 +649,11 @@ export function ShortlistPanel({
           {movement.cohort} · {movement.security}
         </span>
         <span className={styles.shortlistMetaLine}>{originLabel}</span>
+        {suburbLabel ? (
+          <span className={styles.shortlistMetaLine} data-testid="ward-shortlist-suburb">
+            Suburb: {suburbLabel}
+          </span>
+        ) : null}
         <span className={legalBreached ? styles.shortlistLegalBreach : styles.shortlistMetaLine}>
           {movement.legalStatus} · {legalFormLine(movement, now)}
         </span>

@@ -23,13 +23,11 @@ Companion documents, none of which this file duplicates:
 | Direction, phase order, settled refusals | `docs/ward-flow-roadmap.md`                                                  |
 | Phase 5's handover, for the house style  | `docs/ward-flow-phase-5-handover.md`                                         |
 
-The Phase 6 spec **is now in this tree**, at the path the table above names. That is a change
-from every earlier draft of this file, which said it existed only on
-`claude/ward-flow-phases-6-7-design` and gave fetch commands for reading it there (§4 still
-carries those commands, and they still work). The Ward Flow publication branch brought the spec
-onto `main` when it merged, so read the file directly; the fetch route is now a fallback for
-reading the design branch's own later revisions, not the only way to see it at all. The other
-two companion documents are here as well.
+The Phase 6 spec is **not on this branch** — it exists only on
+`claude/ward-flow-phases-6-7-design`, and it is readable from anywhere, including a cloud
+container, once that branch is fetched (§4 gives the exact commands; note the `origin/` prefix,
+without which the `git show` fails in a fresh clone). Read it there rather than concluding it is
+missing. The other two are here.
 
 ---
 

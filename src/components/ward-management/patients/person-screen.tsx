@@ -118,7 +118,9 @@ export function PersonScreen({ patientId }: { patientId: PatientId }) {
                 href={`/mockups/ward-flow/referrals/new?patientId=${encodeURIComponent(person.id)}`}
                 data-testid="ward-person-refer"
               >
-                Refer this person
+                {/* "Refer Patient" is the owner's wording, ruling 9, 2026-09-03. It replaced
+                    "Refer this person". */}
+                Refer Patient
               </Link>
               {/*
                 ⚠️ THIS PARAGRAPH SAID THE OPPOSITE UNTIL 2026-09-02, AND IT CHANGED IN THE SAME

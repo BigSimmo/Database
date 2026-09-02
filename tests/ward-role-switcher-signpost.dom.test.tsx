@@ -10,7 +10,7 @@ import { WardRoleSwitcher } from "@/components/ward-management/ward-role-switche
  * 2026-09-03, "resolve this".
  *
  * ⚠️ IT WAS NEVER AN ACCESSIBILITY GAP. The trigger already carried `aria-label` and `title`, both
- * reading "Switch role". That label is TRUE AND USELESS at the moment it matters: a coordinator who
+ * reading "Switch role". That label was TRUE AND USELESS at the moment it mattered: a coordinator who
  * has just referred a patient to a ward has no way to know that ward is behind this control,
  * because the label describes the CONTROL rather than what is currently in it.
  *
@@ -46,37 +46,43 @@ describe("ward role switcher — the route to the receiving ward is findable", (
     // which would silently pass against a different movement if this one ever lost its referral.
     renderSwitcher("WF-002");
 
-    const trigger = screen.getByRole("button", { name: /switch role/i });
+    const trigger = screen.getByRole("button", { name: /change view/i });
     // ⚠️ The count must be in the ACCESSIBLE NAME, not only in a visual badge. The badge is
     // `aria-hidden` deliberately, so if this assertion is ever satisfied by the badge alone the
     // information has silently become sighted-only.
-    expect(trigger, "the trigger must say WHAT is behind it, not only that it switches role").toHaveAccessibleName(
-      /1 ward this patient was referred to/i,
-    );
+    expect(
+      trigger,
+      "the trigger must say WHAT is behind it, not only that it changes the view",
+      // ⚠️ EXACT, not a substring — the owner settled these words on 2026-09-03, so the assertion
+      // pins them whole. `/1 ward this patient was referred to/` would pass just as happily against
+      // "Switch role — 1 ward…", which is the wording he replaced, and against any prefix a later
+      // change bolts on in front. An owner's wording gets an anchored assertion, the same way
+      // "Refer Patient" does in ward-person-screen.dom.test.tsx.
+    ).toHaveAccessibleName("Change view — 1 ward this patient was referred to");
     expect(trigger).toHaveAttribute("title", expect.stringMatching(/1 ward this patient was referred to/i));
 
     // Singular, because there is one. A count that always says "wards" is a count nobody trusts.
     expect(trigger).not.toHaveAccessibleName(/1 wards/i);
   });
 
-  it("says exactly 'Switch role' and shows no count when no patient is focused", () => {
+  it("says exactly 'Change view' and shows no count when no patient is focused", () => {
     renderSwitcher(undefined);
 
-    const trigger = screen.getByRole("button", { name: /switch role/i });
-    // ⚠️ EXACT, not a substring. A regex would pass against "Switch role — 0 wards…", which is the
+    const trigger = screen.getByRole("button", { name: /change view/i });
+    // ⚠️ EXACT, not a substring. A regex would pass against "Change view — 0 wards…", which is the
     // wrong answer said confidently: there is nothing behind the control, so it must claim nothing.
-    expect(trigger).toHaveAccessibleName("Switch role");
+    expect(trigger).toHaveAccessibleName("Change view");
     expect(screen.queryByTestId("ward-role-switcher-ward-count")).not.toBeInTheDocument();
   });
 
   it("still offers 'No ward implied' in the menu when nothing is selected", () => {
     renderSwitcher(undefined);
 
-    fireEvent.click(screen.getByRole("button", { name: /switch role/i }));
+    fireEvent.click(screen.getByRole("button", { name: /change view/i }));
     // ⚠️ The honest empty state, untouched by this change and asserted so it stays that way. A
     // control that offers nothing must SAY it offers nothing, rather than rendering an empty group
     // that reads as a control which failed to load.
-    expect(screen.getByRole("menu", { name: /switch role/i })).toBeInTheDocument();
+    expect(screen.getByRole("menu", { name: "Change view" })).toBeInTheDocument();
     expect(screen.getByText("No ward implied")).toBeInTheDocument();
   });
 });

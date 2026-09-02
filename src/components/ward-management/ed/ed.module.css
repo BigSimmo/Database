@@ -4,6 +4,7 @@
  * every local token this file needs is declared here, never borrowed from another module's scope.
  */
 .screen {
+  --wf-border: var(--neutral-500);
   --ed-space-2: 0.125rem;
   --ed-space-4: 0.25rem;
   --ed-space-6: 0.375rem;
@@ -56,7 +57,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ed-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--ed-space-8) var(--ed-space-12);
 }
@@ -85,7 +86,7 @@
 
 .unitCard {
   min-width: 0;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-chrome);
   padding: var(--ed-space-14);
@@ -117,7 +118,7 @@
 
 .listSection {
   min-width: 0;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface);
   padding: var(--ed-space-14);
@@ -167,7 +168,7 @@
   display: grid;
   min-width: 0;
   gap: var(--ed-space-6);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface-subtle);
   padding: var(--ed-space-10);
@@ -218,8 +219,8 @@
   display: grid;
   gap: var(--ed-space-4);
   margin: 0;
-  border-top: 0.0625rem solid var(--border);
-  border-bottom: 0.0625rem solid var(--border);
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding: var(--ed-space-8) 0;
 }
 
@@ -272,7 +273,7 @@
  */
 .tierLabel {
   flex-shrink: 0;
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-sm);
   background: var(--surface-chrome);
   padding: var(--ed-space-2) var(--ed-space-8);
@@ -325,13 +326,13 @@
 
 .acceptButton[aria-disabled="true"] {
   cursor: not-allowed;
-  border-color: var(--border);
+  border-color: var(--wf-border, var(--neutral-500));
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
 
 .declineButton {
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface);
   color: var(--text-heading);
 }
@@ -344,7 +345,7 @@
 .declineForm {
   display: grid;
   gap: var(--ed-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: var(--ed-space-10);
@@ -391,7 +392,7 @@
 
 .declineSubmit:disabled {
   cursor: not-allowed;
-  border-color: var(--border);
+  border-color: var(--wf-border, var(--neutral-500));
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
@@ -406,7 +407,7 @@
  */
 .declineSubmit[aria-disabled="true"] {
   cursor: not-allowed;
-  border-color: var(--border);
+  border-color: var(--wf-border, var(--neutral-500));
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
@@ -432,7 +433,7 @@
 
 .referralField select {
   min-height: var(--ed-space-48);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 0 var(--ed-space-10);
@@ -463,7 +464,7 @@
 
 .capacityTable th,
 .capacityTable td {
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding: var(--ed-space-6) var(--ed-space-8);
   text-align: left;
   white-space: nowrap;
@@ -499,5 +500,20 @@
 @media (max-width: 40rem) {
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --wf-border: var(--border);
   }
 }

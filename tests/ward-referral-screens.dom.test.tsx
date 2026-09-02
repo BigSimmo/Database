@@ -7,6 +7,10 @@ import { vi } from "vitest";
 // ward-handover.dom.test.tsx, ward-ed-screen.dom.test.tsx): `ClinicalRail` renders next/link
 // anchors and this suite never checks routing, so a plain <a> avoids an App Router context
 // jsdom cannot provide.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
     <a href={href} {...rest}>
@@ -1978,7 +1982,7 @@ describe("ReferralBoard — an acceptance does not erase a refusal", () => {
     // into one undifferentiated run, would still "contain" every fragment below.
     const refusals = screen.getByTestId(`ward-referral-board-decided-refusals-${referralId}`);
     expect(refusals.textContent).toBe(
-      `Also refused — Emergency department: ${DECLINE_REASON_LABELS.belongs_to_another_service}` +
+      `Also refused — Emergency department (For psychiatric review): ${DECLINE_REASON_LABELS.belongs_to_another_service}` +
         ` · Community team: ${DECLINE_REASON_LABELS.referred_elsewhere}`,
     );
     // The refusals come AFTER the outcome, never before it — a coordinator scanning this column
@@ -2002,7 +2006,7 @@ describe("ReferralBoard — an acceptance does not erase a refusal", () => {
     // The non-ward branch: the destination itself is the whole answer, and saying "Unit not
     // recorded" here would invent a gap. That choice is preserved, refusals or no refusals.
     const detail = screen.getByTestId(`ward-referral-board-decided-detail-${referralId}`);
-    expect(detail.firstElementChild?.textContent).toBe("Emergency department");
+    expect(detail.firstElementChild?.textContent).toBe("Emergency department (For psychiatric review)");
     expect(detail.textContent).not.toContain("Unit not recorded");
 
     expect(screen.getByTestId(`ward-referral-board-decided-refusals-${referralId}`).textContent).toBe(
@@ -2078,10 +2082,23 @@ describe("ReferralBoard — a cancelled destination is shown, worded so it canno
 
     // The refusal: community only. Emergency department is not here — it was never refused.
     const refusals = screen.getByTestId(`ward-referral-board-decided-refusals-${referralId}`);
-    expect(refusals.textContent).toBe(`Also refused — Community team: ${DECLINE_REASON_LABELS.referred_elsewhere}`);
+    // ⚠️ ORDERED FIRST, FOR THE REASON THE I3 COMMENT FIFTEEN LINES BELOW ALREADY GIVES about the
+    // cancelled block. This assertion used to sit AFTER the exact `.toBe` on the same
+    // `textContent`, which made it unable to report anything: if the `.toBe` passes the text is
+    // exactly the community sentence and this is trivially true, and if the `.toBe` fails
+    // execution stops and this line never runs. Decoration, not coverage — before the ED label
+    // changed and after it.
+    //
+    // ⚠️ The identical defect was found, fixed and EXPLAINED for the cancelled block below, and
+    // this instance three lines above that explanation was left as it was. A written diagnosis
+    // does not sweep the file it is written in.
+    //
+    // Ordered first, the named message is what a reader gets — "the cancelled ED arm must never
+    // be listed among the refusals" — instead of a bare string diff.
     expect(refusals.textContent, "the cancelled ED arm must never be listed among the refusals").not.toContain(
       "Emergency department",
     );
+    expect(refusals.textContent).toBe(`Also refused — Community team: ${DECLINE_REASON_LABELS.referred_elsewhere}`);
 
     // The cancellation: ED only, worded with the one reused sentence — never "Declined", and never
     // under the refusals' own lead word, because nobody at the ED looked at this referral at all.
@@ -2097,11 +2114,18 @@ describe("ReferralBoard — a cancelled destination is shown, worded so it canno
       cancelled.textContent,
       "a destination nobody refused must never render as though it were declined",
     ).not.toContain("Declined");
-    expect(cancelled.textContent).toBe(
-      "Also cancelled — Emergency department: Cancelled — this referral was accepted somewhere else.",
-    );
+    // ⚠️ THE SECOND ONE, AND THE I3 FIX ABOVE LEFT IT BEHIND. That fix moved ONE negative
+    // assertion in front of the exact `.toBe` and explained at length why order decides whether
+    // an assertion can report anything. This one sat AFTER the same `.toBe`, on the same value,
+    // three lines below that explanation, and was dead for exactly the reason written there.
+    //
+    // ⚠️ A DIAGNOSIS DOES NOT SWEEP THE BLOCK IT IS WRITTEN IN. Third instance of this shape in
+    // this one file; the other two were found by scanning for it rather than by reading.
     expect(cancelled.textContent, "a cancellation must never be filed under the refusals' own lead word").not.toContain(
       "Also refused",
+    );
+    expect(cancelled.textContent).toBe(
+      "Also cancelled — Emergency department (For psychiatric review): Cancelled — this referral was accepted somewhere else.",
     );
 
     // All three parts sit on the row, in this order, and nowhere else — the same exactness the
@@ -2149,7 +2173,9 @@ describe("ReferralBoard — a refusal shows on the board while the referral is s
     expect(
       tableRefusalsText,
       "a coordinator ringing round must be able to see this destination has already refused, or they may ring a service that has already said no",
-    ).toBe(`Already refused — Emergency department: ${DECLINE_REASON_LABELS.belongs_to_another_service}`);
+    ).toBe(
+      `Already refused — Emergency department (For psychiatric review): ${DECLINE_REASON_LABELS.belongs_to_another_service}`,
+    );
 
     // The referral is still queued, not decided — this ruling is about the state where nothing
     // has finished answering yet, which is exactly what makes it invisible today.
@@ -2197,7 +2223,7 @@ describe("ReferralBoard — a refusal shows on the board while the referral is s
     fireEvent.click(screen.getByTestId("harness-refuse-community"));
 
     expect(screen.getByTestId(`ward-referral-board-refusals-${referralId}`).textContent).toBe(
-      `Already refused — Emergency department: ${DECLINE_REASON_LABELS.belongs_to_another_service}` +
+      `Already refused — Emergency department (For psychiatric review): ${DECLINE_REASON_LABELS.belongs_to_another_service}` +
         ` · Community team: ${DECLINE_REASON_LABELS.referred_elsewhere}`,
     );
   });

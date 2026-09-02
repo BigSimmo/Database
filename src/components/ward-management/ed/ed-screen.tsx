@@ -647,6 +647,19 @@ function accessTargetLine(minutesInDepartment: number): string {
  * `ward-screen.tsx` and `officer-screen.tsx`'s unit/department lookups already follow), never a
  * substituted department.
  */
+/**
+ * ⚠️ HOW MANY "RECENTLY ANSWERED" HOLDS — OWNER RULING 19, 2026-09-03. Ten.
+ *
+ * The section was uncapped, and an uncapped list titled "recently" decays with use: on a busy
+ * department it grows without limit until the word in its own heading is simply false. Ten is the
+ * owner's number, not a guess, which is why it is written here once and cited rather than tuned.
+ *
+ * ⚠️ THE CAP APPLIES TO THE ROWS, NEVER TO THE COUNT. The heading below reports how many
+ * have been answered, not how many are shown. Those two agree on every fixture smaller than ten,
+ * so capping the count as well would look correct everywhere except in front of a real clinician.
+ */
+const ANSWERED_VISIBLE_CAP = 10;
+
 export function EdScreen({ edId }: EdScreenProps) {
   const { movements, units, bedReleases, referrals, rejections, now, dispatch } = useWardFlow();
   const department = edById(edId);
@@ -804,7 +817,21 @@ export function EdScreen({ edId }: EdScreenProps) {
    * that scoping requires — see its own doc comment for why it cannot be a parameter on
    * `edReferralsFor` instead.
    */
-  const answered = edAnsweredReferralsFor(referrals, thisEdId, "psychiatric_review");
+  const answeredAll = edAnsweredReferralsFor(referrals, thisEdId, "psychiatric_review");
+  /**
+   * `edAnsweredReferralsFor` returns them sorted by `decidedAt` DESCENDING, so slicing from the
+   * front takes the ten most RECENT rather than an arbitrary ten. That ordering is load-bearing for
+   * this cap, and `tests/ward-ed-answered-cap.dom.test.tsx` names the three oldest rows and asserts
+   * their absence — so a selector that stopped sorting would fail there rather than quietly
+   * showing ten of the wrong rows, which renders identically to ten of the right ones.
+   *
+   * ⚠️ AN UNDATED DECISION IS DROPPED FIRST, AND THAT IS THE INTENDED ORDER. The selector
+   * sorts a missing `decidedAt` to `-Infinity`, so a row with no decision time sinks below every
+   * dated one. Right, because nothing can be claimed as recent without a time — but it does mean
+   * such a row leaves this list once ten dated decisions exist. The referral is untouched; only
+   * this view of it is limited.
+   */
+  const answered = answeredAll.slice(0, ANSWERED_VISIBLE_CAP);
 
   /**
    * THE OUTBOX: patients this team referred onward who are STILL HERE.
@@ -1246,14 +1273,19 @@ export function EdScreen({ edId }: EdScreenProps) {
          */}
         <section aria-label="Recently answered" className={styles.listSection} data-testid="ward-ed-answered">
           <h2 className={styles.sectionHeading}>
-            Recently answered &middot; {answered.length} referral{answered.length === 1 ? "" : "s"}
+            Recently answered &middot;{" "}
+            {answeredAll.length > ANSWERED_VISIBLE_CAP
+              ? `${answered.length} of ${answeredAll.length}`
+              : answeredAll.length}{" "}
+            referral{answeredAll.length === 1 ? "" : "s"}
           </h2>
           <p className={styles.unitMeta}>
             Referrals addressed to psychiatry at {department.name} that have already been answered — accepted, declined,
             or cancelled because another destination accepted first — most recently decided first. A row here has
-            already left the inbox above; nothing on this list is still waiting on this team.
+            already left the inbox above; nothing on this list is still waiting on this team. The ten most recently
+            decided are shown; the heading counts every one.
           </p>
-          {answered.length === 0 ? (
+          {answeredAll.length === 0 ? (
             <p className={styles.placeholder} data-testid="ward-ed-answered-empty">
               Nothing addressed to psychiatry at {department.name} has been answered yet.
             </p>

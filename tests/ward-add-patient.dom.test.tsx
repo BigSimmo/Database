@@ -10,6 +10,7 @@ const router = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 // Same reason as `ward-patient-search.dom.test.tsx`: `ClinicalRail` and the search page's own
@@ -162,8 +163,11 @@ describe("AddPatientForm — FIX 1, reading the carried-forward query back", () 
 
     renderForm();
 
-    // The prefill lands via a post-mount effect (see that effect's own comment for why it cannot
-    // be read straight into the first render), so this settles asynchronously.
+    // `readNamePrefill` reads `useSearchParams()`, which is live from the first render — but the
+    // prefill is APPLIED by `setDraft` called during render, which discards the stale render and
+    // commits the corrected one, so `waitFor` still settles this on the very first check rather
+    // than genuinely waiting on an async effect. Kept as `waitFor` anyway: it is the same
+    // assertion either way, and it stays correct if that mechanism ever changes again.
     await waitFor(() => {
       expect(screen.getByLabelText("Given name")).toHaveValue("Mary Anne Halloway");
     });
@@ -179,6 +183,36 @@ describe("AddPatientForm — FIX 1, reading the carried-forward query back", () 
 
     expect(screen.getByLabelText("Given name")).toHaveValue("");
     expect(screen.getByLabelText("Family name")).toHaveValue("");
+  });
+
+  // ⚠️ THE PREFILL APPLIES EXACTLY ONCE — proven directly, not just asserted in a comment.
+  // `useSearchParams` is LIVE (unlike the inert `useSyncExternalStore` read this replaced), so
+  // every keystroke below re-renders `AddPatientForm` with `namePrefillFromUrl` still
+  // "Mary Anne Halloway". Without the `appliedNamePrefill` guard, that live value would win the
+  // render-time `setDraft` again and stomp whatever the clinician had just typed. This is the
+  // regression the guard exists to prevent.
+  it("⚠️ applies the ?name= prefill once, then leaves it alone — a reactive read must not fight typing", async () => {
+    window.history.pushState({}, "", "/mockups/ward-flow/people/new?name=Mary%20Anne%20Halloway");
+
+    renderForm();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Given name")).toHaveValue("Mary Anne Halloway");
+    });
+
+    // The clinician corrects the prefill — the exact case a re-firing prefill would fight.
+    fireEvent.change(screen.getByLabelText("Given name"), { target: { value: "Marianne" } });
+    expect(screen.getByLabelText("Given name")).toHaveValue("Marianne");
+
+    // A further re-render (a second keystroke) must not let the still-live `?name=` value win
+    // again and overwrite the correction.
+    fireEvent.change(screen.getByLabelText("Given name"), { target: { value: "Marianne H" } });
+    expect(screen.getByLabelText("Given name")).toHaveValue("Marianne H");
+
+    // Clearing the field entirely must not be read as "still blank, apply the prefill again" —
+    // the guard is a one-shot latch, not a re-check of the field's current emptiness.
+    fireEvent.change(screen.getByLabelText("Given name"), { target: { value: "" } });
+    expect(screen.getByLabelText("Given name")).toHaveValue("");
   });
 });
 

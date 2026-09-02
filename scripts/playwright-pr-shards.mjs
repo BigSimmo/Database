@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Same matcher as playwright.config.ts `seededSpecPattern` (keep in sync).
@@ -94,12 +94,6 @@ export const prUiSpecProfiles = Object.freeze([
   // `tests/playwright-pr-shards.test.ts`. Two small specs moved out to lift the
   // other two shards instead of packing this one.
   { file: "tests/ui-caring-contacts-workspace.spec.ts", shard: 2, fullSeconds: 34.2, criticalSeconds: 0 },
-  // Added to the required shards on 2026-09-03, when the merge of the Ward Flow publication
-  // branch brought in `playwright-project-isolation`'s universal net — the guard that found
-  // this spec had sat on disk uncollected since 2026-08-16. It is one test against the tools
-  // launcher; the figure is a conservative estimate until the next hosted timing sample, and
-  // it is placed on the lightest shard so an over-estimate cannot unbalance the group.
-  { file: "tests/ui-tools-show-all.spec.ts", shard: 2, fullSeconds: 6.0, criticalSeconds: 0 },
   // ui-ward-{management,coordinator,roles}.spec.ts moved out of this required PR
   // shard: Ward Flow now lives behind the /mockups/ward-flow developer gate, so
   // (like ui-caring-contact-mockup.spec.ts) it runs only under the advisory

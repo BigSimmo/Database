@@ -153,14 +153,15 @@ describe("ward-change-reasons", () => {
         "patient_not_ready",
         "destination_changed",
         "job_created_in_error",
-        // The SIX urgent-mark reasons, cut from ten on 2026-08-31. ⚠️ The owner saw the ten,
+        // The EIGHT urgent-mark reasons: cut from ten to six on 2026-08-31, then the catch-all
+        // reinstated by the owner on 2026-09-03, giving seven. ⚠️ The owner saw the ten,
         // delegated the choice, and pre-accepted the result sight-unseen in his own words: "I
         // accept that for now to be changed later." So the shape is his, the selection is a
         // session's, and the acceptance is PROVISIONAL — see `URGENT_MARK_REASONS`' own docblock,
         // which names the four that went and why each one went.
         //
         // Pinned here for the same reason as every other entry: an added, renamed or REINSTATED
-        // reason must turn this red rather than arrive quietly. ⚠️ And every one of the six
+        // reason must turn this red rather than arrive quietly. ⚠️ And every one of the first seven
         // describes what a SETTING cannot do rather than a fact about the person — the property
         // that dissolved the who-may-see-a-reason question. A person-shaped reason added back here
         // reopens it.
@@ -170,6 +171,13 @@ describe("ward-change-reasons", () => {
         "needs_medical_care_unavailable_here",
         "safety_of_others_in_this_setting",
         "escort_in_place_and_unsustainable",
+        // ⚠️ REINSTATED 2026-09-03 on the owner's ruling, and this test did exactly what the
+        // comment above promised: it went red rather than letting the seventh arrive quietly.
+        "this_setting_cannot_continue_current_care",
+        // ⚠️ THE EIGHTH, added 2026-09-03 on the owner's ruling that the seventh is the broadest
+        // of the dropped options but not a true "none of these apply". PLACEHOLDER COPY — the
+        // shape is his, the words are not yet confirmed.
+        "another_reason_not_listed",
       ].sort(),
     );
   });

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
 
 import {
   communityTeamOptions,
@@ -10,6 +12,7 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import type { PatientId } from "@/components/ward-management/ward-patients";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
+import { WARD_NAV } from "@/components/ward-management/ward-nav";
 import {
   COHORTS,
   HOME_REGIONS,
@@ -124,6 +127,35 @@ export const UNANSWERED_OPTION_LABEL = "Choose one";
 
 /** The id `aria-describedby` on Send points at while Send is unavailable. */
 const UNAVAILABLE_REASON_ID = "ward-referral-intake-unavailable-reason";
+
+/**
+ * The person search's real route, read off `WARD_NAV` rather than hand-typed here — the same
+ * discipline `WARD_REFERRAL_INTAKE_HREF` and `WARD_ADD_PERSON_HREF` (`ward-nav.ts`) hold to for
+ * their own destinations, just via a lookup instead of a constant, because `patient-search.tsx`'s
+ * route is a `WARD_NAV` entry (id `"search"`) rather than a screen-owned destination with a
+ * constant of its own.
+ *
+ * ⚠️ **THIS WAS A NON-NULL ASSERTION AND IT WAS A LATENT CRASH. THE HISTORY IS THE POINT.**
+ *
+ * It read `find(…)!.href`, justified by a comment claiming `tests/ward-nav.test.ts` would fail if
+ * `"search"` were ever removed. **The claim was checked and was false — that file referenced
+ * `"search"` nowhere.** Worse, when the guard was then written, deleting the entry produced
+ * `TypeError: Cannot read properties of undefined (reading 'href')` at MODULE LOAD, and because
+ * `ward-nav.test.ts` imports this component the file reported `Tests no tests`: **it never
+ * collected, so the test written to catch the removal could not run.** A guard that dies with the
+ * thing it guards is not a guard.
+ *
+ * So it is optional now, and the refusal screen renders its explanation with or without a way out.
+ * `tests/ward-nav.test.ts` → *"keeps the patient search in WARD_NAV, because the referral intake
+ * offers it as the only way out of a refusal"* fails BY NAME if the entry goes. **Do not restore
+ * the assertion: the screen this constant serves is the one a clinician reaches when a link is
+ * already broken, and it must not be the screen that crashes.**
+ *
+ * This is the "resolve against the real route tree, never a string that can drift from it" rule
+ * this file already follows for `wardSites`, `allEmergencyDepartments()` and
+ * `communityTeamOptions()`.
+ */
+const PATIENT_SEARCH_HREF: string | undefined = WARD_NAV.find((item) => item.id === "search")?.href;
 
 function isUnanswered(value: unknown): boolean {
   // FD-21: the destinations are a LIST, and an empty one is the same fact every sentinel above
@@ -544,27 +576,60 @@ function initialDraft(): ReferralDraft {
 /**
  * The `?patientId=` query parameter, carried here by the Refer button on `person-screen.tsx`.
  *
- * ⚠️ READ THE SAME WAY `add-patient.tsx` READS ITS OWN `?name=`, and for the same reason rather
- * than for consistency's sake: this is a Client Component rendered by a Server Component page with
- * no `<Suspense>` boundary, so it is server-rendered before hydration and the server has no
- * querystring to read. `useSyncExternalStore`'s server snapshot is what both the server render and
- * the first hydrating render use, so neither disagrees with the HTML actually sent.
+ * ⚠️ **`useSearchParams`, NOT a hand-rolled `useSyncExternalStore`.** A prior version of this file
+ * read `window.location.search` through `useSyncExternalStore` with a subscribe function that
+ * never notified — a real defect on THIS field specifically: a `?patientId=` change that did not
+ * remount this component (browser back/forward, or any future in-place navigation between two
+ * people's Refer buttons) was silently never picked up, so the form could go on carrying the
+ * PREVIOUS person's id into a referral naming the wrong human being. Next 16's own `useSearchParams`
+ * docs describe exactly the property that hook was standing in for: it "is re-rendered on the
+ * client with the latest `searchParams`". Read it at
+ * `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-search-params.md` before
+ * touching this again.
  *
- * ⚠️ NOT VALIDATED HERE. Whether the id names a real person is the reducer's business, and a
- * screen that silently dropped an unrecognised id would hide a broken link rather than surface it.
+ * No `<Suspense>` boundary wraps this screen (a Server Component page with no boundary of its
+ * own). The docs describe a build-time failure for a *static* route that calls this hook with no
+ * boundary — this repository has not opted into Cache Components validation (no `cacheComponents` /
+ * `instantInsights` / `instant` in `next.config.ts`), and this is a mockup route for which
+ * prerendering buys nothing, so `npm run build` is what actually proves whether that applies here
+ * rather than either assumption.
+ *
+ * ⚠️ WHETHER IT NAMES A REAL PERSON IS NOW CHECKED HERE TOO, NOT ONLY BY THE REDUCER.
+ * `RECEIVE_REFERRAL` still refuses an unknown `patientId` at submit (`ward-flow-reducer.ts`) —
+ * that guard is unchanged and stays load-bearing for anything that dispatches the event directly,
+ * a test included — but a person's identity is the premise of this whole form, not one field on
+ * it. Discovering a broken premise only after every question has been answered puts the cost on
+ * whoever just did that work. See `ReferralIntakeForm`'s own early return below for where the
+ * screen now refuses instead of the form ever appearing.
  */
-function subscribeToNothing() {
-  return () => {};
-}
-function readPatientIdFromLocation(): string {
-  return new URLSearchParams(window.location.search).get("patientId")?.trim() ?? "";
-}
-function readPatientIdServerSnapshot(): string {
-  return "";
+function readPatientId(searchParams: ReturnType<typeof useSearchParams>): string {
+  return searchParams.get("patientId")?.trim() ?? "";
 }
 
 export function ReferralIntakeForm() {
-  const { now, dispatch, rejections, units, referrals } = useWardFlow();
+  const { now, dispatch, rejections, units, referrals, patients } = useWardFlow();
+  const searchParams = useSearchParams();
+  // See `readPatientId`'s own comment above: `useSearchParams` re-renders this component on the
+  // client with the latest `?patientId=`, so a change to it — including one that does not remount
+  // this component — is picked up. Read here, ahead of every hook below, so the whole render (the
+  // early refusal further down included) agrees on one value rather than two reads risking a
+  // mid-render disagreement.
+  const patientIdFromUrl = readPatientId(searchParams);
+  /**
+   * THE THIRD STATE (see this file's own module comment on the front-door decision): `""` is a
+   * real case — a referral raised by opening this form directly, with nobody attached — and stays
+   * `true` here so the form keeps loading exactly as it always has. A non-empty id that names
+   * nobody in `patients` is the one state this task changes: `patientIdKnown` goes `false`, and
+   * the early return below refuses the form before a single question is asked rather than after
+   * every one of them has been answered.
+   *
+   * Mirrors the reducer's own check (`ward-flow-reducer.ts`, `RECEIVE_REFERRAL`) deliberately —
+   * same `patients.some((patient) => patient.id === …)` shape — but this is not a replacement for
+   * it. That guard is dispatch-reachable by anything that sends `RECEIVE_REFERRAL` directly, this
+   * screen included were it not for this early return, so it must go on refusing independently of
+   * whether this screen ever lets a bad id through.
+   */
+  const patientIdKnown = patientIdFromUrl === "" || patients.some((patient) => patient.id === patientIdFromUrl);
   const [draft, setDraft] = useState<ReferralDraft>(initialDraft);
   const [lastRejection, setLastRejection] = useState<Rejection | undefined>(undefined);
   const [confirmed, setConfirmed] = useState(false);
@@ -611,6 +676,55 @@ export function ReferralIntakeForm() {
     }
     priorRejectionCountRef.current = rejections.length;
   }, [rejections, checkToken]);
+
+  /**
+   * ⚠️ THE REFUSAL, BEFORE THE FORM EVER OFFERS ITSELF. `patientIdKnown` is computed above, ahead
+   * of every hook this component owns, so this early return runs after all of them (Rules of
+   * Hooks) and before any of the form's own state — `outstanding`, `answered`, the destination
+   * options — is ever read. A referral cannot honestly be raised for a specific person until that
+   * person is confirmed to exist; discovering otherwise only at Send would have put the cost of a
+   * broken link on whoever had just finished answering eleven questions.
+   *
+   * The recovery route is the person search, not a dead end: `PATIENT_SEARCH_HREF` above.
+   */
+  if (!patientIdKnown) {
+    return (
+      <div className={styles.screen} data-testid="ward-referral-intake-unknown-patient">
+        <ClinicalRail />
+        <main id="main-content" className={styles.main}>
+          <header className={styles.pageHeader}>
+            <h1 className={styles.pageTitle}>This person is not on file</h1>
+            <p className={styles.pageSubtitle} data-testid="ward-referral-intake-unknown-patient-reason">
+              The link that opened this form names &ldquo;{patientIdFromUrl}&rdquo;, and nobody with that id is known to
+              this system. A referral cannot be raised for a person who cannot be confirmed &mdash; search for them
+              instead.
+            </p>
+          </header>
+          {/*
+            ⚠️ RENDERED ONLY IF THE ROUTE STILL EXISTS, AND THAT IS NOT DEFENSIVE PADDING — IT
+            REPLACED A NON-NULL ASSERTION THAT COULD TAKE THIS WHOLE SCREEN DOWN. `!.href` threw at
+            MODULE LOAD the moment `WARD_NAV` lost its `"search"` entry, which killed every file
+            importing this component. Proven, not supposed: deleting that entry produced
+            `TypeError: Cannot read properties of undefined (reading 'href')` and `tests/ward-nav.
+            test.ts` reported `Tests no tests` — the file never collected, so the very test written
+            to catch the removal could not run. A guard that dies with the thing it guards is not a
+            guard.
+            Now the refusal above still renders and still says why; only the way out is missing, and
+            `tests/ward-nav.test.ts` fails BY NAME if it ever goes.
+          */}
+          {PATIENT_SEARCH_HREF !== undefined && (
+            <Link
+              className={styles.headerAction}
+              href={PATIENT_SEARCH_HREF}
+              data-testid="ward-referral-intake-unknown-patient-search"
+            >
+              Search for this person
+            </Link>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   // Phase R2.1. The outstanding questions, recomputed on every render from the draft itself
   // rather than tracked in a second piece of state that could disagree with it.
@@ -674,12 +788,6 @@ export function ReferralIntakeForm() {
       };
     });
   }
-
-  const patientIdFromUrl = useSyncExternalStore(
-    subscribeToNothing,
-    readPatientIdFromLocation,
-    readPatientIdServerSnapshot,
-  );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

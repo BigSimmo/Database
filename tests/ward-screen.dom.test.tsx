@@ -303,10 +303,17 @@ describe("ward screen bed release controls", () => {
     // sees the same sentence-case convention every other status label on this screen uses.
     const row = screen.getByTestId("ward-bed-release-WR-002");
     const stateText = row.querySelector("strong")?.textContent ?? "";
-    expect(stateText).toBe("Expected");
-    // Guards the actual defect directly: the raw lowercase value must not be what is rendered.
-    expect(stateText).not.toBe("expected");
+    // ⚠️ THE GENERAL PROPERTY LEADS, then the specific case, then the exact value. Both
+    // negatives used to sit AFTER the exact `.toBe`, where neither could report: the
+    // comparands are literals the exact assertion already pins, so once it passed both were
+    // trivially true, and if it failed execution stopped before them.
+    //
+    // `/^[a-z]/` is the real requirement — no status label may render as a raw union value —
+    // and `"expected"` is one instance of it, kept because it names the defect that actually
+    // happened rather than the rule that forbids it.
     expect(stateText).not.toMatch(/^[a-z]/);
+    expect(stateText).not.toBe("expected");
+    expect(stateText).toBe("Expected");
   });
 
   it("confirming a expected release updates the row", () => {
