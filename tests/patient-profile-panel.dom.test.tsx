@@ -43,7 +43,7 @@ describe("PatientProfilePanel — physiological input validation", () => {
 
     // Nothing entered yet: the control says so instead of showing "None", which
     // the engine reads as an answer that clears a hepatic gate.
-    expect(within(group).getByRole("radio", { name: "Not recorded" })).toHaveAttribute("aria-checked", "true");
+    expect(within(group).getByRole("radio", { name: "Not set" })).toHaveAttribute("aria-checked", "true");
     expect(within(group).getByRole("radio", { name: "None" })).toHaveAttribute("aria-checked", "false");
     expect(storedProfile().hepatic ?? null).toBeNull();
 
@@ -51,9 +51,9 @@ describe("PatientProfilePanel — physiological input validation", () => {
     // "None" is written through as a real value, so the gate counts as assessed.
     expect(storedProfile().hepatic).toBe("none");
     expect(within(group).getByRole("radio", { name: "None" })).toHaveAttribute("aria-checked", "true");
-    expect(within(group).getByRole("radio", { name: "Not recorded" })).toHaveAttribute("aria-checked", "false");
+    expect(within(group).getByRole("radio", { name: "Not set" })).toHaveAttribute("aria-checked", "false");
 
-    fireEvent.click(within(group).getByRole("radio", { name: "Not recorded" }));
+    fireEvent.click(within(group).getByRole("radio", { name: "Not set" }));
     expect(storedProfile().hepatic).toBeNull();
   });
 

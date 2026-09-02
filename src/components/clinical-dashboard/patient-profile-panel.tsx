@@ -14,7 +14,7 @@ import type { AllergyClass, HepaticSeverity, ScrUnit } from "@/lib/medication-pa
 import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from "@/lib/patient-profile-storage";
 
 /**
- * "Not recorded" is a real segment, not the absence of a selection.
+ * "Not set" is a real segment, not the absence of a selection.
  *
  * The engine already treats `hepatic: "none"` as present-and-non-firing (it
  * tests `hepatic !== "none"` rather than falsiness), so "assessed, no
@@ -23,13 +23,20 @@ import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from 
  * indistinguishable from never touching the field, and the control then
  * displayed "None" for a profile that recorded nothing at all. The sentinel is
  * a display-only value — it is written through as `null`, never stored.
+ *
+ * The label is "Not set" rather than the more descriptive "Not recorded"
+ * because this is a five-segment `layout="equal"` control: at a 320px viewport
+ * each segment is ~50px, and "Not recorded" truncated to "Not recor…" beside a
+ * fully legible "None". Truncating the default state of the one control whose
+ * entire purpose is separating "no answer" from "answered: no impairment" is
+ * the wrong thing to shorten by ellipsis, so it is shortened by wording.
  */
 const HEPATIC_UNRECORDED = "unrecorded" as const;
 
 type HepaticSegment = HepaticSeverity | typeof HEPATIC_UNRECORDED;
 
 const HEPATIC_OPTIONS: { value: HepaticSegment; label: string }[] = [
-  { value: HEPATIC_UNRECORDED, label: "Not recorded" },
+  { value: HEPATIC_UNRECORDED, label: "Not set" },
   { value: "none", label: "None" },
   { value: "mild", label: "Mild" },
   { value: "moderate", label: "Moderate" },
