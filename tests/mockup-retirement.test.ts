@@ -56,7 +56,7 @@ describe("mockup index parsing", () => {
     "",
     "| Retired | Route | Superseded by | Evidence |",
     "| --- | --- | --- | --- |",
-    "| 2026-09-02 | `document-navigation-pane` | `document-navigation-perfected` | Exact code match. |",
+    "| 2026-09-02 | `example-retired-study` | `example-winner` | Exact code match. |",
     "",
     "## Design tokens",
     "",
@@ -69,11 +69,11 @@ describe("mockup index parsing", () => {
 
   it("stops the retired section at the next heading", () => {
     expect(retiredSection(markdown)).not.toContain("some-other-token");
-    expect(retiredSection(markdown)).toContain("document-navigation-pane");
+    expect(retiredSection(markdown)).toContain("example-retired-study");
   });
 
   it("treats only the retired section as a retirement record", () => {
-    expect(retiredSlugs(markdown).has("document-navigation-pane")).toBe(true);
+    expect(retiredSlugs(markdown).has("example-retired-study")).toBe(true);
     expect(retiredSlugs(markdown).has("example-study")).toBe(false);
   });
 
@@ -82,7 +82,7 @@ describe("mockup index parsing", () => {
    * marked that winner retired — a real bug this check found against its own first record.
    */
   it("never reads the successor column as a retirement", () => {
-    expect(retiredSlugs(markdown).has("document-navigation-perfected")).toBe(false);
+    expect(retiredSlugs(markdown).has("example-winner")).toBe(false);
   });
 
   it("rolls a nested route up to its top-level slug", () => {
@@ -210,7 +210,9 @@ describe("diff base resolution", () => {
   });
 
   it("prefers MOCKUP_RETIREMENT_BASE when resolving auto", () => {
-    expect(resolveDiffBase("auto", { runGit: () => "", env: fakeEnv({ MOCKUP_RETIREMENT_BASE: "abc123" }) })).toBe("abc123");
+    expect(resolveDiffBase("auto", { runGit: () => "", env: fakeEnv({ MOCKUP_RETIREMENT_BASE: "abc123" }) })).toBe(
+      "abc123",
+    );
   });
 
   it("falls back to the merge base with origin/main", () => {
@@ -218,7 +220,9 @@ describe("diff base resolution", () => {
   });
 
   it("fails closed when no base can be resolved", () => {
-    expect(() => resolveDiffBase("auto", { runGit: () => "", env: fakeEnv() })).toThrow(/could not resolve a diff base/);
+    expect(() => resolveDiffBase("auto", { runGit: () => "", env: fakeEnv() })).toThrow(
+      /could not resolve a diff base/,
+    );
   });
 });
 

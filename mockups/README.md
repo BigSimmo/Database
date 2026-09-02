@@ -14,7 +14,7 @@ npm run sitemap:check
 ## Mockup index, by topic
 
 A quick-scan catalogue of every route under `src/app/mockups/` and what state it's in, so
-nobody has to open 70 folders to find out what's still useful. `docs/site-map.md` remains
+nobody has to open 72 folders to find out what's still useful. `docs/site-map.md` remains
 the authoritative list of exact live paths (regenerate it after any change here); this
 table exists to group those paths by topic and record a status for each one.
 
@@ -89,13 +89,13 @@ route depending on them before removal.
 wrong.** Commit `6230c4db` (#1311) added all five drafts _and_ the production implementation
 together, which is why the dates looked undifferentiated.
 
-| Route                              | Status                                                                                                                                                                                                                                                           |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `document-navigation-perfected`    | **Shipped.** Its weighted `flexGrow: section.weight` track and `pending` spinner exist in `document-viewer/section-nav.tsx` and in no other draft; rule 22 of `docs/search-chrome-behaviour.md`, added by the same commit, names that "weighted position track". |
-| `document-navigation-contract`     | Active reference — superseded as a build, but it is the origin of rule 22 and keeps that rule's illustrated rationale.                                                                                                                                           |
-| `document-navigation-final-review` | Retired 2026-09-02 — unweighted track, no pending state.                                                                                                                                                                                                         |
-| `document-navigation-final`        | Retired 2026-09-02 — its two-column grid was reversed by the review round; production is a single-column list.                                                                                                                                                   |
-| `document-navigation-pane`         | Retired 2026-09-02 — `section-nav.tsx` refuses its thesis in the same commit that added it.                                                                                                                                                                      |
+| Route                              | Status                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `document-navigation-perfected`    | **Shipped.** Its weighted `flexGrow: section.weight` track and `pending` spinner exist in `document-viewer/section-nav.tsx` and in no other draft; rule 22 of `docs/search-chrome-behaviour.md`, added by the same commit, names that "weighted position track".                                                                                                                                   |
+| `document-navigation-contract`     | Active reference — superseded as a build, but it is the origin of rule 22 and keeps that rule's illustrated rationale.                                                                                                                                                                                                                                                                             |
+| `document-navigation-final-review` | Retired 2026-09-02 — unweighted track, no pending state.                                                                                                                                                                                                                                                                                                                                           |
+| `document-navigation-final`        | **Partly adopted — kept.** Its two-column grid was reversed by the review round, but production `document-viewer/section-nav.tsx:143` uses ITS heading (`flex items-baseline justify-between px-0.5 pb-2`), a string found in exactly two files repo-wide and absent from `perfected`. Production is a hybrid of the two, so this is not superseded. Restored 2026-09-02 after adversarial review. |
+| `document-navigation-pane`         | Retired 2026-09-02 — `section-nav.tsx` refuses its thesis in the same commit that added it.                                                                                                                                                                                                                                                                                                        |
 
 ### Document phone chrome — four rounds, no recorded winner
 
@@ -104,7 +104,17 @@ together, which is why the dates looked undifferentiated.
 chrome, sheet not pane" contract but not the drawn row.
 
 `document-phone-title`, `document-phone-title-refined`, `document-phone-fused-directions` and
-`document-phone-zero-chrome` were all retired 2026-09-02.
+`document-phone-title`, `document-phone-title-refined` and `document-phone-fused-directions`
+were retired 2026-09-02.
+
+`document-phone-zero-chrome` is **kept, unresolved.** Its "zero new chrome, sheet not pane"
+contract is live (rule 22, and `section-nav.tsx:227-229`), but the kept
+`document-navigation-contract` carries that same thesis verbatim, and both landed in the one
+squash `6230c4db` so git cannot say which authored it. It also uniquely holds the numeric
+chrome-budget comparison that is the quantified case against the rejected fused row. It was
+proposed for retirement on 2026-09-02 and withdrawn after adversarial review returned
+UNCERTAIN — the policy's negative rule applies: an unevidenced generation is asked about, not
+retired.
 
 ### Document search & viewer
 
@@ -215,12 +225,10 @@ problem this policy exists to prevent.
 | 2026-08-27 | `favourites-set-board`             | `favourites-phone-perfected`     | As above.                                                                                                                                      |
 | 2026-08-27 | `favourites-set-navigator`         | `favourites-phone-perfected`     | As above.                                                                                                                                      |
 | 2026-09-02 | `document-navigation-pane`         | `document-navigation-perfected`  | `section-nav.tsx` refuses its anchored-rail thesis in `6230c4db`, the same commit that added both.                                             |
-| 2026-09-02 | `document-navigation-final`        | `document-navigation-perfected`  | Its two-column grid was reversed by the review round ("grid labels truncated three of seven sections"); production is a single-column list.    |
 | 2026-09-02 | `document-navigation-final-review` | `document-navigation-perfected`  | Immediate predecessor: unweighted track and no pending state, where production is weighted and has one.                                        |
 | 2026-09-02 | `document-phone-title`             | `document-navigation-perfected`  | Recommends a drop pane; production uses the shared `Sheet`.                                                                                    |
 | 2026-09-02 | `document-phone-title-refined`     | `document-navigation-perfected`  | Still a pane, and keeps `Plus` in the row where production uses `Ellipsis`.                                                                    |
 | 2026-09-02 | `document-phone-fused-directions`  | `document-navigation-perfected`  | Commits to "a pane that pushes the document down rather than covering it" — what production refuses.                                           |
-| 2026-09-02 | `document-phone-zero-chrome`       | `document-navigation-perfected`  | Its "zero new chrome, sheet not pane" contract was adopted; its drawn row (single-line title, no track) never was.                             |
 | 2026-09-02 | `answer-home-proposal`             | Not applicable — nothing adopted | Its corpus-name subtitle and governance line never shipped; #1512 removed the badge independently, hours before this mockup's own PR merged.   |
 | 2026-09-02 | `answer-evidence-popups`           | `answer-chat-perfected`          | #2362 names the five-tab Evidence sheet as one of "four mental models for one question" and replaced all four with one source rail and drawer. |
 

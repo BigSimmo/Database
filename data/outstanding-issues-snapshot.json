@@ -10,7 +10,7 @@
     "p2": 51,
     "p3": 22,
     "queued": 7,
-    "pending": 10,
+    "pending": 11,
     "resolved": 454
   },
   "queue": [
@@ -810,6 +810,12 @@
       "request_id": "c49cd04d-6485-430a-9b70-3c10c7cb3e03",
       "action": "done",
       "summary": "#5YKAQ5: Resolved; verified against origin/main d1bb2c197 on 2026-09-02. The row asked for the fallback to be dropped so that a missing publishable key disables tracing rather than escalating to the service-role secret. That is exactly what the code now does. In src/sentry.server.config.ts, supabaseTracingIntegrations() reads NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY and returns an empty integration list when either is absent, so no Supabase client is constructed at all. Proved by absence as well as by reading: grep for SERVICE_ROLE across src/sentry.server.config.ts returns zero matches, so the secret is no longer instantiated in that file under any branch. The privacy posture the row noted as already correct is unchanged -- the integration still sets sendOperationData: false, so no PostgREST filter values or mutation bodies reach Sentry -- and the whole path stays inert unless a DSN is set and the tracing sample rate is above zero.",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "c9262f0d-18e1-4f9e-8f4b-d21aca644b94",
+      "action": "add",
+      "summary": "Retiring answer-evidence-popups removed the repo's only source-text heading-hierarchy contract, and the DOM-level coverage does not reach mockup gallery pages",
       "created_at": "2026-09-02"
     },
     {

@@ -15,7 +15,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Draws its own universal top bar and document composer inside every frame, so
   // the shared composer would read as a second, real search bar over the study.
   const isDocumentNavigationContractMockup =
-    pathname === "/mockups/document-navigation-contract" || pathname === "/mockups/document-navigation-perfected";
+    pathname === "/mockups/document-navigation-contract" ||
+    pathname === "/mockups/document-navigation-perfected" ||
+    pathname === "/mockups/document-navigation-final";
+  // The one surviving document-phone study; its three siblings were retired 2026-09-02.
+  const isDocumentPhoneZeroChromeMockup = pathname === "/mockups/document-phone-zero-chrome";
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
@@ -159,7 +163,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
             ? "favourites"
             : isTherapyNavigationMockup
               ? "therapy-compass"
-              : isDocumentSearchMockup || isDocumentTopNavigationMockup || isDocumentNavigationContractMockup
+              : isDocumentSearchMockup ||
+                  isDocumentTopNavigationMockup ||
+                  isDocumentPhoneZeroChromeMockup ||
+                  isDocumentNavigationContractMockup
                 ? "documents"
                 : "answer"
       }
@@ -168,6 +175,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
+        !isDocumentPhoneZeroChromeMockup &&
         !isDocumentNavigationContractMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
