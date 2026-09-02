@@ -44,12 +44,12 @@ shared object store (worktrees share `D:\Repos\Database\.git`), but they are not
 
 ## 2. Where the work is
 
-| What         | Where                                                             |
-| ------------ | ----------------------------------------------------------------- |
-| Worktree     | `C:\Users\joshs\.codex\worktrees\ward-management-design\Database` |
-| Branch       | `codex/ward-management-design`                                    |
-| **NOT** here | `D:\Repos\Database` contains none of this work                    |
-| Dev server   | `npm run ensure` prints the URL. **Never assume a port.**         |
+| What         | Where                                                                              |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Worktree     | a local Codex worktree named `ward-management-design` (machine-local path omitted) |
+| Branch       | `codex/ward-management-design`                                                     |
+| **NOT** here | `D:\Repos\Database` contains none of this work                                     |
+| Dev server   | `npm run ensure` prints the URL. **Never assume a port.**                          |
 
 ---
 

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d7e85095-3340-470c-9674-1481fc9b0930",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#59JT7W",
+    "outcome": "FIXED AND MERGED to main in 94a14a829 (PR #2532), 2026-09-02. The refusal no longer lives only in resolveClosingContactMessageBody: validateGovernedMessage — the chokepoint every future sender must pass — now returns closing-message-body-not-authored via an early return when no body was authored, and message-body-not-authored for standard/first, so no message type can be sent with no body. resolveClosingContactMessageBody is a thin adapter over it; its signature is unchanged. Evidence read off origin/main, not inferred: closing-message-body-not-authored appears 8x in src/lib/caring-contacts/message-policy.ts at 94a14a829. Record-level refusals (terminal contact, ended plan) are shared by both exits via appendStateIssues, so a missing body cannot mask an unrecoverable plan state. NOTE for whoever reads this row next: the earlier done request c862828e claimed this was fixed when it was not, which is why this closure cites the merge commit and a grep-verifiable fact rather than a file name. No closing-message wording was authored — approved-copy item A4 remains open.",
+    "baseRowFingerprint": "8e298119ee409dfa362d10036e14ee8f66b41094b1c8b39efbf8394560fc0b75"
+  }
+}
