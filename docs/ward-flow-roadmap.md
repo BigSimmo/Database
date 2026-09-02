@@ -141,25 +141,66 @@ retrospective view, handover continuity, notifications, and the navigation regro
 
 ## Additional items agreed 2026-08-26
 
-Each of these was proposed and accepted; none is yet assigned to a phase.
+Each of these was proposed and accepted. **All six are now assigned to a phase (2026-09-02).** Each
+assignment carries its reason, under the same rule as the decisions above: an assignment with no reason
+attached gets moved by the next person who finds it inconvenient. No new phase was created and no phase
+description was rewritten — every item went to the phase whose existing description already covered it, or
+to the phase its dependencies force it into.
 
 1. **Ward prediction track record.** Show how often each ward's predicted discharges actually
    happened. It is a ward-level statistic with no patient data in it, and it is the difference
    between a prediction a coordinator plans against and one they discount. It also gives wards a
    reason to keep the board accurate that no amount of nagging will.
+
+   **Phase 9 — Daily use and trust.** It is a trust instrument, and Phase 9 is the trust phase. It also
+   needs something Phase 6 does not have: accumulated history. A track record with one morning in it says
+   nothing, so the figure only becomes meaningful once the prototype has a seeded run of predictions and
+   their outcomes behind it. It was considered for Phase 6 and rejected there — the morning page is fixed
+   at the same five figures for everyone (decision 13), and a sixth would reopen that.
+
 2. **"Why not here?" across the whole state.** For one patient, every unit and the single reason it
    cannot take them. "There are no beds" is not what an escalation conversation needs; a list of
    specific obstacles is.
+
+   **Phase 8 — Distance and the state.** It is the inverse of a Phase 8 deliverable already agreed:
+   decision 14's overlay showing which sites _can_ take the selected patient. Building the two separately
+   would compute the same eligibility twice. It cannot come earlier: naming the single reason a unit
+   cannot take someone needs Phase 7's cohort and bed-type matching to supply most of the reasons, and
+   Phase 8's distance work to supply the rest.
+
 3. **A sixty-second guided tour.** Self-driving: a patient waiting, a coordinator finding a bed, a
    ward confirming, the board updating. For a prototype whose real output is shared understanding,
    this is likely the highest value per hour of anything on this page — it means handing someone a
    link instead of narrating over their shoulder.
+
+   **Phase 6 — The morning page.** Every beat the tour scripts already exists after Phase 5: a patient
+   waiting (the priority queue), a coordinator finding a bed (the coordinator screen), a ward confirming
+   (Phase 5's discharge confirmation) and the board updating (the discharge and egress board). So it needs
+   nothing built first, and it serves exactly the purpose Phase 6 was promoted for — the artefact that can
+   be handed to colleagues. Pairing them means one link does both jobs. If the tour is deferred past
+   Phase 7, the front door adds a fifth beat and the script is rewritten rather than extended.
+
 4. **Out-of-area ledger.** How many people are currently in a bed far from home, and for how long.
    The equity measure with teeth. Needs Phase 8's distance work.
+
+   **Phase 8 — Distance and the state.** Assigned where the item's own text already puts it: it needs
+   Phase 8's distance work, and "far from home" has no meaning until travel-time bands exist.
+
 5. **"Waiting since" at the front of the priority queue.** The queue ranks by urgency, which is
    right, but length of wait carries the moral weight and is currently secondary.
+
+   **Phase 9 — Daily use and trust.** Phase 9's description already names waiting-time equity, which is
+   this item. It is small and cheap enough to have been folded into Phase 6 as a demo improvement, and was
+   not, because the queue's ranking is a live product question the product owner grouped with the other
+   equity work rather than a presentational tidy-up.
+
 6. **Named moments on the demo clock.** "Friday 4pm, everything jammed" is a scenario worth opening
    in front of colleagues. The scenario switcher exists; this is mostly naming.
+
+   **Phase 6 — The morning page.** The roadmap already records that the scenario switcher exists and this
+   is mostly naming, so it is the cheapest item on this list and has no dependencies. It belongs with the
+   guided tour above for the same reason: both exist to make the prototype openable in front of someone,
+   and a named moment is what the tour's script needs to start from.
 
 ## The assumption most likely to be wrong
 
