@@ -18,10 +18,17 @@ const mocks = vi.hoisted(() => ({
     state: "authorized" as "authorized" | "unauthenticated" | "unauthorized",
     email: null as string | null,
   },
+  pathname: "/mockups/development",
+  routerRefresh: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => ({ get: () => null })),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => mocks.pathname,
+  useRouter: () => ({ refresh: mocks.routerRefresh }),
 }));
 
 vi.mock("@/lib/developer-area/access", () => ({
@@ -38,6 +45,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   mocks.bypassAllowed = false;
   mocks.accessResult = { state: "authorized", email: null };
+  mocks.pathname = "/mockups/development";
+  mocks.routerRefresh.mockClear();
 });
 
 describe("DeveloperAreaGate", () => {
@@ -61,6 +70,20 @@ describe("DeveloperAreaGate", () => {
     render(await DeveloperAreaGate({ children: <p data-testid="protected">secret</p> }));
 
     expect(screen.getByTestId("protected")).toBeInTheDocument();
+  });
+
+  it("wraps authorized children in DeveloperAreaRouteGuard so a sibling-page navigation re-validates access (#L31)", async () => {
+    mocks.bypassAllowed = false;
+    mocks.accessResult = { state: "authorized", email: "josh@stoicable.com" };
+    const { DeveloperAreaGate } = await import("@/components/developer-area/developer-area-gate");
+
+    const { rerender } = render(await DeveloperAreaGate({ children: <p data-testid="protected">secret</p> }));
+    expect(mocks.routerRefresh).not.toHaveBeenCalled();
+
+    mocks.pathname = "/mockups/development/ledger";
+    rerender(await DeveloperAreaGate({ children: <p data-testid="protected">secret</p> }));
+
+    expect(mocks.routerRefresh).toHaveBeenCalledTimes(1);
   });
 
   it("shows the sign-in screen instead of children when the bypass is refused and the visitor is unauthenticated (#L30)", async () => {

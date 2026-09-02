@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { DEVELOPER_AREA_PATH_HEADER } from "@/lib/developer-area/headers";
 import { developerGateBypassAllowed, resolveDeveloperAccessState } from "@/lib/developer-area/access";
 
+import { DeveloperAreaRouteGuard } from "./developer-area-route-guard";
 import { DeveloperGateScreen } from "./developer-gate-screen";
 
 /**
@@ -19,6 +20,11 @@ import { DeveloperGateScreen } from "./developer-gate-screen";
  * isolated Playwright production build uses (`PLAYWRIGHT_OFFLINE_MODE=true`
  * together with `NEXT_PUBLIC_MOCKUPS_ENABLED=true`). The mockups flag alone
  * must never disable this gate on a real deployment (#L30).
+ *
+ * The authorized branch wraps `children` in `DeveloperAreaRouteGuard`, which
+ * re-runs this check on every client-side navigation between the subtree's
+ * own sibling pages, because the App Router does not re-render this shared
+ * layout for those navigations on its own (#L31).
  */
 export async function DeveloperAreaGate({ children }: { children: ReactNode }) {
   if (developerGateBypassAllowed()) {
@@ -27,7 +33,7 @@ export async function DeveloperAreaGate({ children }: { children: ReactNode }) {
 
   const { state, email } = await resolveDeveloperAccessState();
   if (state === "authorized") {
-    return <>{children}</>;
+    return <DeveloperAreaRouteGuard>{children}</DeveloperAreaRouteGuard>;
   }
 
   const next = (await headers()).get(DEVELOPER_AREA_PATH_HEADER) || "/mockups/development";
