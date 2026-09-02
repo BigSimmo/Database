@@ -15,14 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 579
-- Distinct ref cells: 363
-- Distinct reviewed heads: 562
+- Records: 580
+- Distinct ref cells: 364
+- Distinct reviewed heads: 563
 - Date range: `2026-08-12` to `2026-09-02`
 
 Records per date, newest first:
 
-- `2026-09-02` — 4 records
+- `2026-09-02` — 5 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
 - `2026-08-30` — 3 records
@@ -52,6 +52,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | --- | --- | --- | --- | --- |
 | 2026-09-02 | codex/smart-local-modes-20260901 | smart local modes integration | Fixed calculator identity matches inside natural-language queries; no… | [23084cec](branch-review-records/23084cec05666473530d8878ab4246ada0dbdb860c28584da348ade298ccf63c.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | caring-contacts prohibited-language scan | Reviewed by the clinical-governance-reviewer subagent before the push;… | [2672ead5](branch-review-records/2672ead51d97f295e2cf156914c4c940ac17eba55d569f189224986f2e9797ce.record.md) |
+| 2026-09-02 | claude/ci-test-automation-ndzfou | prlanded | merged and verified: squash content identical to branch tip 51bcddba,… | [33cfd0aa](branch-review-records/33cfd0aa42a175b98553e7648ea843ee37e2213fd0a0961f7d55b33cefe7bb8d.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | caring-contacts plural job-title exemption | Second clinical-governance review on this branch, covering commit 33e1… | [3f5afc46](branch-review-records/3f5afc461d6cd9444e4720b112fa5b424610487e28999e732d87d342fa4a492b.record.md) |
 | 2026-09-02 | claude/instruction-tiering-n9vs14 | Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference fil… | No findings. Reorganisation only: all 662 non-blank AGENTS.md lines ve… | [9b97c2e6](branch-review-records/9b97c2e689cead2aabfd99148f22120ca4d7f1b907be8e06dc595b279216be69.record.md) |
 | 2026-09-01 | PR-2504 | Resolve Codex P1: corpus-health table access | Verified the authenticated role lacks table SELECT; the administrator-… | [5d80826b](branch-review-records/5d80826bf56625f7a05594bf5c46f05a421a883a038ace94c07ca265528f1dba.record.md) |
