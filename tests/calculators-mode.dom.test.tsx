@@ -241,6 +241,14 @@ describe("calculator filter predicates", () => {
     expect(smartSearchExpansions("calculators", query)).toEqual([]);
     expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)).toEqual(["phq9"]);
   });
+
+  it("matches calculator identities with spaced or unicode-dash separators", () => {
+    const phq9 = calculators.find((calculator) => calculator.id === "phq9")!;
+
+    expect(calculatorMatchesQuery(phq9, "What does PHQ 9 mean?")).toBe(true);
+    expect(calculatorMatchesQuery(phq9, "What does PHQ–9 mean?")).toBe(true);
+    expect(calculatorMatchesQuery(phq9, "What does Patient Health Questionnaire 9 mean?")).toBe(true);
+  });
 });
 
 describe("calculator results surface", () => {

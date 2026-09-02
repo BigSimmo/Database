@@ -45,11 +45,14 @@ function calculatorIdentityMatchesQuery(calc: CalculatorFixture, normalizedQuery
   return [calc.id, calc.abbrev, calc.name]
     .map(normalizeSearchText)
     .filter(Boolean)
-    .some((identity) =>
-      new RegExp(`(?:^|[^a-z0-9])${identity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|[^a-z0-9])`).test(
-        normalizedQuery,
-      ),
-    );
+    .some((identity) => identityBoundaryPattern(identity).test(normalizedQuery));
+}
+
+function identityBoundaryPattern(identity: string) {
+  const parts = identity.match(/[a-z]+|\d+/g);
+  if (!parts?.length) return /(?!)/;
+  const body = parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[+./\\s-]*");
+  return new RegExp(`(?:^|[^a-z0-9])${body}(?:$|[^a-z0-9])`);
 }
 
 export function calculatorMatchesProgress(derived: DerivedCalculator, progress: CalculatorProgressFilter) {
