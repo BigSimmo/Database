@@ -49,44 +49,28 @@ const routeSmokePaths = [
  */
 const SEEDED_PROJECT_NAME = "chromium-caring-contacts-seeded";
 
-/** What `playwright test` receives, exactly as the caller wrote it. */
-const requestedArgs = process.argv.slice(2);
+/**
+ * What `playwright test` receives, exactly as the caller wrote it, and what the browser preflight
+ * reads. `playwright-browser-preflight.mjs` holds `chromium-caring-contacts-seeded` in its own
+ * project -> browser-family table, so the seeded project needs no translation here.
+ */
+const playwrightArgs = process.argv.slice(2);
 /** Whether `args[index]` is the token that NAMES the seeded project, in either CLI spelling. */
 const namesSeededProject = (args, index) =>
   args[index] === `--project=${SEEDED_PROJECT_NAME}` ||
   (args[index] === SEEDED_PROJECT_NAME && args[index - 1] === "--project");
-const explicitProjectRequested = requestedArgs.some(
+const explicitProjectRequested = playwrightArgs.some(
   (argument) => argument === "--project" || argument.startsWith("--project="),
 );
 const mockupProjectRequested =
   !explicitProjectRequested ||
-  requestedArgs.some(
+  playwrightArgs.some(
     (argument, index) =>
       argument === "--project=chromium-mockups" ||
-      (argument === "--project" && requestedArgs[index + 1] === "chromium-mockups"),
+      (argument === "--project" && playwrightArgs[index + 1] === "chromium-mockups"),
   );
 const seededServerRequested =
-  !explicitProjectRequested || requestedArgs.some((_argument, index) => namesSeededProject(requestedArgs, index));
-
-/**
- * THE SAME RUN, DESCRIBED IN THE PROJECT NAMES THE BROWSER PREFLIGHT KNOWS — and this array is
- * used for NOTHING ELSE. `playwright test` gets `requestedArgs` above.
- *
- * `playwright-browser-preflight.mjs` owns the project -> browser-family table and fails CLOSED on
- * a name it does not hold, so a bare `--project=chromium-caring-contacts-seeded` would abort this
- * runner with "unmapped Playwright project" before the build. That fail-closed behaviour is right
- * and is not weakened here: the seeded project uses `devices["Desktop Chrome"]`, so the binary it
- * needs is exactly the one `chromium` needs, and naming that family is a true statement about this
- * run rather than a way past the check. Register the project name in that table and this mapping
- * can be deleted.
- */
-const playwrightArgs = requestedArgs.map((argument, index) =>
-  namesSeededProject(requestedArgs, index)
-    ? argument.startsWith("--project=")
-      ? "--project=chromium"
-      : "chromium"
-    : argument,
-);
+  !explicitProjectRequested || playwrightArgs.some((_argument, index) => namesSeededProject(playwrightArgs, index));
 
 // Fail loud on missing browser binaries before the heavy lock or production build.
 // Otherwise launch failures surface as "N failed" product tests and are easy to misread
@@ -138,7 +122,7 @@ let lock;
 try {
   lock = acquireHeavyRunLock({
     projectRoot,
-    command: `playwright ${requestedArgs.join(" ")}`,
+    command: `playwright ${playwrightArgs.join(" ")}`,
     ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
   });
 } catch (error) {
@@ -435,7 +419,7 @@ try {
     testEnv.PLAYWRIGHT_SEEDED_BASE_URL = seededBaseUrl;
   }
 
-  const result = spawnSync(process.execPath, [playwrightBin, "test", ...requestedArgs], {
+  const result = spawnSync(process.execPath, [playwrightBin, "test", ...playwrightArgs], {
     cwd: projectRoot,
     env: testEnv,
     stdio: "inherit",
