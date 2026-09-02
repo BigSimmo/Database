@@ -1,8 +1,9 @@
 # Privacy readiness role-attestation pack — 2026-09-01
 
 This pack contains the evidence and decisions that remain role-bound after the automated and operator
-work in [`privacy-closeout-2026-09-01.md`](privacy-closeout-2026-09-01.md). It is not itself an
-approval. The named role-holder must review the evidence, make the stated decision, and provide only a
+work in [`privacy-closeout-2026-09-01.md`](privacy-closeout-2026-09-01.md). Sections 1 and 2 record
+the PsychSift owner's explicit operational approval on 2026-09-01; sections 3–8 remain unapproved.
+The named role-holder must review each remaining section, make the stated decision, and provide only a
 sanitized reference to confidential material. Contracts, account screenshots, patient data, secret
 values, and personal signatures must remain outside Git.
 
@@ -18,7 +19,7 @@ update [`privacy-readiness.v1.json`](privacy-readiness.v1.json) and rerun
 **Requirement:** `PRIV-PROVIDER-PRODUCTION-HMAC-SECRET`
 
 **Role:** Production platform owner
-**Prepared recommendation:** verify, subject to owner attestation.
+**Decision:** verified by the Production platform owner on 2026-09-01.
 
 Evidence:
 
@@ -30,22 +31,24 @@ Evidence:
 
 Role-holder decision:
 
-- [ ] I confirm that I am acting as Production platform owner.
-- [ ] I confirm the named Railway/GitHub targets are the production targets I own.
-- [ ] I accept names-only presence plus the fail-closed boot guard as sufficient current evidence.
-- [ ] I confirm the secret has an accountable rotation owner and must not be rotated merely to compare
-      hidden values because rotation would break query-pseudonym continuity.
+- [x] The PsychSift owner gave contextual explicit approval of the documented production HMAC
+      control after the Production platform owner approval was requested.
+- [x] The approval is recorded for `PRIV-PROVIDER-PRODUCTION-HMAC-SECRET` only.
 
-Sanitized external reference: `________________`
+The response did not provide a legal name, handwritten signature, or separate declaration about
+secret rotation. This record does not claim those facts. The supporting names-only check identifies
+the pinned targets and the code evidence establishes the fail-closed guard.
 
-Review expiry: `________________`
+Sanitized external reference: `PsychSift owner approval in Codex task 01a04af2-74bf-7e40-aa14-4a9e78295b33 on 2026-09-01; task content retained outside Git`
+
+Review expiry: `2026-10-01`
 
 ## 2. Staging retention schedules
 
 **Requirement:** `PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY`
 
 **Role:** Database operations owner
-**Prepared recommendation:** verify, subject to owner attestation.
+**Decision:** verified by the Database operations owner on 2026-09-01.
 
 Evidence:
 
@@ -64,13 +67,16 @@ exist, because dropping the extension permanently deletes every cron job.
 
 Role-holder decision:
 
-- [ ] I confirm that I am acting as Database operations owner.
-- [ ] I have reviewed the staging project identity, migration, post-state, and rollback.
-- [ ] I approve the four active schedules as retention parity evidence.
+- [x] The PsychSift owner gave contextual explicit approval of the verified retention schedules after
+      the Database operations owner approval was requested.
+- [x] The approval is recorded for `PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY` only.
 
-Sanitized external reference: `Supabase migration 20260901033250 and post-state review ________`
+The supporting technical record covers the target, migration, post-state, schedules, and rollback.
+This record does not claim that the owner separately restated each technical detail.
 
-Review expiry: `________________`
+Sanitized external reference: `Supabase migration 20260901033250, post-state review, and PsychSift owner approval in Codex task 01a04af2-74bf-7e40-aa14-4a9e78295b33 on 2026-09-01`
+
+Review expiry: `2026-10-01`
 
 ## 3. OpenAI ZDR account evidence
 
@@ -256,5 +262,6 @@ Decision, intended deployment, residual-risk rationale, and review expiry: `____
 ## Consolidated release recommendation
 
 Do not mark the deployment privacy-ready for real-patient use until sections 3–8 have role-holder
-decisions and secure references. Sections 1–2 are technically prepared for immediate operational
-attestation. No automated agent should fill the role-holder declarations on another person's behalf.
+decisions and secure references. Sections 1–2 were completed from the owner's explicit decision; the
+repository update transcribes that decision and does not manufacture an agent approval or personal
+signature.

@@ -1,12 +1,16 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { DictionarySourcesPage } from "@/components/dictionary/dictionary-sources-page";
-
-export const metadata: Metadata = {
-  title: "Dictionary sources and review | PsychSift",
-  description: "Understand source checking, authority coverage, and dictionary review cadence.",
-};
-
-export default function DictionarySourcesRoute() {
-  return <DictionarySourcesPage />;
+export default async function DictionarySourcesRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const incoming = await searchParams;
+  const destination = new URLSearchParams();
+  for (const [key, value] of Object.entries(incoming)) {
+    if (key === "usedBy" || value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) destination.append(key, item);
+  }
+  destination.set("usedBy", "dictionary");
+  redirect(`/sources?${destination.toString()}`);
 }

@@ -367,8 +367,8 @@ export function PatientProfilePanel({
         </div>
 
         <p className="text-2xs leading-4 text-[color:var(--text-muted)]">
-          Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Decision
-          support, not medical advice.
+          Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Clinical
+          reference — not validated decision support.
         </p>
       </div>
     </details>

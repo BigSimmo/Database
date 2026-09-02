@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "e204b4a7-8bd5-4180-8ca6-330922522cc5",
+  "createdOn": "2026-09-01",
+  "action": "update",
+  "payload": {
+    "id": "#QSHHGK",
+    "detail": "MEASURED 2026-09-01 on a clean build (rm -rf .next first, per the AGENTS.md measuring rule): production is 1742.1 KiB gzip across 145 routes against a 1656.0 KiB baseline = +5.2%, which trips the >5% drift warning and is over half way to the 10% failure ceiling. Mockups 645.1 KiB against 613.1 KiB baseline (138 routes, 165 exclusive chunks), within its 25% tolerance. Per-route: / at 240.0 KiB (30 chunks) and /documents/search at 243.1 KiB (32 chunks), both under their route baselines. The configured baselineSource 0764fb5813564cc1cb8933267597478ecff9c354 still does not resolve locally EVEN AFTER git fetch --deepen=2000 on a full (non-shallow, 5415-commit) clone, so this is not the shallow-clone case the 2026-08-23 note anticipated - the recorded commit is genuinely unreachable, which means the +5.2% distance cannot be attributed to any reviewed change set. This strengthens the KEEP OPEN: an unowned ceiling is now measurably close, and the provenance needed to judge whether the growth is legitimate is gone. NEXT ACTION unchanged (name a refresh owner and trigger), but the refresh now also needs a baselineSource that resolves.",
+    "source": "Design-system + app review session 2026-09-01; clean-build measurement on branch claude/design-system-app-review-sxd0mm",
+    "baseRowFingerprint": "8a1f97fe60fd78bda95fd37516b31753234ef50483c57726e5bad77997e28119"
+  }
+}

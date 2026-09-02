@@ -4,11 +4,23 @@
  * or an accessible name (`aria-label` / `aria-labelledby` / `role` / `title`).
  *
  * This enforces the codebase's existing convention (574 aria-hidden across the
- * app) so a decorative glyph can't silently reach the accessibility tree. It
- * only inspects JSX whose tag name is imported directly from "lucide-react";
- * icons passed around as `icon: LucideIcon` values are out of scope (their aria
- * is set where they render). Elements that spread props ({...rest}) are skipped,
- * since the aria attribute may arrive dynamically.
+ * app) so a decorative glyph can't silently reach the accessibility tree.
+ *
+ * Two tag shapes are in scope. First, JSX whose tag name is imported directly
+ * as a value from "lucide-react" (`<ChevronRight />`). Second, the tag names
+ * `Icon` and `ActiveIcon` — this codebase's convention for rendering an icon
+ * received as an `icon: LucideIcon` value (`const Icon = item.icon;` then
+ * `<Icon />`, as in dashboard-nav.tsx and in-page-nav-header.tsx). Those two
+ * are matched on the identifier name alone rather than on type, so anything
+ * rendered under either name is held to the same requirement. Both shapes get
+ * the same autofix, which inserts aria-hidden="true". Elements that spread
+ * props ({...rest}) are skipped, since the aria attribute may arrive
+ * dynamically.
+ *
+ * Mockups are exempt at the config level, not here: eslint.config.mjs ignores
+ * the mockup path globs for this rule, so the two unattributed `<Icon>` sites
+ * in settings-search-mockup-page.tsx are design scratch outside the gate rather
+ * than a coverage gap.
  */
 
 const ACCESSIBILITY_ATTRS = new Set(["aria-hidden", "aria-label", "aria-labelledby", "role", "title"]);

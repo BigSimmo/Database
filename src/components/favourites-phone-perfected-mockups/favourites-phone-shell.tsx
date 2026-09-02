@@ -83,7 +83,7 @@ export function UniversalHeader() {
         aria-label="Open menu"
         onClick={() => undefined}
         className={cn(
-          "inline-flex size-11 items-center justify-center rounded-lg text-[color:var(--text-muted)]",
+          "inline-flex size-12 items-center justify-center rounded-lg text-[color:var(--text-muted)]",
           focusRing,
         )}
       >
@@ -93,7 +93,7 @@ export function UniversalHeader() {
         type="button"
         onClick={() => undefined}
         className={cn(
-          "inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 text-sm-minus font-bold text-[color:var(--text-heading)]",
+          "inline-flex min-h-12 items-center gap-1.5 rounded-pill border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 text-sm-minus font-bold text-[color:var(--text-heading)]",
           focusRing,
         )}
       >
@@ -106,7 +106,7 @@ export function UniversalHeader() {
         aria-label="New chat"
         onClick={() => undefined}
         className={cn(
-          "inline-flex size-11 items-center justify-center rounded-lg text-[color:var(--text-muted)]",
+          "inline-flex size-12 items-center justify-center rounded-lg text-[color:var(--text-muted)]",
           focusRing,
         )}
       >
@@ -150,7 +150,7 @@ export function PageHeader({
         aria-haspopup="dialog"
         onClick={onOpenActions}
         className={cn(
-          "inline-flex size-11 shrink-0 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+          "inline-flex size-12 shrink-0 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
           focusRing,
         )}
       >
@@ -228,6 +228,10 @@ export function PhoneComposer({ query = "" }: { query?: string }) {
     <div className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-3 pb-4 pt-2.5">
       <div
         className={cn(
+          // 44px, and deliberately so: SPEC 4.10 carves the phone composer and
+          // its icon buttons out of the 48px knob below 431px, because the
+          // edge-to-edge dock height is part of the search-chrome contract.
+          // This is the one control on the page that is not min-h-12.
           "flex min-h-11 items-center gap-2 rounded-pill border border-[color:var(--border)] bg-[color:var(--surface)] px-3",
           query ? "border-[color:var(--clinical-accent-border)]" : null,
         )}

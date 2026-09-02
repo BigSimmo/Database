@@ -37,10 +37,12 @@ function searchHref(query: string, category?: string) {
 export function FactsheetsSearchPage({
   query,
   category,
+  expansions = [],
   results,
 }: {
   query: string;
   category?: string;
+  expansions?: readonly string[];
   results: Factsheet[];
 }) {
   const router = useRouter();
@@ -60,7 +62,7 @@ export function FactsheetsSearchPage({
   // unrelated zero-member categories do not exist. A selected category that the
   // query has narrowed to zero stays visible as a disabled, explained dead end
   // so URL state remains truthful and the available options provide an escape.
-  const queryMatches = useMemo(() => filterFactsheets(query), [query]);
+  const queryMatches = useMemo(() => filterFactsheets(query, undefined, expansions), [expansions, query]);
   const categoryOptions = useMemo<ReadonlyArray<ResultFilterOption<string>>>(() => {
     const categoryCounts = new Map<string, number>();
     for (const sheet of queryMatches) {

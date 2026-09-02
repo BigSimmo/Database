@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildAnswerRenderModel,
+  currencyReviewWarnings,
   describeSourceStrengthForCopy,
   formatAnswerRenderCopyText,
+  isCurrencyReviewWarning,
 } from "../src/lib/answer-render-policy";
 import type {
   BestSourceRecommendation,
@@ -829,5 +831,33 @@ describe("answer render policy", () => {
       expect(text).toContain("Legacy Note | match strength not rated | /documents/doc-2");
       expect(text).not.toContain("none support");
     });
+  });
+});
+
+/**
+ * The answer surface summarises `warnings` in one chip. A source being due for
+ * review is a statement about that source's CURRENCY, not a missing piece of
+ * evidence, and the same overdue assessment separately drives the answer's
+ * stale-evidence state — so counting it as a gap both overstates the gaps and
+ * reports one fact twice under the wrong name. The surface needs to tell the two
+ * apart without matching prose it does not own, which is what these exports are
+ * for.
+ */
+describe("currency warnings are distinguishable from evidence gaps", () => {
+  it("recognises exactly the two currency sentences buildWarnings emits", () => {
+    expect(isCurrencyReviewWarning(currencyReviewWarnings.supporting)).toBe(true);
+    expect(isCurrencyReviewWarning(currencyReviewWarnings.retrieved)).toBe(true);
+    expect(
+      isCurrencyReviewWarning("Evidence support is low; verify linked sources before relying on the answer."),
+    ).toBe(false);
+    expect(isCurrencyReviewWarning("A supporting source is due for review")).toBe(false);
+  });
+
+  it("keeps the exported constants equal to the wording the model still emits", () => {
+    // The two are the same string in one place today. Pinning it here means a
+    // reworded warning cannot silently stop being recognised as a currency
+    // warning and start being counted as an evidence gap.
+    expect(currencyReviewWarnings.supporting).toBe("A supporting source is due for review.");
+    expect(currencyReviewWarnings.retrieved).toBe("A retrieved source is due for review.");
   });
 });

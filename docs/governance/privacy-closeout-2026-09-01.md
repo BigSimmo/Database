@@ -7,9 +7,15 @@ content. The status authority remains
 
 ## Evidence collected for accountable-owner review
 
-| Requirement                            | Result  | Evidence                                                                                                                                                                                                                                                                                                                           |
-| -------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PRIV-PROVIDER-PRODUCTION-HMAC-SECRET` | Partial | `npm run check:env-parity -- --gh --railway` passed on 2026-09-01. The production `RAG_QUERY_HASH_SECRET` name was present in GitHub and the pinned Railway production services. The checker emitted names only and did not persist values. A Production platform owner must attest the evidence before `verifiedByRole` is added. |
+| Requirement                            | Result   | Evidence                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRIV-PROVIDER-PRODUCTION-HMAC-SECRET` | Verified | `npm run check:env-parity -- --gh --railway` passed on 2026-09-01. The production `RAG_QUERY_HASH_SECRET` name was present in GitHub and the pinned Railway production services. The checker emitted names only and did not persist values. The PsychSift owner explicitly approved the evidence as Production platform owner on 2026-09-01. |
+
+The contextual owner approval was received in Codex task
+`01a04af2-74bf-7e40-aa14-4a9e78295b33` after the two requested approvals were described. The task
+content is retained outside Git. This repository stores the sanitized role, decision, date, scope,
+and opaque task reference only; it does not claim identity authentication, a handwritten signature,
+or approval of any other governance item.
 
 This review did not accept provider terms. With the account owner's explicit approval, it changed
 reversible provider controls to the privacy-minimal available settings and submitted a ZDR request.
@@ -64,9 +70,11 @@ retention migrations were recorded. With explicit operator approval, staging mig
 `20260901033250_enable_staging_privacy_retention_schedules` enabled `pg_cron` and reconciled the four
 jobs. Post-apply inspection found all four jobs active with the schedules and commands above.
 
-The technical parity gap is closed. `PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY` remains **partial** only
-until a Database operations owner attests this external evidence. Rollback is to unschedule those four
-named jobs; `pg_cron` must be dropped only if no unrelated jobs exist.
+The technical parity gap is closed. On 2026-09-01, the PsychSift owner explicitly approved the
+verified retention schedules as Database operations owner. The supporting technical record covers
+the staging identity, migration, post-state, and rollback; it does not claim the owner separately
+restated each detail. `PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY` is therefore **verified**. Rollback is
+to unschedule those four named jobs; `pg_cron` must be dropped only if no unrelated jobs exist.
 
 ## Remaining accountable decisions
 
@@ -112,6 +120,6 @@ require an additional control and supporting evaluation. Until that decision is 
 ## Release position
 
 The structural manifest should pass. The release-mode privacy gate must continue to fail closed on the
-eight unresolved items: production HMAC owner attestation, retention parity, OpenAI ZDR, OpenAI DPA,
-Railway DPA, whole-of-flow APP 8 basis, APP 1/APP 5 approval, and clinical PHI minimisation. This is
-the intended governance boundary, not a tooling failure.
+six unresolved items: OpenAI ZDR, OpenAI DPA, Railway DPA, whole-of-flow APP 8 basis, APP 1/APP 5
+approval, and clinical PHI minimisation. The production HMAC and retention-parity owner attestations
+are verified. This is the intended governance boundary, not a tooling failure.

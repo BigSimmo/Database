@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { computeDivergences, diffAgainstPin, readLayers, readPin } from "../scripts/token-layer-divergences.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 /**
@@ -540,6 +541,12 @@ describe("responsive breakpoint tokens (Task #336)", () => {
     expect(v2Light.get("--bp-tablet")).toBe("768px");
     expect(v2Light.get("--bp-desktop")).toBe("1024px");
 
+    // These three have no product call site, and that is deliberate rather than
+    // dead: `MIN_WIDTH_BREAKPOINT_BANDS` in design-system-contract-utils.mjs
+    // models them as same-threshold aliases of sm/md/lg, and the tap-floor gate's
+    // alias-collision cases in design-system-contract-utils.test.ts are the only
+    // fixtures that exercise that path. Deleting them leaves the checker modelling
+    // variants Tailwind no longer emits, so they are pinned present, not absent.
     expect(themeConfigBlock).toContain("--breakpoint-phone: 640px;");
     expect(themeConfigBlock).toContain("--breakpoint-tablet: 768px;");
     expect(themeConfigBlock).toContain("--breakpoint-desktop: 1024px;");
@@ -550,10 +557,51 @@ describe("compat layer agrees with the v2 layer", () => {
   // `layout.tsx` mounts `ckb-v2` unconditionally on <html>, and `.ckb-v2.ckb-v2`
   // (0,2,0) outranks `:root` (0,1,0) on that same element. So for any role both
   // files declare, the v2 value is the one that paints and the globals.css value
-  // is dead — editing it has NO visible effect, silently. That trap is what this
-  // asserts away. `--radius-md` is already pinned by the radius-ladder test above;
-  // these are the non-colour roles where a silent mismatch is most consequential.
-  const sharedRoles = ["text-hero", "text-hero--line-height", "leading-prose", "ease-standard"];
+  // is dead — editing it has NO visible effect, silently.
+  //
+  // The v2 migration is deliberate and unfinished, so divergence is pinned rather
+  // than banned: `docs/design-system/token-layer-divergences.json` is the reviewed
+  // set. A role that STARTS diverging fails here, and so does one that stops,
+  // because a stale pin overstates the debt exactly the way GATES.md's hand-copied
+  // figures did. Refresh with `npm run design-system:token-divergence:update`.
+  it("has no unreviewed divergence between globals.css and ckb-v2-tokens.css", () => {
+    expect(diffAgainstPin()).toEqual([]);
+  });
+
+  // A conditional `@media` override is a different comparison context from an
+  // unconditional declaration. An earlier parser filtered only on `forced-colors`,
+  // so any other media block was merged into the base map and its override silently
+  // replaced the base value — which reports "identical" for a pair that diverges
+  // everywhere the condition does not apply. globals.css has three such `:root`
+  // blocks, so this is checked against the real file rather than a fixture.
+  it("reads base-theme tokens from unconditional blocks, not from media overrides", () => {
+    const layers = readLayers();
+    const base = /^\s*--mode-home-copy-reserve:\s*(.+);\s*$/m.exec(globals.slice(globals.indexOf("\n:root {")));
+    expect(base, "--mode-home-copy-reserve should still be declared unconditionally").toBeTruthy();
+    expect(
+      layers.light.compat.get("--mode-home-copy-reserve"),
+      "the (min-width: 412px) override must not replace the unconditional value",
+    ).toBe(base![1].replace(/\s+/g, " ").trim());
+
+    // Same shape, second instance: `@theme` declares 5.5rem and a
+    // (min-width: 640px) block overrides it to 10rem. The base map must hold the
+    // unconditional value, because that is the one comparable to a v2 declaration.
+    expect(layers.light.compat.get("--spacing-mode-home-composer-wide")).toBe("5.5rem");
+  });
+
+  it("rejects a pin whose counts metadata disagrees with divergences", () => {
+    const pin = readPin();
+    const bad = structuredClone(pin);
+    bad.counts = { ...pin.counts, light: 0, dark: 999 };
+    const problems = diffAgainstPin(computeDivergences(), bad);
+    expect(problems.some((problem) => problem.includes("counts.light"))).toBe(true);
+    expect(problems.some((problem) => problem.includes("counts.dark"))).toBe(true);
+  });
+
+  // These four are asserted identical on top of the pin. They are the non-colour
+  // roles where a silent mismatch is most consequential, so they may not be
+  // resolved by adding them to the pin — they have to actually agree.
+  const mustMatch = ["text-hero", "text-hero--line-height", "leading-prose", "ease-standard"];
 
   function soleDeclaration(source: string, role: string, label: string) {
     const matches = [...source.matchAll(new RegExp(`^[ \\t]*--${role}:\\s*(.+);[ \\t]*$`, "gm"))];
@@ -561,7 +609,7 @@ describe("compat layer agrees with the v2 layer", () => {
     return matches[0][1].replace(/\s+/g, " ").trim();
   }
 
-  for (const role of sharedRoles) {
+  for (const role of mustMatch) {
     it(`--${role} is identical in both layers`, () => {
       const compat = soleDeclaration(globals, role, "globals.css");
       const v2 = soleDeclaration(v2Stylesheet, role, "ckb-v2-tokens.css");

@@ -58,7 +58,7 @@ const SECTIONS: Section[] = [
   {
     heading: "Retention",
     short: "Retention",
-    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows. The operator verified the four expected schedules on production and staging and approved that evidence on 1 September 2026. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",

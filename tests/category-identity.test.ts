@@ -94,6 +94,14 @@ describe("category identity registry", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it("uses the library glyph for Sources on both independent identity axes", () => {
+    expect(APP_MODE_ICON.sources).toBe("libraryBig");
+    expect(TOOL_ICON["source-catalogue"]).toBe("libraryBig");
+    expect(categoryIconComponent("libraryBig").displayName ?? categoryIconComponent("libraryBig").name).toMatch(
+      /LibraryBig/,
+    );
+  });
+
   it("resolves every declared glyph key to a component", () => {
     for (const key of CATEGORY_ICON_KEYS) {
       expect(typeof categoryIconComponent(key), `glyph "${key}" does not resolve`).not.toBe("undefined");

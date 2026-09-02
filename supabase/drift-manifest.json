@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-31T04:26:12.270Z",
+  "generated_at": "2026-09-01T12:38:48.655Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "f40e10701d044b41b6c39dd441a9956201e41b7af6e083f9913112092e2ef7ae",
-  "replay_seconds": 17,
+  "schema_sha256": "1d0bc22c4e2fd9f2f45faa372c8dd958d55e785d17438920d436a295a9501875",
+  "replay_seconds": 18,
   "snapshot": {
     "views": [
       {
@@ -7321,7 +7321,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "e2356565197b3d4c13f1b3d7a624696b",
+        "def_hash": "2ebaf978b69f3de0c47d9d0924419c74",
         "signature": "public.correct_clinical_query_terms(text,real)"
       },
       {
@@ -8417,7 +8417,7 @@
         "table": "document_labels"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "document_labels_owner_id_fkey",
         "table": "document_labels"
       },
@@ -8542,7 +8542,7 @@
         "table": "document_summaries"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "document_summaries_owner_id_fkey",
         "table": "document_summaries"
       },
@@ -8557,7 +8557,7 @@
         "table": "document_table_facts"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "document_table_facts_owner_id_fkey",
         "table": "document_table_facts"
       },
@@ -8607,7 +8607,7 @@
         "table": "documents"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "documents_owner_id_fkey",
         "table": "documents"
       },

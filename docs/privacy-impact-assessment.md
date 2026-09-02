@@ -6,7 +6,7 @@
 **Scope:** Clinical data flows through the PsychSift app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
 **Author:** Automated code-level assessment (multi-agent audit of `src/app/api/**`, `src/lib/*`, `supabase/schema.sql`, `supabase/migrations/**`), cross-checked against the live database.
 
-**Repository last verified:** `f2967ae128a3c8e7b4fc315bc0f7610cd67ce0f7` on 2026-09-01.
+**Repository last verified:** `d3074946a917cac378de64284c67cbc1d4dc58fa` on 2026-09-01.
 Provider, contractual, and legal claims retain their individual evidence dates. This revision
 reconciles the repository's OpenAI DPA/ZDR claims against the external-evidence boundary and records
 current names-only provider checks; it does
@@ -367,15 +367,14 @@ with counsel if this is deployed inside a WA Health service.)
 | **APP 5** â€” notification of collection    | Tell individuals what's collected & disclosed (incl. overseas)                     | Draft point-of-entry notices and the `/privacy` page disclose Singapore application processing and model-provider use; final wording and legal/governance approval remain outstanding                                                                                                                                    | PIA-1, PIA-5     |
 | **APP 6** â€” use/disclosure                | Use only for the primary purpose or a permitted secondary purpose                  | Query used for answer generation (primary). Log retention = quality/eval (secondary) â€” defensible but should be documented                                                                                                                                                                                             | PIA-5            |
 | **APP 8** â€” cross-border disclosure       | Discloser stays accountable for the overseas recipient unless an exception applies | Current Platform evidence confirms OpenAI API sharing, API call logging, and optional hosted tools are disabled but does not substantiate ZDR; the executed DPA reference is also missing. Railway's Singapore processor contract remains unresolved, so the privacy adviser cannot close the whole-of-flow APP 8 basis. | **PIA-1**        |
-| **APP 11** â€” security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney data residency, RLS, private storage, query hashing, default-null answer logs, fresh names-only production HMAC evidence, and live-verified production query/log/cache purges. Platform-owner attestation and secondary-environment schedule parity remain required.                                      | PIA-2/4          |
+| **APP 11** â€” security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney data residency, RLS, private storage, query hashing, default-null answer logs, owner-attested production HMAC evidence, and owner-attested production/staging query/log/cache purge schedules.                                                                                                            | PIA-2/4          |
 | **NDB scheme** (Pt IIIC)                    | Notify OAIC + individuals of eligible breaches of health info                      | No documented breach-response runbook tied to these tables                                                                                                                                                                                                                                                               | Recommend adding |
 
 **Overall:** the _engineering_ controls for data-at-rest are strong and largely APP-11-aligned. The
 material shortfalls are **governance/contractual** (Railway's APP 8 cross-border terms and final approval
-of the draft APP 1/5 policy/notice wording) plus retention-schedule parity in any secondary environment
-before it stores real data. Fresh names-only production HMAC evidence awaits platform-owner
-attestation; OpenAI data sharing, API call logging, and optional hosted tools are disabled, but
-DPA/ZDR remain pending current secure evidence.
+of the draft APP 1/5 policy/notice wording). Production HMAC evidence and production/staging
+retention-schedule parity were owner-attested on 2026-09-01. OpenAI data sharing, API call logging,
+and optional hosted tools are disabled, but DPA/ZDR remain pending current secure evidence.
 Answer prose is omitted by
 default; enabling its persistence is an exceptional, non-production mode requiring governance approval.
 Anonymous answer caching is disabled. The tenancy review found **zero** confirmed cross-tenant leaks; the
@@ -521,12 +520,13 @@ retention, approved cross-border/region terms, hosted migration state, authority
 protected-staging canary acceptance, production readiness, or physical-device acceptance. Those remain separate
 operator/governance evidence gates.
 
-Before the app is used with real patients in a WA clinical setting, close the eight release-blocking
-requirements in [`privacy-readiness.v1.json`](governance/privacy-readiness.v1.json): production HMAC
-owner attestation, retention-schedule owner attestation, OpenAI ZDR and countersigned-DPA evidence,
-Railway sensitive-health-data terms, the whole-of-flow APP 8 decision, APP 1/APP 5 notice approval, and
-clinical PHI-minimisation acceptance. **PIA-2** is technically mitigated by the fail-closed boot guard
-plus names-only production secret presence, subject to periodic operational revalidation. **PIA-3** is
+Before the app is used with real patients in a WA clinical setting, close the six release-blocking
+requirements in [`privacy-readiness.v1.json`](governance/privacy-readiness.v1.json): OpenAI ZDR and
+countersigned-DPA evidence, Railway sensitive-health-data terms, the whole-of-flow APP 8 decision,
+APP 1/APP 5 notice approval, and clinical PHI-minimisation acceptance. The production HMAC and
+retention-schedule owner attestations were completed on 2026-09-01. **PIA-2** is technically mitigated
+by the fail-closed boot guard plus owner-attested names-only production secret presence, subject to
+periodic operational revalidation. **PIA-3** is
 mitigated (the durable `rag_queries.answer` log is no
 longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4** is mitigated by the
 committed query-miss and bounded response-cache purges, verified live on 2026-07-14. Complete the

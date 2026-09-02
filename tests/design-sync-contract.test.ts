@@ -22,7 +22,23 @@ function withPreviewCompilerFixture(tsconfig: object, run: (fixtureRoot: string)
 }
 
 describe("design-sync public contract", () => {
-  it("keeps sources, entry exports, previews and published props in parity", () => {
+  /**
+   * An explicit timeout, because the global 30 s one is a whole-suite hazard for
+   * this test rather than a generous ceiling for it.
+   *
+   * Measured 2026-09-01 on this worktree: the child process this spawns finishes
+   * in ~7 s standalone and the test itself takes ~9 s, so 30 s looks like ample
+   * headroom in isolation. It is not, under the full run: the node suite is
+   * CPU-bound on two workers across 900+ files, and on 2026-09-01 this exact test
+   * exceeded 30 000 ms inside `npm run test` and failed a gate for a diff that
+   * touched nothing under `.design-sync/**`. A ~3x stretch is ordinary contention
+   * on a loaded machine, so the budget has to absorb it.
+   *
+   * Not quarantined, and it must not be: it did not fail on its assertion, and a
+   * wrong time budget is a different defect from an unstable test. 60 s keeps a
+   * genuine hang detectable while surviving realistic load.
+   */
+  it("keeps sources, entry exports, previews and published props in parity", { timeout: 60_000 }, () => {
     expect(() =>
       execFileSync(process.execPath, ["scripts/check-design-sync-contract.mjs"], { cwd: root, stdio: "pipe" }),
     ).not.toThrow();
@@ -51,7 +67,8 @@ describe("design-sync public contract", () => {
     expect(previewTsconfig.compilerOptions.paths[config.pkg]).toEqual(["./entry.tsx"]);
   });
 
-  it("passes the actual configured preview TypeScript project", () => {
+  /** ~10 s measured the same way, and exposed to exactly the same stretch. */
+  it("passes the actual configured preview TypeScript project", { timeout: 60_000 }, () => {
     expect(() =>
       execFileSync(
         process.execPath,

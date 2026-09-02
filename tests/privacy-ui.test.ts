@@ -91,6 +91,8 @@ describe("privacy UI", () => {
     expect(markup).toContain("retains attributable citations and retrieval dates");
     expect(markup).toContain("not a zero-retention promise");
     expect(markup).toContain("production readiness must each be verified");
+    expect(markup).toContain("verified the four expected schedules on production and staging");
+    expect(markup).not.toContain("staging evidence, clinical evaluation");
 
     // The provider section states only what the application itself does. A
     // zero-retention or no-training claim is an operator/contractual matter the

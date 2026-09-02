@@ -19,6 +19,7 @@ export const appModeIds = [
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -455,6 +456,29 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "sources",
+    label: "Sources",
+    description: "Ranked clinical source catalogue and traceability",
+    href: "/sources",
+    search: {
+      kind: "tools",
+      placeholder: "Search sources, publishers, or topics...",
+      inputAriaLabel: "Search sources, publishers, or topics",
+      submitIdleLabel: "Sources",
+      submitBusyLabel: "Sources",
+      submitAriaLabel: "Search sources",
+      emptyTitle: "Search sources",
+      readyTitle: "Search the clinical source catalogue",
+      progressLabel: "Searching the source catalogue.",
+      resultKind: "tools",
+      resultHeading: "Sources",
+      resultsSurface: "results-band",
+      statusLabel: "Sources",
+      nextStep: "Filter by quality, location, publisher, topic, or usage",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -490,6 +514,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
   "tools",
   "calculators",
 ]);

@@ -92,7 +92,8 @@ export const sharedHomePresentation = {
   },
   calculators: {
     title: "Clinical Calculators",
-    subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
+    subtitle:
+      "Psychiatry assessment and monitoring tools with scoring guidance, limitations, safety prompts, and source-linked clinical considerations.",
     suggestions: ["depression severity", "anxiety screening", "alcohol use"],
   },
   "therapy-compass": {
@@ -112,6 +113,11 @@ export const sharedHomePresentation = {
     title: "Clinical Dictionary",
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
     suggestions: ["mental state examination", "auditory hallucination", "ACT"],
+  },
+  sources: {
+    title: "Sources",
+    subtitle: "Clinical source catalogue.",
+    suggestions: ["Australian guidelines", "RANZCP", "review required"],
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 

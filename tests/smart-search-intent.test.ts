@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { appModeIds } from "@/lib/app-modes";
-import { interpretSmartSearch, isSmartNaturalSearchMode, smartNaturalSearchModeIds } from "@/lib/smart-search-intent";
+import {
+  interpretSmartSearch,
+  isSmartLocalOnlyMode,
+  isSmartNaturalSearchMode,
+  smartLocalOnlyModeIds,
+  smartNaturalSearchModeIds,
+} from "@/lib/smart-search-intent";
 
 describe("interpretSmartSearch", () => {
   it.each(smartNaturalSearchModeIds)("keeps natural-language questions inside %s search", (mode) => {
@@ -30,11 +36,67 @@ describe("interpretSmartSearch", () => {
     expect(interpretSmartSearch("therapy-compass", "therapy for emotion regulation").expansions).toEqual(
       expect.arrayContaining(["dbt", "dialectical behaviour therapy"]),
     );
+    expect(interpretSmartSearch("prescribing", "medicine that needs regular blood tests").expansions).toEqual(
+      expect.arrayContaining(["monitoring", "blood tests"]),
+    );
+    expect(interpretSmartSearch("tools", "where can I check medication interactions?").expansions).toEqual(
+      expect.arrayContaining(["prescribing", "interactions"]),
+    );
+    expect(interpretSmartSearch("calculators", "screen depression severity").expansions).toContain("phq-9");
+    expect(interpretSmartSearch("factsheets", "information for someone who worries all the time").expansions).toContain(
+      "generalised anxiety disorder",
+    );
+    expect(interpretSmartSearch("dictionary", "term for hearing a voice that is not there").expansions).toContain(
+      "hallucination",
+    );
   });
 
-  it("keeps compact catalogue codes literal after terminal punctuation", () => {
-    expect(interpretSmartSearch("forms", "form 4A?")).toMatchObject({ naturalLanguage: false, expansions: [] });
-    expect(interpretSmartSearch("dsm", "F31.81?")).toMatchObject({ naturalLanguage: false, expansions: [] });
+  it("advertises the supported and local-only Smart capability sets", () => {
+    expect(smartNaturalSearchModeIds).toEqual([
+      "services",
+      "forms",
+      "differentials",
+      "formulation",
+      "dsm",
+      "specifiers",
+      "therapy-compass",
+      "prescribing",
+      "tools",
+      "calculators",
+      "factsheets",
+      "dictionary",
+    ]);
+    expect(smartLocalOnlyModeIds).toEqual(["prescribing", "tools", "calculators", "factsheets", "dictionary"]);
+    expect(smartLocalOnlyModeIds.every(isSmartLocalOnlyMode)).toBe(true);
+  });
+
+  it.each([
+    ["forms", "form 4A?"],
+    ["dsm", "F31.81?"],
+    ["calculators", "PHQ-9?"],
+    ["calculators", "GAD-7?"],
+    ["calculators", "K10?"],
+    ["prescribing", "sertraline"],
+    ["tools", "Calculators"],
+    ["dictionary", "MSE"],
+  ] as const)("keeps exact catalogue identifiers literal: %s %s", (mode, query) => {
+    expect(interpretSmartSearch(mode, query)).toMatchObject({ naturalLanguage: false, expansions: [] });
+  });
+
+  it.each(["documents", "answer", "favourites"] as const)("does not support Smart expansions in %s", (mode) => {
+    expect(isSmartNaturalSearchMode(mode)).toBe(false);
+    expect(interpretSmartSearch(mode, "Which option fits this presentation?")).toMatchObject({
+      naturalLanguage: false,
+      expansions: [],
+    });
+  });
+
+  it("does not leak a mode-scoped rule into another mode", () => {
+    const query = "where can I check medication interactions?";
+    expect(interpretSmartSearch("tools", query).expansions).toEqual(
+      expect.arrayContaining(["prescribing", "interactions"]),
+    );
+    expect(interpretSmartSearch("prescribing", query).expansions).toEqual([]);
   });
 
   it.each(appModeIds.filter((mode) => !smartNaturalSearchModeIds.includes(mode as never)))(

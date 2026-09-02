@@ -2124,7 +2124,6 @@ test.describe("PsychSift UI smoke coverage", () => {
         ].filter((entry) => entry !== null);
         const neighbours = [
           box('[data-testid="answer-card-support"]'),
-          box('[data-testid="answer-cited-count"]'),
           box('[data-testid="plain-answer-prose"]'),
           ...chips,
         ].filter((entry) => entry !== null);
@@ -2242,10 +2241,18 @@ test.describe("PsychSift UI smoke coverage", () => {
     const feedbackTrigger = utilities.getByTestId("answer-feedback-trigger");
     await expect(feedbackTrigger).toBeVisible();
     await expectMinTouchTarget(feedbackTrigger);
+    // The problem list is a Sheet, so it portals out of the utilities section
+    // and is looked up on the page. It has to be: as an in-flow disclosure it
+    // opened partly behind the fixed phone composer, and no scripted scroll can
+    // clear it without hiding the phone chrome.
     await feedbackTrigger.click();
-    await expect(utilities.getByTestId("answer-review-panel")).toBeVisible();
-    await feedbackTrigger.click();
+    const feedbackSheet = page.getByTestId("answer-feedback-sheet");
+    await expect(feedbackSheet).toBeVisible();
+    await expect(feedbackSheet.getByTestId("answer-review-panel")).toBeVisible();
     await expect(utilities.getByTestId("answer-review-panel")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(feedbackSheet).toHaveCount(0);
+    await expect(feedbackTrigger).toBeFocused();
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
     await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
@@ -3409,7 +3416,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("review-due source-only answers share one compact expandable status row", async ({ page }, testInfo) => {
+  test("review-due source-only answers keep the overdue detail behind the evidence-gaps chip", async ({
+    page,
+  }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page, {
       answerOverride: (query, documentId, documentIds) => {
@@ -3417,6 +3426,13 @@ test.describe("PsychSift UI smoke coverage", () => {
         return {
           ...base,
           answerQualityTier: "source_only" as const,
+          // The combination that matters: source-only AND overdue AND carrying a
+          // render warning. The governed verification line is print-only on a
+          // source-only answer and the collapsed Source-only pill says only
+          // "Source-only · verify passages", so the evidence chip is the one
+          // thing on the default view that can state the answer is overdue — and
+          // a warning must not displace it there.
+          faithfulnessWarning: "One sentence could not be matched to a cited passage.",
           sources: base.sources.map((source, index) =>
             index === 0
               ? {
@@ -3440,15 +3456,52 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const statusRow = page.getByTestId("answer-source-status-row");
     const sourceOnlyDisclosure = statusRow.getByTestId("source-only-disclosure");
-    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
     await expect(statusRow).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    // Owner decision (2026-09-01): the per-source overdue detail is a statement
+    // about this answer's evidence, so it lives with the other such statements
+    // behind the evidence-gaps chip, not as a second control in the answer body.
+    // The worded caution stays on the default view — only the detail is a tap
+    // away — so the status row must now carry the Source-only disclosure alone.
+    await expect(statusRow.getByTestId("retrieval-state-stale-toggle")).toHaveCount(0);
+
+    const gapsChip = page.getByTestId("answer-evidence-gaps-trigger");
+    await expect(gapsChip).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    // Both halves, not one: the gap count does not displace "Review due". On a
+    // source-only answer this chip is the only thing on the default view that
+    // says a cited source is overdue, so losing that word here loses the fact.
+    await expect(gapsChip).toContainText("Review due");
+    await expect(gapsChip).toContainText(/\d+ evidence gaps?/);
+    await expect(gapsChip).toHaveAttribute("aria-controls", "answer-evidence-gaps-detail");
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
+    const gapsDetail = page.locator("#answer-evidence-gaps-detail");
+    await expect(gapsDetail).toBeHidden();
+
+    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
+    await expect(reviewDueTab).toBeHidden();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+
+    await gapsChip.click();
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
+    await expect(gapsDetail).toBeVisible();
+    // And the count is of gaps only. A source being due for review is a
+    // statement about that source's currency, not a missing piece of evidence,
+    // and it is already the other half of this label — counting it again would
+    // both overstate the gaps and report one fact twice under the wrong name.
+    // Derived from what the panel actually renders, so the assertion holds when
+    // the demo corpus changes how many warnings it produces.
+    const panelWarnings = await gapsDetail.locator("> p").allInnerTexts();
+    const gapWarnings = panelWarnings.filter((text) => !/\bdue for review\.$/.test(text.trim()));
+    expect(panelWarnings.length).toBeGreaterThan(0);
+    await expect(gapsChip).toContainText(`${gapWarnings.length} evidence ${gapWarnings.length === 1 ? "gap" : "gaps"}`);
+    // The banner is inside the disclosure, not merely somewhere on the page.
+    await expect(gapsDetail.getByTestId("retrieval-state-stale-toggle")).toBeVisible();
     await expect(reviewDueTab).toContainText("Review due");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
     const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
     await expect(reviewDuePanel).toBeHidden();
-    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+
     for (const viewport of [
       { width: 320, height: 844 },
       { width: 390, height: 844 },
@@ -3467,22 +3520,24 @@ test.describe("PsychSift UI smoke coverage", () => {
       );
       const statusBox = await statusRow.boundingBox();
       const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
-      const reviewDueBox = await reviewDueTab.boundingBox();
       expect(statusBox).toBeTruthy();
       expect(sourceOnlyBox).toBeTruthy();
-      expect(reviewDueBox).toBeTruthy();
-      // The controls have deliberately different touch-target densities, so
-      // their top edges and centres may differ. Both must still be contained
-      // by the single compact status row rather than wrapping onto a second
-      // line.
+      // The status row is a single compact line holding the one disclosure, at
+      // every width — it must not grow a second line or a second control.
       const statusBottom = statusBox!.y + statusBox!.height;
       expect(sourceOnlyBox!.y).toBeGreaterThanOrEqual(statusBox!.y - 1);
       expect(sourceOnlyBox!.y + sourceOnlyBox!.height).toBeLessThanOrEqual(statusBottom + 1);
-      expect(reviewDueBox!.y).toBeGreaterThanOrEqual(statusBox!.y - 1);
-      expect(reviewDueBox!.y + reviewDueBox!.height).toBeLessThanOrEqual(statusBottom + 1);
       expect(statusBox!.height).toBeLessThanOrEqual(42);
       expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
-      expect(reviewDueBox!.height).toBeLessThanOrEqual(42);
+      // The overdue detail stays reachable and inside the disclosure, however
+      // narrow the viewport gets.
+      const gapsDetailBox = await gapsDetail.boundingBox();
+      const reviewDueBox = await reviewDueTab.boundingBox();
+      expect(gapsDetailBox).toBeTruthy();
+      expect(reviewDueBox).toBeTruthy();
+      expect(reviewDueBox!.y).toBeGreaterThanOrEqual(gapsDetailBox!.y - 1);
+      expect(reviewDueBox!.x).toBeGreaterThanOrEqual(gapsDetailBox!.x - 1);
+      expect(reviewDueBox!.x + reviewDueBox!.width).toBeLessThanOrEqual(gapsDetailBox!.x + gapsDetailBox!.width + 1);
       await expectNoPageHorizontalOverflow(page);
     }
 
@@ -3502,6 +3557,17 @@ test.describe("PsychSift UI smoke coverage", () => {
     await page.keyboard.press("Enter");
     await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
 
+    // Both disclosures — the chip and the banner inside it — stay operable from
+    // the keyboard in forced colors with motion reduced.
+    await gapsChip.focus();
+    await expect(gapsChip).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
+    await expect(gapsDetail).toBeHidden();
+    await page.keyboard.press("Enter");
+    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
+    await expect(gapsDetail).toBeVisible();
+
     await reviewDueTab.focus();
     await expect(reviewDueTab).toBeFocused();
     await page.keyboard.press("Enter");
@@ -3509,6 +3575,59 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(reviewDuePanel).toBeVisible();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
     await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
+  });
+
+  test("the problem list opens as a sheet that is fully readable on a phone", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium monitoring is required?");
+    await visibleAnswerSubmitButton(page).click();
+
+    const trigger = page.getByTestId("answer-feedback-trigger");
+    await expect(trigger).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await trigger.click();
+
+    const sheet = page.getByTestId("answer-feedback-sheet");
+    await expect(sheet).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    // The defect this replaced: as an in-flow disclosure the list opened partly
+    // behind the fixed phone composer, so it LOOKED complete when it was not.
+    // Every option must now be inside the viewport with the sheet at rest — no
+    // page scroll, and none of it under the composer.
+    const options = sheet.getByTestId("answer-review-panel").getByRole("button");
+    const optionCount = await options.count();
+    expect(optionCount).toBeGreaterThan(4);
+    const viewport = page.viewportSize()!;
+    for (let index = 0; index < optionCount; index += 1) {
+      const option = options.nth(index);
+      const box = await option.boundingBox();
+      expect(box, `option ${index} has no box`).toBeTruthy();
+      expect(box!.y, `option ${index} starts above the viewport`).toBeGreaterThanOrEqual(-1);
+      expect(box!.y + box!.height, `option ${index} runs past the viewport`).toBeLessThanOrEqual(viewport.height + 1);
+      // Production tap-target floor, not the generic WCAG 44px: 48px is what
+      // this repo ships and dropping to 44 reintroduces a known ui-smoke flake.
+      expect(box!.height, `option ${index} tap target`).toBeGreaterThanOrEqual(48);
+    }
+    // The affirmative verdict is the thumb up beside the trigger. Offering it
+    // inside a list opened to report a fault records the opposite of the intent.
+    await expect(sheet.getByRole("button", { name: /Verified/ })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+
+    await testInfo.attach("report-a-problem-sheet-phone", {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: "image/png",
+    });
+
+    // Dismissing returns the reader to the control they tapped, and leaves the
+    // phone composer where it was — the scroll-hide trap the old disclosure fell
+    // into when it tried to scroll itself clear.
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(visibleAnswerSubmitButton(page)).toBeVisible();
   });
 
   for (const viewport of [

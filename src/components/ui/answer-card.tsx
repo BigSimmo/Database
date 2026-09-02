@@ -127,8 +127,16 @@ type AnswerCardBase = {
    * neighbours; `ui-smoke` measures the chip rectangles for exactly that.
    */
   metaChips?: ReactNode;
-  /** Trailing meta, right-aligned on the header line — the surface's cited count. */
-  metaTrailing?: ReactNode;
+  /**
+   * A disclosure the chips open, rendered directly beneath them.
+   *
+   * It belongs here rather than under the answer because a disclosure has to
+   * appear where it was tapped. The evidence-gaps panel used to render after the
+   * whole card — prose, marks and source rail included — which at 390px put it
+   * ~450px below the chip that opened it, far enough off-screen that tapping the
+   * chip read as doing nothing at all.
+   */
+  metaDetail?: ReactNode;
   className?: string;
 };
 
@@ -156,7 +164,7 @@ export function AnswerCard({
   retrievalStatePlacement = "header",
   verificationPlacement = "header",
   metaChips,
-  metaTrailing,
+  metaDetail,
   className,
 }: AnswerCardProps) {
   const bare = frame === "bare";
@@ -230,7 +238,6 @@ export function AnswerCard({
           <span className="sr-only">Evidence support: </span>
           {ANSWER_SUPPORT_WORDING[support]}
         </p>
-        {bare && metaTrailing ? <span className="ms-auto shrink-0">{metaTrailing}</span> : null}
         {/* The interactive chips take a full-width row of their own rather than
             sharing the baseline-aligned status line. They carry a real 48px tap
             target, and a 48px control inside a 24px line can only be bought with
@@ -270,6 +277,13 @@ export function AnswerCard({
             />
           </div>
         ) : null}
+        {/* After the retrieval banner, not before it. `stale_evidence` and
+            `partial_retrieval` banners name WHICH sources are overdue and HOW
+            MUCH was missed, and a governed caution that specific should not be
+            pushed down the page by an expanded disclosure — three open gaps
+            move it roughly 200px at 390px. The disclosure is the reader's own
+            request; the banner is the one they did not ask for and most need. */}
+        {bare && metaDetail ? <div className="w-full">{metaDetail}</div> : null}
       </div>
       <div
         className={cn(

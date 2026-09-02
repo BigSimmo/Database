@@ -16,6 +16,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
   "tools",
   "calculators",
 ]);
@@ -26,14 +27,15 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
  * navigation cannot flip the shell into dock reserve mid-transition.
  */
 export const standaloneModeHomePaths = [
-  // The four modes that still own a home of their own. Every other mode was
-  // consolidated onto the shared home at `/?mode=<id>`, whose composer the
-  // dashboard owns; their bare paths redirect and render nothing to reserve
-  // geometry for (`consolidatedModeHomePaths`).
+  // Modes that still own a home of their own. Consolidated modes use the shared
+  // home at `/?mode=<id>`, whose composer the dashboard owns; their bare paths
+  // redirect and render nothing to reserve geometry for
+  // (`consolidatedModeHomePaths`).
   "/favourites",
   "/tools",
   "/medications",
   "/documents",
+  "/sources",
 ] as const;
 
 /**
@@ -100,6 +102,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/formulation",
   "/factsheets",
   "/dictionary",
+  "/sources",
   "/therapy-compass",
   "/medications",
   "/calculators",

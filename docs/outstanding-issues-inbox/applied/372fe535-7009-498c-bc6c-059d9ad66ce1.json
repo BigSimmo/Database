@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "372fe535-7009-498c-bc6c-059d9ad66ce1",
+  "createdOn": "2026-09-02",
+  "action": "update",
+  "payload": {
+    "id": "#EG4Q7W",
+    "detail": "STILL OPEN AND LARGER THAN RECORDED; re-measured against origin/main d1bb2c197 on 2026-09-02. A done request for this row (97bbfd51) claimed the file had been modularized into five cohesive domain modules (core, plans, contacts, referrals-pathways, assignments). That claim is false against current main and the request was cancelled, so nothing was lost -- but the reason recorded on the cancellation ('target issue is no longer in Open items on current main') was also wrong, since the row was and remains open. Recording the measurement so a third attempt does not start from either error. MEASURED: src/lib/caring-contacts/db/postgres-repository.ts is a single file of 2,500 lines. It has not been split, and it is now about 420 lines LARGER than the ~2,080 this row recorded when it was filed. There are no sibling domain modules beside it under db/. The original recommendation is unchanged and still applies: the split is pure structure with no behaviour change, every method's set_config / set local role preamble must survive it intact because this file is the code half of row-level security, and the existing shared contract suite is the proof that it did.",
+    "baseRowFingerprint": "096bd2e935e5f687932b3cc401f87eaacf5ec5909c2d75ddaae6f15fdf5368a0"
+  }
+}

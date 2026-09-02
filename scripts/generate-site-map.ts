@@ -80,6 +80,7 @@ const documentedRedirectTargets: Record<string, string> = {
   // Pinned because the page forwards the incoming query string, so its
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
+  "/dictionary/sources": "/sources?usedBy=dictionary",
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
 
@@ -116,7 +117,8 @@ const routeDescriptions: Record<string, string> = {
   "/dictionary/compare": "Side-by-side clinical term definition and nuance comparison.",
   "/dictionary/search":
     "The clinical term and abbreviation catalogue: an empty query lists everything, a typed query narrows the same list.",
-  "/dictionary/sources": "Clinical dictionary governance, references, and source catalogue.",
+  "/dictionary/sources":
+    "Query-preserving compatibility redirect to `/sources?usedBy=dictionary`; incoming catalogue filters are retained and application usage is set to Dictionary.",
   "/dictionary/topics": "Clinical dictionary topic category index.",
   "/dictionary/topics/[slug]": "Clinical dictionary topic category term list.",
   "/differentials": "Differentials home and search surface.",
@@ -406,6 +408,7 @@ function renderModeRoutes() {
     "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
     dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
+    sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -523,7 +526,14 @@ function renderModePageIndex() {
       home: appModeHomeHref("dictionary"),
       search: appModeHomeHref("dictionary", { query: "MSE", focus: true, run: true }),
       detail:
-        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
+        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare` and `/dictionary/[slug]` records; `/dictionary/sources` redirects to Sources.",
+    },
+    {
+      mode: "Sources",
+      home: appModeHomeHref("sources"),
+      search: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
+      detail:
+        "`/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
     },
     {
       mode: "Therapy Compass",

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   BadgeCheck,
   ChevronRight,
@@ -33,12 +34,14 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn, EmptyState, eyebrowText, searchShellInput } from "@/components/ui-primitives";
 import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
-import { TOOL_AREA_LABEL, toolIdentity } from "@/lib/category-identity";
+import { toolIdentity } from "@/lib/category-identity";
 import { categoryGlyph } from "@/lib/category-identity-icons";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
+import { interpretSmartSearch, smartSearchExpansions } from "@/lib/smart-search-intent";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
+  rankToolRecords,
   toolCatalogRecordsForSession,
   type ToolCatalogArea,
   type ToolCatalogId,
@@ -60,8 +63,6 @@ function launcherAppMatchesFilter(app: LauncherApp, filter: LauncherFilter): boo
   if (filter === "more") return app.area === "coordination" || app.area === "saved";
   return app.area === filter;
 }
-
-const areaLabels = TOOL_AREA_LABEL;
 
 const statusLabels: Record<LauncherStatus, string> = {
   ready: "Ready",
@@ -112,6 +113,8 @@ const quickActionsBase = [
   { label: "Saved", desktopLabel: "Favourites", id: "favourites" },
 ] as const satisfies ReadonlyArray<{ label: string; desktopLabel: string; id: ToolCatalogId }>;
 
+const localSmartExcludedToolIds = new Set<ToolCatalogId>(["clinical-kb-search", "documents", "favourites"]);
+
 const desktopFiltersBase: Array<{ id: LauncherFilter; label: string }> = [
   { id: "all", label: "All tools" },
   { id: "assessment", label: "Assess" },
@@ -133,22 +136,12 @@ function appById(id: ToolCatalogId, apps: LauncherApp[]) {
   return apps.find((app) => app.id === id) ?? apps[0];
 }
 
-function initialToolId(query: string | undefined, apps: LauncherApp[]): ToolCatalogId {
-  const normalized = query?.trim().toLowerCase();
-  if (!normalized) return "risk-safety";
-  return (
-    apps.find((app) =>
-      [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, app.area, ...app.keywords]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized),
-    )?.id ?? "risk-safety"
+function quickActionsForSession(canAccessFavourites: boolean, naturalSmartSearch: boolean) {
+  return quickActionsBase.filter(
+    (action) =>
+      (canAccessFavourites || action.id !== "favourites") &&
+      (!naturalSmartSearch || !localSmartExcludedToolIds.has(action.id)),
   );
-}
-
-function quickActionsForSession(canAccessFavourites: boolean) {
-  return canAccessFavourites ? quickActionsBase : quickActionsBase.filter((action) => action.id !== "favourites");
 }
 
 function desktopFiltersForSession(canAccessFavourites: boolean) {
@@ -279,13 +272,15 @@ function QuickActions({
   mobile,
   apps,
   canAccessFavourites,
+  naturalSmartSearch,
 }: {
   onSelect: (id: ToolCatalogId) => void;
   mobile?: boolean;
   apps: LauncherApp[];
   canAccessFavourites: boolean;
+  naturalSmartSearch: boolean;
 }) {
-  const quickActions = quickActionsForSession(canAccessFavourites);
+  const quickActions = quickActionsForSession(canAccessFavourites, naturalSmartSearch);
   return (
     <section
       aria-label="Quick tool shortcuts"
@@ -725,6 +720,7 @@ export function ApplicationsLauncherWorkspace({
   className,
   canAccessFavourites: canAccessFavouritesProp,
 }: ApplicationsLauncherWorkspaceProps) {
+  const router = useRouter();
   const auth = useAuthSession();
   const clientDemoMode = resolveClientDemoMode({
     explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
@@ -734,34 +730,30 @@ export function ApplicationsLauncherWorkspace({
   const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const canAccessFavourites = canAccessFavouritesProp ?? favouritesAccessible;
   const searchCommand = useSearchCommand();
-  const [localQuery, setLocalQuery] = useState("");
+  const [localQuery, setLocalQuery] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
   const launcherApps = useMemo(() => launcherAppsForSession(canAccessFavourites), [canAccessFavourites]);
   const desktopFilters = useMemo(() => desktopFiltersForSession(canAccessFavourites), [canAccessFavourites]);
-  const query = controlledQuery ?? searchCommand?.query ?? localQuery;
+  const query = localQuery ?? controlledQuery ?? searchCommand?.query ?? "";
   const normalizedQuery = query.trim().toLowerCase();
-  const queryDerivedId = useMemo(() => initialToolId(query, launcherApps), [launcherApps, query]);
-  const [selection, setSelection] = useState(() => ({
-    queryKey: (controlledQuery ?? "").trim().toLowerCase(),
-    id: initialToolId(controlledQuery, launcherAppsForSession(canAccessFavourites)),
-  }));
-  const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
+  const naturalSmartSearch = useMemo(() => interpretSmartSearch("tools", query).naturalLanguage, [query]);
+  const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
+  const [selectedId, setSelectedId] = useState<ToolCatalogId>("risk-safety");
   const effectiveFilter: LauncherFilter = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
 
   const queryMatchedApps = useMemo(
     () =>
-      launcherApps.filter(
-        (app) =>
-          !normalizedQuery ||
-          [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(normalizedQuery),
-      ),
-    [launcherApps, normalizedQuery],
+      normalizedQuery
+        ? rankToolRecords(query, undefined, smartExpansions, {
+            authenticated: canAccessFavourites,
+            demoMode: false,
+          })
+            .map((match) => match.tool)
+            .filter((app) => !naturalSmartSearch || !localSmartExcludedToolIds.has(app.id))
+        : launcherApps,
+    [canAccessFavourites, launcherApps, naturalSmartSearch, normalizedQuery, query, smartExpansions],
   );
   const filterCounts = Object.fromEntries(
     desktopFilters.map((filter) => [
@@ -770,19 +762,10 @@ export function ApplicationsLauncherWorkspace({
     ]),
   );
 
-  const filteredApps = useMemo(() => {
-    return launcherApps.filter((app) => {
-      const matchesFilter = launcherAppMatchesFilter(app, effectiveFilter);
-      const matchesQuery =
-        !normalizedQuery ||
-        [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery);
-      return matchesFilter && matchesQuery;
-    });
-  }, [effectiveFilter, launcherApps, normalizedQuery]);
+  const filteredApps = useMemo(
+    () => queryMatchedApps.filter((app) => launcherAppMatchesFilter(app, effectiveFilter)),
+    [effectiveFilter, queryMatchedApps],
+  );
 
   const effectiveSelectedId = filteredApps.some((app) => app.id === selectedId)
     ? selectedId
@@ -799,15 +782,20 @@ export function ApplicationsLauncherWorkspace({
       : copy.allSectionLabel;
 
   function updateQuery(nextQuery: string) {
-    if (controlledQuery === undefined && !searchCommand) setLocalQuery(nextQuery);
+    setLocalQuery(nextQuery);
   }
 
   function openTool(id: ToolCatalogId) {
-    setSelection({ queryKey: normalizedQuery, id });
+    setSelectedId(id);
     setDetailOpen(true);
   }
 
   function submitSearch() {
+    const submittedQuery = query.trim();
+    if (submittedQuery) {
+      router.push(`/tools?q=${encodeURIComponent(submittedQuery)}&run=1`);
+      return;
+    }
     if (filteredApps[0]) openTool(filteredApps[0].id);
   }
 
@@ -860,10 +848,21 @@ export function ApplicationsLauncherWorkspace({
 
         <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
           <div className="hidden sm:block">
-            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} />
+            <QuickActions
+              onSelect={openTool}
+              apps={launcherApps}
+              canAccessFavourites={canAccessFavourites}
+              naturalSmartSearch={naturalSmartSearch}
+            />
           </div>
           <div className="sm:hidden">
-            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} mobile />
+            <QuickActions
+              onSelect={openTool}
+              apps={launcherApps}
+              canAccessFavourites={canAccessFavourites}
+              naturalSmartSearch={naturalSmartSearch}
+              mobile
+            />
           </div>
         </div>
       </section>

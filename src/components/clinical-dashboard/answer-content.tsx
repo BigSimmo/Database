@@ -6,8 +6,6 @@ import { CircleAlert, ChevronDown, Copy } from "lucide-react";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { chatActionRow, chatAnswerText, chatMicroAction, cn, textMuted } from "@/components/ui-primitives";
 import { compactVerificationWordingFor, type VerificationState } from "@/components/ui/verification-notice";
-import type { AnswerState } from "@/components/ui/answer-state";
-import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import {
   cleanDisplayTitle,
   comparableAnswerText,
@@ -386,8 +384,6 @@ export function NaturalLanguageAnswer({
   preformatted = false,
   sourceOnly,
   sourceOnlyVerificationState = "source_only",
-  answerState,
-  onOpenStateSource,
   bestSource,
   sources,
   sourceLinks,
@@ -408,9 +404,7 @@ export function NaturalLanguageAnswer({
   sourceOnly: boolean;
   sourceOnlyVerificationState?: VerificationState;
   /** The answer-level state shown beside Source-only when source currency is degraded. */
-  answerState?: AnswerState;
   /** Direct route used by expanded source-currency detail. */
-  onOpenStateSource?: (sourceId: string, locator?: string) => void;
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
   sourceLinks: SourceLink[];
@@ -511,7 +505,18 @@ export function NaturalLanguageAnswer({
         {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
             heading used to carry a top border — the two collided and drew a rule
             straight through the Source-only pill. */}
-        {sourceOnly || (answerState?.kind === "stale_evidence" && onOpenStateSource) ? (
+        {/* The stale-evidence banner is NOT here any more (owner decision,
+            2026-09-01). It names WHICH sources are overdue, which is a statement
+            about this answer's evidence, so it now lives inside the
+            evidence-gaps disclosure alongside the other such statements rather
+            than sitting in the answer body above it. Only the per-source detail
+            moved: that a source is overdue at all is still stated on the default
+            view, by `VerificationNotice` on a model-written answer and by the
+            evidence chip's `Review due` label on every answer — including the
+            source-only ones this row belongs to, where that notice is
+            `hidden print:flex` and this row's pill says only
+            "Source-only · verify passages". */}
+        {sourceOnly ? (
           <div data-testid="answer-source-status-row" className="flex min-w-0 flex-wrap items-start gap-1 print:hidden">
             {sourceOnly ? (
               <section
@@ -561,13 +566,6 @@ export function NaturalLanguageAnswer({
                   </div>
                 ) : null}
               </section>
-            ) : null}
-            {answerState?.kind === "stale_evidence" && onOpenStateSource ? (
-              <RetrievalStateBanner
-                state={answerState}
-                onOpenSource={onOpenStateSource}
-                className="w-fit min-w-0 max-w-full flex-none self-start"
-              />
             ) : null}
           </div>
         ) : null}

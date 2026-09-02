@@ -148,6 +148,11 @@ const workflowPatterns = [
   "plugins/clinical-kb/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
+  // AGENTS.md is a small core plus an index; the rules themselves live in
+  // docs/agents/**. Without this entry an edit to a moved rule matches only
+  // /^.*\.md$/ and drops to the docs-only lane — the same edit that used to
+  // route here when the text sat inline in AGENTS.md.
+  "docs/agents",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
   /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
@@ -156,6 +161,9 @@ const workflowPatterns = [
 const codexAutofixPatterns = [
   ".github/workflows/codex-autofix-review-comments.yml",
   "AGENTS.md",
+  // check-codex-autofix-workflow.mjs enforces docs/agents/codex-github-review.md
+  // against the live workflow, so an edit there must re-run that guard.
+  "docs/agents",
   "docs/codex-review-protocol.md",
   "scripts/check-codex-autofix-workflow.mjs",
 ];
@@ -286,6 +294,15 @@ const perfExclusionPatterns = [
   // perf_changed and the job failed mobile TBT +32.7% against a baseline
   // the same change cannot move.
   "data/outstanding-issues-snapshot.json",
+  // Same reasoning, same developer hub, sibling artefact:
+  // `src/lib/developer-area/repo-awareness-snapshot.ts` imports this JSON and
+  // the only route importers are under `src/app/mockups/development/`. It was
+  // missed when the sibling was carved out, and it is the more frequent one —
+  // every `ledger:append` regenerates it, so a routine handoff paid a
+  // ~7-minute Lighthouse run against a budget the change cannot move
+  // (`#EFETZT`, whose measured cost is "one full CI round trip" per
+  // occurrence).
+  "data/repo-awareness-snapshot.json",
 ];
 
 function isPerfChangedPath(filePath) {
@@ -1022,6 +1039,11 @@ function selfTest() {
   assertScope("perf-off-for-outstanding-issues-snapshot", ["data/outstanding-issues-snapshot.json"], {
     perf_changed: false,
   });
+  // The sibling developer-hub snapshot, carved out for the same reason. Pinned
+  // separately because it was the one the original carve-out missed.
+  assertScope("perf-off-for-repo-awareness-snapshot", ["data/repo-awareness-snapshot.json"], {
+    perf_changed: false,
+  });
   assertScope("perf-on-for-build-config", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {
     perf_changed: true,
   });
@@ -1271,6 +1293,12 @@ function selfTest() {
       build_changed: false,
     },
   );
+  assertScope("agent-rule-reference", ["docs/agents/pull-request-workflow.md"], {
+    workflow_changed: true,
+    codex_autofix_changed: true,
+    docs_only: false,
+    source_changed: false,
+  });
   assertScope("package", ["package.json"], {
     source_changed: false,
     coverage_changed: true,

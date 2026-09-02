@@ -99,6 +99,12 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/dictionary/compare" },
     { id: "sources", label: "Sources", href: "/dictionary/sources" },
   ],
+  sources: [
+    { id: "catalogue", label: "Catalogue", href: "/sources" },
+    { id: "topics", label: "Topics", href: "/sources/topics" },
+    { id: "publishers", label: "Publishers", href: "/sources/publishers" },
+    { id: "method", label: "Method", href: "/sources/method" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -132,6 +138,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "factsheets",
   "therapy-compass",
   "dictionary",
+  "sources",
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -216,6 +223,13 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/dictionary/sources") return "sources";
     return null;
   }
+  if (modeId === "sources") {
+    if (pathname === "/sources") return "catalogue";
+    if (pathname === "/sources/topics") return "topics";
+    if (pathname === "/sources/publishers") return "publishers";
+    if (pathname === "/sources/method") return "method";
+    return null;
+  }
   // Every mode with destinations has a branch above; the rest register none, so
   // nothing can be current. This used to be
   // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
@@ -270,6 +284,9 @@ export function isModeSecondaryNavigationRoute(params: {
     return ["/dictionary/search", "/dictionary/topics", "/dictionary/compare", "/dictionary/sources"].includes(
       pathname,
     );
+  }
+  if (modeId === "sources") {
+    return ["/sources", "/sources/topics", "/sources/publishers", "/sources/method"].includes(pathname);
   }
   return false;
 }
@@ -468,6 +485,14 @@ export function modeSecondaryNavigationHref(params: {
         ...(currentSearchParams.get("b") ? ([["b", currentSearchParams.get("b") ?? ""]] as const) : []),
       ]);
     }
+  }
+
+  if (modeId === "sources") {
+    if (itemId === "method") return href;
+    const entries: Array<readonly [string, string]> = [];
+    if (query) entries.push(["q", query]);
+    for (const usage of currentSearchParams.getAll("usedBy")) entries.push(["usedBy", usage]);
+    return navigationHrefWithParams(href, entries);
   }
 
   return href;

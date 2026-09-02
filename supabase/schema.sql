@@ -60,7 +60,7 @@ create table if not exists public.import_batches (
 
 create table if not exists public.documents (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   title text not null,
   description text,
   file_name text not null,
@@ -177,7 +177,7 @@ create table if not exists public.image_caption_cache (
 create table if not exists public.document_labels (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null references public.documents(id) on delete cascade,
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   label text not null,
   label_type text not null
     check (label_type in (
@@ -208,7 +208,7 @@ create table if not exists public.document_labels (
 create table if not exists public.document_summaries (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null unique references public.documents(id) on delete cascade,
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   summary text not null,
   clinical_specifics jsonb not null default '{}'::jsonb,
   source_chunk_ids uuid[] not null default '{}',
@@ -319,7 +319,7 @@ create table if not exists public.document_chunks (
 
 create table if not exists public.document_table_facts (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   document_id uuid not null references public.documents(id) on delete cascade,
   source_chunk_id uuid references public.document_chunks(id) on delete cascade,
   source_image_id uuid references public.document_images(id) on delete set null,
@@ -5255,6 +5255,7 @@ begin
         from public.rag_aliases
         where enabled
           and owner_id is null
+          and length(canonical) between 4 and 40
           and length(canonical) between 4 and 40
           and lower(canonical) % tok
         order by similarity(lower(canonical), tok) desc, lower(canonical)

@@ -40,6 +40,16 @@ import { serviceRecords } from "@/lib/services";
 import { specifierCatalogItems, curatedEnrichmentFor } from "@/lib/specifiers-content";
 import { specifierRecords } from "@/lib/specifiers";
 
+/**
+ * `/mockups/development` is the only async route in this table, and the only one
+ * that would otherwise reach Supabase from a cross-route navigation contract.
+ * Its facts are stubbed so this file keeps testing anchors, not data access;
+ * `tests/developer-hub-environment-facts.test.ts` owns that half.
+ */
+vi.mock("@/lib/developer-area/environment-facts", () => ({
+  resolveHubEnvironmentFacts: async () => ({ demoMode: true, documentCount: null, email: null }),
+}));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
@@ -86,7 +96,12 @@ afterEach(cleanup);
 type RouteCase = {
   name: string;
   sections: readonly PageSection[];
-  render: () => ReactElement;
+  /**
+   * Async because a route component may be an async Server Component —
+   * `/mockups/development` awaits its environment facts. Callers must `await`
+   * this before handing it to `render`.
+   */
+  render: () => ReactElement | Promise<ReactElement>;
   /**
    * Anchors that legitimately depend on the record. Each is asserted present on
    * a fixture that has the data and absent on one that does not, rather than
@@ -203,7 +218,7 @@ const routes: RouteCase[] = [
   {
     name: "/mockups/development",
     sections: developerHubNavSections,
-    render: () => <DeveloperHubPage />,
+    render: () => DeveloperHubPage(),
   },
   factsheetRoute("medRich"),
   factsheetRoute("medLite"),
@@ -217,8 +232,8 @@ const routes: RouteCase[] = [
 describe("in-page navigation section contracts", () => {
   it.each(routes.map((route) => [route.name, route] as const))(
     "%s renders an anchor for every declared section",
-    (_name, route) => {
-      const { container } = render(route.render());
+    async (_name, route) => {
+      const { container } = render(await route.render());
 
       for (const section of route.sections) {
         const found = sectionTargetIds(section).some((id) => container.querySelector(`#${CSS.escape(id)}`));
@@ -240,10 +255,10 @@ describe("in-page navigation section contracts", () => {
 
   it.each(routes.map((route) => [route.name, route] as const))(
     "%s gives every anchor the shared in-page scroll margin",
-    (_name, route) => {
+    async (_name, route) => {
       // Information-page sections carried no scroll-mt at all before the shared
       // header existed, so without this every jump lands underneath it.
-      const { container } = render(route.render());
+      const { container } = render(await route.render());
 
       for (const section of route.sections) {
         if (route.absent?.includes(section.id)) continue;

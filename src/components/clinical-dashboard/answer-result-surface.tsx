@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
+import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
+
+import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -23,7 +25,7 @@ import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-c
 import { VerificationNotice } from "@/components/ui/verification-notice";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn } from "@/components/ui-primitives";
-import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { isCurrencyReviewWarning, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
@@ -206,7 +208,14 @@ function StagedAnswerResultSurfaceImpl({
   };
   /**
    * The header status line the approved specimen draws: the support chip (owned
-   * by AnswerCard), the safety-notes control, and the cited count.
+   * by AnswerCard) and the safety-notes control.
+   *
+   * The cited count is deliberately NOT here. It was, and at 390px it rendered
+   * "2 cited" twice within one screen — once beside the support chip and again
+   * on the source rail's own heading 160px below, which already reads
+   * "2 cited · 1 also found" and is the only place that explains why an uncited
+   * card carries a dash instead of a number. Two spellings of one number in one
+   * glance invite the reader to look for a difference between them.
    *
    * The safety chip is the ONLY route to the safety-critical findings sheet now
    * that the support card is gone, so it is a real button whenever there are
@@ -214,8 +223,6 @@ function StagedAnswerResultSurfaceImpl({
    * safety notes" survives forced-colors and greyscale print, where a coloured
    * chip alone would not.
    */
-  const citedSourceCount = railSources.filter((row) => row.cited !== false).length || renderModel.primarySources.length;
-  const retrievedSourceCount = Math.max(citedSourceCount, sourceCount, sources.length);
   const answerMetaChips =
     safetyFindings.length > 0 ? (
       <button
@@ -245,8 +252,34 @@ function StagedAnswerResultSurfaceImpl({
    * beside them — and the action row the specimen draws is Copy plus the two
    * verdicts, which at 390px is already the full width of the row.
    */
+  const answerReviewDue = answerState.kind === "stale_evidence";
+  /**
+   * "A supporting source is due for review." is a currency warning, not a gap in
+   * the evidence, so it is never counted as one — it is the same fact the
+   * `Review due` half of the label already carries.
+   */
+  const answerGapWarningCount = renderModel.warnings.filter((warning) => !isCurrencyReviewWarning(warning)).length;
+  /**
+   * The chip is the ONLY place the default view states that a cited source is
+   * overdue on a source-only answer: `VerificationNotice` is `hidden print:flex`
+   * there (its wording moves into the Source-only disclosure), and that
+   * disclosure's collapsed pill reads "Source-only · verify passages", which
+   * says nothing about currency. So `Review due` must survive the presence of
+   * warnings rather than being replaced by their count — dropping it was a
+   * genuine regression in the first cut of this change, and the combination that
+   * exposes it (source-only + stale + warnings) is the common one, because the
+   * same overdue assessment that sets the stale state also adds a warning.
+   */
+  const answerEvidenceChipLabel = [
+    answerReviewDue || (answerGapWarningCount === 0 && renderModel.warnings.length > 0) ? "Review due" : null,
+    answerGapWarningCount > 0
+      ? `${answerGapWarningCount} evidence ${answerGapWarningCount === 1 ? "gap" : "gaps"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const answerMetaChipsWithGaps =
-    renderModel.warnings.length > 0 ? (
+    renderModel.warnings.length > 0 || answerReviewDue ? (
       <>
         {answerMetaChips}
         <button
@@ -256,30 +289,88 @@ function StagedAnswerResultSurfaceImpl({
           onClick={() => setEvidenceGapsOpen((current) => !current)}
           className={cn("group", chipButton)}
           aria-expanded={evidenceGapsOpen}
-          aria-controls={evidenceGapsOpen ? "answer-evidence-gaps-detail" : undefined}
+          // Unconditional, because the panel below is mounted whether or not it
+          // is open. The conditional attribute this replaces was well formed —
+          // attribute and target appeared and disappeared together, which is
+          // what the feedback trigger in `evidence-panels.tsx` still does, and
+          // correctly. It is only redundant here now that the target is always
+          // present.
+          aria-controls="answer-evidence-gaps-detail"
         >
           <span
             className={cn(
               chipShape,
-              "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] transition group-hover:bg-[color:var(--surface-subtle)]",
+              evidenceGapsOpen
+                ? "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] group-hover:bg-[color:var(--surface-subtle)]",
+              "transition",
               chipFocus,
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
-            {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+            {answerEvidenceChipLabel}
+            {/* The chip looked identical open and closed, so on a phone the only
+                way to tell was to find the panel. */}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("size-icon-xs shrink-0 transition-transform", evidenceGapsOpen && "rotate-180")}
+            />
           </span>
         </button>
       </>
     ) : (
       answerMetaChips
     );
-  const answerMetaTrailing =
-    citedSourceCount > 0 ? (
-      <span className="nums text-3xs text-[color:var(--text-muted)]" data-testid="answer-cited-count">
-        {citedSourceCount === retrievedSourceCount
-          ? `${citedSourceCount} cited`
-          : `${citedSourceCount} of ${retrievedSourceCount} cited`}
-      </span>
+
+  /**
+   * The overdue-sources control, which names WHICH cited sources are past their
+   * review date and links to each.
+   *
+   * It used to sit in the answer body, below the prose. Owner decision
+   * (2026-09-01): it belongs inside the evidence-gaps disclosure, with the other
+   * statements about what qualifies this answer's evidence, rather than above
+   * it. Only the per-source detail — WHICH sources, and the route into each — is
+   * behind the tap; that a source is overdue at all is still stated on the
+   * default view, by `VerificationNotice` on a model-written answer and by the
+   * chip's `Review due` label on every answer including source-only ones, where
+   * that notice is `hidden print:flex`.
+   */
+  const overdueSourcesBanner =
+    answerState.kind === "stale_evidence" ? (
+      <RetrievalStateBanner
+        state={answerState}
+        onOpenSource={openAnswerStateSource}
+        className="w-fit min-w-0 max-w-full flex-none self-start"
+      />
+    ) : null;
+  /**
+   * The disclosure, mounted whether or not the chip is expanded so
+   * `aria-controls` above always resolves, and rendered by `AnswerCard`
+   * immediately under the chip row rather than below the whole answer.
+   *
+   * It exists for an overdue-sources banner alone, not only for warnings —
+   * otherwise moving the banner in here would delete it outright on an answer
+   * whose only evidence qualification is that a source is overdue.
+   */
+  const answerEvidenceGapsDetail =
+    renderModel.warnings.length > 0 || overdueSourcesBanner ? (
+      <div
+        id="answer-evidence-gaps-detail"
+        hidden={!evidenceGapsOpen}
+        // Display comes from the class only while open, so the `hidden`
+        // attribute is never fighting a `grid` display it cannot override.
+        className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
+      >
+        {overdueSourcesBanner}
+        {renderModel.warnings.map((warning, index) => (
+          <p
+            key={`${warning}:${index}`}
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            {warning}
+          </p>
+        ))}
+      </div>
     ) : null;
 
   function openAnswerStateSource(sourceId: string, locator?: string) {
@@ -294,8 +385,6 @@ function StagedAnswerResultSurfaceImpl({
       preformatted={isPreformattedGroundedAnswer(answer)}
       sourceOnly={sourceOnly}
       sourceOnlyVerificationState={answerState.kind}
-      answerState={answerState}
-      onOpenStateSource={openAnswerStateSource}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}
@@ -360,7 +449,7 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement="content"
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
+                metaDetail={answerEvidenceGapsDetail}
               >
                 {answerProse}
               </AnswerCard>
@@ -373,7 +462,7 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
+                metaDetail={answerEvidenceGapsDetail}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -383,19 +472,6 @@ function StagedAnswerResultSurfaceImpl({
                 {answerProse}
               </AnswerCard>
             )}
-
-            {renderModel.warnings.length > 0 && evidenceGapsOpen ? (
-              <div id="answer-evidence-gaps-detail" className="grid max-w-[68ch] gap-2">
-                {renderModel.warnings.map((warning, index) => (
-                  <p
-                    key={`${warning}:${index}`}
-                    className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
-                  >
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            ) : null}
 
             <AnswerUtilityActions
               copied={copiedAnswer}
