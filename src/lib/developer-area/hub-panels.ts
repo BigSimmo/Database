@@ -166,8 +166,12 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "care-plan",
     name: "Care Plan",
+    // #L76: this described the August (pre-Task 10-11) state, before
+    // Reviews/Team/Governance (operations-pages.tsx: ReviewsSurface,
+    // TeamSurface, GovernanceSurface) and the Patient Plan route became
+    // functional. Kept accurate to what the prototype actually covers now.
     summary:
-      "Stage B prototype: Management Plan authoring, ED Presentation continuity, and Personal Safety Plan; later routes remain specimens",
+      "Synthetic, memory-only prototype: Management Plan, ED Presentations, Personal Safety Plan, Patient Plan, Reviews/Team/Governance",
     group: "reference",
     phase: 1,
     href: "/mockups/care-plan",
