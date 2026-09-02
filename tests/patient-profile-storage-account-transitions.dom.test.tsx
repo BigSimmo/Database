@@ -426,3 +426,136 @@ describe("the lib-side account-transition seam", () => {
     }
   });
 });
+
+// A page reload is not an account transition. @supabase/auth-js emits SIGNED_IN
+// for a valid *stored* session while it recovers it during boot, and flushes
+// that queued event to every subscriber as soon as `initialize()` settles —
+// which is before `initializeSession`'s `getUser()` round-trip returns, so the
+// ref holding the last published user id is still null. Reading that as
+// "null -> user-a", i.e. an account switch, wipes exactly the stores whose
+// contract is to survive a refresh: the Caring Contacts draft, the patient
+// profile and the favourites keys. Whether it happened at all depended on when
+// React registered the listener, so the loss was intermittent. These cases pin
+// the boot replay as harmless and a real switch straight after it as still
+// clearing everything.
+describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L6)", () => {
+  beforeEach(() => {
+    cleanup();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    resetFavouritesStorageForTesting();
+    clearPlanDraft();
+    authApi.listeners.clear();
+    authApi.signOut.mockClear();
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
+    vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+  });
+
+  afterEach(() => {
+    cleanup();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    resetFavouritesStorageForTesting();
+    clearPlanDraft();
+    vi.unstubAllEnvs();
+  });
+
+  /** What the tab held before the reload: clinician A's own work, all three stores. */
+  function seedEveryRefreshSurvivingStore() {
+    writePatientProfile(PATIENT_A_PROFILE);
+    recordFavouriteOpened("lithium-monitoring-guideline", 1_700_000_000_000);
+    toggleFavouritePinnedId("clozapine-initiation");
+    expect(
+      writePlanDraft({
+        ...emptyPlanDraft("SYN-REFERRAL-001", "SYN-PATHWAY-001"),
+        stage: "pathway",
+        assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+      }),
+    ).toBe(true);
+    expect(window.sessionStorage.getItem(PATIENT_PROFILE_STORAGE_KEY)).not.toBeNull();
+    expect(window.localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY)).not.toBeNull();
+    expect(window.localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).not.toBeNull();
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
+  }
+
+  function expectEveryRefreshSurvivingStoreIntact() {
+    expect(getPatientProfileSnapshot()).toMatchObject({ ageYears: 82, egfr: 22 });
+    expect(loadFavouriteLastOpened()).toHaveProperty("lithium-monitoring-guideline");
+    expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(true);
+    expect(planDraftSnapshot()).not.toBeNull();
+  }
+
+  function expectEveryRefreshSurvivingStoreCleared() {
+    expect(window.sessionStorage.getItem(PATIENT_PROFILE_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).toBeNull();
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
+  }
+
+  /**
+   * Boot the provider the way auth-js does on a reload of a signed-in tab: the
+   * stored-session SIGNED_IN reaches the subscriber the moment it subscribes,
+   * while `getUser()` is still in flight. Returns the release for that fetch.
+   */
+  function mountWithBootReplay(): { releaseVerification: () => void } {
+    let releaseVerification = () => undefined as void;
+    const verified = new Promise<void>((resolve) => {
+      releaseVerification = () => resolve();
+    });
+    authApi.getUser.mockImplementationOnce(async () => {
+      await verified;
+      return { data: { user: authApi.session.user }, error: null };
+    });
+    authApi.onAuthStateChange.mockImplementationOnce((cb: (event: string, session: unknown) => void) => {
+      authApi.listeners.add(cb);
+      cb("SIGNED_IN", authApi.session);
+      return { data: { subscription: { unsubscribe: () => authApi.listeners.delete(cb) } } };
+    });
+
+    render(
+      <AuthProvider>
+        <AuthActions />
+      </AuthProvider>,
+    );
+    return { releaseVerification };
+  }
+
+  it("keeps the patient profile, favourites keys and plan draft across a reload of a signed-in tab", async () => {
+    seedEveryRefreshSurvivingStore();
+
+    const { releaseVerification } = mountWithBootReplay();
+
+    // The replay has already published the stored session, and verification has
+    // not returned yet — this is the exact window the clear used to fire in.
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    expectEveryRefreshSurvivingStoreIntact();
+
+    await act(async () => {
+      releaseVerification();
+    });
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    expectEveryRefreshSurvivingStoreIntact();
+  });
+
+  it("still clears everything when a different user signs in after that replay", async () => {
+    seedEveryRefreshSurvivingStore();
+
+    const { releaseVerification } = mountWithBootReplay();
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    await act(async () => {
+      releaseVerification();
+    });
+
+    await emitAuthStateChange("SIGNED_IN", USER_B_SESSION);
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+
+    expectEveryRefreshSurvivingStoreCleared();
+    expect(getPatientProfileSnapshot()).toEqual(EMPTY_PATIENT_PROFILE);
+    expect(loadFavouriteLastOpened()).toEqual({});
+    expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
+    expect(planDraftSnapshot()).toBeNull();
+  });
+});
