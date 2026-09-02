@@ -52,6 +52,15 @@ vi.mock("@supabase/ssr", () => ({
 }));
 
 import {
+  DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY,
+  DATABASE_FAVOURITES_PINNED_STORAGE_KEY,
+  loadFavouriteLastOpened,
+  loadFavouritePinnedIds,
+  recordFavouriteOpened,
+  resetFavouritesStorageForTesting,
+  toggleFavouritePinnedId,
+} from "@/components/favourites/favourites-storage";
+import {
   EMPTY_PATIENT_PROFILE,
   PATIENT_PROFILE_STORAGE_KEY,
   getPatientProfileSnapshot,
@@ -175,6 +184,46 @@ describe("account transitions clear the patient physiology profile (M4)", () => 
       } finally {
         unsubscribe();
       }
+    });
+  }
+});
+
+describe("account transitions clear favourites pins and last-opened keys (L2)", () => {
+  beforeEach(() => {
+    cleanup();
+    window.localStorage.clear();
+    resetFavouritesStorageForTesting();
+    authApi.listeners.clear();
+    authApi.signOut.mockClear();
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
+    vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+  });
+
+  afterEach(() => {
+    cleanup();
+    window.localStorage.clear();
+    resetFavouritesStorageForTesting();
+    vi.unstubAllEnvs();
+  });
+
+  for (const transition of transitions) {
+    it(`removes the unscoped localStorage keys and their caches on ${transition.name}`, async () => {
+      await mountAuthenticated();
+      // Which guideline/registry items clinician A opened, and when, plus A's pins.
+      recordFavouriteOpened("lithium-monitoring-guideline", 1_700_000_000_000);
+      toggleFavouritePinnedId("clozapine-initiation");
+      expect(window.localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY)).not.toBeNull();
+      expect(window.localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).not.toBeNull();
+
+      await transition.run();
+      await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent(transition.expectedStatus));
+
+      expect(window.localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY)).toBeNull();
+      expect(window.localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).toBeNull();
+      expect(loadFavouriteLastOpened()).toEqual({});
+      expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
     });
   }
 });

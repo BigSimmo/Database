@@ -150,6 +150,27 @@ export function toggleFavouritePinnedId(itemId: string): Set<string> {
   return current;
 }
 
+// Account-transition clear (sign-out, session expiry, user change), called by
+// the auth provider beside clearRecentQueries(). Both keys are global and carry
+// no owner id, so on a shared workstation they would otherwise tell the next
+// clinician which items the previous one opened and order the Favourites
+// library by someone else's usage (2026-09-02 audit, L2). Resets the memoised
+// caches too — a `storage` event only fires in *other* tabs — and notifies
+// subscribers so a mounted library re-reads honest absence.
+export function clearFavouritesStorage(): void {
+  inMemoryLastOpened = null;
+  inMemoryPinned = null;
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY);
+      localStorage.removeItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors; the caches are already dropped.
+    }
+  }
+  notifyListeners();
+}
+
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

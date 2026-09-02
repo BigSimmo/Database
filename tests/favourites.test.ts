@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY,
   DATABASE_FAVOURITES_PINNED_STORAGE_KEY,
+  clearFavouritesStorage,
   formatLastOpened,
   lastOpenedScore,
   loadFavouriteLastOpened,
@@ -86,6 +87,32 @@ describe("favourites storage, timestamps and pinning", () => {
     expect(listenerCalled).toBe(false);
 
     unsubscribe();
+  });
+
+  it("clears both unscoped localStorage keys and the in-memory caches at the account boundary (L2)", () => {
+    // Pins and last-opened timestamps are global, owner-less localStorage keys
+    // with a 90-day TTL. On a shared workstation they must not survive the
+    // previous clinician's sign-out, so the auth provider calls this beside
+    // clearRecentQueries(); subscribers (the Favourites library ordering) must
+    // be told, and the memoised caches must not keep serving the old values.
+    recordFavouriteOpened("lithium-monitoring-guideline", 1_700_000_000_000);
+    toggleFavouritePinnedId("clozapine-initiation");
+    expect(localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY)).not.toBeNull();
+    expect(localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).not.toBeNull();
+
+    let notified = 0;
+    const unsubscribe = subscribeFavouritesStorage(() => {
+      notified += 1;
+    });
+    clearFavouritesStorage();
+    unsubscribe();
+
+    expect(notified).toBe(1);
+    expect(localStorage.getItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).toBeNull();
+    expect(loadFavouriteLastOpened()).toEqual({});
+    expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
+    expect(loadFavouritePinnedIds().has("acamprosate-renal-screen")).toBe(true);
   });
 
   it("loads default pinned IDs and allows toggling pinning state with localStorage persistence", () => {

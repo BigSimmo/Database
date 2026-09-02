@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { clearFavouritesStorage } from "@/components/favourites/favourites-storage";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
@@ -56,6 +57,8 @@ function clearAccountScopedBrowserState() {
   clearSignedUrlCache();
   // Patient physiology + medication list behind the prescribing alerts (audit M4).
   clearPatientProfile();
+  // Unscoped favourites pins / last-opened localStorage keys (audit L2).
+  clearFavouritesStorage();
 }
 let browserSupabaseClient: SupabaseClient | null | undefined;
 let browserSupabaseClientConfig: string | null = null;
