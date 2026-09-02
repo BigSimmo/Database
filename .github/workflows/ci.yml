@@ -350,6 +350,10 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:icon-scale
 
+      - name: Design drift ratchet
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:design-drift-ratchet
+
       - name: Brand asset check
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run brand:check
