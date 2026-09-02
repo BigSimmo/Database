@@ -1,0 +1,149 @@
+# Reindex reaper. The APPLY path deletes rows across seven artifact tables (chunks, images,
+# table facts, embedding fields, index units, memory cards, sections) for EVERY tenant: the
+# RPC has no owner scoping and no keep-newest fallback, and `p_limit` caps documents, not rows.
+# It therefore ships INERT — repo variable REINDEX_REAPER_ENABLED is unset, so merging this file
+# changes nothing. Arming either switch is the repository owner's decision, never automation's.
+#
+# WHAT THIS IS. `cleanup_abandoned_document_index_generations` has exactly one caller
+# (`npm run reindex:cleanup-staged`) and no schedule, so a crash mid-reindex leaks staged
+# rows and storage objects that nothing revisits. This adds the DETECTION half: a read-only
+# weekly probe that alerts. It does NOT close `#Q4Y7TR` — the recorded fix there is for the
+# commit RPC to enqueue `storage_cleanup_jobs` rows for superseded generations at commit
+# time, which is a migration and ships in a separate batch.
+#
+# THREE SWITCHES, ALL OFF.
+#   1. `vars.REINDEX_REAPER_ENABLED == 'true'` gates the whole job. Unset today, so scheduled
+#      runs skip and a dispatch does nothing. Setting ONLY this arms a read-only weekly probe.
+#   2. `github.event.client_payload.apply == 'true'` — per-run intent, from a trusted dispatch.
+#   3. `vars.REINDEX_REAPER_APPLY == 'true'` — standing repository consent.
+# Deletion requires 1 AND 2 AND 3. Neither 2 nor 3 alone deletes anything, and the scheduled
+# path is evaluated first so `--apply` is unreachable from cron by construction.
+#
+# Dry run is the default on every path. The blast radius is why this is not a
+# `workflow_dispatch` button.
+name: Reindex reaper
+
+on:
+  # repository_dispatch always loads this workflow from the trusted default
+  # branch. Do not replace it with workflow_dispatch: manual branch selection
+  # would let same-repository writers alter a secret-bearing workflow definition
+  # — and this one can delete clinical index artifacts for every tenant.
+  repository_dispatch:
+    types: [reindex-reaper]
+  schedule:
+    # Weekly, Sunday off-peak, offset from the live-drift check so the two
+    # Supabase-touching scheduled jobs do not contend.
+    - cron: "45 19 * * 0"
+
+concurrency:
+  group: reindex-reaper
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+  SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+  SUPABASE_PROJECT_NAME: Clinical KB Database
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+
+jobs:
+  reindex-reaper:
+    # Gate 1. Deliberately unset, so this whole job is a no-op until the owner arms it.
+    if: vars.REINDEX_REAPER_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Preflight required secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Reindex reaper cannot run — missing repo secret SUPABASE_SERVICE_ROLE_KEY"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Guard Supabase project identity
+        run: npm run check:supabase-project
+
+      - name: Reap abandoned reindex generations
+        id: reaper
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Gates 2 and 3. Both must read "true" before anything is deleted.
+          APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}
+          APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            # Scheduled runs are READ-ONLY. This branch is evaluated first and never
+            # falls through, so --apply is unreachable from cron even if both apply
+            # gates are somehow open.
+            echo "Scheduled read-only probe; alerting if abandoned staged rows are found."
+            npm run reindex:cleanup-staged -- --alert-on-abandoned
+          elif [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then
+            echo "Both apply gates open — deleting abandoned staged generation rows."
+            npm run reindex:cleanup-staged -- --apply --yes
+          else
+            echo "Dry run (set repo var REINDEX_REAPER_APPLY=true and dispatch client_payload.apply=true to delete)."
+            npm run reindex:cleanup-staged
+          fi
+
+      - name: Open or update alert issue
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const label = "reindex-reaper";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `Reindex reaper probe failed on ${new Date().toISOString()}.`,
+              "",
+              `Run: ${runUrl}`,
+              "",
+              "Either abandoned staged reindex-generation rows were detected, or Supabase was",
+              "unreachable. Triage read-only first: `npm run reindex:cleanup-staged` (dry run by",
+              "default) and read the per-table counts. Do NOT reach for the apply path on the",
+              "strength of this alert — a transient outage looks the same, and the cleanup RPC",
+              "deletes generation-bearing artifact rows across seven tables for every tenant",
+              "with no owner scoping. A document whose `metadata.index_generation_id` is missing",
+              "makes ALL of its artifact rows eligible.",
+            ].join("\n");
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+            });
+            if (existing.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: "Reindex reaper alert",
+                labels: [label],
+                body,
+              });
+            }

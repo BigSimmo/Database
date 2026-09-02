@@ -1,5 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import {
+  abandonedReindexGenerationAlertExitCode,
   abandonedReindexGenerationTotal,
   hasAbandonedReindexGenerations,
   type AbandonedReindexGenerationCounts,
@@ -27,6 +28,9 @@ function parseArgs(argv: string[]) {
   };
   return {
     apply: argv.includes("--apply"),
+    // Read-only detection flag: makes a dry run that FINDS abandoned rows exit
+    // non-zero so a scheduled probe can alert. Never widens what gets deleted.
+    alertOnAbandoned: argv.includes("--alert-on-abandoned"),
     yes: argv.includes("--yes"),
     documentId: valueFor("document-id") ?? null,
     limit: Number.parseInt(valueFor("limit") ?? "", 10),
@@ -81,6 +85,18 @@ async function main() {
 
   if (!args.apply) {
     console.log("\nDry run only. Re-run with --apply to delete these abandoned staged rows.");
+    const alertExitCode = abandonedReindexGenerationAlertExitCode({
+      counts,
+      alertOnAbandoned: args.alertOnAbandoned,
+      apply: args.apply,
+    });
+    if (alertExitCode !== 0) {
+      console.error(
+        "\nAbandoned staged generation rows detected on a read-only probe — alerting. " +
+          "Triage with `npm run reindex:cleanup-staged` before considering any apply run.",
+      );
+      process.exitCode = alertExitCode;
+    }
     return;
   }
 

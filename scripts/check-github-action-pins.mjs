@@ -9,6 +9,22 @@ const workflowDir = path.join(process.cwd(), ".github", "workflows");
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
 const workflowBranchMutationPattern =
   /\bgithub\s*\.\s*rest\s*\.\s*pulls\s*\.\s*updateBranch\b|\/pulls\/[^\s"']+\/update-branch\b|\bgh\s+pr\s+update-branch\b|\bsync:pr-branches(?::apply|\s+--\s+--apply)\b|\bsync-open-pr-branches\.mjs\s+--apply\b/;
+// The reindex reaper's apply path calls a cleanup RPC that deletes generation-bearing
+// artifact rows across seven tables (chunks, images, table facts, embedding fields, index
+// units, memory cards, sections) for EVERY tenant — no owner scoping, no keep-newest
+// fallback, and `p_limit` caps documents rather than rows. It must never be reachable from
+// a workflow on one switch alone, so any workflow that can invoke it with --apply has to
+// carry BOTH the per-run dispatch payload gate and the standing repository-variable gate.
+// Without this rule, a one-line PR could arm a destructive path that nothing else blocks.
+//
+// Comments are stripped before matching. A header comment that merely DESCRIBES the gates
+// is not a gate, and an early draft of this rule passed a workflow whose payload gate had
+// been replaced by a hardcoded 'true' purely because the prose above still named it.
+const reaperApplyPattern = /\b(?:reindex:cleanup-staged|cleanup-abandoned-reindex-generations\.ts)\b[^\n]*--apply\b/;
+const reaperApplyGates = [
+  { pattern: /github\s*\.\s*event\s*\.\s*client_payload\s*\.\s*apply/, name: "github.event.client_payload.apply" },
+  { pattern: /vars\s*\.\s*REINDEX_REAPER_APPLY/, name: "vars.REINDEX_REAPER_APPLY" },
+];
 const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
 const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -50,6 +66,18 @@ function collectPinFailures(root) {
     const source = readFileSync(filePath, "utf8");
     const lines = source.split(/\r?\n/);
 
+    const executableSource = lines.filter((line) => !line.trimStart().startsWith("#")).join("\n");
+    if (reaperApplyPattern.test(executableSource)) {
+      const missingGates = reaperApplyGates
+        .filter(({ pattern }) => !pattern.test(executableSource))
+        .map(({ name }) => name);
+      if (missingGates.length > 0) {
+        failures.push(
+          `${fileName}: the reindex reaper apply path deletes generation-bearing artifact rows across seven tables for every tenant. It must stay double-gated on both the dispatch payload flag and the repository variable; missing: ${missingGates.join(", ")}.`,
+        );
+      }
+    }
+
     if (workflowBranchMutationPattern.test(source)) {
       failures.push(
         `${fileName}: workflow-authored PR branch updates are prohibited because bot-authored heads leave required checks awaiting approval. Use npm run sync:pr-branches:apply with explicit human/operator auth.`,
@@ -89,6 +117,28 @@ function selfTest() {
       "utf8",
     );
     writeFileSync(
+      path.join(workflowDir, "single-gated-reaper.yml"),
+      "name: single gated reaper\njobs:\n  reap:\n    steps:\n      - env:\n" +
+        "          APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}\n" +
+        "        run: npm run reindex:cleanup-staged -- --apply --yes\n",
+      "utf8",
+    );
+    writeFileSync(
+      path.join(workflowDir, "comment-gated-reaper.yml"),
+      "# Apply requires github.event.client_payload.apply and vars.REINDEX_REAPER_APPLY.\n" +
+        "name: comment gated reaper\njobs:\n  reap:\n    steps:\n" +
+        "      - run: npm run reindex:cleanup-staged -- --apply --yes\n",
+      "utf8",
+    );
+    writeFileSync(
+      path.join(workflowDir, "double-gated-reaper.yml"),
+      "name: double gated reaper\njobs:\n  reap:\n    steps:\n      - env:\n" +
+        "          APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}\n" +
+        "          APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}\n" +
+        "        run: npm run reindex:cleanup-staged -- --apply --yes\n",
+      "utf8",
+    );
+    writeFileSync(
       path.join(actionDir, "action.yml"),
       "name: fixture\nruns:\n  using: composite\n  steps:\n    - uses: actions/cache@v6\n",
       "utf8",
@@ -107,6 +157,22 @@ function selfTest() {
     }
     if (!failures.some((failure) => failure.includes("unsafe-helper-sync.yml") && failure.includes("branch updates"))) {
       throw new Error("self-test failed: workflow invocation of the operator apply helper was not rejected");
+    }
+    if (!failures.some((failure) => failure.includes("single-gated-reaper.yml") && failure.includes("double-gated"))) {
+      throw new Error("self-test failed: a single-gated reindex reaper apply path was not rejected");
+    }
+    if (
+      !failures.some(
+        (failure) =>
+          failure.includes("comment-gated-reaper.yml") &&
+          failure.includes("github.event.client_payload.apply") &&
+          failure.includes("vars.REINDEX_REAPER_APPLY"),
+      )
+    ) {
+      throw new Error("self-test failed: gates named only in a comment were accepted as real gates");
+    }
+    if (failures.some((failure) => failure.includes("double-gated-reaper.yml"))) {
+      throw new Error("self-test failed: a correctly double-gated reindex reaper apply path was rejected");
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
