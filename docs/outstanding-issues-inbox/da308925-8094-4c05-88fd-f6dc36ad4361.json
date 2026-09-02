@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "da308925-8094-4c05-88fd-f6dc36ad4361",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "247ff620-b5b1-436b-9435-430f5dedbc3e",
+    "reason": "Withdrawn as a duplicate. An earlier pending request, f20b4b9f-00bb-4f82-8958-ef926eedb5bd, already closes #DVRZA4 with the same verdict (verified against origin/main d1bb2c197), and two pending mutations on one row block reconcile. Retained here so the extra evidence is not lost: PR #2520 additionally corrected the data/repo-awareness-snapshot.json entry's comment. Measured on 45a3dca, data/outstanding-issues-snapshot.json genuinely fails prettier --check, so its entry is load-bearing and the row's suggested direction of removing it would cause exactly the churn it prevents; data/repo-awareness-snapshot.json passes today, so its entry is forward-looking insurance. The 'compares like with like' rationale quoted in the surviving request describes the comment as it read before that correction - check:repo-awareness-snapshot compares parsed JSON, not formatting - and the file now names the real mechanism instead."
+  }
+}
