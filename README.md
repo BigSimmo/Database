@@ -241,9 +241,9 @@ maintained docs still resolve.
 Verification gates (see `package.json` for the full chain):
 
 ```bash
-npm run verify:cheap    # check:runtime + check:github-actions + sitemap:check
-                        # + brand:check + check:type-scale + check:icon-scale
-                        # + lint + typecheck + test
+npm run verify:cheap    # 37 static/consistency gates (check:runtime through
+                        # check:owner-scope; `npm run check:gate-manifest` lists
+                        # them) + lint + typecheck + test
 npm run verify:pr-local # closest local mirror of the PR gate: format + verify:cheap,
                         # plus conditional build/client-bundle scan and RAG
                         # fixture validation; the full unit suite runs once
@@ -257,8 +257,11 @@ Use `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` to
 inspect which checks a change would trigger without running them.
 
 CI is risk-scoped (`.github/workflows/ci.yml`): a `changes` job classifies
-changed paths, `static-pr` always runs runtime, action-pin, CI-scope, format,
-lint, and typecheck checks, and `pr-required` is the single
+changed paths, `static-pr` always runs a small baseline (runtime alignment,
+installed-lock parity, the CI-scope and verification-plan self-tests, diff
+integrity, and the changed-file format check) and selects the rest — the
+action-pin check, lint, typecheck, and the other static gates — by change
+scope, and `pr-required` is the single
 always-reporting required aggregate (required PR checks are Gitleaks plus that
 aggregate). One full unit run with coverage, build, safety/config checks, the
 production Chromium gate, the repo-owned Supabase `db-reset-verify` migration
