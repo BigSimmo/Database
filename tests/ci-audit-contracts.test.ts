@@ -189,3 +189,37 @@ describe("L54: every script a Dockerfile copies is a Railway watch pattern for t
     }
   });
 });
+
+describe("L55: allowScripts describes the install scripts the lock actually runs", () => {
+  type LockPackage = { version?: string; hasInstallScript?: boolean; optional?: boolean };
+  const lock = JSON.parse(read("package-lock.json")) as { packages: Record<string, LockPackage> };
+  const manifest = JSON.parse(read("package.json")) as { allowScripts?: Record<string, boolean> };
+  const allowScripts = manifest.allowScripts ?? {};
+  const lockVersions = new Map<string, Set<string>>();
+  for (const [path, entry] of Object.entries(lock.packages)) {
+    const name = path.replace(/^.*node_modules\//, "");
+    if (!path || !entry.version) continue;
+    if (!lockVersions.has(name)) lockVersions.set(name, new Set());
+    lockVersions.get(name)!.add(entry.version);
+  }
+
+  it("names only name@version pairs that exist in package-lock.json", () => {
+    for (const key of Object.keys(allowScripts)) {
+      const at = key.lastIndexOf("@");
+      const name = key.slice(0, at);
+      const version = key.slice(at + 1);
+      expect(lockVersions.get(name), `${key}: ${name} is not in the lock`).toBeDefined();
+      expect(Array.from(lockVersions.get(name)!), `${key}: lock has a different version`).toContain(version);
+    }
+  });
+
+  it("covers every non-optional package whose install script npm will run", () => {
+    // Optional packages are platform-gated (fsevents on darwin) and never
+    // install on the Linux CI and Railway paths this policy protects.
+    const uncovered = Object.entries(lock.packages)
+      .filter(([path, entry]) => path !== "" && entry.hasInstallScript && !entry.optional)
+      .map(([path, entry]) => `${path.replace(/^.*node_modules\//, "")}@${entry.version}`)
+      .filter((key) => allowScripts[key] !== true);
+    expect(uncovered).toEqual([]);
+  });
+});

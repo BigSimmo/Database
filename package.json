@@ -371,7 +371,8 @@
     "vitest": "^4.1.10"
   },
   "allowScripts": {
-    "esbuild@0.28.1": true,
+    "esbuild@0.28.2": true,
+    "@sentry/cli@2.58.6": true,
     "sharp@0.35.3": true,
     "unrs-resolver@1.12.2": true,
     "@eslint/eslintrc@3.3.6": true,
