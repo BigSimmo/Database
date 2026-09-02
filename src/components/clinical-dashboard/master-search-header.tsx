@@ -81,6 +81,7 @@ import {
   setModeHomeComposerReservePending,
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
+import { phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
 import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
@@ -97,32 +98,6 @@ const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
-
-const phoneModeGroups = [
-  {
-    id: "find",
-    label: "Find",
-    hint: "Answers, sources, services",
-    modeIds: ["answer", "documents", "services", "forms", "favourites"],
-  },
-  {
-    id: "diagnose",
-    label: "Diagnose",
-    hint: "Criteria, clues, formulation",
-    modeIds: ["differentials", "dsm", "specifiers", "formulation"],
-  },
-  {
-    id: "care",
-    label: "Care",
-    hint: "Medication, calculators, reference, therapy",
-    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
-  },
-] as const satisfies ReadonlyArray<{
-  id: string;
-  label: string;
-  hint: string;
-  modeIds: readonly AppModeId[];
-}>;
 
 function splitFilterText(value: string) {
   return value

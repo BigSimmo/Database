@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "563896ea8b430830f0297e5f9ec6ae0644d88f99",
-    "committed_at": "2026-09-02T04:41:10+00:00"
+    "sha": "a1aa449ae369bbadd3ec6f9116a1068a49a46687",
+    "committed_at": "2026-09-02T13:38:35+08:00"
   },
   "routes": {
     "modes": [
@@ -1050,6 +1050,11 @@
         "area": "product"
       },
       {
+        "path": "/sources/search",
+        "file": "src/app/(search-app)/sources/search/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
         "area": "product"
@@ -1149,7 +1154,7 @@
       {
         "path": "/dictionary/sources",
         "file": "src/app/(search-app)/dictionary/sources/page.tsx",
-        "target": "/sources?usedBy=dictionary"
+        "target": "/sources/search?usedBy=dictionary"
       },
       {
         "path": "/differentials",
@@ -1461,8 +1466,8 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 204,
-      "product_pages": 67,
+      "pages": 205,
+      "product_pages": 68,
       "mockup_pages": 137,
       "redirects": 18,
       "api": 60
