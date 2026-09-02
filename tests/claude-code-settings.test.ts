@@ -87,6 +87,28 @@ describe("claude code permissions", () => {
     }
   });
 
+  /**
+   * The `.mcp.json` server is named `supabase`, so its tools arrive as `mcp__supabase__*`. The
+   * cloud route `docs/claude-cloud.md` recommends instead — a claude.ai connector — surfaces the
+   * same tools as `mcp__Supabase__*` (capital S). Whether Claude Code matches MCP rule names
+   * case-insensitively could not be verified offline (audit L40), so the write-capable tools
+   * this file hard-denies are spelled both ways: an `apply_migration` reaching the live clinical
+   * database via the connector must not be left in the default ask state on a case detail.
+   */
+  it("denies every write-capable Supabase MCP tool under both the server and connector spellings", () => {
+    const deny = settings.permissions.deny as string[];
+    const serverSpelled = deny.filter((rule) => rule.startsWith("mcp__supabase__"));
+    expect(serverSpelled.length, "the Supabase write-tool deny list must not be empty").toBeGreaterThan(5);
+    for (const rule of serverSpelled) {
+      const twin = rule.replace(/^mcp__supabase__/, "mcp__Supabase__");
+      expect(deny, `${rule} is denied but its connector spelling ${twin} is not`).toContain(twin);
+    }
+    for (const tool of ["execute_sql", "apply_migration", "deploy_edge_function", "merge_branch"]) {
+      expect(deny).toContain(`mcp__supabase__${tool}`);
+      expect(deny).toContain(`mcp__Supabase__${tool}`);
+    }
+  });
+
   it("soft-denies live supabase inspection in auto mode", () => {
     const allow = (settings.autoMode?.allow ?? []) as string[];
     const softDeny = (settings.autoMode?.soft_deny ?? []) as string[];
