@@ -226,6 +226,19 @@ async function main() {
       // only claims `pending` rows or `processing` rows whose lock has gone stale, so a fresh lock keeps
       // the worker off this document for the whole destructive window.
       const recoveryWorkerId = `recovery:${randomUUID()}`;
+
+      // Drops the recovery lock, guarded on this run owning it. Every post-claim exit goes through
+      // here: a job left `processing` under a fresh lock reads to the planner as an active job, so
+      // neither the worker nor the next recovery run would touch it until the lock aged past the
+      // stale threshold.
+      const releaseRecoveryClaim = async (jobId: string, stage: string, patch: Record<string, unknown>) => {
+        const { error } = await supabase
+          .from("ingestion_jobs")
+          .update({ ...patch, stage, locked_by: null })
+          .eq("id", jobId)
+          .eq("locked_by", recoveryWorkerId);
+        return error;
+      };
       const lostRace = (action: { action: string; jobId: string; documentId: string }, what: string) =>
         console.log(`  skipped ${action.action} job ${action.jobId} (document ${action.documentId}): ${what}`);
 
@@ -304,63 +317,88 @@ async function main() {
           continue;
         }
 
-        // Phase 2 — reset the document, guarded on the document status observed at re-read, so a
-        // document that reached `indexed` in the meantime keeps its committed index.
-        const documentUpdate = supabase
-          .from("documents")
-          .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
-          .eq("id", action.documentId);
-        const scopedDocument = expected.documentOwnerId
-          ? documentUpdate.eq("owner_id", expected.documentOwnerId)
-          : documentUpdate.is("owner_id", null);
-        const guardedDocument =
-          expected.documentStatus === null
-            ? scopedDocument.is("status", null)
-            : scopedDocument.eq("status", expected.documentStatus);
+        // Everything from here is compensated on failure, because the recovery lock is now held.
+        let indexWasCleared = false;
+        try {
+          // Phase 2 — reset the document, guarded on the document status observed at re-read, so a
+          // document that reached `indexed` in the meantime keeps its committed index.
+          const documentUpdate = supabase
+            .from("documents")
+            .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
+            .eq("id", action.documentId);
+          const scopedDocument = expected.documentOwnerId
+            ? documentUpdate.eq("owner_id", expected.documentOwnerId)
+            : documentUpdate.is("owner_id", null);
+          const guardedDocument =
+            expected.documentStatus === null
+              ? scopedDocument.is("status", null)
+              : scopedDocument.eq("status", expected.documentStatus);
 
-        const { data: documentRows, error: documentError } = await guardedDocument.select("id");
-        if (documentError) throw supabaseStageError("reset document status", documentError);
+          const { data: documentRows, error: documentError } = await guardedDocument.select("id");
+          if (documentError) throw supabaseStageError("reset document status", documentError);
 
-        if ((documentRows ?? []).length === 0) {
-          // The document moved on. Release the lock back to the state we found it in and touch nothing.
-          const { error: releaseError } = await supabase
-            .from("ingestion_jobs")
-            .update({
-              status: expected.jobStatus,
-              stage: "recovery: released, document changed state",
-              locked_by: null,
-              locked_at: expected.jobLockedAt,
-            })
-            .eq("id", action.jobId)
-            .eq("locked_by", recoveryWorkerId);
-          if (releaseError) throw supabaseStageError("release recovery lock", releaseError);
-          lostRace(action, "document changed state before the write; index left intact");
-          continue;
-        }
+          if ((documentRows ?? []).length === 0) {
+            // The document moved on. Release the lock back to the state we found it in and touch nothing.
+            const releaseError = await releaseRecoveryClaim(
+              action.jobId,
+              "recovery: released, document changed state",
+              {
+                status: expected.jobStatus,
+                locked_at: expected.jobLockedAt,
+              },
+            );
+            if (releaseError) throw supabaseStageError("release recovery lock", releaseError);
+            lostRace(action, "document changed state before the write; index left intact");
+            continue;
+          }
 
-        const { error: resetError } = await supabase.rpc("reset_document_index", {
-          p_document_id: action.documentId,
-        });
-        if (resetError) throw supabaseStageError("reset document index", resetError);
+          // Past this point the document row is already zeroed, so a failure cannot be rolled back to
+          // the pre-recovery state — the compensation below carries it forward to a retryable one.
+          indexWasCleared = true;
 
-        // Phase 3 — release the recovery lock back into the queue for the worker to claim.
-        const { error: retryError } = await supabase
-          .from("ingestion_jobs")
-          .update({
+          const { error: resetError } = await supabase.rpc("reset_document_index", {
+            p_document_id: action.documentId,
+          });
+          if (resetError) throw supabaseStageError("reset document index", resetError);
+
+          // Phase 3 — release the recovery lock back into the queue for the worker to claim.
+          const retryError = await releaseRecoveryClaim(action.jobId, "queued after recovery", {
             status: "pending",
-            stage: "queued after recovery",
             progress: 0,
             attempt_count: 0,
             error_message: null,
             locked_at: null,
-            locked_by: null,
             next_run_at: new Date().toISOString(),
             completed_at: null,
-          })
-          .eq("id", action.jobId)
-          .eq("locked_by", recoveryWorkerId);
-        if (retryError) throw supabaseStageError("requeue ingestion job", retryError);
-        retriedCount += 1;
+          });
+          if (retryError) throw supabaseStageError("requeue ingestion job", retryError);
+          retriedCount += 1;
+        } catch (error) {
+          // Never rethrow while still holding the lock. If the document was not touched, put the job
+          // back exactly as it was found. If its index was already cleared, the document genuinely
+          // needs a rebuild now, so mark the job `failed` — which the planner treats as recoverable —
+          // rather than restoring a status that no longer describes the document.
+          const compensationError = indexWasCleared
+            ? await releaseRecoveryClaim(action.jobId, "recovery: interrupted after index reset", {
+                status: "failed",
+                locked_at: null,
+                error_message:
+                  "Ingestion queue recovery was interrupted after the document index was cleared. Re-run recovery to rebuild.",
+              })
+            : await releaseRecoveryClaim(action.jobId, "recovery: released after failure", {
+                status: expected.jobStatus,
+                locked_at: expected.jobLockedAt,
+              });
+
+          if (compensationError) {
+            // Report and keep going to the throw: the original failure is the more useful one, and a
+            // still-locked job ages out of the lock on its own after the stale threshold.
+            console.error(
+              `  failed to release the recovery lock on job ${action.jobId}; it will free itself once the lock goes stale.`,
+            );
+          }
+          throw error;
+        }
       }
 
       console.log(`Ingestion queue recovery applied (superseded ${supersededCount}, requeued ${retriedCount}).`);
