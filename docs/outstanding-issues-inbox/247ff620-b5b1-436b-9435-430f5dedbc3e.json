@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "247ff620-b5b1-436b-9435-430f5dedbc3e",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#DVRZA4",
+    "outcome": "Resolved in PR #2520, in the 'add the newer entry' direction rather than the 'remove the older entry' direction the row suggested. Both snapshots were already listed in .prettierignore; the residual defect was that the newer entry justified itself by claiming parity with the older one. Measured: data/outstanding-issues-snapshot.json genuinely fails prettier --check, so its entry is load-bearing and removing it would cause exactly the regeneration churn it prevents; data/repo-awareness-snapshot.json passes today, so its entry is forward-looking insurance. Its comment now names the real mechanism - the generator writes JSON.stringify(_, null, 2), which always expands arrays, and the two agree only because every array in that schema holds multi-field objects, which Prettier never collapses.",
+    "baseRowFingerprint": "5db45a185a8f9ae6affd63e1f7857368a6654798e0afbcfaff4220d75051c2df"
+  }
+}
