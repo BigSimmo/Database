@@ -103,14 +103,23 @@ const SCOPED_ALLOWLIST = new Map([
   ],
   [
     "docs/ward-flow-pinned-clock-handover.md",
-    // Both files exist on `claude/ward-flow-phases-6-7-design` and not on this branch —
+    // Every path below exists on `claude/ward-flow-phases-6-7-design` and not on this branch —
     // naming them is the entire point of the handover, which exists to send a later session
     // to that branch to finish the work. The document says so where it names them, and gives
-    // the `git show` command to read the spec from there. Remove this entry once Phase 6
-    // lands on `main` and both paths resolve normally.
+    // the `git fetch` + `git show` commands to read that branch from anywhere, including a
+    // cloud container. The three added on 2026-09-02 are the evidence for the re-measured §4:
+    // the rollup suite is where D5's clock rule IS covered, the travel suite is the sole
+    // unrelated grep hit that establishes the rendered branch is covered NOWHERE, and
+    // morning-page.tsx carries the stale workaround comment to correct. Naming them is what
+    // makes that finding checkable rather than assertion. Remove this entry once Phase 6 lands
+    // on `main` and every path resolves normally.
     new Set([
       "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
       "tests/ward-morning-page.dom.test.tsx",
+      "tests/ward-morning-rollup.test.ts",
+      "tests/ward-travel-grouping.test.ts",
+      "tests/ui-ward-morning.spec.ts",
+      "src/components/ward-management/morning/morning-page.tsx",
     ]),
   ],
   [
