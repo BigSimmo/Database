@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f5078359-d4ea-4a91-b376-d5bbecb452a6",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Corpus health panel and the hub document count have never been seen against the real library",
+    "detail": "Both merged (#2504, #2512) and both were built in a cloud container with no live database and no browser, so every test uses stand-in data. Confirmation needs a machine with live Supabase config and a signed-in administrator: run npm run ensure, open /mockups/development and check the environment strip shows a real document count rather than 'document count unavailable', then open /mockups/development/corpus-health and check the four status tiles show numbers rather than 'Not read'. Then record which of the five spread cases resolveQualitySpread reports for extraction quality. An unverified report says every document may carry an identical placeholder quality_score. A uniform reading is a prompt to investigate and NOT a confirmed fault: assessDocumentIndexQuality starts the score at 1 and only subtracts penalties before rounding to three decimals, so a cleanly extracted corpus legitimately scores 1.000 for every document. Treat a uniform 0.00 as the suspicious case, since 0 is the column default and extraction_quality defaults to unknown, and corroborate against the issues array and metrics JSON on the same rows before recording anything against the scoring pipeline. Full context in docs/corpus-health-panel-handover.md.",
+    "source": "docs/corpus-health-panel-handover.md",
+    "issueUlid": "01M1G9XGWG6APN03AY7W835ECQ"
+  }
+}
