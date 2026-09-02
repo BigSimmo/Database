@@ -317,3 +317,14 @@ describe("L129: every override in package.json matches a lock entry and has a re
     }
   });
 });
+
+describe("L20: Dependabot cannot move @types/node across a major on its own", () => {
+  it("ignores semver-major updates for @types/node in the npm ecosystem", () => {
+    const npm = dependabotEntries(read(".github/dependabot.yml")).find((entry) => entry.ecosystem === "npm");
+    expect(npm).toBeDefined();
+    const ignore = npm!.body.slice(npm!.body.indexOf("ignore:"));
+    // The types line must track engines.node (24.x); a major bump from
+    // Dependabot #549 is how the current 26.x mismatch arrived.
+    expect(ignore).toMatch(/dependency-name:\s*"@types\/node"\n\s+update-types:\s*\["version-update:semver-major"\]/);
+  });
+});

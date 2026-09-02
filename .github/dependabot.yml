@@ -31,10 +31,18 @@ updates:
     # not a function"). Same shape as the TypeScript hold — the lint toolchain is
     # not yet ESLint-10-ready. Remove once eslint-config-next supports ESLint 10.
     # Context: closed #1022.
+    #
+    # Hold the @types/node major: the types must track engines.node (24.x —
+    # .nvmrc, both Dockerfiles and the Railway images all run Node 24), or tsc
+    # accepts an API the deployed runtime does not have. Dependabot #549 is how
+    # the current 26.x line arrived; the pin back to 24.x is tracked in
+    # docs/framework-dependency-modernization-checklist.md (audit L20).
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
