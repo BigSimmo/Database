@@ -1273,3 +1273,29 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* --- print ------------------------------------------------------------- *
+ *
+ * THE HEIGHT CAP, released for paper. `.modeShell` is `height: 100dvh; overflow: hidden` — correct
+ * for an app shell whose regions scroll independently, and fatal on paper: the printed document is
+ * exactly one viewport tall and everything past it is CLIPPED rather than paginated. Measured on
+ * the network diagram, whose restored unit nodes exposed it: 16 of the 23 wards printed and the
+ * remaining 7 fell off the bottom of page 1, with page 2 arriving completely blank — no legend, no
+ * WACHS units, and nothing on either sheet to say a reader was holding an incomplete picture. That
+ * is the same class of failure as a missing ward node, and it hides behind the same silence.
+ *
+ * Scrolling boxes have no meaning on paper. This is the substitution the global print reset in
+ * `globals.css` already makes for `main`, `section` and `article`, applied to the two grid boxes
+ * that carry a height here so the workspace paginates instead of being cropped. It is deliberately
+ * the only thing this block does: which content prints, and how it reads, stays each mode's own
+ * decision — see the print blocks in `ward-management-network.module.css` and
+ * `coordinator/coordinator.module.css`.
+ */
+@media print {
+  .modeShell,
+  .modeContent {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+}

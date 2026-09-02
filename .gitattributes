@@ -23,3 +23,15 @@
 # the driver does — union bought nothing and hid the overlap. Default 3-way
 # merge conflicts honestly instead; check-outstanding-issues.mjs enforces that
 # no driver is set, and still gates IDs, the marker and row shape.
+
+# Ward Flow preservation copies are byte-for-byte evidence of another checkout's
+# uncommitted work, and `durableDirtyArtifactManifest` re-verifies each committed
+# blob against the live original with `originalBytes.equals(preserved.bytes)`.
+# The `* text=auto eol=lf` rule above would silently rewrite CRLF sources on the
+# way in — measured 2026-08-31: 2 of Ward Board's 139 temporary files were CRLF
+# and staged with different hashes than the files they were copied from. Store
+# this tree verbatim so a preservation copy cannot be normalised into a lie.
+docs/ward-flow/control/evidence/artifacts/** -text
+
+# Recovery bundles are hash-critical evidence and must never be filtered on the way in or out.
+docs/ward-flow/control/evidence/bundles/** -text

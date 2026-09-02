@@ -1,0 +1,206 @@
+/*
+ * A person's own screen. Same self-contained-tokens convention `search.module.css`,
+ * `handover.module.css` and `escalation.module.css` document on their own `.screen`: every local
+ * custom property this file needs is declared here, never borrowed from another module's scope.
+ *
+ * Production tap targets are `min-h-12` / 3rem in this repository, deliberately above the 44px
+ * generic guidance — 44px reintroduced a known sub-pixel rounding flake in `ui-smoke`.
+ */
+.screen {
+  --pe-space-4: 0.25rem;
+  --pe-space-6: 0.375rem;
+  --pe-space-8: 0.5rem;
+  --pe-space-12: 0.75rem;
+  --pe-space-16: 1rem;
+  --pe-space-20: 1.25rem;
+  --pe-space-24: 1.5rem;
+  --pe-tap: 3rem;
+  --pe-leading-body: 1.4;
+
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: auto minmax(0, 1fr);
+  background: var(--surface);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--pe-space-20);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--pe-space-16) var(--pe-space-20) var(--pe-space-24);
+}
+
+.governanceBanner {
+  display: flex;
+  min-height: var(--pe-tap);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pe-space-12);
+  border-bottom: 0.0625rem solid var(--border);
+  background: var(--surface-chrome);
+  padding: var(--pe-space-8) var(--pe-space-12);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--pe-leading-body);
+}
+
+.prototypeBadge {
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: var(--pe-space-4) var(--pe-space-8);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pageHeader {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--pe-space-4);
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: var(--pe-leading-body);
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--pe-leading-body);
+}
+
+.sectionHeading {
+  margin: 0 0 var(--pe-space-12);
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--pe-leading-body);
+}
+
+.identity,
+.actions,
+.missing {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised, var(--surface));
+  padding: var(--pe-space-16);
+}
+
+/*
+ * A definition list, not a table. These are four facts about one person, and a table invites a
+ * fifth column of somebody else — which is the direction PD-1 explicitly does not authorise.
+ */
+.factList {
+  display: grid;
+  margin: 0;
+  gap: var(--pe-space-12);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.fact {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--pe-space-4);
+}
+
+.fact dt {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--pe-leading-body);
+}
+
+.fact dd {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: var(--pe-leading-body);
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  min-height: var(--pe-tap);
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--pe-space-16);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primaryButton {
+  border: 0.0625rem solid var(--clinical-accent-border);
+  background: var(--clinical-accent);
+  color: var(--surface);
+}
+
+.secondaryButton {
+  border: 0.0625rem solid var(--border);
+  background: var(--surface);
+  color: var(--text-heading);
+}
+
+/*
+ * The note under the refer button, and it is not decoration: it says the referral will not be
+ * joined to this person. Muted but full width and directly beneath the control it qualifies, so it
+ * cannot be read as a footnote to something else.
+ */
+.note {
+  margin: var(--pe-space-12) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--pe-leading-body);
+}
+
+.missing {
+  gap: var(--pe-space-12);
+}
+
+.missing p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--pe-leading-body);
+}
+
+/*
+ * Below 40rem the icon rail is gone and `ward-sidebar.module.css`'s fixed phone bar takes its
+ * place. The bar is fixed rather than sticky because it sits above ten different shells whose
+ * scroll containers are all in a different place, so each shell reserves the shared phone-bar
+ * height itself. Enforced by `tests/ward-sidebar-phone-contract.test.ts`, which caught this file
+ * the first time it ran.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+}

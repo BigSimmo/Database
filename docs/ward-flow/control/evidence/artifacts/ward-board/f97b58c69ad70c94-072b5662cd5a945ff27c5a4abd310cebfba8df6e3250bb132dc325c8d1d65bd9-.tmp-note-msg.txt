@@ -1,0 +1,63 @@
+"Held" and "Confirmed" each mean two things on this page, and the page now says which
+
+Ward Verifier walked three wards live and found both. I verified each in source before
+changing anything, and its numbers are the proof rather than the reasoning:
+
+  rph-adult-secure   capacity "Held 1"   list beneath: nothing held (WF-003 still OFFERS "Hold a bed")
+  bty-older-adult    capacity "Held 0"   list beneath: WF-304 "Bed held · 19m left"
+
+One ward over-reports and the other under-reports, against a list printed inches below.
+
+WHY THEY CANNOT AGREE. `capacityBreakdown` computes `held = max(empty - availableNow, 0)`
+— a bed that is physically empty but not currently offered. `ward-bed-availability.ts`
+contains no reference to `bedHeldUntil`, `bedHold` or `heldFor` at all, so a bed kept for
+a named patient can never enter that figure. They are two legitimate quantities wearing
+one word, not one quantity computed wrongly.
+
+The same shape for "Confirmed", and RPH is why it survived: the capacity chip counts
+discharges CONFIRMED TODAY while the control below reports the allocatable bed count the
+ward last CONFIRMED. On RPH both read 1 and the ambiguity is invisible; on FRE they read
+1 and 3. Anyone checking the first ward alphabetically sees nothing wrong.
+
+WHAT I DID NOT DO, AND THE RESTRAINT IS THE DECISION. I did not rename either chip.
+"Held" is written by five surfaces and "Currently confirmed" is pinned by
+`ward-screen.dom.test.tsx` and by `ui-ward-roles.spec.ts` — a Playwright spec needing the
+app up and the machine-wide heavy lock, which is contended tonight and which I therefore
+cannot run. Renaming would mean shipping a change whose only guard I could not execute,
+to fix a wording problem. That trade is the wrong way round.
+
+Nor is renaming clearly right: whether a bed held for a patient should reduce a ward's
+allocatable count is a MODEL question, and if the model reconciles them the labels may
+not need to change at all. Handed to Ward Core rather than pre-empted here.
+
+SO THIS IS A MITIGATION AND SAYS SO. The bed note now states both distinctions in the
+ward's own words — that Held here is not a bed kept for a named patient, that those are
+counted separately in the list below, and that the two figures can disagree; and that the
+chip's Confirmed and the form's "currently confirmed" are different quantities. The note
+was pinned by nothing, so this costs no coverage and breaks no gate.
+
+A reader can now tell which number they are looking at. Two numbers that disagree are
+still two numbers that disagree, and only the model can close that.
+
+VERIFIER'S OTHER TWO SUSPICIONS CAME BACK CLEAN and that is a result, not an absence: bed
+totals reconcile on all three wards (20/20, 22/22, 11/11), and every freshness stamp was
+in the past with every expected time in the future. The count defects found on two other
+screens tonight do not reproduce here.
+
+I ALSO CHECKED A THIRD COLLISION AND IT DOES NOT EXIST. `stageCopy` carries
+`bed_held.shortLabel = "Held"` and `handover_ready.shortLabel = "Ready"`, both of which
+would clash with the chips — but this screen renders `.label`, never `.shortLabel`, so
+"Bed held" and "Handover ready" appear instead. Reporting the negative because I went
+looking for it on the strength of the two real ones, and a suspicion that survives
+unstated becomes a finding later.
+
+Verified: the ward-screen set discovered from disk, 20 files handed in, 20 ran, 235
+passed, exit 0; prettier clean. Read on the running screen at BTY, where the new sentences
+render and "Held 0 … Currently confirmed 1" is visible as the note now describes.
+
+One instrument note, because it nearly became a false negative: my first check for the new
+text used the browser's element-name search, which reads roles and labels rather than
+paragraph prose, and found nothing. The change was there. A search that cannot see the
+kind of thing you are looking for reports absence exactly like a missing change does.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

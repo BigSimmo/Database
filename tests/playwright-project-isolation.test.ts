@@ -170,6 +170,103 @@ describe("Playwright production-project isolation", () => {
     ).toBe(true);
   });
 
+  /**
+   * Ward Flow's browser journeys are the prototype's only rendered evidence, and their
+   * collection depends on TWO hand-maintained alternations in playwright.config.ts that both
+   * spell each spec out by name. A ward spec missing from either one does not fail — it silently
+   * never runs, which is indistinguishable from passing on a green pull request. That exact
+   * defect has already shipped here in five different forms (a spec regex, a nav icon map, a
+   * route-coverage map, a cohort picker, and the CI scope list `assertMockupSpecParity` now
+   * guards). Assert against the ward specs actually on disk rather than against a third copy of
+   * the list, the same way the phone-scroll siblings above are checked.
+   */
+  it("collects every ui-ward-*.spec.ts on disk into the advisory mockup project, and none into the required ones", () => {
+    const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const productionSpecPattern = configPattern(source, "productionSpecPattern");
+    const mockupSpecPattern = configPattern(source, "mockupSpecPattern");
+    const testMatch = source.match(/testMatch:\s*(\/.*\/),/);
+    expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+    const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
+
+    const wardSpecs = readdirSync(resolve(process.cwd(), "tests")).filter(
+      (file) => file.startsWith("ui-ward-") && file.endsWith(".spec.ts"),
+    );
+    expect(wardSpecs.length, "expected Ward Flow to carry browser journeys").toBeGreaterThan(0);
+
+    for (const file of wardSpecs) {
+      const spec = `tests/${file}`;
+      expect(testMatchPattern.test(spec), `${file} is not collected by testMatch, so it never runs at all`).toBe(true);
+      expect(
+        mockupSpecPattern.test(spec),
+        `${file} is not collected by chromium-mockups, so the journey silently never runs`,
+      ).toBe(true);
+      expect(
+        productionSpecPattern.test(spec),
+        `${file} leaked into the required production projects, where a red prototype would block a release`,
+      ).toBe(false);
+    }
+  });
+
+  /**
+   * ⚠️ THE UNIVERSAL NET — ADDED 2026-09-02, AND IT IS AN ADDITION, NOT A REPLACEMENT.
+   *
+   * Every test above answers "is THIS family routed correctly": collected at all, collected by the
+   * right project, and NOT leaked into the wrong one. **None of them can answer "is there a spec on
+   * disk that no project collects at all", because each one starts from a family it already knows
+   * about.** A file nobody thought to write a test for is invisible to all of them.
+   *
+   * ⚠️ THAT GAP WAS NOT HYPOTHETICAL. `tests/ui-tools-show-all.spec.ts` landed on 2026-08-16 (PR
+   * #2008) carrying a launcher regression this repository had just paid for, was never added to any
+   * config, and so never ran once — while being edited twice more (2026-08-22, 2026-08-23) by people
+   * who reasonably believed it was protecting something. Seventeen days. `git log -S "tools-show-all"
+   * -- playwright.config.ts` returns nothing: the token was never there to be removed.
+   *
+   * ⚠️ THIS MUST NOT BE USED TO DELETE THE PER-FAMILY TESTS ABOVE, and consolidating them into it
+   * would LOSE coverage rather than tidy it. This checks only that a spec is collected SOMEWHERE. It
+   * cannot see a mockup leaking into a required browser project — which is the property those tests
+   * exist for and the only one that can block a release on a red prototype.
+   *
+   * Measured argument, from a mutation run on 2026-09-02: a cross-check between two DERIVED counts
+   * stayed silent under mutation because both sides collapsed together, and only a separate pin
+   * against a hand-written literal caught it. **Two guards that fail differently are worth more than
+   * one that fails once.**
+   */
+  it("every ui-*.spec.ts on disk is collected by some Playwright config, so a spec cannot sit unrun", () => {
+    const readTestMatch = (file: string) => {
+      const path = resolve(process.cwd(), file);
+      if (!existsSync(path)) return null;
+      const matched = readFileSync(path, "utf8").match(/testMatch:\s*(\/[^\n]*\/)\s*,/);
+      return matched ? new RegExp(matched[1].slice(1, -1)) : null;
+    };
+
+    const mainMatch = readTestMatch("playwright.config.ts");
+    expect(mainMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+
+    // The visual-baseline suite runs from its own config with its own CI job, so a spec collected
+    // only there is collected, not orphaned. Absent file = matches nothing, which fails CLOSED:
+    // specs it would have covered are then reported as orphans rather than silently excused.
+    const visualMatch = readTestMatch("playwright.visual.config.ts");
+
+    const specs = readdirSync(resolve(process.cwd(), "tests")).filter(
+      (file) => file.startsWith("ui-") && file.endsWith(".spec.ts"),
+    );
+    // Anti-vacuity: an empty or collapsed listing would satisfy the loop below for free.
+    expect(specs.length, "expected the repository to carry browser specs at all").toBeGreaterThan(20);
+
+    const orphans = specs.filter((file) => {
+      const spec = `tests/${file}`;
+      return !mainMatch!.test(spec) && !(visualMatch?.test(spec) ?? false);
+    });
+
+    expect(
+      orphans,
+      "These spec files exist on disk and are collected by NO Playwright config, so they never run " +
+        "and the suite reports green having run fewer tests than it appears to. Add each one's token " +
+        "to the pattern for the project it belongs in — production or mockup — and run it once before " +
+        "trusting it. Do NOT silence this by narrowing the disk scan.",
+    ).toEqual([]);
+  });
+
   it("blocks service workers for mocked journeys but allows the dedicated PWA suite", () => {
     const config = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
     const pwaSpec = readFileSync(resolve(process.cwd(), "tests/ui-pwa.spec.ts"), "utf8");

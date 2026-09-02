@@ -18,40 +18,25 @@ import { capacityBreakdown } from "@/components/ward-management/ward-bed-availab
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { NOW_ANCHOR, unitById } from "@/components/ward-management/ward-sites";
-
-/** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch — the same
- * technique tests/ward-escalation.dom.test.tsx, tests/ward-handover.dom.test.tsx and
- * tests/ward-patient-search.dom.test.tsx already use to move the shared clock without reaching
- * into the reducer directly. */
-function ClockAdvancer({ minutes }: { minutes: number }) {
-  const { now, dispatch } = useWardFlow();
-  return (
-    <button
-      type="button"
-      data-testid="test-advance-clock"
-      onClick={() => dispatch({ type: "ADVANCE_CLOCK", role: "demo", now, minutes })}
-    >
-      advance clock
-    </button>
-  );
-}
 
 /**
  * Raises a real `FLAG_BED_RELEASE` with no `blocker` — Phase 5 spec D3: a flag with no blocker
  * is a plain prediction — for `unitId`, at the live `now`. `expectedAt` is an optional override;
  * every existing call site below omits it and gets `now` by default, matching this suite's
- * original behaviour, which is exactly what lets `<ClockAdvancer>` push a later flag past 22:00
- * for the excluded-count test below (`FLAG_BED_RELEASE.expectedAt` no longer has to equal
- * `event.now` — see `ward-flow-events.ts`'s own doc comment — but nothing stops a caller choosing
- * to make them equal, which is what a default of `now` does here).
+ * original behaviour. The excluded-count test below once reached a later `expectedAt` by
+ * advancing the shared clock with a demo `ADVANCE_CLOCK` event; REWRITTEN 2026-08-30 for WB-DB-7,
+ * it instead passes `expectedAt` two days out directly (`FLAG_BED_RELEASE.expectedAt` no longer
+ * has to equal `event.now` — see `ward-flow-events.ts`'s own doc comment — but nothing stops a
+ * caller choosing to make them equal, which is what a default of `now` does here).
  */
-function PredictedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expectedAt?: number }) {
+function ExpectedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expectedAt?: number }) {
   const { now, dispatch } = useWardFlow();
   return (
     <button
       type="button"
-      data-testid="test-flag-predicted-release"
+      data-testid="test-flag-expected-release"
       onClick={() =>
         dispatch({
           type: "FLAG_BED_RELEASE",
@@ -59,12 +44,12 @@ function PredictedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expec
           now,
           unitId,
           actingUnitId: unitId,
-          confidence: "likely",
+          waitingOn: "Awaiting ward round",
           expectedAt: expectedAt ?? now,
         })
       }
     >
-      flag predicted release
+      flag expected release
     </button>
   );
 }
@@ -128,7 +113,7 @@ describe("ward capacity board", () => {
     expect(authorisedRow).toBeInTheDocument();
   });
 
-  it("replaces the per-unit row's undifferentiated Potential lump with its own Confirmed/Predicted breakdown", () => {
+  it("replaces the per-unit row's undifferentiated Potential lump with its own Confirmed/Expected breakdown", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardModeWorkspace mode="capacity" />
@@ -139,11 +124,11 @@ describe("ward capacity board", () => {
 
     // The raw `unitCapacity().potential` figure — every release for this unit regardless of
     // state or timing — must never appear on this row again: the headline above already
-    // separates it into Confirmed today / Predicted today, and this row must agree rather than
+    // separates it into Confirmed today / Expected today, and this row must agree rather than
     // showing an undifferentiated lump the headline no longer shows.
     expect(bedStates).not.toHaveTextContent("Potential");
 
-    // The row must show the SAME per-unit Confirmed/Predicted figures `capacityBreakdown` (the
+    // The row must show the SAME per-unit Confirmed/Expected figures `capacityBreakdown` (the
     // headline's own source of truth) computes for this unit — not merely the labels, but the
     // real numbers, computed independently here from the live fixture rather than read back off
     // the screen.
@@ -152,9 +137,9 @@ describe("ward capacity board", () => {
     const expected = capacityBreakdown(unit!, bedReleases, leaveBeds, NOW_ANCHOR);
 
     const confirmedSpan = within(bedStates).getByText("Confirmed").closest("span");
-    const predictedSpan = within(bedStates).getByText("Predicted").closest("span");
+    const expectedSpan = within(bedStates).getByText("Expected").closest("span");
     expect(confirmedSpan).toHaveTextContent(String(expected.confirmedToday));
-    expect(predictedSpan).toHaveTextContent(String(expected.predictedToday));
+    expect(expectedSpan).toHaveTextContent(String(expected.expectedToday));
   });
 });
 
@@ -163,14 +148,14 @@ describe("ward capacity board", () => {
  * `unitCapacity()` total keyed by five DIFFERENT states (available/held/potential/blocked/
  * occupied), where "potential" counted every bed release regardless of state or timing. This
  * suite proves the headline instead shows `capacityBreakdown()`'s five figures — Available now,
- * Confirmed today, Predicted today, Held, Leave (usable) — as five separate cards, that
- * `Available now` is never softened by a predicted or confirmed-but-unreleased bed, that the
+ * Confirmed today, Expected today, Held, Leave (usable) — as five separate cards, that
+ * `Available now` is never softened by a expected or confirmed-but-unreleased bed, that the
  * excluded-beyond-tonight count is surfaced rather than silently dropped, and that the
  * coordinator's one permitted action (asking a ward to restate its numbers) is a real dispatch
  * that moves no bed figure at all.
  */
 describe("ward capacity headline (Task 7)", () => {
-  it("renders the capacity headline as five separate figures and never a sum", () => {
+  it("renders the capacity headline as six separate figures and never a sum", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardModeWorkspace mode="capacity" />
@@ -178,15 +163,21 @@ describe("ward capacity headline (Task 7)", () => {
     );
 
     const headline = screen.getByTestId("ward-capacity-headline");
-    // Structural proof, not a text scan: exactly these five testids exist under the headline and
-    // no others — a sixth card (a "total"/"sum") would fail this count even if it were labelled
-    // something this test does not otherwise search for.
+    // Structural proof, not a text scan: exactly these six testids exist under the headline and
+    // no others — a seventh card (a "total"/"sum") would fail this count even if it were labelled
+    // something this test does not otherwise search for. The count rose from five to six with the
+    // bed-model rework of 2026-08-28, which added `blocked-releases`; the guard is unchanged in
+    // kind, and every card is still named individually below so the count alone can never stand
+    // in for knowing WHICH cards are there.
     const cards = headline.querySelectorAll('[data-testid^="ward-capacity-headline-"]');
-    expect(cards).toHaveLength(5);
+    expect(cards).toHaveLength(6);
 
     expect(screen.getByTestId("ward-capacity-headline-available-now")).toHaveTextContent("Available now");
     expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveTextContent("Confirmed today");
-    expect(screen.getByTestId("ward-capacity-headline-predicted-today")).toHaveTextContent("Predicted today");
+    expect(screen.getByTestId("ward-capacity-headline-expected-today")).toHaveTextContent("Expected today");
+    // Deliberately "Blocked releases", not the bare "Blocked": the per-unit rows below already
+    // use that word for physically blocked BEDS, which is a different fact.
+    expect(screen.getByTestId("ward-capacity-headline-blocked-releases")).toHaveTextContent("Blocked releases");
     expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent("Held");
     expect(screen.getByTestId("ward-capacity-headline-leave-usable")).toHaveTextContent("Leave (usable)");
 
@@ -195,11 +186,11 @@ describe("ward capacity headline (Task 7)", () => {
     expect(within(headline).queryByText(/^sum$/i)).not.toBeInTheDocument();
   });
 
-  it("leaves Available now exactly unchanged when a predicted release is added, while Predicted today moves", () => {
+  it("leaves Available now exactly unchanged when a expected release is added, while Expected today moves", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardModeWorkspace mode="capacity" />
-        <PredictedReleaseFlagger unitId="rph-adult-secure" />
+        <ExpectedReleaseFlagger unitId="rph-adult-secure" />
       </WardFlowProvider>,
     );
 
@@ -214,18 +205,18 @@ describe("ward capacity headline (Task 7)", () => {
     };
 
     const availableBefore = readFigure("ward-capacity-headline-available-now");
-    const predictedBefore = readFigure("ward-capacity-headline-predicted-today");
+    const expectedBefore = readFigure("ward-capacity-headline-expected-today");
 
-    fireEvent.click(screen.getByTestId("test-flag-predicted-release"));
+    fireEvent.click(screen.getByTestId("test-flag-expected-release"));
 
-    // THE single most important rule in the phase: a predicted release must never soften
+    // THE single most important rule in the phase: a expected release must never soften
     // "Available now" — a coordinator must always be able to point at that number and say "that
     // is a bed I can fill this minute".
     expect(readFigure("ward-capacity-headline-available-now")).toBe(availableBefore);
 
-    // The dispatch really landed — Predicted today rose by exactly one — so this proves real
+    // The dispatch really landed — Expected today rose by exactly one — so this proves real
     // separation between the two figures, not merely that the click did nothing at all.
-    expect(readFigure("ward-capacity-headline-predicted-today")).toBe(predictedBefore + 1);
+    expect(readFigure("ward-capacity-headline-expected-today")).toBe(expectedBefore + 1);
   });
 
   it("the coordinator's refresh control is a real button that dispatches REQUEST_CAPACITY_REFRESH and moves no bed figure", () => {
@@ -255,25 +246,34 @@ describe("ward capacity headline (Task 7)", () => {
     expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent(heldBefore ?? "");
   });
 
-  it("shows the excluded count once a release falls beyond tonight, and not before", () => {
+  it("shows the excluded count once a release falls beyond the board's horizon, and not before", () => {
+    /*
+     * REWRITTEN 2026-08-30 for WB-DB-7. This used to advance the clock 700 minutes so that
+     * `FLAG_BED_RELEASE`'s own stamp landed past 22:00, which was the old cutoff. Under a rolling
+     * horizon with a "tomorrow" band, a release later the same evening is correctly SHOWN rather
+     * than excluded, so the clock advance no longer produces an exclusion and the fixture has to
+     * reach two days out to make one.
+     *
+     * The property is unchanged: the excluded count appears only once something genuinely falls
+     * outside the horizon, and it is reported rather than dropped in silence.
+     */
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardModeWorkspace mode="capacity" />
-        <ClockAdvancer minutes={700} />
-        <PredictedReleaseFlagger unitId="fre-adult-open" />
+        <ExpectedReleaseFlagger unitId="fre-adult-open" expectedAt={NOW_ANCHOR + 2 * MINUTES_PER_DAY} />
       </WardFlowProvider>,
     );
 
-    // Baseline: nothing in the seeded fixture falls beyond 22:00 (the latest fixture release is
-    // NOW_ANCHOR + 240, still well inside the evening shift), so nothing is excluded yet.
+    // Baseline: every seeded release falls today or tomorrow, so nothing is excluded yet. This half
+    // matters as much as the other - an assertion that only ever sees the count present would pass
+    // on a screen that showed it unconditionally.
     expect(screen.queryByTestId("ward-capacity-excluded-beyond-today")).not.toBeInTheDocument();
 
-    // NOW_ANCHOR (642) + 700 = 1342, past EVENING_SHIFT_END_MINUTES (1320). FLAG_BED_RELEASE
-    // always stamps `expectedAt` as the instant the ward reported it, so flagging now stamps a
-    // release that falls beyond tonight.
-    fireEvent.click(screen.getByTestId("test-advance-clock"));
-    fireEvent.click(screen.getByTestId("test-flag-predicted-release"));
+    fireEvent.click(screen.getByTestId("test-flag-expected-release"));
 
-    expect(screen.getByTestId("ward-capacity-excluded-beyond-today")).toHaveTextContent("1");
+    expect(
+      screen.getByTestId("ward-capacity-excluded-beyond-today"),
+      "a release beyond the horizon must be counted and shown, never quietly omitted",
+    ).toHaveTextContent("1");
   });
 });

@@ -1,0 +1,9 @@
+RF-001 state=queued queued=true running=true sinceRef=280 inDept=undefined
+RF-002 state=accepted queued=false running=true sinceRef=330 inDept=455
+RF-003 state=accepted queued=false running=false sinceRef=25 inDept=270
+RF-004 state=declined queued=false running=true sinceRef=310 inDept=340
+RF-005 state=queued queued=true running=true sinceRef=260 inDept=425
+RF-006 state=accepted queued=false running=true sinceRef=305 inDept=320
+RF-007 state=accepted queued=false running=true sinceRef=270 inDept=560
+RF-008 state=accepted queued=false running=true sinceRef=315 inDept=335
+RF-009 state=queued queued=true running=true sinceRef=275 inDept=485

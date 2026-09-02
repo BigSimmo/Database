@@ -381,7 +381,7 @@ it) from clinical discovery entirely.
 - **Route/role map:** `docs/ward-management-mode-map.md`
 - **Model:** `src/components/ward-management/ward-clock.ts` (the only module that reads the
   wall clock), `ward-model.ts` (domain types only), `ward-eligibility.ts` (the eight
-  placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 22 units),
+  placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 23 units),
   `ward-movements.ts` (48 movements, 6 bed releases), `ward-derivations.ts` (shared pure UI
   derivations)
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
@@ -436,7 +436,79 @@ it) from clinical discovery entirely.
   escalation board and unlike the frozen handover, reads the live `useWardFlow()` clock on every
   render. Renders an explicit "No matches" note rather than an empty table when nothing fits. This is
   the page's own single search composer — Ward Flow routes never mount the shared global shell
-  composer, so nothing else on the page competes with it)
+  composer, so nothing else on the page competes with it),
+  `patients/add-patient.tsx` (Task: the front door's other half, spec "search for somebody, and if
+  nobody comes up, add them" — `/mockups/ward-flow/people/new`; linked from `search/patient-search.tsx`'s
+  own "nobody found" empty state, its only entry point. Four labelled text fields — record number,
+  given name, family name, date of birth, the whole of `ADD_PATIENT`'s payload and the whole of
+  `PD-1`'s identity allowlist — no picker, no clinical fact, no free text beyond a name. Modelled on
+  `referrals/referral-intake.tsx`'s draft/answered-draft idiom: Add patient stays `aria-disabled`
+  until every field has an answer, named field by field, exactly like that form's Send. Dispatches
+  `ADD_PATIENT` with `role: "coordinator"` — a judgement call, not a fact read off the model, spelled
+  out in the file's own top comment: this screen has no single owning role the way `ed-screen.tsx` or
+  `community-screen.tsx` do, `coordinator` is this codebase's own precedent for a dispatch with no
+  fixed role, and the choice changes nothing observable because the reducer's `ADD_PATIENT` case reads
+  `event.role` only for the permission gate and stores it nowhere. On success it reads the new
+  person's id back from live state (`patients`, diffed against a pre-dispatch snapshot by identity,
+  never predicted from `state.patientSequence` — that field is reducer-internal and not exposed on
+  `WardFlowContextValue`) and navigates to `/mockups/ward-flow/people/<id>`, matching the owner's
+  flow: add them, then refer from their own screen), `referrals/referral-intake.tsx` (Phase 7
+  Task 4, spec "The front door": the referral intake form — `/mockups/ward-flow/referrals/new`;
+  one form for every source (community, crisis service, police, ambulance, inter-hospital),
+  phone-first with `min-h-12` tap targets; every picker is a `<select>` derived from a runtime
+  list in `ward-model.ts` (`COHORTS`, `HOME_REGIONS`, `REFERRAL_SOURCES`, `SEXES`,
+  `URGENCY_LEVELS`) or from `wardSites` itself, never a hand-written array; no free-text input
+  anywhere. Dispatches `RECEIVE_REFERRAL` with the fixed `role: "community"`; a reducer refusal
+  surfaces as a visible `Rejection` (`ward-referral-intake-rejection`) rather than being
+  swallowed. Not yet linked from the rail/panel/drawer nav — recorded in
+  `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6), `referrals/referral-board.tsx`
+  and `referrals/referral-match.tsx` (Phase 7 Task 5, spec "The front door": the coordinator's
+  referral board and match view — `/mockups/ward-flow/referrals`. The board lists queued referrals
+  first (urgency tier, then longest-waiting first — `referralQueueOrder`, `ward-referrals.ts`),
+  then recently decided ones, with "waiting since" rendered prominently on every queued row
+  (`referralWaitLabel`). Selecting a queued referral opens the match view, keyed on the referral's
+  own id: every unit in the network via `referralCandidates` (never truncated, sorted or ranked —
+  site-table order throughout), each either accepting the referral or carrying its single reason
+  (`matchReason`) — a forensic bed is shown with its own badge and is never offered; an age band
+  with no unit anywhere in the network reads as a structural fact ("No youth unit exists in this
+  network"), never as an operational "no bed available"; a unit that has never confirmed its
+  capacity states that plainly ("has never confirmed its allocatable bed count"), never a
+  fabricated number or a bare zero. Dispatches `ACCEPT_REFERRAL`/`DECLINE_REFERRAL`
+  with role `coordinator`; a reducer refusal (including the failing gate's own name) surfaces as a
+  visible `Rejection` rather than being swallowed. Not yet linked from the rail/panel/drawer nav —
+  recorded in `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6),
+  `out-of-area/out-of-area-board.tsx` (Phase 8 Task 5, spec D8-3: the out-of-area ledger —
+  `/mockups/ward-flow/out-of-area`, a `board` entry in `WARD_NAV` beside Handover, Escalation,
+  Discharges, Morning and the referral board. Renders `outOfAreaLedger` (`ward-referrals.ts`) and
+  recomputes nothing: one row per person currently in a bed the invented travel-time table places
+  three hours or more from home or reachable only by air, showing home region, unit, band label and
+  elapsed time since arrival — no countdown, no target, no threshold colour. Entries render in the
+  records' own order with no comparator anywhere in the file; a sort by elapsed time would read as
+  a repatriation ranking nobody has decided. The ledger's two counts are stated as two separate
+  sentences that share no denominator — people out of area, and admissions the table cannot place
+  at all, the second roughly twelve times the first on the seeded records — with no fraction,
+  percentage or progress element permitted by test. Both
+  `INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE` and `SYNTHETIC_TRAVEL_TIMES_NOTICE` are imported from
+  `ward-distance.ts` and rendered whole, above the entries. The only ward screen that reads the
+  admission seed, and it does so as a default parameter: `Admission` is not in reducer state and no
+  event creates or ends one, so the screen states in its own words that the list is seeded and is
+  not a live count),
+  `wards/ward-index.tsx` (Phase 8: the ward index — `/mockups/ward-flow/wards`, a `role` entry in
+  `WARD_NAV` above the single seeded ward example. One page listing every ward in the network,
+  grouped under its health service in `wardServiceOrder` and linking each ward to
+  `/mockups/ward-flow/ward/[unitId]`. It exists because that dynamic route served 23 wards while
+  exactly one — `ward-nav.ts`'s `rph-adult-secure` example — was named by a concrete href anywhere
+  in the source, so 22 ward screens could be reached only by typing an address. Enumerated from the
+  provider's live `units`, never a hand-written list and never `allUnits()` directly
+  (`UNITS_FIXTURE_ALLOWLIST` in `tests/ward-flow-single-source.test.ts`); the service is derived per
+  unit via `siteByCode`, and a unit whose site code resolves to nothing renders in an explicit
+  "Not placed in a health service" group rather than being dropped from every group. Deliberately
+  carries NO bed figure, count, availability or occupancy — an owner decision, guarded by test: an
+  index that grew a bed column would be a second surface answering the capacity board's question in
+  wording that can drift. Nothing sorts, ranks or truncates. The 23-of-23 coverage claim is
+  established in `tests/ward-nav.test.ts` by rendering the page and comparing the links inside its
+  `<main>` against `allUnits()` by set equality — not by that file's source scan, which counts
+  concrete hrefs only and deliberately refuses to read a `.map()` builder as coverage)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/mockups/ward-flow/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)
@@ -448,7 +520,9 @@ it) from clinical discovery entirely.
   (both sections and their empty states), `tests/ward-patient-search.test.ts` (`searchMovements`,
   including the closed-movement exclusion proven against both a real and a constructed fixture case),
   `tests/ward-patient-search.dom.test.tsx` (the single-composer shape, live results, and the
-  "No matches" empty state)
+  "No matches" empty state), `tests/ward-referral-screens.dom.test.tsx` (Phase 7 Task 4: every
+  picker offers its full runtime list, no free-text input anywhere, the fixed community role, and
+  the rejection surface on a real reducer refusal)
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 

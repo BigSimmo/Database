@@ -1,0 +1,249 @@
+/*
+ * Add a patient — the front door's second half: "search for somebody, and if nobody comes up,
+ * they need adding before they can be referred." Same self-contained-tokens convention every
+ * other ward-management module documents on its own root class (see `referrals.module.css`,
+ * `person.module.css`) — every local custom property this file needs is declared here, never
+ * borrowed from another module's scope.
+ *
+ * Four fields, no pickers: `ADD_PATIENT` carries only the identity `PD-1` permits (record
+ * number, given name, family name, date of birth), so this form is four labelled text inputs in
+ * a single vertical stack — no destination, no urgency, nothing clinical. Reuses the `.fieldCard`
+ * / `.fieldLegend` / `.submit` / `.unavailableReason` shapes `referrals.module.css` already
+ * established for the front door's other form, so the two forms a police officer or a community
+ * nurse might fill in back to back do not look like two different products. Tap targets stay
+ * `--ap-space-48` (`--spacing-tap`, 3rem), never the smaller `min-h-11` that reintroduced a known
+ * `ui-smoke` flake elsewhere in this repo.
+ */
+.screen {
+  --ap-space-4: 0.25rem;
+  --ap-space-8: 0.5rem;
+  --ap-space-10: 0.625rem;
+  --ap-space-12: 0.75rem;
+  --ap-space-14: 0.875rem;
+  --ap-space-16: 1rem;
+  --ap-space-20: 1.25rem;
+  --ap-space-24: 1.5rem;
+  --ap-space-48: var(--spacing-tap);
+  --ap-leading-body: 1.4;
+
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: auto minmax(0, 1fr);
+  background: var(--surface);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ap-space-20);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--ap-space-16) var(--ap-space-20) var(--ap-space-24);
+}
+
+.governanceBanner {
+  display: flex;
+  min-height: var(--ap-space-48);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ap-space-12);
+  border-bottom: 0.0625rem solid var(--border);
+  background: var(--surface-chrome);
+  padding: var(--ap-space-8) var(--ap-space-12);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ap-leading-body);
+}
+
+.prototypeBadge {
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: var(--ap-space-4) var(--ap-space-8);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ap-space-4);
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 700;
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ap-leading-body);
+}
+
+.form {
+  display: grid;
+  gap: var(--ap-space-12);
+  max-width: 32rem;
+}
+
+/*
+ * THE DUPLICATE NOTICE — above the fields, so it is readable at the same moment as a prefilled
+ * name. Warning colours rather than danger: this is advice a clinician may correctly overrule,
+ * and a screen that shouts at a legitimate second person with a similar name teaches people to
+ * click past it. Tokens throughout; no hex.
+ */
+.duplicateNotice {
+  display: grid;
+  gap: var(--ap-space-8);
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-md);
+  /* ⚠️ `--warning-bg`, and I nearly shipped `--warning-surface`, WHICH DOES NOT EXIST. That is
+     the exact defect this register carries as WB2-110: an undeclared custom property with no
+     fallback makes the declaration invalid at computed-value time and the background silently
+     vanishes. Nothing fails; the box just stops looking like a warning. Verified declared. */
+  background: var(--warning-bg);
+  padding: var(--ap-space-14);
+}
+
+.duplicateIdle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ap-leading-body);
+}
+
+.duplicateLead {
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  line-height: var(--ap-leading-body);
+}
+
+.duplicateList {
+  display: grid;
+  gap: var(--ap-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.duplicateItem {
+  color: var(--text);
+  font-size: var(--text-3xs);
+  line-height: var(--ap-leading-body);
+}
+
+.fieldCard {
+  display: grid;
+  gap: var(--ap-space-8);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+  margin: 0;
+  padding: var(--ap-space-12) var(--ap-space-14);
+}
+
+.fieldLegend {
+  padding: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 700;
+}
+
+.input {
+  min-height: var(--ap-space-48);
+  width: 100%;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 var(--ap-space-10);
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.input:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+/* Why "Add patient" is unavailable, named field by field — never colour alone. Same shape as
+   `referrals.module.css`'s `.unavailableReason`. */
+.unavailableReason {
+  margin: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--warning-bg);
+  padding: var(--ap-space-12) var(--ap-space-14);
+  color: var(--warning-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ap-leading-body);
+}
+
+.rejection {
+  margin: 0;
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--danger-bg);
+  padding: var(--ap-space-12) var(--ap-space-14);
+  color: var(--danger-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ap-leading-body);
+}
+
+.submit {
+  display: inline-flex;
+  min-height: var(--ap-space-48);
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--clinical-accent);
+  padding: 0 var(--ap-space-14);
+  color: var(--clinical-accent-contrast);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 700;
+}
+
+.submit:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+/* Unavailable, not gone — keyed off `aria-disabled` because native `disabled` is deliberately
+   absent (it would remove the tab stop, and with it the route to the reason below). Same rule
+   `referrals.module.css`'s `.submit[aria-disabled="true"]` documents. */
+.submit[aria-disabled="true"] {
+  border-color: var(--border);
+  background: var(--surface-chrome);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+}

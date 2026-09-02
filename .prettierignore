@@ -61,3 +61,13 @@ data/repo-awareness-snapshot.json
 # is not this repository's to own. Everything in `.claude/cloud-profile/` outside `skills/` is ours
 # and stays formatted.
 .claude/cloud-profile/skills/
+
+# Content-addressed Ward Flow control-plane records. THE FILENAME IS THE SHA-256 OF THE FILE'S OWN
+# CANONICAL JSON, so reformatting the content breaks the content-address and the record no longer
+# hashes to its own name. Prettier collapsed two multi-line arrays on 2026-09-03 and
+# tests/ward-flow-chat-control.test.ts went red with "is not canonical JSON". These are records,
+# not source: they are written once by scripts/ward-flow/chat-control.mjs and never edited by hand.
+docs/ward-flow/control/assignments/*.assignment.json
+docs/ward-flow/control/assignments/*.handover.json
+docs/ward-flow/control/assignments/*.certificate.json
+docs/ward-flow/control/evidence/receipts/*.json

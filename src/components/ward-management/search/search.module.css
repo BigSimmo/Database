@@ -153,6 +153,26 @@
   font-style: italic;
 }
 
+/*
+ * The one link inside `.emptyNote`'s own sentence ("...they need adding before they can be
+ * referred. Add this person"). Deliberately NOT `.personLink` (a block-level, 48px flex row built
+ * for a list item, `min-height` and all) — this link sits inside a run of prose, not its own row,
+ * and WCAG 2.5.8's own inline exception is exactly this shape: a target "in a sentence, or its
+ * size is otherwise constrained by the line-height of non-target text". Not italic like the
+ * sentence around it, so the one actionable word in the paragraph reads as actionable.
+ */
+.emptyNoteLink {
+  color: var(--clinical-accent);
+  font-style: normal;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.emptyNoteLink:hover,
+.emptyNoteLink:focus-visible {
+  text-decoration-thickness: 0.125rem;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -195,6 +215,27 @@
 }
 
 /*
+ * A person's row is a link across its whole line, at the full 3rem tap target this repository uses
+ * for production controls rather than the height of the text. These rows were inert `<li>`s that
+ * absorbed a click in silence; making them clickable but hard to hit would swap one quiet failure
+ * for a quieter one.
+ */
+.personLink {
+  display: flex;
+  min-width: 0;
+  min-height: var(--ps-space-48);
+  align-items: center;
+  gap: var(--ps-space-6);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.personLink:hover,
+.personLink:focus-visible {
+  text-decoration: underline;
+}
+
+/*
  * Wide content scrolls; it never crushes. Without this the table is `width: 100%` on a 390px
  * phone, so the browser squeezes every column until words break mid-syllable — measured on a
  * production build: "Place/ment reque/sted", "Desti/natio/n revie/w" — and the right-hand column
@@ -203,6 +244,43 @@
  *
  * Found by looking at a screenshot. Every structural check passed on this table.
  */
+/*
+ * WAITING REFERRALS, shown above the movement table and never inside it.
+ *
+ * A referral has no stage, no department, no destination and no time since arrival — four of the
+ * table's six columns — because nobody has accepted it. Four blank cells on a clinical screen read
+ * as missing data rather than as inapplicable, which is why this is a list and not extra rows.
+ */
+.referralList {
+  margin: 0 0 var(--space-4, 1rem);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+}
+
+.referralRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 0.5rem);
+  padding: var(--space-3, 0.75rem);
+  background: var(--surface);
+}
+
+.referralId {
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+.referralNote {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
 .tableScroll {
   overflow-x: auto;
 }
@@ -220,4 +298,22 @@
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
   }
+}
+
+/* The people section. Listed above the movements because a person is the subject and a movement is
+   something that happened to them — the ordering is the claim, so it is stated here rather than
+   left to whichever section happens to be rendered first. */
+.peopleList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.peopleList li {
+  padding: var(--space-3);
+  border: 1px solid var(--ward-border-subtle, currentColor);
+  border-radius: var(--radius-md, 0.5rem);
 }

@@ -1,0 +1,26 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx (2 tests | 1 failed) 160ms
+     × never names the unit that accepted, when telling a ward its referral was withdrawn 52ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx > FD-23 on the ward page > never names the unit that accepted, when telling a ward its referral was withdrawn
+TypeError: allUnits is not iterable
+ ❯ tests/ward-screen-fd23-leaks.dom.test.tsx:143:24
+    141|     // the label vocabulary at source; this asserts the same rule wher…
+    142|     // because that is the only place the harm occurs.
+    143|     for (const unit of allUnits) {
+       |                        ^
+    144|       expect(shown, `the withdrawal line names ${unit.name}`).not.toCo…
+    145|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  00:59:28
+   Duration  1.95s (transform 466ms, setup 222ms, import 608ms, tests 160ms, environment 774ms)
+

@@ -17,6 +17,7 @@ vi.mock("next/link", () => ({
 import { EVENING_SHIFT_END_MINUTES } from "@/components/ward-management/ward-bed-availability";
 import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 function renderBoard() {
@@ -30,7 +31,7 @@ function renderBoard() {
 /**
  * Raises a real `FLAG_BED_RELEASE` reducer event — the same mechanism `ward-handover.dom.test.tsx`'s
  * `ClockAdvancer` uses to move shared state without reaching into the reducer directly — carrying
- * an explicit `expectedAt` safely beyond `EVENING_SHIFT_END_MINUTES` (1320). `FLAG_BED_RELEASE`
+ * an explicit `expectedAt` two full days out, safely beyond the rolling horizon WB-DB-7 introduced. `FLAG_BED_RELEASE`
  * carries the ward's own estimate as `event.expectedAt` (see `ward-flow-events.ts`'s own doc
  * comment); this is a real, reducer-produced `BedRelease` whose `expectedAt` genuinely falls
  * beyond tonight — not a fixture or component change, and independent of the board's own live
@@ -48,8 +49,8 @@ function FarFutureReleaseFlagger() {
           now: EVENING_SHIFT_END_MINUTES + 100,
           unitId: "rph-adult-secure",
           actingUnitId: "rph-adult-secure",
-          confidence: "possible",
-          expectedAt: EVENING_SHIFT_END_MINUTES + 100,
+          waitingOn: "Nothing outstanding",
+          expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY,
         })
       }
     >
@@ -59,11 +60,11 @@ function FarFutureReleaseFlagger() {
 }
 
 describe("DischargeBoard", () => {
-  it("groups releases under Blocked, Confirmed, Predicted, Released today, in that exact order", () => {
+  it("groups releases under Blocked, Confirmed, Expected, Discharged today, in that exact order", () => {
     renderBoard();
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
-    expect(headings).toEqual(["Blocked", "Confirmed", "Predicted", "Released today"]);
+    expect(headings).toEqual(["Blocked", "Confirmed", "Expected", "Discharged today"]);
   });
 
   it("names the blocker on a blocked row", () => {
@@ -73,6 +74,51 @@ describe("DischargeBoard", () => {
     // accommodation" — chosen from BED_RELEASE_BLOCKERS, never free text.
     const blockedTable = screen.getByTestId("ward-discharge-table-blocked");
     expect(within(blockedTable).getByText("Awaiting accommodation")).toBeInTheDocument();
+  });
+
+  /**
+   * Bed-model rework (2026-08-28). The Blocked group is now keyed on the FLAG, not on a state, so
+   * it holds releases at two different stages at once — and every row states its own stage.
+   * Without that column the group would swallow the fact this rework exists to preserve: that a
+   * stuck discharge can be one the ward has already DECIDED. A coordinator who cannot tell a
+   * blocked prediction from a blocked confirmation cannot tell which bed to chase first.
+   *
+   * The real fixture seeds exactly this pair — WR-007 confirmed-and-blocked at fsh-adult-secure,
+   * WR-009 expected-and-blocked at rgh-adult-secure — so the assertion is over a genuinely mixed
+   * group, not one row that happens to agree with whatever the implementation prints.
+   */
+  it("states each blocked row's own stage, so a blocked confirmation is not mistaken for a blocked prediction", () => {
+    renderBoard();
+
+    const blockedTable = screen.getByTestId("ward-discharge-table-blocked");
+    const dataRows = within(blockedTable).getAllByRole("row").slice(1);
+    expect(dataRows).toHaveLength(2);
+
+    const stagesByUnit = new Map(
+      dataRows.map((row) => {
+        const cells = within(row).getAllByRole("cell");
+        return [cells[0].textContent, cells[3].textContent];
+      }),
+    );
+    expect(stagesByUnit.get("FSH Adult Secure")).toBe("Confirmed");
+    expect(stagesByUnit.get("RGH Adult Secure")).toBe("Expected");
+  });
+
+  /**
+   * The grouping rule itself, stated as a rule rather than inferred from the fixture: the flag is
+   * read BEFORE the stage. A blocked-but-confirmed release belongs in Blocked (the group a
+   * coordinator scans first) and must NOT also appear under Confirmed — this board is a work
+   * queue, where each release appears exactly once. That is deliberately the opposite trade-off
+   * from `CapacityBreakdown.blockedToday`, which is a set of counts and cross-cuts on purpose.
+   */
+  it("puts a blocked-but-confirmed release in Blocked and nowhere else", () => {
+    renderBoard();
+
+    const confirmedTable = screen.getByTestId("ward-discharge-table-confirmed");
+    expect(within(confirmedTable).queryByText("FSH Adult Secure")).not.toBeInTheDocument();
+
+    const blockedTable = screen.getByTestId("ward-discharge-table-blocked");
+    expect(within(blockedTable).getByText("FSH Adult Secure")).toBeInTheDocument();
   });
 
   it("renders each row's confirming role exactly once — never duplicated alongside the freshness stamp", () => {
@@ -106,7 +152,7 @@ describe("DischargeBoard", () => {
   it("gives every row in every non-empty group a freshness stamp", () => {
     renderBoard();
 
-    for (const key of ["blocked", "confirmed", "predicted", "released-today"]) {
+    for (const key of ["blocked", "confirmed", "expected", "discharged-today"]) {
       const table = screen.getByTestId(`ward-discharge-table-${key}`);
       const rows = within(table).getAllByRole("row");
       // First row is the header row (<th> cells) — every remaining row is a data row and must
@@ -129,27 +175,27 @@ describe("DischargeBoard", () => {
     );
 
     // Baseline measured against the real fixture (ward-movements.ts): 2 blocked (WR-007, WR-009),
-    // 2 confirmed (WR-001, WR-004), 4 predicted (WR-002, WR-003, WR-005, WR-006), 1 released today
+    // 2 confirmed (WR-001, WR-004), 4 expected (WR-002, WR-003, WR-005, WR-006), 1 released today
     // (WR-008) — 9 rows total, 0 excluded, matching the earlier "renders 0" test.
     fireEvent.click(screen.getByRole("button", { name: "flag far-future release" }));
 
-    // The new release is real reducer state now (a tenth BedRelease, predicted, expectedAt =
+    // The new release is real reducer state now (a tenth BedRelease, expected, expectedAt =
     // EVENING_SHIFT_END_MINUTES + 100), so the excluded count must move off 0 — the half of the
     // spec's promise the earlier "renders 0" test cannot exercise on its own.
     const excluded = screen.getByTestId("ward-discharge-excluded");
     expect(excluded).toHaveTextContent(/^1\b/);
     expect(excluded.textContent?.toLowerCase()).not.toContain("none");
 
-    // Being counted and being listed are different things (D5): the new release is `predicted`,
-    // so a leak would land it in the Predicted group specifically. That group's row count must
+    // Being counted and being listed are different things (D5): the new release is `expected`,
+    // so a leak would land it in the Expected group specifically. That group's row count must
     // stay at its pre-flag 4, not grow to 5.
-    const predictedTable = screen.getByTestId("ward-discharge-table-predicted");
-    const predictedDataRows = within(predictedTable).getAllByRole("row").slice(1);
-    expect(predictedDataRows).toHaveLength(4);
+    const expectedTable = screen.getByTestId("ward-discharge-table-expected");
+    const expectedDataRows = within(expectedTable).getAllByRole("row").slice(1);
+    expect(expectedDataRows).toHaveLength(4);
 
     // Belt and braces: total data rows across every group must stay at 9 even though the reducer
     // now holds 10 bed releases — the tenth is declared (via the count above) but never listed.
-    const totalDataRows = ["blocked", "confirmed", "predicted", "released-today"]
+    const totalDataRows = ["blocked", "confirmed", "expected", "discharged-today"]
       .map((key) => within(screen.getByTestId(`ward-discharge-table-${key}`)).getAllByRole("row").length - 1)
       .reduce((sum, count) => sum + count, 0);
     expect(totalDataRows).toBe(9);

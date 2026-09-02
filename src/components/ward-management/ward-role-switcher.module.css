@@ -34,6 +34,9 @@
 
 .trigger {
   display: grid;
+  /* `relative` is for `.triggerCount` below, which sits in this button's corner. Added 2026-09-03
+     with the referred-ward count; the trigger's own box is otherwise unchanged. */
+  position: relative;
   width: var(--rs-tap);
   height: var(--rs-tap);
   flex-shrink: 0;
@@ -136,4 +139,33 @@
   color: var(--rs-muted);
   font-size: var(--text-2xs);
   line-height: var(--rs-leading-body);
+}
+
+/*
+ * The count of wards this patient has been referred to, shown on the trigger itself.
+ *
+ * ⚠️ THIS IS AN INDICATOR, NOT THE INFORMATION. It is `aria-hidden` on purpose: the accessible
+ * name of the button already carries the count in words, so announcing "2" separately would read
+ * the same fact twice and in a worse form. Sighted users get the digit; screen-reader users get
+ * the sentence. Neither gets both.
+ *
+ * ⚠️ AND IT MUST NOT CHANGE THE TRIGGER'S BOX. The button is always present and always the same
+ * size whether or not a patient is focused — a control that changes shape when it has something
+ * to offer reads, at every other moment, as a control that is missing.
+ */
+.triggerCount {
+  position: absolute;
+  top: 0.125rem;
+  right: 0.125rem;
+  display: grid;
+  min-width: 0.875rem;
+  height: 0.875rem;
+  place-items: center;
+  padding: 0 0.1875rem;
+  border-radius: var(--radius-md);
+  background: var(--rs-blue);
+  color: var(--rs-canvas);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: 1;
 }

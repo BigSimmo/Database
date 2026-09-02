@@ -88,6 +88,30 @@ export function WardRoleSwitcher() {
     .map((unitId) => units.find((unit) => unit.id === unitId))
     .filter((unit): unit is NonNullable<typeof unit> => unit !== undefined);
 
+  /*
+   * ⚠️ THE TRIGGER SAYS WHAT IS BEHIND IT, BUT ONLY WHEN SOMETHING IS. Owner ruling 2026-09-03,
+   * "resolve this" — the route from a referral to the receiving ward existed and was unfindable.
+   *
+   * The old label was `"Switch role"`, always. That is TRUE AND USELESS at the moment it matters:
+   * a coordinator who has just referred a patient to two wards has no way to know those two wards
+   * are behind this control, because the label describes the CONTROL rather than what is currently
+   * in it. ⚠️ It was never an accessibility gap — `aria-label` and `title` were both already
+   * present — which is why the fix is different from the one that shape of defect usually gets.
+   *
+   * ⚠️ AND THE TRIGGER IS ALWAYS RENDERED AND ALWAYS THE SAME SIZE. Only the words and the count
+   * change. A control that appears only when it has something to offer reads, at every other
+   * moment, as a control that is simply missing — which is exactly what the shortlist taught this
+   * project. The menu's own "No ward implied" empty state is untouched and still does its job.
+   *
+   * ⚠️ PLACEHOLDER COPY — OWNER DECISION OUTSTANDING. The wording below is mine and it is a
+   * clinical control's label, so it is NOT settled. It ships marked rather than silently.
+   */
+  const referredWardCount = wardCandidates.length;
+  const switcherLabel =
+    referredWardCount > 0
+      ? `Switch role — ${referredWardCount} ${referredWardCount === 1 ? "ward" : "wards"} this patient was referred to`
+      : "Switch role";
+
   // ED is never ambiguous — a movement carries exactly one `originEdId` — so this is always a
   // direct link once a patient is selected, never a picker.
   const edCandidate = focusMovement ? edById(focusMovement.originEdId) : undefined;
@@ -105,11 +129,19 @@ export function WardRoleSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls="ward-role-switcher-menu"
-        aria-label="Switch role"
-        title="Switch role"
+        aria-label={switcherLabel}
+        title={switcherLabel}
+        data-referred-ward-count={referredWardCount}
         onClick={() => setOpen((value) => !value)}
       >
         <ArrowLeftRight aria-hidden="true" />
+        {referredWardCount > 0 ? (
+          /* aria-hidden: the accessible name above already carries this count in words. Announcing
+             the bare digit as well would read the same fact twice, in the worse of the two forms. */
+          <span className={styles.triggerCount} aria-hidden="true" data-testid="ward-role-switcher-ward-count">
+            {referredWardCount}
+          </span>
+        ) : null}
       </button>
       {open ? (
         <div id="ward-role-switcher-menu" className={styles.menu} role="menu" aria-label="Switch role">

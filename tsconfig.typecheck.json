@@ -28,5 +28,13 @@
     "tsBuildInfoFile": "node_modules/.cache/tsc/tsconfig.typecheck.tsbuildinfo"
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts"],
-  "exclude": ["node_modules", ".next/**", "scratch/**", "supabase/functions/**", "worktrees/**", "scripts/archive/**"]
+  "exclude": [
+    "node_modules",
+    ".next/**",
+    "scratch/**",
+    "supabase/functions/**",
+    "worktrees/**",
+    "scripts/archive/**",
+    "docs/ward-flow/control/evidence/**"
+  ]
 }

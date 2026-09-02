@@ -1,0 +1,375 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-network-referral-clocks.dom.test.tsx (3 tests | 2 failed) 478ms
+     × stops the referral clock at triage, and says so in different words 230ms
+     × never words the department clock as arrival, because the field is triage 153ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-network-referral-clocks.dom.test.tsx > the referral clocks on the network diagram > stops the referral clock at triage, and says so in different words
+TestingLibraryElementError: Unable to find an element by: [data-testid="ward-network-referral-RF-003"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_modeShell_49812c"[39m
+      [33mdata-role[39m=[32m"flow"[39m
+      [33mdata-testid[39m=[32m"ward-mode-network"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_phoneBar_d20c9a"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"_phoneBrand_d20c9a"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_d20c9a"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_phoneBrandName_d20c9a"[39m
+          [36m>[39m
+            [0mWard Flow[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Open Ward Flow menu"[39m
+          [33mclass[39m=[32m"_menuButton_d20c9a"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-menu"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 5h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 12h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 19h16"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"Ward Flow"[39m
+        [33mclass[39m=[32m"_clinicalRail_10f60f"[39m
+        [33mdata-print-hide[39m=[32m""[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-label[39m=[32m"Ward Flow home"[39m
+          [33mclass[39m=[32m"_railBrand_10f60f"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Expand sidebar"[39m
+          [33mclass[39m=[32m"_railExpand_10f60f"[39m
+          [33mtitle[39m=[32m"Expand sidebar"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _railExpandBrand_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-left-open _railExpandIcon_10f60f"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+      ...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:109:15
+ ❯ tests/ward-network-referral-clocks.dom.test.tsx:68:25
+     66|     );
+     67|
+     68|     const rows = screen.getAllByTestId(`ward-network-referral-${referr…
+       |                         ^
+     69|     const shown = rows[0].textContent ?? "";
+     70|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |jsdom| tests/ward-network-referral-clocks.dom.test.tsx > the referral clocks on the network diagram > never words the department clock as arrival, because the field is triage
+TestingLibraryElementError: Unable to find an element by: [data-testid="ward-network-placement-clocks"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_modeShell_49812c"[39m
+      [33mdata-role[39m=[32m"flow"[39m
+      [33mdata-testid[39m=[32m"ward-mode-network"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_phoneBar_d20c9a"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"_phoneBrand_d20c9a"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_d20c9a"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_phoneBrandName_d20c9a"[39m
+          [36m>[39m
+            [0mWard Flow[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Open Ward Flow menu"[39m
+          [33mclass[39m=[32m"_menuButton_d20c9a"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-menu"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 5h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 12h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 19h16"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"Ward Flow"[39m
+        [33mclass[39m=[32m"_clinicalRail_10f60f"[39m
+        [33mdata-print-hide[39m=[32m""[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-label[39m=[32m"Ward Flow home"[39m
+          [33mclass[39m=[32m"_railBrand_10f60f"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Expand sidebar"[39m
+          [33mclass[39m=[32m"_railExpand_10f60f"[39m
+          [33mtitle[39m=[32m"Expand sidebar"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _railExpandBrand_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-left-open _railExpandIcon_10f60f"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+      ...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:109:15
+ ❯ tests/ward-network-referral-clocks.dom.test.tsx:130:31
+    128|     );
+    129|
+    130|     const clockLines = screen.getAllByTestId("ward-network-placement-c…
+       |                               ^
+    131|     for (const line of clockLines) {
+    132|       expect(line.textContent ?? "", "the department clock is worded a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  01:07:10
+   Duration  2.10s (transform 492ms, setup 190ms, import 610ms, tests 478ms, environment 680ms)
+

@@ -60,6 +60,38 @@ describe("referral", () => {
     expect(movement(next, "WF-009").stage).toBe("destination_review");
     expect(movement(next, "WF-009").referredUnitIds).toEqual(["rph-adult-secure", "fsh-adult-secure"]);
   });
+
+  /**
+   * ⚠️ THE ONLY PRODUCER OF `referredAt`, AND THE ONLY THING THAT KEEPS THE ED BOARD'S SECOND
+   * CLOCK HONEST.
+   *
+   * A `Movement` had no referral timestamp until 2026-09-02, so the ED referral board could say
+   * only how long somebody had been in the department. This event is what writes the moment, and
+   * a field nothing writes renders as a legitimate-looking empty state that no gate can see. The
+   * seeded movements deliberately keep NO value — nobody recorded the moment because in the demo
+   * it never happened — so the absence below is the seed's real answer, not a hole in the test.
+   */
+  it("stamps the moment of referral, and the seed carries none before it", () => {
+    const state = seeded();
+    expect(
+      movement(state, "WF-009").referredAt,
+      "a seeded movement already carries a referral time, so the assertion below cannot tell a " +
+        "stamped moment from one that was there all along",
+    ).toBeUndefined();
+
+    const next = wardFlowReducer(state, {
+      type: "REFER_TO_UNITS",
+      role: "coordinator",
+      now: NOW,
+      movementId: "WF-009",
+      unitIds: ["rph-adult-secure"],
+    });
+    expect(
+      movement(next, "WF-009").referredAt,
+      "the referral moment is not recorded, so the board can only ever say 'referral time not " +
+        "recorded' and the wait since referral has no source",
+    ).toBe(NOW);
+  });
 });
 
 describe("acceptance", () => {
@@ -88,8 +120,13 @@ describe("acceptance", () => {
       "fsh-adult-secure",
       "rgh-adult-secure",
     ]);
+    // 🔴 This loop USED to assert `.toContain("RPH Adult Secure")` — it REQUIRED the withdrawal
+    // written for the losing wards to name the ward that won, which is exactly the FD-23 leak.
+    // Two sessions found the defect on screen while this test sat green, demanding it. The
+    // inversion is the point: a guard can be precise, mutation-proof and pointed the wrong way.
     for (const withdrawn of target.withdrawnReferrals) {
-      expect(withdrawn.reason).toContain("RPH Adult Secure");
+      expect(withdrawn.reason).toBe("another_unit_accepted");
+      expect(withdrawn.reason, "the losing ward must not be told who won").not.toContain("RPH Adult Secure");
     }
   });
 
@@ -136,10 +173,12 @@ describe("the last bed", () => {
         movementId,
         unitId: unit.id,
       });
-      state = wardFlowReducer(state, { type: "HOLD_BED", role: "ward", now: NOW, movementId, unitId: unit.id });
+      state = wardFlowReducer(state, { type: "PULL_PATIENT", role: "ward", now: NOW, movementId, unitId: unit.id });
     }
 
-    expect(state.rejections.some((rejection) => rejection.reason.includes("bed_held_for_earlier_referral"))).toBe(true);
+    expect(state.rejections.some((rejection) => rejection.reason.includes("bed_pulled_for_earlier_referral"))).toBe(
+      true,
+    );
   });
 });
 
@@ -161,14 +200,14 @@ describe("holds", () => {
       unitId: "rph-adult-secure",
     });
     state = wardFlowReducer(state, {
-      type: "HOLD_BED",
+      type: "PULL_PATIENT",
       role: "ward",
       now: NOW,
       movementId: "WF-009",
       unitId: "rph-adult-secure",
     });
-    expect(movement(state, "WF-009").bedHeldUntil).toBe(NOW + 60);
-    expect(movement(state, "WF-009").stage).toBe("bed_held");
+    expect(movement(state, "WF-009").pullExpiresAt).toBe(NOW + 60);
+    expect(movement(state, "WF-009").stage).toBe("pulled");
   });
 });
 
@@ -194,7 +233,11 @@ describe("arrival", () => {
     for (const event of [
       { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
       { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
-      { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
       { type: "HANDOVER_READY", role: "ed" },
       { type: "TRANSPORT_ACCEPTED", role: "officer" },
       { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -207,6 +250,78 @@ describe("arrival", () => {
     expect(movement(state, "WF-009").stage).toBe("arrived");
     const after = state.units.find((unit) => unit.id === "rph-adult-secure")!;
     expect(after.allocatable.value).toBeLessThan(before);
+  });
+
+  it("creates a person in the bed on arrival, so the patient does not vanish when the movement closes", () => {
+    /*
+     * THE DEFECT THIS PINS. Until 2026-08-30 this reducer contained the word "admission" zero times.
+     * Arrival closed the movement, decremented the unit's empty count and bumped its sex mix - and
+     * created no record of the person. `isOpen` is `!closure && stage !== "arrived"`, and it gates
+     * ten surfaces: the queue, the coordinator inbox, handover, placement, patient search, the
+     * pressure strip, the live tracker and the ED screen among them.
+     *
+     * So a patient who reached a ward became a closed movement and nothing else, and the
+     * demonstration lost sight of them at the exact moment it had succeeded in placing them. The
+     * bed count moved and the person did not exist.
+     *
+     * Nothing was red. Every assertion about arrival was about the MOVEMENT and the UNIT - both
+     * still correct - and no test anywhere asked what happened to the human being.
+     */
+    const before = seeded();
+    let state = before;
+    for (const event of [
+      { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+      { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+      { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
+      { type: "HANDOVER_READY", role: "ed" },
+      { type: "TRANSPORT_ACCEPTED", role: "officer" },
+      { type: "TRANSPORT_EN_ROUTE", role: "officer" },
+      { type: "PATIENT_COLLECTED", role: "officer" },
+      { type: "PATIENT_ARRIVED", role: "officer" },
+    ] as const) {
+      state = wardFlowReducer(state, { ...event, now: NOW, movementId: "WF-009" } as never);
+    }
+    expect(state.rejections, "the walk itself must succeed, or this test proves nothing").toEqual([]);
+
+    // The movement still closes - that behaviour is unchanged and correct. The point is what now
+    // exists alongside it.
+    expect(movement(state, "WF-009").stage).toBe("arrived");
+
+    expect(
+      state.admissions.length,
+      "arrival must create exactly one person in a bed - no more, and above all no fewer",
+    ).toBe(before.admissions.length + 1);
+
+    const arrival = state.admissions[state.admissions.length - 1];
+    expect(arrival.state, "the person is in the bed, not waitlisted or departed").toBe("occupied");
+    expect(arrival.arrivedAt, "arrival is stamped at the instant the event carried").toBe(NOW);
+    expect(arrival.unitId, "the person is in the unit that accepted them").toBe(
+      movement(state, "WF-009").acceptedUnitId,
+    );
+    expect(arrival.sex, "the sex mix is derived from the people in the beds, so this must carry it").toBe(
+      movement(state, "WF-009").sex,
+    );
+
+    // Both nulls are STATEMENTS rather than gaps, and asserting them stops either being quietly
+    // filled with a guess later.
+    expect(
+      arrival.referralId,
+      "an admission created by an arrival came from a movement, not a referral - inventing a " +
+        "referral id would point at nothing",
+    ).toBeNull();
+    expect(
+      arrival.homeRegion,
+      "a movement carries no home region anywhere in the model, and deriving one from the origin " +
+        "emergency department would be inventing it: where somebody was admitted from is not where " +
+        "they live. Awaiting the owner's ruling on whether suburb or region is the recorded fact.",
+    ).toBeNull();
+
+    // The seeded occupants are untouched: this appends a person, it does not rebuild the ward.
+    expect(state.admissions.slice(0, before.admissions.length)).toEqual(before.admissions);
   });
 });
 
@@ -481,7 +596,11 @@ describe("examination", () => {
     const steps = [
       { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
       { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
-      { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
       { type: "HANDOVER_READY", role: "ed" },
       { type: "TRANSPORT_ACCEPTED", role: "officer" },
       { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -571,7 +690,7 @@ describe("examination", () => {
   it("cancels downstream transport, releases the held bed, and refuses further transitions when a movement closes", () => {
     // WF-005 is seeded at handover_ready, accepted at fre-adult-open, with a transport job
     // already accepted (but not yet en route). fre-adult-open's allocatable count reflects an
-    // earlier HOLD_BED on this same movement.
+    // earlier PULL_PATIENT on this same movement.
     const before = seeded();
     const beforeUnit = before.units.find((candidate) => candidate.id === "fre-adult-open")!;
 
@@ -586,7 +705,7 @@ describe("examination", () => {
     expect(target.closure?.outcome).toBe("did_not_proceed");
     // Transport is cancelled, not silently left in its last live state.
     expect(target.transport?.cancelledAt).toBe(NOW);
-    // The bed reserved by the earlier HOLD_BED is given back to the unit.
+    // The bed reserved by the earlier PULL_PATIENT is given back to the unit.
     const afterUnit = next.units.find((candidate) => candidate.id === "fre-adult-open")!;
     expect(afterUnit.allocatable.value).toBe(beforeUnit.allocatable.value + 1);
 
@@ -768,7 +887,7 @@ describe("scenario selection", () => {
 describe("arrival capacity floor", () => {
   it("refuses an arrival once the unit's physically empty beds are exhausted", () => {
     // A ward can CONFIRM_CAPACITY an allocatable count above what is physically empty — nothing
-    // in HOLD_BED's own guard prevents that, since it only bounds `allocatable.value`. That makes
+    // in PULL_PATIENT's own guard prevents that, since it only bounds `allocatable.value`. That makes
     // over-arriving a real, reachable sequence, not a hypothetical: hold and arrive one patient
     // against rph-adult-secure's single seeded allocatable bed (empty 2 -> 1), have the ward
     // restate a larger allocatable count than physically exists, then hold and arrive a second
@@ -778,7 +897,11 @@ describe("arrival capacity floor", () => {
       const steps = [
         { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
         { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
-        { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+        { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+        // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+        // transport job and answer the escort question by deriving it from legal status. It no
+        // longer invents either, so a walk that reaches handover without booking is refused.
+        { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
         { type: "HANDOVER_READY", role: "ed" },
         { type: "TRANSPORT_ACCEPTED", role: "officer" },
         { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -957,36 +1080,36 @@ describe("urgency and legal status changes (Task 2)", () => {
 describe("release and cancel", () => {
   it("releases a held bed back to allocatable and returns the movement to accepted_awaiting_bed", () => {
     const seeded = seedWardFlowState();
-    const movement = seeded.movements.find((candidate) => candidate.stage === "bed_held")!;
+    const movement = seeded.movements.find((candidate) => candidate.stage === "pulled")!;
     const unitBefore = seeded.units.find((candidate) => candidate.id === movement.acceptedUnitId)!;
     const after = wardFlowReducer(seeded, {
-      type: "RELEASE_HOLD",
+      type: "RELEASE_PULL",
       role: "coordinator",
       now: NOW_ANCHOR,
       movementId: movement.id,
-      reason: "hold_made_in_error",
+      reason: "pull_made_in_error",
     });
     const updated = after.movements.find((candidate) => candidate.id === movement.id)!;
     const unitAfter = after.units.find((candidate) => candidate.id === movement.acceptedUnitId)!;
     expect(updated.stage).toBe("accepted_awaiting_bed");
-    expect(updated.bedHeldUntil).toBeUndefined();
+    expect(updated.pullExpiresAt).toBeUndefined();
     expect(unitAfter.allocatable.value).toBe(unitBefore.allocatable.value + 1);
     // The movement survives, keeps its acceptance, and is not re-referred anywhere.
     expect(updated.closure).toBeUndefined();
     expect(updated.acceptedUnitId).toBe(movement.acceptedUnitId);
     expect(updated.legalForm).toEqual(movement.legalForm);
-    expect(updated.unwinds.at(-1)).toMatchObject({ kind: "hold_released", by: "coordinator" });
+    expect(updated.unwinds.at(-1)).toMatchObject({ kind: "pull_released", by: "coordinator" });
   });
 
   it("refuses a release once the patient is handover_ready or moving", () => {
     const seeded = seedWardFlowState();
     const movement = seeded.movements.find((candidate) => candidate.stage === "moving")!;
     const after = wardFlowReducer(seeded, {
-      type: "RELEASE_HOLD",
+      type: "RELEASE_PULL",
       role: "coordinator",
       now: NOW_ANCHOR,
       movementId: movement.id,
-      reason: "hold_made_in_error",
+      reason: "pull_made_in_error",
     });
     expect(after.rejections).toHaveLength(1);
     expect(after.movements.find((candidate) => candidate.id === movement.id)!.stage).toBe("moving");
@@ -994,10 +1117,10 @@ describe("release and cancel", () => {
 
   it("refuses a ward caller acting as a unit that is not holding the bed, naming both ids", () => {
     const seeded = seedWardFlowState();
-    const movement = seeded.movements.find((candidate) => candidate.stage === "bed_held")!;
+    const movement = seeded.movements.find((candidate) => candidate.stage === "pulled")!;
     const otherUnit = seeded.units.find((candidate) => candidate.id !== movement.acceptedUnitId)!;
     const after = wardFlowReducer(seeded, {
-      type: "RELEASE_HOLD",
+      type: "RELEASE_PULL",
       role: "ward",
       now: NOW_ANCHOR,
       movementId: movement.id,
@@ -1048,7 +1171,11 @@ describe("release and cancel", () => {
     const steps = [
       { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
       { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
-      { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+      // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+      // transport job and answer the escort question by deriving it from legal status. It no
+      // longer invents either, so a walk that reaches handover without booking is refused.
+      { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
       { type: "HANDOVER_READY", role: "ed" },
       { type: "TRANSPORT_ACCEPTED", role: "officer" },
       { type: "TRANSPORT_EN_ROUTE", role: "officer" },
@@ -1084,12 +1211,19 @@ describe("release and cancel", () => {
  * Task 11 (spec item 9). Bed releases move from a frozen fixture constant into reducer state so a
  * ward can flag its own bed coming free, and `unitCapacity()`'s `potential` figure actually moves
  * when it does. `FLAG_BED_RELEASE` is `ward`-only (see `EVENT_ROLE.FLAG_BED_RELEASE` in
- * `ward-flow-events.ts`), so unlike `RELEASE_HOLD`/`CANCEL_TRANSPORT` there is no coordinator
+ * `ward-flow-events.ts`), so unlike `RELEASE_PULL`/`CANCEL_TRANSPORT` there is no coordinator
  * caller to exempt — `actingUnitId` is always required and always compared against `unitId`,
  * exactly like `CONFIRM_CAPACITY`.
  */
 describe("bed release flagging", () => {
-  it("appends a blocked release for the acting unit and increases that unit's potential by one", () => {
+  /**
+   * Bed-model rework (2026-08-28). This used to assert the flagged release came out in the fourth
+   * state `"blocked"` with a null waiting-on value. There is no such state now: a flag always creates a
+   * PREDICTED release, and naming a blocker sets the blocked flag on it. That is the whole change
+   * — a bed coming free but currently held up is a prediction AND a block, and pretending those
+   * were alternatives is what let `capacityBreakdown` count such a release nowhere at all.
+   */
+  it("appends a expected release carrying the blocked flag for the acting unit, and increases that unit's potential by one", () => {
     const seeded = seedWardFlowState();
     const unit = seeded.units[0];
     const sibling = seeded.units[1];
@@ -1107,7 +1241,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: EXPECTED_FREE,
       blocker: "Awaiting clean",
     });
@@ -1116,10 +1250,16 @@ describe("bed release flagging", () => {
     expect(after.bedReleases.length).toBe(seeded.bedReleases.length + 1);
     const flagged = after.bedReleases.at(-1)!;
     expect(flagged.unitId).toBe(unit.id);
-    // D3: a flag that names a blocker is a bed coming free but held — never a prediction too.
-    expect(flagged.state).toBe("blocked");
-    expect(flagged.confidence).toBeNull();
+    // The stage says how certain the discharge is; the flag says whether it is stuck. Both, at
+    // once, on one release — which the four-stage model could not express.
+    expect(flagged.state).toBe("expected");
+    expect(flagged.waitingOn).toBe("Awaiting ward round");
     expect(flagged.blocker).toBe("Awaiting clean");
+    // The role that recorded the block, never a person (Q3).
+    expect(flagged.blockedBy).toBe(`NUM ${unit.name}`);
+    // A bed nobody has left yet is not being made ready.
+    expect(flagged.preparing).toBe(false);
+    expect(flagged.preparationNote).toBeNull();
     // `confirmedAt` is when the ward REPORTED this (event.now); `expectedAt` is the ward's own
     // estimate of when the bed will be free (event.expectedAt) — the two are genuinely different
     // facts and must not collapse onto the same value.
@@ -1149,7 +1289,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: laterToday,
     });
 
@@ -1159,7 +1299,7 @@ describe("bed release flagging", () => {
     expect(releaseBand(flagged, NOW)).not.toBe("now");
   });
 
-  it("appends a predicted release when no blocker is given", () => {
+  it("appends a expected release when no blocker is given", () => {
     const seeded = seedWardFlowState();
     const unit = seeded.units[0];
 
@@ -1169,15 +1309,17 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: NOW + 60,
     });
 
     expect(after.rejections).toEqual([]);
     const flagged = after.bedReleases.at(-1)!;
-    expect(flagged.state).toBe("predicted");
-    expect(flagged.confidence).toBe("likely");
+    expect(flagged.state).toBe("expected");
+    expect(flagged.waitingOn).toBe("Awaiting ward round");
     expect(flagged.blocker).toBeNull();
+    // No blocker means no blocking role either — the two move together in both directions.
+    expect(flagged.blockedBy).toBeNull();
     expect(flagged.expectedAt).toBe(NOW + 60);
   });
 
@@ -1192,7 +1334,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: otherUnit.id,
-      confidence: "possible",
+      waitingOn: "Nothing outstanding",
       expectedAt: NOW + 60,
       blocker: "Awaiting pharmacy",
     });
@@ -1215,7 +1357,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "possible",
+      waitingOn: "Nothing outstanding",
       expectedAt: NOW + 60,
       blocker: "Awaiting service coordination",
     });
@@ -1240,7 +1382,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "possible",
+      waitingOn: "Nothing outstanding",
       expectedAt: NOW + 60,
       blocker: "Family unavailable to collect",
     } as unknown as WardFlowEvent;
@@ -1273,8 +1415,15 @@ describe("bed release privacy", () => {
       "unitId",
       "state",
       "expectedAt",
-      "confidence",
+      "waitingOn",
       "blocker",
+      // Added by the bed-model rework (2026-08-28), and each extended here deliberately, which is
+      // exactly what this allowlist is for. `blockedBy` is a ROLE — a unit or service label,
+      // never a personal name (Q3). `preparing`/`preparationNote` describe the BED being made
+      // ready (Q4). None of the three can carry a fact about the departing patient.
+      "blockedBy",
+      "preparing",
+      "preparationNote",
       "confirmedAt",
       "confirmedBy",
     ].sort();
@@ -1286,7 +1435,7 @@ describe("bed release privacy", () => {
       now: NOW,
       unitId: seeded.units[0].id,
       actingUnitId: seeded.units[0].id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: NOW + 60,
       blocker: "Awaiting clean",
     });

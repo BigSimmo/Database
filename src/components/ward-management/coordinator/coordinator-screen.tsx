@@ -2,7 +2,8 @@
 
 import { useLayoutEffect, useMemo, useState } from "react";
 
-import { buildActionInbox, isOpen } from "@/components/ward-management/ward-derivations";
+import { OverrideRegister } from "@/components/ward-management/override-register";
+import { allOverrides, buildActionInbox, isOpen } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { NotAMedicalDeviceStatement } from "@/components/ward-management/ward-management-modes";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
@@ -146,6 +147,17 @@ export function CoordinatorScreen() {
   // defect, which was also a closed record counted as live.
   const actionInbox = useMemo(() => buildActionInbox(movements.filter(isOpen), now, units), [movements, now, units]);
 
+  // OD-3, the read side. `allOverrides` is the UNRESTRICTED read and this is the only screen
+  // entitled to it — "the coordinator may see everything". The ward screen's own register calls
+  // `overridesAgainstUnit` instead, and never this, which is what makes the ward scope a
+  // restriction rather than a name for the only read there is.
+  //
+  // NOT scoped to `isOpen` and NOT scoped to the ED filter, unlike the queue and the inbox above.
+  // Both would be wrong here for the same reason: an override that was made does not stop having
+  // been made when the patient arrives or when the coordinator narrows the queue to one
+  // department. An accountability record that empties as the day goes on is not one.
+  const overrideRegister = useMemo(() => allOverrides(movements), [movements]);
+
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
       <ClinicalRail activeMode="command" />
@@ -161,7 +173,7 @@ export function CoordinatorScreen() {
         </div>
 
         <div className={styles.body} data-testid="ward-coordinator-body">
-          <PressureStrip now={now} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
+          <PressureStrip now={now} movements={movements} selectedEdId={selectedEdId} onSelectEd={setSelectedEdId} />
 
           <div className={styles.regionGrid} data-testid="ward-coordinator-region-grid">
             <PriorityQueue
@@ -192,6 +204,7 @@ export function CoordinatorScreen() {
               {isPhoneDiagramLayout ? null : (
                 <FlowDiagram
                   movement={selectedMovement}
+                  movements={movements}
                   now={now}
                   units={units}
                   bedReleases={bedReleases}
@@ -219,6 +232,26 @@ export function CoordinatorScreen() {
               </aside>
             </div>
           </div>
+
+          {/*
+            OD-3's read side, outside `.regionGrid` rather than inside it: the grid's three tracks
+            are the coordinator's live working surfaces (queue, flow, shortlist) and a fourth
+            column would compete with them for width at 90rem. The register is a record, read
+            deliberately, so it sits under them as its own full-width row.
+          */}
+          <section
+            className={styles.overrideRegion}
+            aria-label="Override register"
+            data-testid="ward-coordinator-override-register"
+          >
+            <header className={styles.regionHeader}>
+              <h2>Override register</h2>
+              <span className={styles.regionCount}>
+                {overrideRegister.length === 1 ? "1 override" : `${overrideRegister.length} overrides`}
+              </span>
+            </header>
+            <OverrideRegister entries={overrideRegister} units={units} now={now} />
+          </section>
         </div>
 
         <ExceptionDrawer

@@ -1,0 +1,130 @@
+/*
+ * Task 3 (Phase 6): the sixty-second guided tour mounted on the morning page. Same self-
+ * contained-tokens convention `morning.module.css` documents on its own root class — every local
+ * custom property this file needs is declared here, never borrowed from another module's scope.
+ */
+.tour {
+  --mt-space-4: 0.25rem;
+  --mt-space-8: 0.5rem;
+  --mt-space-10: 0.625rem;
+  --mt-space-12: 0.75rem;
+  --mt-space-16: 1rem;
+  --mt-tap: var(--spacing-tap);
+  --mt-leading-body: 1.4;
+
+  display: grid;
+  gap: var(--mt-space-12);
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--clinical-accent-soft);
+  padding: var(--mt-space-16);
+}
+
+.startButton {
+  display: inline-flex;
+  width: fit-content;
+  min-height: var(--mt-tap);
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--clinical-accent);
+  padding: 0 var(--mt-space-16);
+  color: var(--clinical-accent-contrast);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mt-space-8);
+}
+
+.beat {
+  color: var(--clinical-accent-strong);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.stopButton {
+  display: inline-flex;
+  min-height: var(--mt-tap);
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  padding: 0 var(--mt-space-16);
+  color: var(--danger-text);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.caption {
+  display: grid;
+  gap: var(--mt-space-4);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  padding: var(--mt-space-10) var(--mt-space-12);
+}
+
+.captionRefused {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.captionHeading {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.caption p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--mt-leading-body);
+}
+
+.captionRefused .captionHeading,
+.captionRefused p {
+  color: var(--danger-text);
+}
+
+.nextButton {
+  display: inline-flex;
+  width: fit-content;
+  min-height: var(--mt-tap);
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--clinical-accent);
+  padding: 0 var(--mt-space-16);
+  color: var(--clinical-accent-contrast);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/* No animation under reduced motion (spec D12) — this component has none of its own today, but
+ * the guard is added defensively so a future change can't silently reintroduce one. */
+@media (prefers-reduced-motion: reduce) {
+  .tour * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* The tour is a live demo control, not part of the printed handover record. */
+@media print {
+  .tour {
+    display: none !important;
+  }
+}

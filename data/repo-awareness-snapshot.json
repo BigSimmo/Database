@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "59bb01b3e5c6b5c846053d2916d3e780ea38bbb1",
-    "committed_at": "2026-08-27T05:20:05+00:00"
+    "sha": "b2b7089f2e2d3fbfdc43919869cf40d65b26fbac",
+    "committed_at": "2026-09-01T13:59:20+08:00"
   },
   "routes": {
     "modes": [
@@ -894,8 +894,18 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/board/[unitId]",
+        "file": "src/app/mockups/ward-flow/board/[unitId]/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/capacity",
         "file": "src/app/mockups/ward-flow/capacity/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/community/[teamId]",
+        "file": "src/app/mockups/ward-flow/community/[teamId]/page.tsx",
         "area": "mockup"
       },
       {
@@ -929,8 +939,18 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/morning",
+        "file": "src/app/mockups/ward-flow/morning/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/movements",
         "file": "src/app/mockups/ward-flow/movements/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/movements/[movementId]",
+        "file": "src/app/mockups/ward-flow/movements/[movementId]/page.tsx",
         "area": "mockup"
       },
       {
@@ -939,13 +959,28 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/patients/[patientId]",
-        "file": "src/app/mockups/ward-flow/patients/[patientId]/page.tsx",
+        "path": "/mockups/ward-flow/out-of-area",
+        "file": "src/app/mockups/ward-flow/out-of-area/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/people/[patientId]",
+        "file": "src/app/mockups/ward-flow/people/[patientId]/page.tsx",
         "area": "mockup"
       },
       {
         "path": "/mockups/ward-flow/queue",
         "file": "src/app/mockups/ward-flow/queue/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/referrals",
+        "file": "src/app/mockups/ward-flow/referrals/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/referrals/new",
+        "file": "src/app/mockups/ward-flow/referrals/new/page.tsx",
         "area": "mockup"
       },
       {
@@ -966,6 +1001,11 @@
       {
         "path": "/mockups/ward-flow/ward/[unitId]",
         "file": "src/app/mockups/ward-flow/ward/[unitId]/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/wards",
+        "file": "src/app/mockups/ward-flow/wards/page.tsx",
         "area": "mockup"
       },
       {
@@ -1397,9 +1437,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 195,
+      "pages": 203,
       "product_pages": 55,
-      "mockup_pages": 140,
+      "mockup_pages": 148,
       "redirects": 17,
       "api": 58
     }
@@ -3162,6 +3202,36 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-08-27-ward-flow-phase-6-morning-page.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-08-27-ward-flow-phase-7-front-door.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-08-28-ward-flow-phase-8-distance.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-08-28-ward-flow-ward-board.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-08-29-ward-flow-referral-front-door.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-08-29-ward-flow-truthfulness-and-demo-fixes.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
         "section": "superpowers",
         "catalogued": false
@@ -3447,6 +3517,71 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-7-front-door-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-28-ward-flow-phase-8-distance-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-28-ward-flow-ward-board-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-capacity-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-community-hub-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-coordinator-hub-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-ed-psychiatry-hub-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-header-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-network-diagram-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-transport-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-transport-page-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-30-ward-flow-ward-forms-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/testing.md",
         "section": "root",
         "catalogued": true
@@ -3462,6 +3597,26 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-autonomous-session-2026-08-28.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-catchment-data.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-changeable-data-rule.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-clinician-check-method.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-clinician-check.md",
         "section": "root",
         "catalogued": true
@@ -3473,6 +3628,111 @@
       },
       {
         "path": "docs/ward-flow-context.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-coordination-rules.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-custody.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-decisions-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-document-inventory.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-editing-guide.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-fold-conflict-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-fold-manifest-2026-08-31.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-fold-procedure.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-handover-2026-08-28.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-handover-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-handover-after-phase-7.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-hubs-and-patient-plan.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-ledger.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-master-sequence-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-mission-and-refusals.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-open-questions.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-orchestrator-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-orchestrator.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-owner-rulings-2026-08-31-community.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-owner-rulings-2026-08-31.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-owner-rulings-2026-09-01.md",
         "section": "root",
         "catalogued": false
       },
@@ -3767,13 +4027,163 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-phase-8-9-questions.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-phase-8-decisions.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-phase-8-mutation-coverage-limits.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-phase-9-decisions.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-pinned-clock-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-plan.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-pr-body.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-process-review-prompt.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-provisional-values.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-questions-rule.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-referral-destination-spec.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-remaining-work.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-reporting-rule.md",
         "section": "root",
         "catalogued": false
       },
       {
         "path": "docs/ward-flow-roadmap.md",
         "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-safety-checklist.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-task-ledger.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-universal-referral-plan.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-ward-board-plan-corrections-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-what-this-is-not.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/builder-plan-2026-09-01.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/control/BUILDER-ACTIVATION-RECEIPTS.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/control/prompts/builder.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/control/prompts/lead.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/control/prompts/verifier.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/control/README.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/how-to-write-to-the-owner.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/README.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/stale-claims.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/START-LOCAL-CHAT.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/three-chat-working-agreement.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/who-is-who.md",
+        "section": "ward-flow",
         "catalogued": false
       },
       {
@@ -3863,14 +4273,17 @@
         "name": "superpowers"
       },
       {
+        "name": "ward-flow"
+      },
+      {
         "name": "ward-flow-phase-3-workspace"
       }
     ],
     "counts": {
-      "documents": 480,
+      "documents": 554,
       "catalogued": 106,
-      "uncatalogued": 374,
-      "sections": 19
+      "uncatalogued": 448,
+      "sections": 20
     }
   },
   "test_health": {
