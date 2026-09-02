@@ -99,10 +99,11 @@ describe("caring-contacts domain isolation", () => {
  * They live here, in an offline source-scanning file the default `npm run test` collects, for a
  * reason found the hard way in review round 1. The first of them was originally written in
  * `caring-contacts-postgres-repository.test.ts`, which `vitest.config.mts` lists in
- * `caringContactsDbTestFiles` and excludes from the `node` project outright -- and no workflow under
- * `.github/workflows/` runs the database suite at all. So the guard was real, correct, and could
- * fire only when a human happened to have a Postgres container up. Neither property needs a
- * database: both are a file read and a regular expression.
+ * `caringContactsDbTestFiles` and excludes from the offline `node` project outright. CI does run the
+ * database suite now, in its own `caring-contacts-db` job against a Postgres service container, but
+ * a guard living there still fires only where a database is configured -- never in the default
+ * offline run. So the guard was real, correct, and reachable in one place too few. Neither property
+ * needs a database: both are a file read and a regular expression.
  *
  * Both carry a positive control. A scan whose pattern stops matching after a rename goes GREEN, not
  * red, so a scan without one is a check that cannot fail -- which is the same defect in a different
