@@ -103,14 +103,23 @@ const SCOPED_ALLOWLIST = new Map([
   ],
   [
     "docs/ward-flow-pinned-clock-handover.md",
-    // Both files exist on `claude/ward-flow-phases-6-7-design` and not on this branch —
+    // Every path below exists on `claude/ward-flow-phases-6-7-design` and not on this branch —
     // naming them is the entire point of the handover, which exists to send a later session
     // to that branch to finish the work. The document says so where it names them, and gives
-    // the `git show` command to read the spec from there. Remove this entry once Phase 6
-    // lands on `main` and both paths resolve normally.
+    // the `git fetch` + `git show` commands to read that branch from anywhere, including a
+    // cloud container. The three added on 2026-09-02 are the evidence for the re-measured §4:
+    // the rollup suite is where D5's clock rule IS covered, the travel suite is the sole
+    // unrelated grep hit that establishes the rendered branch is covered NOWHERE, and
+    // morning-page.tsx carries the stale workaround comment to correct. Naming them is what
+    // makes that finding checkable rather than assertion. Remove this entry once Phase 6 lands
+    // on `main` and every path resolves normally.
     new Set([
       "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
       "tests/ward-morning-page.dom.test.tsx",
+      "tests/ward-morning-rollup.test.ts",
+      "tests/ward-travel-grouping.test.ts",
+      "tests/ui-ward-morning.spec.ts",
+      "src/components/ward-management/morning/morning-page.tsx",
     ]),
   ],
   [
@@ -366,97 +375,116 @@ function isExternalLink(value) {
   return /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value);
 }
 
+function getAnchorsForFile(absPath, relPath, targetAnchorsCache) {
+  if (targetAnchorsCache.has(absPath)) return targetAnchorsCache.get(absPath);
+  if (!existsSync(absPath) || !relPath.endsWith(".md")) return null;
+  const content = markdownForTarget(relPath, absPath);
+  const anchors = markdownAnchorSlugs(content);
+  targetAnchorsCache.set(absPath, anchors);
+  return anchors;
+}
+
+/**
+ * Check every repo-path reference (inline code spans and markdown link
+ * targets) found in one document's markdown, resolving relative links
+ * against the file that contains them. Returns the failure labels for that
+ * document plus how many references were checked, so callers can accumulate
+ * totals across documents exactly as `main()` used to inline.
+ */
+export function collectDocumentFailures({ target, markdown, targetAnchorsCache = new Map() }) {
+  let checked = 0;
+  const failures = [];
+  const targetDir = path.posix.dirname(target);
+  const currentFileAnchors = markdownAnchorSlugs(markdown);
+  targetAnchorsCache.set(path.join(repoRoot, target), currentFileAnchors);
+
+  const check = (repoRelative, label) => {
+    if (isAllowedPath(repoRelative, target)) return;
+    checked += 1;
+    if (!repoPathExists(repoRelative)) failures.push(label);
+  };
+
+  // Inline code spans: repo-root-relative repo paths.
+  for (const rawCandidate of codeSpanCandidates(markdown)) {
+    const value = stripSuffixes(rawCandidate);
+    const base = ROOT_PREFIXES.some((prefix) => value.startsWith(prefix)) ? globBaseDir(value) : null;
+    if (base !== null) {
+      if (isAllowedPath(value, target)) continue;
+      checked += 1;
+      if (!existsSync(path.join(repoRoot, base))) failures.push(`${value} (glob base '${base}' missing)`);
+      continue;
+    }
+    if (!looksLikeRootPath(value)) continue;
+    check(value, value);
+  }
+
+  // Markdown link targets: repo docs use both repo-root-relative targets
+  // (`src/lib/env.ts`) and file-relative targets (`codebase-index.md`,
+  // `../AGENTS.md`). Accept whichever resolves, confined to the repository.
+  for (const rawCandidate of linkCandidates(markdown)) {
+    if (isExternalLink(rawCandidate)) continue;
+    let targetPart = rawCandidate;
+    let anchorPart = null;
+    const hashIndex = targetPart.indexOf("#");
+    if (hashIndex !== -1) {
+      anchorPart = targetPart.slice(hashIndex + 1);
+      targetPart = targetPart.slice(0, hashIndex);
+    }
+    targetPart = stripSuffixes(targetPart);
+
+    if (targetPart === "") {
+      // Same-document anchor link: [heading](#heading)
+      if (anchorPart) {
+        checked += 1;
+        const normalizedAnchor = anchorPart.toLowerCase();
+        if (!currentFileAnchors.has(normalizedAnchor)) {
+          failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${target})`);
+        }
+      }
+      continue;
+    }
+
+    if (targetPart.includes("*") || /[<>{}$\\]/.test(targetPart) || /\s/.test(targetPart)) continue;
+    const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, targetPart));
+    if (relative.startsWith("..")) {
+      checked += 1;
+      failures.push(`${rawCandidate} (escapes repository root)`);
+      continue;
+    }
+    const rootStyle = path.posix.normalize(targetPart);
+    const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
+    if (candidates.some((candidate) => isAllowedPath(candidate, target))) continue;
+    checked += 1;
+    const matchingPath = candidates.find((candidate) => repoPathExists(candidate));
+    if (!matchingPath) {
+      failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
+    } else if (anchorPart && matchingPath.endsWith(".md")) {
+      const absFound = path.join(repoRoot, matchingPath);
+      const targetAnchors = getAnchorsForFile(absFound, matchingPath, targetAnchorsCache);
+      if (targetAnchors && !targetAnchors.has(anchorPart.toLowerCase())) {
+        failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${matchingPath})`);
+      }
+    }
+  }
+
+  return { failures, checked };
+}
+
 function main() {
   let missing = 0;
   let checked = 0;
   const targetAnchorsCache = new Map();
 
-  function getAnchorsForFile(absPath, relPath) {
-    if (targetAnchorsCache.has(absPath)) return targetAnchorsCache.get(absPath);
-    if (!existsSync(absPath) || !relPath.endsWith(".md")) return null;
-    const content = markdownForTarget(relPath, absPath);
-    const anchors = markdownAnchorSlugs(content);
-    targetAnchorsCache.set(absPath, anchors);
-    return anchors;
-  }
-
   for (const target of defaultTargets()) {
     const absoluteTarget = path.join(repoRoot, target);
     if (!existsSync(absoluteTarget)) continue;
     const markdown = markdownForTarget(target, absoluteTarget);
-    const targetDir = path.posix.dirname(target);
-    const failures = [];
-    const currentFileAnchors = markdownAnchorSlugs(markdown);
-    targetAnchorsCache.set(absoluteTarget, currentFileAnchors);
-
-    const check = (repoRelative, label) => {
-      if (isAllowedPath(repoRelative, target)) return;
-      checked += 1;
-      if (!repoPathExists(repoRelative)) failures.push(label);
-    };
-
-    // Inline code spans: repo-root-relative repo paths.
-    for (const rawCandidate of codeSpanCandidates(markdown)) {
-      const value = stripSuffixes(rawCandidate);
-      const base = ROOT_PREFIXES.some((prefix) => value.startsWith(prefix)) ? globBaseDir(value) : null;
-      if (base !== null) {
-        if (isAllowedPath(value, target)) continue;
-        checked += 1;
-        if (!existsSync(path.join(repoRoot, base))) failures.push(`${value} (glob base '${base}' missing)`);
-        continue;
-      }
-      if (!looksLikeRootPath(value)) continue;
-      check(value, value);
-    }
-
-    // Markdown link targets: repo docs use both repo-root-relative targets
-    // (`src/lib/env.ts`) and file-relative targets (`codebase-index.md`,
-    // `../AGENTS.md`). Accept whichever resolves, confined to the repository.
-    for (const rawCandidate of linkCandidates(markdown)) {
-      if (isExternalLink(rawCandidate)) continue;
-      let targetPart = rawCandidate;
-      let anchorPart = null;
-      const hashIndex = targetPart.indexOf("#");
-      if (hashIndex !== -1) {
-        anchorPart = targetPart.slice(hashIndex + 1);
-        targetPart = targetPart.slice(0, hashIndex);
-      }
-      targetPart = stripSuffixes(targetPart);
-
-      if (targetPart === "") {
-        // Same-document anchor link: [heading](#heading)
-        if (anchorPart) {
-          checked += 1;
-          const normalizedAnchor = anchorPart.toLowerCase();
-          if (!currentFileAnchors.has(normalizedAnchor)) {
-            failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${target})`);
-          }
-        }
-        continue;
-      }
-
-      if (targetPart.includes("*") || /[<>{}$\\]/.test(targetPart) || /\s/.test(targetPart)) continue;
-      const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, targetPart));
-      if (relative.startsWith("..")) {
-        checked += 1;
-        failures.push(`${rawCandidate} (escapes repository root)`);
-        continue;
-      }
-      const rootStyle = path.posix.normalize(targetPart);
-      const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
-      if (candidates.some((candidate) => isAllowedPath(candidate, target))) continue;
-      checked += 1;
-      const matchingPath = candidates.find((candidate) => repoPathExists(candidate));
-      if (!matchingPath) {
-        failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
-      } else if (anchorPart && matchingPath.endsWith(".md")) {
-        const absFound = path.join(repoRoot, matchingPath);
-        const targetAnchors = getAnchorsForFile(absFound, matchingPath);
-        if (targetAnchors && !targetAnchors.has(anchorPart.toLowerCase())) {
-          failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${matchingPath})`);
-        }
-      }
-    }
+    const { failures, checked: checkedForTarget } = collectDocumentFailures({
+      target,
+      markdown,
+      targetAnchorsCache,
+    });
+    checked += checkedForTarget;
 
     if (failures.length > 0) {
       missing += failures.length;
