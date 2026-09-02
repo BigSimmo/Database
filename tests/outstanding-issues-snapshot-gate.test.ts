@@ -4,13 +4,32 @@ import { compareSnapshots } from "../scripts/check-outstanding-issues-snapshot.m
 const BASE = {
   version: "outstanding-issues-snapshot-v1",
   ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T00:00:00Z" },
-  counts: { open: 2, p1: 1, pending: 1 } as Record<string, number>,
+  counts: { open: 2, p1: 1, pending: 0 } as Record<string, number>,
   queue: [{ order: 1, ids: ["#1"] }],
   open: [{ id: "#1" }, { id: "#2" }],
-  pending: [{ request_id: "r1", action: "add", summary: "s" }],
+  // Empty, because that is the shape a COMMITTED snapshot must have — see the
+  // "refuses a committed snapshot" test below. Typed rather than inferred: an
+  // empty literal infers `never[]`, which no test could then populate.
+  pending: [] as { request_id: string; action: string; summary: string }[],
 };
 
 describe("compareSnapshots", () => {
+  it("refuses a committed snapshot that carries inbox requests", () => {
+    // Excluding `pending` from the value comparison is not the same as
+    // permitting it in the committed file. Its value depends on every other
+    // branch's queued requests, so committing it re-arms the conflict
+    // `#Y090R5` exists to end — and a plain `npm run build` writes it, because
+    // `prebuild` passes `--with-pending` so the built image can show the true
+    // list. Without this the gate would wave that through.
+    const committedWithPending = structuredClone(BASE);
+    committedWithPending.pending = [{ request_id: "r1", action: "add", summary: "s" }];
+    const differences = compareSnapshots(committedWithPending, BASE);
+    expect(differences.join(" ")).toMatch(/pending: the committed snapshot carries 1 inbox request/);
+    // The message has to name the way out, because the usual cause is a local
+    // build rather than anything the author did on purpose.
+    expect(differences.join(" ")).toMatch(/npm run build/);
+  });
+
   it("reports no differences when in step", () => {
     expect(compareSnapshots(BASE, structuredClone(BASE))).toEqual([]);
   });
@@ -45,9 +64,14 @@ describe("compareSnapshots", () => {
 
   it("ignores pending inbox drift and counts.pending drift to isolate feature branch conflicts", () => {
     const pendingDrift = structuredClone(BASE);
-    pendingDrift.pending = [];
+    // The REGENERATED side carries the live inbox; the committed side stays
+    // empty. That divergence must not be reported, which is what isolates a
+    // feature branch from every other branch's queued requests.
+    const regeneratedWithInbox = structuredClone(BASE);
+    regeneratedWithInbox.pending = [{ request_id: "r1", action: "add", summary: "s" }];
+    regeneratedWithInbox.counts = { ...regeneratedWithInbox.counts, pending: 1 };
     pendingDrift.counts = { ...pendingDrift.counts, pending: 99 };
-    expect(compareSnapshots(pendingDrift, BASE)).toEqual([]);
+    expect(compareSnapshots(pendingDrift, regeneratedWithInbox)).toEqual([]);
   });
 
   it("notices a key the generator no longer emits", () => {

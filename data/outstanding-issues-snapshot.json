@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "d247db72afce3d28a45d496334927a6c5cb5762e",
-    "committed_at": "2026-09-02T03:17:21+00:00"
+    "sha": "a4a95ec89b59bec602065376278598b8a0b896fa",
+    "committed_at": "2026-09-02T14:22:01+08:00"
   },
   "counts": {
     "open": 70,
@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 19,
     "queued": 7,
-    "pending": 4,
+    "pending": 0,
     "resolved": 459
   },
   "queue": [
@@ -724,30 +724,5 @@
       "added": "2026-08-24"
     }
   ],
-  "pending": [
-    {
-      "request_id": "60d75939-a2e4-44a7-af96-203ed2f2ca9c",
-      "action": "add",
-      "summary": "The calculators mockup still serves prescribing, ECT and admission directives that PR #2491 removed from production on clinical-safety grounds",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "c9262f0d-18e1-4f9e-8f4b-d21aca644b94",
-      "action": "add",
-      "summary": "Retiring answer-evidence-popups removed the repo's only source-text heading-hierarchy contract, and the DOM-level coverage does not reach mockup gallery pages",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "ee0de317-ae07-433a-9456-5997de14bc7b",
-      "action": "add",
-      "summary": "Two pieces of dead wiring found beside the mockup surface: an orphaned production component and a proxy redirect for a route that no longer exists",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "f5078359-d4ea-4a91-b376-d5bbecb452a6",
-      "action": "add",
-      "summary": "Corpus health panel and the hub document count have never been seen against the real library",
-      "created_at": "2026-09-02"
-    }
-  ]
+  "pending": []
 }
