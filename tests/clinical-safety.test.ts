@@ -179,6 +179,38 @@ describe("clinical safety findings", () => {
     expect(texts).toContain("post-operative delirium monitoring");
   });
 
+  // Audit L111: the chip text was cut at a fixed 257 characters with no word or
+  // number boundary, so "ANC 1500" straddling the cut rendered as "ANC 1" — a
+  // partial number that reads as a complete threshold.
+  it("never cuts a safety finding inside a numeric token (L111)", () => {
+    const prefix = "Monitor renal function weekly. ".repeat(8);
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote: `${prefix}and ANC 1500 requires urgent review and escalation to the on-call haematology team today.`,
+        },
+      ],
+      sources: [],
+    });
+
+    const text = findings[0].text;
+    expect(text.length).toBeLessThanOrEqual(261);
+    // The full threshold did not fit; showing part of it is worse than showing
+    // none of it.
+    expect(text).not.toMatch(/ANC\s+1\b/);
+    // The cut lands on a word boundary, so no token — least of all a number —
+    // is shown in part.
+    expect(text.replace(/\.+$/, "")).toMatch(/\bweekly$/);
+  });
+
   it("sorts safety findings by clinical severity", () => {
     const findings: SafetyFinding[] = [
       {

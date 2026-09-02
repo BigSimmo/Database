@@ -59,6 +59,22 @@ function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+const conciseTextLimit = 260;
+const conciseTextCut = 257;
+
+// Audit L111: the chip text was cut at a fixed character offset with no word or
+// number boundary, so a dose or count straddling the cut rendered as a partial
+// number — "ANC 1500" became "ANC 1" — which reads as a complete threshold.
+// Cut at the last word boundary instead. When a single token runs past the whole
+// limit there is no boundary to use, so drop a trailing partial number rather
+// than show half of one.
+function truncateAtSafeBoundary(text: string, cut: number) {
+  const slice = text.slice(0, cut);
+  const lastSpace = slice.lastIndexOf(" ");
+  if (lastSpace > 0) return slice.slice(0, lastSpace).trimEnd();
+  return slice.replace(/[\d.,]*\d[\d.,]*$/, "").trimEnd() || slice.trimEnd();
+}
+
 function conciseSourceText(text: string) {
   const useful = clinicalProseUsefulness(text);
   const normalized = normalizeText(
@@ -78,8 +94,8 @@ function conciseSourceText(text: string) {
       .replace(/\bpage\s+\d+\s+of\s+\d+\b[\s.:-]*/gi, "")
       .replace(/\bchunk\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]+\b[\s.:-]*/gi, ""),
   );
-  if (normalized.length <= 260) return normalized;
-  return `${normalized.slice(0, 257).trim()}...`;
+  if (normalized.length <= conciseTextLimit) return normalized;
+  return `${truncateAtSafeBoundary(normalized, conciseTextCut)}...`;
 }
 
 function citationFromSource(source: SearchResult): Citation {
