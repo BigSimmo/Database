@@ -60,14 +60,35 @@ const sectionClass = workspacePanelFlush;
 
 const tileClass = `${workspacePanel} px-5 py-4`;
 
-const measureValueClass = "mt-2 text-2xl font-semibold tabular-nums text-[color:var(--text-heading)]";
+/**
+ * Display size is for a FIGURE. A tile whose value is a sentence steps down to body size.
+ *
+ * Every tile here can render either. "Still to send today" is `1`; "Median minutes, attempt to
+ * resolution" is `None worked through` when nothing completed, and `Not visible to you` when the
+ * reader lacks the capability — and those were being set at display size, which turned a whole
+ * sentence into a headline running the width of the tile and reading like a slogan rather than a
+ * statement about missing data.
+ *
+ * The test is the string itself rather than a flag the caller passes, so a value that becomes a
+ * sentence tomorrow is typeset correctly without its call site being revisited. `tabular-nums`
+ * likewise only means something for digits, so it travels with the figure branch.
+ *
+ * `text-xl`, not `text-2xl`: `--text-2xl` and `--text-xl` are the same 1.5rem in the v2 layer, and
+ * `text-xl` is the step the rest of the app reaches for.
+ */
+const measureFigureClass = "mt-2 text-xl font-semibold tabular-nums text-[color:var(--text-heading)]";
+const measureStatementClass = "mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]";
+
+function isFigure(value: string): boolean {
+  return /^[\d.,\s%-]+$/.test(value);
+}
 
 /** A measure a reader may not see is stated as such, never as a zero. */
 function Measure({ label, value, note }: { label: string; value: string; note: string }) {
   return (
     <div className={tileClass}>
       <p className="text-sm font-medium text-[color:var(--text-muted)]">{label}</p>
-      <p className={measureValueClass}>{value}</p>
+      <p className={isFigure(value) ? measureFigureClass : measureStatementClass}>{value}</p>
       <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">{note}</p>
     </div>
   );

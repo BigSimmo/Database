@@ -71,7 +71,18 @@ const sectionClass = workspacePanelFlush;
 
 const cellClass = "px-4 py-3 align-top text-sm text-[color:var(--text)]";
 
-const identifierClass = "font-mono text-sm break-all text-[color:var(--text-heading)]";
+/**
+ * `break-words`, not `break-all`, and the difference shows on this screen.
+ *
+ * `break-all` breaks between ANY two characters, so in the narrow first column of the ownership
+ * table "demo-coordinator" rendered as "demo-coordinato" / "r" — a synthetic identifier a
+ * coordinator may be asked to quote, split mid-word for no reason when it had a hyphen to break at.
+ * `break-words` keeps the word whole where it fits and falls back to the natural break points,
+ * giving "demo-" / "coordinator". It is also what `templates-library.tsx` and `template-detail.tsx`
+ * already use for the same class of value, so the workspace now has ONE wrapping rule for
+ * identifiers rather than three.
+ */
+const identifierClass = "font-mono text-sm break-words text-[color:var(--text-heading)]";
 
 const noteClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]";
 
@@ -261,7 +272,35 @@ function UnclaimedStanding({ unclaimed, thresholdMinutes }: { unclaimed: Unclaim
 
   if (unclaimed.state === "escalated") {
     return (
-      <div className={`${sectionClass} p-4`} data-testid="caring-contacts-team-unclaimed">
+      /*
+        The escalated branch keeps its heading and its landmark, and gains the screen's one tint.
+        Two things were wrong here at once.
+
+        It used to render a bare `<div>` with no `<h2>` at all, so the panel LOST its title
+        ("Unclaimed work") and stopped being a labelled `<section>` exactly when it became the
+        urgent thing on the screen — the reader who most needs to find it in a document outline
+        was the one reader it disappeared for.
+
+        And this module's own header says "the one place a tint appears is the escalation", which
+        had stopped being true: `AutomatedState` paints `--surface-subtle` with an untinted icon,
+        the same as every routine note on the page, so work nobody had claimed past the threshold
+        carried no more weight than a caption. The warning triad below restores the claim the
+        comment makes. Colour is added ALONGSIDE the state name, the icon and the sentence that
+        already carry the meaning, never instead of them, so this stays outside the status-colour
+        boundary the contract pins at zero.
+      */
+      <section
+        aria-labelledby="caring-contacts-team-unclaimed-heading"
+        className={`${sectionClass} border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-4`}
+        data-testid="caring-contacts-team-unclaimed"
+      >
+        <h2
+          id="caring-contacts-team-unclaimed-heading"
+          className="mb-2 flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]"
+        >
+          <Users aria-hidden="true" className="size-icon-md shrink-0" />
+          Unclaimed work
+        </h2>
         <AutomatedState
           state="Unclaimed work escalated"
           because={[
@@ -275,7 +314,7 @@ function UnclaimedStanding({ unclaimed, thresholdMinutes }: { unclaimed: Unclaim
           changedBy={remedy ?? "Nothing on this screen."}
         />
         <p className={`mt-3 ${noteClass}`}>{unclaimedBacklogSentence(unclaimed.exceptionBacklog)}</p>
-      </div>
+      </section>
     );
   }
 

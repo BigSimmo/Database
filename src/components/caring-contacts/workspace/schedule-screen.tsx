@@ -506,7 +506,7 @@ function DayStrip({
             data-internal-link="true"
             data-schedule-day={day.calendarDay}
             aria-current={current ? "page" : undefined}
-            className="flex min-h-tap min-w-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-1 py-2 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:bg-[color:var(--surface-subtle)] forced-colors:border-[CanvasText]"
+            className="flex min-h-tap min-w-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-1 py-2 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:bg-[color:var(--clinical-accent-soft)] aria-[current]:font-semibold aria-[current]:text-[color:var(--clinical-accent)] aria-[current]:shadow-[var(--shadow-inset)] forced-colors:border-[CanvasText]"
           >
             <span aria-hidden="true" className="block truncate text-2xs font-medium text-[color:var(--text-muted)]">
               {stripDayLabel(day.calendarDay)}

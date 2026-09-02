@@ -215,7 +215,7 @@ export function joinPhrases(phrases: readonly string[]): string {
 const sectionId = "caring-contacts-templates-library";
 
 const filterChipClass =
-  "inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:text-[color:var(--text-heading)] forced-colors:border-[CanvasText]";
+  "inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:bg-[color:var(--clinical-accent-soft)] aria-[current]:font-semibold aria-[current]:text-[color:var(--clinical-accent)] aria-[current]:shadow-[var(--shadow-inset)] forced-colors:border-[CanvasText]";
 
 const showEveryVersionClass =
   "inline-flex min-h-tap shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border-[CanvasText]";
@@ -227,6 +227,33 @@ const LIFECYCLE_ICONS: Readonly<Record<TemplateLifecycle, LifecycleIcon>> = Obje
   pending: FileClock,
   retired: FileX2,
 });
+
+/**
+ * The chip's tint per lifecycle group — the THIRD channel, never the only one.
+ *
+ * All three groups rendered on the same neutral `--surface-subtle` until now, distinguished only
+ * by a 14px glyph, so in a list a reader scans for a governed pathway to use, an approved version
+ * and a retired one looked identical. The rule this screen's comment cites is that status is never
+ * carried by colour ALONE; it does not say a status may not be coloured, and the design system
+ * ships the success/warning/danger triads for exactly this. The chip keeps its word
+ * (`TEMPLATE_LIFECYCLE_LABELS`) and its icon, and the line beneath the row still names the exact
+ * recorded state, so the reading survives greyscale, forced colours and colour blindness — the
+ * tint just means nobody has to read three rows to find the current one.
+ *
+ * `retired` takes the danger triad rather than a grey: retired is not "less"; it is the one group
+ * whose wording must not be used on a new plan.
+ *
+ * Exported so `template-detail.tsx` renders the same chip rather than a second copy that drifts.
+ */
+export const LIFECYCLE_CHIP_TONES: Readonly<Record<TemplateLifecycle, string>> = Object.freeze({
+  current: "border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
+  pending: "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]",
+  retired: "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]",
+});
+
+/** The chip shell, tone applied by the caller. */
+export const LIFECYCLE_CHIP_BASE =
+  "inline-flex min-w-0 shrink-0 items-center gap-2 rounded-[var(--radius-pill)] border px-3 py-1 text-xs font-semibold forced-colors:border-[CanvasText]";
 
 export type TemplatesLibraryProps = {
   /** Every pathway version the read released, unfiltered. The filter is applied here. */
@@ -450,11 +477,13 @@ function PathwayVersionRow({ version }: { version: PathwayVersion }) {
           <p className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]">{version.id}</p>
         </div>
         {/*
-          Words and an icon, never colour alone. The chip names the group the design shows; the
-          line beneath the row names the exact state the record is in, so grouping `draft` with
-          `inReview` never hides which of the two a version is.
+          Words, an icon AND a tint — never colour alone, and never colour withheld either. The chip
+          names the group the design shows; the line beneath the row names the exact state the
+          record is in, so grouping `draft` with `inReview` never hides which of the two a version
+          is. See `LIFECYCLE_CHIP_TONES` for why the tint is the third channel rather than the only
+          one.
         */}
-        <p className="inline-flex min-w-0 shrink-0 items-center gap-2 rounded-[var(--radius-pill)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-1 text-xs font-semibold text-[color:var(--text)] forced-colors:border-[CanvasText]">
+        <p className={`${LIFECYCLE_CHIP_BASE} ${LIFECYCLE_CHIP_TONES[lifecycle]}`}>
           <Icon aria-hidden="true" className="size-icon-sm shrink-0" />
           <span className="min-w-0">{TEMPLATE_LIFECYCLE_LABELS[lifecycle]}</span>
         </p>

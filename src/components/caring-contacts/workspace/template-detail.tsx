@@ -25,6 +25,8 @@ import {
   MESSAGE_TYPE_ORDER,
   MESSAGE_TYPE_WORDING,
   PATHWAY_VERSION_STATE_WORDING,
+  LIFECYCLE_CHIP_BASE,
+  LIFECYCLE_CHIP_TONES,
   TEMPLATE_LIFECYCLE_LABELS,
   heldMessageTypes,
   joinPhrases,
@@ -201,11 +203,12 @@ function VersionRecord({ version }: { version: PathwayVersion }) {
             <p className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]">{version.id}</p>
           </div>
           {/*
-            Words and an icon, never colour alone. The chip names the group the design shows; the
-            recorded state beneath it is the exact state, so grouping `draft` with `inReview` never
-            hides which of the two this record is in.
+            Words, an icon AND a tint — never colour alone. The chip names the group the design
+            shows; the recorded state beneath it is the exact state, so grouping `draft` with
+            `inReview` never hides which of the two this record is in. The chip shell and tone map
+            are shared with the library so the two screens cannot drift.
           */}
-          <p className="inline-flex min-w-0 shrink-0 items-center gap-2 rounded-[var(--radius-pill)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-1 text-xs font-semibold text-[color:var(--text)] forced-colors:border-[CanvasText]">
+          <p className={`${LIFECYCLE_CHIP_BASE} ${LIFECYCLE_CHIP_TONES[lifecycle]}`}>
             <Icon aria-hidden="true" className="size-icon-sm shrink-0" />
             <span className="min-w-0">{TEMPLATE_LIFECYCLE_LABELS[lifecycle]}</span>
           </p>

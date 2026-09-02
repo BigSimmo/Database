@@ -299,7 +299,9 @@ function PlanChooser({
       <p className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
         {anyName === null ? "Synthetic patient identifier" : "Patient"}
       </p>
-      <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">{anyName ?? patientId}</p>
+      <p className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]">
+        {anyName ?? patientId}
+      </p>
       <h2
         id="caring-contacts-plan-chooser-heading"
         className="mt-4 text-base font-semibold text-[color:var(--text-heading)]"
@@ -375,12 +377,12 @@ function EpisodeOverview({
         </p>
         <h2
           id="caring-contacts-patient-heading"
-          className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]"
+          className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]"
         >
           {name ?? patientId}
         </h2>
         {name === null ? null : (
-          <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">Synthetic identifier: {patientId}</p>
+          <p className="mt-0.5 break-words text-xs text-[color:var(--text-muted)]">Synthetic identifier: {patientId}</p>
         )}
 
         {/*
