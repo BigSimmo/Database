@@ -410,6 +410,15 @@ Output-style plugins such as caveman mode may compress prose. They must never co
   window to hold it back. Therefore:
   - **Treat merge approval as production-deploy approval.** Never merge a PR touching
     `supabase/migrations/**` outside an approved window, and never enable auto-merge on one.
+  - **Never write PR metadata promising a deferred deploy.** There is no deploy step to defer to,
+    so "AWAITING DEPLOY WINDOW", "pending deployment", "not yet applied" and the like describe a
+    control this repository does not have — and they are dangerous exactly when believed, because
+    they invite a reviewer to merge a change they think is still parked. PR #2502 carried that
+    phrase in its own title and reached the live database within minutes of merge; the post-merge
+    `live-drift` run caught it as pending-apply drift. State the merge decision instead ("merge only
+    inside the approved window"), which is the control that actually exists. `scripts/pr-policy.mjs`
+    hard-blocks the claim on any PR touching `supabase/migrations/**` and quotes the offending
+    phrase back; the deferral patterns and their self-tests live beside the RAG and governance gates.
   - **After such a PR merges, the schema-application gate is the post-merge `live-drift` workflow**
     (`.github/workflows/live-drift.yml`), which must complete with BOTH `npm run check:drift` and
     `npm run check:migration-history` green. `supabase migration list` is not that gate: it reads the

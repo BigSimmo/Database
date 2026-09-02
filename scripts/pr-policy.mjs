@@ -78,6 +78,29 @@ const operationalRiskPatterns = [
   /^(?:Dockerfile(?:\.worker)?|railway(?:\.[^.]+)?\.json|nixpacks\.toml)$/,
 ];
 
+// Supabase migrations auto-apply to the live clinical database on merge to main:
+// the Supabase GitHub integration has "Deploy to production" enabled with production
+// branch `main`, measured at 34 s from merge in docs/audit/live-drift-forensics-2026-08.md
+// §3.7. There is no separate deploy step and no window to hold one back in, so PR
+// metadata promising a deferred deploy describes a control this repository does not
+// have. PR #2502 merged carrying "AWAITING DEPLOY WINDOW" in its own title and reached
+// live within minutes; the post-merge live-drift run caught it as pending-apply drift.
+// Choosing WHEN TO MERGE is the real control (AGENTS.md "Supabase project safety");
+// claiming the deploy is later than the merge is not.
+const migrationPatterns = [/^supabase\/migrations\//];
+
+// Closed, deliberately narrow list of phrases asserting that deployment is separate
+// from — or later than — the merge. "Merge inside the approved deploy window" is
+// legitimate and required, and a truthful "applies to live on merge" is the wording
+// this gate is steering authors toward; neither may match.
+const deployDeferralPatterns = [
+  /\bawait(?:s|ing|ed)?\b[^.\n]{0,24}\bdeploy/i,
+  /\bpending\b[^.\n]{0,24}\b(?:deploy|apply|application)/i,
+  /\b(?:do not|don'?t|must not|will not|won'?t|not for)\s+deploy/i,
+  /\bnot yet\s+(?:applied|deployed|live)\b/i,
+  /\bdefer(?:red|ring|s)?\b[^.\n]{0,24}\bdeploy|\bdeploy(?:ment)?\b[^.\n]{0,24}\bdefer(?:red|ral)/i,
+];
+
 // RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md). Narrower than
 // clinicalRiskPatterns: these files change (or re-measure) retrieval/ranking ORDERING
 // behaviour, which is live-validated — offline-green plus review-approved was proven
@@ -228,6 +251,7 @@ export function classifyPullRequestFiles(files) {
     clinicalRisk: normalized.some((file) => clinicalRiskPatterns.some((pattern) => pattern.test(file))),
     operationalRisk: normalized.some((file) => operationalRiskPatterns.some((pattern) => pattern.test(file))),
     ragRanking: normalized.some((file) => ragRankingPatterns.some((pattern) => pattern.test(file))),
+    migration: normalized.some((file) => migrationPatterns.some((pattern) => pattern.test(file))),
     ui: normalized.some((file) => uiPatterns.some((pattern) => pattern.test(file))),
   };
 }
@@ -244,10 +268,23 @@ export function ragImpactDeclared(body) {
   return { declared: true, satisfied: (noChange || canary) && detail.length >= 12 };
 }
 
+// Returns the first deferred-deploy claim found in the title or body, so the error
+// message can quote the author's own words back rather than making them guess which
+// phrase tripped the gate.
+export function deployDeferralClaim(title, body) {
+  const haystack = `${String(title ?? "")}\n${String(body ?? "")}`;
+  for (const pattern of deployDeferralPatterns) {
+    const match = haystack.match(pattern);
+    if (match) return { claimed: true, phrase: match[0].trim() };
+  }
+  return { claimed: false, phrase: "" };
+}
+
 export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
-  // Two conditions block the PR (hard failure): a clinical-risk diff without a
-  // complete Clinical Governance Preflight, and a RAG-ranking-surface diff
-  // without an explicit `RAG impact:` declaration. Every other metadata
+  // Three conditions block the PR (hard failure): a clinical-risk diff without a
+  // complete Clinical Governance Preflight, a RAG-ranking-surface diff without an
+  // explicit `RAG impact:` declaration, and a Supabase-migration diff whose metadata
+  // claims a deferred deploy that merging does not honour. Every other metadata
   // expectation (title, summary, verification, UI, risk and rollout) is
   // advisory: it is surfaced as a warning so authors still get the nudge, but
   // it never fails the check or blocks a merge.
@@ -300,6 +337,19 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     } else if (!ragImpact.satisfied) {
       errors.push(
         "The `RAG impact:` line must state `no retrieval behaviour change — <reason>` or reference the validating canary pair (see docs/rag-behaviour/safeguards.md).",
+      );
+    }
+  }
+
+  // Blocking gate: a PR adding or editing a Supabase migration must not claim its
+  // deployment is deferred, because merging IS the deploy. The claim is dangerous
+  // precisely when it is believed: it invites a reviewer to merge a change they think
+  // is still parked.
+  if (classification.migration) {
+    const deferral = deployDeferralClaim(title, body);
+    if (deferral.claimed) {
+      errors.push(
+        `Merging this PR applies its migration to the live clinical database within seconds — there is no separate deploy step to wait for, so ${JSON.stringify(deferral.phrase)} promises a control this repository does not have. Remove the deferral wording, or leave the PR unmerged until the approved window (AGENTS.md "Supabase project safety").`,
       );
     }
   }
@@ -511,6 +561,7 @@ function selfTest() {
     clinicalRisk: true,
     operationalRisk: false,
     ragRanking: false,
+    migration: false,
     ui: false,
   });
   // Narrowed classification: presentation-only UI under the clinically-named
@@ -521,6 +572,7 @@ function selfTest() {
     clinicalRisk: false,
     operationalRisk: false,
     ragRanking: false,
+    migration: false,
     ui: true,
   });
   // RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md): a PR touching them
@@ -705,6 +757,77 @@ function selfTest() {
     collectSatisfiedGovernanceItems("- [x] Legacy governance text without the expected policy keywords.").length,
     0,
     "malformed legacy attestations must not satisfy governance coverage",
+  );
+  // Deferred-deploy gate. PR #2502 merged with "AWAITING DEPLOY WINDOW" in its title
+  // and applied to the live clinical database within minutes, because merging IS the
+  // deploy here. The gate blocks the claim; it must not block the legitimate practice
+  // of choosing when to merge.
+  const migrationFiles = ["supabase/migrations/20260901120000_restrict_owner_delete.sql"];
+  const deferredTitle = evaluatePullRequestPolicy({
+    title: "fix(db): restrict owner deletion on the four public-visibility tables — AWAITING DEPLOY WINDOW",
+    body: completeBody,
+    headRef: "codex/migration",
+    files: migrationFiles,
+  });
+  assert.equal(deferredTitle.ok, false, "a migration PR claiming a deferred deploy must be blocked");
+  assert.match(deferredTitle.errors.join(" "), /live clinical database within seconds/);
+  assert.match(deferredTitle.errors.join(" "), /AWAITING DEPLOY/i, "the error must quote the offending phrase");
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "fix(db): restrict owner deletion on the four public-visibility tables",
+      body: completeBody,
+      headRef: "codex/migration",
+      files: migrationFiles,
+    }).ok,
+    true,
+    "the same migration PR without the deferral claim must pass",
+  );
+  // Choosing the merge moment is the real control and stays sayable.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "fix(db): restrict owner deletion on the four public-visibility tables",
+      body: completeBody.replace(
+        "- Rollback: revert the workflow commit.",
+        "- Rollback: revert in one commit. Merge only inside the approved deploy window; this applies to live on merge.",
+      ),
+      headRef: "codex/migration",
+      files: migrationFiles,
+    }).ok,
+    true,
+    "naming an approved merge window must not trip the deferral gate",
+  );
+  // A false deferral buried in the body is as misleading as one in the title.
+  const deferredBody = evaluatePullRequestPolicy({
+    title: "fix(db): restrict owner deletion on the four public-visibility tables",
+    body: completeBody.replace(
+      "- Rollback: revert the workflow commit.",
+      "- Rollback: the migration is not yet applied to production, so there is nothing to roll back.",
+    ),
+    headRef: "codex/migration",
+    files: migrationFiles,
+  });
+  assert.equal(deferredBody.ok, false, "a deferral claim in the body must block too");
+  assert.match(deferredBody.errors.join(" "), /not yet applied/i);
+  // Non-migration PRs are untouched: the phrase is only false where merging deploys.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "docs: describe the deploy window — awaiting deploy of the new runbook",
+      body: completeBody,
+      headRef: "codex/docs",
+      files: ["docs/database-drift-detection.md"],
+    }).ok,
+    true,
+    "the deferral gate must apply only to PRs carrying a Supabase migration",
+  );
+  assert.equal(
+    classifyPullRequestFiles(["supabase/schema.sql"]).migration,
+    false,
+    "schema.sql mirrors the schema and applies nothing; only supabase/migrations/** deploys",
+  );
+  assert.equal(
+    deployDeferralClaim("chore: pending deployment of the index", "").phrase.toLowerCase(),
+    "pending deploy",
+    "the detector must return the matched phrase for the error message",
   );
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
