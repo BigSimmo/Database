@@ -701,6 +701,78 @@ describe("caring-contact migrations", () => {
       );
       expect(Number(rows[0].count)).toBe(2);
     });
+
+    // Migration 0009 extends the same guard to the two governance tables that were listed in no
+    // `attach_audit_guard` call before it, and so carried no `require_audit` trigger at all:
+    // `pathway_versions`, whose state decides which message content a patient actually receives,
+    // and `retention_state`, the record that a patient's identifying detail was cleared. The
+    // assertions run against the RUNNING database as `caring_contacts_app`, so they prove the
+    // database refuses the write -- not that 0009 contains a string. A later migration that
+    // detached either trigger would turn them red.
+    it("REFUSES an unaudited pathway version state change (0009)", async () => {
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH }, (client) =>
+          client.query(
+            "update caring_contacts.pathway_versions set state = 'retired', retired_at = now() where id = 'PLAN-N-PATHWAY'",
+          ),
+        ),
+      ).rejects.toThrow(/caring-contacts-audit-required/);
+
+      const { rows } = await pool.query<{ state: string; retired_at: Date | null }>(
+        "select state, retired_at from caring_contacts.pathway_versions where id = 'PLAN-N-PATHWAY'",
+      );
+      expect(rows[0].state).toBe("approved");
+      expect(rows[0].retired_at).toBeNull();
+    });
+
+    it("REFUSES an unaudited retention clearance record (0009)", async () => {
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH }, (client) =>
+          client.query(
+            `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at, cleared_at)
+             values ('PLAN-N', $1, now(), now())`,
+            [TEAM_NORTH],
+          ),
+        ),
+      ).rejects.toThrow(/caring-contacts-audit-required/);
+
+      const { rows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N'",
+      );
+      expect(Number(rows[0].count)).toBe(0);
+    });
+
+    it("still accepts the audited writes the repository makes to both governance tables (0009)", async () => {
+      await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId: TEAM_NORTH,
+          actorId: "ACTOR-1",
+          actorRoles: ["clinicalProgrammeLead"],
+          action: "retirePathwayVersion",
+          objectType: "pathwayVersion",
+          objectId: "PLAN-N-PATHWAY",
+          outcome: "allowed",
+          idempotencyKey: "audited-retire",
+        });
+        await client.query(
+          "update caring_contacts.pathway_versions set state = 'retired', retired_at = now() where id = 'PLAN-N-PATHWAY'",
+        );
+        await client.query(
+          `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at, cleared_at)
+             values ('PLAN-N', $1, now(), now())`,
+          [TEAM_NORTH],
+        );
+      });
+
+      const { rows: pathwayRows } = await pool.query<{ state: string }>(
+        "select state from caring_contacts.pathway_versions where id = 'PLAN-N-PATHWAY'",
+      );
+      expect(pathwayRows[0].state).toBe("retired");
+      const { rows: retentionRows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N'",
+      );
+      expect(Number(retentionRows[0].count)).toBe(1);
+    });
   });
 });
 
