@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "62fb8f5c-2d49-4e48-8352-0b17b742944c",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#B0530F",
+    "outcome": "Resolved 2026-09-02: the automation this row asked for already exists on main. PR #2474 (commit 79a824e) added the caring-contacts-db job at .github/workflows/ci.yml:1115 with exactly the shape requested - a digest-pinned postgres:17 service container on host port 54329, POSTGRES_HOST_AUTH_METHOD trust and a pg_isready health check - and runs npm run caring-contacts:db:test at ci.yml:1150, so the row-level-security and cross-team-isolation files are now collected by an automated gate rather than by nobody. It is wired into the required pr-required aggregate (ci.yml:1167, :1198, :1317, :1319), and the static contract test this row asked for exists at tests/ci-cache-safety.test.ts:123-135, pinning the container, the environment variable, the command and the pr-required membership, and asserting db-reset-verify does not duplicate the same run. The offline chain was left untouched, so the concern about breaking every offline run does not arise. Verified locally: the suite was run in this container against a real PostgreSQL cluster on port 54329 and reported 2 test files passed and 213 tests passed.",
+    "baseRowFingerprint": "b3165cd370886608f0e13fd1cbb943f041f8baa07655cf8bc3951a4964e4fcdc"
+  }
+}
