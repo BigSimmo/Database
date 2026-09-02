@@ -1,5 +1,13 @@
 # Care Plan — complete handoff package
 
+> **SUPERSEDED, 2 September 2026 — do not act on this file.** It is the 24 August 2026 handover,
+> preserved verbatim because it records how the account-limit handover was done. Its status,
+> branch, worktree and "everything needed to resume the build" claims are all stale: all eleven
+> Care Plan tasks are complete and merged to `main` (PR #2383, squash `e15b250cf`), and the branch
+> it names has been merged and its remote deleted. Acting on this file would mean rebuilding
+> finished work on a branch that no longer exists. Read
+> **[`HANDOFF-START-HERE.md`](./HANDOFF-START-HERE.md)** instead.
+
 **Assembled 24 August 2026, when the previous session hit its weekly account limit.**
 
 Everything needed to resume the Care Plan build on a different Claude account is in
