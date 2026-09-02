@@ -308,6 +308,10 @@ export function computeInputSignature(projectRoot, scopes, { git = runGit } = {}
  */
 export const OUTCOME_AFFECTING_ENV_VARS = [
   "ALLOW_PROVIDER_TESTS",
+  // Whether the caring-contacts Postgres project is collected: a pass recorded
+  // without it must not vouch for a run that includes it, and vice versa.
+  "CARING_CONTACTS_DATABASE_URL",
+  "CARING_CONTACTS_DB_TESTS",
   "FAST_CHECK_SEED",
   "LANG",
   "LC_ALL",
