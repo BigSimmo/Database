@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "563896ea8b430830f0297e5f9ec6ae0644d88f99",
-    "committed_at": "2026-09-02T04:41:10+00:00"
+    "sha": "c12632a03ad683468c83ef0a3b5947b17adf84fc",
+    "committed_at": "2026-09-02T05:39:09+00:00"
   },
   "routes": {
     "modes": [
@@ -2746,6 +2746,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/corpus-health-panel-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/current-clinical-work-brief.md",
         "section": "root",
         "catalogued": true
@@ -4412,9 +4417,9 @@
       }
     ],
     "counts": {
-      "documents": 575,
+      "documents": 576,
       "catalogued": 111,
-      "uncatalogued": 464,
+      "uncatalogued": 465,
       "sections": 21
     }
   },
