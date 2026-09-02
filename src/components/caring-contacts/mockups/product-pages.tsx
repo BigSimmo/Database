@@ -606,6 +606,11 @@ export function PlanDetailProductPage({
   status?: "Draft" | "Active" | "Paused" | "Withdrawn";
   coordinator?: string;
 }) {
+  // What the plan's own state means for what may be done to it, named once so the panel below
+  // reads as the two facts it depends on rather than as a chain of string comparisons.
+  const planHasEnded = status === "Withdrawn";
+  const planIsSending = status === "Active" || status === "Paused";
+
   const [pauseOpen, setPauseOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [notice, setNotice] = useState("");
@@ -645,7 +650,25 @@ export function PlanDetailProductPage({
           <div>
             <p className="text-xs font-medium text-[color:var(--text-muted)]">Status</p>
             <div className="mt-1">
-              <StatusChip tone={status === "Active" ? "success" : status === "Withdrawn" ? "danger" : "neutral"}>
+              {/*
+                Four states, four readings. `Draft` and `Paused` both fell through to `neutral`
+                before, so a plan that has never sent anything looked identical to one that is
+                running and temporarily held — the two are operationally opposite, and the chip is
+                the fastest thing on this screen to read. `warning` marks the held plan, which is
+                the one a coordinator may need to act on; `info` marks the draft, which is simply
+                not started. The word is still the primary signal in every case.
+              */}
+              <StatusChip
+                tone={
+                  status === "Active"
+                    ? "success"
+                    : status === "Withdrawn"
+                      ? "danger"
+                      : status === "Paused"
+                        ? "warning"
+                        : "info"
+                }
+              >
                 {status}
               </StatusChip>
             </div>
@@ -699,34 +722,59 @@ export function PlanDetailProductPage({
 
         <ProductSection labelledBy="plan-actions-heading" className="h-fit overflow-hidden">
           <SectionHeading id="plan-actions-heading" title="Plan actions" compact />
+          {/*
+            The panel answers the plan's OWN state. Until now only `status === "Paused"` was read,
+            and only to relabel one button: a Withdrawn plan still offered a live "Pause plan" and
+            a live "Record withdrawal" — the second of which this screen's own confirmation copy
+            describes as permanently cancelling every unsent contact, on a plan where that has
+            already happened. A Draft plan, which has not started sending, still offered "Open
+            delivery exception" for deliveries that cannot exist yet.
+
+            A plan that has ended is the terminal state, so its controls go and a sentence says why
+            rather than leaving an empty panel. `aria-disabled` is not the tool here: these are not
+            temporarily unavailable, they are not part of this plan's life any more.
+          */}
           <div className="space-y-3 border-t border-[color:var(--border)] p-4">
-            <Button
-              variant="secondary"
-              icon={PauseCircle}
-              block
-              onClick={() => (onOpenOverlay ? onOpenOverlay("pause") : setPauseOpen(true))}
-            >
-              {status === "Paused" ? "Resume plan" : "Pause plan"}
-            </Button>
-            <Button
-              variant="secondary"
-              icon={XCircle}
-              block
-              onClick={() => (onOpenOverlay ? onOpenOverlay("withdrawal") : setWithdrawOpen(true))}
-            >
-              Record withdrawal
-            </Button>
-            {onOpenOverlay ? (
-              <Button variant="secondary" icon={Users} block onClick={() => onOpenOverlay("reassignment")}>
-                Reassign coordinator
-              </Button>
-            ) : null}
-            <Button variant="secondary" icon={AlertTriangle} block onClick={onOpenException}>
-              Open delivery exception
-            </Button>
-            <p className="text-xs leading-5 text-[color:var(--text-muted)]">
-              Pause preserves the original calendar and skips contacts that fall inside the pause.
-            </p>
+            {planHasEnded ? (
+              <p className="text-sm leading-6 text-[color:var(--text-muted)]">
+                This plan is withdrawn. Nothing further is sent on it and it cannot be paused, withdrawn again or
+                reassigned.
+              </p>
+            ) : (
+              <>
+                <Button
+                  variant="secondary"
+                  icon={PauseCircle}
+                  block
+                  onClick={() => (onOpenOverlay ? onOpenOverlay("pause") : setPauseOpen(true))}
+                >
+                  {status === "Paused" ? "Resume plan" : "Pause plan"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon={XCircle}
+                  block
+                  onClick={() => (onOpenOverlay ? onOpenOverlay("withdrawal") : setWithdrawOpen(true))}
+                >
+                  Record withdrawal
+                </Button>
+                {onOpenOverlay ? (
+                  <Button variant="secondary" icon={Users} block onClick={() => onOpenOverlay("reassignment")}>
+                    Reassign coordinator
+                  </Button>
+                ) : null}
+                {planIsSending ? (
+                  <Button variant="secondary" icon={AlertTriangle} block onClick={onOpenException}>
+                    Open delivery exception
+                  </Button>
+                ) : null}
+                <p className="text-xs leading-5 text-[color:var(--text-muted)]">
+                  {planIsSending
+                    ? "Pause preserves the original calendar and skips contacts that fall inside the pause."
+                    : "This plan has not started sending, so there are no deliveries to raise an exception against."}
+                </p>
+              </>
+            )}
             {notice ? (
               <p className="rounded-[var(--radius-md)] bg-[color:var(--clinical-accent-soft)] p-3 text-xs font-medium text-[color:var(--clinical-accent)]">
                 {notice}
@@ -1084,8 +1132,29 @@ export function ScheduleProductPage({
   );
 }
 
+/**
+ * One reviewer row, from the record's own approval evidence.
+ *
+ * These two rows used to be the literals `"Taylor Fiction"` and `"Jordan Example"`, rendered for
+ * EVERY selected record — including the pending message template whose `approvalEvidence` is
+ * `null` in the fixture precisely because nobody has reviewed it yet. So the panel named two
+ * clinicians as approvers of a record two rows below a field reading "Not approved", on the one
+ * screen in this prototype whose whole subject is governance provenance. A synthetic name is still
+ * a claim about who signed something off, and it must not appear where no sign-off is recorded.
+ *
+ * The fixture's evidence string is `"<name> · <role> · approved <when>"`. The role is already the
+ * row's own label, so it is dropped and the name and timestamp are kept — which also surfaces the
+ * real per-record approval times that were previously unreachable.
+ */
+function reviewerLine(evidence: string | undefined): string {
+  if (!evidence) return "Not recorded — no approval on this record";
+  const [name, , approved] = evidence.split(" · ");
+  return approved ? `${name} · ${approved}` : name;
+}
+
 const governedLibraryRecords = [
   {
+    approvalEvidence: syntheticPathways[0].approvalEvidence,
     id: syntheticPathways[0].id,
     kind: "Pathway",
     name: syntheticPathways[0].name,
@@ -1095,6 +1164,7 @@ const governedLibraryRecords = [
     detail: "12 months · 10 contacts",
   },
   {
+    approvalEvidence: syntheticPathways[1].approvalEvidence,
     id: syntheticPathways[1].id,
     kind: "Pathway",
     name: syntheticPathways[1].name,
@@ -1104,6 +1174,7 @@ const governedLibraryRecords = [
     detail: "12 months · historical record",
   },
   {
+    approvalEvidence: syntheticTemplates[0].approvalEvidence,
     id: syntheticTemplates[0].id,
     kind: "Message",
     name: syntheticTemplates[0].name,
@@ -1113,6 +1184,7 @@ const governedLibraryRecords = [
     detail: `${syntheticTemplates[0].variant} · ${syntheticTemplates[0].segmentCount} segments`,
   },
   {
+    approvalEvidence: syntheticTemplates[1].approvalEvidence,
     id: syntheticTemplates[1].id,
     kind: "Message",
     name: syntheticTemplates[1].name,
@@ -1214,6 +1286,7 @@ export function TemplatesProductPage({ onOpenOverlay }: { onOpenOverlay?: (overl
         <ProductSection labelledBy="template-detail-heading" className="overflow-hidden">
           <SectionHeading
             id="template-detail-heading"
+            className={productSectionHeadingPad}
             title={selectedRecord.name}
             description={`${selectedRecord.kind} · ${selectedRecord.version}`}
             action={
@@ -1241,8 +1314,11 @@ export function TemplatesProductPage({ onOpenOverlay }: { onOpenOverlay?: (overl
               ["Programme detail", selectedRecord.detail],
               ["Approved", approvalDate],
               ["Next review", nextReview],
-              ["Clinical programme lead", "Taylor Fiction"],
-              ["Lived-experience reviewer", "Jordan Example"],
+              ["Clinical programme lead", reviewerLine(selectedRecord.approvalEvidence?.clinicalProgrammeLead)],
+              [
+                "Lived-experience reviewer",
+                reviewerLine(selectedRecord.approvalEvidence?.livedExperienceContentReviewer),
+              ],
             ].map(([term, value], index) => (
               <div key={term} className={cn("bg-[color:var(--surface)] px-5 py-4", index === 6 && "sm:col-span-2")}>
                 <dt className="text-xs text-[color:var(--text-muted)]">{term}</dt>
@@ -1289,6 +1365,7 @@ export function TeamProductPage({ onOpenOverlay }: { onOpenOverlay?: (overlayId:
       <ProductSection labelledBy="team-ownership-heading" className="overflow-hidden">
         <SectionHeading
           id="team-ownership-heading"
+          className={productSectionHeadingPad}
           title="Team ownership"
           description="Explicit coordination, capacity and escalation."
           icon={Users}
