@@ -78,6 +78,17 @@ create table if not exists public.documents (
   error_message text,
   metadata jsonb not null default '{}'::jsonb
     constraint documents_metadata_object_check check (jsonb_typeof(metadata) = 'object'),
+  -- #ZBAC9D: an ownerless document is either published or quarantined, never silently
+  -- unmarked and retrievable. This is what makes retrieval_owner_matches' public branch
+  -- (`row_owner_id is null`, with no marker check) equivalent to the application's
+  -- two-signal public test in src/lib/documents/is-public-document.ts, which tests the JSON
+  -- boolean rather than its text rendering. The status arm is the quarantine from
+  -- 20260826090000, widened by 20260902110200 to every ownerless landing state.
+  constraint documents_ownerless_requires_publication_marker check (
+    owner_id is not null
+    or metadata->'public_corpus' = 'true'::jsonb
+    or status = 'failed'
+  ),
   search_tsv tsvector generated always as (
     to_tsvector('english', coalesce(title, '') || ' ' || coalesce(file_name, ''))
   ) stored,
@@ -6690,6 +6701,7 @@ AS $function$
     ) as summary
   from public.documents d
   where d.id = any(document_ids)
+    and d.status = 'indexed'
     and public.retrieval_owner_matches(owner_filter, d.owner_id);
 $function$;
 
@@ -9767,8 +9779,21 @@ begin
     update public.documents d
     set
       owner_id = existing_owner.id,
+      -- Quarantine whenever the row LANDS ownerless without a true publication marker,
+      -- not only when its owner was deleted (#ZBAC9D, 20260902110200). The original
+      -- condition missed the row that was ALREADY ownerless and unmarked when public mode
+      -- was activated -- the population 20260825025032's header describes -- and restoring
+      -- such a row as ownerless-unmarked-indexed is what
+      -- documents_ownerless_requires_publication_marker forbids, so the whole
+      -- return-to-private call would abort.
       status = case
-        when snapshot.owner_id is not null and existing_owner.id is null then 'failed'
+        when existing_owner.id is null
+          and not (
+            snapshot.owner_id is null
+            and snapshot.public_corpus_present
+            and snapshot.public_corpus_value = 'true'::jsonb
+          )
+        then 'failed'
         else d.status
       end,
       metadata = case

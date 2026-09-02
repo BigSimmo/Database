@@ -206,7 +206,30 @@ function registryDocumentRowPreservingOwner(
   if (storedOwnerId !== null && storedOwnerId !== entry.ownerId) {
     throw new Error(`Registry corpus owner mismatch for document ${document.id}; refusing to change tenant scope.`);
   }
-  return { ...document, owner_id: storedOwnerId };
+  if (storedOwnerId !== null) return { ...document, owner_id: storedOwnerId };
+
+  // A stored null owner means the row is in the public corpus, and in this schema an
+  // ownerless document must also carry the publication marker — the two signals
+  // src/lib/documents/is-public-document.ts requires together (#ZBAC9D). registryDocumentRow
+  // rebuilds metadata from scratch, so preserving the owner without preserving the marker
+  // would strip it and republish the row as ownerless-and-unmarked: visible to retrieval,
+  // which resolves the public sentinel to owner_id IS NULL alone, but not public to the
+  // application. That is almost certainly how the unmarked ownerless rows described in
+  // supabase/migrations/20260825025032_reversible_document_corpus_access_mode.sql arose.
+  // Carry the marker across with the owner it belongs to.
+  const existingMetadata = existing.metadata;
+  const publicCorpus =
+    existingMetadata && typeof existingMetadata === "object" && !Array.isArray(existingMetadata)
+      ? (existingMetadata as Record<string, unknown>).public_corpus
+      : undefined;
+  return {
+    ...document,
+    owner_id: storedOwnerId,
+    metadata:
+      publicCorpus === undefined
+        ? document.metadata
+        : { ...(document.metadata as Record<string, unknown>), public_corpus: publicCorpus },
+  };
 }
 
 /** Registry chunk row. */

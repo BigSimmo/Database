@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "00478d9b-4dc8-4391-8797-f01823923949",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "match_document_embedding_fields_text bypasses retrieval_owner_matches and is fail-open on a null owner_filter",
+    "detail": "Found while fixing #ZBAC9D (2026-09-02, offline schema read at 45a3dcacb54a). public.match_document_embedding_fields_text (supabase/schema.sql:6845-6860) does not call public.retrieval_owner_matches at all. Its owner predicate is 'and (owner_filter is null or d.owner_id = owner_filter)', which is fail-OPEN on a null owner_filter - it returns every owner's rows - and which returns nothing for the public sentinel, because no real row has owner_id equal to the all-zeroes uuid. That is the exact shape migration 20260708160001_retrieval_owner_matches_fail_closed.sql removed from retrieval_owner_matches ('fail CLOSED (was: true) - no DB-level global escape hatch'), reintroduced in a sibling function. It currently has NO application caller: a grep over src/, worker/ and scripts/ finds none, so it is live-codified dead code rather than an active exposure. It was left out of the #ZBAC9D PR deliberately to keep that diff to the write-side invariant plus the one reachable read-side hole. FIX: either drop the function, or re-scope it to public.retrieval_owner_matches(owner_filter, d.owner_id) like its siblings. Either way it is a retrieval-surface migration and needs the same approved live-database window and a schema-contract pin.",
+    "source": "supabase/schema.sql:6845-6860; supabase/migrations/20260708160001_retrieval_owner_matches_fail_closed.sql:20-32; offline audit during #ZBAC9D, 2026-09-02",
+    "issueUlid": "01M1G7TXAPMDQZYVB3EJZH2B4Y"
+  }
+}

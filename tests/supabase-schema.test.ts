@@ -2003,3 +2003,189 @@ describe("Owner deletion must not republish private rows (#ZBAC9D)", () => {
     expect(migration).toContain("raise exception");
   });
 });
+
+// #ZBAC9D, second half. The restrict set above closes the path that CREATES an ownerless
+// row by deleting its owner. It does not make "ownerless" mean "published".
+//
+// retrieval_owner_matches resolves the public sentinel to `row_owner_id is null` and
+// checks no publication marker, while the application requires two signals —
+// src/lib/documents/is-public-document.ts returns
+// `recordedOwnerId(...) === null && metadata.public_corpus === true`. The ledger proposed
+// closing that by adding the marker check inside retrieval_owner_matches; the function
+// receives two uuids and never sees metadata, so it cannot be written there. These
+// assertions pin the route actually taken: constrain the WRITE side so the property
+// retrieval already assumes is guaranteed, and leave every retrieval predicate alone.
+describe("Ownerless documents must carry the publication marker (#ZBAC9D)", () => {
+  const rawSchema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
+  const collapse = (value: string) => value.replace(/\s+/g, " ").trim();
+
+  it("public.documents constrains an ownerless row to published or quarantined", () => {
+    const start = rawSchema.search(/create table if not exists public\.documents\s*\(/);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const block = rawSchema.slice(start, rawSchema.indexOf("\n);", start));
+    expect(collapse(block)).toContain(
+      collapse(`constraint documents_ownerless_requires_publication_marker check (
+        owner_id is not null
+        or metadata->'public_corpus' = 'true'::jsonb
+        or status = 'failed'
+      )`),
+    );
+  });
+
+  // `->` and `::jsonb`, never `->>` and a text literal. `metadata->>'public_corpus' = 'true'`
+  // would also accept the JSON STRING "true", which retrieval's public branch would serve
+  // while src/lib/documents/is-public-document.ts (`metadata.public_corpus === true`) refused
+  // it — the same asymmetry as #ZBAC9D, one level down.
+  it("tests the JSON boolean rather than its text rendering", () => {
+    const start = rawSchema.indexOf("constraint documents_ownerless_requires_publication_marker");
+    const definition = rawSchema.slice(start, rawSchema.indexOf("),", start));
+    expect(definition).toContain("metadata->'public_corpus' = 'true'::jsonb");
+    expect(definition).not.toContain("->>");
+  });
+
+  // The third arm is load-bearing, not a loophole: the rollback strips the publication marker
+  // from a row that lands ownerless, exactly so an owner-scoped row cannot become a public
+  // one, and quarantines it in the same statement. Drop the arm and the constraint breaks the
+  // rollback it exists to complement.
+  //
+  // Asserted against the effective definition rather than as a file-wide substring probe: the
+  // original of that shape would have survived an inverted rollback, since both literals
+  // appear elsewhere in the same file.
+  it("keeps the quarantine arm aligned with the private-mode rollback", () => {
+    const start = rawSchema.indexOf("create or replace function public.set_document_corpus_access_mode");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const body = rawSchema.slice(start, rawSchema.indexOf("\n$$;", start));
+    // Quarantine keys off where the row LANDS, not where it came from. The original
+    // `snapshot.owner_id is not null` qualifier missed the row that was already ownerless and
+    // unmarked at activation — the population 20260825025032's own header describes — and
+    // restoring it as ownerless-unmarked-indexed would abort the whole call against the
+    // constraint above.
+    expect(collapse(body)).toContain(
+      collapse(`status = case
+        when existing_owner.id is null
+          and not (
+            snapshot.owner_id is null
+            and snapshot.public_corpus_present
+            and snapshot.public_corpus_value = 'true'::jsonb
+          )
+        then 'failed'
+        else d.status
+      end`),
+    );
+    expect(collapse(body)).not.toContain(
+      collapse("when snapshot.owner_id is not null and existing_owner.id is null then 'failed'"),
+    );
+  });
+
+  // The one retrieval RPC with no status filter, which is what made the gap reachable at
+  // all: every other one already requires d.status = 'indexed', and the sole writer of an
+  // ownerless unmarked row sets status = 'failed'. get_related_document_metadata_v2
+  // delegates straight to this, so fixing v1 fixes both.
+  it("get_related_document_metadata hydrates only indexed documents", () => {
+    const marker = "CREATE OR REPLACE FUNCTION public.get_related_document_metadata(document_ids uuid[]";
+    const start = rawSchema.indexOf(marker);
+    expect(start, "effective get_related_document_metadata definition not found").toBeGreaterThanOrEqual(0);
+    const body = rawSchema.slice(start, rawSchema.indexOf("$function$;", start));
+    expect(collapse(body)).toContain(
+      collapse(`where d.id = any(document_ids)
+        and d.status = 'indexed'
+        and public.retrieval_owner_matches(owner_filter, d.owner_id)`),
+    );
+  });
+
+  it("ships the migrations that apply the invariant to live, and a guard that proves they ran", () => {
+    const read = (file: string) => readFileSync(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8");
+
+    // The status filter.
+    expect(read("20260902110000_related_document_metadata_status_filter.sql")).toContain("and d.status = 'indexed'");
+
+    // Preflight scan, then ADD CONSTRAINT ... NOT VALID only — the 20260827100000 shape, so
+    // ACCESS EXCLUSIVE is not held across a full-table scan in the same transaction.
+    const constraintMigration = read("20260902110500_ownerless_documents_require_publication_marker.sql");
+    expect(constraintMigration).toContain("raise exception");
+    expect(constraintMigration).toContain("add constraint documents_ownerless_requires_publication_marker");
+    expect(constraintMigration).toContain("not valid");
+
+    // VALIDATE in its own migration/transaction — SHARE UPDATE EXCLUSIVE, reads and writes
+    // continue. Mirrors 20260827100500.
+    expect(read("20260902111000_validate_ownerless_publication_marker_constraint.sql")).toContain(
+      "validate constraint documents_ownerless_requires_publication_marker",
+    );
+
+    // The guard validates and never builds (the 20260804110240 pattern): no CREATE/ALTER of
+    // the objects it checks, timeouts scoped with SET LOCAL, exactly one raise.
+    const guard = read("20260902111500_validate_ownerless_publication_invariant.sql");
+    expect(guard).toMatch(/set\s+local\s+lock_timeout/i);
+    expect(guard).toMatch(/set\s+local\s+statement_timeout/i);
+    expect(guard.match(/raise\s+exception/gi) ?? []).toHaveLength(1);
+    // No trailing space in the pattern: `alter table\n  documents` must not slip past.
+    expect(guard).not.toMatch(/^\s*(?:alter\s+table|create\s+or\s+replace\s+function)\b/im);
+    // Presence, enforcement, definition, and behaviour — the four things a function or
+    // constraint can independently fail at.
+    expect(guard).toContain("documents_ownerless_requires_publication_marker");
+    expect(guard).toContain("convalidated");
+    expect(guard).toContain("pg_get_constraintdef");
+    expect(guard).toContain("to_regprocedure('public.get_related_document_metadata(uuid[],uuid)')");
+    expect(guard).toContain("public.retrieval_owner_matches(sentinel, null::uuid)");
+
+    // The rollback widening must be ordered BEFORE the constraint, so the return-to-private
+    // control is safe before the CHECK that would otherwise abort it exists.
+    const rollbackFix = read("20260902110200_quarantine_ownerless_unpublished_on_private_rollback.sql");
+    expect(rollbackFix).toContain("create or replace function public.set_document_corpus_access_mode");
+    expect("20260902110200" < "20260902110500").toBe(true);
+
+    // The preflight scans the snapshot table too. The documents scan cannot see this: it
+    // checks rows in their current public-mode (marked) state, while the snapshot records
+    // what set_document_corpus_access_mode('private') would restore them to.
+    expect(constraintMigration).toContain("public.document_corpus_access_snapshots");
+    expect(constraintMigration).toContain("public.document_corpus_access_state");
+  });
+
+  // The guard's definition comparison is the highest-risk logic in the change and cannot be
+  // executed anywhere offline — there is no Postgres in this environment. So the normalizer is
+  // reimplemented here and asserted against hard-coded pg_get_constraintdef renders, including
+  // the extra parens and casts Postgres adds that the source text does not have. If this and
+  // the SQL ever disagree, the guard raises on a correct database and aborts a live migration.
+  it("the guard's definition normalizer matches what Postgres actually renders", () => {
+    const normalize = (value: string) =>
+      value
+        .toLowerCase()
+        .replaceAll("::text", "")
+        .replaceAll("(", "")
+        .replaceAll(")", "")
+        .replaceAll(" ", "")
+        .replace(/\s+/g, "")
+        .trim();
+
+    const expected = normalize(
+      "CHECK (owner_id IS NOT NULL OR metadata->'public_corpus' = 'true'::jsonb OR status = 'failed')",
+    );
+
+    // How Postgres renders it: outer parens around the whole expression, parens around each
+    // disjunct, and an explicit ::text cast on the status comparison.
+    for (const render of [
+      "CHECK (((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) = 'true'::jsonb) OR (status = 'failed'::text)))",
+      "CHECK ((owner_id IS NOT NULL) OR ((metadata -> 'public_corpus'::text) = 'true'::jsonb) OR ((status)::text = 'failed'::text))",
+    ]) {
+      expect(normalize(render), render).toBe(expected);
+    }
+
+    // The ::jsonb cast is deliberately NOT stripped — it is what makes the predicate test the
+    // JSON boolean rather than its text rendering, so a `->>`/text variant must NOT normalize
+    // to the same string.
+    expect(
+      normalize(
+        "CHECK (((owner_id IS NOT NULL) OR ((metadata ->> 'public_corpus'::text) = 'true'::text) OR (status = 'failed'::text)))",
+      ),
+    ).not.toBe(expected);
+
+    // And the guard ships that exact expected literal.
+    const guard = readFileSync(
+      new URL("../supabase/migrations/20260902111500_validate_ownerless_publication_invariant.sql", import.meta.url),
+      "utf8",
+    );
+    expect(guard).toContain(
+      "'CHECK (owner_id IS NOT NULL OR metadata->''public_corpus'' = ''true''::jsonb OR status = ''failed'')'",
+    );
+  });
+});
