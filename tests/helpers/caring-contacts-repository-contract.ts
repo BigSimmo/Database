@@ -9,6 +9,7 @@
 // suite living here is registered only by the thin file that calls this function.
 import { describe, expect, it } from "vitest";
 
+import { PLAN_ASSURANCES, PLAN_ASSURANCE_VALUES, type PlanAssurance } from "@/lib/caring-contacts/assurances";
 import { AuditEventContainsPatientDataError, type AuditEvent } from "@/lib/caring-contacts/audit";
 import { fixedClock, type Clock } from "@/lib/caring-contacts/clock";
 import {
@@ -41,6 +42,7 @@ import {
   type WriteContext,
 } from "@/lib/caring-contacts/repository";
 import { DEFAULT_RETENTION_POLICY, deidentifyEpisode, isDueForDeidentification } from "@/lib/caring-contacts/retention";
+import { FIRST_CONTACT_REASON_MAX_LENGTH } from "@/lib/caring-contacts/schedule";
 
 const TEAM_A = teamId("TEAM-NORTH");
 
@@ -52,6 +54,15 @@ const PATHWAY_VERSION_ID = pathwayVersionId("PATHWAY-1");
 /** 2026-03-02 10:00 AWST. */
 const DISCHARGE_AT = new Date("2026-03-02T02:00:00.000Z");
 const NOW = "2026-03-02T03:00:00.000Z";
+
+/**
+ * What a plan is created attesting, unless a case says otherwise. Both closed values, because that
+ * is what the wizard sends: stage 1 will not advance until every confirmation is made.
+ *
+ * Spread into a mutable array at each use rather than shared, so a store that kept the caller's
+ * array cannot be caught by one case and missed by the next.
+ */
+const ASSURANCES: readonly PlanAssurance[] = PLAN_ASSURANCE_VALUES;
 
 function actorWith(id: string, team: string, roles: readonly CaringContactRole[]): Actor {
   return { id: actorId(id), teamId: teamId(team), roles };
@@ -75,6 +86,11 @@ const PATIENT_DETAIL: EpisodePatientDetail = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  // DELIBERATELY NOT A SUBSTRING OF `patientName`, and not derivable from it by any split. The
+  // preferred name is ASKED FOR rather than parsed off the stored name (2026-08-26), so a fixture
+  // where the two overlap would let an implementation that DID split satisfy every assertion about
+  // it -- and would make the `JSON.stringify` absence checks below unable to tell the two apart.
+  preferredName: "Jordy",
 };
 
 /**
@@ -183,7 +199,19 @@ let extensionPlanSequence = 0;
  * the Postgres schema: a plan naming a parent nobody created is refused by the database. Creating
  * them here is what lets these tests prove the store validates its own parents.
  */
-async function createActivePlan(store: CaringContactRepository, options: { actor?: Actor } = {}): Promise<PlanRecord> {
+async function createActivePlan(
+  store: CaringContactRepository,
+  options: {
+    actor?: Actor;
+    culturalIdentity?: string;
+    /**
+     * Stops before `activatePlan`, returning the plan as CREATED. Its schedule already exists and
+     * every contact is already `scheduled` -- which is the state #PAMATF is about, and which no
+     * other fixture here can produce because they all activate.
+     */
+    leaveAsDraft?: boolean;
+  } = {},
+): Promise<PlanRecord> {
   extensionPlanSequence += 1;
   const suffix = String(extensionPlanSequence);
   const actor = options.actor ?? COORDINATOR_A;
@@ -213,11 +241,21 @@ async function createActivePlan(store: CaringContactRepository, options: { actor
         pathwayVersionId: pathwayVersionId(pathway),
         dischargeAt: DISCHARGE_AT,
         sendingPreference: "morning",
-        patientDetail: PATIENT_DETAIL,
+        // `PATIENT_DETAIL` carries a NULL cultural identity, so a case asserting that a clearance
+        // nulls it proves nothing unless it sets one. Opt-in rather than always-on, because the
+        // cultural identity lives in its own table in the Postgres store and most callers here have
+        // no business creating a row in it.
+        patientDetail:
+          options.culturalIdentity === undefined
+            ? PATIENT_DETAIL
+            : { ...PATIENT_DETAIL, culturalIdentity: options.culturalIdentity },
+        assurances: [...ASSURANCES],
       },
       writeContext(actor, `ext-create-${suffix}`),
     ),
   );
+
+  if (options.leaveAsDraft === true) return created;
 
   return unwrap(
     await store.activatePlan(
@@ -225,6 +263,73 @@ async function createActivePlan(store: CaringContactRepository, options: { actor
       writeContext(actor, `ext-activate-${suffix}`),
     ),
   );
+}
+
+/**
+ * A first contact three days after discharge — moved off the programme's usual discharge + 1, and
+ * so requiring a reason, without landing on the discharge + 7 day that absorbs Week 1. Keeping the
+ * absorption out of these cases means a failure here is about the reason and nothing else.
+ */
+const MOVED_FIRST_CONTACT_DAY = "2026-03-05";
+
+/**
+ * The kind of sentence a coordinator really writes: it names a relative and a living arrangement.
+ * That is the whole argument for clearing it (Ruling 105), so the fixture has to look like it —
+ * a reason reading "coordinator decision" would let a clearance that missed the field pass every
+ * assertion below that greps for identifying content.
+ */
+const FIRST_CONTACT_REASON = "Patient asked to wait until she is home from her sister's.";
+
+let movedFirstContactSequence = 0;
+
+/**
+ * A plan whose first contact was MOVED, built through the repository like every other fixture here
+ * — including the referral and pathway version it names, which the Postgres schema requires as
+ * same-team foreign keys.
+ *
+ * Returns the raw `createPlan` result rather than unwrapping it, because the refusal cases below
+ * need to inspect it. Each call uses a fresh plan and patient, so a refused create leaves nothing
+ * behind for the next one to collide with.
+ */
+async function createPlanWithMovedFirstContact(
+  store: CaringContactRepository,
+  options: { reason?: string; firstContactDate?: string; actor?: Actor } = {},
+) {
+  movedFirstContactSequence += 1;
+  const suffix = String(movedFirstContactSequence);
+  const actor = options.actor ?? COORDINATOR_A;
+  const referral = referralId(`MOVED-REFERRAL-${suffix}`);
+  const pathway = `MOVED-PATHWAY-${suffix}`;
+  const patient = patientId(`MOVED-PATIENT-${suffix}`);
+  const plan = planId(`MOVED-PLAN-${suffix}`);
+
+  unwrap(
+    await store.createReferral({ referralId: referral, patientId: patient }, writeContext(actor, `moved-r-${suffix}`)),
+  );
+  unwrap(
+    await store.savePathwayVersion(
+      { version: draftPathwayVersion(actor, pathway) },
+      writeContext(actor, `moved-p-${suffix}`),
+    ),
+  );
+
+  const created = await store.createPlan(
+    {
+      planId: plan,
+      referralId: referral,
+      patientId: patient,
+      pathwayVersionId: pathwayVersionId(pathway),
+      dischargeAt: DISCHARGE_AT,
+      sendingPreference: "morning",
+      firstContactDate: options.firstContactDate ?? MOVED_FIRST_CONTACT_DAY,
+      firstContactReason: options.reason ?? FIRST_CONTACT_REASON,
+      patientDetail: PATIENT_DETAIL,
+      assurances: [...ASSURANCES],
+    },
+    writeContext(actor, `moved-create-${suffix}`),
+  );
+
+  return { planId: plan, created };
 }
 
 function createInput(overrides: Partial<CreatePlanInput> = {}): CreatePlanInput {
@@ -236,6 +341,7 @@ function createInput(overrides: Partial<CreatePlanInput> = {}): CreatePlanInput 
     dischargeAt: DISCHARGE_AT,
     sendingPreference: "morning",
     patientDetail: PATIENT_DETAIL,
+    assurances: [...ASSURANCES],
     ...overrides,
   };
 }
@@ -762,10 +868,20 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
       it("stores an absorbed contact as terminal, so it can never reach a dispatch list", async () => {
         const store = await newStore();
         await createPlanParents(store, COORDINATOR_A);
-        unwrap(
+        const created = unwrap(
           await store.createPlan(
             createInput({ firstContactDate: "2026-03-09", firstContactReason: "Patient asked to start later" }),
             writeContext(COORDINATOR_A, "key-create"),
+          ),
+        );
+        // Activated, so this case measures ABSORPTION and nothing else. It used to read the
+        // sendable list off a plan still in `draft`, which was only possible because that list had
+        // no plan gate (#PAMATF); the nine below would otherwise be nine messages offered for a
+        // plan nobody had started, which is the defect rather than the subject.
+        unwrap(
+          await store.activatePlan(
+            { planId: PLAN_ID, expectedVersion: created.plan.version },
+            writeContext(COORDINATOR_A, "key-activate-absorbed"),
           ),
         );
 
@@ -828,7 +944,116 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
 
         expect(outcome.record.plan.state).toBe("paused");
         expect(outcome.contactsCancelled).toBe(0);
-        expect(await store.listSendableContacts(PLAN_ID, { actor: COORDINATOR_A })).toHaveLength(10);
+
+        // NOTHING WAS CANCELLED, AND NOTHING IS SENDABLE. Those are two different facts and this
+        // case is the reason both have to be stated (#PAMATF).
+        //
+        // This assertion used to read `toHaveLength(10)`, because `listSendableContacts` filtered
+        // on the contact alone: a readmission pauses the plan WITHOUT touching its contacts, which
+        // is the whole point of a hold, so all ten stayed `scheduled` and the read went on offering
+        // them. It was pinning the defect. A paused plan sends nothing -- that is what pausing is.
+        //
+        // The hold's reversibility is still proven, by `listContacts` below: the ten contacts are
+        // all still there, all still `scheduled`, so resuming the plan restores them. A read that
+        // had cancelled them could not pass both assertions.
+        expect(await store.listSendableContacts(PLAN_ID, { actor: COORDINATOR_A })).toHaveLength(0);
+        const held = await store.listContacts(PLAN_ID, { actor: COORDINATOR_A });
+        expect(held).toHaveLength(10);
+        expect(held.every((entry) => entry.contact.state === "scheduled")).toBe(true);
+      });
+
+      it("keeps the read gate and the write gate agreeing on every plan state (Ruling [129A])", async () => {
+        // THE PRICE RULING [129] PREDICTED, PINNED RATHER THAN ACCEPTED.
+        //
+        // [129] declined to gate the read precisely because it would duplicate `requiresActivePlan`
+        // on the write -- "two places to keep in step where there is now one". #PAMATF overturned
+        // that with owner approval, which makes keeping them in step this suite's job. Nothing else
+        // enforces it: the load-time invariant in ./model ties `planSendingHold` to
+        // `TERMINAL_PLAN_STATES` only, and says nothing about the write.
+        //
+        // Stated as an equivalence over every reachable plan state, not as two separate lists, so
+        // the assertion is the agreement itself. Whichever gate a future change moves, this fails.
+        const store = await newStore();
+
+        // THE THREE STATES WHERE THE PLAN GATE IS WHAT DECIDES. The ended states are deliberately
+        // excluded: `withdrawPlan` and a recorded death run every unsent contact through `cancel`,
+        // so there is no `scheduled` contact left and BOTH gates refuse on the CONTACT rather than
+        // on the plan -- an agreement that would hold even if the plan gate were deleted. Including
+        // them would make this pass for the wrong reason. Their plan-side classification is pinned
+        // instead by the load-time invariant in ./model against `TERMINAL_PLAN_STATES`.
+        for (const target of ["draft", "active", "paused"] as const) {
+          const plan = await createActivePlan(store, { leaveAsDraft: true });
+          const id = plan.plan.id;
+          let version = plan.plan.version;
+
+          if (target !== "draft") {
+            version = unwrap(
+              await store.activatePlan(
+                { planId: id, expectedVersion: version },
+                writeContext(COORDINATOR_A, `gates-activate-${target}`),
+              ),
+            ).plan.version;
+          }
+          if (target === "paused") {
+            version = unwrap(
+              await store.pausePlan(
+                { planId: id, expectedVersion: version },
+                writeContext(COORDINATOR_A, "gates-pause"),
+              ),
+            ).plan.version;
+          }
+
+          // A contact to aim the write at, taken from the full list so a held plan still has one --
+          // `listSendableContacts` is the very thing under test and cannot be the source here.
+          const contacts = await store.listContacts(id, { actor: COORDINATOR_A });
+          const target_ = contacts.find((entry) => entry.contact.state === "scheduled");
+          if (!target_) throw new Error(`no scheduled contact for a ${target} plan`);
+
+          const readAdmits = (await store.listSendableContacts(id, { actor: COORDINATOR_A })).length > 0;
+          const write = await store.startContactDispatch(
+            { planId: id, contactId: target_.contact.id, expectedContactVersion: target_.contact.version },
+            writeContext(DISPATCHER_A, `gates-dispatch-${target}`),
+          );
+          const writeAdmits = write.ok || write.reason !== REPOSITORY_REFUSALS.contactDispatchRequiresActivePlan;
+
+          expect({ target, readAdmits, writeAdmits }).toEqual({ target, readAdmits: writeAdmits, writeAdmits });
+          // Positive control on the pair: `active` must be the state where BOTH admit, so an
+          // implementation that refused everywhere would agree with itself and still fail here.
+          expect({ target, readAdmits }).toEqual({ target, readAdmits: target === "active" });
+        }
+      });
+
+      it("offers nothing sendable until a plan is started, and again once it is (#PAMATF)", async () => {
+        // Contacts are written `scheduled` at CREATION -- the schedule is built when the plan is,
+        // not when it is activated -- and no plan lifecycle write touches them. So a read keyed on
+        // the contact alone announced a plan nobody had started as ten messages about to go out.
+        //
+        // Not a live send hole: both stores already refuse to OPEN a dispatch on a non-active plan.
+        // It is the read a dispatcher will trust that was wrong, and Ruling [129] said to fix the
+        // name or the gate before anything was built that dispatches.
+        const store = await newStore();
+        const draft = await createActivePlan(store, { leaveAsDraft: true });
+
+        // Positive control: the contacts really are there and really are `scheduled`, so the empty
+        // list below is the plan gate acting rather than the schedule never having been built.
+        const plannedWhileDraft = await store.listContacts(draft.plan.id, { actor: COORDINATOR_A });
+        expect(plannedWhileDraft.length).toBeGreaterThan(0);
+        expect(plannedWhileDraft.every((entry) => entry.contact.state === "scheduled")).toBe(true);
+
+        expect(draft.plan.state).toBe("draft");
+        expect(await store.listSendableContacts(draft.plan.id, { actor: COORDINATOR_A })).toEqual([]);
+
+        unwrap(
+          await store.activatePlan(
+            { planId: draft.plan.id, expectedVersion: draft.plan.version },
+            writeContext(COORDINATOR_A, "pamatf-activate"),
+          ),
+        );
+
+        // And the gate opens, so it is a gate rather than a blanket refusal.
+        expect((await store.listSendableContacts(draft.plan.id, { actor: COORDINATOR_A })).length).toBe(
+          plannedWhileDraft.length,
+        );
       });
 
       it("records a death as a hospital status event, not as a service safety stop", async () => {
@@ -1595,6 +1820,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
               dischargeAt: DISCHARGE_AT,
               sendingPreference: "morning",
               patientDetail: PATIENT_DETAIL,
+              assurances: [...ASSURANCES],
             },
             writeContext(COORDINATOR_A, "late-create"),
           ),
@@ -2193,6 +2419,47 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         const third = await store.getPathwayVersion(version.id, { actor: COORDINATOR_A });
         expect(third?.snapshot.messageTextByType.standard).toBe("Checking in.");
       });
+
+      it("round-trips a snapshot's provenance, which says the approvals were given by nobody", async () => {
+        // Ruling [126]. `snapshot.provenance` is what lets a screen qualify "Approved by the
+        // clinical programme lead and the lived-experience representative" for a version whose
+        // approvals are structurally genuine and were recorded by no person. A store that drops it
+        // does not fail loudly: the record comes back looking like an ordinary approved version,
+        // and the qualifier simply stops appearing.
+        //
+        // It belongs in the SHARED contract for the reason `clonePathwayVersion`'s own note gives
+        // for this helper existing -- "the two stores came to differ on the one type carrying
+        // clinical content". This field is that type, and the in-memory store did drop it once
+        // already: its snapshot copy enumerated the fields it knew about, so a field the type had
+        // gained disappeared on the way out while every existing case stayed green. Postgres
+        // round-trips the snapshot through `jsonb` and so carries it for free; the value of the case
+        // is that the NEXT enumerating copy is caught in both stores rather than in neither.
+        const store = await newStore();
+        const version = {
+          ...draftPathwayVersion(COORDINATOR_A, "EXT-PATHWAY-PROVENANCE"),
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "This is our last message." },
+            provenance: "syntheticDemonstration" as const,
+          },
+        };
+        unwrap(await store.savePathwayVersion({ version }, writeContext(COORDINATOR_A, "provenance-save")));
+
+        const fetched = await store.getPathwayVersion(version.id, { actor: COORDINATOR_A });
+        expect(fetched?.snapshot.provenance).toBe("syntheticDemonstration");
+
+        const listed = (await store.listPathwayVersions({ actor: COORDINATOR_A })).find(
+          (candidate) => candidate.id === version.id,
+        );
+        expect(listed?.snapshot.provenance).toBe("syntheticDemonstration");
+
+        // And a version that claims nothing must still claim nothing -- the marker is not something
+        // a store may add on a caller's behalf either.
+        const plain = draftPathwayVersion(COORDINATOR_A, "EXT-PATHWAY-NO-PROVENANCE");
+        unwrap(await store.savePathwayVersion({ version: plain }, writeContext(COORDINATOR_A, "no-provenance-save")));
+        const plainFetched = await store.getPathwayVersion(plain.id, { actor: COORDINATOR_A });
+        expect(plainFetched?.snapshot.provenance).toBeUndefined();
+      });
     });
 
     // -------------------------------------------------------------------------
@@ -2589,6 +2856,371 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
     // -------------------------------------------------------------------------
     // Clearing an episode's identifying detail
     // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // The reason a first contact was moved (Ruling 105)
+    //
+    // `buildApprovedSchedule` refuses any first-contact date other than discharge + 1 unless a
+    // non-blank reason is given, and until this task it threw the string away: the system demanded
+    // a reason, refused without one, and kept nothing. These cases pin where the stored reason may
+    // and may not travel, and both stores run all of them.
+    // -------------------------------------------------------------------------
+    describe("the reason a first contact was moved", () => {
+      it("keeps the reason and releases it through the one read that releases patient detail", async () => {
+        const store = await newStore();
+        const { planId: moved } = await createPlanWithMovedFirstContact(store);
+
+        const episode = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        expect(episode?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+
+        // Positive control on the fixture itself: the date really did move, so the reason above is
+        // a stored reason for a real move rather than a string kept for a plan on the usual day.
+        const contacts = await store.listContacts(moved, { actor: COORDINATOR_A });
+        const first = contacts.find((stored) => stored.planned.messageType === "first");
+        expect(first?.planned.calendarDay).toBe(MOVED_FIRST_CONTACT_DAY);
+      });
+
+      it("holds no reason for a plan whose first contact is on the programme's usual day", async () => {
+        // Null rather than an empty string, and never the string a caller may have sent anyway: a
+        // reason is required only when the date moves, so a plan on the usual day is not missing
+        // one. Storing free text nothing accounts for is the failure this case pins.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(
+          await store.createPlan(
+            createInput({ firstContactReason: "Sent although no move was requested" }),
+            writeContext(COORDINATOR_A, "usual-day-create"),
+          ),
+        );
+
+        const episode = await store.getEpisode(PLAN_ID, { actor: TEAM_LEAD_A });
+        expect(episode?.firstContactReason).toBeNull();
+        expect(JSON.stringify(episode)).not.toContain("no move was requested");
+      });
+
+      it("stores the reason trimmed, exactly as the schedule accepted it", async () => {
+        const store = await newStore();
+        const { planId: moved } = await createPlanWithMovedFirstContact(store, {
+          reason: `  ${FIRST_CONTACT_REASON}\n`,
+        });
+
+        const episode = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        expect(episode?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+      });
+
+      it("never puts the reason on a plan record, which is what a caseload lists", async () => {
+        // The reason is a clinical note keyed to one patient. `listPlans` is rendered for every
+        // patient in the team, and `PlanRecord` is what it returns -- so the reason must not be
+        // reachable there, whether or not any screen reads it today.
+        const store = await newStore();
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store);
+        const record = unwrap(created);
+
+        const fetched = await store.getPlan(moved, { actor: COORDINATOR_A });
+        const listed = await store.listPlans({ actor: COORDINATOR_A });
+        const names = await store.listPatientNames({ actor: COORDINATOR_A });
+
+        // POSITIVE CONTROLS, AND THIS CASE HAD NONE (found in Task 9b's fix round 2, same family as
+        // the M6 finding one section down). Every assertion below is an ABSENCE, so four empty reads
+        // satisfied all of them: a store that returned null, null, [] and [] passed a case whose
+        // name promises the reason is kept off a caseload. It guards a real retention obligation, so
+        // it must first prove the reads carry something.
+        //
+        // Two controls, because they fail differently. The first proves the REASON exists at all --
+        // without it the whole case is vacuous against a store that never stored one. The second
+        // proves each of the four reads actually returned this plan, so an emptied read is a red
+        // rather than a pass. Every one of the four carries the plan id, including the names
+        // projection, which is what makes one loop enough.
+        expect((await store.getEpisode(moved, { actor: TEAM_LEAD_A }))?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+
+        for (const released of [record, fetched, listed, names]) {
+          expect(JSON.stringify(released)).toContain(moved);
+          expect(JSON.stringify(released)).not.toContain("sister");
+          expect(JSON.stringify(released)).not.toContain("firstContactReason");
+        }
+      });
+
+      it("is as unobtainable to another team as the plan itself", async () => {
+        const store = await newStore();
+        const { planId: moved } = await createPlanWithMovedFirstContact(store);
+
+        // Positive control first: the reason IS released to an actor of the owning team, so the
+        // null below is the team scoping and not the field being absent everywhere.
+        expect((await store.getEpisode(moved, { actor: TEAM_LEAD_A }))?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+
+        expect(await store.getEpisode(moved, { actor: COORDINATOR_B })).toBeNull();
+        expect(await store.listPlans({ actor: COORDINATOR_B })).toEqual([]);
+      });
+
+      it("refuses a reason past the cap by name, and stores no plan at all (Ruling 106)", async () => {
+        // Refused, never truncated: a clinical reason cut off mid-sentence can invert its meaning,
+        // and nothing in the record would show that it had happened.
+        const store = await newStore();
+        const overLong = "x".repeat(FIRST_CONTACT_REASON_MAX_LENGTH + 1);
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store, { reason: overLong });
+
+        expect(created).toEqual({ ok: false, reason: "first-contact-reason-too-long" });
+        expect(await store.getPlan(moved, { actor: COORDINATOR_A })).toBeNull();
+      });
+
+      it("accepts a reason exactly at the cap, so the refusal above is the boundary and not the rule", async () => {
+        const store = await newStore();
+        const atCap = "y".repeat(FIRST_CONTACT_REASON_MAX_LENGTH);
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store, { reason: atCap });
+
+        unwrap(created);
+        expect((await store.getEpisode(moved, { actor: TEAM_LEAD_A }))?.firstContactReason).toBe(atCap);
+      });
+
+      it("still refuses a moved first contact with no reason at all, unchanged", async () => {
+        const store = await newStore();
+        const { created } = await createPlanWithMovedFirstContact(store, { reason: "   " });
+        expect(created).toEqual({ ok: false, reason: "first-contact-reason-required" });
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // The attestation that a check happened (Ruling [122])
+    //
+    // Stage 1 asks a coordinator to confirm the patient agreed and that the mobile is the
+    // patient's own. Until now neither could be stored, so an activated plan carried no evidence
+    // that anyone had confirmed anything. These cases pin WHAT is recorded, and -- the case this
+    // section exists for -- that a retention clearance leaves it alone while still clearing
+    // everything it is supposed to.
+    //
+    // What is recorded is that a coordinator confirmed a check: who, what, when. It is not a
+    // consent record and no assertion here may be written as though it were; agreement lives in
+    // the patient's hospital record, and this system is not connected to it.
+    // -------------------------------------------------------------------------
+    /**
+     * `PlanRecord.createdAt` -- the observed instant a plan became free for a coordinator to take
+     * (Group 4 review MAJOR-1, owner-approved 2026-08-28).
+     *
+     * IT IS HELD IN THE SHARED CONTRACT rather than in either store's own suite because the
+     * unclaimed-work escalation measures a safety queue age from it, and a store that answered from
+     * a different clock -- the Postgres column defaults to the database's `now()`, not this
+     * repository's -- would give the same roster two different answers about how late work is.
+     */
+    describe("the instant a plan became free for a coordinator to take", () => {
+      it("releases the plan's own creation instant, from the domain clock and not the discharge", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "created-at-1")));
+
+        expect(created.createdAt).toEqual(new Date(NOW));
+        // The positive control for the assertion above, and the one that matters: the fixture's
+        // discharge is a DIFFERENT instant from the fixture's clock, so a store that answered this
+        // field from `discharge_at` -- which is what the escalation used to measure from -- could
+        // not pass. Stated as an inequality rather than assumed from two constants.
+        expect(created.dischargeAt).not.toEqual(created.createdAt);
+        expect(created.createdAt).not.toEqual(DISCHARGE_AT);
+
+        // And it survives every read the roster is built from, not only the write's own answer.
+        const listed = await store.listPlans({ actor: COORDINATOR_A });
+        expect(listed.map((record) => record.createdAt)).toEqual([new Date(NOW)]);
+        const fetched = await store.getPlan(PLAN_ID, { actor: COORDINATOR_A });
+        expect(fetched?.createdAt).toEqual(new Date(NOW));
+      });
+
+      it("is not patient content, so a retention clearance leaves it alone", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        // Positive control: the instant is there to survive.
+        expect(plan.createdAt).toEqual(new Date(NOW));
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "created-at-withdraw"),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "created-at-clear")),
+        );
+
+        // The same class as an attestation and an audit event: an instant, with no patient content
+        // in it. De-identification keeps those and removes the fields that identify a person.
+        const after = await store.getPlan(plan.plan.id, { actor: COORDINATOR_A });
+        expect(after?.createdAt).toEqual(new Date(NOW));
+      });
+    });
+
+    describe("the attestation that a check happened", () => {
+      it("records who confirmed, what they confirmed, and when", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-create")));
+
+        expect(created.assuranceAttestations).toEqual([
+          {
+            assurance: PLAN_ASSURANCES.patientAgreementConfirmed,
+            actorId: COORDINATOR_A.id,
+            attestedAt: new Date(NOW),
+          },
+          {
+            assurance: PLAN_ASSURANCES.patientControlsMobileConfirmed,
+            actorId: COORDINATOR_A.id,
+            attestedAt: new Date(NOW),
+          },
+        ]);
+      });
+
+      it("holds nothing beyond the act, its actor and its instant", async () => {
+        // The guard against the field this structure must not gain. A note on WHAT was checked
+        // would name patients, relatives and places -- and the clearing rule two cases below would
+        // have to flip for it. A shape assertion here is what makes that a decision somebody takes
+        // rather than one they inherit.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-shape")));
+
+        for (const attestation of created.assuranceAttestations) {
+          expect(Object.keys(attestation).sort()).toEqual(["actorId", "assurance", "attestedAt"]);
+        }
+      });
+
+      it("reads back through getPlan and through the caseload list alike", async () => {
+        // Two reads, because the Postgres store fetches them by two different queries: one keyed on
+        // the plan and one grouped across every plan in the team. A grouping bug would leave
+        // `getPlan` right and the caseload wrong, and only this case would see it.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-read")));
+
+        // CONTENT FIRST, THEN AGREEMENT -- and that order is a mutation finding rather than a
+        // preference. The first version asserted only that the three reads matched each other, so a
+        // mutation emptying `toPlanRecord` for every read left it GREEN: three empty lists agree
+        // perfectly. An assertion that only compares reads to one another cannot see a fault they
+        // share. Each read is now held to the attestations the plan actually carries, and the
+        // agreement assertion sits on top of that.
+        const expected = ASSURANCES.length;
+
+        const fetched = await store.getPlan(PLAN_ID, { actor: COORDINATOR_A });
+        expect(fetched?.assuranceAttestations).toHaveLength(expected);
+        expect(fetched?.assuranceAttestations).toEqual(created.assuranceAttestations);
+
+        const listed = await store.listPlans({ actor: COORDINATOR_A });
+        const fromList = listed.find((record) => record.plan.id === PLAN_ID)?.assuranceAttestations;
+        expect(fromList).toHaveLength(expected);
+        expect(fromList).toEqual(created.assuranceAttestations);
+      });
+
+      it("refuses a plan that would carry no attestation, and stores no plan at all", async () => {
+        // Refused rather than accepted-and-empty. A plan holding an empty list is indistinguishable
+        // afterwards from one created before attestations existed, and this is the write that
+        // decides which of those a new plan is.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = await store.createPlan(
+          createInput({ assurances: [] }),
+          writeContext(COORDINATOR_A, "att-empty"),
+        );
+
+        expect(created).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.planAssurancesRequired });
+        expect(await store.getPlan(PLAN_ID, { actor: COORDINATOR_A })).toBeNull();
+      });
+
+      it("refuses a repeated assurance by name, so one check cannot be recorded as two", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = await store.createPlan(
+          createInput({
+            assurances: [PLAN_ASSURANCES.patientAgreementConfirmed, PLAN_ASSURANCES.patientAgreementConfirmed],
+          }),
+          writeContext(COORDINATOR_A, "att-repeat"),
+        );
+
+        expect(created).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.planAssuranceRepeated });
+        expect(await store.getPlan(PLAN_ID, { actor: COORDINATOR_A })).toBeNull();
+      });
+
+      it("is as unobtainable to another team as the plan itself", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-scope")));
+
+        // Positive control: the owning team's actor does get it, so the emptiness below is the team
+        // scoping rather than the attestation being absent everywhere.
+        expect((await store.getPlan(PLAN_ID, { actor: COORDINATOR_A }))?.assuranceAttestations).toHaveLength(
+          ASSURANCES.length,
+        );
+
+        expect(await store.getPlan(PLAN_ID, { actor: COORDINATOR_B })).toBeNull();
+        expect(await store.listPlans({ actor: COORDINATOR_B })).toEqual([]);
+      });
+
+      it("survives a retention clearance, which must not remove evidence that a check happened", async () => {
+        // RULING [122], AND IT INVERTS RULING [105]. That ruling clears the first-contact reason
+        // because it is prose a clinician typed about a patient. Judge an attestation the same way
+        // -- by what it CONTAINS -- and the answer comes out the other way: a closed value, an
+        // actor and an instant, no patient content at all. It is the same class as an audit event,
+        // which de-identification deliberately preserves. Clearing it would destroy the evidence
+        // that a check happened while keeping the plan it belongs to.
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const before = plan.assuranceAttestations;
+        expect(before).toHaveLength(ASSURANCES.length);
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, `att-withdraw-${plan.plan.id}`),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared(
+            { planId: plan.plan.id },
+            writeContext(COORDINATOR_A, `att-clear-${plan.plan.id}`),
+          ),
+        );
+
+        const after = await store.getPlan(plan.plan.id, { actor: COORDINATOR_A });
+        expect(after?.assuranceAttestations).toEqual(before);
+      });
+
+      it("does not stop that clearance removing what it is supposed to remove", async () => {
+        // THE OTHER HALF, AND IT IS NOT REDUNDANT. The case above passes just as well against a
+        // clearance that has stopped working entirely -- an attestation left alone by a write that
+        // does nothing looks exactly like one left alone on purpose. This case is what tells those
+        // two apart, on the same shape of plan and the same shape of run.
+        const store = await newStore();
+        // A cultural identity is SET on purpose. The shared fixture leaves it null, so the cleared
+        // assertion on it below would have been null before and null after -- an assertion whose
+        // only possible outcome is green, in the one place where proof is the point.
+        const plan = await createActivePlan(store, { culturalIdentity: "Noongar" });
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, `att-both-withdraw-${plan.plan.id}`),
+          ),
+        );
+
+        // Positive control on EVERY field the clearance is asserted to empty, not only the name:
+        // each must be held right up until the clearance, or its emptiness afterwards proves
+        // nothing about the clearance.
+        const before = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(before?.patientName).toBe("Jordan Nguyen");
+        expect(before?.patientMobileNumber).not.toBe("");
+        expect(before?.patientIdentifiers).not.toEqual([]);
+        expect(before?.culturalIdentity).toBe("Noongar");
+        expect(before?.preferredName).toBe("Jordy");
+
+        unwrap(
+          await store.markRetentionCleared(
+            { planId: plan.plan.id },
+            writeContext(COORDINATOR_A, `att-both-clear-${plan.plan.id}`),
+          ),
+        );
+
+        const episode = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(episode?.patientName).toBe("");
+        expect(episode?.patientMobileNumber).toBe("");
+        expect(episode?.patientIdentifiers).toEqual([]);
+        expect(episode?.culturalIdentity).toBeNull();
+        expect(episode?.preferredName).toBe("");
+      });
+    });
+
     describe("markRetentionCleared", () => {
       it("marks a plan cleared, refuses an unknown plan, and refuses a role without the grant", async () => {
         const store = await newStore();
@@ -2656,6 +3288,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(before?.patientName).toBe(PATIENT_DETAIL.patientName);
         expect(before?.patientMobileNumber).toBe(PATIENT_DETAIL.patientMobileNumber);
         expect(before?.patientIdentifiers).toEqual([...PATIENT_DETAIL.patientIdentifiers]);
+        expect(before?.preferredName).toBe(PATIENT_DETAIL.preferredName);
 
         unwrap(await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-deid")));
 
@@ -2672,9 +3305,114 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(after?.patientMobileNumber).toBe("");
         expect(after?.patientIdentifiers).toEqual([]);
         expect(after?.culturalIdentity).toBeNull();
+        // The name the patient asked to be called goes too (2026-08-26). It is Ruling [105]'s class
+        // rather than Ruling [122]'s: the attestation is preserved because it holds no patient
+        // content, and this holds nothing else. It clears to `""` rather than null, matching
+        // `patientName`, so a REMOVED preferred name stays distinguishable from an episode that
+        // never held one -- which is null and is what every plan predating the column carries.
+        expect(after?.preferredName).toBe("");
+        expect(JSON.stringify(after)).not.toContain("Jordy");
         expect(JSON.stringify(after)).not.toContain("Jordan");
         expect(JSON.stringify(after)).not.toContain("491 570 156");
         expect(JSON.stringify(after)).not.toContain("UR-00219384");
+      });
+
+      it("carries the clearance instant on the episode, so no screen has to infer it (#J7PZQP)", async () => {
+        // The clearance instant was already recorded by both stores -- the in-memory map and the
+        // `retention_state` row -- and read back by nothing. So the patient overview decided a
+        // clearance had happened from `patientName === ""`, and told a clinician so in as many
+        // words: that a reason was given, that a clearance removed it, and that the removal is
+        // irreversible.
+        //
+        // That inference rested entirely on `z.string().min(1)` in the plans API route. The column
+        // is `not null` with NO CHECK against the empty string, and neither store's `createPlan`
+        // validates a non-blank name, so `''` is a legal stored value that means two things at
+        // once. Carrying the fact directly is what makes the sentinel stop being load-bearing.
+        //
+        // Pinned in the SHARED suite because the two stores hold it in completely different places
+        // and only an external assertion catches one of them forgetting.
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-instant-withdraw"),
+          ),
+        );
+
+        // An episode that has ENDED but has not been cleared carries no instant. Without this the
+        // assertion below could pass on a store that returned the completion instant, or any
+        // non-null date, for every ended episode.
+        const beforeClearance = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(beforeClearance?.planDates.completedAt).not.toBeNull();
+        expect(beforeClearance?.patientDetailClearedAt).toBeNull();
+
+        unwrap(await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-instant")));
+
+        const afterClearance = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(afterClearance?.patientDetailClearedAt).toBeInstanceOf(Date);
+        expect(Number.isNaN(afterClearance?.patientDetailClearedAt?.getTime())).toBe(false);
+
+        // And it is a fact in its own right, not a restatement of the blank name: an episode that
+        // was never cleared reports null even though this suite's clock and fixtures are otherwise
+        // identical.
+        const untouched = await createActivePlan(store);
+        expect((await store.getEpisode(untouched.plan.id, { actor: TEAM_LEAD_A }))?.patientDetailClearedAt).toBeNull();
+      });
+
+      it("clears the reason a first contact was moved, which is free text a clinician wrote", async () => {
+        // Ruling 105, and the point of that ruling most likely to be missed. The reason is not on
+        // ../retention's list of identifying fields -- that list names name, mobile number,
+        // identifiers and cultural identity -- but a real one reads "patient asked to wait until
+        // she is home from her sister's", which is patient-identifying content in every practical
+        // sense. `CLEARED_PATIENT_DETAIL` blanks a fixed set of fields, so a fifth one added
+        // anywhere else would survive a clearance and leave identifying prose in a record the
+        // system reports as de-identified.
+        //
+        // Pinned HERE, in the shared suite, rather than in either store's own file: the in-memory
+        // store clears by spreading the whole constant and so gained this for free, while the
+        // Postgres store names its columns in SQL and had to be told. A test living with the
+        // in-memory store would have proved nothing about the one that could forget.
+        const store = await newStore();
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store);
+        const record = unwrap(created);
+
+        const activated = unwrap(
+          await store.activatePlan(
+            { planId: moved, expectedVersion: record.plan.version },
+            writeContext(COORDINATOR_A, "moved-clear-activate"),
+          ),
+        );
+        unwrap(
+          await store.withdrawPlan(
+            { planId: moved, expectedVersion: activated.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "moved-clear-withdraw"),
+          ),
+        );
+
+        // Positive control: the reason is genuinely held right up to the clearance, so its absence
+        // afterwards is this write acting rather than the fixture never having stored it.
+        const before = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        expect(before?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+        expect(JSON.stringify(before)).toContain("sister");
+
+        unwrap(await store.markRetentionCleared({ planId: moved }, writeContext(COORDINATOR_A, "moved-clear")));
+
+        const after = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        // The episode survives -- de-identification keeps what aggregate reporting needs. It is the
+        // identifying content that is gone, and the reason is part of that content.
+        expect(after).not.toBeNull();
+        expect(after?.state).toBe("withdrawn");
+        expect(after?.firstContactReason).toBeNull();
+        expect(JSON.stringify(after)).not.toContain("sister");
+
+        // The moved DATE is deliberately untouched. It is not identifying, it is the first
+        // contact's own calendar day rather than a second copy of anything, and an aggregate report
+        // of when plans started must still be able to see it.
+        const contacts = await store.listContacts(moved, { actor: COORDINATOR_A });
+        expect(contacts.find((stored) => stored.planned.messageType === "first")?.planned.calendarDay).toBe(
+          MOVED_FIRST_CONTACT_DAY,
+        );
       });
 
       it("clears the cultural-identity report too, which lives outside the plan row", async () => {
@@ -2709,6 +3447,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
               dischargeAt: DISCHARGE_AT,
               sendingPreference: "morning",
               patientDetail: { ...PATIENT_DETAIL, culturalIdentity: "Noongar" },
+              assurances: [...ASSURANCES],
             },
             writeContext(COORDINATOR_A, "cul-create"),
           ),
@@ -2743,6 +3482,164 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           writeContext(COORDINATOR_A, "mrc-4"),
         );
         expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.serviceStopped });
+      });
+
+      /**
+       * The handover note a coordinator writes when a plan moves (Ruling [139] MAJOR-4, owner
+       * decision 1 of 2026-08-27: delete it with the patient, do not narrow what coordinators may
+       * write).
+       *
+       * WHAT GOES AND WHAT STAYS, and the split is the same one de-identification makes everywhere
+       * else in this domain: the free text goes, the RECORD OF THE ACT stays. `deidentifyAuditEvent`
+       * keeps actor, action, timestamp and object type and drops the rest; a reassignment entry is
+       * the same shape -- who handed over, to whom, and when -- with one free-text field a clinician
+       * typed. Clearing the entry outright would destroy spec 4.3's "any formal reassignment still
+       * visible" while the plan it belongs to survives, which is the opposite of what retention is
+       * for. So the reason clears to `''` and the three facts beside it are untouched.
+       */
+      it("clears the handover note a coordinator wrote when the plan moved, and keeps the handover itself", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const handover =
+          "Moving this to the team lead: her sister is staying at the house and asked to be the contact.";
+
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "claim", actorId: COORDINATOR_A.id } },
+            writeContext(COORDINATOR_A, "mrc-note-claim"),
+          ),
+        );
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "reassign", toActorId: TEAM_LEAD_A.id, reason: handover } },
+            writeContext(TEAM_LEAD_A, "mrc-note-reassign"),
+          ),
+        );
+
+        // The positive control: the note is genuinely held before the clearance runs, so the
+        // absence below is this write removing it rather than the fixture never having stored it.
+        const before = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(before?.reassignmentHistory.map((entry) => entry.reason)).toEqual([handover]);
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-note-withdraw"),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-note-clear")),
+        );
+
+        const after = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(after?.reassignmentHistory).toHaveLength(1);
+        expect(after?.reassignmentHistory[0].reason).toBe("");
+        expect(after?.reassignmentHistory[0].fromActorId).toBe(COORDINATOR_A.id);
+        expect(after?.reassignmentHistory[0].toActorId).toBe(TEAM_LEAD_A.id);
+        expect(JSON.stringify(after)).not.toContain("sister");
+      });
+
+      /**
+       * The SECOND home of that same note, and the one the whole-branch review found: every write's
+       * verbatim result payload is kept for replay, so clearing `plan_reassignments` alone leaves a
+       * byte-identical copy in the replay record.
+       *
+       * REDACTED, NOT DELETED, and the direction matters. Deleting the row would return the key to
+       * unused, so an identical retry would EXECUTE THE WRITE A SECOND TIME -- a destroyed
+       * idempotency guarantee on a clinical write, which is a worse failure than a retained note.
+       * The row therefore stays, the key stays consumed, and only the stored answer is replaced by a
+       * named refusal. Both halves are asserted below.
+       */
+      it("clears the same note from the replay record, and the key stays consumed", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const handover = "Handing over: he is back at his mother's place in Bunbury for a fortnight.";
+        const reassign = {
+          planId: plan.plan.id,
+          action: { type: "reassign" as const, toActorId: TEAM_LEAD_A.id, reason: handover },
+        };
+
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "claim", actorId: COORDINATOR_A.id } },
+            writeContext(COORDINATOR_A, "mrc-replay-claim"),
+          ),
+        );
+        unwrap(await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-replay-reassign")));
+
+        // The positive control, and it is the leak stated as behaviour: replaying the key hands the
+        // note straight back out of the replay record.
+        const replayBefore = await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-replay-reassign"));
+        expect(JSON.stringify(replayBefore)).toContain("Bunbury");
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-replay-withdraw"),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-replay-clear")),
+        );
+
+        const replayAfter = await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-replay-reassign"));
+        expect(replayAfter).toEqual({
+          ok: false,
+          reason: REPOSITORY_REFUSALS.idempotentResultClearedByRetention,
+        });
+      });
+
+      /**
+       * The guarantee the redaction exists to preserve, and it is a SEPARATE CASE for a reason
+       * found by mutating.
+       *
+       * It began as a second assertion at the end of the case above. Replacing the redaction with a
+       * `delete` -- the exact mistake this whole design decision is about -- made the refusal
+       * assertion above it fail first, so the assertion that actually proves the write did not run
+       * twice was never reached and was therefore never proven at all. Split, both are reached: one
+       * says what a replay ANSWERS, the other says what a replay DOES.
+       */
+      it("does not free the key: a replay after a clearance still runs no second write", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const reassign = {
+          planId: plan.plan.id,
+          action: {
+            type: "reassign" as const,
+            toActorId: TEAM_LEAD_A.id,
+            reason: "Handing over while he is at his mother's place for a fortnight.",
+          },
+        };
+
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "claim", actorId: COORDINATOR_A.id } },
+            writeContext(COORDINATOR_A, "mrc-key-claim"),
+          ),
+        );
+        unwrap(await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-key-reassign")));
+
+        // The positive control: one handover has happened, so the length below is a number that
+        // could move rather than a list that was always empty.
+        const before = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(before?.reassignmentHistory).toHaveLength(1);
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-key-withdraw"),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-key-clear")),
+        );
+
+        // The replay's ANSWER is deliberately not asserted here -- that is the case above. What is
+        // asserted is that the write did not happen a second time.
+        await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-key-reassign"));
+
+        const after = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(after?.reassignmentHistory).toHaveLength(1);
       });
     });
 

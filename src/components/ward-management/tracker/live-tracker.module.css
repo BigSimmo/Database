@@ -4,6 +4,7 @@
  * (see `officer.module.css`'s own note on the same convention).
  */
 .screen {
+  composes: descendantKill from "../ward-reduced-motion.module.css";
   --tr-space-4: 0.25rem;
   --tr-space-6: 0.375rem;
   --tr-space-8: 0.5rem;
@@ -197,12 +198,6 @@
   color: var(--text-heading);
   font-size: var(--text-xs);
   font-weight: 700;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .screen * {
-    transition: none !important;
-  }
 }
 
 /*

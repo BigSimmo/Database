@@ -14,7 +14,7 @@ import {
 } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
-  console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
+  console.error(`PsychSift local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
   process.exit(1);
 }
 
@@ -256,9 +256,7 @@ async function main() {
 
   if (existingPort) {
     if (await waitForProject(existingPort)) {
-      console.log(
-        printUrlOnly ? localUrl(existingPort) : `Clinical KB is already running at ${localUrl(existingPort)}`,
-      );
+      console.log(printUrlOnly ? localUrl(existingPort) : `PsychSift is already running at ${localUrl(existingPort)}`);
       return 0;
     }
   }
@@ -271,9 +269,7 @@ async function main() {
 
     if (lockedExistingPort && (await waitForProject(lockedExistingPort))) {
       console.log(
-        printUrlOnly
-          ? localUrl(lockedExistingPort)
-          : `Clinical KB is already running at ${localUrl(lockedExistingPort)}`,
+        printUrlOnly ? localUrl(lockedExistingPort) : `PsychSift is already running at ${localUrl(lockedExistingPort)}`,
       );
       return 0;
     }
@@ -283,28 +279,26 @@ async function main() {
 
     if (target.alreadyRunning) {
       if (await waitForProject(target.port)) {
-        console.log(
-          printUrlOnly ? localUrl(target.port) : `Clinical KB is already running at ${localUrl(target.port)}`,
-        );
+        console.log(printUrlOnly ? localUrl(target.port) : `PsychSift is already running at ${localUrl(target.port)}`);
         return 0;
       }
     }
 
     if (target.port !== stablePort && !printUrlOnly) {
       console.log(
-        `Stable project port ${stablePort} is serving another local project; starting Clinical KB at ${localUrl(target.port)}`,
+        `Stable project port ${stablePort} is serving another local project; starting PsychSift at ${localUrl(target.port)}`,
       );
     }
 
     startDevServer(target.port);
 
     if (await waitForProject(target.port)) {
-      console.log(printUrlOnly ? localUrl(target.port) : `Clinical KB is running at ${localUrl(target.port)}`);
+      console.log(printUrlOnly ? localUrl(target.port) : `PsychSift is running at ${localUrl(target.port)}`);
       if (!printUrlOnly) console.log(`Server log: ${logPath}`);
       return 0;
     }
 
-    console.error(`Clinical KB did not become ready at ${localUrl(target.port)}. Check ${logPath}`);
+    console.error(`PsychSift did not become ready at ${localUrl(target.port)}. Check ${logPath}`);
     return 1;
   } finally {
     releaseStartupLock();

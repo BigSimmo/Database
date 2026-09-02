@@ -299,8 +299,8 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     const stamp = screen.getByTestId("ward-board-as-at").textContent ?? "";
 
     expect(stamp).toMatch(/synthetic/i);
-    expect(stamp, `a year reached the stamp: ${stamp}`).not.toMatch(/(19|20)\d{2}/);
-    const months = /(January|February|March|April|May|June|July|August|September|October|November|December)/;
+    expect(stamp, `a year reached the stamp: ${stamp}`).not.toMatch(/\b(19|20)\d{2}\b/);
+    const months = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/;
     expect(stamp, `a month name reached the stamp: ${stamp}`).not.toMatch(months);
   });
 

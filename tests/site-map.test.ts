@@ -147,6 +147,20 @@ describe("tracked sitemap", () => {
     }
   });
 
+  it("describes Dictionary Sources as the query-preserving Sources compatibility redirect", async () => {
+    const data = collectSiteMapData();
+    const rendered = await renderSiteMap(data);
+
+    expect(data.redirects).toContainEqual({
+      route: "/dictionary/sources",
+      file: "src/app/(search-app)/dictionary/sources/page.tsx",
+      target: "/sources?usedBy=dictionary",
+    });
+    expect(rendered).toContain(
+      "`/dictionary/sources` - Query-preserving compatibility redirect to `/sources?usedBy=dictionary`",
+    );
+  });
+
   it("documents seeded dynamic slugs", () => {
     for (const service of serviceRecords) expectDocumentedRoute(service.slug);
     for (const form of formRecords) expectDocumentedRoute(form.slug);

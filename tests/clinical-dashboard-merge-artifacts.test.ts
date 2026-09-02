@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
+import { readPrimitiveRecipeSources } from "../scripts/design-system-contract-utils.mjs";
+
 // The dashboard render surfaces are progressively being extracted from the
 // monolith into src/components/clinical-dashboard/*. Scan every file that now
 // owns a pinned declaration so the guards travel with the code and the
@@ -39,7 +41,7 @@ const dashboardChromeCoordinatorSource = readFileSync(
 );
 const documentViewerSource = readFileSync(resolve(process.cwd(), "src/components/DocumentViewer.tsx"), "utf8");
 const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
-const uiPrimitivesSource = readFileSync(resolve(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
+const uiPrimitivesSource = readPrimitiveRecipeSources();
 const differentialsHomeSource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/differentials-home.tsx"),
   "utf8",

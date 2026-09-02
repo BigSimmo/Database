@@ -86,6 +86,8 @@ export function normalizeRecord(record: MedicationRecord): MedicationRecord {
     class: record.class?.trim() ?? "",
     subclass: record.subclass?.trim() ?? "",
     category: record.category?.trim() ?? "",
+    // Per-record user colour (Postgres medications.accent default). Stored as a
+    // hex swatch for inline styles; not --clinical-accent (app chrome).
     accent: record.accent?.trim() || "#0f766e",
     tag: record.tag?.trim() ?? "",
     schedule: record.schedule?.trim() ?? "",

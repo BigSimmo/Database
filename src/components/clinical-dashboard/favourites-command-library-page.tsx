@@ -36,7 +36,7 @@ import {
 } from "@/components/account-data-provider";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { cn, EmptyState } from "@/components/ui-primitives";
+import { cn, EmptyState, fieldControlPlain } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
   favouriteItems as prototypeFavouriteItems,
@@ -392,7 +392,7 @@ function ContinueStrip({ item, onOpen }: { item: FavouriteItem; onOpen: (item: F
             onClick={() => onOpen(item)}
             aria-label={`Continue ${item.title}`}
             className={cn(
-              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
+              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:w-auto",
               focusRing,
             )}
           >
@@ -486,7 +486,7 @@ export function RowActionsMenu({
           id={menuId}
           role="dialog"
           aria-label={`Actions for ${item.title}`}
-          className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--shadow-soft)]"
+          className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--e2)]"
         >
           <Link
             href={item.href}
@@ -537,7 +537,7 @@ export function RowActionsMenu({
                       setActionPending(false);
                     }
                   }}
-                  className="min-h-tap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)] sm:min-h-9"
+                  className="min-h-tap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)]"
                 >
                   <option value="">Unsorted</option>
                   {sets.map((set) => (
@@ -702,7 +702,7 @@ function FavouritesDashboardBand({
             type="button"
             onClick={onShowRecent}
             className={cn(
-              "inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+              "inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
               focusRing,
             )}
           >
@@ -731,7 +731,7 @@ function FavouritesDashboardBand({
                   onClick={() => onOpen(item)}
                   aria-label={`Open ${item.title}`}
                   className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
                     focusRing,
                   )}
                 >
@@ -830,7 +830,7 @@ function FavouritesTable({
   const evidenceCellClass = cn("hidden px-3 align-middle", compact ? "" : "2xl:table-cell");
 
   return (
-    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3.5 py-2.5">
         <p className="inline-flex min-w-0 items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
           {searchTerm.trim() ? (
@@ -859,7 +859,10 @@ function FavouritesTable({
               disabled={viewMode === "recent"}
               title={viewMode === "recent" ? "Recently used view is always sorted by last used" : undefined}
               onChange={(event) => onSortModeChange(event.target.value as SortMode)}
-              className="min-h-tap w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-9"
+              className={cn(
+                fieldControlPlain,
+                "appearance-none pr-9 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+              )}
             >
               <option value="manual">Sort: Manual order</option>
               <option value="last-used">Sort: Last used</option>
@@ -1250,7 +1253,7 @@ function ItemWorkspace({
                           }
                         }}
                         className={cn(
-                          "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60 sm:min-h-9",
+                          "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60",
                           focusRing,
                         )}
                       >
@@ -1276,7 +1279,7 @@ function ItemWorkspace({
                     }
                   }}
                   className={cn(
-                    "inline-flex min-h-tap items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60 sm:min-h-9",
+                    "inline-flex min-h-tap items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60",
                     focusRing,
                   )}
                 >
@@ -1593,7 +1596,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     return (
       <main
         data-testid="favourites-hub"
-        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:grow sm:pb-32 md:pb-0"
       >
         <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
           <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
@@ -1637,11 +1640,14 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:grow sm:pb-32 md:pb-0"
     >
       <div
         className={cn(
-          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-var(--shell-header-h))]",
+          // min-h-full, not a viewport calc: the hub above grows to the shell's
+          // fill box, so 100% of it is the real remaining height and the xl
+          // split rail still reaches the bottom edge.
+          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-full",
           // The left library rail is gone — sets, quick views and types are one
           // chip rail now (ledger #164), so the workspace is a single column
           // that only splits when the item workspace opens.
@@ -1709,7 +1715,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                     }
                   }}
                   className={cn(
-                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60 sm:min-h-10",
+                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60",
                     focusRing,
                   )}
                 >
@@ -1899,7 +1905,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                         onClick={() => handleOpen(item)}
                         aria-label={`Open ${item.title}`}
                         className={cn(
-                          "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                          "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
                           focusRing,
                         )}
                       >

@@ -267,7 +267,7 @@ function DocumentPagePreview({ document, href }: { document: DocumentMatch; href
       href={href}
       aria-label={`Preview page ${pageNumber} of ${document.title}`}
       data-testid="document-page-preview"
-      className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24"
+      className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--e2)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24"
     >
       {hasCoverUrl ? (
         // Private signed covers stay unoptimized so bearer URLs never enter `/_next/image`.

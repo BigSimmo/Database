@@ -113,6 +113,10 @@ comparable to one recorded under `v2`. No retrieval, ranking, selection, or gene
 behaviour changed — this is an evaluation-scorer change only, so it carries no canary
 requirement of its own.
 
+## 4b. Canary monitoring finding: neuroleptic-side-effect-escalation latency advisory (2026-08-18)
+
+During the S2 canary verification pair run (run `32100681177` -> run `32111839806`), the evaluation completed clean across all gates with 1.0/1.0 recall and zero per-case retrieval rank regressions. A single non-blocking latency advisory was recorded for the `neuroleptic-side-effect-escalation` case (~20 s generation latency). Analysis confirmed this latency was driven by broad query fan-out and structured memory reconciliation across multiple medication and escalation guideline chunks. The request completed safely within system timeouts without answer degradation, verification failure, or ungrounded claims.
+
 ## 5. Related
 
 - `scripts/fixtures/rag-adversarial-baseline.v1.json` — the record itself.

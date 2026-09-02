@@ -1,5 +1,7 @@
 "use client";
 
+/* DS-P0-06: readable mockup body uses --text-muted. Do not copy --text-soft body
+   treatment to production. Kickers, timestamps, and decorative chrome stay --text-soft. */
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
@@ -65,10 +67,18 @@ import {
  *
  * Narrowing means you are hunting for something specific, and a resume
  * affordance is not what you asked for. So the cards cost the fold only on
- * the screen where arriving, not searching, is what you are doing: one saved
- * row on the landing view, seven the moment you narrow. A degraded load also
- * falls back to the 72px strip, because the notice plus two full cards left
- * zero rows visible on the one screen that most needs to show what survived.
+ * the screen where arriving, not searching, is what you are doing: on the
+ * landing view no library row is fully visible and one is partly, against
+ * seven the moment you narrow. A degraded load falls back to the 72px strip
+ * instead, because there the notice plus two full cards left no library row
+ * visible at all, on the one screen that most needs to show what survived.
+ *
+ * That landing figure was one full row until the tap-target correction. Codex
+ * found the set chips at 36px on a page claiming the production 48px knob, and
+ * the test guarding it grepped for `min-h-11`, which does not match `size-11`
+ * — so four more 44px buttons passed it. Raising all of them put app chrome at
+ * 182px rather than 165px, which cost the landing view its last full row. A
+ * control that lies about its own size is the worse defect of the two.
  *
  * The library groups by the user's own sets rather than by recency, because a
  * recency-sorted list under a Recent card is a second copy of that card. So
@@ -123,7 +133,7 @@ const frames: ReadonlyArray<{
     name: "Landing",
     summary:
       "Continue and Recent as the shipped page draws them, then the library grouped by your own sets. The three answer three different questions: what was I mid-way through, what did I just touch, and what have I filed.",
-    cost: "Measured: Continue 152px, Recent 271px, one saved row above the fold. That is the price of arriving on the two cards, and frame 10 draws the alternative.",
+    cost: "Measured: Continue 152px, Recent 271px, no saved row fully above the fold (one partly). That is the price of arriving on the two cards, and frame 10 draws the alternative.",
     note: "interactive",
   },
   {
@@ -561,7 +571,7 @@ const decisions: ReadonlyArray<{ n: string; head: string; body: string }> = [
   {
     n: "1",
     head: "Continue and Recent are the landing surface",
-    body: "Both shipped cards, drawn in full. They show on arrival and nowhere else: tap a set or type in the composer and they hand the screen back to the list. That rule is what pays for them — one saved row above the fold on arrival, seven the moment you narrow.",
+    body: "Both shipped cards, drawn in full. They show on arrival and nowhere else: tap a set or type in the composer and they hand the screen back to the list. That rule is what pays for them — no saved row fully above the fold on arrival, seven the moment you narrow.",
   },
   {
     n: "2",
@@ -571,7 +581,7 @@ const decisions: ReadonlyArray<{ n: string; head: string; body: string }> = [
   {
     n: "3",
     head: "One header, not six bands",
-    body: "Title, live count, one ellipsis sheet. Sort, set management and clear-all move behind it. Everything above the list — app header, page header and set rail — measures 165px.",
+    body: "Title, live count, one ellipsis sheet. Sort, set management and clear-all move behind it. Everything above the list — app header, page header and set rail — measures 182px.",
   },
   {
     n: "4",
@@ -625,7 +635,7 @@ export function FavouritesPhonePerfectedMockupsPage() {
             ))}
           </ol>
 
-          <p className="mt-5 max-w-3xl text-xs font-medium leading-5 text-[color:var(--text-soft)]">
+          <p className="mt-5 max-w-3xl text-xs font-medium leading-5 text-[color:var(--text-muted)]">
             <span className="font-extrabold">How the numbers were taken — </span>
             Chromium at a 390 × 844 viewport against the local dev server, reading
             <code className="font-mono"> getBoundingClientRect()</code> on the live{" "}
@@ -654,7 +664,7 @@ export function FavouritesPhonePerfectedMockupsPage() {
               <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{frame.name}</h2>
             </div>
             <p className="mt-1.5 text-sm font-medium leading-5 text-[color:var(--text-muted)]">{frame.summary}</p>
-            <p className="mt-1.5 text-xs font-medium leading-5 text-[color:var(--text-soft)]">
+            <p className="mt-1.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
               <span className="font-extrabold">Cost — </span>
               {frame.cost}
             </p>

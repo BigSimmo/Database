@@ -1,6 +1,6 @@
 # Codex Prompt Playbook
 
-This playbook contains copy/paste prompts for common Clinical KB work. The
+This playbook contains copy/paste prompts for common PsychSift work. The
 prompts are written for this repository, not for a generic Next.js project.
 
 Before using any prompt, keep these project defaults in mind:
@@ -80,7 +80,7 @@ builds, commits, pushes, or cleanup unless I explicitly approve.
 Use this instead of asking for a guessed localhost URL.
 
 ```text
-Run the Clinical KB app safely.
+Run the PsychSift app safely.
 
 Follow AGENTS.md local-server safety. Execute npm run ensure, let it choose the
 project-specific URL, verify the server identity through the repo helper, and
@@ -661,7 +661,7 @@ Do not modify files unless I explicitly ask for fixes after the review.
 ## 23. OpenAI Cookbook Review For This Repo
 
 Use this when you want a fresh pass over current OpenAI Cookbook patterns before
-changing the Clinical KB RAG, answer, ingestion, eval, or prompt stack.
+changing the PsychSift RAG, answer, ingestion, eval, or prompt stack.
 
 ```text
 Review the current OpenAI Cookbook and recommend what should be adopted in this
@@ -800,7 +800,7 @@ Use this for image-heavy PDFs, tables, forms, diagrams, medication charts, or
 source pages where text-only retrieval may miss important evidence.
 
 ```text
-Review multimodal/visual evidence support for this Clinical KB workflow.
+Review multimodal/visual evidence support for this PsychSift workflow.
 
 Start read-only and offline. Inspect:
 - src/lib/visual-intelligence.ts
@@ -830,7 +830,7 @@ Use this when prompt injection, off-topic questions, unsafe clinical confidence,
 or unsupported output could reach users.
 
 ```text
-Review and harden Clinical KB RAG guardrails.
+Review and harden PsychSift RAG guardrails.
 
 Focus on both input and output guardrails:
 - prompt injection and jailbreak attempts inside user queries or retrieved text

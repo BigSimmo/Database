@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { SettingsSearchMockupPage } from "@/components/settings-search-mockups";
 
 export const metadata: Metadata = {
-  title: "Search Settings Clinical Mockup - Clinical KB",
-  description: "Search-first ChatGPT-style clinical defaults settings mockup for Clinical KB.",
+  title: "Search Settings Clinical Mockup - PsychSift",
+  description: "Search-first ChatGPT-style clinical defaults settings mockup for PsychSift.",
 };
 
 export default function SettingsSearchClinicalMockupRoute() {

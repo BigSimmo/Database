@@ -311,6 +311,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ document, job }, { status: 201 });
   } catch (error) {
+    // Tracks whether the document row is confirmed gone. The storage-cleanup
+    // janitor's live-document guard (partitionStorageCleanupJobs) only protects
+    // a row when its document_id is set — so if deletion here failed or never
+    // ran to a confirmed success, the ledger row below must carry the document
+    // id rather than null, or reconciliation could delete storage still owned
+    // by a live document.
+    let documentDeletionConfirmed = !insertedDocumentId;
+
     if (insertedDocumentId && insertedDocumentOwnerId && supabase) {
       try {
         const { error: cleanupDeleteError } = await supabase
@@ -324,6 +332,8 @@ export async function POST(request: Request) {
             ownerId: insertedDocumentOwnerId,
             message: cleanupDeleteError.message,
           });
+        } else {
+          documentDeletionConfirmed = true;
         }
       } catch (cleanupError) {
         logger.error("Upload cleanup failed; document row may be orphaned", {
@@ -344,14 +354,53 @@ export async function POST(request: Request) {
             storagePath: uploadedPath,
             message: cleanupStorageError.message,
           });
+          // Durable reconciliation: insert a ledger row so the cleanup worker can
+          // retry, matching the duplicate-upload pattern. Include document_id
+          // whenever deletion is not confirmed, so the janitor's live-document
+          // guard can still protect it if the document row survived.
+          const { error: cleanupLedgerError } = await supabase.from("storage_cleanup_jobs").insert({
+            document_id: documentDeletionConfirmed ? null : insertedDocumentId,
+            document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
+            document_paths: [uploadedPath],
+            owner_id: insertedDocumentOwnerId,
+            status: "pending",
+            image_bucket: env.SUPABASE_IMAGE_BUCKET,
+            image_paths: [],
+          });
+          if (cleanupLedgerError) {
+            logger.error("Upload cleanup ledger insert also failed; orphaned object requires manual reconciliation", {
+              storagePath: uploadedPath,
+              message: cleanupLedgerError.message,
+            });
+          }
         }
       } catch (cleanupError) {
         // Cleanup is best-effort, but a silent failure leaves an orphaned storage
-        // object. Record the path so it can be reconciled instead of dropping it.
+        // object. Record the path in a durable ledger row so it can be reconciled.
         logger.error("Upload cleanup failed; storage object may be orphaned", {
           storagePath: uploadedPath,
           message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
         });
+        try {
+          const { error: cleanupLedgerError } = await supabase.from("storage_cleanup_jobs").insert({
+            document_id: documentDeletionConfirmed ? null : insertedDocumentId,
+            document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
+            document_paths: [uploadedPath],
+            owner_id: insertedDocumentOwnerId,
+            status: "pending",
+            image_bucket: env.SUPABASE_IMAGE_BUCKET,
+            image_paths: [],
+          });
+          if (cleanupLedgerError) {
+            logger.error("Upload cleanup ledger insert also failed; orphaned object requires manual reconciliation", {
+              storagePath: uploadedPath,
+              message: cleanupLedgerError.message,
+            });
+          }
+        } catch {
+          // Best-effort: if even the ledger insert throws, the logger.error above
+          // is the only remaining record. This is the absolute last resort.
+        }
       }
     }
 

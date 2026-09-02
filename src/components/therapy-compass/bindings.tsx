@@ -319,7 +319,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     if (!deferredQuery) return [];
     // Defer only the text cost; apply live filter chips/flags immediately so toggles
     // match aria-pressed state without waiting for useDeferredValue.
-    return searchTherapies(therapies, { ...search, query: deferredSearch.query });
+    return searchTherapies(therapies, { ...search, query: deferredSearch.query }, true);
   }, [therapies, deferredSearch.query, search]);
   // Same query-deferral shape as `searchResults`, tags/reviewedOnly/briefOnly
   // reset — so a facet count never lags behind or races ahead of the query
@@ -329,7 +329,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     const deferredQuery = deferredSearch.query.trim();
     if (!liveQuery) return searchTherapies(therapies, EMPTY_SEARCH);
     if (!deferredQuery) return [];
-    return searchTherapies(therapies, { ...EMPTY_SEARCH, query: deferredSearch.query });
+    return searchTherapies(therapies, { ...EMPTY_SEARCH, query: deferredSearch.query }, true);
   }, [therapies, deferredSearch.query, search.query]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),

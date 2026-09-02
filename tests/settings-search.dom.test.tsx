@@ -55,18 +55,20 @@ function searchFor(value: string) {
 
 /** Every id the dialog exposes as a filterable row, however it is rendered. */
 function renderedRowIds(): string[] {
+  return [...document.querySelectorAll<HTMLElement>("[data-settings-search-row]")]
+    .map((element) => element.dataset.settingsSearchRow ?? "")
+    .filter(Boolean);
+}
+
+function expectSearchIndexInSync() {
+  const rendered = new Set(renderedRowIds());
   const indexed = new Set(SETTINGS_SEARCH_ENTRIES.map((entry) => entry.id));
-  return [...document.querySelectorAll("[data-testid]")]
-    .map((element) => element.getAttribute("data-testid") ?? "")
-    .map((id) => {
-      // `SettingsCard` publishes `<rowId>-card` on its wrapper so the inner
-      // control can keep the plain row id the other suites address. Prefer the
-      // literal id; only unwrap the suffix when that is what the index knows.
-      if (indexed.has(id)) return id;
-      const unwrapped = id.endsWith("-card") ? id.slice(0, -"-card".length) : id;
-      return indexed.has(unwrapped) ? unwrapped : id;
-    })
-    .filter((id) => indexed.has(id));
+  for (const id of indexed) {
+    expect(rendered.has(id), `${id} is indexed for search but not rendered`).toBe(true);
+  }
+  for (const id of rendered) {
+    expect(indexed.has(id), `${id} is rendered but missing from the search index`).toBe(true);
+  }
 }
 
 afterEach(async () => {
@@ -81,17 +83,21 @@ afterEach(async () => {
 describe("settings search index", () => {
   it("has an entry for every row the dialog renders", () => {
     renderDialog();
-    const rendered = new Set(renderedRowIds());
-    const indexed = new Set(SETTINGS_SEARCH_ENTRIES.map((entry) => entry.id));
     // A row with no entry is a row nobody can search for; an entry with no row
     // is a search result that leads nowhere. Both are silent until someone
     // types the word that should have found it, so pin both directions.
-    for (const id of indexed) {
-      expect(rendered.has(id), `${id} is indexed for search but not rendered`).toBe(true);
-    }
-    for (const id of rendered) {
-      expect(indexed.has(id), `${id} is rendered but missing from the search index`).toBe(true);
-    }
+    expectSearchIndexInSync();
+  });
+
+  it("fails closed when a rendered row is not indexed", () => {
+    renderDialog();
+    const unindexed = document.createElement("div");
+    unindexed.dataset.settingsSearchRow = "settings-row-unindexed-proof";
+    document.body.append(unindexed);
+
+    expect(() => expectSearchIndexInSync()).toThrowError(
+      "settings-row-unindexed-proof is rendered but missing from the search index",
+    );
   });
 
   it("names a real section for every entry, and covers every section", () => {
@@ -164,6 +170,7 @@ describe("settings search in the dialog", () => {
     // reads as "this section has no settings".
     expect(document.querySelector('[data-settings-section="clinical-defaults"]')).toBeNull();
     expect(document.querySelector('[data-settings-section="app-preferences"]')).not.toBeNull();
+    expect(screen.getByRole("button", { name: "App preferences" })).toHaveAttribute("aria-current", "true");
   });
 
   it("offers a way back when nothing matches", () => {
@@ -220,10 +227,14 @@ describe("settings search in the dialog", () => {
     for (const button of clinical) expect(button).toBeDisabled();
   });
 
-  it("drops the phone section rail while filtering, since the results are their own map", () => {
+  it("keeps search and the section rail desktop-only with no phone chip rail", () => {
     renderDialog();
-    expect(screen.getByTestId("settings-section-chips")).toBeInTheDocument();
-    searchFor("dark");
+
+    expect(screen.getByRole("search")).toHaveClass("hidden", "md:block");
+    expect(screen.getByRole("navigation", { name: "Settings sections" }).closest("aside")).toHaveClass(
+      "hidden",
+      "md:flex",
+    );
     expect(screen.queryByTestId("settings-section-chips")).not.toBeInTheDocument();
   });
 });

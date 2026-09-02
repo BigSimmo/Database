@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "authority": "This register is the status authority for privacy readiness. Repository proof cannot satisfy provider, legal, or clinical evidence classes.",
-  "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
-  "reviewedAt": "2026-08-23",
-  "reviewExpiresAt": "2026-11-23",
+  "reviewedCommit": "d3074946a917cac378de64284c67cbc1d4dc58fa",
+  "reviewedAt": "2026-09-01",
+  "reviewExpiresAt": "2026-12-01",
   "requirements": [
     {
       "id": "PRIV-CODE-QUERY-HASH",
@@ -42,45 +42,81 @@
     {
       "id": "PRIV-PROVIDER-PRODUCTION-HMAC-SECRET",
       "evidenceClass": "provider",
-      "status": "pending",
+      "status": "verified",
       "accountableRole": "Production platform owner",
-      "evidenceReferences": ["docs/privacy-impact-assessment.md", "scripts/production-readiness.ts"],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+      "evidenceReferences": [
+        "docs/privacy-impact-assessment.md",
+        "docs/operator-backlog.md",
+        "scripts/check-env-parity.mjs",
+        "scripts/production-readiness.ts",
+        "docs/governance/privacy-role-attestation-pack-2026-09-01.md"
+      ],
+      "externalEvidenceReference": "Operator-authorised GitHub and Railway production names-only parity check passed on 2026-09-01; the PsychSift owner gave contextual explicit approval of the documented production HMAC control in Codex task 01a04af2-74bf-7e40-aa14-4a9e78295b33 on 2026-09-01; secret values were not emitted or persisted",
+      "verifiedByRole": "Production platform owner",
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "pending", "date": "2026-08-23" },
+        { "status": "partial", "date": "2026-09-01" },
+        { "status": "verified", "date": "2026-09-01" }
+      ]
     },
     {
       "id": "PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY",
       "evidenceClass": "provider",
-      "status": "partial",
+      "status": "verified",
       "accountableRole": "Database operations owner",
       "evidenceReferences": [
         "docs/privacy-impact-assessment.md",
-        "supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql"
+        "supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql",
+        "supabase/migrations/20260901033250_enable_staging_privacy_retention_schedules.sql",
+        "docs/governance/privacy-role-attestation-pack-2026-09-01.md"
       ],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "partial", "date": "2026-08-23" }]
+      "externalEvidenceReference": "Staging migration 20260901033250 enabled pg_cron on the pinned staging project and post-apply verification found all four expected privacy-retention jobs active on 2026-09-01; the PsychSift owner gave contextual explicit approval of the verified retention schedules in Codex task 01a04af2-74bf-7e40-aa14-4a9e78295b33 on 2026-09-01",
+      "verifiedByRole": "Database operations owner",
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "partial", "date": "2026-08-23" },
+        { "status": "partial", "date": "2026-09-01" },
+        { "status": "verified", "date": "2026-09-01" }
+      ]
     },
     {
       "id": "PRIV-PROVIDER-OPENAI-ZDR",
       "evidenceClass": "provider",
       "status": "pending",
       "accountableRole": "OpenAI account owner",
-      "evidenceReferences": ["docs/openai-cross-border-basis.md"],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+      "evidenceReferences": [
+        "docs/openai-cross-border-basis.md",
+        "docs/operator-backlog.md",
+        "docs/outstanding-issues-inbox/applied/0e73e359-87eb-4d8d-b2a5-f0dd9b604636.json",
+        "docs/outstanding-issues-inbox/applied/1836d32f-6db8-45f2-bc71-f429b22f5a1c.json"
+      ],
+      "externalEvidenceReference": "Authenticated OpenAI Platform owner review and interim configuration on 2026-09-01 confirmed API input/output sharing disabled, changed API call logging to Disabled, and disabled hosted MCP, web search, file search, image generation, code interpreter, and container networking; an API for Enterprise sales request for ZDR covering Responses, Embeddings, prompt caching, DPA, and Australia data-residency options was submitted and acknowledged by OpenAI on 2026-09-01, but approval, endpoint coverage evidence, and production-key project matching remain pending",
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "pending", "date": "2026-08-23" },
+        { "status": "pending", "date": "2026-09-01" }
+      ]
     },
     {
       "id": "PRIV-LEGAL-OPENAI-DPA",
       "evidenceClass": "legal",
       "status": "pending",
       "accountableRole": "Authorised legal signatory",
-      "evidenceReferences": ["docs/openai-cross-border-basis.md"],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+      "evidenceReferences": [
+        "docs/openai-cross-border-basis.md",
+        "docs/operator-backlog.md",
+        "docs/outstanding-issues-inbox/applied/1836d32f-6db8-45f2-bc71-f429b22f5a1c.json"
+      ],
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "pending", "date": "2026-08-23" },
+        { "status": "pending", "date": "2026-09-01" }
+      ]
     },
     {
       "id": "PRIV-LEGAL-RAILWAY-DPA",
@@ -88,9 +124,12 @@
       "status": "pending",
       "accountableRole": "Authorised legal signatory",
       "evidenceReferences": ["docs/openai-cross-border-basis.md", "docs/privacy-impact-assessment.md"],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "pending", "date": "2026-08-23" },
+        { "status": "pending", "date": "2026-09-01" }
+      ]
     },
     {
       "id": "PRIV-LEGAL-APP8-CROSS-BORDER-BASIS",
@@ -98,9 +137,12 @@
       "status": "pending",
       "accountableRole": "Privacy adviser",
       "evidenceReferences": ["docs/openai-cross-border-basis.md", "docs/privacy-impact-assessment.md"],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "pending", "date": "2026-08-23" },
+        { "status": "pending", "date": "2026-09-01" }
+      ]
     },
     {
       "id": "PRIV-LEGAL-APP1-APP5-NOTICE",
@@ -108,9 +150,12 @@
       "status": "pending",
       "accountableRole": "Privacy adviser",
       "evidenceReferences": ["docs/privacy-impact-assessment.md", "src/lib/privacy-page-content.tsx"],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "pending", "date": "2026-08-23" },
+        { "status": "pending", "date": "2026-09-01" }
+      ]
     },
     {
       "id": "PRIV-CLINICAL-PHI-MINIMISATION",
@@ -118,9 +163,12 @@
       "status": "partial",
       "accountableRole": "Clinical safety owner",
       "evidenceReferences": ["docs/privacy-impact-assessment.md", "tests/privacy-ui.test.ts"],
-      "reviewedAt": "2026-08-23",
-      "reviewExpiresAt": "2026-09-23",
-      "statusHistory": [{ "status": "partial", "date": "2026-08-23" }]
+      "reviewedAt": "2026-09-01",
+      "reviewExpiresAt": "2026-10-01",
+      "statusHistory": [
+        { "status": "partial", "date": "2026-08-23" },
+        { "status": "partial", "date": "2026-09-01" }
+      ]
     }
   ]
 }

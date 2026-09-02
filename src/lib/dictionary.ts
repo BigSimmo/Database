@@ -1,4 +1,5 @@
 import { normalizeSearchText } from "@/lib/catalog-search";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -30,6 +31,7 @@ export type DictionarySort = "relevance" | "az";
 
 export type DictionaryFilters = {
   q: string;
+  expansions?: readonly string[];
   view: DictionarySearchView;
   topics: readonly string[];
   kinds: readonly DictionaryEntryKind[];
@@ -134,6 +136,23 @@ function entryScore(entry: DictionaryEntry, query: string) {
       reason: exactAlias.alias.kind === "abbreviation" ? `Abbreviation: ${exactAlias.alias.value}` : "Exact alias",
     };
   }
+  // Natural-language catalogue queries often wrap an exact identity in a
+  // sentence. Give a mentioned term or alias the same priority class as a
+  // direct lookup, before broad Smart expansions can tie dozens of incidental
+  // records. Padding both sides keeps a short abbreviation such as MSE from
+  // matching inside another normalized word.
+  const paddedQuery = ` ${normalized} `;
+  if (paddedQuery.includes(` ${term} `)) return { score: 96, reason: "Mentioned term" };
+  const mentionedAlias = aliases.find(({ normalized: value }) => paddedQuery.includes(` ${value} `));
+  if (mentionedAlias) {
+    return {
+      score: mentionedAlias.alias.kind === "abbreviation" ? 95 : 92,
+      reason:
+        mentionedAlias.alias.kind === "abbreviation"
+          ? `Mentioned abbreviation: ${mentionedAlias.alias.value}`
+          : "Mentioned alias",
+    };
+  }
   if (term.startsWith(normalized)) return { score: 88, reason: "Term begins with the search" };
   if (aliases.some(({ normalized: value }) => value.startsWith(normalized))) {
     return { score: 82, reason: "Alias begins with the search" };
@@ -145,6 +164,16 @@ function entryScore(entry: DictionaryEntry, query: string) {
   );
   if (context.includes(normalized)) return { score: 44, reason: "Definition or context match" };
   return null;
+}
+
+function relatedEntryScore(entry: DictionaryEntry, normalizedExpansions: readonly string[]) {
+  if (!normalizedExpansions.length) return null;
+  const searchable = normalizeSearchText(
+    `${entry.term} ${entry.aliases.map((alias) => alias.value).join(" ")} ${entry.definition} ${entry.meaning} ${entry.context.join(" ")} ${dictionaryKindLabel(entry.kind)}`,
+  );
+  return normalizedExpansions.some((term) => searchable.includes(term))
+    ? { score: 43, reason: "Related search term" }
+    : null;
 }
 
 function abbreviationGroups(entries: readonly DictionaryEntry[]) {
@@ -163,10 +192,11 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
   const filteredEntries = allDictionaryEntries.filter((entry) => entryPassesFilters(entry, filters));
   const hits: DictionarySearchHit[] = [];
   const q = filters.q;
+  const normalizedExpansions = filters.expansions?.map(normalizeSearchText).filter(Boolean) ?? [];
 
   if (filters.view === "all" || filters.view === "definitions") {
     for (const entry of filteredEntries) {
-      const match = entryScore(entry, q);
+      const match = entryScore(entry, q) ?? relatedEntryScore(entry, normalizedExpansions);
       if (match) hits.push({ type: "entry", entry, ...match });
     }
   }
@@ -176,18 +206,25 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
     for (const [abbreviation, senses] of abbreviationGroups(filteredEntries)) {
       const normalizedAbbreviation = normalizeSearchText(abbreviation);
       const searchable = normalizeSearchText(`${abbreviation} ${senses.map((entry) => entry.term).join(" ")}`);
-      if (!normalizedQuery || searchable.includes(normalizedQuery)) {
+      const relatedMatch = senses.some((entry) => relatedEntryScore(entry, normalizedExpansions));
+      if (!normalizedQuery || searchable.includes(normalizedQuery) || relatedMatch) {
+        const directMatch = !normalizedQuery || searchable.includes(normalizedQuery);
         hits.push({
           type: "abbreviation",
           abbreviation,
           senses,
-          score:
-            normalizedAbbreviation === normalizedQuery
+          score: directMatch
+            ? normalizedAbbreviation === normalizedQuery
               ? 99
               : normalizedAbbreviation.startsWith(normalizedQuery)
                 ? 84
-                : 55,
-          reason: senses.length > 1 ? `${senses.length} recognised meanings` : "Governed abbreviation",
+                : 55
+            : 43,
+          reason: directMatch
+            ? senses.length > 1
+              ? `${senses.length} recognised meanings`
+              : "Governed abbreviation"
+            : "Related search term",
         });
       }
     }
@@ -199,12 +236,14 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
     for (const topic of dictionaryTopics) {
       if (!allowedTopics.has(topic.slug)) continue;
       const searchable = normalizeSearchText(`${topic.title} ${topic.description}`);
-      if (!normalizedQuery || searchable.includes(normalizedQuery)) {
+      const relatedMatch = normalizedExpansions.some((term) => searchable.includes(term));
+      if (!normalizedQuery || searchable.includes(normalizedQuery) || relatedMatch) {
+        const directMatch = !normalizedQuery || searchable.includes(normalizedQuery);
         hits.push({
           type: "topic",
           topic,
-          score: normalizeSearchText(topic.title) === normalizedQuery ? 96 : 42,
-          reason: `${topic.entrySlugs.length} governed terms`,
+          score: directMatch ? (normalizeSearchText(topic.title) === normalizedQuery ? 96 : 42) : 43,
+          reason: directMatch ? `${topic.entrySlugs.length} governed terms` : "Related search term",
         });
       }
     }
@@ -314,6 +353,7 @@ export const dictionaryClearedQueryKeys = ["q", "query", "run"] as const;
 export function dictionaryCatalogue(params: DictionaryCatalogueParams): DictionarySearchHit[] {
   const filters: DictionaryFilters = {
     q: params.q,
+    expansions: smartSearchExpansions("dictionary", params.q),
     view: params.scope,
     topics: params.topics,
     kinds: params.kinds,

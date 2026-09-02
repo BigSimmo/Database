@@ -158,6 +158,61 @@ describe("evaluateMedicationInteractions", () => {
     expect(SEVERITY_TONE.critical).toBe("danger");
     expect(SEVERITY_TONE.unknown).toBe("neutral");
   });
+
+  describe("Triple Whammy (ACEi + Diuretic + NSAID) requires the full combination", () => {
+    // PR #2448 review: the generated index used to union each class's matches
+    // into a flat counterparty list, so any ONE of ibuprofen, frusemide, or
+    // even another ACEi fired the CRITICAL three-drug alert alone.
+    it("does not fire on an NSAID alone", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["ibuprofen"]);
+      expect(result.interactions.some((item) => item.kind === "Triple Whammy")).toBe(false);
+    });
+
+    it("does not fire on a diuretic alone", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["frusemide"]);
+      expect(result.interactions.some((item) => item.kind === "Triple Whammy")).toBe(false);
+    });
+
+    it("does not fire on another ACEi alone", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["perindopril"]);
+      expect(result.interactions.some((item) => item.kind === "Triple Whammy")).toBe(false);
+    });
+
+    it("fires once both a diuretic and an NSAID are present", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["frusemide", "ibuprofen"]);
+      const hits = result.interactions.filter((item) => item.kind === "Triple Whammy");
+      expect(hits.length).toBeGreaterThan(0);
+      expect(hits.every((item) => item.severity === "critical")).toBe(true);
+      expect(result.highestTone).toBe("danger");
+    });
+  });
+
+  describe("simvastatin's gemfibrozil row does not overmatch the statin/fibrate classes", () => {
+    // PR #2448 review: "statin" and "(Fibrate)" in this HIGH/Contraindicated row
+    // describe gemfibrozil's own mechanism, not a general class warning — they
+    // used to resolve to every other statin and to fenofibrate, so a patient on
+    // an unrelated statin alone triggered a gemfibrozil-specific alert. The
+    // shared "blocks statin" phrase is unique to the two gemfibrozil rows
+    // (simvastatin's and atorvastatin's), distinct from fenofibrate's own
+    // legitimate, correctly-firing general statin-toxicity warning, which must
+    // keep working.
+    const isGemfibrozilRowNote = (note: string) => note.includes("Gemfibrozil (Fibrate) blocks statin");
+
+    it("does not fire against atorvastatin, which is not gemfibrozil", () => {
+      const result = evaluateMedicationInteractions("simvastatin", ["atorvastatin"]);
+      expect(result.interactions.some((item) => isGemfibrozilRowNote(item.note))).toBe(false);
+    });
+
+    it("does not fire against fenofibrate, the catalogue's only other fibrate", () => {
+      const result = evaluateMedicationInteractions("simvastatin", ["fenofibrate"]);
+      expect(result.interactions.some((item) => isGemfibrozilRowNote(item.note))).toBe(false);
+    });
+
+    it("still fires fenofibrate's own legitimate statin-combination warning", () => {
+      const result = evaluateMedicationInteractions("simvastatin", ["fenofibrate"]);
+      expect(result.interactions.some((item) => item.counterpartySlug === "fenofibrate")).toBe(true);
+    });
+  });
 });
 
 describe("composeMedicationVerdict", () => {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Document Search - Clinical KB",
+  title: "Document Search - PsychSift",
   description: "Search indexed clinical documents and review matching evidence.",
 };
 

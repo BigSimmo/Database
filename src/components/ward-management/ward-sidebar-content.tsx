@@ -56,7 +56,7 @@ export function WardSidebarNav({
       {showBrandRow ? (
         <div className={styles.brandRow}>
           <Link href="/mockups/ward-flow" className={styles.brandLink} onClick={onNavigate}>
-            <BrandMark className={styles.brandGlyph} />
+            <BrandMark tone="emphasis" optical="chrome" className={styles.brandGlyph} />
             <span className={styles.brandText}>
               <span className={styles.brandName}>Ward Flow</span>
               <span className={styles.brandTagline}>Synthetic patient-flow prototype</span>

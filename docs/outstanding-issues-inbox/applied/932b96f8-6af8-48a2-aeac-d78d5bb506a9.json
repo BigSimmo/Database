@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "932b96f8-6af8-48a2-aeac-d78d5bb506a9",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#HX1KSZ",
+    "outcome": "Added component metric boundary prohibition table row and §3c rule to docs/design-system/GATES.md.",
+    "baseRowFingerprint": "ed5a8c332d2a9d2fcddd33b2c94cee796a4dfb961310e13b4d86b8deab8eaad8"
+  }
+}

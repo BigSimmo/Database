@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a6215b70-c84e-41b3-8828-b170c00a1b49",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#FDST2Q",
+    "outcome": "Implemented formatRelativeAge formatting sub-60-minute durations as just now or < 1 hour ago instead of 0 hours ago.",
+    "baseRowFingerprint": "27db53ffd4993c930a64726a777bcb905c62c4bcbd365d71b33052e526f3f32b"
+  }
+}

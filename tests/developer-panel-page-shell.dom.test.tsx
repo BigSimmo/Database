@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { FreshnessStamp } from "@/components/developer-area/hub/freshness-stamp";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
-import { resolveFreshnessFrom } from "@/lib/developer-area/freshness";
+import { formatRelativeAge, resolveFreshnessFrom, resolveLiveFreshness } from "@/lib/developer-area/freshness";
 
 // PanelPageShell's back control is a ContextualBackLink, which calls
 // next/navigation's useRouter for its history-aware click handler. Outside an
@@ -34,6 +34,22 @@ describe("resolveFreshnessFrom", () => {
     // prevent. Guard here, not only in the formatter.
     expect(resolveFreshnessFrom("not-a-date", NOW).ageHours).toBeNull();
   });
+
+  it("formats relative intervals cleanly without 0 hours ago (#FDST2Q)", () => {
+    expect(formatRelativeAge(10_000)).toBe("just now");
+    expect(formatRelativeAge(59_000)).toBe("just now");
+    expect(formatRelativeAge(120_000)).toBe("< 1 hour ago");
+    expect(formatRelativeAge(3_500_000)).toBe("< 1 hour ago");
+    expect(formatRelativeAge(3_600_000)).toBe("1 hour ago");
+    expect(formatRelativeAge(7_200_000)).toBe("2 hours ago");
+  });
+
+  it("creates live freshness with mode live (#XKS6FD)", () => {
+    const live = resolveLiveFreshness(null, NOW);
+    expect(live.mode).toBe("live");
+    expect(live.contentAt).toBeNull();
+    expect(live.viewedAt).toBe(NOW.toISOString());
+  });
 });
 
 describe("FreshnessStamp label", () => {
@@ -51,6 +67,11 @@ describe("FreshnessStamp label", () => {
 
     render(<FreshnessStamp freshness={resolveFreshnessFrom(null, NOW)} label="Repository" />);
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/Repository revision unknown/);
+  });
+
+  it("renders live status when mode is live (#XKS6FD)", () => {
+    render(<FreshnessStamp freshness={resolveLiveFreshness(null, NOW)} label="Ingestion jobs" />);
+    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/Ingestion jobs read live on demand/);
   });
 });
 

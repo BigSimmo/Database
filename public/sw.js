@@ -1,4 +1,4 @@
-/* Clinical KB service worker.
+/* PsychSift service worker.
  *
  * Privacy is the primary cache rule: navigations, RSC payloads, APIs, auth,
  * documents, queries, uploads, signed URLs, range requests, and cross-origin
@@ -7,7 +7,7 @@
  */
 
 const CACHE_PREFIX = "clinical-kb-pwa-";
-const CACHE_VERSION = "2026-08-05-v3";
+const CACHE_VERSION = "2026-08-28-v1";
 const SHELL_CACHE = `${CACHE_PREFIX}shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_PREFIX}static-${CACHE_VERSION}`;
 const STATIC_CACHE_PREFIX = `${CACHE_PREFIX}static-`;
@@ -221,7 +221,7 @@ async function staleWhileRevalidate(event, cacheName, maxEntries) {
 
 function emergencyOfflineResponse() {
   return new Response(
-    '<!doctype html><html lang="en-AU"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clinical KB is offline</title><body><main><h1>Clinical KB is offline</h1><p>Reconnect to continue. No clinical content is stored in the offline fallback.</p><p><a href="/">Try again</a></p></main></body></html>',
+    '<!doctype html><html lang="en-AU"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PsychSift is offline</title><body><main><h1>PsychSift is offline</h1><p>Reconnect to continue. No clinical content is stored in the offline fallback.</p><p><a href="/">Try again</a></p></main></body></html>',
     {
       status: 503,
       headers: {

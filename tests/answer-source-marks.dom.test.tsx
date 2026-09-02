@@ -367,11 +367,62 @@ describe("source-only disclosure", () => {
     expect(disclosure).toHaveTextContent("Source-only");
     expect(disclosure).not.toHaveTextContent("Copied from cited sources without model synthesis");
     expect(disclosure.className).toContain("text-2xs");
-    expect(disclosure.parentElement?.className).toContain("py-1");
+    expect(disclosure.parentElement?.className).not.toContain("py-1");
 
     await user.click(within(disclosure).getByRole("button", { name: /Source-only/ }));
     expect(disclosure).toHaveTextContent(
       "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     );
+  });
+
+  it("no longer renders the overdue control in the answer body", () => {
+    // Owner decision, 2026-09-01: the overdue-sources control moved out of the
+    // answer body and into the evidence-gaps disclosure, which is where the
+    // other statements about this answer's evidence live. `NaturalLanguageAnswer`
+    // therefore takes no answer-state props at all any more; the status row it
+    // still owns is the Source-only disclosure alone.
+    //
+    // The caution itself is not hidden by the move — `VerificationNotice` keeps
+    // stating it in words on the default view — and the control's new home is
+    // pinned by `answer-support-priority.dom.test.tsx`.
+    render(
+      <NaturalLanguageAnswer
+        text={ANSWER}
+        query="clozapine monitoring"
+        sourceOnly
+        sourceOnlyVerificationState="stale_evidence"
+        bestSource={null}
+        sources={[]}
+        sourceLinks={[]}
+        railRows={ROWS}
+        copied={false}
+        onCopy={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByTestId("answer-source-status-row");
+    expect(within(row).getByTestId("source-only-disclosure")).toBeInTheDocument();
+    expect(screen.queryByTestId("retrieval-state-stale-toggle")).not.toBeInTheDocument();
+  });
+
+  it("renders no status row at all when the answer is synthesized", () => {
+    // The row existed for two reasons; one of them has moved out, so a
+    // synthesized answer that is merely stale now has nothing to put in it.
+    render(
+      <NaturalLanguageAnswer
+        text={ANSWER}
+        query="clozapine monitoring"
+        sourceOnly={false}
+        bestSource={null}
+        sources={[]}
+        sourceLinks={[]}
+        railRows={ROWS}
+        copied={false}
+        onCopy={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId("answer-source-status-row")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("retrieval-state-stale-toggle")).not.toBeInTheDocument();
   });
 });

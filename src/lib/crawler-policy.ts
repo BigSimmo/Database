@@ -1,7 +1,7 @@
 import type { Metadata, MetadataRoute } from "next";
 
 /**
- * Clinical KB is a private application, not a public content catalogue. Keep its
+ * PsychSift is a private application, not a public content catalogue. Keep its
  * routes out of search results even when a crawler reaches a URL without first
  * consulting robots.txt.
  */

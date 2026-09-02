@@ -105,8 +105,13 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+          # Boolean dispatch inputs become the strings "true"/"false". Off-dispatch
+          # this context is empty, so the quoted comparison below is false — the
+          # same as interpolating a blank ${{ }} into the script, without putting
+          # GitHub context into a shell.
+          REFRESH_LIGHTHOUSE_BASELINE: ${{ github.event.inputs.refresh_lighthouse_baseline }}
         run: |
-          if [ "${{ github.event.inputs.refresh_lighthouse_baseline }}" = "true" ]; then
+          if [ "$REFRESH_LIGHTHOUSE_BASELINE" = "true" ]; then
             # A baseline refresh is a focused measurement operation, not a
             # synthetic full repository change. Keep the trusted workflow/perf
             # contracts without starting unrelated build, UI, DB or container jobs.
@@ -287,6 +292,19 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:ledger-write-discipline
 
+      # Refuses a diff that guts a test file of its cases, or commits a tool's truncation
+      # banner as source. Both are the #Y30AXB shape: a regenerated-not-edited file whose
+      # gutted suite would have merged on a green run had a merge conflict not intervened.
+      # Deliberately unconditional, matching verify:pr-local's commonScripts. Rule 2 is an
+      # all-file invariant: a tool truncation banner lands in YAML or markdown as easily as in
+      # a spec, and a workflow-only diff sets none of the scope predicates (verify with
+      # `node scripts/ci-change-scope.mjs --files .github/workflows/ci.yml`), so any predicate
+      # list here is a hole. The gate only diffs and parses changed files, so it is cheap.
+      - name: Diff integrity
+        env:
+          DIFF_INTEGRITY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: npm run check:diff-integrity
+
       - name: PR mergeability workflow contract
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:pr-mergeability
@@ -362,6 +380,10 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run sitemap:check
 
+      - name: Mockup retirement policy
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:mockups
+
       - name: Repo awareness snapshot
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:repo-awareness-snapshot
@@ -380,6 +402,13 @@ jobs:
       - name: Act section summary drift
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:mha-act-sections
+
+      # Derives sha256/bytes/passwordProtected from the committed form PDFs. The badge a
+      # clinician reads before relying on a statutory form must match the file on disk;
+      # a hand-maintained flag had nothing checking it against the bytes.
+      - name: Forms PDF manifest drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:forms-pdf-manifest
 
       - name: Design-system contract
         if: needs.changes.outputs.static_heavy_changed == 'true'

@@ -33,7 +33,7 @@ Structured content from the selected mode's repository-owned catalogue, carrying
 _Avoid_: Model knowledge, database truth
 
 **Indexed Evidence**:
-Retrieved excerpts from authorised documents already indexed by Clinical KB.
+Retrieved excerpts from authorised documents already indexed by PsychSift.
 _Avoid_: Uploaded truth, internal authority
 
 **External Authority Evidence**:

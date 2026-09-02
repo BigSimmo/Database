@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { DocumentsHomeClient } from "./documents-home-client";
 
 export const metadata: Metadata = {
-  title: "Documents - Clinical KB",
+  title: "Documents - PsychSift",
   description: "Browse indexed clinical sources, recent documents, and source PDFs.",
 };
 

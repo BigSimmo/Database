@@ -65,6 +65,7 @@ describe("addon kinds are mutually exclusive", () => {
   it("keys the shell's two claimants on different modes", () => {
     expect(shell).toMatch(/differentialsCompareAddonActive\s*=\s*\n?\s*searchMode === "differentials"/);
     expect(shell).toMatch(/therapyCompareAddonActive\s*=\s*\n?\s*searchMode === "therapy-compass"/);
+    expect(shell).toMatch(/pathname !== "\/therapy-compass\/compare"/);
     // No shell route claims the patient-details addon: `/medications` is a
     // standalone mode home with no dock, and `/medications/[slug]` already opens
     // the same sheet from its nav header. Claiming it here would inflate the

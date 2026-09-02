@@ -211,7 +211,7 @@ function DesktopComparisonTable({
 
       <div
         data-testid="differential-comparison-scroll"
-        className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+        className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         <table
           aria-label="Differential comparison"
@@ -271,7 +271,8 @@ function DesktopComparisonTable({
         </table>
       </div>
       <p className="mt-3 text-xs font-medium text-[color:var(--text-muted)]">
-        Scroll horizontally to review more candidate differentials. Clinical decision support only. Review before use.
+        Scroll horizontally to review more candidate differentials. Clinical reference — not validated decision support.
+        Review before use.
       </p>
     </section>
   );
@@ -671,7 +672,7 @@ export function DifferentialPresentationWorkflowPage({
       />
       <main
         data-testid="differential-presentation-page"
-        className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:grow sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
       >
         <div className="mx-auto grid w-full max-w-[94rem] gap-5 xl:grid-cols-[minmax(0,1fr)_23.5rem]">
           <div className="min-w-0">
@@ -723,7 +724,7 @@ export function DifferentialPresentationWorkflowPage({
 
         <div className="mx-auto mt-5 max-w-[94rem] xl:hidden">
           <p className="text-center text-xs font-medium text-[color:var(--text-muted)]">
-            Clinical decision support only. Review before use.
+            Clinical reference — not validated decision support. Review before use.
           </p>
         </div>
       </main>

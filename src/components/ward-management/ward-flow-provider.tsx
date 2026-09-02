@@ -156,7 +156,18 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
     return () => clearInterval(id);
   }, [initialNow]);
 
-  // A pinned `initialNow` (tests, deterministic renders) never touches the wall clock.
+  // The base instant the demo day is read from, before any in-app `ADVANCE_CLOCK` offset.
+  //
+  // Pinned (`initialNow` supplied by a test or any deterministic render): the caller's instant IS
+  // the clock — `anchorOffsetMinutes` above is `initialNow - NOW_ANCHOR`, so `now` reduces to
+  // `initialNow` exactly. It is honoured verbatim rather than treated as a mere "do not tick" flag;
+  // a provider that ignored the value and always read `NOW_ANCHOR` would make every time-of-day
+  // branch in the screens unreachable from a test. The pinned path never touches the wall clock.
+  //
+  // Unpinned (the live app): the anchor plus real elapsed time, recomputed from the live clock on
+  // every render, so a missed or delayed 30s tick still reports the true elapsed minutes. Elapsed
+  // is an absolute minute count subtraction, which is correct across any number of midnights and
+  // is what retired the checkpoint accumulator this line used to carry.
   const elapsed = initialNow !== undefined ? 0 : absoluteWallClockMinutes() - mountedAtAbsolute;
 
   const now = NOW_ANCHOR + anchorOffsetMinutes + elapsed + state.clockOffsetMinutes;

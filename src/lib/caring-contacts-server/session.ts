@@ -14,7 +14,7 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import { actorId, teamId, type TeamId } from "@/lib/caring-contacts/ids";
-import type { Actor, CaringContactRole } from "@/lib/caring-contacts/permissions";
+import type { Actor, CaringContactRole, SystemActor } from "@/lib/caring-contacts/permissions";
 
 export const CARING_CONTACTS_ROLE_COOKIE = "caring-contacts-demo-role";
 
@@ -80,6 +80,21 @@ export function isDemoRole(value: unknown): value is CaringContactRole {
 /** The actor id names the acting role, e.g. `demo-auditor`, so the audit trail can show it. */
 export function demoActorForRole(role: CaringContactRole): Actor {
   return { id: actorId(`demo-${role}`), teamId: DEMO_TEAM_ID, roles: [role] };
+}
+
+/**
+ * The system actor demo contact-dispatch writes are attributed to.
+ *
+ * `SystemActor` exists in `./permissions` for one reason: a contact's provider status is written
+ * by the dispatcher and by nothing else, so software needs an attributable, non-human author for
+ * that write. `contactDispatcher`'s grant table and every human role's grant table never overlap
+ * (pinned by a permissions test), so this actor can never acquire a human capability and no human
+ * demo role can ever acquire this one -- a coordinator cannot be handed `startContactDispatch`
+ * just because the population needs a few contacts to look attempted. The demo population's own
+ * dispatch writes go through this actor for exactly the same reason the real dispatcher would.
+ */
+export function demoSystemDispatcher(): SystemActor {
+  return { id: actorId("demo-system-dispatcher"), teamId: DEMO_TEAM_ID, systemRole: "contactDispatcher" };
 }
 
 /**

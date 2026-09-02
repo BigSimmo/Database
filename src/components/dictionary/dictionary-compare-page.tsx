@@ -29,7 +29,11 @@ import {
   type CompareSlot,
   type CompareStarterChip,
 } from "@/components/compare";
-import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import {
+  InformationPageFooter,
+  InformationPageHeader,
+  InformationPageShell,
+} from "@/components/information-page-shell";
 import {
   dictionaryComparisonPair,
   dictionaryEntrySources,
@@ -131,70 +135,67 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
   return (
     <InformationPageShell width="bleed" gap={false} testId="dictionary-compare-main">
       <div className="mx-auto w-full max-w-[78rem] px-4 py-5 sm:px-6 sm:py-7">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[color:var(--border)] pb-5">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
-              Dictionary comparison
-            </p>
-            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-              Compare terms
-            </h1>
-          </div>
-          <div className="hidden flex-wrap gap-2 sm:flex">
-            <button
-              type="button"
-              onClick={() => picker.openSlot(a ? 1 : 0)}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:min-h-10"
-            >
-              <GitCompareArrows className="size-icon-sm" aria-hidden="true" />
-              Change terms
-            </button>
-            {a && b ? (
-              <Link
-                href={pairCompareHref(COMPARE_PATH, b.slug, a.slug)}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold"
+        <InformationPageHeader
+          className="border-b border-[color:var(--border)] pb-5"
+          eyebrow="Dictionary comparison"
+          title="Compare terms"
+          actions={
+            <div className="hidden flex-wrap gap-2 sm:flex">
+              <button
+                type="button"
+                onClick={() => picker.openSlot(a ? 1 : 0)}
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:min-h-10"
               >
-                Swap
-              </Link>
-            ) : null}
-            {a || b ? (
-              <Link
-                href={COMPARE_PATH}
-                className="inline-flex min-h-10 items-center rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold"
+                <GitCompareArrows className="size-icon-sm" aria-hidden="true" />
+                Change terms
+              </button>
+              {a && b ? (
+                <Link
+                  href={pairCompareHref(COMPARE_PATH, b.slug, a.slug)}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold"
+                >
+                  Swap
+                </Link>
+              ) : null}
+              {a || b ? (
+                <Link
+                  href={COMPARE_PATH}
+                  className="inline-flex min-h-10 items-center rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold"
+                >
+                  Clear
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:min-h-10"
               >
-                Clear
-              </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:min-h-10"
-            >
-              <Printer className="size-icon-sm" aria-hidden="true" />
-              Print
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const canShare = typeof navigator.share === "function";
-                  if (canShare) await navigator.share({ title: "Dictionary comparison", url: window.location.href });
-                  else await navigator.clipboard.writeText(window.location.href);
-                  setShareStatus(canShare ? "Share opened" : "Link copied");
-                } catch {
-                  setShareStatus("Share cancelled");
-                }
-              }}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:min-h-10"
-            >
-              <Share2 className="size-icon-sm" aria-hidden="true" />
-              Share
-            </button>
-            <span className="sr-only" aria-live="polite">
-              {shareStatus}
-            </span>
-          </div>
-        </header>
+                <Printer className="size-icon-sm" aria-hidden="true" />
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const canShare = typeof navigator.share === "function";
+                    if (canShare) await navigator.share({ title: "Dictionary comparison", url: window.location.href });
+                    else await navigator.clipboard.writeText(window.location.href);
+                    setShareStatus(canShare ? "Share opened" : "Link copied");
+                  } catch {
+                    setShareStatus("Share cancelled");
+                  }
+                }}
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:min-h-10"
+              >
+                <Share2 className="size-icon-sm" aria-hidden="true" />
+                Share
+              </button>
+              <span className="sr-only" aria-live="polite">
+                {shareStatus}
+              </span>
+            </div>
+          }
+        />
 
         <CompareSlotStrip
           slots={slots}
@@ -380,7 +381,7 @@ function PhoneComparisonSection({
       open={defaultOpen}
       className="source-print rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
     >
-      <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 px-3 text-sm font-extrabold">
+      <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold">
         <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
         <span className="flex-1">{section.label}</span>
         <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden="true" />

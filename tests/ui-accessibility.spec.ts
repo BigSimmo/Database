@@ -32,7 +32,7 @@ async function mockMinimalDashboardApi(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical KB",
+        appName: "PsychSift",
         projectId: "test-project",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -151,7 +151,7 @@ async function openScopeControl(page: Page) {
     await expect(menu).toBeVisible({ timeout: uiAssertionTimeoutMs });
   }).toPass({ timeout: 15_000 });
 
-  await menu.getByRole("menuitem", { name: "Scope", exact: true }).click({ timeout: 15_000 });
+  await menu.getByRole("button", { name: "Scope", exact: true }).click({ timeout: 15_000 });
   await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
     timeout: uiAssertionTimeoutMs,
   });
@@ -182,7 +182,7 @@ async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo, opt
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB accessibility coverage", () => {
+test.describe("PsychSift accessibility coverage", () => {
   test.describe.configure({ timeout: 60_000 });
 
   test("dashboard remains usable with reduced motion", async ({ page }) => {
@@ -279,7 +279,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
 
-    await expect(page).toHaveTitle("Clinical Answers | Clinical KB");
+    await expect(page).toHaveTitle("Clinical Answers | PsychSift");
     await page.getByRole("button", { name: /Mode\s*Answer/i }).click();
     const modeMenu = page.getByRole("menu");
     await expect(modeMenu).toBeVisible();
@@ -287,13 +287,13 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await expect(page).toHaveURL(/\?mode=dictionary$/);
     await expect(page.getByRole("heading", { level: 2, name: "Clinical Dictionary" })).toBeVisible();
-    await expect(page).toHaveTitle("Clinical Dictionary | Clinical KB");
+    await expect(page).toHaveTitle("Clinical Dictionary | PsychSift");
 
     // Repeated parameters are an adversarial deep-link case. The first value is
     // the canonical selection used by both the server metadata and client state.
     await page.goto("/?mode=therapy-compass&mode=dictionary", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 2, name: "Therapy" })).toBeVisible();
-    await expect(page).toHaveTitle("Therapy | Clinical KB");
+    await expect(page).toHaveTitle("Therapy | PsychSift");
   });
 
   test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
@@ -552,7 +552,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await menuTrigger.click();
     const menu = page.getByTestId("daily-actions-menu");
     await expect(menu).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+    await expect(menu.getByRole("button", { name: /Add document|Upload PDF/ })).toHaveCount(0);
     await expect(page.locator('input[type="file"]')).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();

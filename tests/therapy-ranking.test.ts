@@ -35,6 +35,19 @@ const fullTherapyRecords = JSON.parse(
 ) as Therapy[];
 
 describe("shared Therapy ranker", () => {
+  it("interprets natural-language therapy needs inside catalogue search", () => {
+    expect(
+      searchTherapies(
+        fullTherapyRecords,
+        {
+          ...EMPTY_SEARCH,
+          query: "Which therapy helps with emotion regulation?",
+        },
+        true,
+      )[0]?.slug,
+    ).toBe("dialectical-behaviour-therapy-dbt");
+  });
+
   it("uses one normalized scoring contract for catalogue and universal callers", () => {
     expect(scoreTherapyCandidate(records[0], "cognitive behavioural therapy")).toBeGreaterThan(
       scoreTherapyCandidate(records[1], "cognitive behavioural therapy"),

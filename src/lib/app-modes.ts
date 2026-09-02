@@ -19,6 +19,7 @@ export const appModeIds = [
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -76,6 +77,9 @@ export type AppModeDefinition = {
 /** Canonical destinations for the Factsheets local search and category browse surfaces. */
 export const factsheetsSearchHref = "/factsheets/search";
 export const factsheetsTopicsHref = "/factsheets/topics";
+
+/** Canonical destination for the DSM diagnosis catalogue search surface. */
+export const dsmSearchHref = "/dsm/search";
 
 export const appModeDefinitions = [
   {
@@ -371,7 +375,7 @@ export const appModeDefinitions = [
   {
     id: "therapy-compass",
     label: "Therapy",
-    description: "Source-grounded therapy decision support",
+    description: "Source-grounded therapy reference",
     href: "/therapy-compass",
     // Therapy ships in production with its review state disclosed rather than
     // hidden. It was previously `devOnly`, which 404'd the route and every
@@ -452,6 +456,29 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "sources",
+    label: "Sources",
+    description: "Ranked clinical source catalogue and traceability",
+    href: "/sources",
+    search: {
+      kind: "tools",
+      placeholder: "Search sources, publishers, or topics...",
+      inputAriaLabel: "Search sources, publishers, or topics",
+      submitIdleLabel: "Sources",
+      submitBusyLabel: "Sources",
+      submitAriaLabel: "Search sources",
+      emptyTitle: "Search sources",
+      readyTitle: "Search the clinical source catalogue",
+      progressLabel: "Searching the source catalogue.",
+      resultKind: "tools",
+      resultHeading: "Sources",
+      resultsSurface: "results-band",
+      statusLabel: "Sources",
+      nextStep: "Filter by quality, location, publisher, topic, or usage",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -487,6 +514,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
   "tools",
   "calculators",
 ]);

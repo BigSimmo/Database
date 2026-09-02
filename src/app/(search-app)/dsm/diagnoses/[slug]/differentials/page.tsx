@@ -61,9 +61,9 @@ function buildConsiderations(values: string[]): DsmDifferentialConsideration[] {
 export async function generateMetadata({ params }: DsmDifferentialRouteProps): Promise<Metadata> {
   const { slug } = await params;
   const diagnosis = getDsmDiagnosis(slug);
-  if (!diagnosis) return { title: "DSM differential considerations | Clinical KB" };
+  if (!diagnosis) return { title: "DSM differential considerations | PsychSift" };
   return {
-    title: `${diagnosis.title} differential considerations | Clinical KB`,
+    title: `${diagnosis.title} differential considerations | PsychSift`,
     description: `Structured differential considerations for ${diagnosis.title}.`,
   };
 }

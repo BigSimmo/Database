@@ -24,6 +24,7 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
 }));
 
 import { readHandler, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { narrowServiceStateForActor, type ServiceStateView } from "@/lib/caring-contacts-server/service-state-view";
 import { CARING_CONTACTS_ROLE_COOKIE, DEMO_TEAM_ID, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
@@ -62,6 +63,7 @@ const PATIENT_DETAIL = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  preferredName: "Rowan",
 };
 
 /** 2026-03-02 10:00 AWST discharge, read at 11:00 AWST -- the same instants the store contract uses. */
@@ -102,6 +104,7 @@ async function inMemoryStoreWithSpy(options: { actorRole?: CaringContactRole } =
       dischargeAt: DISCHARGE_AT,
       sendingPreference: "morning",
       patientDetail: PATIENT_DETAIL,
+      assurances: PLAN_ASSURANCE_VALUES,
     },
     { actor: coordinator, idempotencyKey: idempotencyKey("seed-create") },
   );
@@ -570,6 +573,10 @@ describe("caring-contacts API boundary", () => {
         dischargeAt: "2026-03-02T02:00:00.000Z",
         sendingPreference: "morning",
         patientDetail: PATIENT_DETAIL,
+        // Present so the SCHEMA accepts the body and the refusal under test is the duplicate-plan
+        // one the record state produces. Without it this posts an invalid request and asserts a
+        // privacy property about a 400 the route never reached the store to produce.
+        assurances: PLAN_ASSURANCE_VALUES,
         idempotencyKey: "create-duplicate",
       }),
     );

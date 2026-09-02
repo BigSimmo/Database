@@ -1,6 +1,6 @@
 # Clinical Badge System Guide
 
-This guide defines the badge, chip, and compact label system for Clinical KB. Use it as context for future UI, medication, source, document, evidence, answer, and labelling tasks.
+This guide defines the badge, chip, and compact label system for PsychSift. Use it as context for future UI, medication, source, document, evidence, answer, and labelling tasks.
 
 This document is governance only. It does not grant approval to apply badges across clinical content. Apply this system to a content area only when that area is explicitly approved for redesign or labelling work.
 

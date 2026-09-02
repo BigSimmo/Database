@@ -32,7 +32,7 @@ function searchParamsFromRecord(params: Record<string, string | string[] | undef
 /**
  * Keep the shared home's browser/assistive-technology title aligned with the
  * mode-specific heading that is actually rendered. Next's route announcer uses
- * this title first, so leaving every mode as just "Clinical KB" makes a mode
+ * this title first, so leaving every mode as just "PsychSift" makes a mode
  * switch or deep link needlessly ambiguous outside the visual canvas.
  */
 export async function generateMetadata({ searchParams }: HomeProps): Promise<Metadata> {

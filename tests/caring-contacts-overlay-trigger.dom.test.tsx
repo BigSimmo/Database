@@ -1,9 +1,16 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { Component, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { WORKSPACE_OVERLAY_DEFINITIONS } from "@/components/caring-contacts/workspace/overlays/definitions";
+import {
+  WORKSPACE_OVERLAY_DEFINITIONS,
+  type NonMutatingOverlayId,
+  type WorkspaceOverlayId,
+} from "@/components/caring-contacts/workspace/overlays/definitions";
+import { ExitOnlyOverlayTrigger } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
 import {
   clearStagedWorkspaceOverlayCommit,
   commitForHistoryEntry,
@@ -94,12 +101,34 @@ describe("the overlay trigger", () => {
     expect(window.location.search).not.toContain("overlay=");
   });
 
-  it("fails loudly for an id the frozen table does not carry, rather than opening nothing", () => {
-    // A control that opens an empty overlay is the silent version of exactly the
-    // defect the commit contract exists to prevent, so it throws at render.
+  it("refuses an id the frozen table does not carry at COMPILE time", () => {
+    // Ruling [130]. `overlayId` is a union derived from the twenty-four rows, so this
+    // is checked by `tsc --noEmit` rather than at runtime, and `@ts-expect-error` fails
+    // the typecheck if the error ever stops being raised. Before the narrowing, the
+    // annotation on `WORKSPACE_OVERLAY_DEFINITIONS` erased every literal and this line
+    // compiled: the throw below was the only thing standing between a typo and a
+    // control that opens nothing.
+    const mistyped = (
+      // @ts-expect-error "pause-plan" names no row in the frozen 24-overlay table.
+      <WorkspaceOverlayTrigger overlayId="pause-plan" commit={{ kind: "record", record: () => {} }}>
+        Pause this plan
+      </WorkspaceOverlayTrigger>
+    );
+    expect(mistyped).toBeTruthy();
+  });
+
+  it("still fails loudly at render for an id that reaches it past the type", () => {
+    // The belt-and-braces half, and the cast is the POINT rather than a convenience:
+    // the type is defeated deliberately, because a cast, an `any`, or a value that
+    // entered the program untyped is exactly what the throw is left in place for. A
+    // control that opens an empty overlay is the silent version of the defect the
+    // commit contract exists to prevent.
     expect(() =>
       render(
-        <WorkspaceOverlayTrigger overlayId="pause-plan" commit={{ kind: "record", record: () => {} }}>
+        <WorkspaceOverlayTrigger
+          overlayId={"pause-plan" as unknown as WorkspaceOverlayId}
+          commit={{ kind: "record", record: () => {} }}
+        >
           Pause this plan
         </WorkspaceOverlayTrigger>,
       ),
@@ -454,5 +483,205 @@ describe("the refusal rule", () => {
 
   it("states the unstaged refusal in permitted vocabulary", () => {
     expect(NO_STAGED_COMMIT_REASON).not.toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+  });
+});
+
+/*
+ * ===========================================================================
+ * ONE `ExitOnlyOverlayTrigger`, in one module
+ * ===========================================================================
+ *
+ * Two implementations of this component were live at once, and the reason they survived the merge
+ * is the reason this check is a source scan rather than a render. They sat at DIFFERENT PATHS, so
+ * git had nothing to report: no conflict, no overlapping hunk, both branches' files applied
+ * cleanly, and each consumer went on importing whichever one its own branch had built. Every DOM
+ * suite in the repository stayed green throughout, because each was rendering a component that
+ * really did exist and really did work.
+ *
+ * What that cost was not a crash. It was that "what an exit row's commit is" had TWO ANSWERS in one
+ * tree -- one staging `{ kind: "record", record: () => {} }`, one staging nothing -- and that Ruling
+ * [130]'s compile-time guarantee held at two call sites and not at the third, whose copy still typed
+ * `overlayId` as `string`. A duplicate that both halves of a fork keep working is invisible to every
+ * gate that asks whether the code works.
+ *
+ * So the invariant is about the TREE, not about a rendering: the component name is exported by
+ * exactly one module, and every module that imports it resolves to that one. It is written to be
+ * able to redden -- restoring either half of the fork fails it and names the file.
+ */
+describe("`ExitOnlyOverlayTrigger` is one component, exported once", () => {
+  const SURVIVING_MODULE = "src/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger.tsx";
+  const SOURCE_ROOTS = ["src/components/caring-contacts", "src/app/caring-contacts"] as const;
+
+  /**
+   * The component name followed by a NON-IDENTIFIER character, so `ExitOnlyOverlayTriggerProps` --
+   * a different name, and legitimately exported beside it -- does not count as a second component.
+   *
+   * A character class rather than a word boundary DELIBERATELY: a `\b` typed into this repository
+   * has arrived as a literal `0x08` byte before now, which renders as nothing, matches nothing, and
+   * leaves every gate green (`tests/source-control-bytes.test.ts` exists because of it).
+   */
+  const NAME_END = "[^A-Za-z0-9_$]";
+  const DECLARES_THE_NAME = new RegExp(
+    String.raw`export\s+(?:(?:async\s+)?function|const|let|class)\s+ExitOnlyOverlayTrigger(?=${NAME_END})`,
+  );
+  const RE_EXPORTS_THE_NAME = new RegExp(
+    String.raw`export\s+(?:type\s+)?\{[^}]*ExitOnlyOverlayTrigger(?=${NAME_END})[^}]*\}`,
+  );
+  const IMPORTS_A_CLAUSE = new RegExp(String.raw`import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*"([^"]+)"`, "g");
+
+  function sourceModules(): string[] {
+    const found: string[] = [];
+    const walk = (directory: string) => {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const child = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+          walk(child);
+          continue;
+        }
+        if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) found.push(child);
+      }
+    };
+    for (const root of SOURCE_ROOTS) walk(path.join(process.cwd(), root));
+    return found.map((absolute) => path.relative(process.cwd(), absolute).split(path.sep).join("/")).sort();
+  }
+
+  const MODULES = sourceModules();
+  const SOURCE_BY_MODULE = new Map(
+    MODULES.map(
+      (sourceModule) => [sourceModule, readFileSync(path.join(process.cwd(), sourceModule), "utf8")] as const,
+    ),
+  );
+
+  /** A relative or `@/`-aliased specifier, as a repository-relative path with its extension. */
+  function resolveSpecifier(fromModule: string, specifier: string): string | null {
+    const base = specifier.startsWith("@/")
+      ? path.join(process.cwd(), "src", specifier.slice(2))
+      : specifier.startsWith(".")
+        ? path.resolve(process.cwd(), path.dirname(fromModule), specifier)
+        : null;
+    if (base === null) return null;
+    for (const candidate of [
+      base,
+      `${base}.ts`,
+      `${base}.tsx`,
+      path.join(base, "index.ts"),
+      path.join(base, "index.tsx"),
+    ]) {
+      const relative = path.relative(process.cwd(), candidate).split(path.sep).join("/");
+      if (SOURCE_BY_MODULE.has(relative)) return relative;
+    }
+    return null;
+  }
+
+  it("scans the workspace source at all", () => {
+    // The positive control for every absence below. A walk that found nothing -- a moved directory,
+    // a renamed root -- would satisfy "exported by exactly one module" vacuously if the surviving
+    // module were also missing, and would satisfy "no other module exports it" outright.
+    expect(MODULES).toContain(SURVIVING_MODULE);
+    expect(MODULES.length, "the workspace source walk found almost nothing").toBeGreaterThan(20);
+  });
+
+  it("is exported by exactly one module", () => {
+    const exporters = MODULES.filter((sourceModule) => {
+      const source = SOURCE_BY_MODULE.get(sourceModule) ?? "";
+      return DECLARES_THE_NAME.test(source) || RE_EXPORTS_THE_NAME.test(source);
+    });
+    expect(exporters).toEqual([SURVIVING_MODULE]);
+  });
+
+  it("is imported from that module by every consumer, and from nowhere else", () => {
+    const wrong: string[] = [];
+    const consumers: string[] = [];
+    for (const sourceModule of MODULES) {
+      const source = SOURCE_BY_MODULE.get(sourceModule) ?? "";
+      for (const [, clause, specifier] of source.matchAll(IMPORTS_A_CLAUSE)) {
+        if (!new RegExp(String.raw`ExitOnlyOverlayTrigger(?=${NAME_END}|$)`).test(clause)) continue;
+        consumers.push(sourceModule);
+        const resolved = resolveSpecifier(sourceModule, specifier);
+        if (resolved !== SURVIVING_MODULE) wrong.push(`${sourceModule}: imports it from ${specifier} (${resolved})`);
+      }
+    }
+    // Positive control for the absence above: there ARE consumers, so "none imports it from
+    // anywhere else" is a statement about real imports rather than about an empty set.
+    expect(consumers.length, "no module imports the exit-only trigger at all").toBeGreaterThan(0);
+    expect(wrong).toEqual([]);
+  });
+});
+
+/**
+ * The surviving `ExitOnlyOverlayTrigger`'s own behaviour, which is not the base trigger's.
+ *
+ * The adjudication recorded in `docs/caring-contacts/phase-2b-build-record.md` ("The duplicate
+ * `ExitOnlyOverlayTrigger`, adjudicated") resolved two implementations into one: Task 10's module
+ * and structure, Task 16's runtime behaviour, and Task 16's DOM marker. The two properties below are
+ * exactly the halves of that resolution, so a regression to either implementation reddens here.
+ */
+describe("the exit-only trigger", () => {
+  it("opens its row with NOTHING staged, and says which route it took", async () => {
+    // THE POSITIVE CONTROL, and it is doing real work: it proves the slot is observable from this
+    // test at all, and that a click through the RECORDING route writes it. Without it, "nothing is
+    // staged" would be satisfied just as well by a broken reader or a click that never landed.
+    render(
+      <WorkspaceOverlayTrigger overlayId="pause" commit={{ kind: "record", record: () => {} }}>
+        Pause this plan
+      </WorkspaceOverlayTrigger>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Pause this plan" }));
+    expect(readStagedWorkspaceOverlayCommit(), "the recording route staged nothing either").not.toBeNull();
+
+    cleanup();
+    clearStagedWorkspaceOverlayCommit();
+    seedHistory();
+
+    render(<ExitOnlyOverlayTrigger overlayId="delivery-detail">Close this detail</ExitOnlyOverlayTrigger>);
+    const trigger = screen.getByRole("button", { name: "Close this detail" });
+    expect(trigger).toHaveAttribute("data-overlay-trigger", "delivery-detail");
+    // Task 16's marker, carried over by the adjudication: it makes "this is an exit route, not a
+    // no-op commit" assertable from the DOM rather than only from the source. The base trigger does
+    // not write it, which is what makes it a distinction rather than a decoration.
+    expect(trigger).toHaveAttribute("data-overlay-trigger-kind", "exit-only");
+
+    await userEvent.click(trigger);
+
+    // The overlay really opened -- so the absence below is about what the opening STAGED, not about
+    // a click that did nothing.
+    expect(window.location.search).toContain("overlay=delivery-detail");
+    expect(readStagedWorkspaceOverlayCommit(), "the exit route staged a commit").toBeNull();
+  });
+
+  it("wears the same surface and the same 48px tap floor as the base trigger", () => {
+    render(<ExitOnlyOverlayTrigger overlayId="delivery-detail">Close this detail</ExitOnlyOverlayTrigger>);
+    const trigger = screen.getByRole("button", { name: "Close this detail" });
+
+    // One shared constant rather than two copies: the duplicate implementation carried its own copy
+    // of this string, which is how two visibly similar controls start drifting apart.
+    expect(trigger.className).toContain("min-h-tap");
+    expect(trigger.className, "44px reintroduces a known ui-smoke sub-pixel flake").not.toContain("min-h-11");
+    expect(trigger.className).toMatch(/bg-\[color:var\(--[a-z-]+\)\]/);
+  });
+
+  it("refuses a recording row at COMPILE time", () => {
+    // Ruling [130] at this component, which is the guarantee F1 found absent at one call site while
+    // two implementations were live: the surviving one types `overlayId` as `NonMutatingOverlayId`,
+    // the deleted one typed it `string`. Checked by `tsc --noEmit`; `@ts-expect-error` fails the
+    // typecheck if the error ever stops being raised.
+    const mistyped = (
+      // @ts-expect-error "withdrawal" records a decision, so it is not an exit row.
+      <ExitOnlyOverlayTrigger overlayId="withdrawal">Withdraw this plan</ExitOnlyOverlayTrigger>
+    );
+    expect(mistyped).toBeTruthy();
+  });
+
+  it("still fails loudly at render for a recording row that reaches it past the type", () => {
+    // The cast is the POINT rather than a convenience: the type is defeated deliberately, because a
+    // cast, an `any`, or a value that entered the program untyped is what the throw is left for --
+    // and it is the only thing that catches a row whose `mutatesState` changes in the frozen table.
+    expect(() =>
+      render(
+        <ExitOnlyOverlayTrigger overlayId={"withdrawal" as unknown as NonMutatingOverlayId}>
+          Withdraw this plan
+        </ExitOnlyOverlayTrigger>,
+      ),
+    ).toThrow(/records a decision/i);
   });
 });

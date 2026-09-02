@@ -14,7 +14,7 @@ describe("also-matches accent mockups", () => {
     expect(source).toContain("bg-[color:var(--cat-soft)]");
     expect(source).toContain('phone ? "grid-cols-1"');
     expect(source).toContain('data-testid="also-matches-chosen-chip"');
-    expect(source).not.toContain("Across Clinical KB");
+    expect(source).not.toContain("Across PsychSift");
   });
 
   it("keeps identity on category tokens, not clinical-state colour", () => {

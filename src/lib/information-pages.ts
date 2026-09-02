@@ -19,7 +19,8 @@ export type InformationPageMode =
   | "therapy-compass"
   | "differentials"
   | "dsm"
-  | "documents";
+  | "documents"
+  | "sources";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -69,6 +70,7 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/formulation")) return true;
   if (isSlugDetail(pathname, "/factsheets", ["search", "topics"])) return true;
   if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
+  if (isSlugDetail(pathname, "/sources", ["topics", "publishers", "method"])) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -105,6 +107,7 @@ export const informationPageShellModes = [
   "formulation",
   "factsheets",
   "dictionary",
+  "sources",
   "therapy-compass",
   "dsm",
 ] as const satisfies readonly InformationPageMode[];

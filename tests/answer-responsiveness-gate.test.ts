@@ -142,6 +142,12 @@ describe("generation-timeout fallback wording (P2)", () => {
     expect(text).toMatch(/agitation and arousal/i);
     expect(text).not.toMatch(/agitaton|arousl/i);
   });
+
+  it("does not echo a yes/no governance claim into the source-only fallback", () => {
+    const text = sourceBackedGenerationTimeoutAnswer("Is this protocol approved for use?");
+    expect(text).toContain("this protocol");
+    expect(text).not.toMatch(/approved for use|verified current/i);
+  });
 });
 
 describe("offline extractive naturalness — completeExtractiveSentence (P4)", () => {

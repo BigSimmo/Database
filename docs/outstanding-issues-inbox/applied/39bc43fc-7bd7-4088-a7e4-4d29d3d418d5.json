@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "39bc43fc-7bd7-4088-a7e4-4d29d3d418d5",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#4AM8Z0",
+    "outcome": "Added Ramipril and Simvastatin to medication catalogue with full interaction, dosing, and contraindication profiles; rebuilt interaction index and asserted in tests/medication-badges.test.ts",
+    "baseRowFingerprint": "a420a3e9b005324b7821b8985f6d34c023ac76e78769771d64fb2c326e5a00c0"
+  }
+}

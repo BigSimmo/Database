@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c733065e-9076-4f43-a7b2-9e0b5d5dcedd",
+  "createdOn": "2026-08-31",
+  "action": "cancel",
+  "payload": {
+    "requestId": "44b322b0-0a87-4564-878a-9d5ac97bcdc3",
+    "reason": "Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts."
+  }
+}

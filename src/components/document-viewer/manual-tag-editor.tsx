@@ -220,7 +220,7 @@ export function DocumentManualTagEditor({
                         type="button"
                         onClick={() => saveManualTag(label)}
                         disabled={editingLabel.trim().length < manualLabelMinLength || busyAction !== null}
-                        className={cn(primaryButton, "sm:min-h-9 px-2 text-xs")}
+                        className={cn(primaryButton, "px-2 text-xs")}
                         aria-label={`Save ${label.label}`}
                       >
                         {busyAction === `edit:${label.id}` ? (
@@ -233,7 +233,7 @@ export function DocumentManualTagEditor({
                         type="button"
                         onClick={() => setEditingId(null)}
                         disabled={busyAction !== null}
-                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
+                        className={cn(secondaryButton, "sm:min-h-compact-meta px-2 text-xs")}
                         aria-label="Cancel edit"
                       >
                         <X aria-hidden="true" className="h-4 w-4" />
@@ -259,7 +259,7 @@ export function DocumentManualTagEditor({
                         disabled={!canManage || busyAction !== null}
                         className={cn(
                           secondaryButton,
-                          "sm:min-h-9 px-2 text-xs border-[color:var(--danger)]/40 text-[color:var(--danger)]",
+                          "sm:min-h-compact-meta px-2 text-xs border-[color:var(--danger)]/40 text-[color:var(--danger)]",
                         )}
                         aria-label={`Confirm remove ${label.label}`}
                       >
@@ -275,7 +275,7 @@ export function DocumentManualTagEditor({
                         type="button"
                         onClick={() => setConfirmingDeleteId(null)}
                         disabled={busyAction !== null}
-                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
+                        className={cn(secondaryButton, "sm:min-h-compact-meta px-2 text-xs")}
                         aria-label={`Cancel removing ${label.label}`}
                       >
                         <X aria-hidden="true" className="h-4 w-4" />
@@ -293,7 +293,7 @@ export function DocumentManualTagEditor({
                           setEditingType(label.label_type);
                         }}
                         disabled={!canManage || busyAction !== null}
-                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
+                        className={cn(secondaryButton, "sm:min-h-compact-meta px-2 text-xs")}
                         aria-label={`Rename ${label.label}`}
                       >
                         <Pencil aria-hidden="true" className="h-4 w-4" />
@@ -303,7 +303,7 @@ export function DocumentManualTagEditor({
                         type="button"
                         onClick={() => setConfirmingDeleteId(label.id)}
                         disabled={!canManage || busyAction !== null}
-                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs text-[color:var(--danger)]")}
+                        className={cn(secondaryButton, "sm:min-h-compact-meta px-2 text-xs text-[color:var(--danger)]")}
                         aria-label={`Remove ${label.label}`}
                       >
                         <Trash2 aria-hidden="true" className="h-4 w-4" />

@@ -60,7 +60,7 @@ create table if not exists public.import_batches (
 
 create table if not exists public.documents (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   title text not null,
   description text,
   file_name text not null,
@@ -177,7 +177,7 @@ create table if not exists public.image_caption_cache (
 create table if not exists public.document_labels (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null references public.documents(id) on delete cascade,
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   label text not null,
   label_type text not null
     check (label_type in (
@@ -208,7 +208,7 @@ create table if not exists public.document_labels (
 create table if not exists public.document_summaries (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null unique references public.documents(id) on delete cascade,
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   summary text not null,
   clinical_specifics jsonb not null default '{}'::jsonb,
   source_chunk_ids uuid[] not null default '{}',
@@ -319,7 +319,7 @@ create table if not exists public.document_chunks (
 
 create table if not exists public.document_table_facts (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid references auth.users(id) on delete set null,
+  owner_id uuid references auth.users(id) on delete restrict,
   document_id uuid not null references public.documents(id) on delete cascade,
   source_chunk_id uuid references public.document_chunks(id) on delete cascade,
   source_image_id uuid references public.document_images(id) on delete set null,
@@ -860,23 +860,7 @@ create index if not exists rag_response_cache_expiry_idx
 create index if not exists rag_response_cache_owner_kind_idx
   on public.rag_response_cache(owner_id, cache_kind, updated_at desc);
 
-create or replace function public.purge_expired_rag_response_cache()
-returns integer
-language plpgsql
-security definer
-set search_path = public, extensions, pg_temp
-as $$
-declare
-  v_deleted integer;
-begin
-  delete from public.rag_response_cache where expires_at <= now();
-  get diagnostics v_deleted = row_count;
-  return v_deleted;
-end;
-$$;
 
-revoke execute on function public.purge_expired_rag_response_cache() from public, anon, authenticated;
-grant execute on function public.purge_expired_rag_response_cache() to service_role;
 create unique index if not exists rag_response_cache_key_idx
   on public.rag_response_cache(
     coalesce(owner_id, '00000000-0000-0000-0000-000000000000'::uuid),
@@ -3343,7 +3327,7 @@ CREATE OR REPLACE FUNCTION public.set_owner_id_from_auth_uid()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'auth'
+ SET search_path = public, auth, pg_temp
 AS $function$
 begin
   if new.owner_id is null then
@@ -5226,7 +5210,7 @@ returns text
 language plpgsql
 stable
 security definer
-set search_path = pg_catalog, extensions
+set search_path = pg_catalog, extensions, pg_temp
 as $$
 declare
   tokens text[];
@@ -5271,6 +5255,7 @@ begin
         from public.rag_aliases
         where enabled
           and owner_id is null
+          and length(canonical) between 4 and 40
           and length(canonical) between 4 and 40
           and lower(canonical) % tok
         order by similarity(lower(canonical), tok) desc, lower(canonical)
@@ -5899,7 +5884,7 @@ create or replace function public.create_uploaded_document_with_ingestion_job(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_document public.documents%rowtype;

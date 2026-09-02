@@ -241,18 +241,18 @@ export function Chip({
         {children}
       </span>
       {onRemove ? (
-        // Wrap mode uses min-height only, so `h-full` collapses to 0. Stretch the
-        // track to the flex line (or a 20px floor) so the remove control stays
-        // tappable on multi-line tags without a 48px overhang onto neighbours.
+        // Visual chip stays compact. The remove control is absolutely centred so
+        // its padded hit can be min-h-tap / w-8 without inflating ChoiceChip
+        // (already min-h-tap) or the painted Chip. Wrap still stretches the
+        // track to the flex line so a multi-line tag does not collapse to 0.
         <span className={cn("relative w-5 shrink-0", wrap ? "min-h-5 self-stretch" : "h-full self-center")}>
           <button
             type="button"
             onClick={onRemove}
             aria-label={removeLabel}
-            // w-8 is intentionally wider than the w-5 track so the hit area
-            // overhangs into chip horizontal padding. Do not add max-w-full —
-            // that clamps back to the track width and nullifies the enlarge.
-            className="absolute inset-y-0 left-1/2 grid h-full min-h-5 w-8 -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+            // w-8 overhangs the w-5 track into chip padding. min-h-tap is the
+            // production floor; do not add max-w-full - that clamps the enlarge.
+            className="absolute left-1/2 top-1/2 grid min-h-tap w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
           >
             <span className="grid h-5 w-5 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)]">
               <X aria-hidden="true" className="h-3 w-3" />

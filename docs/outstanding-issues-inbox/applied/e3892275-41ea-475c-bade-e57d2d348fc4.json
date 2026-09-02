@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e3892275-41ea-475c-bade-e57d2d348fc4",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#0JJ4RD",
+    "outcome": "Consolidated live purge_expired_rag_response_cache overloads into single bounded signature in migration 20260831100000_harden_security_definer_search_paths_and_purge_cache.sql and schema mirror.",
+    "baseRowFingerprint": "e6f9d551f9bf9e4387d8ffad8b2af345af61284524ef5b03feb71fa8a06920f3"
+  }
+}

@@ -57,7 +57,7 @@ describe("category identity registry", () => {
     expect(source).toContain("bg-[color:var(--cat-soft)]");
     expect(source).toContain("grid-cols-1");
     expect(source).toContain("Also matches");
-    expect(source).not.toContain("Across Clinical KB");
+    expect(source).not.toContain("Across PsychSift");
   });
 
   it("tints library chips from APP_MODE_ACCENT", () => {
@@ -92,6 +92,14 @@ describe("category identity registry", () => {
   it("gives every app mode a glyph no other mode uses", () => {
     const keys = appModeIds.map((mode) => APP_MODE_ICON[mode]);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("uses the library glyph for Sources on both independent identity axes", () => {
+    expect(APP_MODE_ICON.sources).toBe("libraryBig");
+    expect(TOOL_ICON["source-catalogue"]).toBe("libraryBig");
+    expect(categoryIconComponent("libraryBig").displayName ?? categoryIconComponent("libraryBig").name).toMatch(
+      /LibraryBig/,
+    );
   });
 
   it("resolves every declared glyph key to a component", () => {

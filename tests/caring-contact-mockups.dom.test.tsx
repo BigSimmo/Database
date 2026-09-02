@@ -24,6 +24,7 @@ import {
   canActivateGovernedVersions,
 } from "@/components/caring-contacts/mockups/personalisation-screen";
 import { ReviewActivationScreen } from "@/components/caring-contacts/mockups/review-activation-screen";
+import { PROVISIONAL_MESSAGE_RULES } from "@/lib/caring-contacts/message-rules";
 import {
   APPROVED_CARING_CONTACT_ROUTE_IDENTITIES,
   DESIGNATED_FICTIONAL_MOBILE_NUMBERS,
@@ -127,25 +128,30 @@ describe("Caring Contact governance contracts", () => {
       ({ approvalState }) => approvalState === "Illustrative — approval pending",
     )!;
 
-    expect(EXACT_MESSAGE_GSM7).toEqual({ invalidCharacters: [], segments: 2, septets: 252, valid: true });
+    // 252 -> 278 septets, owner-authorised 2026-08-27 (Ruling [144]): the fictional crisis line
+    // became the real Australian crisis services, costing 66 septets against the 40 it replaced.
+    expect(EXACT_MESSAGE_GSM7).toEqual({ invalidCharacters: [], segments: 2, septets: 278, valid: true });
     // The automated reply (production-build spec §2.1) is patient-visible too, so it carries the same
     // two-segment ceiling and the same prohibition on echoing a patient mobile number.
     // 218 -> 210 septets, owner-approved 2026-08-24 (items A2 + A3, see
-    // docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md).
+    // docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md); 210 -> 236 for Ruling [144].
     expect(calculateGsm7(AUTOMATED_REPLY_RESPONSE)).toEqual({
       invalidCharacters: [],
       segments: 2,
-      septets: 210,
+      septets: 236,
       valid: true,
     });
-    expect(AUTOMATED_REPLY_RESPONSE).toContain(FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine);
-    expect(AUTOMATED_REPLY_RESPONSE).toContain(FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact);
-    expect(AUTOMATED_REPLY_RESPONSE).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.miraPatientMobile);
-    expect(AUTOMATED_REPLY_RESPONSE).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.rowanPatientMobile);
-    expect(EXACT_PATIENT_VISIBLE_MESSAGE).toContain(FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine);
-    expect(EXACT_PATIENT_VISIBLE_MESSAGE).toContain(FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact);
-    expect(EXACT_PATIENT_VISIBLE_MESSAGE).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.miraPatientMobile);
-    expect(EXACT_PATIENT_VISIBLE_MESSAGE).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.rowanPatientMobile);
+    // The crisis-support contact is now the owner-authorised Lifeline sentence, which is a REAL
+    // service and is deliberately not one of this prototype's reserved fictional numbers -- so it
+    // is read from the rule, and the reserved number it replaced must be gone from both messages.
+    // The fictional STAFFED line remains, which is what still marks both as non-sendable specimens.
+    for (const text of [AUTOMATED_REPLY_RESPONSE, EXACT_PATIENT_VISIBLE_MESSAGE]) {
+      expect(text).toContain(FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine);
+      expect(text).toContain(PROVISIONAL_MESSAGE_RULES.crisisSupportContact);
+      expect(text).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact);
+      expect(text).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.miraPatientMobile);
+      expect(text).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.rowanPatientMobile);
+    }
     expect(calculateGsm7("A^B")).toEqual({ invalidCharacters: [], segments: 1, septets: 4, valid: true });
     expect(calculateGsm7("Hello 🙂")).toMatchObject({ invalidCharacters: ["🙂"], segments: 0, valid: false });
     expect(calculateGsm7("A".repeat(160)).segments).toBe(1);

@@ -10,7 +10,7 @@ import type { ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
 export type ClinicalAskShellBindings = {
   clinicalAskSession: ReturnType<typeof useClinicalAskShellState>["clinicalAskSession"];
   clinicalAskOnline: boolean;
-  runModeClinicalAsk: () => void;
+  runModeClinicalAsk: (queryOverride?: string) => void;
 };
 
 export function ClinicalAskShellBindingsLayer({
@@ -44,7 +44,7 @@ function ClinicalAskShellBindingsInner({
   query: string;
   children: (bindings: ClinicalAskShellBindings) => ReactNode;
 }) {
-  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(accountId);
+  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(accountId, clinicalAskMode);
   const runModeClinicalAsk = useClinicalAskRunner({
     clinicalAskMode,
     clinicalAskOnline,

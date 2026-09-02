@@ -64,8 +64,28 @@ export type WorkspaceOverlayDefinition = {
 /**
  * The 24 overlays in matrix order. The order is part of the contract: the
  * row-for-row test walks the document and this array together.
+ *
+ * RULING [130]: NO WIDENING ANNOTATION, AND `as const` BEFORE THE `satisfies`.
+ *
+ * This declaration used to read `: readonly WorkspaceOverlayDefinition[] =`, and
+ * that annotation erased every literal in the table. `id` is declared `string` on
+ * `WorkspaceOverlayDefinition` — it has to be, because the type describes the SHAPE
+ * of a row rather than the twenty-four rows themselves — so an annotated array
+ * carried no more type information than "some overlay definitions", and
+ * `overlayId` on a trigger could only ever be a `string`. A mistyped id was then a
+ * RUNTIME throw and nothing more, which is how Task 10 came to close the same hole
+ * with one, and to record that the type should be carrying it.
+ *
+ * `as const` is what preserves the literals (`satisfies` alone cannot: it checks
+ * against `WorkspaceOverlayDefinition`, whose `id` is already `string`, so there is
+ * no narrower expected type for it to keep). The `satisfies` clause after it still
+ * does its original job — a row that breaks the shape is a compile error here
+ * rather than at the first reader — and now does it without widening anything.
+ *
+ * What that buys, in one sentence: {@link WorkspaceOverlayId} below is derived from
+ * these rows, so a trigger for an id no row carries does not compile.
  */
-export const WORKSPACE_OVERLAY_DEFINITIONS: readonly WorkspaceOverlayDefinition[] = Object.freeze([
+export const WORKSPACE_OVERLAY_DEFINITIONS = Object.freeze([
   {
     id: "verify-identity",
     label: "Verify identity",
@@ -399,14 +419,53 @@ export const WORKSPACE_OVERLAY_DEFINITIONS: readonly WorkspaceOverlayDefinition[
     dismissal: "escape-backdrop-close",
     tone: "primary",
   },
-] satisfies readonly WorkspaceOverlayDefinition[]);
+] as const satisfies readonly WorkspaceOverlayDefinition[]);
 
-/** The 16 overlays whose confirmed action changes stored state, in matrix order. */
-export const MUTATING_OVERLAY_IDS: readonly string[] = Object.freeze(
-  WORKSPACE_OVERLAY_DEFINITIONS.filter((definition) => definition.mutatesState).map((definition) => definition.id),
+/** One row of the frozen table, with its own literals intact. */
+type WorkspaceOverlayRow = (typeof WORKSPACE_OVERLAY_DEFINITIONS)[number];
+
+/**
+ * The twenty-four ids, as a union.
+ *
+ * Derived from the table rather than written out beside it, for the reason every
+ * other derived value in this domain is: a hand-written union is a second copy of
+ * the frozen record, free to go on naming a row the matrix has dropped.
+ */
+export type WorkspaceOverlayId = WorkspaceOverlayRow["id"];
+
+/**
+ * The ids whose confirmed action changes stored state, and the ids whose does not.
+ *
+ * Ruling [130], and the half that makes wrong wiring a COMPILE error rather than a
+ * review finding. `mutatesState` already decides, row by row, whether a control is
+ * a confirmation or an exit — Ruling 90 turns on exactly that flag — so a screen
+ * wiring an exit and a screen wiring a write are wiring two different kinds of
+ * thing, and until now nothing in the types said so.
+ *
+ * `Extract` over the row union rather than a filter over the array: the literal
+ * `true`/`false` on each row is what makes the distinction available at type level
+ * at all, and a runtime filter would hand back `WorkspaceOverlayId` for both.
+ */
+export type MutatingOverlayId = Extract<WorkspaceOverlayRow, { mutatesState: true }>["id"];
+export type NonMutatingOverlayId = Extract<WorkspaceOverlayRow, { mutatesState: false }>["id"];
+
+/**
+ * The 16 overlays whose confirmed action changes stored state, in matrix order.
+ *
+ * Typed as the derived union rather than `readonly string[]`, so this value and
+ * {@link MutatingOverlayId} cannot disagree about which rows they describe. The
+ * type predicate is what carries the narrowing through `filter`, which otherwise
+ * returns the whole row union whatever the callback tests.
+ */
+export const MUTATING_OVERLAY_IDS: readonly MutatingOverlayId[] = Object.freeze(
+  WORKSPACE_OVERLAY_DEFINITIONS.filter(
+    (definition): definition is Extract<WorkspaceOverlayRow, { mutatesState: true }> => definition.mutatesState,
+  ).map((definition) => definition.id),
 );
 
-const DEFINITION_BY_ID = new Map(WORKSPACE_OVERLAY_DEFINITIONS.map((definition) => [definition.id, definition]));
+const DEFINITION_BY_ID = new Map<string, WorkspaceOverlayDefinition>(
+  WORKSPACE_OVERLAY_DEFINITIONS.map((definition) => [definition.id, definition]),
+);
 
 /** Returns `null` rather than throwing: an unknown `?overlay=` value is a bad URL, not a defect. */
 export function overlayDefinition(id: string): WorkspaceOverlayDefinition | null {

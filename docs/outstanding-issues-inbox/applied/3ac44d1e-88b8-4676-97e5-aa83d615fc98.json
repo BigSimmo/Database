@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3ac44d1e-88b8-4676-97e5-aa83d615fc98",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#XKS6FD",
+    "outcome": "Added first-class mode live to Freshness type and resolveLiveFreshness helper displaying read live status.",
+    "baseRowFingerprint": "9e547684b5e56ae4ebb97aebb3e257df782180dd018fb627d003087eaa7c910c"
+  }
+}

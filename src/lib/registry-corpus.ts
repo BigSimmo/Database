@@ -125,7 +125,7 @@ function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> 
     clinical_validation_status: entry.validationStatus,
     clinical_validation_evidence: registryClinicalValidationEvidence(entry),
     extraction_quality: "good",
-    publisher: "Clinical KB registry",
+    publisher: "PsychSift registry",
     jurisdiction: "WA/local clinical workspace",
   };
 }

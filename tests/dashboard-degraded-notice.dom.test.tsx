@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
+import { readPrimitiveRecipeSources } from "../scripts/design-system-contract-utils.mjs";
 
 describe("DegradedNoticeFrame", () => {
   it("reserves the notice frame only for the centred home surface", () => {
@@ -24,7 +25,7 @@ describe("DegradedNoticeFrame", () => {
       resolve(process.cwd(), "src/components/clinical-dashboard/dashboard-shell.tsx"),
       "utf8",
     );
-    const primitivesSource = readFileSync(resolve(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
+    const primitivesSource = readPrimitiveRecipeSources();
     expect(drawerSource).toContain('"flex min-h-[56px]');
     expect(drawerSource).toContain("rounded-lg px-4 py-3 text-left");
     expect(primitivesSource).toMatch(/iconTilePremium\s*=\s*\n\s*"[^"]*h-9 w-9/);

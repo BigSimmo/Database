@@ -12,7 +12,7 @@ import {
 } from "@/lib/developer-area/ledger-snapshot";
 
 export const metadata: Metadata = {
-  title: "Task ledger · Developer · Clinical KB",
+  title: "Task ledger · Developer · PsychSift",
   description: "Every outstanding task, recommendation and issue, read from the committed ledger snapshot.",
 };
 

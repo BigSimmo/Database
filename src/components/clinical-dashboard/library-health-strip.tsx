@@ -80,7 +80,7 @@ export function LibraryHealthStrip({
             type="button"
             onClick={() => onSelectTarget?.(item.target)}
             className={cn(
-              "min-h-12 rounded-md border px-2.5 py-2 text-left transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-0",
+              "min-h-12 rounded-md border px-2.5 py-2 text-left transition hover:-translate-y-px hover:shadow-[var(--e2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-0",
               item.tone,
             )}
             aria-label={item.actionLabel}

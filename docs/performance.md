@@ -1,6 +1,6 @@
 # Performance and Web Vitals Baselines
 
-This document outlines performance benchmarks, layout stability strategies, and Core Web Vitals baselines for the Clinical KB application.
+This document outlines performance benchmarks, layout stability strategies, and Core Web Vitals baselines for the PsychSift application.
 
 ---
 

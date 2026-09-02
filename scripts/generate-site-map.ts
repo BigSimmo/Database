@@ -80,16 +80,33 @@ const documentedRedirectTargets: Record<string, string> = {
   // Pinned because the page forwards the incoming query string, so its
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
+  "/dictionary/sources": "/sources?usedBy=dictionary",
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
 
 const routeDescriptions: Record<string, string> = {
-  "/": "Main Clinical KB shell.",
+  "/": "Main PsychSift shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
   "/caring-contacts":
     "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
   "/caring-contacts/patients":
-    "The team's permission-scoped caring-contact caseload: one row per plan with a separately authorised patient-name projection. Plan state is URL-driven; name and synthetic-identifier search stays in browser memory so identifying text never enters the URL.",
+    "The team's caring-contact caseload: one row per plan. Only the plan state travels in the URL; the search box matches patient names and synthetic identifiers inside the browser and is never put into an address, because a patient's name must not reach browser history or a request log. A row carries the patient's name and a synthetic identifier and no other identifying detail.",
+  "/caring-contacts/patients/[patientId]":
+    "One patient's caring-contact episode: who they are, the plan that is running, and every message in its twelve-month schedule. Reached from a caseload row; scoped to one plan, which `?plan=` names when the patient holds more than one.",
+  "/caring-contacts/plans/new":
+    "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
+  "/caring-contacts/schedule":
+    "What this team's caring-contact plans put on one AWST day: the three approved sending windows, the contacts at no approved send time, and the named exceptions. The day travels in `?day=`; without it, today.",
+  "/caring-contacts/templates":
+    "The governed pathway versions a team holds: lifecycle state, the recorded facts of publication and retirement, and who approved each one — qualified by the record's own provenance, so a synthetic approval never reads as a real one. A governance record viewer; the list itself shows no message wording, and each row states which of the three messages its record holds text for and links to the record that shows it.",
+  "/caring-contacts/templates/[pathwayId]":
+    "One governed pathway version in full: its lifecycle, both approval seats and the qualification its own record carries, the wording that record holds, and whether a new plan may be started on it. Reached from a row of the templates library; a well-formed identifier this team does not hold is stated as a governance fact rather than an error.",
+  "/caring-contacts/team":
+    "Where this team's caring-contact work is sitting: what each coordinator is carrying, which of their plans their own state is holding, who is covering for whom, and what nobody has claimed against the 60-minute escalation. Operational only, and it never ranks a clinician — rows are in identifier order and no figure is a measure of a person. It holds no staff name and no role, because nothing in this system records either, so each coordinator appears as the identifier their work is filed under; and it carries no patient, plan or contact identifier at all.",
+  "/caring-contacts/guidance":
+    "How the caring-contact programme is run: the one-way boundary and what a patient is actually told about replies, what the service does when a system it depends on is unavailable, and the language rules — including that a delivery receipt is a transport fact and never a statement about a person. Fixed text; it holds no record about anybody.",
+  "/caring-contacts/reports":
+    "Aggregate operational measures for one team — contacts still to send and already sent, plans held, and the dispatch attempts where the carrier reported something other than what was expected. Also carries the programme-reach section, which states that Aboriginal and Torres Strait Islander status is not recorded rather than rendering an empty breakdown of it. No measure names or identifies a patient, and no clinician is ranked.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/calculators/search":
     "Browsable calculator catalogue and scored results. An empty query lists every calculator; a submitted query narrows the same list.",
@@ -100,7 +117,8 @@ const routeDescriptions: Record<string, string> = {
   "/dictionary/compare": "Side-by-side clinical term definition and nuance comparison.",
   "/dictionary/search":
     "The clinical term and abbreviation catalogue: an empty query lists everything, a typed query narrows the same list.",
-  "/dictionary/sources": "Clinical dictionary governance, references, and source catalogue.",
+  "/dictionary/sources":
+    "Query-preserving compatibility redirect to `/sources?usedBy=dictionary`; incoming catalogue filters are retained and application usage is set to Dictionary.",
   "/dictionary/topics": "Clinical dictionary topic category index.",
   "/dictionary/topics/[slug]": "Clinical dictionary topic category term list.",
   "/differentials": "Differentials home and search surface.",
@@ -134,7 +152,7 @@ const routeDescriptions: Record<string, string> = {
   "/formulation/map": "Formulation mechanism domain map.",
   "/medications": "Medication mode home.",
   "/medications/[slug]": "Medication detail.",
-  "/privacy": "Privacy and data-processing governance draft.",
+  "/privacy": "Public privacy and data-processing transparency notice; governance approval pending.",
   "/reference/colour-coding": "Clinical domain and category colour-coding palette reference.",
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
@@ -144,7 +162,7 @@ const routeDescriptions: Record<string, string> = {
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
-  "/therapy-compass": "Therapy home (source-grounded therapy decision support).",
+  "/therapy-compass": "Therapy home (source-grounded therapy reference).",
   "/therapy-compass/[slug]": "Therapy record detail.",
   "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
   "/therapy-compass/[slug]/sheet": "Therapy patient-sheet builder.",
@@ -186,7 +204,6 @@ const apiDescriptions: Record<string, string> = {
   "/api/documents/[id]/table-facts": "Document table facts.",
   "/api/documents/bulk": "Bulk document operations.",
   "/api/documents/bulk/reindex": "Bulk reindex operation.",
-  "/api/documents/signed-urls": "Bulk private document signed URLs.",
   "/api/eval-cases": "Evaluation case data.",
   "/api/health": "Health check.",
   "/api/health/ready": "Readiness health check.",
@@ -391,6 +408,7 @@ function renderModeRoutes() {
     "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
     dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
+    sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -508,7 +526,14 @@ function renderModePageIndex() {
       home: appModeHomeHref("dictionary"),
       search: appModeHomeHref("dictionary", { query: "MSE", focus: true, run: true }),
       detail:
-        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
+        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare` and `/dictionary/[slug]` records; `/dictionary/sources` redirects to Sources.",
+    },
+    {
+      mode: "Sources",
+      home: appModeHomeHref("sources"),
+      search: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
+      detail:
+        "`/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
     },
     {
       mode: "Therapy Compass",
@@ -570,7 +595,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
   );
 
   const lines = [
-    "# Clinical KB Site Map",
+    "# PsychSift Site Map",
     "",
     "This file is generated by `npm run docs:update` (or `npm run sitemap:update` directly). Run `npm run sitemap:check` to verify it is current.",
     "",

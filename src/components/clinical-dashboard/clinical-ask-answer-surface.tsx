@@ -56,6 +56,9 @@ export function ClinicalAskAnswerSurface({
   onClarificationChange,
   onPrepareHandoff,
   onFollowUp,
+  onRetry,
+  onContinue,
+  onReturnToSearch,
   feedbackMetadata,
 }: {
   response: ClinicalAskResponse;
@@ -66,6 +69,9 @@ export function ClinicalAskAnswerSurface({
     target: Extract<ClinicalAskResponse, { state: "answered" }>["handoffs"][number]["targetMode"],
   ): void;
   onFollowUp?(value: string): void;
+  onRetry?(): void;
+  onContinue?(): void;
+  onReturnToSearch?(): void;
   feedbackMetadata?: ClinicalAskFeedbackMetadata | null;
 }) {
   const label = clinicalAskModeProfile(response.mode).label;
@@ -74,11 +80,26 @@ export function ClinicalAskAnswerSurface({
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [feedback, setFeedback] = useState<AnswerFeedbackType | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<string | null>(null);
+  const requiredClarificationsComplete =
+    response.state === "clarification_required" &&
+    response.clarifications.every((item) => !item.required || Boolean(clarificationAnswers[item.id]?.trim()));
   if (response.state === "failed")
     return (
       <section aria-label={`${label} answer`}>
         <h2>Clinical Ask could not complete</h2>
         <p>{response.message}</p>
+        <div className="clinical-ask-state-actions">
+          {response.retryable && onRetry ? (
+            <button type="button" onClick={onRetry}>
+              Retry Smart answer
+            </button>
+          ) : null}
+          {onReturnToSearch ? (
+            <button type="button" onClick={onReturnToSearch}>
+              Return to search
+            </button>
+          ) : null}
+        </div>
       </section>
     );
   if (response.state === "clarification_required")
@@ -93,11 +114,17 @@ export function ClinicalAskAnswerSurface({
               ref={index === 0 ? firstClarificationRef : undefined}
               autoFocus={index === 0}
               name={item.id}
+              required={item.required}
               value={clarificationAnswers[item.id] ?? ""}
               onChange={(event) => onClarificationChange?.(item.id, event.currentTarget.value)}
             />
           </label>
         ))}
+        {onContinue ? (
+          <button type="button" disabled={!requiredClarificationsComplete} onClick={onContinue}>
+            Continue with confirmed context
+          </button>
+        ) : null}
       </section>
     );
   if (response.state === "evidence_gap")
@@ -265,6 +292,7 @@ function Evidence({
   return (
     <details>
       <summary>Evidence and sources</summary>
+      {evidence.length === 0 ? <p>No governed source met the threshold for this Evidence Gap.</p> : null}
       <ol>
         {evidence.map((item) => (
           <li key={item.id}>

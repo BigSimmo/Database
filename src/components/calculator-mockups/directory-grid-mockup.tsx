@@ -106,8 +106,8 @@ function CalculatorCard({
       className={cn(
         "grid min-w-0 content-start gap-3 rounded-lg border bg-[color:var(--surface)] p-4 transition",
         open
-          ? "col-span-full border-[color:var(--clinical-accent-border)] shadow-[var(--shadow-soft)]"
-          : "border-[color:var(--border)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+          ? "col-span-full border-[color:var(--clinical-accent-border)] shadow-[var(--e2)]"
+          : "border-[color:var(--border)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]",
       )}
     >
       <button

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SpecifiersHomePage } from "@/components/specifiers/specifiers-home-page";
 
 export const metadata: Metadata = {
-  title: "Search diagnostic specifiers | Clinical KB",
+  title: "Search diagnostic specifiers | PsychSift",
   description: "Search diagnostic specifiers by presentation, episode pattern, course and severity.",
 };
 

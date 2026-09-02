@@ -9,7 +9,15 @@ import {
 } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
 
-function Harness({ onDraftChange }: { onDraftChange?(draft: string): void } = {}) {
+function Harness({
+  onDraftChange,
+  onRun,
+  onReturnToSearch,
+}: {
+  onDraftChange?(draft: string): void;
+  onRun?(question: string): void;
+  onReturnToSearch?(): void;
+} = {}) {
   const session = useClinicalAskSession();
   return (
     <>
@@ -61,6 +69,18 @@ function Harness({ onDraftChange }: { onDraftChange?(draft: string): void } = {}
       <button
         onClick={() =>
           session.receiveEvent({
+            type: "error",
+            code: "provider_unavailable",
+            retryable: true,
+            message: "Connection required.",
+          })
+        }
+      >
+        Fail
+      </button>
+      <button
+        onClick={() =>
+          session.receiveEvent({
             type: "final",
             payload: {
               feedback: null,
@@ -101,7 +121,7 @@ function Harness({ onDraftChange }: { onDraftChange?(draft: string): void } = {}
       >
         Answer
       </button>
-      <ClinicalAskWorkspace onDraftChange={onDraftChange} />
+      <ClinicalAskWorkspace onDraftChange={onDraftChange} onRun={onRun} onReturnToSearch={onReturnToSearch} />
     </>
   );
 }
@@ -129,18 +149,42 @@ describe("ClinicalAskWorkspace", () => {
   });
 
   it("focuses editable clarification answers and never renders internal provider fields", async () => {
+    const onRun = vi.fn();
     render(
       <ClinicalAskSessionProvider>
-        <Harness />
+        <Harness onRun={onRun} />
       </ClinicalAskSessionProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Seed" }));
     fireEvent.click(screen.getByRole("button", { name: "Clarify" }));
     const field = screen.getByRole("textbox", { name: "Which care setting?" });
+    const continueButton = screen.getByRole("button", { name: "Continue with confirmed context" });
     await waitFor(() => expect(field).toHaveFocus());
+    expect(continueButton).toBeDisabled();
     fireEvent.change(field, { target: { value: "community" } });
     expect(field).toHaveValue("community");
+    expect(continueButton).toBeEnabled();
+    fireEvent.click(continueButton);
+    expect(onRun).toHaveBeenCalledWith("synthetic");
     expect(document.body.textContent).not.toMatch(/system prompt|provider request|retrieval score/i);
+  });
+
+  it("offers explicit retry and clears the case before returning to search", () => {
+    const onRun = vi.fn();
+    const onReturnToSearch = vi.fn();
+    render(
+      <ClinicalAskSessionProvider>
+        <Harness onRun={onRun} onReturnToSearch={onReturnToSearch} />
+      </ClinicalAskSessionProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Seed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fail" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry Smart answer" }));
+    expect(onRun).toHaveBeenCalledWith("synthetic");
+    fireEvent.click(screen.getByRole("button", { name: "Return to search" }));
+    expect(onReturnToSearch).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("region", { name: "Clinical Ask workspace" })).not.toBeInTheDocument();
   });
 
   it("expands evidence, copies without the question by default, and reviews handoffs", async () => {

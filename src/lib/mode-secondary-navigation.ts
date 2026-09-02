@@ -1,4 +1,10 @@
-import { appModeHomeHref, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
+import {
+  appModeHomeHref,
+  dsmSearchHref,
+  factsheetsSearchHref,
+  factsheetsTopicsHref,
+  type AppModeId,
+} from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
@@ -34,7 +40,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/differentials/compare" },
   ],
   dsm: [
-    { id: "search", label: "Search", href: appModeHomeHref("dsm", { focus: true }) },
+    { id: "search", label: "Search", href: dsmSearchHref },
     { id: "compare", label: "Compare", href: "/dsm/compare" },
   ],
   specifiers: [
@@ -93,6 +99,12 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/dictionary/compare" },
     { id: "sources", label: "Sources", href: "/dictionary/sources" },
   ],
+  sources: [
+    { id: "catalogue", label: "Catalogue", href: "/sources" },
+    { id: "topics", label: "Topics", href: "/sources/topics" },
+    { id: "publishers", label: "Publishers", href: "/sources/publishers" },
+    { id: "method", label: "Method", href: "/sources/method" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -126,6 +138,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "factsheets",
   "therapy-compass",
   "dictionary",
+  "sources",
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -210,6 +223,13 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/dictionary/sources") return "sources";
     return null;
   }
+  if (modeId === "sources") {
+    if (pathname === "/sources") return "catalogue";
+    if (pathname === "/sources/topics") return "topics";
+    if (pathname === "/sources/publishers") return "publishers";
+    if (pathname === "/sources/method") return "method";
+    return null;
+  }
   // Every mode with destinations has a branch above; the rest register none, so
   // nothing can be current. This used to be
   // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
@@ -265,6 +285,9 @@ export function isModeSecondaryNavigationRoute(params: {
       pathname,
     );
   }
+  if (modeId === "sources") {
+    return ["/sources", "/sources/topics", "/sources/publishers", "/sources/method"].includes(pathname);
+  }
   return false;
 }
 
@@ -317,16 +340,26 @@ export function modeSecondaryNavigationHref(params: {
   }
 
   if (modeId === "dsm") {
-    if (itemId === "search" && query) {
-      return navigationHrefWithParams(
-        appModeHomeHref("dsm", { query, focus: true, run: currentSearchParams.get("run") === "1" }),
-        currentSearchParams.get("ids") ? [["ids", currentSearchParams.get("ids") ?? ""]] : [],
-      );
+    if (itemId === "search") {
+      const category = currentSearchParams.get("category");
+      const support = currentSearchParams.get("support");
+      const ids = currentSearchParams.get("ids");
+      return navigationHrefWithParams(dsmSearchHref, [
+        ...(query ? ([["q", query]] as const) : []),
+        ...(category ? ([["category", category]] as const) : []),
+        ...(support ? ([["support", support]] as const) : []),
+        // Returning to Search with a carried query must reopen the results view
+        // (`run=1`), not the empty search surface — even when the previous tab
+        // lacked run. When Search is the current tab, `run` travels with the
+        // query so clicking the tab you are on does not re-place the composer.
+        ...(query ? ([["run", "1"]] as const) : []),
+        ...(ids ? ([["ids", ids]] as const) : []),
+      ]);
     }
-    return navigationHrefWithParams(
-      href,
-      currentSearchParams.get("ids") ? [["ids", currentSearchParams.get("ids") ?? ""]] : [],
-    );
+    return navigationHrefWithParams(href, [
+      ...(query ? ([["q", query]] as const) : []),
+      ...(currentSearchParams.get("ids") ? ([["ids", currentSearchParams.get("ids") ?? ""]] as const) : []),
+    ]);
   }
 
   if (modeId === "specifiers") {
@@ -452,6 +485,14 @@ export function modeSecondaryNavigationHref(params: {
         ...(currentSearchParams.get("b") ? ([["b", currentSearchParams.get("b") ?? ""]] as const) : []),
       ]);
     }
+  }
+
+  if (modeId === "sources") {
+    if (itemId === "method") return href;
+    const entries: Array<readonly [string, string]> = [];
+    if (query) entries.push(["q", query]);
+    for (const usage of currentSearchParams.getAll("usedBy")) entries.push(["usedBy", usage]);
+    return navigationHrefWithParams(href, entries);
   }
 
   return href;

@@ -524,7 +524,7 @@ The second Gate B caveat is already load-bearing above: docling's eager-mode lat
 
 ## 4. Verify
 
-1. **Startup.** Logs show `Clinical KB worker started. worker=<id>`. If a
+1. **Startup.** Logs show `PsychSift worker started. worker=<id>`. If a
    `PDF/OCR prerequisite warning` appears, the Python/Tesseract layer did not
    build correctly — rebuild the image (do not leave it running; OCR fallback
    will be silently unavailable).

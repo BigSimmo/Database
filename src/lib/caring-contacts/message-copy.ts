@@ -1,4 +1,5 @@
-import { calculateGsm7, type Gsm7Evidence } from "./message-policy";
+import { calculateGsm7, maxSeptetsWithin, type Gsm7Evidence } from "./message-policy";
+import { PROVISIONAL_MESSAGE_RULES } from "./message-rules";
 import { FICTIONAL_CONTACTS_BY_ROLE } from "./synthetic-contacts";
 
 // PROVISIONAL — not clinically approved. Corrected 2026-08-19 under production-build spec §2.1, which
@@ -10,7 +11,167 @@ import { FICTIONAL_CONTACTS_BY_ROLE } from "./synthetic-contacts";
 // lived-experience and clinical-programme approval gate (docs/caring-contacts/message-review-pack.md §1).
 export const PATIENT_VISIBLE_NO_REPLY_NOTICE = "No one reads replies to this number";
 
-export const EXACT_PATIENT_VISIBLE_MESSAGE = `Hi Rowan, Alex from Example Aftercare Team is thinking of you. This is a one-way message. ${PATIENT_VISIBLE_NO_REPLY_NOTICE}. For timing changes call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm. In an emergency call 000. Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}. - Alex`;
+/**
+ * The patient-visible message, with the recipient's preferred name substituted into it.
+ *
+ * PROVISIONAL — not clinically approved. Ruling [127] called this string a SPECIMEN rather than a
+ * template, on the ground that it carried a hardcoded name and had no slot. The owner decided on
+ * 2026-08-26 that it should have one, so it is a template now. Final wording is still owned by the
+ * lived-experience and clinical-programme approval gate (docs/caring-contacts/message-review-pack.md
+ * §1), and adding a slot to a draft is not authoring one.
+ *
+ * TWO CHANGES HAVE BEEN MADE TO THIS TEXT SINCE, BOTH BY THE OWNER AND NEITHER BY THIS PROGRAMME.
+ * The name became a slot (above), and on 2026-08-27 the closing sentence became the real crisis
+ * services — `PROVISIONAL_MESSAGE_RULES.crisisSupportContact`, whose exact wording the owner
+ * authorised in writing (Ruling [144]). It is interpolated from the rule rather than retyped here,
+ * so the sentence a patient reads and the sentence `message-policy.ts` requires cannot drift apart;
+ * two hand-maintained copies of a crisis-support sentence is precisely how one of them ends up
+ * carrying a wrong number. The independent copy of the owner's words lives in
+ * caring-contacts-message-copy.test.ts, where a reword reddens a test instead of being copied.
+ *
+ * The rule's value ends in its own full stop, so nothing follows it here but the sign-off.
+ *
+ * `preferredName` IS WHAT THE CLINICIAN WAS TOLD TO CALL THIS PERSON, ASKED FOR AS ITS OWN FIELD.
+ * It is never derived from the stored `patientName`, here or anywhere else, and no code in this
+ * task splits a name on anything. `patientName` is one free-text box: splitting it at the first
+ * space greets a person with one name by their only name, a person whose family name is written
+ * first by their surname, `Mr John Smith` as "Mr", and someone with two given names by half of
+ * them. A suicide-prevention message that opens with a surname or a title is worse than one that
+ * opens with no name at all, and the clinician is the person actually talking to the patient.
+ */
+function personalisedPatientVisibleMessage(preferredName: string): string {
+  return `Hi ${preferredName}, Alex from Example Aftercare Team is thinking of you. This is a one-way message. ${PATIENT_VISIBLE_NO_REPLY_NOTICE}. For timing changes call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm. In an emergency call 000. ${PROVISIONAL_MESSAGE_RULES.crisisSupportContact} - Alex`;
+}
+
+/**
+ * The fictional first name every specimen of this message is shown with. One of this prototype's
+ * own reserved fictional people (see `synthetic-contacts.ts`), never a real one.
+ */
+export const SPECIMEN_PREFERRED_NAME = "Rowan";
+
+/**
+ * The message as the mockups and the review pack show it: the template above with the fictional
+ * specimen name in the slot. Byte-identical to the constant that stood here before the slot
+ * existed, which is what makes the reversal narrow rather than a wording change in disguise.
+ */
+export const EXACT_PATIENT_VISIBLE_MESSAGE = personalisedPatientVisibleMessage(SPECIMEN_PREFERRED_NAME);
+
+/**
+ * What the message costs with the slot empty — every septet that is NOT the preferred name.
+ *
+ * Derived rather than written down, and the derivation is exact rather than approximate: GSM-7
+ * septet cost is per character and additive, so substituting a name of `n` septets produces a
+ * message of `PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS + n`. That is the whole basis of the bound
+ * below, and it is why the bound can be stated for every accepted name rather than sampled.
+ */
+export const PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS = calculateGsm7(personalisedPatientVisibleMessage("")).septets;
+
+/**
+ * The largest septet cost a preferred name may have and still leave the message inside its approved
+ * segment ceiling.
+ *
+ * COMPUTED FROM THE CONSTANTS, NEVER WRITTEN AS A LITERAL, and that is not tidiness. The wording is
+ * PROVISIONAL and the approval gate is expected to change it; a literal cap would be right only
+ * until it did, and would then be silently wrong in whichever direction the wording moved — a
+ * shorter message would refuse names it could carry, and a longer one would accept names that push
+ * the message to a third segment. `maxSeptetsWithin` and `PROVISIONAL_MESSAGE_RULES.maxSegments`
+ * both move with their own owners, so this number moves with them.
+ *
+ * A NOTE IN THIS FILE USED TO SAY THE MESSAGE HAD "no room left". Read in its own context it meant
+ * no room for one specific extra sentence someone wanted to add; it did not mean no room at all.
+ * The sentence has been rewritten below so the next reader does not inherit the wider claim.
+ */
+export const PREFERRED_NAME_MAX_SEPTETS = preferredNameMaxSeptets(personalisedPatientVisibleMessage(""));
+
+/**
+ * The cap for ANY message text a preferred name is substituted into, given that text with its slot
+ * empty.
+ *
+ * `PREFERRED_NAME_MAX_SEPTETS` above is this rule applied to the one template this module owns.
+ * The rule is exposed separately because that template is not the only text a preferred name may
+ * one day be substituted into: a pathway version carries its own `messageTextByType`, and the demo
+ * corpus stores a copy of the current wording there. A cap derived from THIS template does not bound
+ * a different string, and a second cap computed a second way is how two answers to one question come
+ * to disagree. Whatever text is actually substituted, ask this.
+ *
+ * `unpersonalisedText` is the text with the slot EMPTY, not with a name in it. GSM-7 septet cost is
+ * per character and additive, so a name of `n` septets makes the message `septets(unpersonalisedText)
+ * + n` — which is why the bound holds for every accepted name rather than for a sampled few.
+ *
+ * A text already at or past the ceiling yields a cap of zero or less, and every name is then refused
+ * as too long. That is the honest answer: such a text has no room for a name, and this returns the
+ * arithmetic rather than a floor that would let one in.
+ */
+export function preferredNameMaxSeptets(unpersonalisedText: string): number {
+  return maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments) - calculateGsm7(unpersonalisedText).septets;
+}
+
+export type PatientVisibleMessageIssue =
+  | { code: "preferred-name-not-recorded" }
+  | { code: "preferred-name-too-long"; septets: number; maxSeptets: number }
+  | { code: "preferred-name-not-sendable"; unsupportedCharacters: string[] };
+
+export type PatientVisibleMessageResolution =
+  { ok: true; text: string } | { ok: false; issue: PatientVisibleMessageIssue };
+
+/**
+ * The message this plan would send, or a named refusal saying why there is none.
+ *
+ * WHY A REFUSAL RATHER THAN AN UNPERSONALISED FALLBACK, and it is the same argument
+ * `resolveClosingContactMessageBody` in ./message-policy makes for the closing message. No
+ * no-name wording has ever been written. Producing one here — "Hi, Alex from …", or dropping the
+ * greeting — would be ME drafting patient-visible copy for a suicide-prevention message, which is
+ * the one thing an implementer in this programme may never do. So a plan with no preferred name
+ * recorded has nothing to send, and the only acceptable answer to that is a loud, identifiable
+ * refusal: never an empty greeting, never a silent fall-back, never a quietly skipped contact.
+ *
+ * THE THIRD REFUSAL IS A TRANSPORT FACT, NOT A CLINICAL ONE, and it is the one decision here that
+ * goes beyond what was asked for — recorded plainly so it can be overturned.
+ *
+ * WHAT IS DEMONSTRABLE. A name carrying a character outside GSM-7 (`Zoë`, `Aroha-Lī`) makes
+ * `calculateGsm7` report `{ valid: false, segments: 0 }` for the WHOLE message. `validateGovernedMessage`
+ * checks the segment ceiling only `if (gsm7.valid)`, and `MessageValidationIssue` has no
+ * invalid-characters code at all — so such a message is reported VALID by this domain with the
+ * ceiling never evaluated. **The failure is not corruption; it is that the two-segment ceiling
+ * silently stops being enforced**, and length is the only thing being checked there.
+ *
+ * WHAT IS NOT KNOWN, AND AN EARLIER VERSION OF THIS NOTE CLAIMED IT WAS. It said such a message
+ * would "reach a sender mangled". A real SMS gateway normally re-encodes a non-GSM-7 message to
+ * UCS-2 and delivers it INTACT — at 70 characters per segment, 67 concatenated, which would turn
+ * this 252-septet message into roughly four. Nothing in this domain models a UCS-2 path, so within
+ * this system the message genuinely is unencodable; outside it, the likely outcome is an
+ * over-length delivery rather than a damaged one. Refusing is still the conservative answer, and
+ * the reason is the unenforced ceiling rather than a corruption nobody here has observed.
+ *
+ * The refusal names the offending characters and sends the clinician back to the person to ask how
+ * they would like their name spelled — never to a spelling the clinician picks. It refuses a value
+ * the TRANSPORT cannot carry, which is the same class as refusing one that is too long, and no part
+ * of it decides anything about the patient.
+ */
+export function resolvePatientVisibleMessage(preferredName: string | null): PatientVisibleMessageResolution {
+  const name = (preferredName ?? "").trim();
+  if (name === "") return { ok: false, issue: { code: "preferred-name-not-recorded" } };
+
+  const nameEvidence = calculateGsm7(name);
+  if (!nameEvidence.valid) {
+    return {
+      ok: false,
+      issue: { code: "preferred-name-not-sendable", unsupportedCharacters: [...nameEvidence.invalidCharacters] },
+    };
+  }
+  if (nameEvidence.septets > PREFERRED_NAME_MAX_SEPTETS) {
+    return {
+      ok: false,
+      issue: {
+        code: "preferred-name-too-long",
+        septets: nameEvidence.septets,
+        maxSeptets: PREFERRED_NAME_MAX_SEPTETS,
+      },
+    };
+  }
+
+  return { ok: true, text: personalisedPatientVisibleMessage(name) };
+}
 
 // PROVISIONAL — not clinically approved. Required by production-build spec §2.1: the automated response
 // sent to anyone who replies. It must name where a person IS available, immediately after saying that
@@ -32,10 +193,49 @@ export const EXACT_PATIENT_VISIBLE_MESSAGE = `Hi Rowan, Alex from Example Afterc
 // nobody could currently know whether it was true. The replacement says only what this system can
 // actually know: who is not reading. A3 -- a patient told "no one reads replies" who then receives
 // this very message could reasonably conclude somebody read theirs first. "and this reply is
-// automatic" closes that. EXACT_PATIENT_VISIBLE_MESSAGE is deliberately NOT touched: it is 252
-// septets against the 2-segment ceiling with no room left, so this fact lives only here, where
-// there is room -- see caring-contacts-message-copy.test.ts.
-export const AUTOMATED_REPLY_RESPONSE = `No one at Example Aftercare Team reads this number, and this reply is automatic. To talk to someone, call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm every day. In an emergency call 000. Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}.`;
+// automatic" closes that. EXACT_PATIENT_VISIBLE_MESSAGE did not receive THAT SENTENCE and still
+// does not: it sits close enough to the 2-segment ceiling that adding it would leave almost nothing
+// for the preferred-name slot, so the fact lives only here, where there is room. (Scope that claim
+// to the A2/A3 sentence: the message above WAS changed later, by Ruling [144] below.)
+//
+// CORRECTED 2026-08-26: this used to read "with no room left", which a later reader (and the
+// controller) took as meaning the message had no headroom at all. It never meant that. The
+// remaining headroom is `PREFERRED_NAME_MAX_SEPTETS` above, and it is what the preferred-name slot
+// is spent on -- see caring-contacts-message-copy.test.ts, which proves the bound rather than
+// restating a number.
+//
+// RULING [144], owner-authorised 2026-08-27: the fictional crisis line was replaced here as well as
+// in the message above, and deliberately so. This is what a person gets when they reply -- plausibly
+// a moment of greater need than the scheduled message -- so it is the last place a crisis number
+// that connects to nobody should survive. This string has no name slot, so its whole budget is its
+// own: re-measured rather than inherited from Message A, and pinned in
+// caring-contacts-message-copy.test.ts. The sentence is interpolated from
+// `PROVISIONAL_MESSAGE_RULES.crisisSupportContact` for the same reason as above -- one copy of the
+// owner's words in `src/`, so the two messages cannot come to carry different crisis numbers.
+export const AUTOMATED_REPLY_RESPONSE = `No one at Example Aftercare Team reads this number, and this reply is automatic. To talk to someone, call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm every day. In an emergency call 000. ${PROVISIONAL_MESSAGE_RULES.crisisSupportContact}`;
 
 export const EXACT_MESSAGE_GSM7: Gsm7Evidence = calculateGsm7(EXACT_PATIENT_VISIBLE_MESSAGE);
 export const AUTOMATED_REPLY_GSM7: Gsm7Evidence = calculateGsm7(AUTOMATED_REPLY_RESPONSE);
+
+/**
+ * The approval status of the patient-visible wording in this module, in words a CLINICIAN reads.
+ *
+ * NOT PATIENT-VISIBLE. Nothing in this sentence is ever sent to anybody; it is governance chrome,
+ * and it lives here rather than in a screen for the reason Ruling [131] was written. Round 1 of
+ * Task 16 shipped a screen sentence claiming the opposite -- that the one patient-visible message
+ * "has been approved" -- rendered directly beneath the two approval seats, where a clinician would
+ * read those seats as having signed off the words a discharged patient receives. They have not:
+ * the two constants above open with `PROVISIONAL -- not clinically approved`, and the decision
+ * belongs to the approval gate named there.
+ *
+ * A screen that retyped this status would put the eventual answer in two places, and the copy on
+ * the screen would go on saying "provisional" after the gate had decided. So the status is read
+ * from beside the words it is about: change it here when the gate decides, and every screen
+ * showing the wording changes with it.
+ *
+ * WHAT IT SEPARATES, and the distinction the deleted sentence collapsed: a pathway version's dual
+ * approval is an approval of the VERSION -- its cadence, its lifecycle, the governance record --
+ * and nothing anywhere in this system has approved the wording.
+ */
+export const CLINICIAN_FACING_WORDING_APPROVAL_STATUS =
+  "This wording is provisional and has not been clinically approved. Whether it may be sent to a patient is a clinical decision owned by the lived-experience and clinical-programme approval gate, and that gate has not made it. A pathway version's recorded approvals approve the version, not these words.";

@@ -293,7 +293,7 @@ async function BunlessRead(filePath: string) {
 
 async function createXlsx(fileName: string) {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Clinical KB sample corpus";
+  workbook.creator = "PsychSift sample corpus";
   workbook.created = new Date("2026-05-18T00:00:00+08:00");
   const sheet = workbook.addWorksheet("Metabolic monitoring");
   sheet.columns = [
@@ -331,7 +331,7 @@ async function createTxt(fileName: string) {
       "Key synthetic retrieval facts:",
       "- Preconception review should document current medicines, previous relapse pattern, patient preferences, sleep protection, and supports.",
       "- Breastfeeding discussion should cite uncertainty, medicine-specific risk/benefit, infant monitoring, and shared decision-making.",
-      "- Do not answer as if this is a real guideline. It is a test corpus for the Clinical KB app.",
+      "- Do not answer as if this is a real guideline. It is a test corpus for the PsychSift app.",
       "",
       "Suggested question: What shared decision-making items are listed for perinatal prescribing?",
     ].join("\n"),
@@ -384,7 +384,7 @@ async function writeManifest() {
   await writeFile(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2));
   await writeFile(
     path.join(outDir, "README.md"),
-    `# Synthetic Clinical KB Sample Corpus
+    `# Synthetic PsychSift Sample Corpus
 
 These files are synthetic test documents for the Medical RAG Knowledge Base. They are not clinical guidelines and not medical advice.
 

@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: SpecifierDetailRouteProps): P
   const record = findSpecifier(slug);
   if (record) {
     return {
-      title: `${record.name} - Psychiatric specifier - Clinical KB`,
+      title: `${record.name} - Psychiatric specifier - PsychSift`,
       description: record.summary,
     };
   }
@@ -35,12 +35,12 @@ export async function generateMetadata({ params }: SpecifierDetailRouteProps): P
   const item = getSpecifierCatalogItem(slug);
   if (item) {
     return {
-      title: `${item.label} - ${item.disorderName} specifier - Clinical KB`,
+      title: `${item.label} - ${item.disorderName} specifier - PsychSift`,
       description: `${item.label} — ${item.disorderName} specifier (${item.categoryName}).`,
     };
   }
 
-  return { title: "Specifier not found - Clinical KB" };
+  return { title: "Specifier not found - PsychSift" };
 }
 
 export default async function SpecifierDetailRoute({ params }: SpecifierDetailRouteProps) {

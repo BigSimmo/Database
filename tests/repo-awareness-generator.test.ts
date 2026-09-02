@@ -15,6 +15,7 @@ import {
   generate,
   listDocumentPaths,
   readCapturedRevision,
+  readCommittedRevision,
   readFlakeLedger,
   readReviewRecordRows,
   SNAPSHOT_VERSION,
@@ -112,10 +113,27 @@ describe("listDocumentPaths", () => {
       expect(listDocumentPaths(repoRoot)).toEqual(["docs/tracked.md"]);
     });
   });
+
+  it("falls back to scanning the filesystem when git is unavailable", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-docs-nogit-"));
+    try {
+      mkdirSync(path.join(dir, "docs", "sub"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "doc1.md"), "# Doc 1\n");
+      writeFileSync(path.join(dir, "docs", "sub", "doc2.md"), "# Doc 2\n");
+      mkdirSync(path.join(dir, "docs", "branch-review-records"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "branch-review-records", "rec.record.md"), "# Rec\n");
+      mkdirSync(path.join(dir, "docs", "outstanding-issues-inbox"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "outstanding-issues-inbox", "req.json"), "{}\n");
+
+      expect(listDocumentPaths(dir)).toEqual(["docs/doc1.md", "docs/sub/doc2.md"]);
+    } finally {
+      removePathSync(dir, { recursive: true });
+    }
+  });
 });
 
 const README = `
-# Clinical KB Documentation Index
+# PsychSift Documentation Index
 
 - [testing.md](testing.md) — how tests run
 - [design-system/SPEC.md](design-system/SPEC.md) — the design system
@@ -320,15 +338,25 @@ describe("buildReviewStateSection", () => {
     expect(section.records[0].checks).toBe("2 failed | 14 passed");
   });
 
-  it("orders newest first so the most recent review is the first thing read", () => {
+  // Do not "fix" this back to newest-first. The stored order is deliberately
+  // dispersing, not presentational: a commit sha is uniformly distributed, so
+  // two branches each appending one record insert hundreds of lines apart and
+  // git merges both hunks. Newest-first clustered every append into the same
+  // dense same-date block and produced the hard conflicts of `#EFETZT`, which
+  // set `mergeable_state=dirty` and suppressed CI entirely. Reading order is
+  // `reviewRecordsNewestFirst()`, applied by the page.
+  it("orders by head, so concurrent appends land far apart and merge cleanly", () => {
+    // ROW_A's head sorts before ROW_B's, which is the reverse of their dates —
+    // so this fails if the comparator is ever restored to date-descending.
     const section = buildReviewStateSection([ROW_A, ROW_B]);
-    expect(section.records.map((record) => record.ref)).toEqual(["claude/two", "claude/one"]);
+    expect(section.records.map((record) => record.ref)).toEqual(["claude/one", "claude/two"]);
   });
 
-  it("counts records and distinct refs", () => {
+  it("stores no aggregate count, because one cannot merge across concurrent appends", () => {
     const again = { file: "docs/branch-review-records/ccc.record.md", line: ROW_A.line };
     const section = buildReviewStateSection([ROW_A, ROW_B, again]);
-    expect(section.counts).toEqual({ records: 3, refs: 2 });
+    expect(section.records).toHaveLength(3);
+    expect(section).not.toHaveProperty("counts");
   });
 
   it("fails loudly and names the file when a row has the wrong number of columns", () => {
@@ -367,6 +395,18 @@ describe("buildReviewStateSection", () => {
       removePathSync(dir, { recursive: true });
     }
   });
+
+  it("falls back to scanning the filesystem when git is unavailable", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "review-records-nogit-"));
+    try {
+      writeFileSync(path.join(dir, "ggg.record.md"), ROW_A.line + "\n", "utf8");
+      const rows = readReviewRecordRows(dir);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].line).toBe(ROW_A.line);
+    } finally {
+      removePathSync(dir, { recursive: true });
+    }
+  });
 });
 
 describe("the real review record corpus", () => {
@@ -380,7 +420,7 @@ describe("the real review record corpus", () => {
     expect(rows.some((row) => row.file === "docs/branch-review-ledger.md")).toBe(true);
     expect(rows.some((row) => row.file.startsWith("docs/archive/branch-review-ledger-"))).toBe(true);
     expect(rows.some((row) => row.file.startsWith("docs/branch-review-records/"))).toBe(true);
-    expect(section.counts.records).toBeGreaterThan(2_500);
+    expect(section.records.length).toBeGreaterThan(2_500);
     expect(section.records.some((record) => record.ref === "claude/latency-findings-impl-s8g01v")).toBe(true);
     for (const record of section.records) {
       expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -402,7 +442,7 @@ describe("generate", () => {
     expect(snapshot.version).toBe(SNAPSHOT_VERSION);
     expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
     expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
-    expect(snapshot.review_state.counts.records).toBeGreaterThan(2_500);
+    expect(snapshot.review_state.records.length).toBeGreaterThan(2_500);
     expect(snapshot.test_health.counts.quarantined).toBeGreaterThanOrEqual(0);
   });
 
@@ -443,21 +483,45 @@ describe("generate", () => {
       expect(headSha).not.toBe(inputSha);
 
       const revision = readCapturedRevision({ cwd: dir });
-      expect(revision.sha).toBe(inputSha);
-      expect(revision.sha).not.toBe(headSha);
+      expect(revision?.sha).toBe(inputSha);
+      expect(revision?.sha).not.toBe(headSha);
     } finally {
       removePathSync(dir, { recursive: true });
     }
   });
 
-  it("fails loudly outside a git repository instead of writing a null revision", () => {
-    // Spec §8.2 asks for a no-git proof. Ruling R5 changed what the right
-    // behaviour IS — this generator runs only from `npm run docs:update`, so a
-    // git-less environment is a broken invocation, not a case to degrade for.
-    // Phase 1's silent `null` is exactly what this must not do.
+  it("keeps the committed revision when git is unavailable", () => {
     const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
     try {
-      expect(() => readCapturedRevision({ cwd: outside })).toThrow(/Could not read the repository revision from git/);
+      mkdirSync(path.join(outside, "data"), { recursive: true });
+      const fakeRevision = { sha: "b".repeat(40), committed_at: "2026-08-28T00:00:00Z" };
+      writeFileSync(
+        path.join(outside, "data", "repo-awareness-snapshot.json"),
+        JSON.stringify({ captured_revision: fakeRevision }),
+        "utf8",
+      );
+      const revision = readCapturedRevision({ cwd: outside, snapshotPath: "data/repo-awareness-snapshot.json" });
+      expect(revision).toEqual(fakeRevision);
+    } finally {
+      removePathSync(outside, { recursive: true });
+    }
+  });
+
+  it("records null when outside git and there is no committed snapshot to preserve from", () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
+    try {
+      expect(readCapturedRevision({ cwd: outside, snapshotPath: "missing.json" })).toBeNull();
+    } finally {
+      removePathSync(outside, { recursive: true });
+    }
+  });
+
+  it("refuses a malformed committed revision instead of carrying it forward", () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
+    try {
+      const snap = path.join(outside, "snap.json");
+      writeFileSync(snap, JSON.stringify({ captured_revision: { sha: 123 } }), "utf8");
+      expect(readCommittedRevision(snap)).toBeNull();
     } finally {
       removePathSync(outside, { recursive: true });
     }

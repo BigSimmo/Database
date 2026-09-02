@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   authorityDomainsForProfile: vi.fn(),
   externalSearchEnabled: vi.fn(),
   retrieveExternal: vi.fn(),
+  modeEnabled: vi.fn(),
 }));
 vi.mock("@/lib/public-api-access", () => ({ publicAccessContext: mocks.access }));
 vi.mock("@/lib/api-rate-limit", () => ({
@@ -21,7 +22,7 @@ vi.mock("@/lib/owner-scope", () => ({ resolveRetrievalAccessScope: mocks.resolve
 vi.mock("@/lib/clinical-ask/authority-registry", () => ({
   authorityDomainsForProfile: mocks.authorityDomainsForProfile,
   clinicalAskExternalSearchEnabled: mocks.externalSearchEnabled,
-  clinicalAskModeEnabled: () => true,
+  clinicalAskModeEnabled: mocks.modeEnabled,
 }));
 vi.mock("@/lib/clinical-ask/external-evidence", () => ({ retrieveExternalEvidence: mocks.retrieveExternal }));
 vi.mock("@/lib/openai", () => ({ createOpenAIClient: mocks.openAI }));
@@ -66,6 +67,7 @@ beforeEach(() => {
   mocks.authorityDomainsForProfile.mockReturnValue(["health.wa.gov.au"]);
   mocks.externalSearchEnabled.mockReturnValue(false);
   mocks.retrieveExternal.mockResolvedValue([]);
+  mocks.modeEnabled.mockReturnValue(true);
   mocks.run.mockResolvedValue({
     state: "failed",
     mode: "services",
@@ -167,5 +169,14 @@ describe("POST /api/clinical-ask/stream", () => {
     expect(mocks.resolveScope).not.toHaveBeenCalled();
     expect(mocks.run).not.toHaveBeenCalled();
     expect(mocks.openAI).not.toHaveBeenCalled();
+  });
+
+  it("returns the explicit dormant-mode error without starting retrieval", async () => {
+    mocks.modeEnabled.mockReturnValue(false);
+    const response = await POST(post());
+    const text = await response.text();
+    expect(text).toContain("mode_unavailable");
+    expect(mocks.resolveScope).not.toHaveBeenCalled();
+    expect(mocks.run).not.toHaveBeenCalled();
   });
 });

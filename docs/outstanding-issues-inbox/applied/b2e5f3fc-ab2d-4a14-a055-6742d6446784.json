@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "b2e5f3fc-ab2d-4a14-a055-6742d6446784",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CI never runs the caring-contacts Postgres suite, so every row-level-security and cross-team assertion it makes against real SQL fires only on a developer's machine",
+    "detail": "Found while reviewing Phase 2B Task 6b on 2026-08-25. `grep -rn \"caring-contacts\" .github/workflows/` returns zero hits, and every file in `caringContactsDbTestFiles` is unconditionally excluded from the offline `node` project in `vitest.config.mts`. So the whole caring-contacts Postgres project — the shared repository-contract suite run against real SQL, including the cross-team reads that prove a coordinator cannot see another team's patients, and the `set_config('caring_contacts.team_id', …)` / `set local role caring_contacts_app` preamble whose absence silently bypasses every row-level-security policy — runs ONLY when a human happens to have the Docker Postgres on 54329 up. This row is about that whole project, not about any one guard. What made it visible: Task 6b installed a source scan there proving `PLAN_COLUMNS` does not select a patient's free-text clinical note, and the scan needed no database at all. Its own review found it unreachable and moved it to `tests/caring-contacts-domain-isolation.test.ts`, which the default `npm run test` collects. Deliberately no test count here: the number moved by one within the same branch that filed the first version of this row, which is exactly why it is stated as an invariant instead. Two separable questions: (1) should CI run this project at all, which needs a Postgres service container and is a real CI-cost decision for the owner; (2) independently, no guard that needs no database should live in a database-only file — that half is a placement rule, not a cost decision, and could be enforced.",
+    "issueUlid": "01M0V5NPJZ27TWKM31WWP3GDY8"
+  }
+}

@@ -257,40 +257,32 @@ test.describe("Header element overlap coverage", () => {
     });
   }
 
-  test("desktop smart search keeps rotating text above and prompts below the composer", async ({ page }) => {
+  test("desktop dormant search keeps prompts below the composer without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
     const rotatingText = page.getByTestId("smart-search-rotating-text");
     const promptRow = page.getByTestId("smart-search-prompt-row");
-    await expect(rotatingText).toBeVisible();
-    await expect(rotatingText).toContainText("Smart search");
+    await expect(rotatingText).toHaveCount(0);
     await expect(promptRow).toBeVisible();
     await expect(promptRow.getByRole("button", { name: "lithium level timing" })).toBeVisible();
     await expect(promptRow.getByRole("button", { name: "clozapine ANC monitoring" })).toBeVisible();
 
     const geometry = await page.evaluate(() => {
-      const hint = document.querySelector('[data-testid="smart-search-rotating-text"]');
       const prompt = document.querySelector('[data-testid="smart-search-prompt-row"]');
       const pill = document.querySelector(".answer-footer-search-pill");
-      if (!hint || !prompt || !pill) return null;
-      const hintRect = hint.getBoundingClientRect();
+      if (!prompt || !pill) return null;
       const promptRect = prompt.getBoundingClientRect();
       const pillRect = pill.getBoundingClientRect();
       return {
-        hintBottom: hintRect.bottom,
-        pillTop: pillRect.top,
         pillBottom: pillRect.bottom,
         promptTop: promptRect.top,
       };
     });
 
-    expect(geometry, "smart search hint, composer, and prompt row must render").not.toBeNull();
-    expect(geometry!.hintBottom, "rotating text should sit above the smart search bar").toBeLessThanOrEqual(
-      geometry!.pillTop + 1,
-    );
-    expect(geometry!.promptTop, "smart prompts should sit below the smart search bar").toBeGreaterThanOrEqual(
+    expect(geometry, "composer and prompt row must render").not.toBeNull();
+    expect(geometry!.promptTop, "prompts should sit below the search bar").toBeGreaterThanOrEqual(
       geometry!.pillBottom - 1,
     );
 
@@ -300,12 +292,15 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
-  test("phone smart search replaces desktop rows with one tappable ticker", async ({ page }) => {
+  test("phone home keeps one tappable example ticker without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
-    await expect(page.getByTestId("smart-search-rotating-text")).toBeHidden();
+    // The desktop prompt rail is display:none on a phone, so the ticker is the
+    // only suggestion a phone home page carries. It offers an ordinary search,
+    // which is why it stays while the Smart line does not.
+    await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
     await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
 
     const ticker = page.getByTestId("smart-search-phone-ticker");
@@ -317,6 +312,11 @@ test.describe("Header element overlap coverage", () => {
     expect(tickerBox, "phone suggestion ticker must render").not.toBeNull();
     expect(tickerBox!.height, "phone ticker must meet the tap-target floor").toBeGreaterThanOrEqual(48);
 
+    // Hover first: the ticker freezes its rotation on pointer/focus, so the
+    // label read below cannot be superseded by the 3.2s tick between reading it
+    // and clicking. Reading the label on a live rotation is the race that made
+    // this journey flaky.
+    await ticker.hover();
     const suggestion = (await ticker.getAttribute("aria-label"))?.replace("Try suggested search: ", "");
     expect(suggestion).toBeTruthy();
     await ticker.click();
@@ -335,6 +335,9 @@ test.describe("Header element overlap coverage", () => {
 
     const ticker = page.getByTestId("smart-search-phone-ticker");
     await expect(ticker).toBeVisible();
+    // Documents has no governed Smart answers, so the ticker must stay an
+    // ordinary example search — no "Smart search" line beside it.
+    await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
     const tickerBox = await ticker.boundingBox();
     expect(tickerBox, "phone suggestion ticker must render on /documents home").not.toBeNull();
     expect(tickerBox!.height, "phone ticker must meet the tap-target floor on /documents").toBeGreaterThanOrEqual(48);

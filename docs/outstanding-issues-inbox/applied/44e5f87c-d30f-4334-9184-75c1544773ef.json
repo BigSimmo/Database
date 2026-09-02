@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "44e5f87c-d30f-4334-9184-75c1544773ef",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#PM9SP1",
+    "outcome": "Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
+    "baseRowFingerprint": "755b6dd3772b192d15dd0aef89149aba50ae3b105fa627c9313388d4dce0dc86"
+  }
+}

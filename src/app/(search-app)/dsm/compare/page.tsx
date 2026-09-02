@@ -10,7 +10,7 @@ import { DsmComparisonPage } from "@/components/dsm/dsm-comparison-page";
 import { defaultDsmComparisonSlugs, listDsmDiagnosisSummaries, resolveDsmCompareIds } from "@/lib/dsm";
 
 export const metadata: Metadata = {
-  title: "Compare DSM diagnoses | Clinical KB",
+  title: "Compare DSM diagnoses | PsychSift",
   description: "Compare core criteria, features, specifiers, and differential flags across DSM diagnosis records.",
 };
 

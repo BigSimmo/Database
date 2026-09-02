@@ -42,7 +42,7 @@ function registryMetadata(kind: "service" | "form" | "medication" | "differentia
     registry_record_kind: kind,
     registry_record_id: `${kind}-1`,
     registry_record_slug: `${kind}-slug`,
-    publisher: "Clinical KB registry",
+    publisher: "PsychSift registry",
     document_status: "current",
     clinical_validation_status: "locally_reviewed",
     clinical_validation_evidence: { status: "locally_reviewed", evidence_type: "registry_governance_record" },

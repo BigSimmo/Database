@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 /**
- * Privacy-safe Sentry Logs helpers for Clinical KB.
+ * Privacy-safe Sentry Logs helpers for PsychSift.
  *
  * Best practices adapted for this repo (see docs/error-tracking.md):
  * - Prefer static messages + structured attributes (wide events), never interpolate

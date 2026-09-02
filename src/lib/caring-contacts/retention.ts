@@ -9,9 +9,10 @@
 //   * an episode becomes due for de-identification only once it has reached a terminal state AND
 //     the policy period has elapsed since it did, measured in AWST calendar days -- never UTC, and
 //     never from any other milestone.
-//   * de-identifying an episode removes everything that identifies the patient (name, mobile,
-//     identifiers, cultural identity) and keeps everything needed for aggregate reporting (plan
-//     dates, pathway version, team, outcome, counts).
+//   * de-identifying an episode removes everything that identifies the patient -- name, mobile,
+//     identifiers, cultural identity, and the preferred name they asked to be called -- and keeps
+//     everything needed for aggregate reporting (plan dates, pathway version, team, outcome,
+//     counts).
 //   * de-identifying an audit event keeps only the five fields that tell the story of what
 //     happened -- actor id, action, timestamp, object type, outcome -- and drops everything else,
 //     including the object id, which could otherwise point back at a specific patient's record.
@@ -107,9 +108,15 @@ export function admitRetentionClearance(episode: RetentionClearanceFacts): Trans
 }
 
 /**
- * Removes patient name, mobile number, identifiers, and cultural identity; keeps plan dates,
- * pathway version, team, outcome, and counts. Accepts an already-de-identified episode too, so
- * applying it twice is exactly the same as applying it once.
+ * Removes patient name, mobile number, identifiers, cultural identity, and the preferred name;
+ * keeps plan dates, pathway version, team, outcome, and counts. Accepts an already-de-identified
+ * episode too, so applying it twice is exactly the same as applying it once.
+ *
+ * It removes by CONSTRUCTION rather than by deletion -- it names the fields a `DeidentifiedEpisode`
+ * keeps and builds a new object from those, so a field added to `Episode` is absent from the result
+ * without this function being touched. That is how `preferredName` arrived already removed. The
+ * stores are the half that can forget, which is why the clearance is pinned in the shared contract
+ * suite rather than here.
  */
 export function deidentifyEpisode(episode: Episode | DeidentifiedEpisode): DeidentifiedEpisode {
   const { state, planDates, pathwayVersionId, teamId, outcome, counts } = episode;

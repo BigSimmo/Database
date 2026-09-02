@@ -52,7 +52,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
   return (
     <div
       className={[
-        "relative rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+        "relative rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]",
         expanded ? "z-30 mb-64" : "",
       ].join(" ")}
     >
@@ -74,7 +74,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
               aria-expanded={expanded}
             >
               <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white shadow-[var(--e1)]">
-                <ActiveIcon className="h-3.5 w-3.5" />
+                <ActiveIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
@@ -84,7 +84,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                   {activeMode.label}
                 </span>
               </span>
-              <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" />
+              <ChevronDown aria-hidden="true" className="h-4 w-4 text-[color:var(--text-soft)]" />
             </button>
 
             {expanded ? (
@@ -114,7 +114,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
                         ].join(" ")}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon aria-hidden="true" className="h-4 w-4" />
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{mode.label}</span>
@@ -122,7 +122,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                           {mode.description}
                         </span>
                       </span>
-                      {mode.active ? <Check className="h-4 w-4" /> : null}
+                      {mode.active ? <Check aria-hidden="true" className="h-4 w-4" /> : null}
                     </button>
                   );
                 })}
@@ -173,13 +173,13 @@ export default function ModeDropdownMockupPage() {
   return (
     <main className="min-h-screen bg-[color:var(--background)] px-4 py-6 text-[color:var(--text)] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-soft)]">
+        <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--e2)]">
           <div className="flex flex-wrap items-center gap-2">
             <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
               <Sparkles className="h-4 w-4" />
             </span>
             <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
-              Clinical KB mockup
+              PsychSift mockup
             </p>
           </div>
           <h1 className="mt-3 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)]">
@@ -197,7 +197,7 @@ export default function ModeDropdownMockupPage() {
             <HeaderMockup />
           </div>
 
-          <aside className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+          <aside className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)]">
             <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Interaction notes</h2>
             <div className="mt-3 space-y-3 text-sm leading-6 text-[color:var(--text-muted)]">
               <p>

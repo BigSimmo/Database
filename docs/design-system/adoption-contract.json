@@ -141,7 +141,12 @@
         "src/app/(search-app)/medications/[slug]/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
-        "src/app/(search-app)/services/search/page.tsx"
+        "src/app/(search-app)/services/search/page.tsx",
+        "src/app/(search-app)/sources/[sourceId]/page.tsx",
+        "src/app/(search-app)/sources/method/page.tsx",
+        "src/app/(search-app)/sources/page.tsx",
+        "src/app/(search-app)/sources/publishers/page.tsx",
+        "src/app/(search-app)/sources/topics/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -166,7 +171,7 @@
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": ["tests/ui-sources.spec.ts", "tests/ui-visual-baseline.spec.ts"]
         }
       },
       "baseline": {
@@ -507,7 +512,18 @@
     {
       "id": "caring-contacts-workspace",
       "disposition": "owned",
-      "routes": ["src/app/caring-contacts/page.tsx", "src/app/caring-contacts/patients/page.tsx"],
+      "routes": [
+        "src/app/caring-contacts/page.tsx",
+        "src/app/caring-contacts/patients/page.tsx",
+        "src/app/caring-contacts/patients/[patientId]/page.tsx",
+        "src/app/caring-contacts/plans/new/page.tsx",
+        "src/app/caring-contacts/schedule/page.tsx",
+        "src/app/caring-contacts/templates/page.tsx",
+        "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
+        "src/app/caring-contacts/guidance/page.tsx",
+        "src/app/caring-contacts/reports/page.tsx",
+        "src/app/caring-contacts/team/page.tsx"
+      ],
       "routeRoots": true,
       "roots": [],
       "permittedComponentFamilies": [],

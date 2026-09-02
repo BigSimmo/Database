@@ -47,6 +47,31 @@ export function awstWallTimeToInstant(calendarDay: string, hour: number, minute 
 }
 
 /**
+ * The AWST calendar day a whole number of days away from another one.
+ *
+ * ADDED FOR A SCREEN, AND PUT HERE RATHER THAN ON IT (Phase 2B Task 13). The Schedule screen's day
+ * strip has to name the days either side of the one being looked at, and every navigation control
+ * on it is a link to one of them. That is arithmetic over an AWST calendar day, which is this
+ * module's subject -- a helper written on the screen would be a second place in the codebase that
+ * knows how to step an AWST day, on the surface that tells a coordinator which day a discharged
+ * patient hears from the service.
+ *
+ * MIDDAY, NOT MIDNIGHT, and that is the whole of why this is not a one-liner. Stepping from
+ * midnight does the arithmetic on a day boundary, where any error at all lands on the wrong date;
+ * midday is the furthest point from either boundary, so adding whole days cannot cross one by
+ * accident. AWST is UTC+8 all year, so the margin is against arithmetic rather than against a clock
+ * change -- there is no daylight-saving shift here for it to survive.
+ *
+ * `schedule-view.ts` enumerates a range the same way, privately, and predates this. The two are the
+ * same arithmetic and one of them should go; collapsing them was outside Task 13's brief, which
+ * froze that module, so the duplication is reported rather than resolved.
+ */
+export function awstCalendarDayOffset(calendarDay: string, days: number): string {
+  const midday = awstWallTimeToInstant(calendarDay, 12);
+  return awstCalendarDay(new Date(midday.getTime() + days * 86_400_000));
+}
+
+/**
  * The one AWST ISO-8601 form this domain records instants in: a wall-clock value carrying an
  * explicit `+08:00` offset (AWST is UTC+8 year-round, so no daylight-saving branch exists).
  *

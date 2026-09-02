@@ -260,7 +260,7 @@ describe("source governance warnings", () => {
           source_metadata: {
             source_kind: "registry_record",
             source_title: "Crisis service summary",
-            publisher: "Clinical KB registry",
+            publisher: "PsychSift registry",
             jurisdiction: "WA/local clinical workspace",
             version: null,
             publication_date: null,
@@ -299,7 +299,7 @@ describe("source governance warnings", () => {
           source_metadata: {
             source_kind: "registry_record",
             source_title: "Registry summary",
-            publisher: "Clinical KB registry",
+            publisher: "PsychSift registry",
             jurisdiction: "WA/local clinical workspace",
             version: null,
             publication_date: null,

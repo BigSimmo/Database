@@ -1,6 +1,6 @@
 # Progressive Web App architecture
 
-Clinical KB is an installable, production-first PWA with a deliberately limited offline surface. The service worker
+PsychSift is an installable, production-first PWA with a deliberately limited offline surface. The service worker
 improves launch, static-asset reuse, update handling, and failure messaging without turning private clinical data into
 durable browser storage.
 
@@ -55,7 +55,7 @@ install/Add to Home Screen flow.
 The install card is not shown in standalone mode. It stays non-blocking and lower-right on wide screens; on phones it
 becomes a compact sheet positioned clear of the current composer owner (above a bottom dock or below an in-flow home
 composer) and the safe area. The benefit list is deliberately limited to quick access, app-like launch, and the
-familiar Clinical KB workspace. It does not imply offline clinical access.
+familiar PsychSift workspace. It does not imply offline clinical access.
 Choosing **Not now**, using **Dismiss**, or dismissing the browser prompt suppresses the custom prompt for 30 days
 using `clinical-kb-pwa-install-dismissed-at` in localStorage. `appinstalled` clears that value. Storage failures are
 treated as non-fatal progressive-enhancement failures.
@@ -333,7 +333,7 @@ These omissions are deliberate and must not be added as generic PWA enhancements
 | Push notifications                         | Deferred. It requires a permission and subscription UX, backend key/subscription lifecycle, revocation, and a clinical privacy policy for lock-screen content. No safe notification payload or product need is currently defined.                                                                  |
 | Background Sync / Periodic Background Sync | Deferred. Queuing or replaying clinical queries, uploads, answers, or mutations risks sensitive local persistence, duplicate writes, stale auth, and actions occurring after the user's context changed. Browser support is also not a correctness guarantee.                                      |
 | Web Share Target / inbound sharing         | Deferred. Accepting text, URLs, or documents from another app needs an explicit consent, validation, auth, provenance, malware/file-safety, and retention flow. The manifest intentionally has no `share_target`.                                                                                  |
-| File handlers                              | Deferred. Associating Clinical KB with clinical document types could import sensitive files without the existing upload review and validation context. The manifest intentionally has no `file_handlers`.                                                                                          |
+| File handlers                              | Deferred. Associating PsychSift with clinical document types could import sensitive files without the existing upload review and validation context. The manifest intentionally has no `file_handlers`.                                                                                            |
 | Offline clinical data, search, or answers  | Prohibited by the current privacy model. Cached clinical guidance can become stale, lose revocation/auth guarantees, separate answers from source provenance, and expose private content to durable same-origin storage. Only the generic offline shell and public application assets are allowed. |
 
 Any proposal to enable one of these capabilities needs a product decision, threat model, privacy review, data lifecycle,

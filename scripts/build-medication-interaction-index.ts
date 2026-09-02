@@ -61,6 +61,16 @@ type IndexRow = {
   termIds: string[];
   resolved: boolean;
   /**
+   * Groups of slugs where the row's alert requires at least one member from
+   * EVERY group to be present in the patient's list, not merely any one
+   * `counterparties` entry. Populated only for rows whose prose joins classes
+   * with a literal "+" ("ACEi + Diuretic + NSAID") — the corpus's own convention
+   * for a required combination, distinct from the comma/list style used
+   * everywhere else for a plain either-of counterparty set. Absent (or empty)
+   * for every other row, which keeps existing any-of behaviour unchanged.
+   */
+  requiredGroups?: string[][];
+  /**
    * Verbatim `row.val`.
    *
    * Dropped from the artefact once, on the reasoning that every consumer already
@@ -227,6 +237,7 @@ function main(): void {
         const severity = bareAbsence ?? (severityToken ? (SEVERITY_BY_TOKEN[severityToken] ?? "unknown") : "unknown");
         const counterparties = new Map<string, IndexCounterparty>();
         const termIds = new Set<string>();
+        const requiredGroups: string[][] = [];
         let sawClassifiableTerm = false;
 
         for (const segment of segments) {
@@ -259,6 +270,8 @@ function main(): void {
             for (const id of segmentTermIds) termIds.add(id);
             for (const [slug, target] of segmentCounterparties) counterparties.set(slug, target);
           }
+
+          requiredGroups.push(...extractRequiredGroups(segment, record.slug));
         }
 
         const hasUnenumeratedMechanism = Array.from(termIds).some((id) => UNENUMERATED_MECHANISM_TERM_IDS.has(id));
@@ -278,10 +291,70 @@ function main(): void {
           termIds: Array.from(termIds).sort(),
           resolved,
           note: value,
+          ...(requiredGroups.length > 0 ? { requiredGroups: requiredGroups.map((group) => group.sort()) } : {}),
         });
       });
     }
     if (rows.length > 0) bySlug[record.slug] = { rows, unresolvedRowCount: rows.filter((row) => !row.resolved).length };
+  }
+
+  /**
+   * "ACEi + Diuretic + NSAID" style rows ("Triple Whammy" and its relatives)
+   * name a required COMBINATION, not an either-of list — the corpus marks that
+   * with a literal "+" between classes, distinct from the comma/list style used
+   * for genuine either-of counterparty sets elsewhere. Splitting on "+" and
+   * resolving each clause independently turns that combination back into
+   * separate required groups instead of the flat union `segmentCounterparties`
+   * would otherwise produce, which let any ONE class (an NSAID alone, a
+   * diuretic alone, or even another ACEi) fire the full combination alert.
+   *
+   * A clause naming only the source drug's own class (ramipril's row saying
+   * "ACEi") is dropped rather than turned into a group: that class is already
+   * supplied by the source drug, so it is not a further requirement. This
+   * self-exclusion is deliberately local to conjunction-group extraction —
+   * `addTermTargets`'s ordinary either-of matching is untouched, because a
+   * source drug that is itself a class member very often legitimately warns
+   * about OTHER members of that same class (an opioid's own row warning about
+   * other opioids, a benzodiazepine's row warning about other benzodiazepines).
+   * Excluding the class there would silently drop those real alerts; it is
+   * safe only here, where "+" already marks the mention as naming a required
+   * combination rather than an independent either-of counterparty.
+   *
+   * Fewer than two resolvable clauses means there is nothing to require beyond
+   * the existing any-of `counterparties` set, so no groups are returned.
+   */
+  function extractRequiredGroups(segment: string, sourceSlug: string): string[][] {
+    // Require whitespace on both sides of the "+": "ACEi + Diuretic" is the
+    // combination marker, but ionic/charge notation like "Fe3+" or "K+-sparing"
+    // has no surrounding space and must not be split into spurious clauses.
+    const clauses = segment
+      .split(/\s+\+\s+/)
+      .map((clause) => clause.trim())
+      .filter(Boolean);
+    if (clauses.length < 2) return [];
+
+    const groups: string[][] = [];
+    for (const clause of clauses) {
+      const target = new Map<string, IndexCounterparty>();
+      for (const { surface, term } of LEXICON_SURFACES_BY_LENGTH) {
+        if (term.kind !== "catalogue") continue;
+        if (!mentions(clause, surface)) continue;
+        if (term.sourceDenySlugs?.includes(sourceSlug)) continue;
+        const slugs = termSlugs.get(term.id) ?? [];
+        if (slugs.includes(sourceSlug)) continue;
+        for (const slug of slugs) {
+          if (slug === sourceSlug || target.has(slug)) continue;
+          target.set(slug, { slug, name: nameBySlug.get(slug) ?? slug, via: term.id });
+        }
+      }
+      for (const { surface, slug } of drugSurfaces) {
+        if (slug === sourceSlug || !mentions(clause, surface)) continue;
+        if ((nameBySlug.get(slug) ?? slug) === (nameBySlug.get(sourceSlug) ?? sourceSlug)) continue;
+        if (!target.has(slug)) target.set(slug, { slug, name: nameBySlug.get(slug) ?? slug, via: surface });
+      }
+      if (target.size > 0) groups.push(Array.from(target.keys()));
+    }
+    return groups.length >= 2 ? groups : [];
   }
 
   function addTermTargets(term: LexiconTerm, into: Map<string, IndexCounterparty>, sourceSlug: string): void {

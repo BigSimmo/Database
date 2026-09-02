@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
+import { BRAND_CATCHPHRASE, BRAND_MENU_DESCRIPTION } from "@/lib/brand";
 import {
   cn,
   fieldControlWithIcon,
@@ -36,6 +37,7 @@ import {
   toolbarButton,
 } from "@/components/ui-primitives";
 
+import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { useSidebarPins, pinnableSidebarModeIds } from "@/components/clinical-dashboard/use-sidebar-pins";
@@ -69,9 +71,13 @@ function accountProfileLabel(identity: SidebarIdentity) {
 
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
-  // Documents owns a real home: the shell mounts ClinicalDashboard for /documents,
-  // so it paints browse and recent documents rather than the shared hero.
-  { id: "documents", label: "Documents", icon: FileText, href: "/documents" },
+  // Owner decision 2026-08-27: the sidebar opens the shared "Clinical Documents"
+  // home, not the `/documents` workspace. `/documents` paints a second, older
+  // landing page — same subtitle, different title, plus three rows that only open
+  // drawers — and arriving there from the sidebar read as landing on the wrong
+  // screen. `/documents` keeps its route and its inbound link from the Tools
+  // directory (`tools-catalog.ts`); only this entry moves.
+  { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
   // Every consolidated mode links to the one shared home; their bare paths are now
   // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`
   // would spend a round trip arriving at the same place.
@@ -100,6 +106,7 @@ const sidebarMoreModeIds = [
   "calculators",
   "therapy-compass",
   "dictionary",
+  "sources",
 ] as const satisfies readonly AppModeId[];
 
 const sidebarModeItems = [
@@ -127,6 +134,44 @@ const collapsedSidebarControl =
 const collapsedSidebarButton = `grid ${collapsedSidebarControl}`;
 const collapsedSidebarActiveButton =
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
+/* One divider for the whole rail. Every group separator is the same 32px rule
+   with the same 12px of air on both sides, so the rail reads as one column of
+   48px controls broken into groups rather than four rules with three spacings. */
+const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border)]";
+
+/* Phone drawer header (ClinicalMobileSidebar).
+ *
+ * The stock Sheet header is built for a dialog that has to explain itself: a
+ * 5-unit pad, an 18px title, and a `text-sm leading-6` description paragraph.
+ * On this drawer that combination spent roughly 160px — a third of the first
+ * screenful above the notch on a 390px phone — restating what the drawer is,
+ * to a user who has just tapped the menu button and can see it. The description
+ * also wrapped to two lines, because the title column is squeezed between the
+ * brand mark and a 48px close button, which is why the block was so tall.
+ *
+ * The header now reads as a brand lockup rather than a dialog preamble: mark,
+ * wordmark, one strapline that cannot wrap, and a close control that keeps its
+ * full 48px tap target while giving up the boxed chrome that made it the
+ * loudest thing in the header. The functional sentence moves to `sr-only`,
+ * where it is still the accessible description.
+ *
+ * These are overrides on the shared Sheet rather than edits to it: every other
+ * dialog in the app uses that header, and the case for a compact brand header
+ * is specific to a navigation drawer that is already showing its own contents. */
+const drawerHeader = "gap-x-2.5 px-4 py-3 sm:px-5 sm:py-3.5";
+const drawerHeaderTitle = "text-base leading-6 tracking-tight sm:text-lg";
+const drawerHeaderStrapline = "block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]";
+/* Ghost close control, matching the collapsed rail's idiom (transparent border
+ * that resolves on hover, so forced-colors still has an edge to paint) instead
+ * of the toolbar recipe's resting border, fill and inset shadow. The tap target
+ * is unchanged at h-tap/w-tap; only the chrome is quieter.
+ *
+ * The glyph is lifted to --spacing-icon-lg, the 20px "header / primary controls"
+ * step, via a child variant: Sheet hardcodes its X at 16px, which reads as a
+ * default-sized icon adrift once the surrounding box is removed. Scoped here
+ * rather than changed in Sheet, since that icon is shared by every dialog. */
+const drawerHeaderClose =
+  "grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] [&>svg]:size-icon-lg";
 
 function SidebarModesTrigger({
   variant,
@@ -143,34 +188,36 @@ function SidebarModesTrigger({
 }) {
   if (variant === "edit") {
     return (
-      <button
+      <Button
         ref={triggerRef}
-        type="button"
-        onClick={onOpen}
+        variant="ghost"
+        size="sm"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="min-h-tap rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition-colors hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="px-2 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+        onClick={onOpen}
       >
         Edit
-      </button>
+      </Button>
     );
   }
 
   if (variant === "collapsed") {
     return (
-      <button
+      <Button
         ref={triggerRef}
-        type="button"
-        onClick={onOpen}
+        variant="ghost"
+        icon={LayoutGrid}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="More modes"
         title="More modes"
-        data-testid="sidebar-more-modes"
-        className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
+        testId="sidebar-more-modes"
+        className={cn("gap-0 px-0 [&>span]:hidden", collapsedSidebarButton, active && collapsedSidebarActiveButton)}
+        onClick={onOpen}
       >
-        <LayoutGrid aria-hidden="true" className="h-4 w-4" />
-      </button>
+        <span className="sr-only">More modes</span>
+      </Button>
     );
   }
 
@@ -580,34 +627,41 @@ export function ClinicalSidebarContent({
       {showHeader ? (
         <div className="flex shrink-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <BrandMark className="h-10 w-10" />
-            <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
-              Clinical Guide
-            </p>
+            <BrandMark tone="emphasis" className="h-10 w-10" />
+            {/* Same lockup as the phone drawer header: wordmark over strapline,
+                so the two entry points to the same navigation read as one brand
+                rather than two headers that happen to share a title. */}
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
+                Clinical Guide
+              </p>
+              <p className={drawerHeaderStrapline}>{BRAND_CATCHPHRASE}</p>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onCollapsedChange?.(true)}
-            className="grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          <Button
+            variant="ghost"
+            icon={PanelLeftClose}
+            className="h-tap w-tap shrink-0 gap-0 px-0 [&>span]:hidden"
             aria-label="Collapse sidebar"
             title="Collapse sidebar"
+            onClick={() => onCollapsedChange?.(true)}
           >
-            <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
-          </button>
+            <span className="sr-only">Collapse sidebar</span>
+          </Button>
         </div>
       ) : null}
 
-      <button
-        type="button"
+      <Button
+        variant="primary"
+        icon={MessageSquarePlus}
+        className="w-full shrink-0 px-3"
         onClick={() => {
           onNewChat();
           onNavigate?.();
         }}
-        className="inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--command-hover)]"
       >
-        <MessageSquarePlus aria-hidden="true" className="h-4 w-4" />
         New chat
-      </button>
+      </Button>
 
       {/* Scroll region: search, recent chats, and shortcuts scroll together on
           short viewports while the header, New chat, and account footer stay
@@ -666,13 +720,13 @@ export function ClinicalSidebarContent({
               </p>
             )}
             {recentQueries.length > 3 ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                className="w-full justify-start px-2.5 text-left text-[color:var(--text-muted)]"
                 onClick={() => setShowAllRecent((current) => !current)}
-                className="min-h-tap rounded-lg px-2.5 text-left text-sm font-semibold text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 {showAllRecent ? "Show less" : "View all chats"}
-              </button>
+              </Button>
             ) : null}
           </div>
         </section>
@@ -709,6 +763,7 @@ export function ClinicalSidebarContent({
                   )}
                 >
                   <Icon
+                    aria-hidden="true"
                     className={cn(
                       "h-4 w-4 shrink-0",
                       active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
@@ -759,6 +814,7 @@ export function ClinicalSidebarContent({
                     )}
                   >
                     <Icon
+                      aria-hidden="true"
                       className={cn(
                         "h-4 w-4 shrink-0",
                         active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
@@ -775,20 +831,20 @@ export function ClinicalSidebarContent({
 
       <div className="mt-auto grid shrink-0 gap-1 border-t border-[color:var(--border)] pt-3">
         <SidebarAppearanceMenu />
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          icon={SettingsIcon}
+          trailingIcon={ChevronRight}
+          className={cn(sidebarItem, "justify-start [&>span]:min-w-0 [&>span]:flex-1 [&>span]:text-left")}
           onClick={() => {
             onNavigate?.();
             window.requestAnimationFrame(onOpenSettings);
           }}
           onPointerEnter={onPrefetchSettings}
           onFocus={onPrefetchSettings}
-          className={sidebarItem}
         >
-          <SettingsIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 text-left">Settings</span>
-          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0" />
-        </button>
+          Settings
+        </Button>
         <button
           type="button"
           onClick={() => {
@@ -880,52 +936,68 @@ function ClinicalCollapsedRail({
     <aside
       aria-label="Clinical Guide collapsed sidebar"
       className={cn(
-        "hidden min-h-0 w-[5.25rem] shrink-0 flex-col items-center border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--shadow-soft)] md:flex",
+        // One 12px gap owns every step in the column, so the brand, the rule
+        // beneath it, New chat, the scrolling groups and the footer all sit on
+        // the same rhythm instead of each carrying its own `mt-3`.
+        "hidden min-h-0 w-[5.25rem] shrink-0 flex-col items-center gap-3 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--e2)] md:flex",
         hiddenOnDesktop && "lg:hidden",
       )}
     >
-      <div className="grid w-full shrink-0 justify-items-center gap-2 px-3">
+      <div className="grid w-full shrink-0 justify-items-center gap-3 px-3">
         {collapseLocked ? (
           <span className={collapsedSidebarButton} aria-hidden="true">
-            <BrandMark className="h-7 w-7" />
+            <BrandMark tone="emphasis" optical="chrome" className="h-7 w-7" />
           </span>
         ) : (
           <>
             {/* Tablet: the expanded panel does not exist below lg, so show a
                 static brand mark instead of a dead expand control. */}
             <span className={cn("hidden md:grid lg:hidden", collapsedSidebarControl)} aria-hidden="true">
-              <BrandMark className="h-7 w-7" />
+              <BrandMark tone="emphasis" optical="chrome" className="h-7 w-7" />
             </span>
-            <button
-              type="button"
-              onClick={() => onCollapsedChange(false)}
-              className={cn("hidden lg:grid", collapsedSidebarControl, "group")}
+            <Button
+              variant="ghost"
+              className={cn("hidden px-0 lg:grid", collapsedSidebarControl, "group")}
               aria-label="Expand sidebar"
               title="Expand sidebar"
+              onClick={() => onCollapsedChange(false)}
             >
-              <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
+              <BrandMark
+                tone="emphasis"
+                optical="chrome"
+                className="h-7 w-7 group-hover:hidden group-focus-visible:hidden"
+              />
               <PanelLeftOpen
                 aria-hidden="true"
                 className="hidden size-icon-lg group-hover:block group-focus-visible:block"
               />
-            </button>
+            </Button>
           </>
         )}
-        <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+        <span className={cn(collapsedSidebarDivider, "my-0")} aria-hidden="true" />
       </div>
 
-      <button
-        type="button"
-        onClick={onNewChat}
-        className={cn("mt-3", collapsedSidebarButton)}
+      <Button
+        variant="ghost"
+        icon={MessageSquarePlus}
+        className={cn("gap-0 px-0 [&>span]:hidden", collapsedSidebarButton)}
         aria-label="New chat"
         title="New chat"
+        onClick={onNewChat}
       >
-        <MessageSquarePlus aria-hidden="true" className="h-4 w-4" />
-      </button>
+        <span className="sr-only">New chat</span>
+      </Button>
       <div
         data-testid="collapsed-sidebar-scroll-region"
-        className="mt-3 grid min-h-0 w-full flex-1 content-start justify-items-center gap-1.5 overflow-y-auto overscroll-contain px-3 pb-1 [scrollbar-gutter:stable]"
+        /* `both-edges`, not a bare `stable`: a one-sided gutter takes its width
+           off the right of this box only, so the centred column of icons sat
+           ~6px left of the brand, New chat, Settings and the account button —
+           the misalignment that runs the length of the rail. Reserving the
+           gutter on both edges keeps the column on the rail's centre line
+           whether or not a scrollbar is showing. The horizontal padding goes
+           with it: two 15px gutters plus `px-3` left less than a 48px control's
+           width of content box. */
+        className="grid min-h-0 w-full flex-1 content-start justify-items-center gap-1.5 overflow-y-auto overscroll-contain pb-1 [scrollbar-gutter:stable_both-edges]"
       >
         <nav aria-label="Pinned shortcuts" className="grid justify-items-center gap-1.5">
           {pinnedModeItems.map((item) => {
@@ -943,12 +1015,12 @@ function ClinicalCollapsedRail({
                 title={item.label}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon className="h-4 w-4" />
+                <Icon aria-hidden="true" className="h-4 w-4" />
               </Link>
             );
           })}
         </nav>
-        <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+        <span className={collapsedSidebarDivider} aria-hidden="true" />
         <SidebarModesTrigger
           variant="collapsed"
           active={moreModesActive}
@@ -958,7 +1030,7 @@ function ClinicalCollapsedRail({
         />
         {showAccountLibrary ? (
           <>
-            <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+            <span className={collapsedSidebarDivider} aria-hidden="true" />
             <nav aria-label="Your library" className="grid justify-items-center gap-1.5">
               {sidebarAccountLibraryItems.map((item) => {
                 const Icon = item.icon;
@@ -972,7 +1044,7 @@ function ClinicalCollapsedRail({
                     title={item.label}
                     aria-current={active ? "page" : undefined}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon aria-hidden="true" className="h-4 w-4" />
                   </Link>
                 );
               })}
@@ -980,24 +1052,28 @@ function ClinicalCollapsedRail({
           </>
         ) : null}
       </div>
-      <button
-        type="button"
+      {/* Mirrors the rule under the brand mark, so the rail is bracketed the
+          same way at both ends and the two footer controls read as one group. */}
+      <span className={cn(collapsedSidebarDivider, "my-0")} aria-hidden="true" />
+      <Button
+        variant="ghost"
+        icon={SettingsIcon}
+        className={cn("gap-0 px-0 [&>span]:hidden", collapsedSidebarButton)}
+        aria-label="Settings"
+        title="Settings"
         onClick={onOpenSettings}
         onPointerEnter={onPrefetchSettings}
         onFocus={onPrefetchSettings}
-        className={cn("mt-3", collapsedSidebarButton)}
-        aria-label="Settings"
-        title="Settings"
       >
-        <SettingsIcon aria-hidden="true" className="h-4 w-4" />
-      </button>
+        <span className="sr-only">Settings</span>
+      </Button>
       <button
         type="button"
         onClick={onOpenAccount}
         onPointerEnter={onPrefetchAccount}
         onFocus={onPrefetchAccount}
         data-testid="collapsed-account-settings"
-        className="mt-3 grid h-tap w-tap shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="grid h-tap w-tap shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         title={identity.signedIn ? identity.detail : "Set up workspace"}
         aria-label={accountLabel}
       >
@@ -1072,7 +1148,7 @@ export function ClinicalDesktopSidebar({
         <aside
           id="clinical-tools-sidebar"
           aria-label="Clinical Guide sidebar"
-          className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
+          className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] lg:flex lg:flex-col"
         >
           <ClinicalSidebarContent
             recentQueries={recentQueries}
@@ -1134,11 +1210,26 @@ export function ClinicalMobileSidebar({
       open={open}
       onClose={() => onOpenChange(false)}
       title="Clinical Guide"
-      description="Recent chats, navigation, and settings."
       closeLabel="Close Clinical Guide menu"
       placement="left"
       contentClassName={hiddenFrom === "lg" ? "lg:hidden" : "md:hidden"}
-      headerLeading={<BrandMark className="h-8 w-8" />}
+      headerLeading={<BrandMark tone="emphasis" optical="chrome" className="h-7 w-7 sm:h-8 sm:w-8" />}
+      headerClassName={drawerHeader}
+      titleClassName={drawerHeaderTitle}
+      closeButtonClassName={drawerHeaderClose}
+      descriptionContent={
+        <>
+          {/* The functional sentence still reaches assistive technology, where
+              "what does this dialog contain" is the useful answer. The visible
+              line is the strapline, which is identity — the two audiences want
+              different sentences, so they get different sentences rather than one
+              compromise that serves neither. */}
+          <span className="sr-only">{BRAND_MENU_DESCRIPTION}</span>
+          <span aria-hidden="true" className={drawerHeaderStrapline}>
+            {BRAND_CATCHPHRASE}
+          </span>
+        </>
+      }
     >
       <ClinicalSidebarContent
         showHeader={false}

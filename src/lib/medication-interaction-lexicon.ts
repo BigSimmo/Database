@@ -166,6 +166,12 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     surfaces: ["statins", "statin"],
     kind: "catalogue",
     select: { subclassIncludes: ["Statin", "HMG"] },
+    // Simvastatin's and atorvastatin's own gemfibrozil rows ("blocks statin
+    // glucuronidation/uptake") use "statin" to describe their OWN drug class's
+    // mechanism, not to name a second interacting drug family — resolving it
+    // added every other statin as a false counterparty for a HIGH,
+    // gemfibrozil-specific alert they have nothing to do with.
+    sourceDenySlugs: ["simvastatin", "atorvastatin"],
   },
   {
     id: "gabapentinoids",
@@ -297,6 +303,16 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     surfaces: ["fibrates", "fibrate"],
     kind: "catalogue",
     select: { subclassIncludes: ["Fibrate"] },
+    // Simvastatin's and atorvastatin's gemfibrozil rows write "Gemfibrozil
+    // (Fibrate)" — a specific, uncatalogued drug's name with its class in
+    // parentheses, not a general fibrate-class warning. Fenofibrate is this
+    // catalogue's only other fibrate member and the corpus's own fenofibrate
+    // row rates a statin combination "extreme caution", not the Contraindicated
+    // severity gemfibrozil's row carries — so resolving "Fibrate" here would
+    // misattribute that severity to the wrong drug. Denied at the source rather
+    // than narrowing the surface, since the term is correct wherever a row
+    // names the class generically.
+    sourceDenySlugs: ["simvastatin", "atorvastatin"],
   },
   {
     id: "immunosuppressants",

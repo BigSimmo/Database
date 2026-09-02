@@ -31,7 +31,10 @@ const breakpoints = [
 // These result/detail pages own the generic page-flow slot on desktop.
 const surfaces = [
   { name: "shell results", route: "/forms?q=form%201A&run=1" },
-  { name: "shell service detail", route: "/services/13yarn" },
+  // The dormant Clinical Ask deployment intentionally omits the old Smart-search
+  // promise, so this compact detail page has slightly less runway than the other
+  // surfaces while still leaving enough room to prove the mid-page reveal.
+  { name: "shell service detail", route: "/services/13yarn", minimumRunway: 650 },
   { name: "dashboard results", route: "/?mode=prescribing&q=a&run=1" },
   // Therapy search carries the shared `ModeNav` inside the collapse row. The
   // phone case is covered by ui-phone-scroll; this is the tablet/desktop proof
@@ -209,12 +212,12 @@ test("1024px bounded main scrolling preserves focused page search", async ({ pag
 });
 
 for (const { name: sizeName, viewport } of breakpoints) {
-  for (const { name: surfaceName, route } of surfaces) {
+  for (const { name: surfaceName, route, minimumRunway = requiredRunway } of surfaces) {
     test(`${sizeName}: top bar hides on scroll down and returns mid-page on ${surfaceName}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
-      await waitForRunway(page, requiredRunway);
+      await waitForRunway(page, minimumRunway);
       await page.waitForTimeout(400);
 
       const atTop = await readChromeState(page);
@@ -232,7 +235,7 @@ for (const { name: sizeName, viewport } of breakpoints) {
       await page.waitForTimeout(300);
 
       const scrolledDown = await readChromeState(page);
-      expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(requiredRunway - 200);
+      expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(minimumRunway - 200);
       expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
       expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
       expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
@@ -255,7 +258,7 @@ for (const { name: sizeName, viewport } of breakpoints) {
       await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
-      await waitForRunway(page, requiredRunway);
+      await waitForRunway(page, minimumRunway);
       await page.waitForTimeout(400);
 
       const atTop = await readChromeState(page);
@@ -274,3 +277,76 @@ for (const { name: sizeName, viewport } of breakpoints) {
     });
   }
 }
+
+/**
+ * Dead scroll: a scroll range on a page whose content has already ended.
+ *
+ * Page-fill floors used to be written as `calc(100dvh - <chrome estimate>)`.
+ * Every estimate was short — `--shell-header-h` (4rem) omits the header's own
+ * `pt-[max(0.5rem,var(--safe-area-top))]`, nothing knew about the
+ * `header-collapse-addon` nav row on topic routes, and nothing knew about
+ * `#main-content`'s own `sm:pb-8`. The result was a permanent 8-273px of scroll
+ * on pages with nothing left to show: a scrollbar on a page that fits, and a
+ * wheel notch that jolts the page and slams into the bottom.
+ *
+ * These surfaces now grow into the box above them instead, so the range must be
+ * exactly zero. The viewport is deliberately tall enough that every one of these
+ * routes fits; a route whose content genuinely exceeds it belongs in the
+ * scrolling suites above, not here.
+ */
+test.describe("pages that fit the window have no scroll range", () => {
+  const fitsWithoutScrolling = [
+    { name: "shared home", route: "/" },
+    { name: "dashboard mode home", route: "/?mode=documents" },
+    { name: "standalone mode home", route: "/medications" },
+    { name: "addon nav row route", route: "/factsheets/topics" },
+  ];
+
+  for (const { name, route } of fitsWithoutScrolling) {
+    test(`desktop: ${name} has zero scroll range`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 1200 });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+      // Late chrome (composer portal, nav row, notices) mounts after first paint
+      // and is exactly what a static estimate would miss, so settle before
+      // reading — then read a second time. A single early read could catch the
+      // page before the nav row lands and pass on a range that is about to grow.
+      await page.waitForTimeout(800);
+      const settled = await readPrimaryScrollGeometry(page);
+      expect(settled.maxScrollTop, `${route} reserves ${settled.maxScrollTop}px of scroll past its content`).toBe(0);
+
+      await page.waitForTimeout(400);
+      const stable = await readPrimaryScrollGeometry(page);
+      expect(stable.maxScrollTop, `${route} grew a scroll range after late chrome mounted`).toBe(0);
+    });
+  }
+
+  test("desktop: tall documents home centres its action cluster in the available canvas", async ({ page }) => {
+    await page.setViewportSize({ width: 1720, height: 1350 });
+    await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+
+    const geometry = await page.evaluate(() => {
+      const home = document.querySelector<HTMLElement>('[data-testid="shared-home-empty-state"]');
+      const canvas = document.querySelector<HTMLElement>("[data-mode-home-canvas]");
+      const main = document.getElementById("main-content");
+      if (!home || !canvas || !main) return null;
+
+      const homeRect = home.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        homeMidY: homeRect.top + homeRect.height / 2,
+        canvasMidY: canvasRect.top + canvasRect.height / 2,
+        maxScrollTop: Math.max(0, main.scrollHeight - main.clientHeight),
+      };
+    });
+
+    expect(geometry).not.toBeNull();
+    expect(Math.abs(geometry!.homeMidY - geometry!.canvasMidY)).toBeLessThanOrEqual(1);
+    expect(geometry!.maxScrollTop).toBe(0);
+  });
+});

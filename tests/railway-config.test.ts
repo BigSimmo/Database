@@ -96,6 +96,7 @@ describe("Railway config as code", () => {
     "railway.worker.json",
     "data/services-snapshot.json",
     "src/lib/rag/rag.ts",
+    "src/data/dsm-clinical-content.json",
     "worker/main.ts",
     "worker/python/requirements.txt",
     // B4: the worker image builds its docling venv from the Gate B lab lock.
@@ -129,4 +130,11 @@ describe("Railway config as code", () => {
     expect(triggersDeploy(worker, "next.config.ts")).toBe(false);
     expect(triggersDeploy(worker, "public/logo.svg")).toBe(false);
   });
+
+  it.each(["src/components/ui/button.tsx", "src/app/globals.css"])(
+    "does not rebuild the worker for UI-only input %s",
+    (filePath) => {
+      expect(triggersDeploy(worker, filePath)).toBe(false);
+    },
+  );
 });

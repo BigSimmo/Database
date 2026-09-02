@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8cf62eef-79a8-4b23-83cc-9290eb71dff3",
+  "createdOn": "2026-08-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "mode-home-page-skeleton still subtracts a chrome estimate from 100dvh, the pattern invariant 24 retired everywhere else",
+    "detail": "PR #2419 replaced every 'calc(100dvh - <chrome estimate>)' page-fill floor with flex growth (shell #main-content, the composer reserve pad, the page shells, and the dashboard mode-home canvas) and recorded the rule as invariant 24 in docs/search-chrome-behaviour.md: 'A page fills the box it is in; it never subtracts a chrome estimate from 100dvh.' Two sites in src/components/mode-home-page-skeleton.tsx were deliberately left behind and are now the only page-fill estimates left in src/: line 32 'sm:min-h-[calc(100dvh-var(--shell-header-h))]' and line 60 'h-[calc(100dvh-var(--shell-header-h))]'. They were skipped because this is a route-loading placeholder rendered inside a Suspense boundary whose parent chain does not resolve a grown height, so swapping the class alone would collapse it - the parent chain has to be given a definite height first. --shell-header-h (4rem) is exactly the estimate invariant 24 exists to remove: it covers the header's inner bar plus its pb-2 but NOT the bar's own pt-[max(0.5rem,var(--safe-area-top))], which is why every floor built on it ran short. Impact is very low: the skeleton is visible for a fraction of a second while a route opens, and being a few px short there is invisible. Next: determine whether the skeleton's Suspense parent can carry a definite height; if yes, convert both sites to grow and delete the estimate; if no, record the exception explicitly under invariant 24 so the next sweep does not re-flag it as an oversight. Stop: do not simply swap the class without fixing the parent chain, and do not widen invariant 24 to permit estimates generally.",
+    "source": "PR #2419; docs/search-chrome-behaviour.md invariant 24; src/components/mode-home-page-skeleton.tsx:32,60",
+    "issueUlid": "01M11M3PZAA95DRY3VM3RZE224"
+  }
+}

@@ -25,6 +25,11 @@ const mocks = vi.hoisted(() => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
   }),
+  // The real `redirect` throws too, so throwing here keeps the page's control flow identical while
+  // making the target inspectable.
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
 }));
 
 vi.mock("next/headers", () => ({
@@ -34,6 +39,7 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
   notFound: mocks.notFound,
+  redirect: mocks.redirect,
 }));
 
 vi.mock("@/lib/caring-contacts-server/store", () => ({
@@ -79,8 +85,12 @@ function planRecord(id: string): PlanRecord {
     referralId: referralId(`referral-${id}`),
     pathwayVersionId: pathwayVersionId("pathway-1"),
     dischargeAt: new Date("2026-03-01T02:00:00.000Z"),
+    // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+    // plan's creation instant is set to the same instant as its discharge rather than invented.
+    createdAt: new Date("2026-03-01T02:00:00.000Z"),
     completedAt: null,
     outcome: "inProgress",
+    assuranceAttestations: [],
     contacts: [],
   };
 }
@@ -99,6 +109,7 @@ beforeEach(() => {
   mockCookies = {};
   mocks.store.current = null;
   mocks.notFound.mockClear();
+  mocks.redirect.mockClear();
 });
 
 afterEach(() => {
@@ -152,7 +163,7 @@ describe("the /caring-contacts/patients page - reads", () => {
     );
   });
 
-  it("never reads the episode - the one read that releases a name, a mobile number or an identifier", async () => {
+  it("never reads the episode - the only read that releases a mobile number or an identifier", async () => {
     const { store } = inMemoryStoreWithSpy();
     const getEpisode = vi.spyOn(store, "getEpisode");
     vi.spyOn(store, "listPlans").mockResolvedValue([planRecord("plan-1")]);
@@ -261,13 +272,16 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
 
     await renderPage();
 
-    // Its own row. This is the one read on this page that releases patient identity, and a trail
-    // that recorded it as part of a plan search could not answer "who read patients' names".
+    // Its own row AND its own object type. This is the read on this page that releases patient
+    // identity, and the trail must be able to ANSWER "who read patients' names, and when" -- not
+    // merely to contain it. Review I-3: `patientDirectory` already carries two referral reads and
+    // the trail's query surface filters on `objectType` with no `objectId` filter, so sharing that
+    // type would have made the answer visible by eye and impossible to ask for.
     expect(recorded()).toContainEqual(
       expect.objectContaining({
         kind: "search",
-        objectType: "patientDirectory",
-        objectId: "names",
+        objectType: "patientName",
+        objectId: "all",
         outcome: "allowed",
         actorId: demoActorForRole("coordinator").id,
       }),
@@ -292,6 +306,22 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
     expect(getEpisode).not.toHaveBeenCalled();
   });
 
+  it("decides the role notice from the ACTOR, and a coordinator with no names released gets none", async () => {
+    // The wiring, at the page level: a coordinator holds `viewPatientRecord`, so even with the names
+    // read returning nothing the screen must NOT claim a role restriction -- that team's episodes
+    // are simply de-identified, or it holds none. Inferring the notice from an empty list would put
+    // a false explanation in front of a clinician who does have access.
+    const { store } = inMemoryStoreWithSpy("coordinator");
+    vi.spyOn(store, "listPlans").mockResolvedValue([planRecord("plan-1")]);
+    vi.spyOn(store, "listPatientNames").mockResolvedValue([]);
+
+    await renderPage();
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "patient-plan-1" })).toBeInTheDocument();
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
   it("throws rather than rendering when the names read itself fails, and still records the attempt", async () => {
     const { store, recorded } = inMemoryStoreWithSpy();
     vi.spyOn(store, "listPatientNames").mockRejectedValue(new Error("names store unreachable"));
@@ -299,7 +329,7 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
     const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
 
     await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("names store unreachable");
-    expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "patientDirectory", outcome: "failed" }));
+    expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "patientName", outcome: "failed" }));
   });
 
   it("throws rather than rendering a caseload from a names answer that was never given", async () => {
@@ -312,5 +342,88 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
     const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
 
     await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(/names read returned no list/i);
+  });
+});
+
+/** The forms a dropped name could survive in an address or a record. */
+function urlFormsOf(text: string): string[] {
+  return [
+    text,
+    text.toLowerCase(),
+    encodeURIComponent(text),
+    encodeURIComponent(text).toLowerCase(),
+    text.replace(/ /g, "+"),
+    ...text.split(" "),
+    ...text.toLowerCase().split(" "),
+  ];
+}
+
+describe("the /caring-contacts/patients page - a bookmarked search term is removed, not merely unread", () => {
+  const NAME = "Jordan Nguyen";
+
+  // Ignoring `?q=<name>` was NOT enough, and was worse than doing nothing: `overlayUrl()` in
+  // `workspace-overlays.tsx` copies every existing parameter into each history entry it pushes, so
+  // an ignored name was re-written into a fresh entry every time an overlay opened. The address is
+  // rewritten instead.
+  it("redirects to an address that keeps the plan state and carries no part of the term", async () => {
+    inMemoryStoreWithSpy();
+
+    await expect(renderPage({ state: "active", q: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+
+    expect(mocks.redirect).toHaveBeenCalledTimes(1);
+    const target = String(mocks.redirect.mock.calls[0]?.[0]);
+    // Positive control on the target: the RECOGNISED parameter survived, so what follows is a
+    // dropped name rather than a redirect that dropped everything.
+    expect(target).toContain("state=active");
+    expect(target).toContain("searchNotApplied=1");
+    for (const form of urlFormsOf(NAME)) {
+      expect(target, `the redirect target carries "${form}"`).not.toContain(form);
+    }
+  });
+
+  it("fires on any unrecognised parameter name, not only on `q`", async () => {
+    for (const key of ["q", "name", "search", "patient"]) {
+      inMemoryStoreWithSpy();
+      mocks.redirect.mockClear();
+      await expect(renderPage({ [key]: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+      expect(mocks.redirect, `?${key}= did not trigger the rewrite`).toHaveBeenCalledTimes(1);
+      expect(String(mocks.redirect.mock.calls[0]?.[0])).not.toContain("Nguyen");
+    }
+  });
+
+  it("keeps a deep-linked overlay while dropping the term beside it", async () => {
+    inMemoryStoreWithSpy();
+
+    await expect(renderPage({ overlay: "consent-and-withdrawal", q: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+
+    const target = String(mocks.redirect.mock.calls[0]?.[0]);
+    expect(target).toContain("overlay=consent-and-withdrawal");
+    expect(target).not.toContain("Nguyen");
+  });
+
+  it("does not redirect an address it already understands, so the rewrite cannot loop", async () => {
+    inMemoryStoreWithSpy();
+
+    await renderPage({ state: "active", searchNotApplied: "1", overlay: "consent-and-withdrawal" });
+
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    // ...and the notice the flag exists for is what the coordinator lands on.
+    expect(screen.getByRole("note", { name: /a saved search was not applied/i })).toBeInTheDocument();
+  });
+
+  it("drops the term before any audited read, so it cannot reach an access record", async () => {
+    // POSITIVE CONTROL FIRST. An ordinary render of this page records reads; without this, "no
+    // record contains the name" would be satisfied by a page that records nothing at all.
+    const ordinary = inMemoryStoreWithSpy();
+    await renderPage({ state: "active" });
+    expect(ordinary.recorded().length).toBeGreaterThan(0);
+
+    const dropped = inMemoryStoreWithSpy();
+    await expect(renderPage({ state: "active", q: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+
+    expect(dropped.recorded()).toHaveLength(0);
+    for (const form of urlFormsOf(NAME)) {
+      expect(JSON.stringify(dropped.recorded())).not.toContain(form);
+    }
   });
 });

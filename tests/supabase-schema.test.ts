@@ -1921,3 +1921,85 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     }
   });
 });
+
+describe("Owner deletion must not republish private rows (#ZBAC9D)", () => {
+  // A null `owner_id` independently means "public corpus" to retrieval:
+  // `retrieval_owner_matches` and `retrieval_owner_matches_v2` both resolve the
+  // public sentinel to `row_owner_id is null` and check no published marker. So
+  // for any table whose OWN owner_id reaches one of those predicates, an
+  // `on delete set null` foreign key lets deleting an auth user silently turn
+  // that user's private rows public. Those four tables must be `on delete
+  // restrict`, which makes the deletion fail instead.
+  const VISIBILITY_TABLES = ["documents", "document_labels", "document_summaries", "document_table_facts"] as const;
+
+  // Nulling the owner here is deliberate retention behaviour, NOT a visibility
+  // signal: these rows are either filtered through their parent document's owner
+  // or are audit/telemetry that must survive the account being removed. Widening
+  // the restrict set to them is a different, unreviewed decision.
+  const RETENTION_TABLES = [
+    "document_sections",
+    "document_embedding_fields",
+    "document_memory_cards",
+    "document_index_units",
+    "document_index_quality",
+    "import_batches",
+    "audit_logs",
+    "rag_queries",
+    "rag_query_misses",
+    "rag_retrieval_logs",
+    "rag_answer_feedback",
+    "rag_visual_eval_cases",
+    "storage_cleanup_jobs",
+  ] as const;
+
+  const rawSchema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
+
+  function ownerDeleteAction(table: string): string | null {
+    const start = rawSchema.search(new RegExp(String.raw`create table if not exists public\.${table}\s*\(`));
+    if (start < 0) return null;
+    const end = rawSchema.indexOf("\n);", start);
+    const block = rawSchema.slice(start, end);
+    const match = /owner_id uuid[^\n]*references auth\.users\(id\) on delete (set null|restrict|cascade)/.exec(block);
+    return match ? match[1] : null;
+  }
+
+  it.each(VISIBILITY_TABLES)(
+    "public.%s restricts owner deletion, so a deleted account cannot orphan rows into the public corpus",
+    (table) => {
+      expect(ownerDeleteAction(table)).toBe("restrict");
+    },
+  );
+
+  it.each(RETENTION_TABLES)(
+    "public.%s keeps its retention behaviour and is not swept into the restrict set",
+    (table) => {
+      expect(ownerDeleteAction(table)).not.toBe("restrict");
+    },
+  );
+
+  it("no other table has quietly joined the restrict set", () => {
+    const restricted = [...rawSchema.matchAll(/create table if not exists public\.([a-z0-9_]+)\s*\(/g)]
+      .map((match) => match[1])
+      .filter((table) => ownerDeleteAction(table) === "restrict");
+    expect(restricted.sort()).toEqual([...VISIBILITY_TABLES].sort());
+  });
+
+  it("ships the migration that applies the restrict action to live", () => {
+    const migration = readFileSync(
+      new URL(
+        "../supabase/migrations/20260901120000_restrict_owner_delete_on_public_visibility_tables.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    for (const table of VISIBILITY_TABLES) {
+      expect(migration).toContain(
+        `add constraint ${table}_owner_id_fkey\n  foreign key (owner_id) references auth.users(id) on delete restrict;`,
+      );
+    }
+    // The migration must prove its own effect rather than trusting the recorded
+    // history — the #Q5JHBJ "statements never executed" shape.
+    expect(migration).toContain("c.confdeltype <> 'r'");
+    expect(migration).toContain("raise exception");
+  });
+});

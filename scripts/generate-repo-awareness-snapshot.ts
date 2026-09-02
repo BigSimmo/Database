@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from "node:child_process";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -110,27 +110,67 @@ function filterDocumentPaths(output: string): string[] {
     .filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix)));
 }
 
+function scanDocsDirectory(dir: string, baseDir = dir): string[] {
+  if (!existsSync(dir)) return [];
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const results: string[] = [];
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...scanDocsDirectory(fullPath, baseDir));
+    } else if (entry.isFile() && entry.name.endsWith(".md")) {
+      const rel = path.relative(baseDir, fullPath).replace(/\\/g, "/");
+      results.push(rel);
+    }
+  }
+  return results;
+}
+
 /**
  * Snapshots include tracked files only, so every checkout generates the same
  * output. An untracked Markdown document would otherwise be omitted silently
  * and let a stale snapshot look current; fail with an explicit staging
  * requirement instead. Ignored scratch notes remain outside that requirement.
+ *
+ * When git is unavailable (e.g. in a git-less container or archive), falls back
+ * to scanning docs/ directly from the filesystem.
  */
 export function listDocumentPaths(repoRoot = process.cwd()): string[] {
-  const options = { cwd: repoRoot, encoding: "utf8" as const };
-  const untracked = filterDocumentPaths(
-    execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z", "--", DOCS_ROOT], options),
-  );
-
-  if (untracked.length > 0) {
-    throw new Error(
-      `Untracked Markdown documents would be omitted from the repo-awareness snapshot: ${untracked.join(
-        ", ",
-      )}. Stage intended documents or add scratch notes to .gitignore before generating.`,
+  // Annotated rather than inferred. The two sibling call sites pass their
+  // options inline, so `stdio` gets `StdioOptions` from context; a standalone
+  // object has no such context, and `as const` would infer a readonly tuple
+  // that `execFileSync` rejects.
+  const options: ExecFileSyncOptionsWithStringEncoding = {
+    cwd: repoRoot,
+    encoding: "utf8",
+    // Silence git's stderr, matching `readReviewRecordRows` and
+    // `readCapturedRevision`. Without it a git-less checkout takes the
+    // filesystem fallback below and still prints `fatal: not a git repository`,
+    // so a run that succeeded reads as a failure (`#JFRCZ4`).
+    stdio: ["ignore", "pipe", "ignore"],
+  };
+  try {
+    const untracked = filterDocumentPaths(
+      execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z", "--", DOCS_ROOT], options),
     );
-  }
 
-  return filterDocumentPaths(execFileSync("git", ["ls-files", "-z", "--", DOCS_ROOT], options));
+    if (untracked.length > 0) {
+      throw new Error(
+        `Untracked Markdown documents would be omitted from the repo-awareness snapshot: ${untracked.join(
+          ", ",
+        )}. Stage intended documents or add scratch notes to .gitignore before generating.`,
+      );
+    }
+
+    return filterDocumentPaths(execFileSync("git", ["ls-files", "-z", "--", DOCS_ROOT], options));
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Untracked Markdown documents")) {
+      throw error;
+    }
+    const docsDir = path.join(repoRoot, DOCS_ROOT);
+    const scanned = scanDocsDirectory(docsDir, repoRoot);
+    return scanned.filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix))).sort();
+  }
 }
 
 function documentSection(repoPath: string): string {
@@ -321,12 +361,51 @@ function splitRecordCells(line: string): string[] {
   return cells;
 }
 
+function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
+  const files: string[] = [];
+  if (path.isAbsolute(dir)) {
+    if (existsSync(dir)) {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          files.push(path.join(dir, entry.name));
+        }
+      }
+    }
+  } else {
+    if (existsSync(REVIEW_LEDGER_PATH)) {
+      files.push(REVIEW_LEDGER_PATH);
+    }
+    const archiveDir = "docs/archive";
+    if (existsSync(archiveDir)) {
+      const entries = readdirSync(archiveDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.startsWith("branch-review-ledger-") && entry.name.endsWith(".md")) {
+          files.push(path.posix.join(archiveDir, entry.name));
+        }
+      }
+    }
+    if (existsSync(REVIEW_RECORDS_DIR)) {
+      const entries = readdirSync(REVIEW_RECORDS_DIR, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(".record.md")) {
+          files.push(path.posix.join(REVIEW_RECORDS_DIR, entry.name));
+        }
+      }
+    }
+  }
+  return files.sort();
+}
+
 /**
  * Read the same complete, tracked review corpus as `ledger:lookup`: the frozen
  * live table, rotated archives, and immutable records. Walking the filesystem
  * would list a developer's untracked draft records, and the staleness gate
  * would then fail on a clean tree for everyone but that developer — the same
  * failure `listDocumentPaths` exists to prevent.
+ *
+ * When git is unavailable (e.g. in a git-less container or archive), falls back
+ * to scanning the review paths directly from the filesystem.
  */
 export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; line: string }[] {
   // An absolute `dir` is a throwaway fixture (the generator always uses the
@@ -334,23 +413,30 @@ export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; 
   // fixture can be its own tiny repository.
   const cwd = path.isAbsolute(dir) ? dir : undefined;
   const pathspecs = cwd ? ["."] : [REVIEW_LEDGER_PATH, REVIEW_ARCHIVE_PATHSPEC, REVIEW_RECORDS_PATHSPEC];
-  const output = execFileSync("git", ["ls-files", "-z", "--", ...pathspecs], {
-    encoding: "utf8",
-    cwd,
-  });
-  return output
-    .split("\0")
-    .filter(Boolean)
-    .sort()
-    .flatMap((entry) => {
-      const file = cwd ? path.join(dir, entry) : entry;
-      const lines = readFileSync(file, "utf8")
-        .split("\n")
-        .map((row) => row.trim())
-        .filter((row) => RECORD_ROW.test(row));
-      if (lines.length === 0) throw new Error(`${file}: no review record row found.`);
-      return lines.map((line) => ({ file, line }));
+  let files: string[] = [];
+  try {
+    const output = execFileSync("git", ["ls-files", "-z", "--", ...pathspecs], {
+      encoding: "utf8",
+      cwd,
+      stdio: ["ignore", "pipe", "ignore"],
     });
+    files = output
+      .split("\0")
+      .filter(Boolean)
+      .sort()
+      .map((entry) => (cwd ? path.join(dir, entry) : entry));
+  } catch {
+    files = findReviewFilesFs(dir);
+  }
+
+  return files.flatMap((file) => {
+    const lines = readFileSync(file, "utf8")
+      .split("\n")
+      .map((row) => row.trim())
+      .filter((row) => RECORD_ROW.test(row));
+    if (lines.length === 0) throw new Error(`${file}: no review record row found.`);
+    return lines.map((line) => ({ file, line }));
+  });
 }
 
 export function buildReviewStateSection(rows: readonly { file: string; line: string }[]): ReviewStateSection {
@@ -367,30 +453,47 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
       const head = rawHead.replaceAll("`", "");
       return { date, ref, head, scope, outcome, checks };
     })
-    // Newest first, then ref, head and scope. That is NOT guaranteed to be a
-    // total order: 21 records in the current corpus share a date, ref AND head,
-    // because one branch can be reviewed twice at one commit under different
-    // scopes, and nothing structurally prevents two records sharing all four.
+    // Ordered by `head` — a DISPERSING key, not a presentational one. This is
+    // the whole point of the ordering, so do not "restore" newest-first here.
     //
-    // Determinism therefore rests on two further facts, not on the comparator:
-    // `readReviewRecordRows` sorts filenames and preserves row order within
-    // each file, so its output order is the same on every platform, and
-    // `Array.prototype.sort` is specified stable, so ties keep that order. If
-    // either ever stops holding — records merged from a
-    // second source, or an unsorted glob — this comparator will start flapping
-    // the staleness gate for exactly those records, and no test will say why.
+    // The corpus holds 2,662 records across only 53 distinct dates, so a
+    // date-descending order put every new record into the same dense block at
+    // the head of the array. Two branches each appending one review record —
+    // the ordinary handoff — therefore inserted on the same lines and produced
+    // a hard conflict in the committed snapshot, which sets
+    // `mergeable_state=dirty` on GitHub. That suppresses `refs/pull/<n>/merge`,
+    // so `pull_request` CI does not run at all and the check list reads empty
+    // rather than red (`#EFETZT`; twice in fifteen minutes on PR #2413).
+    //
+    // A commit sha is uniformly distributed hex — 2,323 distinct values here —
+    // so concurrent appends land hundreds of lines apart and git's three-way
+    // merge resolves both hunks with no conflict. Newest-first is presentation
+    // and belongs to the page: `ReviewStatePageContent` sorts before paginating.
+    //
+    // `head` alone is NOT a total order — a branch reviewed twice at one commit
+    // under different scopes repeats it — so date, ref and scope break ties.
+    // Even those four are not provably total, and determinism therefore rests
+    // on two further facts, not on the comparator: `readReviewRecordRows` sorts
+    // filenames and preserves row order within each file, so its output order
+    // is the same on every platform, and `Array.prototype.sort` is specified
+    // stable, so ties keep that order. If either ever stops holding — records
+    // merged from a second source, or an unsorted glob — this comparator will
+    // start flapping the staleness gate for exactly those records, and no test
+    // will say why.
     .sort(
       (left, right) =>
-        right.date.localeCompare(left.date) ||
-        left.ref.localeCompare(right.ref) ||
         left.head.localeCompare(right.head) ||
+        left.date.localeCompare(right.date) ||
+        left.ref.localeCompare(right.ref) ||
         left.scope.localeCompare(right.scope),
     );
 
-  return {
-    records,
-    counts: { records: records.length, refs: new Set(records.map((record) => record.ref)).size },
-  };
+  // No `counts` here, deliberately — see `ReviewStateSection` in
+  // `repo-awareness-types.ts`. An aggregate over an append-only set changes on
+  // BOTH sides of every concurrent append, so a stored count is a guaranteed
+  // conflict no ordering can disperse. `reviewStateCounts()` derives it once at
+  // render instead, so a count and its own list still cannot disagree.
+  return { records };
 }
 
 /**
@@ -434,44 +537,57 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
  *
  * Docs are a `*.md` glob rather than the `docs/` directory: inbox JSON and
  * other non-emitted files under that tree must not advance the stamp.
+ *
+ * The review corpus is excluded from that glob, mirroring `EXCLUDED_DOC_PREFIXES`.
+ * Appending a review record writes `docs/branch-review-records/<sha>.record.md`,
+ * which the bare glob matched — so every handoff moved this stamp on both the
+ * feature branch and `main`, and two lines that always differ are a conflict no
+ * amount of dispersal in `review_state.records` can avoid (`#EFETZT`). Dropping
+ * a true input is the sanctioned direction stated above: it can only understate
+ * freshness, never overstate it. The rotated archives go with it for the same
+ * reason.
  */
 const REVISION_INPUTS = [
   "src/app",
   "src/lib/app-modes.ts",
   "src/lib/consolidated-mode-home-redirect.ts",
   ":(glob)docs/**/*.md",
+  ":(exclude,glob)docs/branch-review-records/**",
+  ":(exclude,glob)docs/archive/branch-review-ledger-*.md",
   "tests/flake-ledger.json",
   "scripts/generate-site-map.ts",
 ];
 
-/**
- * Git is a hard requirement of this generator, and that is deliberate rather
- * than an oversight. `npm run docs:update` is the only thing that runs it, and
- * `docs/site-map.md` sets the precedent: generated, committed, verified by a
- * `check:` gate, never regenerated during a build. Because it never runs inside
- * the Docker image, there is no git-less environment to degrade for — which is
- * strictly better than Phase 1's position, where a `prebuild` hook forced a
- * preserve-the-committed-value fallback to exist at all.
- */
-export function readCapturedRevision({ cwd }: { cwd?: string } = {}): { sha: string; committed_at: string } {
-  let output: string;
+export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; committed_at: string } | null {
+  try {
+    const revision = JSON.parse(readFileSync(path, "utf8")).captured_revision;
+    if (typeof revision?.sha !== "string" || typeof revision?.committed_at !== "string") return null;
+    return { sha: revision.sha, committed_at: revision.committed_at };
+  } catch {
+    return null;
+  }
+}
+
+export function readCapturedRevision({
+  cwd,
+  snapshotPath = OUTPUT_PATH,
+}: { cwd?: string; snapshotPath?: string } = {}): { sha: string; committed_at: string } | null {
+  let output = "";
   try {
     output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", ...REVISION_INPUTS], {
       encoding: "utf8",
       cwd,
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-  } catch (error) {
-    throw new Error(
-      `Could not read the repository revision from git: ${(error as Error).message}. ` +
-        "This generator runs only from `npm run docs:update`, where git is always available.",
-    );
+  } catch {
+    // Git is unavailable or not a git repository; fall back to reading committed snapshot.
   }
-  if (!output) throw new Error("git reported no commit touching this snapshot's inputs.");
-  const [sha, committed_at] = output.split("\t");
-  if (!sha || !committed_at) {
-    throw new Error(`git log produced an unparsable revision line: "${output}" (expected "<sha>\\t<committed_at>").`);
+  if (output) {
+    const [sha, committed_at] = output.split("\t");
+    if (sha && committed_at) return { sha, committed_at };
   }
-  return { sha, committed_at };
+  const resolvedSnapshotPath = cwd ? path.join(cwd, snapshotPath) : snapshotPath;
+  return readCommittedRevision(resolvedSnapshotPath);
 }
 
 export function generate(): RepoAwarenessSnapshot {

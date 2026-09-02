@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: ServiceRouteProps): Promise<M
   const service = getServiceRecord(slug);
 
   return {
-    title: service ? `${service.title} - Services - Clinical KB` : "Service record - Services - Clinical KB",
+    title: service ? `${service.title} - Services - PsychSift` : "Service record - Services - PsychSift",
     description: service?.subtitle ?? "Clinical service record details and referral information.",
   };
 }

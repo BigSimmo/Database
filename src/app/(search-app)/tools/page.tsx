@@ -11,8 +11,8 @@ function firstSearchParam(value?: string | string[]) {
 }
 
 export const metadata: Metadata = {
-  title: "Tools - Clinical KB",
-  description: "Launch Clinical KB tools, workflows, and connected clinical applications.",
+  title: "Tools - PsychSift",
+  description: "Launch PsychSift tools, workflows, and connected clinical applications.",
 };
 
 export default async function ToolsRoute({ searchParams }: ToolsRouteProps) {

@@ -265,7 +265,7 @@ profile_source='[ -f "$HOME/.clinical-kb-codex-cloud.sh" ] && . "$HOME/.clinical
 for shell_profile in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile"; do
   touch "$shell_profile"
   if ! grep -Fq '.clinical-kb-codex-cloud.sh' "$shell_profile"; then
-    printf '\n# Clinical KB Codex Cloud runtime\n%s\n' "$profile_source" >> "$shell_profile"
+    printf '\n# PsychSift Codex Cloud runtime\n%s\n' "$profile_source" >> "$shell_profile"
   fi
 done
 

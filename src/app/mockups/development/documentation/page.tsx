@@ -15,7 +15,7 @@ import {
 } from "@/lib/developer-area/repo-awareness-snapshot";
 
 export const metadata: Metadata = {
-  title: "Documentation · Developer · Clinical KB",
+  title: "Documentation · Developer · PsychSift",
   description: "Every committed document, its area of the repository, and whether the docs index lists it.",
 };
 

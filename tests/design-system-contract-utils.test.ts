@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -10,7 +13,9 @@ import {
   findCssLayoutTransitionsInSource,
   findDensityRecipeOverridesInSource,
   findErrorStateCountPropsInSource,
+  findElevationInversionsInSource,
   findFailedStateResultCountsInSource,
+  findHandRolledCommandButtonsInSource,
   findHardcodedMotionClassesInSource,
   findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
@@ -18,12 +23,18 @@ import {
   findLayoutTransitionClassesInSource,
   findRawScaleLiteralClassesInSource,
   findRawScaleLiteralDeclarationsInSource,
+  findSameFileTextSmMinusMix,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
   findTypeStepUsagesInSource,
   findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
+  listPrimitiveRecipeSourcePaths,
+  minHeightPixels,
+  SUB_TAP_MIN_HEIGHT_PREFILTER,
   rawColorContractSource,
+  readPrimitiveRecipeSources,
+  UI_PRIMITIVES_BARREL,
 } from "../scripts/design-system-contract-utils.mjs";
 
 describe("design-system contract helpers", () => {
@@ -99,10 +110,64 @@ describe("design-system contract helpers", () => {
     ]);
 
     // The repo's correct responsive pattern must NOT be flagged: 48px on
-    // phones, released to 40px from `sm` up.
+    // phones, released to the 40px compact-meta step-down from `sm` up.
     expect(find('<button className="min-h-12 sm:min-h-10">Save</button>')).toEqual([]);
-    expect(find('<button className="min-h-tap sm:min-h-9">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap lg:min-h-[2.5rem]">Save</button>')).toEqual([]);
     expect(find('<button className="min-h-[48px]">Save</button>')).toEqual([]);
+
+    // TOKENS.md §2 bans `--row-compact` (36px) as a tap target with no
+    // breakpoint carve-out, so a prefixed band below the 40px compact-meta
+    // floor is the defect — not a "deliberate desktop release". Reading the
+    // unprefixed token alone made this class of violation unreachable.
+    expect(find('<button className="min-h-tap sm:min-h-9">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-12 lg:min-h-9">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<summary className="min-h-tap lg:min-h-8">Details</summary>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className={cn("min-h-tap", "md:min-h-9 px-2")}>Save</button>')).toEqual(["src/example.tsx:1"]);
+
+    // Every min-width breakpoint declared by the repository is a real Tailwind
+    // variant and must receive the same floor enforcement as its standard
+    // counterpart. These aliases previously disappeared as "unknown" variants.
+    const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    const repositoryBreakpoints = [...globals.matchAll(/--breakpoint-([a-z0-9-]+):/g)].map((match) => match[1]);
+    expect(repositoryBreakpoints).toEqual([
+      "phone",
+      "tablet",
+      "desktop",
+      "filter-label-collapse",
+      "filter-label-restore",
+    ]);
+    for (const breakpoint of repositoryBreakpoints) {
+      expect(find(`<button className="min-h-tap ${breakpoint}:min-h-9">Save</button>`)).toEqual(["src/example.tsx:1"]);
+    }
+
+    // The band cascade: a later band restores the floor for itself and every
+    // band above it, but not for the one that was already short.
+    expect(find('<button className="min-h-tap sm:min-h-9 lg:min-h-12">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-tap sm:min-h-10 lg:min-h-12">Save</button>')).toEqual([]);
+    expect(
+      find('<button className="min-h-tap filter-label-collapse:min-h-9 filter-label-restore:min-h-12">Save</button>'),
+    ).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-tap phone:min-h-10 tablet:min-h-12">Save</button>')).toEqual([]);
+
+    // JSX token order is not CSS precedence. Important short declarations beat
+    // non-important safe ones, and same-threshold aliases are ordered by
+    // Tailwind's generated stylesheet rather than by the class attribute.
+    expect(find('<button className="min-h-tap sm:!min-h-9 sm:min-h-12">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-tap sm:min-h-9 sm:!min-h-12">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:min-h-[36px] phone:min-h-12">Save</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
+
+    // A band that turns the control inert has no tap target to floor. Narrow by
+    // construction: `pointer-events-none` must win in the SAME band.
+    expect(find('<button className="min-h-tap sm:pointer-events-none sm:min-h-0">Header</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:min-h-0">Header</button>')).toEqual(["src/example.tsx:1"]);
+    expect(
+      find('<button className="pointer-events-none min-h-tap sm:pointer-events-auto sm:min-h-9">X</button>'),
+    ).toEqual(["src/example.tsx:1"]);
+
+    // A `:` inside an arbitrary value is not a variant separator.
+    expect(find('<button className="min-h-[calc(100dvh-2rem)] text-[color:var(--text)]">Save</button>')).toEqual([]);
     expect(find('<button className="min-h-[3rem]">Save</button>')).toEqual([]);
     expect(find('<button className={compact ? "min-h-tap" : "min-h-12"}>Save</button>')).toEqual([]);
 
@@ -113,6 +178,98 @@ describe("design-system contract helpers", () => {
     // of a control whose hit area belongs to a tap-sized wrapper, so flagging
     // it would pad the baseline with non-defects (GATES.md §5).
     expect(find('<input type="checkbox" className="h-4 w-4" />')).toEqual([]);
+  });
+
+  it("resolves the two named density tokens to the pixel values globals.css declares", async () => {
+    // The floors in `design-system-contract-utils.mjs` are numbers. Left
+    // unpinned they are this file's private opinion about `@theme`, and a
+    // redefinition of either token would silently desynchronise the gate from
+    // the stylesheet it is supposed to be enforcing. Read the declarations.
+    const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    const declaredPixels = (name: string) => {
+      const match = globals.match(new RegExp(`--${name}: *([0-9.]+)rem;`));
+      if (!match) throw new Error(`globals.css declares no --${name}`);
+      return Number(match[1]) * 16;
+    };
+
+    expect(declaredPixels("spacing-tap")).toBe(48);
+    expect(declaredPixels("spacing-compact-meta")).toBe(40);
+    expect(minHeightPixels("min-h-tap")).toBe(declaredPixels("spacing-tap"));
+    expect(minHeightPixels("min-h-compact-meta")).toBe(declaredPixels("spacing-compact-meta"));
+
+    // The rest of the scale, so the resolver's other branches stay pinned too.
+    expect(minHeightPixels("min-h-9")).toBe(36);
+    expect(minHeightPixels("min-h-px")).toBe(1);
+    expect(minHeightPixels("min-h-[2.5rem]")).toBe(40);
+    expect(minHeightPixels("min-h-[42px]")).toBe(42);
+    expect(minHeightPixels("min-h-screen")).toBeNull();
+  });
+
+  it("treats min-h-compact-meta as the named 40px compact role on every band (Gate 2)", () => {
+    const find = (source: string) => findInteractiveTapFloorDeclarationsInSource("src/example.tsx", source);
+
+    // The owner's 2026-08-29 ruling: 40px is acceptable for the compact roles
+    // TOKENS.md §2 already names, so the named token passes at the base band too.
+    expect(find('<button className="inline-flex min-h-compact-meta px-3">Domain</button>')).toEqual([]);
+    expect(find('<a className="inline-flex min-h-compact-meta px-2.5">Jump</a>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:min-h-compact-meta">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-compact-meta lg:min-h-tap">Save</button>')).toEqual([]);
+
+    // The licence belongs to the documented role marker, not to the number 40.
+    // These are the same 40px and are still base-band violations.
+    expect(find('<button className="min-h-10 px-3">Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-[2.5rem] px-3">Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-[40px] px-3">Reset</button>')).toEqual(["src/example.tsx:1"]);
+
+    // Nor does the compact role license 36px `--row-compact` at any band, and a
+    // sub-floor base band is not rescued by a compact-meta band above it.
+    expect(find('<button className="min-h-compact-meta sm:min-h-9">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<summary className="min-h-9 sm:min-h-compact-meta">Details</summary>')).toEqual(["src/example.tsx:1"]);
+
+    // Non-interactive elements are layout, compact-meta or not.
+    expect(find('<h3 className="flex min-h-compact-meta items-center">Filters</h3>')).toEqual([]);
+  });
+
+  it("prefilters in every min-h token that can resolve below the 48px tap floor (Gate 2)", () => {
+    // The prefilter decides which files the tap-floor scan opens at all, so an
+    // omission there is not a saving, it is an exemption no test can see. A
+    // mutation removing the compact-role floor passed 56/56 green on 2026-08-29
+    // purely because the prefilter had already excluded `min-h-compact-meta`
+    // from measurement. This asserts the invariant instead of commenting it.
+    const belowTapFloor = [
+      "min-h-0",
+      "min-h-2.5",
+      "min-h-8",
+      "min-h-9",
+      "min-h-10",
+      "min-h-px",
+      "min-h-compact-meta",
+      "min-h-[2.5rem]",
+      "min-h-[40px]",
+    ];
+    for (const token of belowTapFloor) {
+      const resolved = minHeightPixels(token);
+      expect({ token, resolved }).toEqual({ token, resolved: expect.any(Number) });
+      expect({ token, belowFloor: (resolved as number) < 48 }).toEqual({ token, belowFloor: true });
+      expect({ token, admitted: SUB_TAP_MIN_HEIGHT_PREFILTER.test(`<button className="${token}" />`) }).toEqual({
+        token,
+        admitted: true,
+      });
+    }
+
+    // `min-h-tap` is the one safe omission: at the floor, it can never be the
+    // violating token, so a file carrying nothing else has nothing to find.
+    expect(minHeightPixels("min-h-tap")).toBe(48);
+    expect(SUB_TAP_MIN_HEIGHT_PREFILTER.test('<button className="min-h-tap" />')).toBe(false);
+  });
+
+  it("does not let the cheap prefilter hide a min-h-px control (Gate 2)", () => {
+    // `minHeightPixels` resolves `min-h-px` to 1px, but the prefilter admitted
+    // only digits and arbitrary values, so that branch was unreachable through
+    // the exported entry point: a 1px tap target scanned clean.
+    expect(
+      findInteractiveTapFloorDeclarationsInSource("src/example.tsx", '<button className="min-h-px">X</button>'),
+    ).toEqual(["src/example.tsx:1"]);
   });
 
   it("finds whitespace, fallback, URL, string and template --text-soft consumers in TypeScript", () => {
@@ -440,6 +597,38 @@ describe("design-system contract helpers", () => {
     expect(countRawCssZIndicesInSource(".a{z-index: 95;}.b{z-index:-1;}")).toBe(2);
   });
 
+  it("pins the globals.css raw CSS z-index exception baseline at 4 (DS-P3-06)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    expect(countRawCssZIndicesInSource(globals)).toBe(4);
+    expect(countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:9999}`)).toBe(5);
+  });
+
+  it("counts a same-file text-sm + text-sm-minus mix as one warn/ratchet hit, not a hard zero", () => {
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.tsx",
+        'export const probe = <p className="text-sm text-sm-minus text-[color:var(--text)]" />;',
+      ),
+    ).toEqual(["src/probe.tsx"]);
+    expect(
+      findSameFileTextSmMinusMix("src/probe.tsx", 'export const onlySm = <p className="text-sm leading-5" />;'),
+    ).toEqual([]);
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.tsx",
+        'export const onlyMinus = <p className="text-sm-minus leading-5" />;',
+      ),
+    ).toEqual([]);
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.ts",
+        'const copy = "Prefer text-sm over text-sm-minus without a className";',
+      ),
+    ).toEqual([]);
+  });
+
   it("counts bare padding, radius and line-height literals in classes but not computed values", () => {
     const found = findRawScaleLiteralClassesInSource(
       "src/probe.tsx",
@@ -649,6 +838,28 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
   });
 
+  it("masks only the medication accent-default swatch, not other hex in the same file", () => {
+    const reportFailure = vi.fn();
+    const source = ['export const UNRELATED = "#123456";', 'accent: row.accent ?? "#0f766e",'].join("\n");
+    const scoped = rawColorContractSource("src/lib/medication-records.ts", source, reportFailure);
+    expect(scoped).toContain("#123456");
+    expect(scoped).not.toContain("#0f766e");
+    expect(reportFailure).not.toHaveBeenCalled();
+    const meds = rawColorContractSource(
+      "src/lib/medications.ts",
+      'accent: record.accent?.trim() || "#0f766e",',
+      reportFailure,
+    );
+    expect(meds).not.toContain("#0f766e");
+  });
+
+  it("fails closed when the medication accent-default swatch disappears", () => {
+    const reportFailure = vi.fn();
+    const source = 'export const UNRELATED = "#123456";';
+    expect(rawColorContractSource("src/lib/medications.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+
   it("fails closed when a fixed-paper factsheet boundary disappears", () => {
     const reportFailure = vi.fn();
     const source = 'const appChrome = "#123456";';
@@ -657,5 +868,164 @@ describe("design-system contract helpers", () => {
       source,
     );
     expect(reportFailure).toHaveBeenCalledWith("printable factsheet paper boundary is missing");
+  });
+
+  it("flags an intrinsic command-fill button that bypasses Button/primaryControl", () => {
+    const source = [
+      "export function Demo() {",
+      '  return <button type="button" className="bg-[color:var(--command)] text-[color:var(--command-contrast)]">Go</button>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", source)).toEqual([
+      "src/components/demo.tsx:2",
+    ]);
+  });
+
+  it("does not flag Link + primaryControl or the Button primitive file", () => {
+    const link = [
+      'import { primaryControl } from "@/components/ui-primitives";',
+      "export function Demo() {",
+      '  return <a className={primaryControl} href="/x">Go</a>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", link)).toEqual([]);
+    expect(
+      findHandRolledCommandButtonsInSource(
+        "src/components/ui/button.tsx",
+        '<button className="bg-[color:var(--command)]">X</button>',
+      ),
+    ).toEqual([]);
+  });
+
+  it("still flags an intrinsic command-fill button whose className literally contains the word Button", () => {
+    const source = [
+      "export function Demo() {",
+      '  return <button type="button" className="bg-[color:var(--command)] Button">Go</button>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", source)).toEqual([
+      "src/components/demo.tsx:2",
+    ]);
+  });
+
+  it("flags a child with a heavier resting elevation than its in-flow parent", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="shadow-[var(--e2)]">heavy</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual(["src/components/demo.tsx:4"]);
+  });
+
+  it("does not flag lux overlay elevation against a parent surface", () => {
+    const source = [
+      "export function Overlay() {",
+      "  return (",
+      '    <section className="shadow-[var(--e1)]">',
+      '      <div className="shadow-[var(--shadow-lux)]">sheet</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag an absolutely positioned popover with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="absolute shadow-[var(--e2)]">popover</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag a fixed-positioned child (e.g. a toast) with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="fixed shadow-[var(--e2)]">toast</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("masks only the medication accent default, not other hex in the same file", () => {
+    const reportFailure = vi.fn();
+    const source = [
+      "export function rowToMedicationRecord(row) {",
+      '  return { accent: row.accent ?? "#0f766e", tag: row.tag };',
+      "}",
+      'export const UNRELATED = "#123456";',
+      'export const ALSO_TEAL = "#0f766e";',
+    ].join("\n");
+
+    const records = rawColorContractSource("src/lib/medication-records.ts", source, reportFailure);
+    expect(records).not.toMatch(/accent: row\.accent \?\? "#0f766e"/);
+    expect(records).toContain('export const ALSO_TEAL = "#0f766e"');
+    expect(records).toContain("#123456");
+    expect(reportFailure).not.toHaveBeenCalled();
+
+    const medications = rawColorContractSource(
+      "src/lib/medications.ts",
+      'export function normalizeRecord(record) { return { accent: record.accent?.trim() || "#0f766e" }; }\nexport const OTHER = "#abcdef";',
+      reportFailure,
+    );
+    expect(medications).not.toContain("#0f766e");
+    expect(medications).toContain("#abcdef");
+    expect(reportFailure).not.toHaveBeenCalled();
+  });
+
+  it("does not treat accentColor or a comment mention as the medication accent default", () => {
+    const reportFailure = vi.fn();
+    const source = [
+      'export const accentColor = "#0f766e";',
+      '// fallback accent: row.accent ?? "#0f766e"',
+      'export const UNRELATED = "#123456";',
+    ].join("\n");
+
+    expect(rawColorContractSource("src/lib/medications.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+
+  it("fails closed when the medication accent default boundary disappears", () => {
+    const reportFailure = vi.fn();
+    const source = 'export const FALLBACK = "#0f766e";';
+
+    expect(rawColorContractSource("src/lib/medication-records.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+});
+
+describe("primitive recipe source walkers", () => {
+  it("lists the barrel plus every primitive-recipes module", () => {
+    const paths = listPrimitiveRecipeSourcePaths();
+    expect(paths[0]).toBe(UI_PRIMITIVES_BARREL);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "src/components/primitive-recipes/recipes.ts",
+        "src/components/primitive-recipes/composer.ts",
+        "src/components/primitive-recipes/clinical.tsx",
+        "src/components/primitive-recipes/feedback.tsx",
+      ]),
+    );
+  });
+
+  it("still sees recipes that moved out of the barrel", () => {
+    const sources = readPrimitiveRecipeSources();
+    expect(sources).toContain("export const controlDisabled");
+    expect(sources).toContain('export const chatComposerInput = "chat-composer-input"');
+    expect(sources).toContain("export function AsyncButton");
+    expect(sources).toContain("statusDotReady");
   });
 });

@@ -7,8 +7,10 @@ import { cn } from "@/components/ui-primitives";
 /**
  * Soft-fill well chip used under a mode-home hero (Tools, Calculators).
  *
- * Visual capsule is 36px; the hit target stays `min-h-tap` (48px) on phones
- * and may tighten to `lg:min-h-9` on desktop, matching the Tools home.
+ * Visual capsule is 36px (`h-9` row face). The hit target stays `min-h-tap`
+ * (48px) on phones and may tighten to `lg:min-h-compact-meta` (40px) on
+ * desktop — catalogue disclosure chrome, not a primary CTA. Never `min-h-11`
+ * and never `--row-compact` (36px) as the tap.
  */
 export function ShowAllChip({
   href,
@@ -30,7 +32,7 @@ export function ShowAllChip({
         aria-label={ariaLabel}
         data-testid={testId}
         className={cn(
-          "group inline-flex min-h-tap items-center justify-center text-[color:var(--clinical-accent)] lg:min-h-9",
+          "group inline-flex min-h-tap items-center justify-center text-[color:var(--clinical-accent)] lg:min-h-compact-meta",
           focusRing,
         )}
       >

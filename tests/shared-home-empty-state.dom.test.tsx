@@ -80,7 +80,8 @@ const expectedPresentations = [
   {
     modeId: "calculators",
     title: "Clinical Calculators",
-    subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
+    subtitle:
+      "Psychiatry assessment and monitoring tools with scoring guidance, limitations, safety prompts, and source-linked clinical considerations.",
     iconClass: "lucide-calculator",
   },
   {
@@ -100,6 +101,12 @@ const expectedPresentations = [
     title: "Clinical Dictionary",
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
     iconClass: "lucide-book-marked",
+  },
+  {
+    modeId: "sources",
+    title: "Sources",
+    subtitle: "Clinical source catalogue.",
+    iconClass: "lucide-library-big",
   },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;

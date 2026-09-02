@@ -47,6 +47,7 @@ type EvalArgs = {
   json: boolean;
   jsonOut?: string;
   failOnThreshold: boolean;
+  allowPartial: boolean;
   mode: "combined" | "quality" | "latency";
   caseTimeoutMs: number;
   p90BudgetMs: number;
@@ -124,7 +125,7 @@ export type GoldenRetrievalResult = {
   }>;
 };
 
-function parseArgs(argv: string[]): EvalArgs {
+export function parseArgs(argv: string[]): EvalArgs {
   const lifecycle = process.env.npm_lifecycle_event ?? "";
   const inferredMode = lifecycle.includes("latency")
     ? "latency"
@@ -137,6 +138,7 @@ function parseArgs(argv: string[]): EvalArgs {
     ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
     json: false,
     failOnThreshold: false,
+    allowPartial: false,
     mode: inferredMode,
     caseTimeoutMs: inferredMode === "latency" ? 25_000 : 0,
     p90BudgetMs: 20_000,
@@ -153,6 +155,10 @@ function parseArgs(argv: string[]): EvalArgs {
     }
     if (token === "--fail-on-threshold") {
       args.failOnThreshold = true;
+      continue;
+    }
+    if (token === "--allow-partial") {
+      args.allowPartial = true;
       continue;
     }
     if (token === "--quality") {
@@ -201,6 +207,38 @@ function parseArgs(argv: string[]): EvalArgs {
   if (!Number.isInteger(args.p50BudgetMs) || args.p50BudgetMs <= 0) throw new Error("--p50-ms must be positive.");
 
   return args;
+}
+
+export function resolveEvaluationCases({
+  allCases,
+  query,
+  limit,
+  allowPartial = false,
+}: {
+  allCases: GoldenRetrievalCase[];
+  query?: string;
+  limit?: number;
+  allowPartial?: boolean;
+}): GoldenRetrievalCase[] {
+  const filteredCases = query
+    ? allCases.filter((item) => item.query.toLowerCase().includes(query.toLowerCase()) || item.id === query)
+    : allCases;
+  const cases = filteredCases.slice(0, limit ?? filteredCases.length);
+
+  if (cases.length === 0) {
+    throw new Error(
+      "No retrieval eval cases matched the selection. eval-retrieval must not report success over an empty case set.",
+    );
+  }
+
+  if (!allowPartial && allCases.length > 0 && cases.length < allCases.length) {
+    throw new Error(
+      `eval-retrieval: selection resolved ${cases.length} of ${allCases.length} case(s) without --allow-partial. ` +
+        `Pass --allow-partial to explicitly run a partial golden fixture set under --limit or --query.`,
+    );
+  }
+
+  return cases;
 }
 
 export function loadGoldenRetrievalCases(path: string) {
@@ -931,10 +969,12 @@ async function main() {
   const capturedCaseClient = supabase as unknown as SupabaseEvalCaseClient;
   const capturedCases = await loadCapturedRagEvalCases({ supabase: capturedCaseClient, ownerId, limit: args.limit });
   const allCases = [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)];
-  const filteredCases = args.query
-    ? allCases.filter((item) => item.query.toLowerCase().includes(args.query!.toLowerCase()) || item.id === args.query)
-    : allCases;
-  const cases = filteredCases.slice(0, args.limit ?? filteredCases.length);
+  const cases = resolveEvaluationCases({
+    allCases,
+    query: args.query,
+    limit: args.limit,
+    allowPartial: args.allowPartial,
+  });
   const readinessWarnings = await visualReadinessWarnings(supabase, cases);
 
   if (!args.json) {

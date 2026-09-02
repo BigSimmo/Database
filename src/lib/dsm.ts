@@ -1,5 +1,6 @@
 import dsmClinicalContent from "@/data/dsm-clinical-content.json";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 export type DsmLabeledText = {
   label: string;
@@ -256,8 +257,11 @@ export function rankDsmDiagnoses(
   query: string,
   limit = dsmDiagnoses.length,
   expansions: string[] = [],
+  interpretNaturalLanguage = false,
 ): DsmSearchMatch[] {
-  const normalizedExpansions = expansions.map(normalizeSearchText).filter(Boolean);
+  const normalizedExpansions = [...expansions, ...(interpretNaturalLanguage ? smartSearchExpansions("dsm", query) : [])]
+    .map(normalizeSearchText)
+    .filter(Boolean);
   return rankCatalogRecords(dsmDiagnoses, query, {
     fields: [
       {
@@ -315,7 +319,7 @@ export function rankDsmDiagnoses(
 export function listDsmDiagnosisSummaries(options: { query?: string; category?: string } = {}) {
   const query = options.query?.trim() ?? "";
   const records = query
-    ? rankDsmDiagnoses(query).map((match) => match.diagnosis)
+    ? rankDsmDiagnoses(query, dsmDiagnoses.length, [], true).map((match) => match.diagnosis)
     : [...dsmDiagnoses].sort((left, right) => left.title.localeCompare(right.title));
   return records
     .filter((diagnosis) => !options.category || diagnosis.category.key === options.category)

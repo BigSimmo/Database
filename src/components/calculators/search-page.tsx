@@ -22,6 +22,7 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 import {
   calculatorDomainCandidateCount,
@@ -104,7 +105,7 @@ function CalculatorTile({
       onClick={onOpen}
       aria-label={`Open ${calc.abbrev} — ${calc.name}`}
       className={cn(
-        "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-[var(--e2)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         focusRing,
       )}
     >
@@ -245,11 +246,13 @@ function AboutPanel() {
         About these tools
       </h2>
       <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-        Scores support clinical judgement — they never replace a full assessment. Every calculator cites its source and
-        maps its result to next clinical actions. Nothing you enter is stored.
+        Scores support clinical judgement — they never replace a full assessment. Calculator answers remain in this
+        browser session and are not intentionally submitted by this calculator interface. Application telemetry and
+        clinical-record documentation are governed separately.
       </p>
       <p className="text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
-        {plannedCalculators.length} more calculators (CIWA-Ar, EPDS, COWS) are coming next.
+        {plannedCalculators.length} candidate calculators remain governance-gated pending version, rights and workflow
+        review.
       </p>
     </section>
   );
@@ -265,6 +268,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   );
   const query = hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery;
   const normalizedQuery = normalizeCalculatorQuery(query);
+  const smartExpansions = useMemo(() => smartSearchExpansions("calculators", query), [query]);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedDomains, setSelectedDomains] = useState<ReadonlySet<CalculatorDomain>>(new Set());
@@ -288,11 +292,11 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   );
   const results = useMemo(
     () =>
-      filterCalculatorRecords(records, query, filters).map((record) => ({
+      filterCalculatorRecords(records, query, filters, smartExpansions).map((record) => ({
         ...record,
         context: matchContext(record.calc, normalizedQuery),
       })),
-    [filters, normalizedQuery, query, records],
+    [filters, normalizedQuery, query, records, smartExpansions],
   );
   const inProgress = useMemo(() => records.filter((record) => record.derived.started), [records]);
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
@@ -331,7 +335,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Clinical domain",
     selected: selectedDomains,
     options: domainOrder.map((domain) => {
-      const count = calculatorDomainCandidateCount(records, query, filters, domain);
+      const count = calculatorDomainCandidateCount(records, query, filters, domain, smartExpansions);
       return {
         value: domain,
         label: domainLabels[domain],
@@ -346,7 +350,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Session progress",
     value: progress,
     options: progressOptions.map((option) => {
-      const count = calculatorProgressCandidateCount(records, query, filters, option.value);
+      const count = calculatorProgressCandidateCount(records, query, filters, option.value, smartExpansions);
       return {
         ...option,
         hint: String(count),
@@ -361,7 +365,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Completion time",
     value: time,
     options: timeOptions.map((option) => {
-      const count = calculatorTimeCandidateCount(records, query, filters, option.value);
+      const count = calculatorTimeCandidateCount(records, query, filters, option.value, smartExpansions);
       return {
         ...option,
         hint: String(count),
@@ -509,7 +513,6 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
           onClose={() => setOpenId(null)}
-          onOpenCalculator={setOpenId}
         />
       ) : null}
     </>

@@ -47,6 +47,7 @@ export function UniversalSearchAlsoMatches({
   const submissionActive = shouldRunUniversalAlsoMatches(
     modeId,
     typeof window === "undefined" ? null : window.location.search,
+    trimmedQuery,
   );
   // Collapsed by default on phones so this cross-mode panel does not push the
   // primary results down; desktop always shows the grid (see the sm: rules below),

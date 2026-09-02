@@ -201,7 +201,7 @@ export function IndexingMonitor({
                   type="button"
                   onClick={() => onRetry(job.id)}
                   disabled={busy}
-                  className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                  className={cn(floatingControl, "px-3 text-xs")}
                 >
                   {busy ? (
                     <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -215,7 +215,7 @@ export function IndexingMonitor({
                 type="button"
                 onClick={() => onReindex(job.document_id)}
                 disabled={busy || job.status === "processing"}
-                className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                className={cn(floatingControl, "px-3 text-xs")}
               >
                 {busy ? (
                   <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -228,7 +228,7 @@ export function IndexingMonitor({
                 type="button"
                 onClick={() => onEnrich(job.document_id)}
                 disabled={busy || job.status === "processing"}
-                className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                className={cn(floatingControl, "px-3 text-xs")}
               >
                 {busy ? (
                   <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -352,7 +352,7 @@ export function IngestionQualityConsole({
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/documents/${item.documentId}`} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
+                  <Link href={`/documents/${item.documentId}`} className={cn(floatingControl, "px-3 text-xs")}>
                     <ExternalLink aria-hidden="true" className="h-4 w-4" />
                     Open
                   </Link>
@@ -361,7 +361,7 @@ export function IngestionQualityConsole({
                       type="button"
                       onClick={() => item.jobId && onRetry(item.jobId)}
                       disabled={busy}
-                      className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                      className={cn(floatingControl, "px-3 text-xs")}
                     >
                       {busy ? (
                         <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -375,7 +375,7 @@ export function IngestionQualityConsole({
                     type="button"
                     onClick={() => onReindex(item.documentId)}
                     disabled={busy}
-                    className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                    className={cn(floatingControl, "px-3 text-xs")}
                   >
                     {busy ? (
                       <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -388,7 +388,7 @@ export function IngestionQualityConsole({
                     type="button"
                     onClick={() => onEnrich(item.documentId)}
                     disabled={busy}
-                    className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                    className={cn(floatingControl, "px-3 text-xs")}
                   >
                     {busy ? (
                       <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />

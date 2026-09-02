@@ -6,8 +6,8 @@
 //
 // The variable shares no value with any NEXT_PUBLIC_SUPABASE_* or SUPABASE_* variable, and
 // assertNotClinicalKbProject refuses two distinct ways a misconfiguration could point this
-// synthetic prototype at the live Clinical KB database: the pinned Clinical KB project reference
-// appearing in the URL, or the URL being byte-identical to the value Clinical KB itself reads for
+// synthetic prototype at the live PsychSift database: the pinned PsychSift project reference
+// appearing in the URL, or the URL being byte-identical to the value PsychSift itself reads for
 // its own connection.
 //
 // Never print the URL. Every error message here names the environment variable, never its value.
@@ -18,7 +18,7 @@ export type CaringContactsDataMode = "postgres" | "in-memory";
 const CARING_CONTACTS_DATABASE_URL_VAR = "CARING_CONTACTS_DATABASE_URL";
 const CLINICAL_KB_PROJECT_REF = "sjrfecxgysukkwxsowpy";
 
-/** Environment variables the Clinical KB database itself may be configured with -- see
+/** Environment variables the PsychSift database itself may be configured with -- see
  * src/lib/env.ts (SUPABASE_DB_URL). DATABASE_URL is included as a generic alias some hosting
  * providers inject for the same connection. */
 const CLINICAL_KB_DATABASE_URL_VARS = ["SUPABASE_DB_URL", "DATABASE_URL"] as const;
@@ -42,19 +42,19 @@ export function caringContactsDataMode(): CaringContactsDataMode {
 }
 
 /**
- * Throws `CaringContactsProjectSeparationError` when `url` could resolve to the live Clinical KB
+ * Throws `CaringContactsProjectSeparationError` when `url` could resolve to the live PsychSift
  * database: it names the pinned project reference, or it is byte-identical to the value Clinical
  * KB itself reads from `SUPABASE_DB_URL` or `DATABASE_URL`. Never includes `url` -- or the value
  * either check compares it against -- in the thrown message.
  */
 export function assertNotClinicalKbProject(url: string): void {
   // Case-insensitive: DNS hostnames are case-insensitive, so a connection string spelled with a
-  // different case for the project reference resolves to the identical live Clinical KB host --
+  // different case for the project reference resolves to the identical live PsychSift host --
   // and a case-sensitive check here would be the exact bypass this function exists to close.
   if (url.toLowerCase().includes(CLINICAL_KB_PROJECT_REF)) {
     throw new CaringContactsProjectSeparationError(
-      `${CARING_CONTACTS_DATABASE_URL_VAR} names the pinned Clinical KB project reference. ` +
-        "Caring Contacts must run against its own database, never the live Clinical KB project.",
+      `${CARING_CONTACTS_DATABASE_URL_VAR} names the pinned PsychSift project reference. ` +
+        "Caring Contacts must run against its own database, never the live PsychSift project.",
     );
   }
 
@@ -68,7 +68,7 @@ export function assertNotClinicalKbProject(url: string): void {
   if (collidesWith) {
     throw new CaringContactsProjectSeparationError(
       `${CARING_CONTACTS_DATABASE_URL_VAR} is identical to ${collidesWith}. Caring Contacts must ` +
-        "run against its own database, never the same connection as the Clinical KB project.",
+        "run against its own database, never the same connection as the PsychSift project.",
     );
   }
 }

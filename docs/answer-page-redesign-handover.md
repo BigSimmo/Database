@@ -1,7 +1,15 @@
 # Answer page redesign — build and merge handover
 
-**Status:** design settled, not built. Nothing in `src/app/(search-app)` or
-`src/components/clinical-dashboard` has changed yet.
+**Status: BUILT AND SHIPPED.** Corrected 2026-09-02 — this header said "design settled, not
+built. Nothing in `src/app/(search-app)` or `src/components/clinical-dashboard` has changed
+yet" long after that stopped being true, and it was edited twice on 2026-08-26 without the
+status being touched. It shipped across #2362, #2370, #2377, #2388 and #2450:
+`answer-content.tsx`, `answer-status.tsx` and `answer-progress.ts` were all rewritten from this
+design, `answer-source-rail.tsx` / `answer-source-drawer.tsx` / `answer-source-rows.ts` were
+created for it, the shield tile and `--answer-message-gutter` are gone, and
+`AnswerProgressStepper` no longer exists. Read what follows as the record of a completed build,
+not a plan. §12.6's "Not yet in production" line is stale in the same way and for the same
+reason.
 **Design lives at:** `/mockups/answer-chat-perfected` (the design to build) and
 `/mockups/answer-chat-redesign` (the three-way comparison it was chosen from).
 **Owner decision on record:** direction A — numbered marks in the prose, one source

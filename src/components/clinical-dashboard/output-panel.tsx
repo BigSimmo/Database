@@ -167,7 +167,7 @@ export function ClinicalOutputPanel({
                       )}
                       aria-hidden="true"
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon aria-hidden="true" className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">

@@ -66,6 +66,17 @@ const openSheets: SheetEntry[] = [];
 const inertedElements = new Set<HTMLElement>();
 const stackListeners = new Set<() => void>();
 let bodyScrollLockPreviousOverflow = "";
+// The root element is locked as well as <body>, and it is the half that
+// actually does the work on phones. `globals.css` sets `html { overflow-x:
+// clip }`, and a root whose overflow is not `visible` stops <body>'s overflow
+// from propagating to the viewport — so `body { overflow: hidden }` alone left
+// the document freely scrollable behind an open sheet. Measured on a 390x844
+// phone with the safety-findings sheet open: the page behind still had 272px of
+// range and one wheel/touch gesture over the sheet ran it to the bottom instead
+// of scrolling the sheet. Locking `overflow-y` on the root keeps the scroll
+// offset (an element made `overflow: hidden` retains its scrollTop), so nothing
+// jumps when the sheet closes.
+let rootScrollLockPreviousOverflowY = "";
 
 export function isTopmostSheet(id: string) {
   return openSheets[openSheets.length - 1]?.id === id;
@@ -110,6 +121,8 @@ export function pushSheet(id: string, root: HTMLElement | null = null) {
   if (openSheets.length === 0) {
     bodyScrollLockPreviousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    rootScrollLockPreviousOverflowY = document.documentElement.style.overflowY;
+    document.documentElement.style.overflowY = "hidden";
   }
   openSheets.push({ id, root });
   syncBackgroundInert();
@@ -140,6 +153,7 @@ export function popSheet(id: string) {
   }
   if (openSheets.length === 0) {
     document.body.style.overflow = bodyScrollLockPreviousOverflow;
+    document.documentElement.style.overflowY = rootScrollLockPreviousOverflowY;
   }
   syncBackgroundInert();
   notifyStackListeners();

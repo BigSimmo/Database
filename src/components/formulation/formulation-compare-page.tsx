@@ -17,6 +17,7 @@ import {
   formulationCard,
 } from "@/components/formulation/formulation-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { InformationPageHeader } from "@/components/information-page-shell";
 import {
   comparisonGuideFor,
   findFormulationMechanism,
@@ -72,16 +73,12 @@ export function FormulationComparePage({ initialLeft, initialRight }: { initialL
 
   return (
     <FormulationPageShell>
-      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
-        <p className={eyebrowText}>Alternative hypotheses</p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-          Compare mechanisms
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Compare function, sequence, patient language, and treatment leverage. The aim is not to choose a label—it is
-          to identify which hypothesis best explains this person’s pattern.
-        </p>
-      </header>
+      <InformationPageHeader
+        className="border-b border-[color:var(--border)] pb-5"
+        eyebrow="Alternative hypotheses"
+        title="Compare mechanisms"
+        subtitle="Compare function, sequence, patient language, and treatment leverage. The aim is not to choose a label—it is to identify which hypothesis best explains this person’s pattern."
+      />
 
       <CompareIdsChrome
         selectedIds={[left?.id, right?.id]}
@@ -208,7 +205,7 @@ export function FormulationComparePage({ initialLeft, initialRight }: { initialL
                   </p>
                   <Link
                     href={`/formulation/${mechanism.id}`}
-                    className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-md px-1 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline"
+                    className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-md px-1 text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline"
                   >
                     Open full guide
                     <ArrowRight className="h-4 w-4" aria-hidden />
@@ -221,14 +218,14 @@ export function FormulationComparePage({ initialLeft, initialRight }: { initialL
           <div className="flex flex-wrap justify-end gap-2">
             <Link
               href="/formulation/map"
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)]"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)]"
             >
               <GitCompareArrows className="h-4 w-4" aria-hidden />
               Browse the map
             </Link>
             <Link
               href={`/formulation/builder?mechanism=${left.id}&mechanism=${right.id}`}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)]"
             >
               <Target className="h-4 w-4" aria-hidden />
               Use both hypotheses

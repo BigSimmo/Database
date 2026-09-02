@@ -1,6 +1,10 @@
 import { ArrowUpRight, Check, Landmark, ScrollText, ShieldCheck, TriangleAlert } from "lucide-react";
 
-import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import {
+  InformationPageFooter,
+  InformationPageHeader,
+  InformationPageShell,
+} from "@/components/information-page-shell";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/components/ui-primitives";
 import { dictionaryEntries, dictionarySources } from "@/lib/dictionary-data";
@@ -95,16 +99,11 @@ export function DictionarySourcesPage() {
   return (
     <InformationPageShell width="bleed" gap={false} testId="dictionary-sources-main">
       <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 py-6 sm:px-6 sm:py-8">
-        <header>
-          <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
-            Dictionary governance
-          </p>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-            Sources and review
-          </h1>
+        <header className="grid gap-5">
+          <InformationPageHeader eyebrow="Dictionary governance" title="Sources and review" />
           {/* The stat strip replaces the introductory paragraph: the same four
               facts, each one checkable, instead of a sentence describing them. */}
-          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-4">
             <StatTile label="Sources" value={String(dictionarySources.length)} hint="Direct authoritative documents" />
             <StatTile
               label="Australian"

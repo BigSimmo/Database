@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "4fad600d-b335-42ba-91a0-f35479aa52ae",
+  "createdOn": "2026-08-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "373b1aa3-596e-4d5f-bc4f-b05ad44a76f5",
+    "reason": "Scoped to hydration when filed after Task 7; Tasks 8 and 9 widened the consequence far beyond that, and the row as written understates what is unproven. Same root cause and same trigger to close, so superseded by one replacement stating the full cost rather than adding a second row."
+  }
+}

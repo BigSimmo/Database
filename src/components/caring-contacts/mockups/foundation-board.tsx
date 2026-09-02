@@ -17,7 +17,7 @@ export function FoundationBoard() {
       <div className="grid min-w-0 gap-[var(--gap-block)] lg:grid-cols-2">
         <SpecimenPanel
           title="Surface and type roles"
-          description="Clinical KB v2 roles stay quiet, legible and consistent across every workspace state."
+          description="PsychSift v2 roles stay quiet, legible and consistent across every workspace state."
           icon={Palette}
         >
           <div className="grid gap-[var(--gap-stack)] sm:grid-cols-3">

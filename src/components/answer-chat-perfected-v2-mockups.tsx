@@ -1671,7 +1671,7 @@ export function AnswerChatPerfectedV2MockupsPage() {
   return (
     <main className="min-h-screen bg-[color:var(--background)] px-3 py-4 text-[color:var(--text)] sm:px-6 sm:py-6">
       <div className="mx-auto max-w-7xl space-y-5">
-        <header className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+        <header className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <span
               aria-hidden="true"
@@ -1680,7 +1680,7 @@ export function AnswerChatPerfectedV2MockupsPage() {
               <ShieldCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-              Clinical KB · answer page · direction A, second pass
+              PsychSift · answer page · direction A, second pass
             </p>
           </div>
           <h1 className="mt-3 text-2xl font-semibold text-[color:var(--text-heading)] sm:text-3xl">

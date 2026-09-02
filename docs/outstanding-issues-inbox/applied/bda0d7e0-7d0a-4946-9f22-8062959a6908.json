@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
+    "detail": "Recorded 2026-08-25 at the end of Phase 2B Task 8, by the implementer counting its own coverage from the code rather than estimating it. Roughly four of about thirty cases the activation-wizard suites own are proved assertion by assertion; the rest have at least one assertion with no mutation isolating it. Largest named gaps: the no-present-tense-claim case is 4 of 8, the draft round-trip 1 of 6, the live-region case 1 of 5. This is a known and accepted state rather than a defect — proving every assertion individually across a suite this size is a large piece of work and was deliberately not attempted. The reason to keep the row is the rule that produced it: a mutation proves the assertion it makes fail, not the case it makes red, so a case with N assertions needs N mutations or needs splitting. Two refinements worth carrying if anyone takes this on: order-masking (an assertion behind a sibling that fails first, so the mutation never reaches it) is a property of a (case, mutation) pair rather than of a case; and the inverse error is live too — a check believed redundant is a hypothesis, and acting on it deletes coverage. In this same task a not-contains loop was nearly filed as redundant and a mutation showed the equality assertion above it passes while both sides read the same record. Anyone closing this should prefer splitting multi-assertion cases over adding mutations one at a time.",
+    "issueUlid": "01M0WG00EFQX7TP24SMFGRHNKR"
+  }
+}

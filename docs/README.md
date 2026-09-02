@@ -1,4 +1,4 @@
-# Clinical KB Documentation Index
+# PsychSift Documentation Index
 
 Curated map of the load-bearing docs under `docs/` (not an exhaustive listing of every
 file). Categories distinguish **maintained** documents (keep these current when behavior
@@ -27,16 +27,21 @@ npm run docs:check-links
 - [frontend-architecture.md](frontend-architecture.md) — shell, routing, dashboard module structure
 - [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
+- [mockup-retirement-policy.md](mockup-retirement-policy.md) — when a mockup may be deleted, who decides, what evidence is required, and the three tiers that keep developer-gated prototypes out of cleanup scope
 - [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
-- [design-system.md](design-system.md) — tokens, primitives, styling conventions
+- [design-system/README.md](design-system/README.md) — front door for the v2 design system (tokens, components, gates)
+- [design-system.md](design-system.md) — live-layer notes during the v1→v2 transition (superseded as spec)
 - [design-system/SPEC.md](design-system/SPEC.md) — the complete v2 design system: roles, rules, rationale (never values)
 - [design-system/TOKENS.md](design-system/TOKENS.md) — reconciled token inventory: every role, winning name, owner, and what it replaces
 - [design-system/COMPONENTS.md](design-system/COMPONENTS.md) — the eight safety-component specifications plus the maturity matrix
+- [brand/psychsift-logo.md](brand/psychsift-logo.md) — the PsychSift mark: arc-by-arc construction, colours, file set, and usage rules
 - [design-system/DECISIONS.md](design-system/DECISIONS.md) — conflicts C1–C5 resolved, clinical Q&A record, assumptions, blocked items
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
+- [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
 - [design-system/ADOPTION.md](design-system/ADOPTION.md) — PR 13 registration record: adoption order, per-surface file allowlists, exclusions, pins, proof shots
+- [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
 - [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
@@ -76,6 +81,9 @@ npm run docs:check-links
 - [rag-injection-threat-model.md](rag-injection-threat-model.md) — prompt-injection threat model
 - [privacy-impact-assessment.md](privacy-impact-assessment.md) — PIA findings and launch blockers
 - [openai-cross-border-basis.md](openai-cross-border-basis.md) — cross-border data-processing basis
+- [governance/privacy-readiness.v1.json](governance/privacy-readiness.v1.json) — authoritative machine-checkable privacy readiness status
+- [governance/privacy-closeout-2026-09-01.md](governance/privacy-closeout-2026-09-01.md) — current provider, retention, legal, notice, and clinical closeout evidence
+- [governance/privacy-role-attestation-pack-2026-09-01.md](governance/privacy-role-attestation-pack-2026-09-01.md) — evidence and role decisions for eight requirements; two owner approvals are complete and six remain
 - [production-readiness-checklist.md](production-readiness-checklist.md) — release readiness criteria
 - [samd-classification-medication-considerations.md](samd-classification-medication-considerations.md) — SaMD classification and medication considerations
 
@@ -96,6 +104,8 @@ npm run docs:check-links
 - [claude-cloud.md](claude-cloud.md) — Claude Code on the web container parity: tiered provisioner and checked-in user profile
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
 - [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (historical tables + immutable records), write with `npm run ledger:append`, and convert a pre-system active-branch row with `npm run ledger:migrate-legacy`
+- [branch-review-archival-policy.md](branch-review-archival-policy.md) — what may and may not be done to the immutable records under `docs/branch-review-records/`; which operations are blocked by code, which are forbidden by policy but caught by nothing, and why foldering or deleting a record is silent history loss
+- [branch-review-index.md](branch-review-index.md) — **Generated** browsable index of every immutable review record; regenerate with `npm run ledger:index`, refresh with `npm run docs:update`, check currency with `npm run ledger:index:check`. It may lag the corpus, so `npm run ledger:lookup` stays authoritative
 
 ## Plans and workstreams (living)
 
@@ -121,16 +131,18 @@ npm run docs:check-links
 
 ## Subdirectory map
 
-| Directory                        | What lives there                                                                                                      |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [rag-behaviour/](rag-behaviour/) | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.** |
-| [prompts/](prompts/)             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                        |
-| [codex/](codex/)                 | Per-lens Codex ultra-review output folders, one per review dimension                                                  |
-| [evidence/](evidence/)           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                              |
-| [audit/](audit/)                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                 |
-| [redesign/](redesign/)           | Premium redesign plans, decision log, token adoption                                                                  |
-| [superpowers/](superpowers/)     | Agent-authored plans and specs                                                                                        |
-| [archive/](archive/)             | Completed phase plans, superseded designs, old progress logs — never current guidance                                 |
+| Directory                                        | What lives there                                                                                                                                                                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [agents/](agents/)                               | Agent-rule reference files `AGENTS.md` delegates to by name — the full text of rules its always-loaded core only points at                                                                               |
+| [rag-behaviour/](rag-behaviour/)                 | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.**                                                                                    |
+| [prompts/](prompts/)                             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                                                                                                           |
+| [codex/](codex/)                                 | Per-lens Codex ultra-review output folders, one per review dimension                                                                                                                                     |
+| [evidence/](evidence/)                           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                                                                                                                 |
+| [audit/](audit/)                                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                                                                                                    |
+| [redesign/](redesign/)                           | Premium redesign plans, decision log, token adoption                                                                                                                                                     |
+| [superpowers/](superpowers/)                     | Agent-authored plans and specs                                                                                                                                                                           |
+| [branch-review-records/](branch-review-records/) | Immutable one-row review records — one file per review — named for the SHA-256 of the row. **Append-only: never edit, delete, or move into subdirectories** ([policy](branch-review-archival-policy.md)) |
+| [archive/](archive/)                             | Completed phase plans, superseded designs, old progress logs — never current guidance                                                                                                                    |
 
 ## Point-in-time records (historical — do not update)
 

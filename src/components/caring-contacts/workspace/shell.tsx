@@ -36,8 +36,11 @@ type WorkspaceDestination = {
  * A destination carries an `href` once — and only once — it has a page. The
  * rest render as unavailable controls that state their reason rather than as
  * links into a not-found page (Ruling 52). Plan 2B gives them pages, and adding
- * an `href` here is the whole of that change; `Today` (Phase 2A) and `Patients`
- * (Phase 2B Task 5) have theirs.
+ * an `href` here is the whole of that change. Each entry below says in a comment
+ * which task built its screen, so the table states that per row rather than
+ * carrying a list somewhere else that a later task has to remember to extend --
+ * the decaying form this list was in until the merge, when it still said
+ * `Templates` had no `href` and the branch that gave it one was about to land.
  *
  * Ruling 89: the link and the real screen land together. A navigation entry lit
  * up ahead of its screen would point at a page that says "No patients yet"
@@ -49,6 +52,7 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
     id: "today",
     label: "Today",
     icon: LayoutDashboard,
+    // A link since Phase 2A built the Today screen.
     href: CARING_CONTACTS_ROUTES.today,
     reason: "The day's caring-contact work for this team.",
   },
@@ -56,14 +60,23 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
     id: "patients",
     label: "Patients",
     icon: Users,
+    // A link since Phase 2B Task 5 built the caseload, in the same change (Ruling 89).
     href: CARING_CONTACTS_ROUTES.patients,
     reason: "Every patient with a caring-contact plan, and where each plan has got to.",
   },
-  { id: "schedule", label: "Schedule", icon: CalendarDays, reason: "Contacts due, day by day." },
+  {
+    id: "schedule",
+    label: "Schedule",
+    icon: CalendarDays,
+    href: CARING_CONTACTS_ROUTES.schedule,
+    reason: "Contacts due, day by day.",
+  },
   {
     id: "templates",
     label: "Templates",
     icon: FileText,
+    // A link since Phase 2B Task 15 built the library behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.templates,
     reason: "Governed pathways, message wording and approval history.",
   },
 ];
@@ -72,13 +85,60 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
 const PHONE_DESTINATIONS = PRIMARY_DESTINATIONS.filter((destination) => destination.id !== "templates");
 
 /**
- * Every remaining declared destination, with what it will hold.
- * `docs/wiring-conventions.md` requires the reason to be stated, not implied.
+ * The primary destinations the phone bar has no room for.
+ *
+ * DERIVED FROM THE TWO ARRAYS ABOVE rather than listed, because a hand-written third list is how
+ * the defect this fixes arose in the first place. `templates` gained a page and an `href` in Task
+ * 15, sat in the rail -- which is `hidden … md:flex` -- and was filtered out of the phone bar by
+ * name, so below 768px a shipped production route had no inbound link anywhere in the workspace.
+ * Nothing caught it: `tests/route-reachability.test.ts` reads this file as TEXT and regex-matches
+ * `href…CARING_CONTACTS_ROUTES.<key>` with no notion of which array the match sits in, whether that
+ * array is filtered, or what CSS governs the element rendering it. That gate proves a route is
+ * REFERENCED IN SOURCE; it cannot prove any viewport reaches it.
+ *
+ * These render in the More panel -- which is in the document at every width -- inside a `md:hidden`
+ * row, so they appear exactly where the rail does not. Deriving the set means dropping a fourth
+ * destination from the phone bar tomorrow routes it here without anyone remembering to.
+ * `tests/caring-contacts-workspace-shell.dom.test.tsx` checks reachability by walking each link's
+ * real ancestor chain for the classes that hide it, which is the assertion that can actually fail.
  */
-const MORE_DESTINATIONS: readonly { id: string; label: string; reason: string }[] = [
-  { id: "team", label: "Team", reason: "Ownership, capacity and unclaimed work." },
-  { id: "guidance", label: "Guidance", reason: "Programme boundaries and operational guidance." },
-  { id: "reports", label: "Reports", reason: "Aggregate operational reporting." },
+const PHONE_OVERFLOW_DESTINATIONS = PRIMARY_DESTINATIONS.filter(
+  (destination) => !PHONE_DESTINATIONS.includes(destination),
+);
+
+/**
+ * Every remaining declared destination, with what it holds or will hold.
+ * `docs/wiring-conventions.md` requires the reason to be stated, not implied.
+ *
+ * Ruling 89 governs the `href` here exactly as it governs the rail's: a destination carries one
+ * once, and only once, it has a page, and the link lands in the same change as the screen. The
+ * field is optional, and every entry without one still renders as an `UnavailableDestination`
+ * stating its reason -- the shape grew; the behaviour of the entries that did not change did not.
+ */
+type MoreDestination = { id: string; label: string; reason: string; href?: string };
+
+const MORE_DESTINATIONS: readonly MoreDestination[] = [
+  {
+    id: "team",
+    label: "Team",
+    // A link since Phase 2B Task 18 built the screen behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.team,
+    reason: "Ownership, coverage and unclaimed work.",
+  },
+  {
+    id: "guidance",
+    label: "Guidance",
+    // A link since Phase 2B Task 19 built the screen behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.guidance,
+    reason: "Programme boundaries and operational guidance.",
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    // A link since Phase 2B Task 19 built the screen behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.reports,
+    reason: "Aggregate operational reporting.",
+  },
   { id: "service-stop", label: "Service stop", reason: "Stopping the whole service, and restarting it." },
   { id: "access-trail", label: "Access trail", reason: "Who opened which record, and when." },
   { id: "workload", label: "Workload", reason: "Work waiting across the team." },
@@ -161,6 +221,35 @@ const morePanelItemClass =
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+/**
+ * One row of the More panel: a real link once the destination has a screen, and the unavailable
+ * control stating its reason until then.
+ *
+ * One renderer rather than the branch written twice, because the panel now carries two lists --
+ * the declared destinations and the primary ones the phone bar overflows -- and two copies of the
+ * branch would be free to diverge on the half nobody was looking at. Ruling 52 governs the else:
+ * an unbuilt destination is never a link into a page that would 404.
+ */
+function MorePanelDestination({
+  id,
+  label,
+  href,
+  reason,
+}: {
+  id: string;
+  label: string;
+  href?: string;
+  reason: string;
+}) {
+  return href ? (
+    <Link href={href} data-internal-link="true" className={`${morePanelItemClass} ${focusRing}`}>
+      <span className="truncate">{label}</span>
+    </Link>
+  ) : (
+    <UnavailableDestination id={id} label={label} reason={reason} className={morePanelItemClass} />
+  );
+}
 
 /**
  * The Caring Contacts workspace shell.
@@ -274,17 +363,31 @@ export function CaringContactsShell({ title, description, serviceState, children
                       </p>
                     ) : null}
                   </div>
-                  <UnavailableDestination
-                    id="primary-new-plan"
-                    label="New plan"
-                    reason="Starting a caring-contact plan for a patient."
-                    className="inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text-muted)]"
+                  {/*
+                    The workspace's primary control, and a real link since Phase 2B Task 7 built
+                    the screen behind it.
+
+                    Ruling 89 is why it changed in the same diff as that screen rather than before
+                    it: a control lit up ahead of its destination points at a page that says
+                    nothing useful whether or not there is anything to see. The inverse is just as
+                    false, which is what this edit fixes -- once `/caring-contacts/plans/new`
+                    exists, an "unavailable" control claims the screen is not built when it is.
+
+                    It carries no referral. The wizard starts from an accepted referral named in
+                    the URL (Ruling [111]), and referrals are not listed anywhere in this workspace
+                    yet, so this control reaches the screen's own honest statement of what it needs
+                    rather than a started sign-up. That statement is the screen, not an error.
+                  */}
+                  <Link
+                    href={CARING_CONTACTS_ROUTES.newPlan}
+                    data-internal-link="true"
+                    className={`inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] ${focusRing}`}
                   >
                     <Plus aria-hidden="true" className="size-icon-md shrink-0" />
                     <span data-testid="caring-contacts-primary-control" className="truncate">
                       New plan
                     </span>
-                  </UnavailableDestination>
+                  </Link>
                 </div>
                 {children}
               </div>
@@ -301,17 +404,23 @@ export function CaringContactsShell({ title, description, serviceState, children
                   More destinations
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
-                  These destinations are planned. Each one states what it will hold once it is built.
+                  What each destination holds. The ones with a screen behind them are links; the rest state what they
+                  will hold once they are built.
                 </p>
                 <ul className="mt-3 flex flex-col gap-2">
-                  {MORE_DESTINATIONS.map(({ id, label, reason }) => (
+                  {/*
+                    The primary destinations the phone bar could not carry, shown only below 768px
+                    because the rail carries them at every width above it. `md:hidden` on the row
+                    rather than on the control, so the list gap closes with it.
+                  */}
+                  {PHONE_OVERFLOW_DESTINATIONS.map(({ id, label, href, reason }) => (
+                    <li key={`overflow-${id}`} className="min-w-0 md:hidden">
+                      <MorePanelDestination id={`more-overflow-${id}`} label={label} href={href} reason={reason} />
+                    </li>
+                  ))}
+                  {MORE_DESTINATIONS.map(({ id, label, href, reason }) => (
                     <li key={id} className="min-w-0">
-                      <UnavailableDestination
-                        id={`more-${id}`}
-                        label={label}
-                        reason={reason}
-                        className={morePanelItemClass}
-                      />
+                      <MorePanelDestination id={`more-${id}`} label={label} href={href} reason={reason} />
                     </li>
                   ))}
                 </ul>

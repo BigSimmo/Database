@@ -592,7 +592,7 @@ function MapGraph({
           ) : (
             <div
               data-map-node="diagnosis"
-              className="absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-lg border-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-2 py-1.5 text-center text-2xs font-bold leading-tight break-words text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] forced-colors:border-[ButtonText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]"
+              className="absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-lg border-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-2 py-1.5 text-center text-2xs font-bold leading-tight break-words text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] forced-colors:border-[ButtonText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]"
               style={{
                 left: focusPoint.x,
                 top: focusPoint.y,
@@ -955,7 +955,7 @@ export function DiagnosisMapPanel({
     <>
       <section
         aria-label="Diagnosis map"
-        className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4"
+        className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4"
       >
         <div className="flex items-start justify-between gap-3">
           <div>

@@ -431,7 +431,7 @@ export function ServicesNavigatorPage() {
   const searchableRecords = useMemo(() => (registryReady ? registry.records : []), [registry.records, registryReady]);
   const rankedMatches = useMemo(() => {
     if (!query.trim()) return searchableRecords;
-    const ranked = rankServiceRecords(searchableRecords, deferredQuery);
+    const ranked = rankServiceRecords(searchableRecords, deferredQuery, searchableRecords.length, [], true);
     if (ranked.length) return ranked.map((match) => match.service);
     return [];
   }, [deferredQuery, query, searchableRecords]);

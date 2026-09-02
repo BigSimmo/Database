@@ -8,6 +8,10 @@ export type HubPanel = {
   /** 1 = built now. 2–4 = declared placeholder; flipping the phase and adding an href is the whole change. */
   phase: 1 | 2 | 3 | 4;
   href?: string;
+  /** The href is a static file under `public/`, not an app route. Rendered as a
+   *  plain anchor rather than a <Link>, and excluded from the route-existence
+   *  check — which reads the route manifest and would not find it. */
+  external?: boolean;
 };
 
 export const HUB_PANELS: readonly HubPanel[] = [
@@ -53,6 +57,19 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/clinical-trust",
   },
+  // Named for its evidence, not for its subject. It reports open ledger items
+  // that name one of the repository's own clinical eval cases -- not "every
+  // clinical answer problem", which it has no way to know. A panel on a clinical
+  // system that implies coverage it does not have is worse than no panel, so the
+  // narrower name is deliberate and should not be "improved" into a broader one.
+  {
+    id: "clinical-answer-failures",
+    name: "Answer failures",
+    summary: "Open problems recorded against a named clinical question",
+    group: "clinical",
+    phase: 1,
+    href: "/mockups/development/clinical-answer-failures",
+  },
   // Kept, unlike the five removed above, and settled: the owner ruled on
   // 2026-08-26 that the hazard register belongs in the developer hub rather
   // than as a separate clinical-safety surface. It was never a removal
@@ -80,6 +97,20 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/ingestion",
   },
+  // Named for the question it answers -- which of my documents are broken -- and
+  // scoped to that. The ingestion card above shows documents *moving*; this one
+  // shows the library at rest, which is where a document that finished and
+  // produced nothing usable hides. It reports what indexing produced, never
+  // whether an answer drawn from those documents is any good, and the page says
+  // so; do not widen the summary into a claim about answer quality.
+  {
+    id: "corpus-health",
+    name: "Corpus health",
+    summary: "Documents that finished indexing and produced nothing usable",
+    group: "system",
+    phase: 1,
+    href: "/mockups/development/corpus-health",
+  },
   {
     id: "test-health",
     name: "Test health",
@@ -104,6 +135,19 @@ export const HUB_PANELS: readonly HubPanel[] = [
     group: "reference",
     phase: 1,
     href: "/mockups/development/routes",
+  },
+  // A static sheet, not a route: it is the generated brand preview, mirrored
+  // from docs/brand/preview.html into public/ so the hub can link to it.
+  // `tests/developer-hub-panels.test.ts` holds the two copies byte-identical,
+  // so the link can never show a stale mark.
+  {
+    id: "brand",
+    name: "Brand and design",
+    summary: "The mark's construction, every size and lockup, clear space and misuse",
+    group: "reference",
+    phase: 1,
+    href: "/brand/preview.html",
+    external: true,
   },
   // Three real prototype cards, not one generic self-linking "Prototypes" card.
   // This is also what preserves the Care Plan, Caring Contact, and Ward Flow entries the

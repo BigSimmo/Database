@@ -7,7 +7,7 @@ import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE, findRunningProjectServer } from "./
 
 const isWindows = process.platform === "win32";
 // Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
-const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed"];
+const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed", "check:diff-integrity"];
 const docsScripts = [
   "sitemap:check",
   "check:repo-awareness-snapshot",
@@ -158,7 +158,7 @@ export function summarizePrLocalRun(scripts, progress) {
     lines.push(`- failed: ${failedScript} (exit ${failedExitCode})`);
     if (failedScript === "build" && failedExitCode === DEV_SERVER_BUILD_REFUSED_EXIT_CODE) {
       lines.push(
-        `- note: production build was refused while the Clinical KB dev server is running (BUILD_REFUSED_DEV_SERVER). This is a failed gate, not a skip. Advice: Stop the dev server process, clear .next, and re-run verify:pr-local (or set ALLOW_BUILD_WITH_DEV_SERVER=1).`,
+        `- note: production build was refused while the PsychSift dev server is running (BUILD_REFUSED_DEV_SERVER). This is a failed gate, not a skip. Advice: Stop the dev server process, clear .next, and re-run verify:pr-local (or set ALLOW_BUILD_WITH_DEV_SERVER=1).`,
       );
     }
   } else {
@@ -185,7 +185,7 @@ export async function checkDevServerPreflight(
   if (runningPort) {
     warn(
       [
-        `\n[verify:pr-local] WARNING: Clinical KB dev server is running on http://localhost:${runningPort}.`,
+        `\n[verify:pr-local] WARNING: PsychSift dev server is running on http://localhost:${runningPort}.`,
         "The upcoming 'build' step will fail with BUILD_REFUSED_DEV_SERVER (exit 76).",
         "Advice: Stop the running dev server process before the build step, or set ALLOW_BUILD_WITH_DEV_SERVER=1.",
       ].join("\n"),

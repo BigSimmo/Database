@@ -51,7 +51,7 @@ export function AnswerFollowUpSuggestions({
   return (
     <section data-testid={testId} aria-label="Follow-up questions" className={cn("min-w-0", className)}>
       <p className="mb-1.5 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-        Ask next
+        Follow up
       </p>
       <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]">
         {suggestions.map((suggestion, index) => (

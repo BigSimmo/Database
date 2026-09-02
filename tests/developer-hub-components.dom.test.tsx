@@ -69,6 +69,19 @@ describe("FreshnessStamp", () => {
     );
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/\b1 hour old\b/);
   });
+
+  it("renders live status when freshness status is live", () => {
+    render(
+      <FreshnessStamp
+        label="Ingestion jobs"
+        freshness={{ contentAt: null, viewedAt: "2026-08-21T00:00:00Z", ageHours: null, status: "live" }}
+      />,
+    );
+    const stamp = screen.getByTestId("developer-hub-freshness");
+    expect(stamp).toHaveTextContent(/Ingestion jobs read live/i);
+    expect(stamp).toHaveTextContent(new RegExp(`viewed ${mediumDate("2026-08-21T00:00:00Z")}`));
+    expect(stamp).not.toHaveTextContent(/revision unknown/i);
+  });
 });
 
 describe("EnvironmentStrip", () => {

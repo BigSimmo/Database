@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fed7ba66-652e-4081-8845-3c3b70496507",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#ZW43ZT",
+    "outcome": "Bypassed GlobalMockupSearchShell for /mockups/development in MockupsLayoutClient to eliminate duplicate dev main landmark collisions.",
+    "baseRowFingerprint": "bbf58e5eb4703f200e634e9fcd4bb2b122c3031c81535dfca994cf1d4511539f"
+  }
+}

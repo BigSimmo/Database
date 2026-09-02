@@ -1,7 +1,7 @@
 // tests/caring-contacts-server-pool.test.ts
 //
 // Review round 1, Important 2 and Important 3: createCaringContactsPool is itself an exported
-// entry point, so it must refuse a Clinical KB URL on its own -- not only when store.ts happens to
+// entry point, so it must refuse a PsychSift URL on its own -- not only when store.ts happens to
 // check first -- and it must never leave the underlying pg.Pool without an 'error' listener, since
 // an unhandled 'error' event on a Node pool crashes the process outright.
 //
@@ -33,7 +33,7 @@ import { CaringContactsProjectSeparationError } from "@/lib/caring-contacts-serv
 import { createCaringContactsPool } from "@/lib/caring-contacts-server/pool";
 
 describe("createCaringContactsPool", () => {
-  it("refuses the pinned Clinical KB project reference on its own, not only through the store", () => {
+  it("refuses the pinned PsychSift project reference on its own, not only through the store", () => {
     expect(() => createCaringContactsPool("postgres://user@db.sjrfecxgysukkwxsowpy.supabase.co:5432/postgres")).toThrow(
       CaringContactsProjectSeparationError,
     );

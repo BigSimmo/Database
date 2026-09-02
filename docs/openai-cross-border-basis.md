@@ -1,11 +1,11 @@
 # Cross-border disclosure basis â€” OpenAI (PIA-1)
 
-**Status:** Provider configuration and legal execution pending Â· **Date reviewed:** 2026-08-23
-**Owner of the open step:** account holder for `OPENAI_API_KEY` + privacy adviser
+**Status:** OpenAI external references, Railway contract, and whole-of-flow APP 8 approval pending Â· **Date reviewed:** 2026-09-01
+**Owner of the open step:** OpenAI account owner + authorised legal signatory + privacy adviser
 **Tracks:** the OpenAI contractual portion of **PIA-1** in [docs/privacy-impact-assessment.md](privacy-impact-assessment.md) Â§10; Railway's companion contract is tracked below.
 **Companion:** the `/privacy` collection notice ([src/app/privacy/page.tsx](../src/app/privacy/page.tsx)) and composer reminder ([src/lib/ui-copy.ts](../src/lib/ui-copy.ts)) ship as draft APP 5 / APP 1 controls pending governance approval under **PIA-5**.
 
-**Status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This decision record supplies context and operator steps; it does not prove DPA execution, ZDR configuration, APP 8 approval, or final notice approval.
+**Status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This decision record supplies context and operator steps. Ledger items `#053` and `#HVTYAT` claim OpenAI DPA/ZDR completion, but repository assertions cannot satisfy an external evidence class. The register therefore remains pending for secure OpenAI references, Railway's DPA, the whole-of-flow APP 8 decision, and final notice approval.
 
 > **Not legal advice.** This records the current, verifiable facts about OpenAI's data-handling
 > terms and maps them to APP 8 so a qualified privacy adviser can sign off the cross-border basis.
@@ -37,7 +37,8 @@ Two obligations attach to that flow:
   remains open under **PIA-5** (see Â§7).
 
 The code-side controls cannot _by themselves_ discharge APP 8 â€” the "reasonable steps" are largely
-**contractual**. That contract is the open step this document tracks.
+**contractual**. The OpenAI ledger claims still need secure external references; Railway's contract
+and the privacy adviser's whole-of-flow determination are also open.
 
 ## 2. What actually crosses the border
 
@@ -57,15 +58,15 @@ clinician types. Everything else (documents, embeddings, logs, auth) stays at re
 Facts pulled from OpenAI's public policy/docs pages on 2026-07-13. **Re-verify at execution time** â€”
 these terms change; the PIA (2026-07-06) already predates the Australia data-residency option below.
 
-| Item                          | Current position                                                                                                                                                                                                                                                                                                                                          | Source                                                                                                                                                                                                              |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DPA available**             | OpenAI executes a Data Processing Addendum for API customers; OpenAI acts as **processor**, and binds each sub-processor to comparable obligations. Current version `v.010126` (1 Jan 2026).                                                                                                                                                              | [DPA](https://openai.com/policies/data-processing-addendum/) Â· [DPA PDF](https://cdn.openai.com/pdf/openai-data-processing-addendum.pdf)                                                                           |
-| **Training**                  | API inputs/outputs are **not used to train models** by default (API opt-out since 1 Mar 2023).                                                                                                                                                                                                                                                            | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                            |
-| **Default retention**         | Inputs/outputs retained **up to 30 days** for abuse monitoring, then deleted.                                                                                                                                                                                                                                                                             | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                            |
-| **Zero Data Retention (ZDR)** | Removes the 30-day abuse-monitoring retention; **not self-serve** â€” prior approval by OpenAI, configured per **project**. Apply via the account/sales team.                                                                                                                                                                                             | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                            |
-| **Data residency**            | API data residency now covers **Australia** (among US, Europe, UK, Canada, Japan, Korea, Singapore, India, UAE). Enabled by creating a **new Project** and selecting the country; eligibility via sales. **Australia = storage at rest only** â€” regional _processing/inference_ is US/Europe/UAE only. ~10% uplift for models released from 5 Mar 2026. | [Data residency (API)](https://help.openai.com/en/articles/10503543-data-residency-for-the-openai-api) Â· [Announcement](https://openai.com/index/expanding-data-residency-access-to-business-customers-worldwide/) |
-| **Sub-processors**            | Published list of sub-processors that may process Customer Data. Review for the APP 8 accountability chain.                                                                                                                                                                                                                                               | [Sub-processor list](https://openai.com/policies/sub-processor-list/) Â· [platform](https://platform.openai.com/subprocessors)                                                                                      |
-| **Prompt caching**            | GPT-5.6 requests `prompt_cache_options.ttl="30m"` by default and never receives the deprecated retention field. The TTL is a minimum, not a guaranteed deletion deadline. Explicit pre-5.6 deployments retain the legacy retention behavior. ZDR interaction must be **confirmed in writing** (see Â§6, PIA-6).                                           | [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) Â· [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                          |
+| Item                          | Current position                                                                                                                                                                                                                                                                                                                                                                                                                                       | Source                                                                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DPA available**             | OpenAI executes a Data Processing Addendum for API customers; OpenAI acts as **processor**, and binds each sub-processor to comparable obligations. Current version `v.010126` (1 Jan 2026).                                                                                                                                                                                                                                                           | [DPA](https://openai.com/policies/data-processing-addendum/) Â· [DPA PDF](https://cdn.openai.com/pdf/openai-data-processing-addendum.pdf)                                                                           |
+| **Training**                  | API inputs/outputs are **not used to train models** by default (API opt-out since 1 Mar 2023).                                                                                                                                                                                                                                                                                                                                                         | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                            |
+| **Default retention**         | Inputs/outputs retained **up to 30 days** for abuse monitoring, then deleted.                                                                                                                                                                                                                                                                                                                                                                          | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                            |
+| **Zero Data Retention (ZDR)** | Removes the 30-day abuse-monitoring retention; **not self-serve** â€” prior approval by OpenAI, configured per **project**. Apply via the account/sales team.                                                                                                                                                                                                                                                                                          | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                            |
+| **Data residency**            | API data residency now covers **Australia** (among US, Europe, UK, Canada, Japan, Korea, Singapore, India, UAE). Enabled by creating a **new Project** and selecting the country; eligibility via sales. **Australia = storage at rest only** â€” regional _processing/inference_ is US/Europe/UAE only. ~10% uplift for models released from 5 Mar 2026.                                                                                              | [Data residency (API)](https://help.openai.com/en/articles/10503543-data-residency-for-the-openai-api) Â· [Announcement](https://openai.com/index/expanding-data-residency-access-to-business-customers-worldwide/) |
+| **Sub-processors**            | Published list of sub-processors that may process Customer Data. Review for the APP 8 accountability chain.                                                                                                                                                                                                                                                                                                                                            | [Sub-processor list](https://openai.com/policies/sub-processor-list/) Â· [platform](https://platform.openai.com/subprocessors)                                                                                      |
+| **Prompt caching**            | GPT-5.6 requests `prompt_cache_options.ttl="30m"` by default and never receives the deprecated retention field. OpenAI documents prompt-cache application state on local GPU machines with a maximum 24-hour expiration; the requested TTL is a minimum cache lifetime, not that maximum or a deletion deadline. Explicit pre-5.6 deployments retain the legacy retention behavior. ZDR interaction must be **confirmed in writing** (see Â§6, PIA-6). | [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) Â· [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                          |
 
 ## 4. This app's endpoints are ZDR-eligible
 
@@ -117,23 +118,31 @@ with those claims.
 
 ## 8. Operator action checklist
 
-Actions **1â€“3 must be performed by the account holder** in OpenAI's dashboard/legal process â€” they
-involve accepting agreements and changing account settings, which an automated agent must not do.
+Provider agreement acceptance and account-setting changes must be performed by the appropriate
+account holder or authorised signatory. An automated agent must not accept those terms or impersonate
+those roles.
 
-The operator approved pursuing these steps on 2026-07-14. That approval authorises evaluation and
-outreach; it is not a legal signature and does not prove that DPA, ZDR, or residency settings are in
-force. The production project also returned quota exhaustion during the approved model experiment,
-so endpoint/model comparisons are paused until quota is restored. ZDR/residency status was not
-available through the inspected API surface and remains to be confirmed in the provider account or
-in writing.
+The operator approved pursuing these steps on 2026-07-14. Repository ledger `#053` subsequently
+recorded DPA and ZDR completion on 2026-08-18, and `#HVTYAT` reconciled narrative documentation on
+2026-08-27. An authenticated owner review on 2026-09-01 found API data sharing disabled and, with
+explicit approval, changed API call logging and the optional hosted-tool classes to `Disabled`.
+No visible ZDR entitlement or configured retention type was present. On 2026-09-01, OpenAI
+acknowledged receipt of an `API for Enterprise` sales request for ZDR covering Responses, Embeddings,
+prompt caching, the applicable DPA, and Australia data-residency options. Submission is not approval.
+No secure ZDR or countersigned-contract reference is attached to the status authority, so those
+OpenAI items remain pending rather than being promoted from repository prose.
 
-- [ ] **1. Execute the OpenAI DPA** for the org behind the production `OPENAI_API_KEY`
+- [ ] **1. Attach the executed OpenAI DPA evidence** for the org behind the production `OPENAI_API_KEY`
       â†’ [openai.com/policies/data-processing-addendum](https://openai.com/policies/data-processing-addendum/).
-      Store the countersigned copy; record version + date below.
+      The repository records version `v.010126` and execution date 2026-08-18. Keep the countersigned
+      copy outside the public repository and add a sanitized secure reference to the manifest.
 - [ ] **2. Execute Railway's DPA** with the legal entity and authorised signer. Retain the executed
-      copy and record the Singapore processor/sub-processor basis.
-- [ ] **3. Apply for ZDR** on the production project via the OpenAI account/sales team. Confirm it
-      covers `/v1/responses` + `/v1/embeddings`. Record project id + approval date.
+      copy and record the Singapore processor/sub-processor basis. Railway's public Exhibit A says
+      sensitive/special-category data is `None`; obtain written terms that cover the actual incidental
+      health-information flow before treating the standard DPA as sufficient.
+- [ ] **3. Attach current ZDR evidence** for the production project. The repository records coverage
+      for `/v1/responses` + `/v1/embeddings` on 2026-08-18; the OpenAI account owner must provide a
+      sanitized provider-account or written approval reference.
 - [ ] **4. Decide on Australia data residency** (new Project + country selection; sales-gated).
       Record region + date, or record an explicit decision not to adopt it and why.
 - [ ] **5. Confirm the ZDR â†” prompt-cache behaviour** in writing (Â§6); record the answer.
@@ -149,23 +158,29 @@ in writing.
 
 ### Status record — fill in as steps complete
 
-| Field                               | Value                                   | Date       | Evidence                                            |
-| ----------------------------------- | --------------------------------------- | ---------- | --------------------------------------------------- |
-| OpenAI org / production project id  | _verified (org/project data controls)_  | 2026-08-18 | Ledger #053 verified                                |
-| DPA executed (version)              | Yes (v.010126 executed)                 | 2026-08-18 | Cross-border package execution #053                 |
-| Railway DPA executed (version)      | _no_                                    |            |                                                     |
-| Railway Singapore processor basis   | _pending_                               |            |                                                     |
-| ZDR approved (project)              | Yes (API zero data retention verified)  | 2026-08-18 | Ledger #053 verified; data sharing disabled         |
-| ZDR covers /responses + /embeddings | Yes (app request endpoints)             | 2026-08-18 | ZDR project scope confirmed                         |
-| ZDR zeroes prompt cache? (§6)       | Ephemeral cache (min TTL requested, §6) | 2026-08-18 | Request-side cache controls + ZDR                   |
-| Australia data residency            | _not enabled_                           |            | Transits Singapore (Railway) / US (OpenAI API)      |
-| No-training confirmed in contract   | Yes (API default + DPA clause)          | 2026-08-18 | OpenAI API terms & DPA v.010126                     |
-| APP 5/1 notice governance approval  | _pending (PIA-5)_                       |            | `/privacy` page live with configured behaviour copy |
-| Counsel sign-off (APP 8)            | Completed for OpenAI (ledger #053)      | 2026-08-18 | Ledger #053 cross-border privacy package            |
+| Field                               | Value                                                                  | Date       | Evidence                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| OpenAI org / production project id  | Personal org / Default project inspected; production-key match pending | 2026-09-01 | Authenticated Platform review; no secret values compared                    |
+| DPA executed (version)              | _repository claim: v.010126_                                           | 2026-08-18 | Ledger #053; countersigned-copy reference required                          |
+| Railway DPA executed (version)      | _no_                                                                   |            | Public DPA requires customer DocuSign + Railway execution                   |
+| Railway Singapore processor basis   | _pending_                                                              |            | Standard Exhibit A currently says sensitive/special-category data is `None` |
+| ZDR approved (project)              | _requested; approval pending_                                          | 2026-09-01 | OpenAI acknowledged the API for Enterprise sales request                    |
+| ZDR covers /responses + /embeddings | _pending_                                                              |            | No current ZDR entitlement or endpoint-coverage evidence                    |
+| ZDR zeroes prompt cache? (§6)       | _pending external confirmation_                                        |            | Provider/account evidence required                                          |
+| Australia data residency            | _not enabled_                                                          |            | Transits Singapore (Railway) / US (OpenAI API)                              |
+| API data sharing disabled           | _yes in current Platform account_                                      | 2026-09-01 | Feedback, eval/fine-tuning, and API input/output sharing all disabled       |
+| API call logging disabled           | _yes in current Platform account_                                      | 2026-09-01 | Changed from per-call control to Disabled with account-owner approval       |
+| Optional OpenAI hosted tools        | _disabled in current Platform account_                                 | 2026-09-01 | MCP, web/file search, image generation, code interpreter, container network |
+| No-training confirmed in contract   | _repository claim; external reference pending_                         | 2026-08-18 | Secure DPA reference still required                                         |
+| APP 5/1 notice governance approval  | _pending (PIA-5)_                                                      |            | `/privacy` page live with configured behaviour copy                         |
+| Counsel sign-off (APP 8)            | _repository claim; external reference pending_                         | 2026-08-18 | Privacy-adviser reference required                                          |
 
-Railway's companion contract step is also pending: complete Railway's DPA with the legal entity and
-authorised signer, retain the executed copy, and record the Singapore processor/sub-processor basis
-in the PIA. No automated action in this review accepted either provider's terms.
+Railway's companion contract step is pending: complete a Railway DPA or negotiated enterprise
+schedule with the legal entity and authorised signer, ensure the schedule expressly covers the
+actual sensitive-health-data flow, retain the executed copy, and record the Singapore
+processor/sub-processor basis in the PIA. The public DPA says it becomes binding only after Railway
+executes the submitted DocuSign and its standard Exhibit A currently lists no sensitive or
+special-category data. No automated action in this review accepted either provider's terms.
 
 ## 9. Code follow-ups triggered by the outcome
 

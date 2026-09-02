@@ -211,12 +211,20 @@ const envSchema = z.object({
     .default("false")
     .transform((value) => value === "true"),
   // #100 Phase 1: emit a governed, client-trimmed evidence preview as a verified unit on
-  // the answer stream once retrieval + ranking complete. Default OFF: server emission is
-  // enabled deliberately after the offline contract proof; rendering is a separate client
-  // flag per docs/verified-answer-incremental-delivery-design.md.
+  // the answer stream once retrieval + ranking complete. Default ON since 2026-08-27 by owner
+  // decision, after the offline contract proof and the browser journey in
+  // tests/answer-progress-ui-smoke.spec.ts proved the render path.
+  //
+  // The preview is built from the already-selected context, passes the same danger-level
+  // source-governance refusal as the final answer, and is trimmed by the same
+  // trimSourceForClient policy — retrieval, ranking, selection and the final payload are
+  // unchanged by it. Setting this to `false` is the FIRST rollback step; the client
+  // rendering gate (NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER) is the second, per
+  // docs/verified-answer-incremental-delivery-design.md. Phase 2 answer-section units remain
+  // unbuilt and provider-gated.
   RAG_INCREMENTAL_EVIDENCE_PREVIEW: z
     .enum(["true", "false"])
-    .default("false")
+    .default("true")
     .transform((value) => value === "true"),
   RAG_REGISTRY_CORPUS_EMBEDDING: z
     .enum(["true", "false"])

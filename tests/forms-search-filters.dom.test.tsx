@@ -53,6 +53,12 @@ function escapePattern(value: string) {
 }
 
 describe("FormsSearchResultsPage filters", () => {
+  it("interprets natural-language detention extension queries as form search", () => {
+    expect(
+      rankFormRecords(formRecords, "Which form extends detention?", formRecords.length, [], true)[0]?.service.slug,
+    ).toBe("form-7b");
+  });
+
   it("renders functional category, clinical-risk, and availability facets", async () => {
     const user = userEvent.setup();
     const query = "form";

@@ -6,7 +6,6 @@ import { env, isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import { buildStorageCleanupJobUpdate } from "@/lib/ingestion";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
-import { clearCachedSignedUrlsForDocument } from "@/lib/signed-url-cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { writeAuditLog } from "@/lib/audit";
@@ -239,7 +238,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (ledgerWarning) cleanup.storageWarnings.push(ledgerWarning);
 
     invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
-    clearCachedSignedUrlsForDocument(id);
     await writeAuditLog(supabase, {
       ownerId: user.id,
       action: "document_delete",

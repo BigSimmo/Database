@@ -22,7 +22,16 @@ function formatDate(iso: string): string | null {
  * every Phase 1 call site is unchanged; a page rendering a different snapshot
  * must pass its own, or it will claim to be showing the task ledger.
  */
-export function FreshnessStamp({ freshness, label = "Ledger" }: { freshness: Freshness; label?: string }) {
+export function FreshnessStamp({
+  freshness,
+  label = "Ledger",
+  status,
+}: {
+  freshness: Freshness;
+  label?: string;
+  status?: "snapshot" | "live";
+}) {
+  const isLive = status === "live" || freshness.status === "live" || freshness.mode === "live";
   const contentAt = freshness.contentAt === null ? null : formatDate(freshness.contentAt);
   const viewedAt = formatDate(freshness.viewedAt);
 
@@ -32,7 +41,20 @@ export function FreshnessStamp({ freshness, label = "Ledger" }: { freshness: Fre
       className="flex flex-wrap items-center gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
     >
       <Clock aria-hidden="true" className="size-icon-sm" />
-      {contentAt ? (
+      {isLive ? (
+        <span>
+          {contentAt ? (
+            <>
+              {label} read live · last updated {contentAt}
+              {viewedAt ? ` · viewed ${viewedAt}` : ""}
+            </>
+          ) : (
+            <>
+              {label} read live on demand{viewedAt ? ` · viewed ${viewedAt}` : ""}
+            </>
+          )}
+        </span>
+      ) : contentAt ? (
         <span>
           {/*
            * Both timestamps are labelled. An unlabelled second date beside
@@ -43,6 +65,10 @@ export function FreshnessStamp({ freshness, label = "Ledger" }: { freshness: Fre
           {label} content as of {contentAt}
           {viewedAt ? ` · viewed ${viewedAt}` : ""} · {freshness.ageHours} {freshness.ageHours === 1 ? "hour" : "hours"}{" "}
           old
+        </span>
+      ) : isLive ? (
+        <span>
+          {label} read live{viewedAt ? ` · viewed ${viewedAt}` : ""}
         </span>
       ) : (
         <span>

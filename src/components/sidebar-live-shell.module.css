@@ -50,7 +50,8 @@
 .railDivider {
   width: 2rem;
   height: 1px;
-  margin-block: 0.625rem;
+  /* 10px sat between --space-2 (8) and --space-3 (12); snap onto the 4px gap ladder. */
+  margin-block: var(--gap-tight);
   flex: none;
   background: var(--border);
 }
@@ -275,8 +276,11 @@
 
   .shell[data-collapsed="true"] .rail {
     width: 5.5rem;
-    height: calc(100dvh - 0.25rem);
-    margin: 0.125rem 0.4375rem;
+    /* Subtract the full vertical margin (--space-1 top + --space-1 bottom =
+       --space-2) so the border-box height plus margins fits 100dvh exactly. */
+    height: calc(100dvh - var(--space-2));
+    /* 2px 7px sat off the 4px space ladder; snap to --space-1 / --space-2. */
+    margin: var(--space-1) var(--space-2);
     padding: var(--radius-lg);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);

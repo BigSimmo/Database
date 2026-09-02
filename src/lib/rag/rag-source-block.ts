@@ -9,11 +9,13 @@ import {
 } from "@/lib/source-text-sanitizer";
 import type { RagQueryClass, SearchResult } from "@/lib/types";
 
-// Boundary-aware, number-safe truncation for text handed to the model (P7). A naive char-boundary
-// cut splits sentences and numbers (e.g. "150 mg" -> "...15"), feeding the model clipped clinical
-// facts. Prefer the last sentence boundary that still keeps most of the budget (end cleanly, no
-// ellipsis); otherwise cut on a word boundary and never strand a bare number whose unit/context was
-// cut off, so a dose or threshold can never be presented as a truncated figure.
+/**
+ * Performs boundary-aware, number-safe truncation of text handed to the model.
+ *
+ * @param text - Raw source text
+ * @param limit - Maximum character limit
+ * @returns Truncated text ending at sentence or word boundary with numbers preserved
+ */
 export function truncateForModel(text: string, limit: number) {
   if (text.length <= limit) return text;
   const window = text.slice(0, limit);
@@ -28,26 +30,25 @@ export function truncateForModel(text: string, limit: number) {
   return `${numberSafe || base}...`;
 }
 
+/**
+ * Strips formatting noise and whitespace, then applies boundary-aware truncation.
+ *
+ * @param text - Raw context string
+ * @param limit - Character budget
+ * @returns Compacted text suitable for model prompt inclusion
+ */
 export function compactContextText(text: string, limit: number) {
   const compact = sourceTextForModel(text).replace(/\s+/g, " ").trim();
   return truncateForModel(compact, limit);
 }
 
-// Evidence-safe compaction for the derived/context fields (synopsis, adjacent context,
-// table facts, memory cards, image table text). Two orderings matter:
-//   1. Neutralization runs AFTER glyph normalization, not before: sourceTextForModel
-//      repairs zero-width / homoglyph / ligature obfuscation (via normalizeExtractedGlyphs),
-//      so neutralizing its output — rather than the raw string — closes the
-//      "ig​nore all previous instructions" evasion where the denylist regex never
-//      matched the obfuscated raw text (threat model mitigation #3).
-//   2. escapeEvidenceFenceSentinels defuses any forged `<<<…>>>` sentinel the field
-//      carries, so an attacker who lands text in an UNfenced derived field can no longer
-//      emit a close-then-reopen pair that straddles the real evidence fence (Vector E).
-// Only result.content is wrapped in a full fence; every other field is escaped in place
-// here, which closes the same hole at a fraction of the prompt-token / latency cost of a
-// per-field wrapper (measured: full per-field wrapping added ~940 input tokens/answer and
-// tipped near-timeout strong-route answers over budget). The answerInstructions provenance
-// boundary already declares every source-derived field untrusted, fenced or not.
+/**
+ * Compacts evidence text while neutralizing prompt injection instructions and escaping fence sentinels.
+ *
+ * @param text - Source evidence text
+ * @param limit - Character limit
+ * @returns Sanitized and bounded evidence text
+ */
 export function compactEvidenceText(text: string, limit: number) {
   const compact = escapeEvidenceFenceSentinels(neutralizePromptInstructions(sourceTextForModel(text)))
     .replace(/\s+/g, " ")
@@ -55,13 +56,12 @@ export function compactEvidenceText(text: string, limit: number) {
   return truncateForModel(compact, limit);
 }
 
-// Short document-identity fields (title, file name, image caption/label/title, index
-// warnings) are NOT free clinical prose, so they skip the noise-stripping model
-// pipeline — but they still reach the prompt and were previously inserted RAW
-// (threat model Vectors B and C: a title/filename/caption is a viable injection
-// channel). Glyph-normalize first so obfuscation can't evade the denylist, then
-// neutralize, then escape any forged fence sentinel. Kept on one line; never
-// truncated, so a real source title is intact.
+/**
+ * Sanitizes identity fields (title, filename, image labels) against injection and homoglyphs.
+ *
+ * @param text - Raw identity string
+ * @returns Normalized single-line string with fence sentinels defused
+ */
 export function neutralizeIdentityField(text: string) {
   return escapeEvidenceFenceSentinels(neutralizePromptInstructions(normalizeExtractedGlyphs(text)))
     .replace(/\s+/g, " ")
@@ -142,6 +142,13 @@ function formatTableFactForSourceBlock(
   );
 }
 
+/**
+ * Builds the formatted, sanitized source evidence block provided to the model prompt.
+ *
+ * @param results - Search results to assemble into the prompt source block
+ * @param options - Contextual options such as query and classified query class
+ * @returns Formatted markdown block with governance lines, fenced excerpts, and table/image facts
+ */
 export function buildRagSourceBlock(results: SearchResult[], options?: RagSourceBlockOptions) {
   const richTableContext = richTableSourceContextEnabled(options);
   const sources = results

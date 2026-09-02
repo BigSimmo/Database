@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "11e9136a-6db8-4d3f-84c1-4d39cf18774a",
+  "createdOn": "2026-08-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "16763c67-0d53-48c9-a32d-11046a0c55d7",
+    "reason": "Understates the problem. Filed as 'the interface scan cannot express a job title', but the Task 7 re-review found the larger half: src/lib/caring-contacts/** is outside EVERY prohibited-language scan in the repository, so wording moved there is unwatched by any vocabulary check rather than merely exempt from the 'lead' rule. The record also omits that the fix is a one-line reuse of an already-tested pattern, which makes it look harder than it is. Superseded by a replacement stating both. The underlying issue is real and unchanged."
+  }
+}

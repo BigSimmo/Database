@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "428fedef-b62c-461a-8211-ce645549e2d2",
+  "createdOn": "2026-09-01",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "The document cover-thumbnail hook and its /api/documents/[id]/cover route have no product consumer since the source drawer stopped rendering a front-page thumbnail",
+    "detail": "The answer source drawer was the only caller of useDocumentCoverImageId (src/components/clinical-dashboard/use-document-cover.ts). Removing the front-page thumbnail from the drawer left that hook, and the /api/documents/[id]/cover route it fetches, reachable only from tests. check:dead-code-candidate REFUSES deletion on three counts — pinned by tests/use-document-cover.dom.test.tsx, present there as a string literal, and undateable on a shallow clone — so nothing was deleted. Decide deliberately: either a future surface adopts the cover (document detail, source rail card), or the hook, its route, its tests and the coverImageId plumbing are retired together after a deepened clone re-runs the gate. Do not delete on reachability alone.",
+    "source": "session 2026-09-01, sidebar-alignment-cleanup branch",
+    "issueUlid": "01M1DBAV5VHDAP8NRZD53XTSYQ"
+  }
+}

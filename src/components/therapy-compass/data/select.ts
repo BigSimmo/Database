@@ -1,5 +1,6 @@
 import type { Therapy } from "./types";
 import { scoreTherapyCandidate } from "@/lib/therapy-ranking";
+import { expandedSmartSearchQuery } from "@/lib/smart-search-intent";
 
 // ---- text helpers -------------------------------------------------------
 
@@ -224,8 +225,14 @@ export function matchesAvailability(therapy: Therapy, reviewedOnly: boolean, bri
   return true;
 }
 
-export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Therapy[] {
-  const q = opts.query.trim().toLowerCase();
+export function searchTherapies(
+  therapies: Therapy[],
+  opts: SearchOptions,
+  interpretNaturalLanguage = false,
+): Therapy[] {
+  const q = (interpretNaturalLanguage ? expandedSmartSearchQuery("therapy-compass", opts.query) : opts.query)
+    .trim()
+    .toLowerCase();
   const topics = new Set(opts.tags);
   const scored = therapies
     .map((t) => {

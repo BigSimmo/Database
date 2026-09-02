@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "da8e92bb-f6ac-40a5-a6d8-b2927997730f",
+  "createdOn": "2026-09-02",
+  "action": "update",
+  "payload": {
+    "id": "#AGRAKQ",
+    "detail": "NARROWED TO PLURALS; re-measured against origin/main d1bb2c197 on 2026-09-02 by executing the pattern, not by reading it. A done request (461a406d) claimed the plural case was fixed and was cancelled; the cancellation's stated reason was wrong (the row is open), but the outcome is right, because the plural case is NOT fixed. HALF DONE: tests/helpers/caring-contacts-prohibited-language.ts now carries the same negative lookbehind the message rules use -- (?<!\\b(?:incident|programme|clinical|service|team) )\\blead\\b -- so both examples this row named by name now pass. Run against the live pattern: 'incident lead' ok, 'team lead' ok, 'clinical lead' ok, 'programme lead' ok. STILL BROKEN: the alternation also contains a bare \\bleads\\b with no lookbehind, and it sits ahead of the narrowed branch, so every plural job title is still flagged -- 'clinical leads' matches on 'leads', as do 'programme leads' and 'Clinical Leads'. The commercial sense the branch exists to catch ('sales leads', 'lead generation') is correctly still flagged, so the fix is to extend the same modifier lookbehind to the plural branch rather than to delete it. Reusing COMMERCIAL_LEAD_PATTERN from src/lib/caring-contacts/message-rules.ts line 81 remains the cheapest route, and the alternative the row already allows -- recording why interface copy should be stricter than message copy -- is still open as a decision.",
+    "baseRowFingerprint": "44aac365c59873fd32faa0503d08df87d1e7b15cfc430b7e49b431d45441758b"
+  }
+}

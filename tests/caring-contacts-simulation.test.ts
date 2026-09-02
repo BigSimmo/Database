@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { assertAuditEventFreeOfPatientData, type AuditEvent } from "@/lib/caring-contacts/audit";
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import {
   actorId,
@@ -50,6 +51,7 @@ const PATIENT_DETAIL: EpisodePatientDetail = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  preferredName: "Jordy",
 };
 
 /** Discharge at 2026-03-02 10:00 AWST. Every date below is derived from this one day. */
@@ -392,14 +394,25 @@ describe("scenario 4: a pause permanently skips the contacts it covers", () => {
     expect(record?.plan.state).toBe("active");
   });
 
-  it("refuses the dispatch itself while paused, rather than the driver deciding to hold back", async () => {
+  it("lets the STORE refuse while paused, rather than the driver deciding to hold back", async () => {
     const run = await driveTwelveMonthSimulation(simulationInput({ events }));
 
-    expect(run.refusals).toContainEqual({
-      step: "startContactDispatch",
-      sequence: 4,
-      reason: "contact-dispatch-requires-active-plan",
-    });
+    // The guarantee is that the driver never decides for itself that a paused plan should be held
+    // back -- it asks the store and does what it is told. That is unchanged. WHICH store call says
+    // no moved with #PAMATF: `listSendableContacts` now consults the owning plan's state, so a
+    // paused plan's contacts are absent from the list the driver works from and the dispatch is
+    // never attempted. Previously the list offered them and the WRITE refused a beat later.
+    //
+    // Refusing before a dispatch is opened is the better order -- the sendable list is what a real
+    // dispatcher will trust, and it should not name work that cannot be done. The refusal is still
+    // recorded, and still originates in the store rather than in driver logic.
+    expect(run.refusals).toContainEqual({ step: "sendable", sequence: 4, reason: "not-sendable" });
+    expect(run.refusals).toContainEqual({ step: "sendable", sequence: 5, reason: "not-sendable" });
+
+    // The WRITE-side guard is not weakened by this and must not be allowed to rot behind the read:
+    // `startContactDispatch` refusing a non-active plan is pinned directly, against BOTH stores, by
+    // "refuses to begin a dispatch unless the plan is active" in the shared repository contract.
+    // That case takes its target before pausing, so it still reaches the write.
   });
 });
 
@@ -485,6 +498,7 @@ describe("scenario 6: a readmission never auto-resumes and never rebases", () =>
     const second = await run.store.createPlan(
       {
         planId: planId("PLAN-SIM-2"),
+        assurances: PLAN_ASSURANCE_VALUES,
         referralId: referralId("REFERRAL-SIM-2"),
         patientId: patientId("PATIENT-SIM"),
         pathwayVersionId: pathwayVersionId("PATHWAY-SIM"),
@@ -603,6 +617,15 @@ describe("scenario 7: nothing is dispatched at or after a recorded death", () =>
     const record = await run.store.getPlan(PLAN_ID, { actor: COORDINATOR });
     expect(record?.plan.state).toBe("cancelled");
     expect(await run.store.listSendableContacts(PLAN_ID, { actor: COORDINATOR })).toEqual([]);
+
+    // AND THE CONTACTS THEMSELVES, not only the list (review finding, #PAMATF). That empty list
+    // used to prove contacts 5-10 stayed `cancelled` through the correction. It no longer can: the
+    // plan gate returns `[]` from the plan state alone, so the assertion above would pass even if
+    // every contact were back in `scheduled` -- which is exactly what "nothing resumes" denies.
+    const remaining = await run.store.listContacts(PLAN_ID, { actor: COORDINATOR });
+    const undispatched = remaining.filter((entry) => entry.planned.sequence > 4);
+    expect(undispatched.length).toBeGreaterThan(0);
+    expect(undispatched.every((entry) => entry.contact.state === "cancelled")).toBe(true);
   });
 });
 

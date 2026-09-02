@@ -26,7 +26,7 @@ import {
 const now = "2026-05-18T10:00:00.000+08:00";
 const syntheticMetadata = {
   source_title: "Synthetic demonstration source",
-  publisher: "Clinical KB demo",
+  publisher: "PsychSift demo",
   jurisdiction: "Australia/WA",
   version: "demo",
   publication_date: null,

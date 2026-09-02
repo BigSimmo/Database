@@ -462,7 +462,7 @@ function findWardManagementDispatchCalls(): DispatchCallSite[] {
  * has been added and a human must read it before this guard can go green again.
  */
 const DISPATCH_CALLS_WITHOUT_A_LITERAL_TYPE: Record<string, string> = {
-  "src/components/ward-management/ward-management-console.tsx:475":
+  "src/components/ward-management/ward-management-console.tsx:482":
     'type: patient.flaggedUrgent ? "CLEAR_MOVEMENT_URGENT_FLAG" : "FLAG_MOVEMENT_URGENT" — a computed ' +
     "ternary between two literal event names. Harmless today only because NEITHER branch is " +
     "override-gated (neither event's WardFlowEvent member declares overrideReason) — if either ever " +

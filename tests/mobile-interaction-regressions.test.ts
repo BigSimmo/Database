@@ -27,15 +27,19 @@ describe("mobile interaction regressions", () => {
     const favouritesSource = source("src/components/clinical-dashboard/favourites-command-library-page.tsx");
     const differentialsHomeSource = source("src/components/clinical-dashboard/differentials-home.tsx");
 
+    // `sm:grow`, not `sm:min-h-[calc(100dvh-…)]`: these surfaces fill the shell's
+    // reserve pad by growing into it. The viewport estimate over-reserved on
+    // every route and left dead scroll on pages with nothing left to show.
     expect(presentationSource).toMatch(
-      /data-testid="differential-presentation-page"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-var\(--shell-header-h\)\)\]/,
+      /data-testid="differential-presentation-page"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:grow/,
     );
+    expect(presentationSource).not.toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
     expect(favouritesSource).toMatch(
-      /data-testid="favourites-hub"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-var\(--shell-header-h\)\)\]/,
+      /data-testid="favourites-hub"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:grow/,
     );
-    expect(favouritesSource).toContain(
-      '"grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-var(--shell-header-h))]"',
-    );
+    // The xl split rail still reaches the bottom, now against the grown hub.
+    expect(favouritesSource).toContain('"grid min-h-0 min-w-0 overflow-x-clip sm:min-h-full"');
+    expect(favouritesSource).not.toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
     // overflow-x-hidden would force overflow-y:auto and nest a scrollport under #main-content.
     expect(differentialsHomeSource).toMatch(
       /data-testid="differentials-search-results"[\s\S]*?className="[^"]*overflow-x-clip[^"]*"/,

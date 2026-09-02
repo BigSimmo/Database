@@ -656,6 +656,23 @@ describe("Lighthouse budget routing", () => {
     expect(workflow).toMatch(/workflow_dispatch:\n\s+inputs:\n\s+refresh_lighthouse_baseline:/);
   });
 
+  it("does not interpolate the lighthouse refresh dispatch input into a run script", () => {
+    // github.event.inputs is untrusted in `run:` (shell injection). Bind it through
+    // env and quote the variable. Job-level `if:` expressions may still read the
+    // input context directly — those are not a shell.
+    const classifyStep = sourceSegment(workflow, "name: Classify changed files", "sync-pr-policy-body:", {
+      label: "CI change-scope classify step",
+    });
+    const runScript = classifyStep.split(/\n\s+run:\s*\|\n/)[1] ?? "";
+    expect(runScript, "could not read the classify step run script").not.toBe("");
+    expect(classifyStep).toMatch(
+      /REFRESH_LIGHTHOUSE_BASELINE:\s*\$\{\{\s*github\.event\.inputs\.refresh_lighthouse_baseline\s*\}\}/,
+    );
+    expect(runScript).toContain('"$REFRESH_LIGHTHOUSE_BASELINE"');
+    expect(runScript).not.toContain("github.event.inputs.refresh_lighthouse_baseline");
+    expect(runScript).not.toMatch(/\$\{\{[\s\S]*?\}\}/);
+  });
+
   it("pairs promotion to pr-required with merge_group coverage", () => {
     // The budget skips merge_group ONLY because it is advisory and outside
     // pr-required, where it could add ~7 minutes of merge latency without ever

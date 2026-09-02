@@ -29,10 +29,10 @@ afterEach(async () => {
 function renderGuide() {
   const onClose = vi.fn();
   render(<GuideDialog open onClose={onClose} />);
-  return { dialog: screen.getByRole("dialog", { name: "Clinical KB guide" }), onClose };
+  return { dialog: screen.getByRole("dialog", { name: "PsychSift guide" }), onClose };
 }
 
-describe("Clinical KB Guide Centre", () => {
+describe("PsychSift Guide Centre", () => {
   /**
    * The guide carries NO composer. The bottom dock is the guided-tour action and
    * nothing else, so a text input reappearing anywhere in this dialog means the
@@ -167,7 +167,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(within(dialog).getByRole("heading", { name: "All guide topics" })).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: /Sources & citations/ }));
     expect(within(dialog).getByRole("heading", { name: "Work with sources and citations" })).toBeVisible();
-    expect(screen.getByRole("dialog", { name: "Clinical KB guide" })).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "PsychSift guide" })).toBeVisible();
   });
 
   it("opens every item in the guide contents", async () => {

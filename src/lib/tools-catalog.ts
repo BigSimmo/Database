@@ -1,4 +1,4 @@
-import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { appModeHomeHref, canAccessFavouritesMode } from "@/lib/app-modes";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
@@ -25,6 +25,7 @@ export type ToolCatalogId =
   | "differentials"
   | "documents"
   | "clinical-dictionary"
+  | "source-catalogue"
   | "guidelines"
   | "risk-safety"
   | "medication-prescribing"
@@ -61,8 +62,8 @@ export type ToolCatalogRecord = {
 export const toolCatalogRecords: ToolCatalogRecord[] = [
   {
     id: "clinical-kb-search",
-    title: "Clinical KB Search",
-    mobileTitle: "Clinical KB",
+    title: "PsychSift Search",
+    mobileTitle: "PsychSift",
     description: "Ask source-backed clinical questions and move straight to evidence.",
     bestFor: "Quick answers and guidance",
     detail: "Ask source-backed clinical questions and move straight to evidence.",
@@ -83,7 +84,11 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Build and compare diagnostic possibilities with source-aware prompts.",
     bestFor: "Broad or complex presentations",
     detail: "Compare diagnostic possibilities, supporting features, red flags, and next-step questions.",
-    href: "/differentials",
+    // Tools is in-app navigation, so go straight to the canonical shared home.
+    // The bare namespace is only a compatibility redirect for old bookmarks;
+    // sending a client transition through it can briefly retain the Tools route
+    // shell and its phone geometry before the second navigation settles.
+    href: appModeHomeHref("differentials"),
     area: "assessment",
     status: "recent",
     sourceBacked: true,
@@ -120,7 +125,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     bestFor: "Terminology and abbreviation lookup",
     detail:
       "Open concise definitions, resolve ambiguous abbreviations, compare terms, and review their direct sources.",
-    href: "/dictionary",
+    href: appModeHomeHref("dictionary"),
     area: "reference",
     status: "ready",
     sourceBacked: true,
@@ -130,6 +135,22 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Term or abbreviation", "Clinical topic or context", "Whether a distinction or comparison is needed"],
     neededInput: ["Term, abbreviation, or topic"],
     output: "Source-checked definition, related terminology, distinctions, and source links.",
+  },
+  {
+    id: "source-catalogue",
+    title: "Sources",
+    description: "Browse ranked clinical sources and their traceability.",
+    bestFor: "Source quality and provenance review",
+    detail: "Review source identity, quality bands, locations, publishers, topics, and application usage.",
+    href: "/sources",
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    actionLabel: "Browse",
+    keywords: ["sources", "catalogue", "publisher", "quality", "provenance", "traceability"],
+    checkFirst: ["Source identity", "Quality band", "Review and lifecycle status"],
+    neededInput: ["Optional title, publisher, topic, or usage filter"],
+    output: "Read-only source catalogue records with quality and traceability details.",
   },
   {
     id: "guidelines",
@@ -200,7 +221,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Open source-backed service records, referral routes, and eligibility.",
     bestFor: "Referrals and coordination",
     detail: "Open service records with referral routes, eligibility, source status, and access pathways.",
-    href: "/services",
+    href: appModeHomeHref("services"),
     area: "coordination",
     status: "ready",
     sourceBacked: true,
@@ -217,7 +238,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Find clinical forms and source-backed readiness pathways.",
     bestFor: "Forms and workflows",
     detail: "Open form search, readiness checks, pathway tasks, and source-backed records.",
-    href: "/forms",
+    href: appModeHomeHref("forms"),
     area: "coordination",
     status: "ready",
     sourceBacked: true,
@@ -287,7 +308,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     bestFor: "Bedside scoring and severity banding",
     detail:
       "Search and complete clinical calculators (PHQ-9, GAD-7, CSSRS, and related scales). Scores support clinical judgement and cite their source — they never replace a full assessment.",
-    href: "/calculators",
+    href: appModeHomeHref("calculators"),
     area: "assessment",
     status: "ready",
     sourceBacked: true,
@@ -423,6 +444,7 @@ export function rankToolRecords(
     fullText: toolSearchText,
     contentWeight: 2,
     phraseBonus: 4,
+    exactValues: (tool) => [normalizeSearchText(tool.actionLabel)],
     expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.title.localeCompare(right.title),

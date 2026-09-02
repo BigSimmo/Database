@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { FormulationHomePage } from "@/components/formulation/formulation-home-page";
 
 export const metadata: Metadata = {
-  title: "Search clinical formulation | Clinical KB",
+  title: "Search clinical formulation | PsychSift",
   description: "Search formulation mechanisms by pattern, clinical clue and hypothesis.",
 };
 

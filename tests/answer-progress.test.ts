@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   answerProgressDisplayMessage,
+  answerProgressPreviewMessage,
   answerProgressStepIndex,
+  answerProgressTookUnusualRoute,
   normalizeAnswerProgressEvent,
 } from "../src/components/clinical-dashboard/answer-progress";
 import { toPublicAnswerProgressEvent } from "../src/lib/answer-progress-public";
@@ -103,7 +105,7 @@ describe("answer progress events", () => {
     const progress = normalizeAnswerProgressEvent({ message: "Selected fast route using private-model-marker." });
 
     expect(progress).toMatchObject({ stage: "ranking" });
-    expect(answerProgressDisplayMessage(progress!)).toBe("Selecting the most relevant source passages.");
+    expect(answerProgressDisplayMessage(progress!)).toBe("Selecting the most relevant passages\u2026");
     expect(answerProgressDisplayMessage(progress!)).not.toMatch(/fast|private|model|route/i);
   });
 
@@ -116,9 +118,74 @@ describe("answer progress events", () => {
       waSourceCount: 4,
     });
 
-    expect(answerProgressDisplayMessage(progress!)).toBe("Prioritising 4 Australian source passages, including 4 WA.");
+    expect(answerProgressDisplayMessage(progress!)).toBe("Prioritising Australian sources\u2026");
     expect(answerProgressStepIndex("fallback")).toBe(3);
-    expect(answerProgressDisplayMessage({ stage: "fallback", message: "private" })).toContain("source-backed answer");
+    expect(answerProgressDisplayMessage({ stage: "fallback", message: "private" })).toBe(
+      "Assembling the answer from the sources directly\u2026",
+    );
+  });
+
+  // The rule the whole wait is built on: no number the reader cannot reconcile
+  // with something on screen. `resultCount` is candidate chunks — commonly 24
+  // where the answer cites three — so a reader who takes "24" away has been told
+  // the wrong thing about how much evidence is behind their answer, whatever
+  // noun sat beside it. `australianSourceCount` fails the same test as a ratio,
+  // so the fact survives without the figure.
+  it("prints no count the reader cannot reconcile with the screen", () => {
+    const line = (stage: "retrieving" | "retrieved" | "ranking", extra: Record<string, number> = {}) =>
+      answerProgressDisplayMessage({ stage, message: "private", ...extra });
+
+    expect(line("retrieving")).toBe("Searching your documents\u2026");
+    expect(line("retrieved")).toBe("Searching your documents\u2026");
+    expect(line("retrieved", { resultCount: 24 })).toBe("Searching your documents\u2026");
+    expect(line("ranking", { australianSourceCount: 4, waSourceCount: 2 })).toBe(
+      "Prioritising Australian sources\u2026",
+    );
+
+    for (const stage of ["scoping", "retrieving", "retrieved", "ranking", "generating", "verifying"] as const) {
+      expect(
+        answerProgressDisplayMessage({ stage, message: "private", resultCount: 24, australianSourceCount: 4 }),
+      ).not.toMatch(/\d/);
+    }
+  });
+
+  // The single exception, and it counts exactly the cards rendered beneath the
+  // line — so a reader can check it by looking down.
+  it("prints one count, and only for the sources actually on screen", () => {
+    expect(answerProgressPreviewMessage(0, "generating")).toBeNull();
+    expect(answerProgressPreviewMessage(1, "generating")).toBe("1 source found \u00b7 writing the answer\u2026");
+    expect(answerProgressPreviewMessage(3, "generating")).toBe("3 sources found \u00b7 writing the answer\u2026");
+    expect(answerProgressPreviewMessage(6, "fallback")).toBe(
+      "6 sources found \u00b7 assembling the answer from them\u2026",
+    );
+    expect(answerProgressPreviewMessage(6, "verifying")).toBe("6 sources found \u00b7 checking the citations\u2026");
+    // Before generation starts it states the count only — claiming the answer is
+    // being written while ranking is still running would be a lie the reader
+    // cannot see through.
+    expect(answerProgressPreviewMessage(3, "ranking")).toBe("3 sources found");
+  });
+
+  // The wait is where a reader should learn the answer is being assembled without
+  // the model, rather than meeting a source-only answer that then has to defend
+  // itself.
+  it("names the unusual route while it is happening", () => {
+    expect(answerProgressDisplayMessage({ stage: "fallback", message: "private" })).toMatch(/sources directly/);
+    expect(answerProgressDisplayMessage({ stage: "retrying", message: "private" })).toMatch(/Revising the draft/);
+  });
+
+  // A routine answer has nothing to disclose, which is why the retired Processing
+  // details panel held the same five stages for every question. Only a
+  // non-ordinary route earns the disclosure.
+  it("offers the build disclosure only when the answer left the ordinary route", () => {
+    const ordinary = (["scoping", "retrieving", "ranking", "generating", "verifying", "complete"] as const).map(
+      (stage) => ({ stage, message: "private" }),
+    );
+
+    expect(answerProgressTookUnusualRoute(ordinary)).toBe(false);
+    expect(answerProgressTookUnusualRoute([...ordinary, { stage: "fallback", message: "private" }])).toBe(true);
+    expect(answerProgressTookUnusualRoute([...ordinary, { stage: "retrying", message: "private" }])).toBe(true);
+    expect(answerProgressTookUnusualRoute([...ordinary, { stage: "cached", message: "private" }])).toBe(true);
+    expect(answerProgressTookUnusualRoute([])).toBe(false);
   });
 
   it("rejects invalid progress objects and clamps safe counts", () => {

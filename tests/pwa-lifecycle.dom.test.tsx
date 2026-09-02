@@ -231,9 +231,9 @@ describe("PwaLifecycle", () => {
     const user = userEvent.setup();
     render(<PwaLifecycle />);
 
-    expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument();
     const prompt = dispatchInstallEligibility();
-    const installRegion = await screen.findByRole("region", { name: "Install Clinical KB" });
+    const installRegion = await screen.findByRole("region", { name: "Install PsychSift" });
     expect(installRegion).toBeInTheDocument();
     expect(installRegion).toHaveTextContent("Clinical guidelines on your home screen.");
     expect(installRegion).toHaveTextContent(
@@ -259,7 +259,7 @@ describe("PwaLifecycle", () => {
 
     expect(await screen.findByText("Update available")).toBeInTheDocument();
     dispatchInstallEligibility();
-    expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument();
     expect(waitingWorker.postMessage).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Reload" }));
@@ -305,23 +305,21 @@ describe("PwaLifecycle", () => {
       const user = userEvent.setup();
       const { unmount } = render(<PwaLifecycle />);
 
-      const hint = await screen.findByRole("region", { name: "Install Clinical KB" });
+      const hint = await screen.findByRole("region", { name: "Install PsychSift" });
       expect(hint).toHaveTextContent("In Safari, tap Share, then Add to Home Screen.");
       expect(hint).toHaveTextContent("Private clinical features still require a connection.");
-      expect(screen.getByRole("list", { name: "Add Clinical KB to your Home Screen" })).toHaveTextContent(
+      expect(screen.getByRole("list", { name: "Add PsychSift to your Home Screen" })).toHaveTextContent(
         "1. Tap Share2. Add to Home Screen",
       );
       expect(screen.queryByRole("button", { name: "Install app" })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Not now" }));
-      await waitFor(() =>
-        expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument(),
-      );
+      await waitFor(() => expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument());
       expect(Number(window.localStorage.getItem("clinical-kb-pwa-ios-install-dismissed-at"))).toBeGreaterThan(0);
 
       unmount();
       render(<PwaLifecycle />);
-      expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument();
     } finally {
       delete (navigator as { userAgent?: string }).userAgent;
     }
@@ -519,11 +517,14 @@ body:has(
     ]);
   });
 
-  it("top-aligns the sm+ hero canvas from first paint so a bottom-right install card cannot overlap the composer", () => {
+  it("top-aligns only constrained sm+ hero canvases so tall desktops remain centred", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
-    expect(styles).toContain("@media (min-width: 640px) and (max-width: 1919.98px)");
+    expect(styles).toContain("@media (min-width: 640px) and (max-width: 1919.98px) and (max-height: 1279.98px)");
     expect(styles).toContain(
       '#main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {\n    place-items: start center;\n    align-content: start;',
+    );
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) and \(max-width: 1919\.98px\) \{\s*#main-content\[data-phone-footer-owner="hero"\] \[data-mode-home-canvas\] \{/,
     );
     expect(styles).not.toContain("body:has(.pwa-notice-stack) #main-content");
     expect(styles).not.toMatch(

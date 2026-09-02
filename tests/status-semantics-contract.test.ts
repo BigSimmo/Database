@@ -5,15 +5,17 @@ import { describe, expect, it } from "vitest";
 import {
   findColourOnlyStatusIndicatorsInSource,
   findStatusColouredNumeralsInSource,
+  listPrimitiveRecipeSourcePaths,
+  readPrimitiveRecipeSources,
 } from "../scripts/design-system-contract-utils.mjs";
 
 const owners = [
   "src/components/calculators/calculator-ui.tsx",
-  "src/components/ui-primitives.tsx",
+  ...listPrimitiveRecipeSourcePaths(),
   "src/components/clinical-dashboard/visual-evidence.tsx",
-] as const;
+];
 
-function source(path: (typeof owners)[number]) {
+function source(path: string) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
@@ -34,7 +36,7 @@ describe("clinical status semantics", () => {
   });
 
   it("distinguishes ready, review, and muted markers by geometry as well as tone", () => {
-    const primitives = source("src/components/ui-primitives.tsx");
+    const primitives = readPrimitiveRecipeSources();
     expect(primitives).toContain("statusDotReady = `${statusMarkerBase} rounded-full border-2");
     expect(primitives).toContain("statusDotReview = `${statusMarkerBase} rotate-45 rounded-sm");
     expect(primitives).toContain("statusDotMuted = `${statusMarkerBase} rounded-full bg");

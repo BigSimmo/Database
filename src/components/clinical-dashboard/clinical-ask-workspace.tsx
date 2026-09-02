@@ -8,7 +8,15 @@ import { ClinicalAskAnswerSurface } from "./clinical-ask-answer-surface";
 import { useClinicalAskSession } from "./clinical-ask-session-context";
 import { clinicalAskWorkspaceVisible } from "./use-clinical-ask-shell-state";
 
-export function ClinicalAskWorkspace({ onDraftChange }: { onDraftChange?(draft: string): void } = {}) {
+export function ClinicalAskWorkspace({
+  onDraftChange,
+  onRun,
+  onReturnToSearch,
+}: {
+  onDraftChange?(draft: string): void;
+  onRun?(question: string): void;
+  onReturnToSearch?(): void;
+} = {}) {
   const router = useRouter();
   const session = useClinicalAskSession();
   const [contextOpen, setContextOpen] = useState(false);
@@ -37,7 +45,7 @@ export function ClinicalAskWorkspace({ onDraftChange }: { onDraftChange?(draft: 
         out.
       </p>
       {identifierShapeWarning(session.draft) ? (
-        <p role="alert">Remove identifiable details before using Clinical Ask or the microphone.</p>
+        <p role="alert">Remove identifiable details before using Smart mode.</p>
       ) : null}
       {session.submitted ? <p role="status">Clinical Ask is gathering governed evidence…</p> : null}
       {session.response ? (
@@ -51,6 +59,16 @@ export function ClinicalAskWorkspace({ onDraftChange }: { onDraftChange?(draft: 
             session.setDraft(value, session.mode ?? undefined);
             onDraftChange?.(value);
           }}
+          onRetry={onRun ? () => onRun(session.submittedQuestion || session.draft) : undefined}
+          onContinue={onRun ? () => onRun(session.submittedQuestion || session.draft) : undefined}
+          onReturnToSearch={
+            onReturnToSearch
+              ? () => {
+                  session.clear();
+                  onReturnToSearch();
+                }
+              : undefined
+          }
           feedbackMetadata={session.feedback}
         />
       ) : null}

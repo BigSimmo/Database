@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "373b1aa3-596e-4d5f-bc4f-b05ad44a76f5",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: the workspace's first client boundary has no browser evidence that it hydrates",
+    "detail": "Found in the Phase 2B Task 7 review, 2026-08-25. The activation wizard (`src/components/caring-contacts/workspace/plan-wizard/`) is the first deliberate Client Component in this workspace; every other screen is a Server Component that works with JavaScript disabled. Its draft state uses `useSyncExternalStore` with a `getServerSnapshot`, and that hydration argument is the most novel thing in the diff. All six new Playwright cases land on the no-referral state, and one explicitly asserts `caring-contacts-plan-wizard` has count 0 — so the boundary is proved in jsdom only, which has no RSC payload and performs no hydration. The implementer's reason for not fabricating a referral id is sound and was accepted: the isolated Playwright server seeds no referrals, and a fabricated id would have rendered the identical screen while claiming to prove a stage. So this is a genuine coverage gap rather than a shortfall in the task. Close it when something in the workspace lists referrals and a browser case can reach the wizard with a real one — at that point assert the wizard mounts, a draft value survives a reload, and the notice renders.",
+    "issueUlid": "01M0VMKFRC5V7S3FRSY89TR1AA"
+  }
+}

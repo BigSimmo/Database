@@ -51,6 +51,57 @@ describe("Clinical Ask SSE contract", () => {
     expect(() => parseClinicalAskSseFrame(frame)).toThrow();
   });
 
+  it("fails closed on answered payloads without governed evidence", () => {
+    const response = {
+      state: "answered",
+      mode: "services",
+      lead: { id: "lead", text: "Synthetic claim", evidenceIds: [] },
+      sections: [],
+      evidence: [],
+      conflicts: [],
+      missingInformation: [],
+      followUps: [],
+      handoffs: [],
+    };
+    expect(() =>
+      parseClinicalAskSseFrame(
+        `event: final\ndata: ${JSON.stringify({ type: "final", payload: { response, feedback: null } })}\n\n`,
+      ),
+    ).toThrow();
+  });
+
+  it("rejects visible claims that reference unknown evidence", () => {
+    const evidence = {
+      id: "e1",
+      tier: "catalogue",
+      title: "Synthetic source",
+      publisher: "Synthetic publisher",
+      jurisdiction: null,
+      href: "/synthetic",
+      extract: "Synthetic extract",
+      reviewState: "reviewed",
+      publishedAt: null,
+      updatedAt: null,
+      retrievedAt: null,
+    };
+    const response = {
+      state: "answered",
+      mode: "services",
+      lead: { id: "lead", text: "Synthetic claim", evidenceIds: ["missing"] },
+      sections: [],
+      evidence: [evidence],
+      conflicts: [],
+      missingInformation: [],
+      followUps: [],
+      handoffs: [],
+    };
+    expect(() =>
+      parseClinicalAskSseFrame(
+        `event: final\ndata: ${JSON.stringify({ type: "final", payload: { response, feedback: null } })}\n\n`,
+      ),
+    ).toThrow();
+  });
+
   it("enforces monotonic progress and one terminal event", () => {
     const encoder = new ClinicalAskSseEncoder();
     encoder.encode({ type: "progress", stage: "indexed", elapsedMs: 1 });
@@ -60,6 +111,32 @@ describe("Clinical Ask SSE contract", () => {
     expect(() =>
       terminal.encode({ type: "error", code: "internal_error", retryable: false, message: "safe" }),
     ).toThrow();
+  });
+
+  it("does not commit a malformed final event before a safe terminal error", () => {
+    const encoder = new ClinicalAskSseEncoder();
+    expect(() =>
+      encoder.encode({
+        type: "final",
+        payload: {
+          response: {
+            state: "answered",
+            mode: "services",
+            lead: { id: "lead", text: "Unsupported", evidenceIds: [] },
+            sections: [],
+            evidence: [],
+            conflicts: [],
+            missingInformation: [],
+            followUps: [],
+            handoffs: [],
+          },
+          feedback: null,
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      encoder.encode({ type: "error", code: "synthesis_invalid", retryable: false, message: "Failed safely." }),
+    ).not.toThrow();
   });
 
   it("turns malformed provider-like stream data into a generic failure", async () => {

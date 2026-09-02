@@ -195,14 +195,28 @@ describe("SearchPinsMenu", () => {
     expect(screen.getByRole("button", { name: /Choose another search area/ })).toBeInTheDocument();
   });
 
-  it("renders every supplied mode action", async () => {
+  it("renders every supplied mode action as a disclosure group item", async () => {
     const user = userEvent.setup();
     const onAction = vi.fn();
     renderMenu({ actions: longActionList, onAction });
 
-    expect(screen.getByRole("menuitem", { name: "Search sources" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Tables" })).toBeInTheDocument();
-    await user.click(screen.getByRole("menuitem", { name: "Open source PDF" }));
+    expect(screen.getByRole("group", { name: "Useful actions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search sources" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tables" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Open source PDF" }));
     expect(onAction).toHaveBeenCalledWith("documents-viewer");
+  });
+
+  it("closes the mode picker on Escape without dismissing the surrounding menu", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderMenu({ onClose });
+
+    await user.click(screen.getByRole("button", { name: /Choose another search area/ }));
+    expect(screen.getByRole("heading", { name: "Choose a search area" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("heading", { name: "Your pins" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

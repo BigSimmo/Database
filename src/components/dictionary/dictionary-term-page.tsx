@@ -21,7 +21,11 @@ import { inPageActionRowClass } from "@/components/in-page-nav/in-page-nav-class
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import {
+  InformationPageFooter,
+  InformationPageHeader,
+  InformationPageShell,
+} from "@/components/information-page-shell";
 import { cn } from "@/components/ui-primitives";
 import {
   dictionaryEntrySources,
@@ -94,14 +98,10 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
           {/* A `div`, not a `main`: `InformationPageShell` already renders the
               route's `<main>`, and a nested one is a duplicate landmark. */}
           <div className="min-w-0 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              <span>{dictionaryKindLabel(entry.kind)}</span>
-              <span aria-hidden="true">·</span>
-              <span>Australian terminology</span>
-            </div>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-              {entry.term}
-            </h1>
+            <InformationPageHeader
+              eyebrow={`${dictionaryKindLabel(entry.kind)} · Australian terminology`}
+              title={entry.term}
+            />
             <div className="mt-4 grid grid-cols-[0.1875rem_minmax(0,1fr)] overflow-hidden rounded-r-lg border border-l-0 border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45">
               <span className="bg-[color:var(--clinical-accent)]" aria-hidden="true" />
               <div className="px-4 py-4 sm:px-5">
@@ -115,7 +115,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
               {topic ? (
                 <Link
                   href={`/dictionary/topics/${topic.slug}`}
-                  className="inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)]"
+                  className="inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)]"
                 >
                   Topic: {topic.title}
                 </Link>
@@ -249,7 +249,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
                         href={source.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex min-h-tap items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline sm:min-h-10"
+                        className="inline-flex min-h-tap items-center gap-2 text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline sm:min-h-10"
                       >
                         {source.organisation}: {source.title}
                         <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -311,7 +311,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
                   href={source.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="border-b border-[color:var(--border)] py-3 text-sm font-bold text-[color:var(--clinical-accent)]"
+                  className="border-b border-[color:var(--border)] py-3 text-sm font-semibold text-[color:var(--clinical-accent)]"
                 >
                   <span className="block">{source.organisation}</span>
                   <span className="mt-0.5 block text-xs font-medium leading-4 text-[color:var(--text-muted)]">
@@ -329,7 +329,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
             </dl>
             <Link
               href="/dictionary/sources"
-              className="mt-5 inline-flex min-h-10 items-center gap-1 text-sm font-bold text-[color:var(--clinical-accent)]"
+              className="mt-5 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-[color:var(--clinical-accent)]"
             >
               Review method
               <ArrowRight className="h-4 w-4" aria-hidden="true" />

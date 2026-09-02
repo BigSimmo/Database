@@ -1,12 +1,12 @@
 "use client";
 
 import type { ChangeEvent, ReactNode } from "react";
-import { Filter, Search, X } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
+import { AppliedFilters, type AppliedFilter } from "@/components/ui/applied-filters";
 import { TextField } from "@/components/ui/text-field";
 import { Select } from "@/components/ui/select";
-import type { AppliedFilterChip } from "@/components/clinical-dashboard/search-results-header-band";
 
 export type CatalogueToolbarSearchProps = {
   query: string;
@@ -46,7 +46,7 @@ export type CatalogueToolbarProps = {
   /** Filter trigger configuration or custom trigger. */
   filterTrigger?: CatalogueToolbarFilterTriggerProps | ReactNode;
   /** Active filter chips shown below or alongside the toolbar. */
-  appliedFilters?: readonly AppliedFilterChip[];
+  appliedFilters?: readonly AppliedFilter[];
   /** Callback when the user clears all applied filters. */
   onClearFilters?: () => void;
   /** Match count / results readout. */
@@ -98,7 +98,6 @@ export function CatalogueToolbar({
   className,
   testId = "catalogue-toolbar",
 }: CatalogueToolbarProps) {
-  const hasAppliedFilters = appliedFilters.length > 0;
   const pluralNoun = noun.endsWith("s") ? noun : `${noun}s`;
   const singularNoun = noun;
   const countLabel =
@@ -207,43 +206,14 @@ export function CatalogueToolbar({
         </div>
       </div>
 
-      {/* Applied Filter Chips Strip */}
-      {hasAppliedFilters ? (
-        <div data-testid="catalogue-applied-filters" className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="text-xs font-semibold text-[color:var(--text-muted)] mr-1">Active filters:</span>
-          {appliedFilters.map((chip) => (
-            <span
-              key={chip.id}
-              data-testid="catalogue-applied-chip"
-              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-0.5 text-xs font-semibold text-[color:var(--clinical-accent)]"
-            >
-              <span>
-                {chip.groupLabel ? <span className="opacity-75">{chip.groupLabel}: </span> : null}
-                {chip.valueLabel}
-              </span>
-              <button
-                type="button"
-                onClick={chip.onRemove}
-                aria-label={`Remove filter ${chip.accessibleLabel ?? (chip.groupLabel ? `${chip.groupLabel}: ${chip.valueLabel}` : chip.valueLabel)}`}
-                className="grid h-4 w-4 place-items-center rounded-full text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-contrast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
-              >
-                <X className="h-3 w-3" aria-hidden />
-              </button>
-            </span>
-          ))}
-
-          {onClearFilters ? (
-            <button
-              type="button"
-              data-testid="catalogue-clear-filters"
-              onClick={onClearFilters}
-              className="inline-flex min-h-tap items-center px-2 text-xs font-bold text-[color:var(--text-muted)] underline underline-offset-2 hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              Clear all
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      <AppliedFilters
+        filters={appliedFilters}
+        onClearAll={onClearFilters}
+        className="pt-1"
+        testId="catalogue-applied-filters"
+        chipTestId="catalogue-applied-chip"
+        clearTestId="catalogue-clear-filters"
+      />
     </div>
   );
 }

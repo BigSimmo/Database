@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8da94bed-bb86-433e-9ad3-c4ac92a7331b",
+  "createdOn": "2026-09-02",
+  "action": "update",
+  "payload": {
+    "id": "#59JT7W",
+    "detail": "RE-VERIFIED STILL OPEN against origin/main d1bb2c197 on 2026-09-02. A done request (c862828e) claimed this was resolved because resolveClosingContactMessageBody and tests/caring-contacts-message-policy.test.ts exist. It was cancelled, and cancelling it was correct -- but for a different reason than the one recorded, so pinning the measurement here to stop a third attempt closing the row on the same mistake. The function existing was never what this row asked for. MEASURED: grep for resolveClosingContactMessageBody across src/**/*.ts and src/**/*.tsx returns exactly two hits -- its own definition at src/lib/caring-contacts/message-policy.ts:208, and a prose mention in a doc comment at src/lib/caring-contacts/message-copy.ts:121. There is still no production caller. The tests at tests/caring-contacts-message-policy.test.ts:477 exercise the function directly, which proves the refusal is correct but not that anything is obliged to ask for it, so the guard remains one a future sender can bypass by resolving a closing body some other way. The row's own stop rule is unchanged and still binding: do not record approved copy item A4 as closed. The blocker is also unchanged -- PlannedContact in schedule.ts carries messageType and no body, so there is still no seam to wire this to, and inventing one means deciding where an authored closing body comes from.",
+    "baseRowFingerprint": "35db31cbc98f2b2c4626258e7799465a1d6f2be5df2964e089feac7730cc9fdd"
+  }
+}

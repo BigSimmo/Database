@@ -298,7 +298,7 @@ describe("PWA service worker cache and lifecycle policy", () => {
     const shellCache = await worker.caches.open(cacheNames[0]);
     const offlineResponse = await shellCache.match("/offline.html");
     expect(await offlineResponse?.text()).toBe(OFFLINE_DOCUMENT);
-    expect(OFFLINE_DOCUMENT).toContain("Clinical KB is offline");
+    expect(OFFLINE_DOCUMENT).toContain("PsychSift is offline");
     expect(OFFLINE_DOCUMENT).toMatch(/does not store or\s+replay clinical queries, answers, documents/);
     expect(worker.networkFetch).toHaveBeenCalledTimes(3);
     for (const [request] of worker.networkFetch.mock.calls) {

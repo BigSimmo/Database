@@ -52,12 +52,19 @@ const APPROVED_SHARED_MODULES = new Map([
   ["@/components/contextual-back-link", "shared back navigation"],
   ["@/lib/form-register", "shared form registration"],
   ["@/lib/client-store-factory", "shared client-side store helper"],
+  [
+    "@/components/ui/missing-value",
+    "the repository-wide missing-value glyph. Added 2026-09-03 by the merge with main, which " +
+      "had adopted it in the discharge board and the console: a null blocker is a release a " +
+      "blocker cannot apply to, and a bare dash collapsed that into the same glyph as a blocker " +
+      "nobody wrote down. Ward Flow must not fork its own copy of that distinction",
+  ],
 ]);
 
 /**
  * Files outside Ward Flow that hardcode its route. Not imports, so there is no code coupling — but
  * every one needs editing on the day Ward Flow leaves, so a guard counting only imports would
- * report a seam of seven when it is seven plus these. Named individually rather than counted,
+ * report a seam of eight when it is eight plus these. Named individually rather than counted,
  * because a count of four tells the next reader nothing about which four are legitimate.
  */
 const APPROVED_ROUTE_REFERENCES = new Map([
@@ -132,7 +139,7 @@ describe("ward flow keeps its seam with the rest of the repository", () => {
   const wardFiles = WARD_DIRS.flatMap(sourceFiles);
   const allSourceFiles = sourceFiles("src");
 
-  it("reaches outward for no shared module beyond the approved seven", () => {
+  it("reaches outward for no shared module beyond the approved eight", () => {
     const reached = new Map<string, string[]>();
     for (const file of wardFiles) {
       for (const specifier of moduleSpecifiers(file)) {
@@ -208,7 +215,7 @@ describe("ward flow keeps its seam with the rest of the repository", () => {
     // asserting only "no violations" passes exactly as cleanly when its allowlists have been
     // deleted, or when it scanned nothing at all, as when the code is right. An absent signal reads
     // exactly like a passing one.
-    expect(APPROVED_SHARED_MODULES.size).toBe(7);
+    expect(APPROVED_SHARED_MODULES.size).toBe(8);
     expect(APPROVED_ROUTE_REFERENCES.size).toBe(4);
     expect(wardFiles.length).toBeGreaterThan(50);
     expect(allSourceFiles.length).toBeGreaterThan(wardFiles.length);

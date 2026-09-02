@@ -11,13 +11,238 @@ npm run sitemap:update
 npm run sitemap:check
 ```
 
+## Mockup index, by topic
+
+A quick-scan catalogue of every route under `src/app/mockups/` and what state it's in, so
+nobody has to open 72 folders to find out what's still useful. `docs/site-map.md` remains
+the authoritative list of exact live paths (regenerate it after any change here); this
+table exists to group those paths by topic and record a status for each one.
+
+**When a mockup may be deleted, and by whom, is
+[`docs/mockup-retirement-policy.md`](../docs/mockup-retirement-policy.md).** This index is the
+record that policy gates on, and `npm run check:mockups` fails when the two drift apart.
+
+**Status key** — _Prototype app_: a full working tool, not a design sketch, out of scope
+for cleanup. _Chosen design_: the direction that was picked; still runnable for reference.
+_Active study_: still-relevant design work with no single "winner" yet, or reference
+material behind a chosen design. _Redirect_: a legacy URL kept for compatibility.
+_Superseded — recommend removing_: explicitly and in writing replaced by a later version,
+with no other mockup depending on it. _Parallel draft, no recorded winner_: one of several
+competing drafts on the same brief where nothing in the repo says which one (if any) was
+picked — kept as-is rather than guessed at.
+
+### Full prototype apps (out of scope for cleanup)
+
+| Route                | What it is                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `development/**`     | Developer hub — reads repo status (docs index, ingestion status, task ledger, review records, route map). Linked from Settings for signed-in admins.       |
+| `care-plan/**`       | Fully synthetic care-planning prototype (management/patient/safety plans, presentations, review), richly cross-linked.                                     |
+| `caring-contacts/**` | Fully synthetic Caring Contacts coordination prototype.                                                                                                    |
+| `ward-flow/**`       | Synthetic ward patient-flow prototype (capacity, discharge board, escalation, handover, live vehicle tracker, etc.), cross-linked via its own sidebar nav. |
+
+### Redirects
+
+| Route                    | Forwards to                |
+| ------------------------ | -------------------------- |
+| `favourites-hub`         | `/favourites`              |
+| `medication-prescribing` | `/medications/acamprosate` |
+
+### Favourites page
+
+| Route                        | Status                                               |
+| ---------------------------- | ---------------------------------------------------- |
+| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above. |
+
+Six earlier studies (`favourites-command-console`, `favourites-command-desk`,
+`favourites-library-view`, `favourites-review-console`, `favourites-set-board`,
+`favourites-set-navigator`) were removed on 2026-08-27, along with their shared
+component folder `favourites-page-mockups/` — confirmed superseded by
+`favourites-phone-perfected` and confirmed (by import search) to have no other
+route depending on them before removal.
+
+### Services filter surface — three sequential rounds, keep together
+
+| Route                     | Status                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `services-filter-refined` | Round 1. Round 2 imports its facet engine, chips and sheet shell — do not remove independently. |
+| `services-filter-options` | Round 2, builds on round 1's code.                                                              |
+| `filter-sheet-restyle`    | Round 3, a craft pass on the same decision.                                                     |
+
+### Tools page
+
+| Route                                                                                                                                                                                                                              | Status                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tools-search-mode`                                                                                                                                                                                                                | Chosen design — "Perfected Tools search mode" per this README.                                                                                                                                |
+| `tools-search-directions`                                                                                                                                                                                                          | Shipped — direction A landed in #1958. Issue `#162` closed 2026-08-15; the file is kept because `tests/tools-search-directions-mockups.test.ts` compares it against the live tools catalogue. |
+| `tools-action-workbench`, `tools-clinical-lanes`, `tools-command-center`, `tools-split-clinical-brief`, `tools-split-compact-sheet`, `tools-split-pane`, `tools-split-safety-deck`, `tools-task-directory`, `tools-workflow-board` | Parallel drafts, no recorded winner — nine different Tools-page layout directions.                                                                                                            |
+
+### Privacy page
+
+| Route                           | Status                                                      |
+| ------------------------------- | ----------------------------------------------------------- |
+| `privacy-live-signal-perfected` | Chosen design.                                              |
+| `privacy-page-directions`       | Active reference — the full study behind the chosen design. |
+
+### Document navigation pane — five rounds, no recorded winner
+
+**Corrected 2026-09-02 — there is a winner, and the earlier "no recorded winner" reading was
+wrong.** Commit `6230c4db` (#1311) added all five drafts _and_ the production implementation
+together, which is why the dates looked undifferentiated.
+
+| Route                              | Status                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `document-navigation-perfected`    | **Shipped.** Its weighted `flexGrow: section.weight` track and `pending` spinner exist in `document-viewer/section-nav.tsx` and in no other draft; rule 22 of `docs/search-chrome-behaviour.md`, added by the same commit, names that "weighted position track".                                                                                                                                   |
+| `document-navigation-contract`     | Active reference — superseded as a build, but it is the origin of rule 22 and keeps that rule's illustrated rationale.                                                                                                                                                                                                                                                                             |
+| `document-navigation-final-review` | Retired 2026-09-02 — unweighted track, no pending state.                                                                                                                                                                                                                                                                                                                                           |
+| `document-navigation-final`        | **Partly adopted — kept.** Its two-column grid was reversed by the review round, but production `document-viewer/section-nav.tsx:143` uses ITS heading (`flex items-baseline justify-between px-0.5 pb-2`), a string found in exactly two files repo-wide and absent from `perfected`. Production is a hybrid of the two, so this is not superseded. Restored 2026-09-02 after adversarial review. |
+| `document-navigation-pane`         | Retired 2026-09-02 — `section-nav.tsx` refuses its thesis in the same commit that added it.                                                                                                                                                                                                                                                                                                        |
+
+### Document phone chrome — four rounds, no recorded winner
+
+**Corrected 2026-09-02.** None of the four shipped: the phone header shipped from
+`document-navigation-perfected` above. `document-phone-zero-chrome` supplied the "zero new
+chrome, sheet not pane" contract but not the drawn row.
+
+`document-phone-title`, `document-phone-title-refined`, `document-phone-fused-directions` and
+`document-phone-title`, `document-phone-title-refined` and `document-phone-fused-directions`
+were retired 2026-09-02.
+
+`document-phone-zero-chrome` is **kept, unresolved.** Its "zero new chrome, sheet not pane"
+contract is live (rule 22, and `section-nav.tsx:227-229`), but the kept
+`document-navigation-contract` carries that same thesis verbatim, and both landed in the one
+squash `6230c4db` so git cannot say which authored it. It also uniquely holds the numeric
+chrome-budget comparison that is the quantified case against the rejected fused row. It was
+proposed for retirement on 2026-09-02 and withdrawn after adversarial review returned
+UNCERTAIN — the policy's negative rule applies: an unevidenced generation is asked about, not
+retired.
+
+### Document search & viewer
+
+| Route                                                                          | Status                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `document-search` (+ `search`, `source`, `source/evidence`, `source-overlays`) | Active reference — the master runnable document-search flow. `/issues` `#008` records that removing it "breaks the build": it is what keeps `documentReaderHref`/`documentEvidenceHref` alive. The handoff into the real document viewer is built by the master module, **not** by `source-overlays`, which contains no hrefs at all (corrected 2026-09-02). |
+| `document-search-evidence-lens`                                                | Parallel draft, no recorded winner.                                                                                                                                                                                                                                                                                                                          |
+| `document-search-triage-board`                                                 | Parallel draft, no recorded winner.                                                                                                                                                                                                                                                                                                                          |
+| `document-top-navigation`                                                      | Active study — three nav concepts shown side by side, not competing routes.                                                                                                                                                                                                                                                                                  |
+| `document-image-status`                                                        | Fixture backing a component test — keep.                                                                                                                                                                                                                                                                                                                     |
+| `accessible-table-browser-fixture`                                             | Keep — the only 320 px harness for the production `AccessibleTable`, used by the manual journey recorded in `/issues` `#237`. Corrected 2026-09-02: no committed test navigates to it, so it backs a manual check, not an automated one.                                                                                                                     |
+
+### Dictionary browse header — three rounds, keep all three
+
+`dictionary-browse-header`, `dictionary-browse-header-compact`, `dictionary-control-row` —
+see the dated write-ups below; each attacks a different part of the same header. Round two's
+Version 01 is the one that actually shipped to `/dictionary/browse` (confirmed against the
+shipping commit, corrected below — the write-up briefly recorded the wrong version as chosen).
+None of the three routes supersedes another at the route level — round two and round three both
+import code from round one's component file, so all three stay regardless.
+
+### Search chrome & composer
+
+`search-band-directions`, `search-heading`, `search-lens-menu`, `search-refine-adaptive`,
+`mode-dropdown`, `phone-inpage-navigation`, `recent-searches-bottom`, `pinned-plus-menu`,
+`universal-search-command`, `universal-search-redesign`, `sidebar-live` — parallel drafts,
+no recorded winner for any of them.
+
+### Calculators
+
+**Corrected 2026-09-02 — this was the stalest entry in this file.** These were never
+undecided: PR #1227 (`5475fcfb`, 2026-07-26) _moved_ the whole `calculator-mockups/` tree into
+`src/components/calculators/` as production, and #1362 re-created the mockup copies three days
+later purely so `/mockups/*` would stop importing production code. Every design here is live.
+
+The tree is interconnected (all eight routes share `calculator-fixtures.ts` and
+`calculator-ui.tsx`) and `tests/calculator-mockup-boundary.test.ts` reads two of its files from
+disk, so it comes out as one unit or not at all. All eight are kept:
+`calculators-bedside-sheet`, `calculators-clinical-console`, `calculators-directory-grid`,
+`calculators-guided-flow`, `calculators-popup-sheet`, `calculators-search`,
+`calculators-search-page`, `calculators-show-all`.
+
+**Known divergence, tracked separately:** production `calculator-pathways.ts` was cut from 296
+lines to 65 by #2491 on clinical-safety grounds; the mockup copy still carries the deterministic
+prescribing, ECT, admission and referral advice that was removed. These routes 404 in
+production, so this is not a patient-facing exposure, but it is a real divergence — see the
+`/issues` inbox request filed 2026-09-02.
+
+### Settings
+
+`settings-search-clinical`, `settings-search-general`, `settings-search-privacy` — parallel
+drafts, no recorded winner.
+
+### Answer / chat
+
+**Corrected 2026-09-02.** These were not parallel drafts, and the earlier reading of this
+section was wrong. `answer-chat-perfected` and `answer-chat-perfected-v2` are sequential
+halves of one design that shipped in full; the repo does say so in writing, in four commit
+bodies and three production source comments, which the earlier pass did not search.
+
+| Route                      | Status                                                                                                                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `answer-chat-perfected`    | Shipped — direction A refined, built by #2362. Also a **shared base**: `answer-chat-perfected-v2` and `answer-loading-redesign` import it, so it cannot be removed.                            |
+| `answer-chat-perfected-v2` | Shipped — applied to the live answer surface by #2388; `answer-content.tsx` cites this route as the approved reference.                                                                        |
+| `answer-loading-redesign`  | Shipped — direction B, applied 2026-08-27; `AnswerProgressStepper` is gone.                                                                                                                    |
+| `answer-chat-redesign`     | Superseded as a design (direction A won) but **kept**: it is the three-way comparison the winner was chosen from, cited by the answer handover doc and by `answer-chat-perfected-mockups.tsx`. |
+| `answer-evidence-popups`   | Retired 2026-09-02 — the five-tab Evidence sheet #2362 explicitly replaced.                                                                                                                    |
+| `answer-home-proposal`     | Retired 2026-09-02 — its copy never shipped, and #1512 overtook it before its own PR merged.                                                                                                   |
+
+### Factsheets
+
+`factsheets-compact-view`, `factsheets-topics-phone` — parallel drafts, no recorded winner.
+
+### Therapy navigation
+
+`therapy-navigation-context`, `therapy-navigation-dock`, `therapy-navigation-rail` — three
+named directions, cross-linked to each other for comparison, no recorded winner.
+
+### One-off studies
+
+| Route                        | Status                                                                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                       |
+| `verification-notice-subtle` | Active study, no recorded winner.                                                                                                         |
+| `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                 |
+| `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass. |
+| `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                            |
+
+Static (non-route) design comps under `public/mockups/mode-page-redesign-2026-07/` are
+already documented below and are not part of this route index.
+
+## Retired mockups
+
+The durable record of every mockup removed from this repository, required by
+[`docs/mockup-retirement-policy.md`](../docs/mockup-retirement-policy.md) and enforced by
+`npm run check:mockups`: a route deleted without an entry here fails the gate, and an entry
+here for a route that still exists fails it too. Recover any of these from git history if the
+alternatives need re-reading — that is the archive, and a second copy of design scratch is the
+problem this policy exists to prevent.
+
+| Retired    | Route                              | Superseded by                    | Evidence                                                                                                                                       |
+| ---------- | ---------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-09 | `breadcrumb-header`                | Direction 02, shipped            | Removed once 02 shipped; the write-up below is the durable record.                                                                             |
+| 2026-08-27 | `favourites-command-console`       | `favourites-phone-perfected`     | Written successor plus a confirmed import search.                                                                                              |
+| 2026-08-27 | `favourites-command-desk`          | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-library-view`          | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-review-console`        | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-set-board`             | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-08-27 | `favourites-set-navigator`         | `favourites-phone-perfected`     | As above.                                                                                                                                      |
+| 2026-09-02 | `document-navigation-pane`         | `document-navigation-perfected`  | `section-nav.tsx` refuses its anchored-rail thesis in `6230c4db`, the same commit that added both.                                             |
+| 2026-09-02 | `document-navigation-final-review` | `document-navigation-perfected`  | Immediate predecessor: unweighted track and no pending state, where production is weighted and has one.                                        |
+| 2026-09-02 | `document-phone-title`             | `document-navigation-perfected`  | Recommends a drop pane; production uses the shared `Sheet`.                                                                                    |
+| 2026-09-02 | `document-phone-title-refined`     | `document-navigation-perfected`  | Still a pane, and keeps `Plus` in the row where production uses `Ellipsis`.                                                                    |
+| 2026-09-02 | `document-phone-fused-directions`  | `document-navigation-perfected`  | Commits to "a pane that pushes the document down rather than covering it" — what production refuses.                                           |
+| 2026-09-02 | `answer-home-proposal`             | Not applicable — nothing adopted | Its corpus-name subtitle and governance line never shipped; #1512 removed the badge independently, hours before this mockup's own PR merged.   |
+| 2026-09-02 | `answer-evidence-popups`           | `answer-chat-perfected`          | #2362 names the five-tab Evidence sheet as one of "four mental models for one question" and replaced all four with one source rail and drawer. |
+
+Their shared component folder `favourites-page-mockups/` went with them on 2026-08-27. That
+retirement — a named written successor **and** a confirmed import search — is the precedent the
+policy's evidence bar is drawn from.
+
 ## Design tokens
 
 Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clinical-accent`, `--success`) from [`docs/redesign/02-design-direction.md`](../docs/redesign/02-design-direction.md). Older design-exploration mockups were removed in July 2026 so stale palettes do not mislead future design review.
 
 ## Global search shell
 
-Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header and bottom search composer from `src/app/mockups/layout.tsx`.
+Runnable mockups under `src/app/mockups/*` inherit the shared PsychSift header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
 - Favourites mockups and Tools mockups that provide their own primary search surface keep the shared app header but hide the bottom composer.
@@ -86,8 +311,12 @@ dropdown on phones** and moves **Abbreviations out of the header into the Filter
 | Version                        | Phone chrome | Trade-off                                                           |
 | ------------------------------ | ------------ | ------------------------------------------------------------------- |
 | 01 Title bar + letter dropdown | 2 rows       | Title still costs a row the mode nav already implies                |
-| 02 Single fused row (rec.)     | 1 row        | An active filter chip costs the row its title and count at 390 px   |
+| 02 Single fused row            | 1 row        | An active filter chip costs the row its title and count at 390 px   |
 | 03 Slim toolbar, title retired | 1 slim bar   | Phone loses its visual page title; depends on the mode nav above it |
+
+**Shipped: Version 01**, not the recommendation the study opened with — the commit that shipped this study to
+`/dictionary/browse` records "Version 01 is the chosen direction" (PR #2143). `dictionary-control-row`'s later study
+builds on that outcome.
 
 Demoting a view switch into a sheet hides state, so each version surfaces an active **Abbreviations** chip beside the
 letter control. Without it the header would claim 96 terms while listing 24 abbreviations.
@@ -119,7 +348,7 @@ Continue with its own action, Recent with View all, type pills and per-row Open 
 > composer and they hand the screen back to the list.
 
 Narrowing means the user is hunting for something specific, and a resume affordance is not what they
-asked for. Measured: **one** saved row above the fold on arrival, **seven** the moment you narrow. A
+asked for. Measured: **no** saved row fully above the fold on arrival (one partly), **seven** the moment you narrow. A
 degraded load also falls back to the strip — with the failure notice plus both full cards, **zero**
 saved rows fitted, which is the wrong screen to show nothing on.
 

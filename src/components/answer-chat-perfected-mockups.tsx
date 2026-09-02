@@ -1029,7 +1029,7 @@ export function DesktopFrame({ caption, children }: { caption: string; children:
       </figcaption>
       <div
         style={{ height: DESKTOP_HEIGHT }}
-        className="relative flex overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--background)] shadow-[var(--shadow-soft)]"
+        className="relative flex overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--background)] shadow-[var(--e2)]"
       >
         <div
           aria-hidden="true"
@@ -1071,7 +1071,7 @@ export function Panel({
   return (
     <section
       id={id}
-      className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4"
+      className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4"
     >
       <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{step}</p>
       <h2 className="mt-1.5 text-lg font-semibold text-[color:var(--text-heading)]">{title}</h2>
@@ -1278,7 +1278,7 @@ export function AnswerChatPerfectedMockupsPage() {
   return (
     <main className="min-h-screen bg-[color:var(--background)] px-3 py-4 text-[color:var(--text)] sm:px-6 sm:py-6">
       <div className="mx-auto max-w-7xl space-y-5">
-        <header className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+        <header className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <span
               aria-hidden="true"
@@ -1287,7 +1287,7 @@ export function AnswerChatPerfectedMockupsPage() {
               <ShieldCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-              Clinical KB · answer page · direction A, finished
+              PsychSift · answer page · direction A, finished
             </p>
           </div>
           <h1 className="mt-3 text-2xl font-semibold text-[color:var(--text-heading)] sm:text-3xl">

@@ -19,12 +19,12 @@ export async function generateMetadata({ params }: MedicationPageProps): Promise
   const record = getMedicationRecord(slug);
   if (!record) {
     return {
-      title: "Medication | Clinical KB",
+      title: "Medication | PsychSift",
     };
   }
 
   return {
-    title: `${record.name} | Clinical KB`,
+    title: `${record.name} | PsychSift`,
     description: `${record.name} prescribing summary, dosing, safety checks, monitoring, access, and provenance.`,
   };
 }

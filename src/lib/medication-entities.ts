@@ -261,6 +261,7 @@ propranolol
 psyllium
 pyridoxine
 quetiapine
+ramipril
 reboxetine
 riboflavin
 risedronate
@@ -274,6 +275,7 @@ semaglutide
 senna
 sertraline
 sildenafil
+simvastatin
 sitagliptin
 sodium chloride
 sodium nitroprusside
@@ -352,8 +354,10 @@ const medicationIdentityGroups = [
   ["paliperidone", "invega"],
   ["promethazine", "phenergan"],
   ["quetiapine", "seroquel"],
+  ["ramipril", "tritace", "ramace", "prilace"],
   ["risperidone", "risperdal"],
   ["sertraline", "zoloft"],
+  ["simvastatin", "zocor", "lipex", "simvar"],
   ["valproate", "sodium valproate", "valproic acid", "epilim"],
   ["ziprasidone", "ziprasidone im"],
   ["zuclopenthixol", "zuclopenthixol acetate", "zuclopenthixol decanoate"],

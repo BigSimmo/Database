@@ -60,3 +60,25 @@ failed GitHub check. Missing baselines and other non-comparison failures stay re
 The job runs post-land, weekly, or manually rather than on pull requests and merge
 queues. Setup or artifact-upload failures can still fail the job because they leave
 no trustworthy evidence to review.
+
+## Human adoption checklist (Linux goldens)
+
+The six canonical Linux PNGs are **already tracked** in `tests/__screenshots__/linux/`:
+
+- `dashboard-shell.png`
+- `dashboard-shell-phone.png`
+- `search-results-band.png`
+- `search-results-band-phone.png`
+- `document-viewer.png`
+- `therapy-compass-home.png`
+
+Do **not** list those ids in `AWAITING_BASELINE` while the files exist. `declares no baseline it already has` fails if a committed golden remains exempted. Keep `AWAITING_BASELINE` empty unless a golden is actually deleted (or a new target is added with no PNG yet).
+
+Tracked pixels are not human adoption. Adoption stays `not-committed` / `files: []` / provenance pending until a human reviews a hosted **ubuntu-24.04** artifact:
+
+1. Download the `visual-baseline-<run_id>` artifact from that hosted run.
+2. Human review (BigSimmo): the candidate PNGs under `test-results/visual-candidates/linux/` are the design, not a race.
+3. If replacing goldens, copy the reviewed files into `tests/__screenshots__/linux/` in the same commit as provenance / `reviewed-by-login`.
+4. Keep `AWAITING_BASELINE` empty unless a golden is actually deleted.
+
+Local Windows captures are not Linux goldens. `win32/` images do not gate CI.

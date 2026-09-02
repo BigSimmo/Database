@@ -4,7 +4,7 @@ import { FactsheetsTopicsPage } from "@/components/factsheets/factsheets-topics-
 import { resolveFactsheetTopicParam } from "@/components/factsheets/factsheets-data";
 
 export const metadata: Metadata = {
-  title: "Factsheet topics | Clinical KB",
+  title: "Factsheet topics | PsychSift",
   description: "Browse patient information factsheets organised by topic.",
 };
 

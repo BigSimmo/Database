@@ -6,9 +6,9 @@ import { sharedHomeDocumentTitle, sharedHomePresentation } from "@/lib/ui-copy";
 
 describe("shared home metadata", () => {
   it.each([
-    [undefined, "Clinical Answers | Clinical KB"],
-    ["dictionary", "Clinical Dictionary | Clinical KB"],
-    ["therapy-compass", "Therapy | Clinical KB"],
+    [undefined, "Clinical Answers | PsychSift"],
+    ["dictionary", "Clinical Dictionary | PsychSift"],
+    ["therapy-compass", "Therapy | PsychSift"],
   ])("describes the selected %s mode", async (mode, title) => {
     const metadata = await generateMetadata({
       searchParams: Promise.resolve(mode ? { mode } : {}),
@@ -22,7 +22,7 @@ describe("shared home metadata", () => {
       searchParams: Promise.resolve({ mode: "not-a-mode" }),
     });
 
-    expect(metadata.title).toBe("Clinical Answers | Clinical KB");
+    expect(metadata.title).toBe("Clinical Answers | PsychSift");
   });
 
   it("covers every app mode from the canonical presentation map", async () => {
@@ -30,14 +30,14 @@ describe("shared home metadata", () => {
       const metadata = await generateMetadata({ searchParams: Promise.resolve({ mode }) });
 
       expect(metadata.title).toBe(sharedHomeDocumentTitle(mode));
-      expect(metadata.title).toBe(`${sharedHomePresentation[mode].title} | Clinical KB`);
+      expect(metadata.title).toBe(`${sharedHomePresentation[mode].title} | PsychSift`);
     }
   });
 
   it.each([
-    [[], "Clinical Answers | Clinical KB"],
-    [["dictionary", "therapy-compass"], "Clinical Dictionary | Clinical KB"],
-    [["not-a-mode", "dictionary"], "Clinical Answers | Clinical KB"],
+    [[], "Clinical Answers | PsychSift"],
+    [["dictionary", "therapy-compass"], "Clinical Dictionary | PsychSift"],
+    [["not-a-mode", "dictionary"], "Clinical Answers | PsychSift"],
   ])("handles adversarial repeated mode parameters %#", async (mode, title) => {
     const metadata = await generateMetadata({ searchParams: Promise.resolve({ mode }) });
 

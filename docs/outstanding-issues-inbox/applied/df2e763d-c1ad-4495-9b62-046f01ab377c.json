@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "df2e763d-c1ad-4495-9b62-046f01ab377c",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#DHAR98",
+    "outcome": "Harden all SECURITY DEFINER functions with explicit pg_temp search_path.",
+    "baseRowFingerprint": "6b48f98ff45c5da04938941ef7e710737aaad2933831e1f7211b1f04f0ff2cb5"
+  }
+}

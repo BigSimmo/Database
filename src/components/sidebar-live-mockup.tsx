@@ -465,7 +465,7 @@ export function SidebarLiveMockupPage() {
         aria-label="Clinical Guide sidebar mockup"
         className={cn(
           styles.rail,
-          "flex flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]",
+          "flex flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)]",
         )}
       >
         <div className={cn(styles.expandedContent, styles.contentEntrance, "min-h-0 flex-1 flex-col gap-4")}>

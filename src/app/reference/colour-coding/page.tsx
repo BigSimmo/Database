@@ -6,7 +6,7 @@ import { SHARED_APP_HOME_ROUTE } from "@/lib/reference-routes";
 import { cn, searchPageCanvas, searchPageContainer, searchPageShellStandalone } from "@/components/ui-primitives";
 
 export const metadata: Metadata = {
-  title: "Colour coding reference — Clinical KB",
+  title: "Colour coding reference — PsychSift",
   description:
     "The site-wide badge colour system: what each tone means and which signals are flagged in each content area.",
 };

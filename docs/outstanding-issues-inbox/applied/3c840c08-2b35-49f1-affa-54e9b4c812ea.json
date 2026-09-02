@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "3c840c08-2b35-49f1-affa-54e9b4c812ea",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Caring Contacts: no browser evidence exists for any activation-wizard stage, including a two-write middle state where a clinician presses a writing control a second time",
+    "detail": "Root cause, unchanged since Task 7: the isolated Playwright server seeds no referral, and the wizard route requires one, so every browser case lands on the no-referral state and one explicitly asserts the wizard has count 0. Three implementers independently declined to fabricate a referral id, correctly — it would render the identical screen while claiming to prove a stage. What that leaves unproven has grown with each task and is now the largest coverage gap in the workspace. (1) HYDRATION: the wizard is the first deliberate Client Component here — every other screen is a Server Component that works with JavaScript disabled — and its draft uses useSyncExternalStore with a getServerSnapshot. jsdom has no RSC payload and performs no hydration, so that argument is untested. (2) THE SENSITIVE INPUTS: the patient's name and mobile number, and the fictional-number caution beside them, have no evidence at 320px, in dark, under forced colours, or in print. Tap-target assertions read the class rather than the rendered box. (3) THE TWO-WRITE MIDDLE STATE, and this is the one that raises the priority: stage 4 creates the plan and then starts it, and created-but-not-started is a reachable, recoverable state whose screen tells a clinician the plan exists and that pressing again finishes THE SAME plan. It is the only screen in this workspace that asks someone to press a writing control a second time, and it has never been seen in a browser. (4) Two type=date inputs and a live schedule preview whose content changes with the chosen date. Close it when something in the workspace lists referrals and a browser case can reach the wizard with a real one; at that point assert the wizard mounts, a draft value survives a reload, the caution renders, and the created-but-not-started screen appears and its second press is safe.",
+    "issueUlid": "01M0WQBV16JZA0XKVSZGA1VJX0"
+  }
+}

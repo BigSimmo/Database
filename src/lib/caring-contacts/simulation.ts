@@ -8,9 +8,12 @@
 // timeline, ask, and record the answer. Where it appears to decide something, it is reading a
 // value that another module owns:
 //
-//   * what may be sent          -> the store's `listSendableContacts`, which keys off contact
-//                                  state and never off `sendAt`. A suppressed contact is stored
-//                                  terminal, so it cannot appear there at all;
+//   * what may be sent          -> the store's `listSendableContacts`, which keys off the owning
+//                                  plan's state and then the contact's, and never off `sendAt`. A
+//                                  suppressed contact is stored terminal, so it cannot appear there
+//                                  at all; since #PAMATF a held plan's contacts cannot either, so a
+//                                  paused plan refuses at this step rather than at the dispatch
+//                                  write a beat later;
 //   * whether a send is on time -> `isWithinApprovedSendWindow` from ./schedule, plus the
 //                                  contact's own calendar day, so a retry can never roll into a
 //                                  later day and be sent late;
@@ -27,6 +30,7 @@ import type { AuditEvent } from "./audit";
 import type { Clock } from "./clock";
 import { awstCalendarDay } from "./clock";
 import type { HospitalStatusEvent, WithdrawalOrigin } from "./hospital-events";
+import { PLAN_ASSURANCE_VALUES } from "./assurances";
 import { idempotencyKey } from "./ids";
 import type { PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
 import type { ProviderStatus, SendingPreference, TransitionResult } from "./model";
@@ -193,6 +197,11 @@ export async function driveTwelveMonthSimulation(input: SimulationInput): Promis
       firstContactDate: input.plan.firstContactDate,
       firstContactReason: input.plan.firstContactReason,
       patientDetail: input.plan.patientDetail,
+      // A simulation walks a synthetic plan through its whole life, so it attests what a real
+      // sign-up attests: `createPlan` refuses a plan carrying no attestation, and a simulation that
+      // sent one confirmation would be rehearsing a path the wizard cannot produce -- stage 1 will
+      // not advance until every confirmation is made.
+      assurances: PLAN_ASSURANCE_VALUES,
     },
     asCoordinator("create"),
   );

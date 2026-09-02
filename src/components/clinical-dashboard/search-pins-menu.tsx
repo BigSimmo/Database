@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -79,7 +79,7 @@ function PinIcons({ pin }: { pin: SearchPin }) {
             )}
             style={{ zIndex: shown.length - index }}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon aria-hidden="true" className="h-3.5 w-3.5" />
           </span>
         );
       })}
@@ -136,6 +136,32 @@ export function SearchPinsMenu({
   const editorNoticeId = useId();
   const currentMode = appModeDefinition(currentModeId);
   const CurrentModeIcon = appModeIcons[currentModeId];
+  const actionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  function focusActionItem(index: number) {
+    if (!actions.length) return;
+    const nextIndex = (index + actions.length) % actions.length;
+    actionRefs.current[nextIndex]?.focus();
+  }
+
+  function handleActionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+      event.preventDefault();
+      focusActionItem(index + 1);
+    } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusActionItem(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusActionItem(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusActionItem(actions.length - 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+    }
+  }
 
   useEffect(() => {
     const syncStoredPins = (event: StorageEvent) => {
@@ -168,6 +194,18 @@ export function SearchPinsMenu({
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [editor]);
+
+  useEffect(() => {
+    if (!showModePicker) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setShowModePicker(false);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [showModePicker]);
 
   function persistPins(next: SearchPin[]) {
     const normalized = writeSearchPins(next);
@@ -618,16 +656,19 @@ export function SearchPinsMenu({
         <SectionHeading variant="menu-kicker" headingLevel={3}>
           Useful actions
         </SectionHeading>
-        <div className="grid grid-cols-2 gap-1.5" role="menu" aria-label="Useful actions">
-          {actions.map((action) => {
+        <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Useful actions">
+          {actions.map((action, index) => {
             const Icon: LucideIcon = action.icon;
             return (
               <button
                 key={action.id}
+                ref={(element) => {
+                  actionRefs.current[index] = element;
+                }}
                 type="button"
-                role="menuitem"
                 aria-label={action.label}
                 onClick={() => onAction(action.id)}
+                onKeyDown={(event) => handleActionKeyDown(event, index)}
                 className={cn(
                   "flex min-h-12 items-center gap-2 rounded-xl px-2.5 text-left hover:bg-[color:var(--surface-subtle)]",
                   focusRing,

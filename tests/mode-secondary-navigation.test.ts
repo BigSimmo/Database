@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { appModeIds, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
+import { appModeIds, dsmSearchHref, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
   MODE_NAV_ADOPTED_MODES,
@@ -28,6 +28,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Review"],
   factsheets: ["Search", "Topics"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
+  sources: ["Catalogue", "Topics", "Publishers", "Method"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -46,6 +47,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "therapy-compass": "/therapy-compass",
   factsheets: "/factsheets",
   dictionary: "/dictionary",
+  sources: "/sources",
 };
 
 /**
@@ -67,9 +69,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 15 modes with the approved destinations and no Home item", () => {
+  it("covers all 16 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(15);
+    expect(appModeIds).toHaveLength(16);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -88,11 +90,19 @@ describe("mode secondary navigation registry", () => {
     }
   });
 
+  it("routes DSM Search tab to the catalogue search surface", () => {
+    expect(modeSecondaryNavigationRegistry.dsm[0]).toMatchObject({
+      id: "search",
+      label: "Search",
+      href: dsmSearchHref,
+    });
+  });
+
   it("suppresses clean landing pages, and still opens the bar after a submitted search", () => {
     for (const modeId of appModeIds) {
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: false }),
-      ).toBe(false);
+      ).toBe(modeId === "sources");
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: true }),
       ).toBe(true);
@@ -135,6 +145,16 @@ describe("mode secondary navigation registry", () => {
       isModeSecondaryNavigationRoute({
         modeId: "specifiers",
         pathname: "/specifiers/with-anxious-distress",
+        hasSubmittedSearch: false,
+      }),
+    ).toBe(false);
+    for (const pathname of ["/sources", "/sources/topics", "/sources/publishers", "/sources/method"]) {
+      expect(isModeSecondaryNavigationRoute({ modeId: "sources", pathname, hasSubmittedSearch: false })).toBe(true);
+    }
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "sources",
+        pathname: "/sources/src_detail",
         hasSubmittedSearch: false,
       }),
     ).toBe(false);
@@ -261,6 +281,51 @@ describe("mode secondary navigation registry", () => {
       }),
     ).toBe("/factsheets/search?category=Medicines");
 
+    // Search is the CURRENT tab on /dsm/search, so its own link must not reset
+    // what you are looking at. `run` is carried with the query because dropping
+    // it flips hasSubmittedModeSearch and re-places the composer.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "search",
+        href: dsmSearchHref,
+        currentSearchParams: new URLSearchParams("q=depression&category=mood&run=1"),
+      }),
+    ).toBe("/dsm/search?q=depression&category=mood&run=1");
+
+    // Search still carries category and support filters from the results URL
+    // even when there is no query — Compare does not read those params.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "search",
+        href: dsmSearchHref,
+        currentSearchParams: new URLSearchParams("category=mood&support=specifiers"),
+      }),
+    ).toBe("/dsm/search?category=mood&support=specifiers");
+
+    // Search restores the last query and re-opens results even when the prior
+    // tab URL did not carry run=1 (e.g. Compare with a carried query).
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "search",
+        href: dsmSearchHref,
+        currentSearchParams: new URLSearchParams("q=depression&ids=major-depressive-disorder"),
+      }),
+    ).toBe("/dsm/search?q=depression&run=1&ids=major-depressive-disorder");
+
+    // Compare reuses URL-backed selection so ticks on search survive ModeNav
+    // handoff without a second client store.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "compare",
+        href: "/dsm/compare",
+        currentSearchParams: new URLSearchParams("q=depression&ids=major-depressive-disorder,bipolar"),
+      }),
+    ).toBe("/dsm/compare?q=depression&ids=major-depressive-disorder%2Cbipolar");
+
     // Topics is category browse: it reads neither param, so carrying them there
     // would only put dead query string into a URL people share.
     expect(
@@ -294,6 +359,29 @@ describe("mode secondary navigation registry", () => {
         ),
       }),
     ).toBe("/therapy-compass/compare?q=trauma&run=1&ids=cbt%2Cact&topic=Anxiety&density=dense");
+
+    for (const [itemId, href] of [
+      ["catalogue", "/sources"],
+      ["topics", "/sources/topics"],
+      ["publishers", "/sources/publishers"],
+    ] as const) {
+      expect(
+        modeSecondaryNavigationHref({
+          modeId: "sources",
+          itemId,
+          href,
+          currentSearchParams: new URLSearchParams("q=RANZCP&usedBy=dictionary&band=A"),
+        }),
+      ).toBe(`${href}?q=RANZCP&usedBy=dictionary`);
+    }
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "sources",
+        itemId: "method",
+        href: "/sources/method",
+        currentSearchParams: new URLSearchParams("q=RANZCP&usedBy=dictionary"),
+      }),
+    ).toBe("/sources/method");
   });
 
   it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
@@ -308,6 +396,7 @@ describe("mode secondary navigation registry", () => {
       "dsm",
       "factsheets",
       "formulation",
+      "sources",
       "specifiers",
       "therapy-compass",
     ]);
@@ -361,6 +450,11 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/topics/assessment-and-measurement")).toBe(
       "topics",
     );
+    expect(activeModeSecondaryNavigationId("sources", "/sources")).toBe("catalogue");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/topics")).toBe("topics");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/publishers")).toBe("publishers");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/method")).toBe("method");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/src_detail")).toBeNull();
 
     // The `registry[modeId][0]?.id` fallback is gone. A mode with no branch and
     // no entries has no current destination, rather than silently lighting its
@@ -401,6 +495,7 @@ describe("information page classification", () => {
     "/dsm/diagnoses/major-depressive-disorder",
     "/dsm/diagnoses/major-depressive-disorder/differentials",
     "/documents/11111111-1111-4111-8111-111111111111",
+    "/sources/src_example",
   ])("classifies %s as an information page", (pathname) => {
     expect(isInformationPage(pathname)).toBe(true);
   });
@@ -419,6 +514,10 @@ describe("information page classification", () => {
     "/differentials/compare",
     "/dsm/compare",
     "/documents/search",
+    "/sources",
+    "/sources/topics",
+    "/sources/publishers",
+    "/sources/method",
   ])("does not classify workflow route %s as an information page", (pathname) => {
     expect(isInformationPage(pathname)).toBe(false);
   });

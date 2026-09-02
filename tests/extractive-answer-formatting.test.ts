@@ -6,9 +6,11 @@ import {
 } from "../src/lib/answer-verification";
 import {
   buildExtractiveAnswer,
+  documentSupportListIntent,
   finalizeRagAnswerQuality,
   generatedAnswerQualityFailureReason,
   hasMaximumDoseEvidence,
+  isBareDocumentSupportListAnswer,
   isExplicitEscalationQuery,
   isProviderSourceGapGeneratedAnswer,
   isSafeExtractiveFallbackCandidate,
@@ -2672,5 +2674,73 @@ describe("monitoring evidence gate parity (run-#60 miss class)", () => {
     ]);
     const plain = (answer.answer ?? "").replace(/\*\*/g, "");
     expect(plain).toMatch(/3 hours/i);
+  });
+
+  describe("bare document title list guard (#S4R2W3)", () => {
+    const bareTitleList =
+      "I found 3 indexed documents that support this query: Aggression and Agitation Management Procedure; High Risk Assessment and Clinical Escalation; Clinical De-escalation Protocol.";
+
+    it("identifies bare document support list answers", () => {
+      expect(isBareDocumentSupportListAnswer(bareTitleList)).toBe(true);
+      expect(isBareDocumentSupportListAnswer("I found one indexed document that supports this query: Policy A.")).toBe(
+        true,
+      );
+      expect(
+        isBareDocumentSupportListAnswer("Aggression management begins with verbal de-escalation in a calm area."),
+      ).toBe(false);
+    });
+
+    it("rejects bare document support list answers for substantive clinical queries", () => {
+      const candidate: RagAnswer = {
+        answer: bareTitleList,
+        grounded: true,
+        confidence: "medium",
+        citations: [
+          {
+            chunk_id: "doc-1",
+            title: "Aggression Procedure",
+            document_id: "doc-1",
+            file_name: "Aggression Procedure.pdf",
+            page_number: 1,
+            chunk_index: 0,
+          },
+        ],
+        sources: [{ id: "doc-1", title: "Aggression Procedure", document_id: "doc-1", content: "..." } as SearchResult],
+        unverifiedNumericTokens: [],
+      };
+
+      const clinicalQuery = "What is the duress procedure pathway?";
+      const clinicalQueryClass: RagQueryClass = "unsupported_or_general";
+      expect(documentSupportListIntent(clinicalQuery, clinicalQueryClass)).toBe(false);
+      expect(generatedAnswerQualityFailureReason(candidate, clinicalQuery, clinicalQueryClass)).toBe(
+        "bare_document_title_list",
+      );
+      expect(isSafeExtractiveFallbackCandidate(candidate, clinicalQuery, clinicalQueryClass)).toBe(false);
+    });
+
+    it("accepts bare document support list answers when the query explicitly asks for supporting documents", () => {
+      const candidate: RagAnswer = {
+        answer: bareTitleList,
+        grounded: true,
+        confidence: "medium",
+        citations: [
+          {
+            chunk_id: "doc-1",
+            title: "Aggression Procedure",
+            document_id: "doc-1",
+            file_name: "Aggression Procedure.pdf",
+            page_number: 1,
+            chunk_index: 0,
+          },
+        ],
+        sources: [{ id: "doc-1", title: "Aggression Procedure", document_id: "doc-1", content: "..." } as SearchResult],
+        unverifiedNumericTokens: [],
+      };
+
+      const docQuery = "Which documents support lithium monitoring?";
+      const docQueryClass: RagQueryClass = "document_lookup";
+      expect(documentSupportListIntent(docQuery, docQueryClass)).toBe(true);
+      expect(generatedAnswerQualityFailureReason(candidate, docQuery, docQueryClass)).toBeNull();
+    });
   });
 });

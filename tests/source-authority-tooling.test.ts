@@ -40,6 +40,24 @@ describe("source authority metadata tooling", () => {
     });
   });
 
+  it("recognizes the Office of the Chief Psychiatrist as a WA authority", () => {
+    expect(
+      classifySourceAuthority({
+        publisher_code: "OCP WA",
+        publisher: "Office of the Chief Psychiatrist WA",
+        jurisdiction: "Australia/WA",
+        document_status: "current",
+        clinical_validation_status: "locally_reviewed",
+        extraction_quality: "good",
+      }),
+    ).toMatchObject({
+      authorityKey: "office-of-the-chief-psychiatrist-wa",
+      authority: { scope: "wa" },
+      designation: "trusted",
+      conflict: false,
+    });
+  });
+
   it("prefers the document identity over parent health-service path segments", () => {
     expect(
       inferSourceAuthorityFromIdentity(
@@ -109,7 +127,7 @@ describe("source authority metadata tooling", () => {
       source_path: "WA Health/EMHS/Registry/emhs-crisis-service.json",
       metadata: {
         source_kind: "registry_record",
-        publisher: "Clinical KB registry",
+        publisher: "PsychSift registry",
         jurisdiction: "WA/local clinical workspace",
       },
     });

@@ -6,6 +6,9 @@ import { HUB_PANELS, panelsInGroup } from "@/lib/developer-area/hub-panels";
 import { CARING_CONTACT_MOCKUP_ROUTES } from "@/components/caring-contacts/mockups/routes";
 import { CARE_PLAN_ROUTES } from "@/components/care-plan/mockups/routes";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("hub panels", () => {
   it("gives every built panel a destination and every planned panel none", () => {
@@ -115,6 +118,10 @@ describe("phase 2 panels", () => {
     ]);
     for (const panel of HUB_PANELS) {
       if (panel.phase !== 1 || !panel.href) continue;
+      // An external panel points at a static file under `public/`, which the
+      // route manifest does not and should not list. Its existence is checked
+      // against the filesystem below instead.
+      if (panel.external) continue;
       expect(routePaths.has(panel.href), `${panel.id} -> ${panel.href}`).toBe(true);
     }
   });
@@ -159,5 +166,29 @@ describe("placeholder pruning (2026-08-25)", () => {
     for (const group of ["work", "clinical", "system", "reference"] as const) {
       expect(panelsInGroup(group).length, `${group} group is now empty`).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("the brand sheet the hub links to", () => {
+  // The hub's "Brand and design" card is the only panel that leaves the app for
+  // a static file. Two things have to hold or the card is worse than no card:
+  // the file has to be there, and it has to be the same sheet the repository
+  // documents — a stale copy would show a retired mark to the one person most
+  // likely to trust it.
+  const panel = HUB_PANELS.find((entry) => entry.id === "brand");
+
+  it("is declared external, so it renders as an anchor rather than a Link", () => {
+    expect(panel?.external).toBe(true);
+    expect(panel?.href).toBe("/brand/preview.html");
+  });
+
+  it("is served from public/ and is byte-identical to the documented sheet", () => {
+    const served = readFileSync(join(process.cwd(), "public", "brand", "preview.html"));
+    const documented = readFileSync(join(process.cwd(), "docs", "brand", "preview.html"));
+    const digest = (buffer: Buffer) => createHash("sha256").update(buffer).digest("hex");
+    expect(
+      digest(served),
+      "public/brand/preview.html has drifted from docs/brand/preview.html — copy the documented sheet over the served one so the Developer Hub link cannot show a retired mark",
+    ).toBe(digest(documented));
   });
 });

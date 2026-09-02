@@ -1,6 +1,6 @@
 # Clinical Governance Workstream
 
-Clinical KB is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
+PsychSift is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
 
 ## Deployment Classification
 
@@ -20,6 +20,14 @@ Clinical KB is currently a source-backed clinical reference prototype. Before pr
 - Do not upload patient-identifiable documents unless local governance and privacy approvals explicitly allow it.
 - Confirm OpenAI and Supabase data-processing arrangements are acceptable for the intended clinical setting.
 - Define audit requirements for uploads, document access, user queries, generated answers, copied drafts, and source opening.
+
+The status authority is [`governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json),
+with the current evidence summary in
+[`governance/privacy-closeout-2026-09-01.md`](governance/privacy-closeout-2026-09-01.md). As of
+2026-09-01, OpenAI API sharing and call logging are disabled and optional hosted tools are disabled;
+OpenAI has acknowledged the ZDR request, but ZDR, DPA, APP 8, APP 1/5 notice, and clinical
+PHI-minimisation approvals remain release blockers. Do not infer approval from request submission or
+from the public `/privacy` transparency page.
 
 ## Clinical Use Rules
 
@@ -60,9 +68,15 @@ Authority must come from registered publisher codes or compatible canonical publ
 
 ## Mode-aware Clinical Ask governance
 
-Clinical Ask is currently dormant with no user-visible composer entry point. If reactivated, it serves seven
-exhaustive clinician-reference modes: Services, Forms, Differentials, Formulation,
-DSM-5 Diagnosis, Specifiers, and Therapy. Every request uses the same deterministic Evidence Ladder: local
+Clinical Ask remains dormant by default and is separate from Smart mode search. The shared mode composer never
+routes a natural-language query to Clinical Ask: Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
+Specifiers, Therapy, Medication, Tools, Calculators, Factsheets, and Dictionary interpret natural language locally
+and show their ordinary deterministic catalogue results. Medication Smart search is retrieval-only: it does not infer
+suitability, dose, or treatment. In the Medication, Tools, Calculators, Factsheets, and Dictionary Smart states,
+universal-search, Document, and Answer requests are suppressed; literal searches retain their existing behaviour.
+`CLINICAL_ASK_ENABLED` governs only the dormant answer workflow; it does not enable, disable, or alter Smart search.
+There is no microphone control or separate Ask rail. If Clinical Ask is exposed through a dedicated governed-answer
+surface in future, every request must use the same deterministic Evidence Ladder: local
 Catalogue first, authorised owner-scoped Indexed evidence second, and an allowlisted External Authority only when
 there is a deterministic evidence gap, unresolved conflict, stale material, or a `needs_review` source. An unsupported
 conclusion is rendered as an Evidence Gap; source conflict and review state remain visible, and clinically material
@@ -83,3 +97,9 @@ telemetry. Roll back generation with `CLINICAL_ASK_ENABLED=false`; disable only 
 `CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED=false`; use `CLINICAL_ASK_DISABLED_MODES` only as the emergency per-mode
 denylist. None of these flags removes the separately required hosted migration, provider, clinical-evaluation,
 protected-staging canary, contractual, or physical-device evidence.
+
+An `answered` stream payload fails closed unless it contains governed evidence and every visible lead, section, and
+conflict claim references evidence present in that payload. An Evidence Gap may still carry zero or partial evidence.
+Clinical Ask production activation remains separately gated by named human clinical and contractual/privacy approval
+plus physical iPhone Safari and installed-PWA acceptance. These answer-workflow gates do not block provider-free Smart
+catalogue search.

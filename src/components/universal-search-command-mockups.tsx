@@ -102,7 +102,7 @@ const modeConfigs: Record<CommandMockModeId, ModeConfig> = {
       {
         id: "doc-2",
         title: "Psychotropic medications monitoring handbook",
-        meta: "Clinical KB Repository · v2.1 · p.18",
+        meta: "PsychSift Repository · v2.1 · p.18",
         badge: "Current",
         badgeTone: "success",
         detail: "84%",

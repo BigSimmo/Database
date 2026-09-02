@@ -1,6 +1,6 @@
 # Observability & SLOs
 
-Service-level objectives for the Clinical KB answer pipeline, the alert
+Service-level objectives for the PsychSift answer pipeline, the alert
 thresholds attached to them, and the weekly production eval canary that turns
 the golden eval into a standing guard. Written 2026-07-06.
 

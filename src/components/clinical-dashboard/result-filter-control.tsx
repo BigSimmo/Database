@@ -239,7 +239,7 @@ export function ResultFilterTrigger({
         // wrong here: a filled pill reads flush to its own edge while a stroked
         // funnel reads inset from its box, so equal values put the badge visibly
         // closer to the border than the glyph is.
-        "search-band-ghost inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border pl-2.5 pr-[0.6875rem] transition-colors motion-reduce:transition-none sm:min-h-10 sm:min-w-10",
+        "search-band-ghost inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border pl-2.5 pr-[0.6875rem] transition-colors motion-reduce:transition-none sm:min-h-compact-meta sm:min-w-compact-meta",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         // Mutually exclusive branches rather than a base plus an override. `cn`
         // merges now, so a later utility would win deterministically — but
@@ -356,8 +356,8 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
-      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-        {/* The id is on the label text alone, not the heading — same fix as
+      <h3 className="flex min-h-compact-meta items-center gap-1.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        {/* DS-P2-24: compact-meta heading row, not a tap target. The id is on the label text alone, not the heading — same fix as
             ResultFilterFacetChips' own badge: with the id on the h3 itself, a
             sibling `note` would concatenate into the group's accessible name
             ("Source type" -> "Source type one only"). */}
@@ -414,9 +414,9 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
                 group.onChange(option.value);
               }}
               className={cn(
-                // Phone targets use the 48px tap floor; pointer layouts stay
-                // compact without dropping below the 40px filter-control floor.
-                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:gap-1 sm:px-2",
+                // DS-P2-24: filter chips are compact-meta (40px) from `sm`, not a
+                // primary CTA. Phone stays min-h-tap. Never min-h-11 / min-h-9.
+                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-compact-meta sm:gap-1 sm:px-2",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 selected
                   ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -564,8 +564,8 @@ export function ResultFilterFacetChips({
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
-      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-        {/* The id is on the label text alone, not the heading. With the badge
+      <h3 className="flex min-h-compact-meta items-center gap-1.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        {/* DS-P2-24: compact-meta heading row. The id is on the label text alone, not the heading. With the badge
             inside the labelled element the group's accessible name became
             "Domain 1" — the selection count leaking into the dimension's name,
             and changing it on every toggle. Caught by the DOM test. */}
@@ -576,7 +576,7 @@ export function ResultFilterFacetChips({
             aria-controls={disclosure.contentId}
             onClick={disclosure.onToggle}
             className={cn(
-              "flex min-h-tap w-full items-center gap-1.5 text-left text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
+              "flex min-h-tap w-full items-center gap-1.5 text-left text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-compact-meta",
               "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             )}
           >
@@ -717,7 +717,7 @@ export function ResultFilterScopeSelector<Value extends string>({
               />
               <span
                 className={cn(
-                  "flex min-h-tap min-w-0 items-center gap-2 rounded-lg border bg-[color:var(--surface-raised)] px-3 py-2 shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10",
+                  "flex min-h-tap min-w-0 items-center gap-2 rounded-lg border bg-[color:var(--surface-raised)] px-3 py-2 shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-compact-meta",
                   "border-[color:var(--border-lux)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
                   "peer-checked:border-[color:var(--clinical-accent-border)] peer-checked:bg-[color:var(--clinical-accent-soft)] peer-checked:text-[color:var(--clinical-accent)]",
                   "peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
@@ -960,7 +960,7 @@ export function ResultFilterSheet({
             onClick={onClearAll}
             data-testid={`${testId}-clear`}
             className={cn(
-              "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+              "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-compact-meta",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             )}
           >
@@ -985,7 +985,7 @@ export function ResultFilterSheet({
               onClick={onApply ?? onClose}
               data-testid={`${testId}-done`}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)]",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
             >
@@ -1002,7 +1002,7 @@ export function ResultFilterSheet({
               type="button"
               onClick={secondaryAction.onClick}
               className={cn(
-                "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-compact-meta",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
             >
@@ -1071,14 +1071,14 @@ export function ResultFilterSheet({
                 onChange={(event) => setNeedle(event.target.value)}
                 placeholder="Find a filter…"
                 data-testid={`${testId}-find`}
-                className="search-shell-input min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-10"
+                className="search-shell-input min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-compact-meta"
               />
               {needle ? (
                 <button
                   type="button"
                   onClick={() => setNeedle("")}
                   aria-label="Clear the filter search"
-                  className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-10 sm:min-w-10"
+                  className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-compact-meta sm:min-w-compact-meta"
                 >
                   <X aria-hidden="true" className="h-3.5 w-3.5" />
                 </button>

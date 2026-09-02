@@ -375,7 +375,7 @@ function PhonePopup({
   const notes = clinicalNotes[tool.id] ?? clinicalNotes["clinical-kb-search"];
 
   return (
-    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
+    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] xl:sticky xl:top-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Phone</p>

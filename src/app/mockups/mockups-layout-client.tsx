@@ -12,14 +12,14 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
   const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
   const isDocumentTopNavigationMockup = pathname === "/mockups/document-top-navigation";
-  const isDocumentNavigationPaneMockup = pathname === "/mockups/document-navigation-pane";
-  const isDocumentPhoneTitleMockup = pathname.startsWith("/mockups/document-phone-");
   // Draws its own universal top bar and document composer inside every frame, so
   // the shared composer would read as a second, real search bar over the study.
   const isDocumentNavigationContractMockup =
     pathname === "/mockups/document-navigation-contract" ||
     pathname === "/mockups/document-navigation-perfected" ||
-    pathname.startsWith("/mockups/document-navigation-final");
+    pathname === "/mockups/document-navigation-final";
+  // The one surviving document-phone study; its three siblings were retired 2026-09-02.
+  const isDocumentPhoneZeroChromeMockup = pathname === "/mockups/document-phone-zero-chrome";
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
@@ -58,7 +58,6 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Owns the also-matches panel as the subject; shared composer chrome would
   // sit on top of a study about results-card identity.
   const isAlsoMatchesAccentMockup = pathname === "/mockups/also-matches-accents";
-  const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
   // Every direction in this study draws its own top bar, transcript and
   // composer inside phone/desktop frames — the reference system under review
   // sits directly between them, so shared chrome would read as a second real
@@ -66,6 +65,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isAnswerChatRedesignMockup = pathname === "/mockups/answer-chat-redesign";
   const isAnswerChatPerfectedMockup =
     pathname === "/mockups/answer-chat-perfected" || pathname === "/mockups/answer-chat-perfected-v2";
+  // The loading study draws its own top bar, transcript and composer inside every
+  // phone and desktop frame, and its whole subject is what occupies the answer
+  // column before the answer. Shared chrome above those frames would read as a
+  // second real header and a second real search bar over the study.
+  const isAnswerLoadingRedesignMockup = pathname === "/mockups/answer-loading-redesign";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -111,10 +115,16 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // `[data-testid="ward-coordinator"]:visible` resolving to zero elements, while that element was
   // plainly present in the served markup. Added when Ward Flow moved under `/mockups/ward-flow`.
   const isWardFlowMockup = pathname === "/mockups/ward-flow" || pathname.startsWith("/mockups/ward-flow/");
+  const isDevelopmentMockup = pathname === "/mockups/development" || pathname.startsWith("/mockups/development/");
 
   /*
-   * Ward Flow is not wrapped at all — it BYPASSES the shell rather than rendering inside it with
-   * the chrome switched off, which is what every other entry above does.
+   * Ward Flow and Developer Hub are not wrapped at all — they BYPASS the shell rather than rendering inside
+   * it with the chrome switched off, which is what every other entry above does.
+   *
+   * Developer Hub owns its own administrator gate (`DeveloperAreaGate`), its own header
+   * (`DeveloperHubNavHeader`), and each page owns its own semantic `<main>` (`PanelPageShell`).
+   * Nesting it inside `GlobalMockupSearchShell` injects a duplicate `<main id="main-content">` landmark
+   * and causes double-rendering in the dev browser (#ZW43ZT).
    *
    * `GlobalMockupSearchShell` is a re-export of `GlobalSearchShell`, the clinical application's
    * own shell. Hiding its chrome hides the header and composer but still nests the prototype
@@ -129,7 +139,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
    * via the developer page, otherwise standalone app". A standalone app does not render inside
    * the shell of the application it stands apart from.
    */
-  if (isWardFlowMockup) {
+  if (isWardFlowMockup || isDevelopmentMockup) {
     return <>{children}</>;
   }
 
@@ -155,8 +165,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
               ? "therapy-compass"
               : isDocumentSearchMockup ||
                   isDocumentTopNavigationMockup ||
-                  isDocumentNavigationPaneMockup ||
-                  isDocumentPhoneTitleMockup ||
+                  isDocumentPhoneZeroChromeMockup ||
                   isDocumentNavigationContractMockup
                 ? "documents"
                 : "answer"
@@ -166,8 +175,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
-        !isDocumentNavigationPaneMockup &&
-        !isDocumentPhoneTitleMockup &&
+        !isDocumentPhoneZeroChromeMockup &&
         !isDocumentNavigationContractMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
@@ -181,9 +189,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
-        !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
+        !isAnswerLoadingRedesignMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -213,9 +221,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
-        !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
+        !isAnswerLoadingRedesignMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&

@@ -115,7 +115,7 @@ the 30 generated ones from their index. Some must carry a `formedAt` meaningfull
 
 ## 4. Architecture — the state layer
 
-A single `WardFlowProvider` mounted at a new `src/app/ward-management/layout.tsx`, following the
+A single `WardFlowProvider` mounted at a new `src/app/mockups/ward-flow/layout.tsx`, following the
 repository's existing React-context pattern. Eight `createContext` providers already exist; no
 state library is present and none is added.
 

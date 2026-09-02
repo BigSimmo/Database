@@ -1,0 +1,32 @@
+/*
+ * DS-P2-16: shared Ward reduced-motion kill.
+ * Compose onto the local owner class. Named vs descendant * !important
+ * specificity is preserved by which class you compose. scroll-behavior: auto
+ * lives only on descendantKillWithScroll (modes + coordinator). Do not merge
+ * Ward spacing ladders (--ward-space-*, --wd-space-*, --co-space-*) here.
+ * Do not use src/lib/scroll-behavior.ts from CSS.
+ */
+
+.namedKill {
+}
+
+.descendantKill {
+}
+
+.descendantKillWithScroll {
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .namedKill {
+    transition: none;
+  }
+
+  .descendantKill * {
+    transition: none !important;
+  }
+
+  .descendantKillWithScroll * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

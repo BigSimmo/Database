@@ -526,7 +526,7 @@ function DocumentBody({ compact = false }: { compact?: boolean }) {
 
 function DesktopFrame({ candidate }: { candidate: CandidateId }) {
   return (
-    <div className="flex h-[26rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="flex h-[26rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="desktop" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {candidate === "rail" ? (
@@ -564,7 +564,7 @@ function DesktopFrame({ candidate }: { candidate: CandidateId }) {
 
 function TabletFrame({ candidate }: { candidate: CandidateId }) {
   return (
-    <div className="mx-auto flex h-[26rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="mx-auto flex h-[26rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="tablet" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {candidate === "rail" ? (
@@ -611,7 +611,7 @@ function PhoneFrame({ open }: { open: boolean }) {
   const sheetId = useId();
 
   return (
-    <div className="relative flex h-[26rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="relative flex h-[26rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       {/* Both rows below sm live in the one universal collapse row. */}
       <UniversalTopBar device="phone" />
       <DocumentHeader device="phone" sheetId={sheetId} expanded={open} />

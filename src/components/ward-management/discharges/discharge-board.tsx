@@ -1,5 +1,6 @@
 "use client";
 
+import { MissingValue } from "@/components/ui/missing-value";
 import { RELEASE_BANDS, releaseBand, type ReleaseBand } from "@/components/ward-management/ward-bed-availability";
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
@@ -220,7 +221,12 @@ function DischargeGroupSection({
                           DECIDED one — and a coordinator could not tell a blocked prediction
                           from a blocked confirmation. */}
                       <td>{bedReleaseStateLabels[release.state]}</td>
-                      <td>{release.blocker ?? "—"}</td>
+                      <td>
+                        {/* SPEC §11: `blocker` is non-null only in `blocked` (ward-model.ts), so a
+                            null here is a release to which a blocker cannot apply — not one whose
+                            blocker nobody wrote down. A dash collapsed those two into one glyph. */}
+                        {release.blocker ?? <MissingValue reason="not_applicable" density="cell" />}
+                      </td>
                       <td>
                         <WardFreshness
                           confirmedAt={release.confirmedAt}

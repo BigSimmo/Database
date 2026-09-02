@@ -94,6 +94,16 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "factsheets", desktopSearchPlacement: "hero" };
   }
 
+  if (pathname.startsWith("/sources")) {
+    const rest = pathname.slice("/sources/".length);
+    const isDetail = pathname.startsWith("/sources/") && !["topics", "publishers", "method"].includes(rest);
+    return {
+      initialMode: "sources",
+      desktopSearchPlacement: "hero",
+      ...(pathname === "/sources/method" || isDetail ? { searchComposerVisible: false } : {}),
+    };
+  }
+
   if (pathname.startsWith("/dictionary")) {
     // `/dictionary/sources` is a read-only governance page — the source method,
     // the authority hierarchy, the index and the review cadence. Nothing on it

@@ -9,14 +9,18 @@ import {
   analyzeCssContractsInSource,
   findDebtPathRegressions,
   findErrorStateCountPropsInSource,
+  findElevationInversionsInSource,
   findFailedStateResultCountsInSource,
+  findHandRolledCommandButtonsInSource,
   findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
+  findSameFileTextSmMinusMix,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
   LEGACY_TAP_CLASS,
   hasLegacyTapClass,
   jsxClassText,
+  listPrimitiveRecipeSourcePaths,
   rawColorContractSource,
 } from "./design-system-contract-utils.mjs";
 
@@ -139,6 +143,9 @@ const metrics = {
   textSoftConsumers: 0,
   errorStateCountProps: 0,
   failedStateResultCounts: 0,
+  handRolledCommandButtons: 0,
+  elevationInversions: 0,
+  sameFileTextSmMinusMix: 0,
 };
 const debtByPath = Object.fromEntries(Object.keys(metrics).map((metric) => [metric, {}]));
 const recordDebt = (metric, relativePath, count) => {
@@ -182,6 +189,17 @@ for (const file of files) {
     file.relativePath,
     findFailedStateResultCountsInSource(file.relativePath, source).length,
   );
+  recordDebt(
+    "handRolledCommandButtons",
+    file.relativePath,
+    findHandRolledCommandButtonsInSource(file.relativePath, source).length,
+  );
+  recordDebt(
+    "elevationInversions",
+    file.relativePath,
+    findElevationInversionsInSource(file.relativePath, source).length,
+  );
+  recordDebt("sameFileTextSmMinusMix", file.relativePath, findSameFileTextSmMinusMix(file.relativePath, source).length);
   const fileTextSoftConsumers = findTextSoftConsumersInSource(file.relativePath, source);
   recordDebt("textSoftConsumers", file.relativePath, fileTextSoftConsumers.length);
   textSoftConsumerFindings.push(...fileTextSoftConsumers);
@@ -435,7 +453,7 @@ if (themeBlockStart >= 0) {
     );
   }
 }
-const primitives = textAt("src/components/ui-primitives.tsx");
+const primitives = listPrimitiveRecipeSourcePaths().map(textAt).join("\n");
 assert(
   primitives.includes('export const chatComposerInput = "chat-composer-input"'),
   "composer input chrome must have one CSS owner",
@@ -512,4 +530,13 @@ console.log(
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Error-state boundary: count-bearing title/body props ${metrics.errorStateCountProps}.`);
 console.log(`Failed-state boundary: count-bearing result nodes ${metrics.failedStateResultCounts}.`);
+console.log(
+  `Type-scale density mix (warn/ratchet, not a hard zero): same-file text-sm + text-sm-minus ${metrics.sameFileTextSmMinusMix}.`,
+);
+if (metrics.sameFileTextSmMinusMix > 0) {
+  const mixedPaths = Object.keys(debtByPath.sameFileTextSmMinusMix).sort();
+  console.warn(
+    `Do not mix text-sm and text-sm-minus in one component without a named density reason. Existing mixed files (${mixedPaths.length}): ${mixedPaths.join(", ")}.`,
+  );
+}
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);
