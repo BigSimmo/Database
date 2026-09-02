@@ -17,7 +17,7 @@
 // promising tab lifetime is not an enforcement, and `tests/caring-contacts-plan-draft.dom.test.tsx`
 // scans this whole directory for the other name so that a later edit cannot quietly widen it.
 //
-// THREE WAYS THE DRAFT GOES AWAY, and the tab closing is only one of them:
+// FOUR WAYS THE DRAFT GOES AWAY, and the tab closing is only one of them:
 //
 //   1. the tab closes — `sessionStorage`'s own lifetime, which is why it was chosen;
 //   2. `clearPlanDraft()` on successful activation — Task 9 calls this the moment the plan is
@@ -25,9 +25,15 @@
 //   3. `clearPlanDraft()` on abandoning the flow — the wizard's own discard control. Relying on
 //      the tab closing alone means a clinician who finishes and walks away leaves the previous
 //      patient's details for the next person at that machine, which is the failure the whole
-//      ruling exists to prevent.
+//      ruling exists to prevent;
+//   4. `clearCaringContactsBrowserState()` at an ACCOUNT TRANSITION — the app's sign-out,
+//      session expiry and change of signed-in user (2026-09-02 audit, L6). `sessionStorage`
+//      survives a sign-out and the next sign-in in the same tab, so without this a coordinator
+//      who signs out mid-draft and hands the tab to a colleague leaves the patient's name and
+//      mobile for whoever opens the same referral next — the ruling's failure, in the one path
+//      the wizard's own controls never see. The auth provider calls it beside its other clears.
 //
-// A fourth is a consequence rather than a rule: reading a draft that belongs to a DIFFERENT
+// A fifth is a consequence rather than a rule: reading a draft that belongs to a DIFFERENT
 // referral removes it. One key holds one draft, so starting a second sign-up cannot leave the
 // first one's answers sitting in storage unreferenced.
 //
@@ -581,4 +587,18 @@ export function clearPlanDraft(): void {
     }
   }
   notifyPlanDraftListeners();
+}
+
+/**
+ * Everything Caring Contacts keeps in this browser for the signed-in person — today, the draft.
+ *
+ * THE SEAM THE AUTH PROVIDER CALLS at sign-out, session expiry and a change of signed-in user
+ * (way 4 above). It is a separate name from `clearPlanDraft` so that a later store this workspace
+ * adds to the browser is cleared by adding it HERE, where the account boundary already reaches,
+ * rather than by remembering to teach the auth provider a second function. The provider loads this
+ * module lazily, so the global shell does not carry the workspace's bundle; the removal therefore
+ * lands a tick after the sign-out rather than in the same call.
+ */
+export function clearCaringContactsBrowserState(): void {
+  clearPlanDraft();
 }

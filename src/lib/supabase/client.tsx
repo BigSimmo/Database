@@ -59,6 +59,14 @@ function clearAccountScopedBrowserState() {
   clearPatientProfile();
   // Unscoped favourites pins / last-opened localStorage keys (audit L2).
   clearFavouritesStorage();
+  // Caring Contacts plan draft — a patient's name and mobile from stage 3 on
+  // (audit L6). Loaded lazily: a static import would pull the whole workspace
+  // (schedule, message rules, synthetic contacts) into the shell bundle that
+  // every route downloads, so the removal lands a tick later instead. A failed
+  // chunk load is swallowed — there is no one to tell and nothing to recover.
+  void import("@/components/caring-contacts/workspace/plan-wizard/plan-draft")
+    .then((planDraft) => planDraft.clearCaringContactsBrowserState())
+    .catch(() => undefined);
 }
 let browserSupabaseClient: SupabaseClient | null | undefined;
 let browserSupabaseClientConfig: string | null = null;

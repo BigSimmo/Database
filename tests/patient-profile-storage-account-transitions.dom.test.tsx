@@ -61,6 +61,15 @@ import {
   toggleFavouritePinnedId,
 } from "@/components/favourites/favourites-storage";
 import {
+  PLAN_DRAFT_STORAGE_KEY,
+  clearCaringContactsBrowserState,
+  clearPlanDraft,
+  emptyPlanDraft,
+  planDraftSnapshot,
+  subscribeToPlanDraft,
+  writePlanDraft,
+} from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
+import {
   EMPTY_PATIENT_PROFILE,
   PATIENT_PROFILE_STORAGE_KEY,
   getPatientProfileSnapshot,
@@ -224,6 +233,69 @@ describe("account transitions clear favourites pins and last-opened keys (L2)", 
       expect(window.localStorage.getItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY)).toBeNull();
       expect(loadFavouriteLastOpened()).toEqual({});
       expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
+    });
+  }
+});
+
+describe("account transitions clear the Caring Contacts plan draft (L6)", () => {
+  beforeEach(() => {
+    cleanup();
+    clearPlanDraft();
+    window.sessionStorage.clear();
+    authApi.listeners.clear();
+    authApi.signOut.mockClear();
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://sjrfecxgysukkwxsowpy.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_account_transition_key_123456");
+    vi.stubEnv("SUPABASE_PROJECT_REF", "sjrfecxgysukkwxsowpy");
+    vi.stubEnv("SUPABASE_PROJECT_NAME", "Clinical KB Database");
+  });
+
+  afterEach(() => {
+    cleanup();
+    clearPlanDraft();
+    window.sessionStorage.clear();
+    vi.unstubAllEnvs();
+  });
+
+  function seedDraft() {
+    // From stage 3 the draft carries the patient's name and mobile; the stored
+    // key is what must be gone, whatever stage the draft reached.
+    const written = writePlanDraft({
+      ...emptyPlanDraft("SYN-REFERRAL-001", "SYN-PATHWAY-001"),
+      stage: "pathway",
+      assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+    });
+    expect(written).toBe(true);
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
+  }
+
+  it("exposes one account-boundary seam that removes the draft and tells the wizard", () => {
+    seedDraft();
+    const onChange = vi.fn();
+    const unsubscribe = subscribeToPlanDraft(onChange);
+    try {
+      clearCaringContactsBrowserState();
+    } finally {
+      unsubscribe();
+    }
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
+    expect(planDraftSnapshot()).toBeNull();
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  for (const transition of transitions) {
+    it(`removes the stored draft on ${transition.name}`, async () => {
+      await mountAuthenticated();
+      seedDraft();
+
+      await transition.run();
+      await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent(transition.expectedStatus));
+
+      // The wizard module is loaded lazily by the auth provider so the global
+      // shell does not carry the Caring Contacts bundle; the clear lands a tick
+      // later, which is why this waits rather than asserting synchronously.
+      await waitFor(() => expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull());
+      expect(planDraftSnapshot()).toBeNull();
     });
   }
 });
