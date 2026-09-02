@@ -2157,7 +2157,7 @@
         "preview": ".design-sync/previews/ToastRegion.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-contract-utils.test.ts"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
