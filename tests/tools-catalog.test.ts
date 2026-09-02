@@ -195,7 +195,7 @@ describe("the Caring Contacts card follows the workspace's production lock", () 
     const instrumentation = readFileSync(path.join(process.cwd(), "src/instrumentation.ts"), "utf8");
     expect(instrumentation).toContain("demo mode is enabled in a production build");
 
-    for (const environment of ["development", "test", "production"]) {
+    for (const environment of ["development", "test", "production"] as const) {
       for (const offline of [undefined, "true"]) {
         for (const demo of [undefined, "true"]) {
           const refusedByInstrumentation = environment === "production" && demo === "true" && offline !== "true";
