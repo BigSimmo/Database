@@ -60,7 +60,13 @@ export async function healthResponse(request: Request, options: HealthResponseOp
           const admin = createAdminClient();
           const health = await probeSupabaseHealth(admin);
           checks.supabase = health.ok ? "ok" : "error";
-          if (health.ok && options.includeSlo !== false) {
+          // `tokenAuthorized &&` matches `spendSnapshot` below and makes the gate real: the
+          // SLO aggregate is a deliberate CROSS-TENANT read (see its entry in
+          // scripts/lib/tenancy-scan.mjs, which states this exact gate). Without it the
+          // snapshot also ran for any caller passing `allowUnauthenticatedDeep`, so the only
+          // thing holding the claim true was `/api/health/ready` opting out via
+          // `includeSlo: false` — one flag at one caller, not a gate.
+          if (health.ok && tokenAuthorized && options.includeSlo !== false) {
             try {
               // Avoid recursively instantiating the full generated PostgREST
               // client type against the intentionally tiny SLO query surface.
