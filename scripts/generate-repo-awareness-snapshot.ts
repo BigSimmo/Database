@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -136,9 +136,18 @@ function scanDocsDirectory(dir: string, baseDir = dir): string[] {
  * to scanning docs/ directly from the filesystem.
  */
 export function listDocumentPaths(repoRoot = process.cwd()): string[] {
-  const options = {
+  // Annotated rather than inferred. The two sibling call sites pass their
+  // options inline, so `stdio` gets `StdioOptions` from context; a standalone
+  // object has no such context, and `as const` would infer a readonly tuple
+  // that `execFileSync` rejects.
+  const options: ExecFileSyncOptionsWithStringEncoding = {
     cwd: repoRoot,
-    encoding: "utf8" as const,
+    encoding: "utf8",
+    // Silence git's stderr, matching `readReviewRecordRows` and
+    // `readCapturedRevision`. Without it a git-less checkout takes the
+    // filesystem fallback below and still prints `fatal: not a git repository`,
+    // so a run that succeeded reads as a failure (`#JFRCZ4`).
+    stdio: ["ignore", "pipe", "ignore"],
   };
   try {
     const untracked = filterDocumentPaths(

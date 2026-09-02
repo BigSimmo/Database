@@ -581,6 +581,26 @@ repo-awareness-snapshot.ts` (`loadRepoAwarenessSnapshot`) is the typed reader, w
   fails when the committed snapshot is behind the repository it describes. `src/lib/developer-area/
 freshness.ts` is the label-agnostic content-age helper both the ledger and the repo-awareness
   pages use to render their freshness stamp.
+- **What the snapshot deliberately does NOT commit, and why:** the gate compares only `routes`,
+  `documentation` and `test_health`. The two keys it excludes are excluded because they change on
+  both sides of every concurrent append, and a committed field that always differs is a merge
+  conflict — which sets `mergeable_state=dirty` on GitHub, suppresses `refs/pull/<n>/merge`, and
+  leaves the PR check list reading empty rather than red. So the excluded keys carry only content
+  that can merge: `review_state.records` is ordered by `head` (a uniformly distributed sha, so two
+  branches appending a review record land far apart), it stores no aggregate `counts`
+  (`reviewStateCounts()` derives them at render), and `REVISION_INPUTS` excludes the review corpus
+  so a `ledger:append` no longer moves `captured_revision`. Adding anything back to those keys
+  means meeting the same bar: too volatile to compare is too volatile to commit in a conflicting
+  shape.
+- **The gate needs git, and says so when it has none:** `check:repo-awareness-snapshot` reaches git
+  through the generator (`git ls-files`, `git log`), so in a checkout with no git — a `git archive`
+  export, or a container image without `.git` — it logs `Skipped: no git repository rooted here`
+  and exits **0**. A skip and a pass share that exit code, so read the message, not the code. The
+  check is deliberately "a repository ROOTED HERE" rather than "inside a work tree": an export
+  extracted inside another checkout answers `git rev-parse --is-inside-work-tree` with the outer
+  repository's `true`, and the generator then reads that repository, finds every document
+  untracked, and fails with an unexplained six-hundred-path error. Nothing is lost by skipping —
+  CI always runs this gate against a real checkout.
 - **Task ledger data:** `src/lib/developer-area/ledger-snapshot.ts` imports the generated
   `data/outstanding-issues-snapshot.json` (never hand-edited; listed in `.prettierignore`) rather
   than reading `docs/outstanding-issues.md` at runtime — the production Docker image never copies
