@@ -17,6 +17,14 @@ const effectiveMigration = readFileSync(
   new URL("../supabase/migrations/20260826090000_fail_closed_deleted_document_owner_rollback.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const childOwnerMigration = readFileSync(
+  new URL("../supabase/migrations/20260902090000_align_corpus_flip_retrieval_scoped_child_owners.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const childOwnerGuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260902090100_validate_corpus_flip_child_owner_alignment.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 describe("document corpus access mode migration", () => {
   it("keeps the visibility switch and its snapshots service-role-only", () => {
@@ -75,6 +83,8 @@ describe("document corpus access mode migration", () => {
     expect(effectiveMigration).toContain("else coalesce(d.metadata, '{}'::jsonb) - 'public_corpus'");
   });
 
+  // The 20260826090000 switch body predates the retrieval-scope correction below.
+  // Its pin is kept verbatim: that version rewrote no derived artifact at all.
   it("does not rewrite high-volume derived artifacts at the authorization boundary", () => {
     for (const table of [
       "document_labels",
@@ -100,5 +110,83 @@ describe("document corpus access mode migration", () => {
     expect(effectiveMigration).toContain(
       "execute 'alter table public.documents enable trigger documents_require_publication_approval'",
     );
+  });
+});
+
+describe("corpus flip aligns the retrieval-scoped derived owners", () => {
+  // public.document_labels, public.document_summaries and public.document_table_facts
+  // are the only three derived tables whose OWN owner_id is passed to
+  // public.retrieval_owner_matches (supabase/schema.sql, get_related_document_metadata
+  // and match_document_table_facts_text) — the same three 20260901120000 lists beside
+  // public.documents. Leaving them owned while the parent document is published strips
+  // labels, summaries and table facts from public retrieval for exactly the documents
+  // the switch just published. Every other derived table is filtered through its parent
+  // document's owner and must still stay untouched.
+  const retrievalScopedTables = ["document_labels", "document_summaries", "document_table_facts"];
+  const parentScopedTables = [
+    "document_sections",
+    "document_memory_cards",
+    "document_embedding_fields",
+    "document_index_quality",
+    "document_index_units",
+    "document_chunks",
+    "document_pages",
+    "document_images",
+  ];
+
+  it("publishes the retrieval-scoped derived owners in the same transaction as the documents", () => {
+    for (const table of retrievalScopedTables) {
+      expect(childOwnerMigration).toContain(`update public.${table}`);
+    }
+    expect(childOwnerMigration).toContain(
+      "update public.document_labels l set owner_id = null, updated_at = now() from public.document_corpus_access_snapshots snapshot where snapshot.activation_id = v_activation_id and snapshot.document_id = l.document_id and l.owner_id = snapshot.owner_id",
+    );
+    expect(childOwnerMigration).toContain(
+      "update public.document_summaries s set owner_id = null, updated_at = now() from public.document_corpus_access_snapshots snapshot where snapshot.activation_id = v_activation_id and snapshot.document_id = s.document_id and s.owner_id = snapshot.owner_id",
+    );
+    expect(childOwnerMigration).toContain(
+      "update public.document_table_facts f set owner_id = null from public.document_corpus_access_snapshots snapshot where snapshot.activation_id = v_activation_id and snapshot.document_id = f.document_id and f.owner_id = snapshot.owner_id",
+    );
+  });
+
+  it("still leaves every parent-scoped derived table untouched", () => {
+    for (const table of parentScopedTables) {
+      expect(childOwnerMigration).not.toContain(`update public.${table}`);
+    }
+  });
+
+  it("restores the derived owners only for owners that still exist", () => {
+    for (const alias of ["l", "s", "f"]) {
+      expect(childOwnerMigration).toContain(
+        `join auth.users existing_owner on existing_owner.id = snapshot.owner_id where snapshot.activation_id = v_activation_id and snapshot.document_id = ${alias}.document_id and ${alias}.owner_id is null`,
+      );
+    }
+    expect(childOwnerMigration).toContain("set owner_id = existing_owner.id, updated_at = now()");
+    // A deleted snapshot owner cannot be restored (owner_id references auth.users
+    // ON DELETE RESTRICT); those rows stay ownerless beside their quarantined,
+    // status = 'failed' document rather than being handed to a live account.
+    expect(childOwnerMigration).not.toContain("set owner_id = snapshot.owner_id");
+  });
+
+  it("bounds the added statements so the switch stays a synchronous operational call", () => {
+    expect(childOwnerMigration).toContain("set lock_timeout = '15s' set statement_timeout = '120s'");
+  });
+
+  it("corrects the header rationale that called derived owners irrelevant to visibility", () => {
+    expect(childOwnerMigration).toContain("retrieval_owner_matches");
+    expect(childOwnerMigration).toContain("20260825025717");
+  });
+
+  it("ships a fail-fast validation guard that never rebuilds the function it checks", () => {
+    expect(childOwnerGuardMigration).toContain("set local lock_timeout");
+    expect(childOwnerGuardMigration).toContain("set local statement_timeout");
+    expect(childOwnerGuardMigration).toContain("to_regprocedure");
+    expect(childOwnerGuardMigration).toContain("raise exception");
+    expect(childOwnerGuardMigration.match(/raise exception/g)?.length).toBe(1);
+    expect(childOwnerGuardMigration).not.toContain("create or replace function");
+    expect(childOwnerGuardMigration).not.toContain("create index");
+    for (const table of retrievalScopedTables) {
+      expect(childOwnerGuardMigration).toContain(table);
+    }
   });
 });
