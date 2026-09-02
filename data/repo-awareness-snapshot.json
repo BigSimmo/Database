@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "2079c747da74a64230fcd7d1c706222275410c09",
-    "committed_at": "2026-09-02T09:18:24+00:00"
+    "sha": "2fe2a11e6d63498699e065fc1dcea519c4b49d9b",
+    "committed_at": "2026-09-02T11:56:30+00:00"
   },
   "routes": {
     "modes": [
@@ -1847,6 +1847,16 @@
       },
       {
         "path": "docs/branch-cleanup-guide.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/branch-review-archival-policy.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/branch-review-index.md",
         "section": "root",
         "catalogued": true
       },
@@ -4437,8 +4447,8 @@
       }
     ],
     "counts": {
-      "documents": 580,
-      "catalogued": 111,
+      "documents": 582,
+      "catalogued": 113,
       "uncatalogued": 469,
       "sections": 21
     }
