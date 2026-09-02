@@ -108,6 +108,7 @@
     "snapshot:issues": "node scripts/generate-outstanding-issues-snapshot.mjs",
     "snapshot:repo-awareness": "node scripts/run-tsx.mjs scripts/generate-repo-awareness-snapshot.ts",
     "prebuild": "node scripts/generate-outstanding-issues-snapshot.mjs --with-pending",
+    "postbuild": "node scripts/generate-outstanding-issues-snapshot.mjs",
     "check:outstanding-issues-snapshot": "node scripts/check-outstanding-issues-snapshot.mjs",
     "check:ledger-write-discipline": "node scripts/check-ledger-write-discipline.mjs --self-test && node scripts/check-ledger-write-discipline.mjs",
     "issues:add": "node scripts/ledger-inbox.mjs add",
