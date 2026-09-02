@@ -7,8 +7,10 @@
 import {
   TERMINAL_DISPATCH_REFUSED_CONTACT_STATES,
   TERMINAL_PLAN_STATES,
+  planSendingHold,
   type ContactState,
   type MessageType,
+  type PlanSendingHold,
   type PlanState,
 } from "./model";
 import { PROVISIONAL_MESSAGE_RULES } from "./message-rules";
@@ -72,7 +74,16 @@ export function calculateGsm7(text: string): Gsm7Evidence {
 }
 
 export type GovernedMessageInput = {
-  text: string;
+  /**
+   * The fully substituted outgoing message, or `undefined` when no body was resolved at all.
+   *
+   * IT IS OPTIONAL SO THAT "NOTHING WAS AUTHORED" CAN REACH THIS FUNCTION (item A4, 2026-09-02).
+   * A required `string` left a sender holding no body with only two moves: pass `""`, which is
+   * refused for the WRONG reason (see `closing-message-body-not-authored` below), or skip the
+   * chokepoint entirely and decide for itself -- the bypass this widening exists to close. An
+   * absent body is a fact about the message, so the type says so.
+   */
+  text: string | undefined;
   messageType: MessageType;
   /** The recipient's own mobile number, if known, so it can be checked for leakage into the text. */
   patientMobileNumber?: string;
@@ -92,7 +103,11 @@ export type GovernedMessageInput = {
   contactState?: ContactState;
   /**
    * Plan state, if evaluated in the context of an existing plan.
-   * Messages cannot be dispatched to plans that have ended (withdrawn, cancelled, completed).
+   *
+   * Messages cannot be dispatched to a plan that has ended (withdrawn, cancelled, completed), and
+   * since #PAMATF nor to one that has not started or is paused. A draft and a paused plan used to
+   * pass this check: it tested `TERMINAL_PLAN_STATES` only, which names the three ended states, so
+   * the two halves of "this plan is not sending" were split between a list here and nothing at all.
    */
   planState?: PlanState;
 };
@@ -104,9 +119,29 @@ export type MessageValidationIssue =
   | { code: "first-message-missing-support-information" }
   | { code: "closing-message-missing-ending-statement" }
   | { code: "closing-message-missing-support-information" }
+  /**
+   * No closing body exists to check at all -- distinct from the two codes above, which mean a body
+   * exists and is wrong. See `resolveClosingContactMessageBody` for why the distinction is the
+   * whole point rather than a nicety.
+   */
+  | { code: "closing-message-body-not-authored" }
+  /**
+   * The same fact for a `standard` or `first` message: no body exists to send.
+   *
+   * Its OWN code rather than the closing one, because the closing case carries a specific meaning --
+   * no closing wording has ever been clinically authored (item A4) -- that says nothing about an
+   * ordinary message whose body a caller simply failed to supply.
+   */
+  | { code: "message-body-not-authored" }
   | { code: "contains-patient-mobile" }
   | { code: "solicits-reply" }
-  | { code: "terminated-contact-dispatch-refused"; state: ContactState | PlanState };
+  | { code: "terminated-contact-dispatch-refused"; state: ContactState | PlanState }
+  /**
+   * The owning plan is not sending -- it has not been started, or it is paused. Its own code, not
+   * `terminated-contact-dispatch-refused`: a draft plan has not ended, and reporting it as though
+   * it had would name the wrong reason for the right refusal. `hold` says which.
+   */
+  | { code: "plan-not-dispatchable"; state: PlanState; hold: PlanSendingHold };
 
 export type ValidationResult = { valid: true } | { valid: false; issues: MessageValidationIssue[] };
 
@@ -117,6 +152,34 @@ export type ValidationResult = { valid: true } | { valid: false; issues: Message
 export function validateGovernedMessage(input: GovernedMessageInput): ValidationResult {
   const rules = PROVISIONAL_MESSAGE_RULES;
   const issues: MessageValidationIssue[] = [];
+
+  // NO BODY, NO SEND -- FOR EVERY MESSAGE TYPE (item A4, 2026-09-02).
+  //
+  // It returns rather than accumulating, because a message with no body has nothing for any of the
+  // TEXT checks below to read: running them anyway would report
+  // `closing-message-missing-ending-statement` -- "the body you wrote is wrong" -- about a body
+  // nobody wrote. That is a refusal either way; it is the DIAGNOSIS that would be false, and this
+  // module's reason for separating the two codes is that a maintainer reading the first one goes
+  // looking for wording to fix. There is none to fix.
+  //
+  // IT COVERS `standard` AND `first`, NOT ONLY `closing`. Widening `text` to `string | undefined`
+  // made "nothing was authored" expressible for the first time, and a rule that answered only for
+  // closing messages would have made the chokepoint say `valid: true` -- an explicit "this may be
+  // sent" -- for a standard message with no body at all. That would be a NEW permission, granted by
+  // the very change whose purpose is closing a bypass.
+  //
+  // THE STATE REFUSALS ARE STILL REPORTED. They do not read the text, so they are appended before
+  // returning. Without that, a cancelled plan with no body reported only "write a body": the
+  // recoverable condition masking the unrecoverable one, which is the mirror image of the false
+  // diagnosis above.
+  if (!messageBodyIsAuthored(input.text)) {
+    issues.push({
+      code: input.messageType === "closing" ? "closing-message-body-not-authored" : "message-body-not-authored",
+    });
+    appendStateIssues(input, issues);
+    return { valid: false, issues };
+  }
+
   const text = input.text;
 
   const gsm7 = calculateGsm7(text);
@@ -171,15 +234,51 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
     issues.push({ code: "solicits-reply" });
   }
 
+  appendStateIssues(input, issues);
+
+  return issues.length === 0 ? { valid: true } : { valid: false, issues };
+}
+
+/**
+ * The refusals that depend on the RECORD rather than on the text -- a contact already past dispatch,
+ * or a plan that has ended.
+ *
+ * Extracted so BOTH exits from `validateGovernedMessage` report them, including the unauthored-body
+ * return above. They read no text, so there is nothing about a missing body that makes them
+ * unanswerable.
+ */
+function appendStateIssues(input: GovernedMessageInput, issues: MessageValidationIssue[]): void {
   if (input.contactState && TERMINAL_DISPATCH_REFUSED_CONTACT_STATES.includes(input.contactState)) {
     issues.push({ code: "terminated-contact-dispatch-refused", state: input.contactState });
   }
 
-  if (input.planState && TERMINAL_PLAN_STATES.includes(input.planState)) {
-    issues.push({ code: "terminated-contact-dispatch-refused", state: input.planState });
+  if (input.planState) {
+    // The ended states keep their existing code, so nothing that reads it changes meaning.
+    if (TERMINAL_PLAN_STATES.includes(input.planState)) {
+      issues.push({ code: "terminated-contact-dispatch-refused", state: input.planState });
+    } else {
+      // #PAMATF: and the other two ways a plan is not sending, which previously passed. The stores
+      // already refuse to OPEN a dispatch on a non-active plan (`requiresActivePlan`), so this is
+      // defence in depth rather than the only gate -- but it is the gate a sender reaches with a
+      // message in hand, and it was the one that said yes.
+      const hold = planSendingHold(input.planState);
+      if (hold !== null) {
+        issues.push({ code: "plan-not-dispatchable", state: input.planState, hold });
+      }
+    }
   }
+}
 
-  return issues.length === 0 ? { valid: true } : { valid: false, issues };
+/**
+ * Whether a body was authored at all. Blank-or-absent is the same answer, because a
+ * whitespace-only body sends whitespace.
+ *
+ * Declared here so `validateGovernedMessage` above and `resolveClosingContactMessageBody` below ask
+ * the question once. Two copies of "is anything actually written here" is how the chokepoint and
+ * its adapter would come to disagree, which is the failure this whole change closes.
+ */
+function messageBodyIsAuthored(body: string | undefined): body is string {
+  return body !== undefined && body.trim().length > 0;
 }
 
 export type ClosingMessageBodyIssue = { code: "closing-message-body-not-authored" };
@@ -200,15 +299,33 @@ export type ClosingMessageBodyResolution = { ok: true; body: string } | { ok: fa
  *
  * No existing seam resolves a contact's message body anywhere in this domain today (checked
  * schedule.ts, simulation.ts, repository.ts, model.ts) -- `PlannedContact` carries a `messageType`
- * but no body content, and nothing yet supplies one. This function is the mechanism a future
- * sender must call once that seam is built; it is not itself wired into the schedule or the
- * simulation driver, because doing so would require inventing where an authored closing body comes
- * from, which is exactly the decision this task defers.
+ * but no body content, and nothing yet supplies one. This function is a convenience for a future
+ * sender that wants the body back on the success branch; it is not itself wired into the schedule
+ * or the simulation driver, because doing so would require inventing where an authored closing
+ * body comes from, which is exactly the decision this task defers.
+ *
+ * IT NO LONGER OWNS THE RULE (#59JT7W, 2026-09-02). It used to hold the refusal alone, which made
+ * the guarantee conditional on a caller CHOOSING to ask -- and a sender that resolved a closing
+ * body some other way met no refusal at all. Unlike the A1 fictional-contact check, which rides
+ * `validateGovernedMessage`, nothing obliged anyone to come here. The rule now lives in that
+ * chokepoint, which every sender must pass whatever it did to obtain a body, and this function
+ * delegates to it: it reads the single `closing-message-body-not-authored` issue and maps it back
+ * to the resolution shape. It deliberately ignores every OTHER issue the chokepoint may report --
+ * a body that exists but is wrong is a real body, and saying whether it may be SENT is the
+ * caller's own `validateGovernedMessage` call to make, not this one's.
  */
 export function resolveClosingContactMessageBody(
   authoredClosingBody: string | undefined,
 ): ClosingMessageBodyResolution {
-  if (!authoredClosingBody || authoredClosingBody.trim().length === 0) {
+  const validated = validateGovernedMessage({ text: authoredClosingBody, messageType: "closing" });
+  if (!validated.valid && validated.issues.some((issue) => issue.code === "closing-message-body-not-authored")) {
+    return { ok: false, issue: { code: "closing-message-body-not-authored" } };
+  }
+  // Unreachable unless the chokepoint stops reporting the issue for an unauthored body, which the
+  // contract test in tests/caring-contacts-message-policy.test.ts pins. Narrowed rather than
+  // asserted non-null so the impossible case still refuses rather than returning `undefined` as a
+  // body -- "never an empty string, never a silent fall-back" applies to this line too.
+  if (authoredClosingBody === undefined) {
     return { ok: false, issue: { code: "closing-message-body-not-authored" } };
   }
   return { ok: true, body: authoredClosingBody };
