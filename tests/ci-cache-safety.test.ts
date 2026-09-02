@@ -192,6 +192,16 @@ describe("CI cache safety", () => {
     );
   });
 
+  // The hazard register validator ran only in the provider-backed governance:release chain
+  // until audit M33; it needs the full-history checkout for its reviewedCommit checks.
+  it("runs the clinical hazard-controls register check in static-pr with full history (M33)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr).toContain("fetch-depth: 0");
+    expect(staticPr).toMatch(
+      /name: Clinical hazard-controls register\n\s+if: needs\.changes\.outputs\.docs_changed == 'true' \|\| needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:clinical-hazard-controls/,
+    );
+  });
+
   it("does not repeat focused workflow contracts inside the full coverage run", () => {
     expect(workflow).toContain(
       "if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'",

@@ -46,6 +46,39 @@ function gitCheck(args) {
   }
 }
 
+/** A word-bounded match for a control symbol inside source text. */
+function symbolPattern(symbol) {
+  return new RegExp(`\\b${String(symbol).replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`);
+}
+
+/**
+ * Whether a listed test actually exercises the control it is cited for: it names a
+ * control symbol, or imports a control path module (alias `@/lib/x`, relative
+ * `../src/lib/x`, or the bare repository path). Existence alone proved nothing (M33).
+ */
+function testReferencesControl(testSource, hazard) {
+  if ((hazard.controlSymbols ?? []).some((symbol) => symbolPattern(symbol).test(testSource))) return true;
+  return (hazard.controlPaths ?? []).some((controlPath) => {
+    const modulePath = String(controlPath).replace(/\.(?:ts|tsx|mjs|js)$/, "");
+    const withoutSrc = modulePath.replace(/^src\//, "");
+    return [`@/${withoutSrc}`, `/src/${withoutSrc}`, modulePath].some((specifier) => testSource.includes(specifier));
+  });
+}
+
+function isShallowClone() {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
 const commitTreeCache = new Map();
 
 function pathExistsAtCommit(commit, file) {
@@ -174,9 +207,22 @@ export function validateClinicalHazardControls(
         .map((path) => readFileSync(path.absolute, "utf8"))
         .join("\n");
       for (const symbol of hazard.controlSymbols ?? []) {
-        if (!new RegExp(`\\b${String(symbol).replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`).test(controlSource)) {
+        if (!symbolPattern(symbol).test(controlSource)) {
           errors.push(`${label}: control symbol ${symbol} not found in controlPaths`);
         }
+      }
+      // A test that exists but never touches the control is not proof of it.
+      const listedTests = (hazard.tests ?? []).map(repositoryPath).filter((path) => path && existsSync(path.absolute));
+      if (
+        ["controlled", "partial"].includes(hazard.state) &&
+        listedTests.length > 0 &&
+        !listedTests.some((path) => testReferencesControl(readFileSync(path.absolute, "utf8"), hazard))
+      ) {
+        errors.push(
+          `${label}: no listed test references a control symbol or imports a control path (${listedTests
+            .map((path) => path.file)
+            .join(", ")})`,
+        );
       }
     }
   }
@@ -238,7 +284,19 @@ export function validateClinicalHazardControls(
 
 function main() {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  const errors = validateClinicalHazardControls(manifest);
+  // The reviewedCommit ancestry checks need history. On a depth-one clone they
+  // would report every reviewed commit as missing — a checkout artefact, not a
+  // register defect — so say exactly what was skipped instead of failing on it.
+  // CI's static-pr job checks out with fetch-depth 0, where the checks do run.
+  const shallow = isShallowClone();
+  if (shallow) {
+    console.warn(
+      "CLINICAL_HAZARD_CONTROLS_SHALLOW_CLONE: this is a shallow git clone, so the reviewedCommit " +
+        "existence/ancestry checks were skipped. Run on a full-history checkout (git fetch --unshallow) " +
+        "to prove them; every file, symbol, test-reference and date check below still ran.",
+    );
+  }
+  const errors = validateClinicalHazardControls(manifest, { checkGit: !shallow });
   if (errors.length) {
     console.error("CLINICAL_HAZARD_CONTROLS_FAIL");
     for (const error of errors) console.error(`- ${error}`);

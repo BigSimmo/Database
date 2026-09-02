@@ -27,6 +27,24 @@ describe("clinical hazard controls contract", () => {
     );
   });
 
+  /**
+   * Existence is not evidence. Until audit M33 the validator only checked that each
+   * listed test file existed and matched `tests/*.test.ts`, so a hazard's named proofs
+   * could be emptied of the relevant case — or the control symbol renamed and re-added
+   * as a comment — while CLINICAL_HAZARD_CONTROLS_PASS kept printing.
+   */
+  it("requires at least one listed test to reference a control symbol or control path", () => {
+    const changed = structuredClone(manifest);
+    // A real, existing test file that names none of H1's controls.
+    changed.hazards[0].tests = ["tests/clinical-hazard-controls.test.ts"];
+    const errors = validateClinicalHazardControls(changed, { checkFiles: true, checkGit: false });
+    expect(errors).toContain(
+      "H1: no listed test references a control symbol or imports a control path (tests/clinical-hazard-controls.test.ts)",
+    );
+    // The committed manifest satisfies the rule for every hazard.
+    expect(validateClinicalHazardControls(manifest, { checkFiles: true, checkGit: false })).toEqual([]);
+  });
+
   it("rejects stale or impossible dates, fake commits, and escaped evidence paths", () => {
     const changed = structuredClone(manifest);
     changed.reviewExpiresAt = "2026-08-22";

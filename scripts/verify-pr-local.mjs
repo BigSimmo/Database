@@ -19,6 +19,8 @@ const docsScripts = [
   "check:branch-review-ledger",
   "check:outstanding-issues",
   "check:ledger-write-discipline",
+  // Offline, ~1 s: the hazard register's proofs must still name their controls (M33).
+  "check:clinical-hazard-controls",
 ];
 const workflowScripts = [
   "check:github-actions",
