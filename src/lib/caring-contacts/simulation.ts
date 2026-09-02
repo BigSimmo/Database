@@ -8,9 +8,12 @@
 // timeline, ask, and record the answer. Where it appears to decide something, it is reading a
 // value that another module owns:
 //
-//   * what may be sent          -> the store's `listSendableContacts`, which keys off contact
-//                                  state and never off `sendAt`. A suppressed contact is stored
-//                                  terminal, so it cannot appear there at all;
+//   * what may be sent          -> the store's `listSendableContacts`, which keys off the owning
+//                                  plan's state and then the contact's, and never off `sendAt`. A
+//                                  suppressed contact is stored terminal, so it cannot appear there
+//                                  at all; since #PAMATF a held plan's contacts cannot either, so a
+//                                  paused plan refuses at this step rather than at the dispatch
+//                                  write a beat later;
 //   * whether a send is on time -> `isWithinApprovedSendWindow` from ./schedule, plus the
 //                                  contact's own calendar day, so a retry can never roll into a
 //                                  later day and be sent late;
