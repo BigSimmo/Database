@@ -125,3 +125,18 @@ describe("L36: the advisory SAST workflow runs the same immutable Semgrep image 
     expect(advisory!.split("@")[1]).toBe(gateDigest);
   });
 });
+
+describe("L37: the Secret Scan workflow holds only the permission it uses", () => {
+  it("grants contents: read and nothing else", () => {
+    const workflow = read(".github/workflows/secret-scan.yml");
+    const block = workflow.match(/^permissions:\n((?:  \S.*\n)+)/m)?.[1] ?? "";
+    const grants = block
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    // scripts/run-gitleaks-pinned.mjs never uploads SARIF or reads the PR API;
+    // the wider grant was a leftover from gitleaks-action@v3.
+    expect(grants).toEqual(["contents: read"]);
+    expect(read("scripts/run-gitleaks-pinned.mjs")).not.toMatch(/--report-format|sarif/i);
+  });
+});
