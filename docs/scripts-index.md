@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (283 files) and the `package.json` script surface (284 entries),
+Curated map of `scripts/` (284 files) and the `package.json` script surface (285 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -137,6 +137,8 @@ preserved, in which case generated assets return to their exact pre-review state
 
 `build-worker.mjs`, `build-analyze.mjs`, `build-therapies-index.mjs`,
 `build-cross-mode-differentials-index.mjs`, `build-ranking-snapshot.ts`,
+`build-forms-pdf-manifest.mjs` (`check:forms-pdf-manifest` — derives each committed WA MHA form
+PDF's sha256, size, and whether opening it needs a user password; offline, fails closed),
 `generate-site-map.ts`, `generate-brand-assets.ts`, `generate-sample-documents.ts`,
 `check-sample-extraction.ts`, `optimize-public-images.mjs`.
 

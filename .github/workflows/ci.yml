@@ -386,6 +386,13 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:mha-act-sections
 
+      # Derives sha256/bytes/passwordProtected from the committed form PDFs. The badge a
+      # clinician reads before relying on a statutory form must match the file on disk;
+      # a hand-maintained flag had nothing checking it against the bytes.
+      - name: Forms PDF manifest drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:forms-pdf-manifest
+
       - name: Design-system contract
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:design-system-contract

@@ -847,7 +847,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
                 )}
               >
-                {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+                {details?.officialPdfPasswordProtected ? "Password required to open" : "Check source"}
               </span>
               <div className="flex items-center gap-2 sm:hidden">
                 <span
@@ -856,7 +856,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
                   )}
                 >
-                  {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+                  {details?.officialPdfPasswordProtected ? "Password required to open" : "Check source"}
                 </span>
                 <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
               </div>
