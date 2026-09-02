@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "fd9de7fe-b2a0-4a0d-9602-145a44260730",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "59f035ef-381b-4877-b27a-fa26f1048a32",
+    "reason": "Superseded, not rejected on the merits. This request and 2a381215 both close #0HYHTH, so the row closes either way and the only question is which outcome is recorded. This one was written against origin/main d1bb2c197 and describes the B3 scan as it then stood: two roots, src/components/caring-contacts/workspace and src/app/caring-contacts. It is accurate for that state, and it correctly flags the residue. 2a381215 records the state after PR #2521, which adds three further roots - the sealed domain src/lib/caring-contacts/**, src/lib/caring-contacts-server/** and src/app/api/caring-contacts/** - so the tree this row is about is now scanned in full rather than in part, and the residue this request had to name as outstanding is closed within it. Keeping the narrower outcome would leave the ledger describing a smaller fix than the one that landed. Nothing in this request's reasoning is lost: its point about the mockup exclusion being by construction, and about the scan carrying fixture self-tests so it is proved able to fail, both hold and are restated in the superseding outcome."
+  }
+}
