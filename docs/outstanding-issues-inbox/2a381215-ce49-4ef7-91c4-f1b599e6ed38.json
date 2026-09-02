@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2a381215-ce49-4ef7-91c4-f1b599e6ed38",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#0HYHTH",
+    "outcome": "Closed for every tree this feature renders from. The scan in tests/caring-contacts-interface-vocabulary.test.ts now covers five roots rather than two: the workspace and app trees from B3, the sealed domain src/lib/caring-contacts/** (added under #Z5P2BW in the preceding commit), and now src/lib/caring-contacts-server/** — deliberately outside the seal, holding demo-seed.ts whose fixture copy is what a demo-mode screen shows — and src/app/api/caring-contacts/**, which carries the refusal wording the workspace renders when a request is declined. The ban on 'high risk', 'safe', 'engagement score' and 'risk score' in interface strings is therefore now held by software rather than by people. Two surfaces remain deliberately unscanned and are recorded as decisions in the scan-root comment plus a test that pins the first: the mockup trees, which 404 in production and hold the one prohibited phrase the owner ruled under B4 to leave alone; and this feature's entries in cross-cutting catalogues it does not own (src/lib/tools-catalog.ts, src/lib/developer-area/**), which carry every feature's copy and so are a wider job than this rule — both verified clean of this vocabulary at this commit. Verified by mutation: planted offences in demo-seed.ts and in an API route each fail the scan naming the file and exact string.",
+    "baseRowFingerprint": "08f9d018b80f1a0aca922377738235df2c8e2b61036f31f93ea5b645e3abfaf8"
+  }
+}
