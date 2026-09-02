@@ -11,5 +11,5 @@
 - [Plain, brief communication style](communication-style-plain-and-brief.md) — answer first, numbered steps, no internal detail unless asked; saved in user-level CLAUDE.md
 - [Ward Flow coordination state](ward-flow-coordination-state.md) — WA metro psychiatry patient flow: spec approved, Phase 1 executing, handoff lives in docs/ward-flow-phase-handoff.md
 - [Ward Flow verification lessons](ward-flow-verification-lessons.md) — green tests missed a wrong value on every screen; verify claims, watch regression tests fail, look at the screen
-- [Token usage hygiene](token-usage-hygiene.md) — no .claudeignore exists; grep before reading big dirs, delegate broad searches to Explore, don't shrink AGENTS.md
+- [Token usage hygiene](token-usage-hygiene.md) — no .claudeignore exists; grep before reading big dirs, delegate broad searches to Explore, never drop a rule to save tokens (AGENTS.md is a deliberately small core plus docs/agents/ reference files)
 - [Claude plugin native deps trap](claude-plugin-native-deps-trap.md) — `claude plugin install` skips npm deps; npm 11 blocks native builds; prove with stats+search, not the postinstall warning
