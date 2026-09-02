@@ -984,6 +984,18 @@ describe("design-system contract helpers", () => {
         'export function Demo() { return <button disabled className="disabled:cursor-not-allowed disabled:bg-[color:var(--surface-subtle)]">X</button>; }',
       ),
     ).toEqual([]);
+
+    // Tailwind v4's arbitrary-value and CSS-variable-shorthand opacity forms
+    // bypass `controlDisabled` exactly as invisibly as a bare digit — a
+    // digit-only pattern let both slip past this ratchet undetected.
+    expect(
+      find('export function Demo() { return <button disabled className="disabled:opacity-[0.4]">X</button>; }'),
+    ).toEqual(["src/example.tsx:1 (disabled:opacity-[0.4])"]);
+    expect(
+      find(
+        'export function Demo() { return <button disabled className="disabled:opacity-(--disabled-opacity)">X</button>; }',
+      ),
+    ).toEqual(["src/example.tsx:1 (disabled:opacity-(--disabled-opacity))"]);
   });
 
   it("backstops disabledOpacityUses with a whole-file text scan that ignores aria-disabled (COMPONENTS.md §9.33)", () => {
@@ -992,6 +1004,10 @@ describe("design-system contract helpers", () => {
     expect(matches('className="disabled:opacity-40"')).toEqual(['"disabled:opacity-40']);
     expect(matches('className="sm:disabled:opacity-40"')).toEqual(['"sm:disabled:opacity-40']);
     expect(matches('className="aria-disabled:opacity-45"')).toEqual([]);
+    expect(matches('className="disabled:opacity-[0.4]"')).toEqual(['"disabled:opacity-[0.4]']);
+    expect(matches('className="disabled:opacity-(--disabled-opacity)"')).toEqual([
+      '"disabled:opacity-(--disabled-opacity)',
+    ]);
   });
 
   it("flags a visible node carrying aria-live (SPEC.md §9.2)", () => {

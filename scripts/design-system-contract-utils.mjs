@@ -57,9 +57,12 @@ const LEGACY_TAP_CLASS_TEST = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_
  * (leaving `opacity-<n>`, which does not match) or matches zero segments
  * (leaving `aria-disabled:...`, which does not start with `disabled:`
  * either). `aria-disabled:opacity-<n>` is a different, not-yet-covered
- * surface and must stay invisible to this ratchet.
+ * surface and must stay invisible to this ratchet. The opacity value itself
+ * accepts a bare number, a Tailwind v4 arbitrary value (`opacity-[0.4]`), or
+ * the v4 CSS-variable shorthand (`opacity-(--my-opacity)`) — a digit-only
+ * pattern let exactly those two forms bypass `controlDisabled` invisibly.
  */
-const DISABLED_OPACITY_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*disabled:opacity-\d+`;
+const DISABLED_OPACITY_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*disabled:opacity-(?:\d+|\[[^\]]+\]|\([^)]+\))`;
 export const DISABLED_OPACITY_CLASS = new RegExp(
   `(?:^|[\\s\"'\\x60])${DISABLED_OPACITY_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`,
   "g",
@@ -613,7 +616,7 @@ export function findInteractiveTapFloorDeclarationsInSource(relativePath, source
  * (PR 3) is the paydown, which this gate deliberately does not execute — it
  * only stops the count from growing past its pinned baseline.
  */
-const DISABLED_OPACITY_UTILITY = /^opacity-\d+$/;
+const DISABLED_OPACITY_UTILITY = /^opacity-(?:\d+|\[[^\]]+\]|\([^)]+\))$/;
 const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 // The status-colour family declared in `globals.css` (`--success`/`--warning`/

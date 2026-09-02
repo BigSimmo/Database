@@ -606,19 +606,24 @@ function DocumentSearchHome({
       footer={
         <div className="grid w-full gap-3">
           {documentCount > 0 ? (
-            <>
-              <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-                {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-              </p>
-              {/* The visible count above can change while this home screen stays
-                  mounted (ingestion polling updates the indexed total), so the
-                  live announcement lives on this separate sr-only twin rather
-                  than on the visible node itself — SPEC.md §9.2. */}
-              <span className="sr-only" role="status" aria-live="polite">
-                {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-              </span>
-            </>
+            <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+              {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+            </p>
           ) : null}
+          {/* The visible count above can change while this home screen stays
+              mounted (ingestion polling updates the indexed total), so the
+              live announcement lives on this separate sr-only twin rather
+              than on the visible node itself — SPEC.md §9.2. Mounted
+              unconditionally (empty until documentCount is positive): a
+              region that appears already containing its content — the shape
+              a poll landing on the very first render would produce — is not
+              reliably announced by assistive tech, only a text change inside
+              an already-mounted region is. */}
+          <span className="sr-only" role="status" aria-live="polite">
+            {documentCount > 0
+              ? `${documentCount.toLocaleString()} indexed source${documentCount === 1 ? "" : "s"}`
+              : ""}
+          </span>
         </div>
       }
     />
