@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c56e653f-711f-4938-b188-489016a20d4b",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a44121fb-4afe-4ce7-b6ff-051dd2e6d685",
+    "reason": "Stale fingerprint, not a changed decision. This was my done request for #AGRAKQ. The reconciliation on main (#2542) applied the other session's update to that same row, so the row's detail changed after this request was queued and its baseRowFingerprint no longer matches; the planner refuses it as stale and blocks the inbox. Reissued immediately from the current ledger with the same outcome, which the row's new detail actually fits better than the old one did: that update established the plural half was still broken, and this branch fixes exactly that."
+  }
+}
