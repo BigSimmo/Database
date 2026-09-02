@@ -30,7 +30,7 @@ export const productionSpecFilePattern =
  * the unseeded server. They still belong to a shard: a spec wired into no gate is a spec that
  * silently never runs, which is the defect these groups exist to make impossible.
  */
-export const seededSpecFilePattern = /^ui-caring-contacts-activation\.spec\.ts$/;
+export const seededSpecFilePattern = /^ui-caring-contacts-(activation|populated)\.spec\.ts$/;
 
 /** The project each shard file must be collected by. Production files use `chromium`. */
 export const SEEDED_PR_UI_PROJECT = "chromium-caring-contacts-seeded";
@@ -47,9 +47,13 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-smoke.spec.ts", shard: 1, fullSeconds: 134.4, criticalSeconds: 21.7 },
   { file: "tests/ui-mode-nav-density.spec.ts", shard: 1, fullSeconds: 36.5, criticalSeconds: 0 },
   { file: "tests/ui-phone-scroll-page-owned.spec.ts", shard: 1, fullSeconds: 42.5, criticalSeconds: 0 },
-  { file: "tests/ui-accessibility.spec.ts", shard: 1, fullSeconds: 17.1, criticalSeconds: 0 },
+  // Moved to shard 2 to offset the Caring Contacts populated sweep landing on shard 1; its own
+  // timing is unchanged.
+  { file: "tests/ui-accessibility.spec.ts", shard: 2, fullSeconds: 17.1, criticalSeconds: 0 },
   { file: "tests/ui-route-coverage.spec.ts", shard: 1, fullSeconds: 21.1, criticalSeconds: 0 },
-  { file: "tests/ui-formulation.spec.ts", shard: 1, fullSeconds: 11.0, criticalSeconds: 0 },
+  // Moved to shard 3 to offset the Caring Contacts populated sweep landing on shard 1; its own
+  // timing is unchanged.
+  { file: "tests/ui-formulation.spec.ts", shard: 3, fullSeconds: 11.0, criticalSeconds: 0 },
   // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
   { file: "tests/ui-dictionary.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
@@ -74,6 +78,20 @@ export const prUiSpecProfiles = Object.freeze([
     file: "tests/ui-caring-contacts-activation.spec.ts",
     shard: 1,
     fullSeconds: 8.0,
+    criticalSeconds: 0,
+    project: SEEDED_PR_UI_PROJECT,
+  },
+
+  // The populated layout sweep, on the SAME shard as the activation journey so only one shard
+  // pays for the second server. It writes nothing, so it cannot interfere with that journey's
+  // single creating run.
+  // 36.0s is a LOCAL measurement (56 cases green, `npm run test:e2e:caring-contacts-populated`,
+  // 2026-09-02) rather than a hosted sample like the rest of this table, so treat it as the better
+  // of two approximations rather than as hosted evidence. Replace at the next timing refresh.
+  {
+    file: "tests/ui-caring-contacts-populated.spec.ts",
+    shard: 1,
+    fullSeconds: 36.0,
     criticalSeconds: 0,
     project: SEEDED_PR_UI_PROJECT,
   },
