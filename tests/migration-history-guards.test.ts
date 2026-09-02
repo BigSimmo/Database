@@ -265,15 +265,61 @@ describe("migration-history probe and guard-migration contract", () => {
     }
   });
 
+  /**
+   * Is this migration named as a mark-applied version in the live forensics record?
+   *
+   * The check used to be `forensics.includes(\`\`${stem}\`\`)` over the WHOLE
+   * document, which is satisfied by any backtick-quoted token anywhere — and
+   * migration stems collide with table names. `api_rate_limits` is a real
+   * example: it is the stem of 20260623125600 AND a row in the table-size
+   * inventory in §1.3, so a bogus allowlist entry for that version would have
+   * passed on the strength of a size table.
+   *
+   * A name counts now only in a migration context: inside §1.1 (the mark-applied
+   * cluster this check is named for, where the 2026-07-01/02 versions are listed
+   * as bare stems), or anywhere the stem appears alongside its own version — the
+   * `| \`<version>\` | \`<stem>\` |` provenance table and the
+   * \`<version> <stem>\` form both qualify. All twenty committed entries satisfy
+   * this; a bare table name satisfies neither.
+   */
+  function namedInForensics(version: string, stem: string): boolean {
+    const forensics = read("docs/audit/live-drift-forensics-2026-08.md");
+    const clusterStart = forensics.indexOf("### 1.1 Migration-history fingerprint");
+    const clusterEnd = forensics.indexOf("### 1.2 RPC divergence dossier");
+    const cluster = clusterStart >= 0 && clusterEnd > clusterStart ? forensics.slice(clusterStart, clusterEnd) : "";
+    if (cluster.includes(`\`${stem}\``)) return true;
+    return forensics
+      .split(/\r?\n/)
+      .some(
+        (line) =>
+          (line.includes(`\`${version}\``) && line.includes(`\`${stem}\``)) || line.includes(`\`${version} ${stem}\``),
+      );
+  }
+
   it("the seeded entries resolve to the section 1.1 mark-applied cluster by name", () => {
     // Guards against a typo in the version key: each seeded version must have a
-    // local file whose stem is one of the names the forensics file recorded.
-    const forensics = read("docs/audit/live-drift-forensics-2026-08.md");
+    // local file whose stem the forensics file records AS A MIGRATION.
     for (const entry of historyEntries) {
       const own = migrationFiles.find((name) => name.startsWith(`${entry.key}_`));
       expect(own, `allowlist entry ${entry.key} has no local migration`).toBeTruthy();
       const stem = own!.replace(/^\d{14}_/, "").replace(/\.sql$/, "");
-      expect(forensics, `${own} is not a name recorded in forensics §1.1`).toContain(`\`${stem}\``);
+      expect(
+        namedInForensics(entry.key, stem),
+        `${own} is not recorded as a mark-applied migration in forensics §1.1 or its provenance table`,
+      ).toBe(true);
     }
+  });
+
+  it("a stem that merely collides with some other backticked token is not provenance", () => {
+    // The concrete regression: `api_rate_limits` is the stem of 20260623125600
+    // and also a row label in the §1.3 table-size inventory. Matching the whole
+    // document accepted the second as evidence for the first.
+    expect(read("docs/audit/live-drift-forensics-2026-08.md")).toContain("`api_rate_limits`");
+    expect(namedInForensics("20260623125600", "api_rate_limits")).toBe(false);
+    expect(namedInForensics("20260101000000", "a_stem_that_appears_nowhere")).toBe(false);
+
+    // …while a genuinely recorded pair still resolves, by either route.
+    expect(namedInForensics("20260701010000", "fix_chunks_hybrid_perf_and_ambiguity")).toBe(true);
+    expect(namedInForensics("20260712170500", "codify_live_operational_indexes")).toBe(true);
   });
 });
