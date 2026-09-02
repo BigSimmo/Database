@@ -255,7 +255,7 @@ normalising them would have buried a small real diff under several hundred white
 Recorded here rather than fixed silently.
 
 **Open for the owner:** the copy pass (6a) and the four decisions (6b). Also worth a glance: the
-fictional mobile numbers on the sheets run from `0491 570 101` to `0491 570 170`. Australia reserves
+fictional mobile numbers on the sheets run from `0491 570 101` to `0491 570 156`. Australia reserves
 a block in the `0491 570 xxx` range for fiction, and **I did not verify where that block ends** —
 some of the higher numbers may fall outside it. Harmless in a watermarked prototype; worth checking
 before anything resembling this leaves the building.

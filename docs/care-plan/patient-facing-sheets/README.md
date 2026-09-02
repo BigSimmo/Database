@@ -33,8 +33,9 @@ metropolitan) and `1800 676 822` (Peel), and Rurallink `1800 552 002`.
    because no Patient Plan fixture carries real prose and the harness has to write something. The
    file is honest evidence of **structure, framing and resources**, and no evidence at all of
    **content**. Writing that content is the outstanding copy pass.
-2. **They are a snapshot, not a live view.** They were captured on 25 August 2026 from the build
-   that merged as `e15b250cf`. If a Care Plan surface changes, these files do not move with it.
+2. **They are a snapshot, not a live view.** They were captured on 26 August 2026 from the build
+   that merged as `e15b250cf` (that commit's own date, corrected here — an earlier draft said 25
+   August). If a Care Plan surface changes, these files do not move with it.
    Regenerate and re-copy them rather than editing them by hand:
 
    ```bash
