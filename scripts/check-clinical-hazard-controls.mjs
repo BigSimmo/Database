@@ -46,9 +46,14 @@ function gitCheck(args) {
   }
 }
 
-/** A word-bounded match for a control symbol inside source text. */
+/**
+ * A word-bounded match for a control symbol inside source text. The escape class is the
+ * repository's standard one (see scripts/pr-policy.mjs); the earlier `[...[\\]\\]` form
+ * parsed as a class followed by a literal `\]`, so no metacharacter was ever escaped and a
+ * dotted symbol matched as a wildcard (audit L22).
+ */
 function symbolPattern(symbol) {
-  return new RegExp(`\\b${String(symbol).replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`);
+  return new RegExp(`\\b${String(symbol).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
 }
 
 /**

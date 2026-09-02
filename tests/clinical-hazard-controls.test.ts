@@ -45,6 +45,34 @@ describe("clinical hazard controls contract", () => {
     expect(validateClinicalHazardControls(manifest, { checkFiles: true, checkGit: false })).toEqual([]);
   });
 
+  /**
+   * The symbol-presence check escapes regex metacharacters before wrapping the symbol in
+   * word boundaries. Until audit L22 the escape class was mis-written so nothing was
+   * escaped: a dotted symbol acted as a wildcard (fail-open) and a bracket symbol threw.
+   * The sentinels below live in this file, which the fixture names as its control path:
+   * `fooxbar` and `sentinel(x)` — the dotted symbol itself is assembled at runtime so it
+   * never appears here literally.
+   */
+  it("escapes regex metacharacters in control symbols instead of treating them as wildcards", () => {
+    const self = "tests/clinical-hazard-controls.test.ts";
+    const dotted = ["foo", "bar"].join(".");
+    const changed = structuredClone(manifest);
+    changed.hazards[0].controlPaths = [self];
+    changed.hazards[0].tests = [self];
+    changed.hazards[0].controlSymbols = [dotted];
+    expect(validateClinicalHazardControls(changed, { checkFiles: true, checkGit: false })).toContain(
+      `H1: control symbol ${dotted} not found in controlPaths`,
+    );
+
+    const bracketed = ["sentinel", "("].join("");
+    changed.hazards[0].controlSymbols = [bracketed];
+    let errors: string[] = [];
+    expect(() => {
+      errors = validateClinicalHazardControls(changed, { checkFiles: true, checkGit: false });
+    }).not.toThrow();
+    expect(errors).not.toContain(`H1: control symbol ${bracketed} not found in controlPaths`);
+  });
+
   it("rejects stale or impossible dates, fake commits, and escaped evidence paths", () => {
     const changed = structuredClone(manifest);
     changed.reviewExpiresAt = "2026-08-22";
