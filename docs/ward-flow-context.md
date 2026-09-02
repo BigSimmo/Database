@@ -148,7 +148,7 @@ from its own data. Supply arrives instead as a ward-reported bed release.
 
 ## 4. Where the build is
 
-Worktree `C:/Users/joshs/.codex/worktrees/ward-management-design/Database`, branch
+Worktree: a local Codex worktree named `ward-management-design` (machine-local path omitted), branch
 `codex/ward-management-design`. **Nothing pushed. No PR.** 15 commits.
 
 | Phase                         | Scope                                                                                           | State                                                                |

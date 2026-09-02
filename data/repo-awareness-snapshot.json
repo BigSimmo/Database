@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "f71db1dbaa78b14109363183a3ed9f6e84810259",
-    "committed_at": "2026-09-02T09:01:48+00:00"
+    "sha": "4a053221072a5c0050586741b483034ec046aeda",
+    "committed_at": "2026-09-02T20:09:56+00:00"
   },
   "routes": {
     "modes": [
@@ -1737,6 +1737,11 @@
       },
       {
         "path": "docs/audit/design-audit-2026-07-17.md",
+        "section": "audit",
+        "catalogued": true
+      },
+      {
+        "path": "docs/audit/full-repository-audit-2026-09-02.md",
         "section": "audit",
         "catalogued": true
       },
@@ -4432,8 +4437,8 @@
       }
     ],
     "counts": {
-      "documents": 586,
-      "catalogued": 114,
+      "documents": 587,
+      "catalogued": 115,
       "uncatalogued": 472,
       "sections": 21
     }
@@ -10366,6 +10371,14 @@
         "scope": "PR #1490 main sync + #151 close",
         "outcome": "merged origin/main (clean tree; GitHub DIRTY was ledger-driver staleness); archived #151 via #1494; #143 fully resolved; review threads already addressed",
         "checks": "check:outstanding-issues; docs:check-links; merge-tree clean"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/full-repo-audit-27fccs",
+        "head": "4a053221072a5c0050586741b483034ec046aeda",
+        "scope": "Audit only: new docs/audit/full-repository-audit-2026-09-02.md (25 finder lanes + critic + Stage-5 review, 162 distinct verified findings), docs/README.md bullet, data/repo-awareness-snapshot.json regenerated, and eleven one-line documentation corrections (CLAUDE.md, README.md, docs/codebase-index.md, docs/scripts-index.md, docs/samd-classification-medication-considerations.md, docs/performance.md, docs/ward-flow-*.md, docs/ward-management-mode-map.md, docs/care-plan/CLAUDE-START-HERE.md, docs/rag-hybrid-findings-and-todo.md). No code, migration, script, workflow, gate, test, ledger table or inbox request changed; RAG-protected surfaces read only.",
+        "outcome": "Report landed on the branch for owner triage: High 3 (medication badge decimal/mg-per-mL misread, LOW interaction rendered as No alert found, clinicalOnly table header/body misalignment), Medium 30, Low 129; 25 corroborations of open ledger rows (several stale), 7 refuted. Nothing filed to the inbox by owner decision; suggested rows in report section 16. Draft PR, no auto-merge.",
+        "checks": "npm run verify:pr-local (heavy plan, 20 steps, all offline) on 4a05322: failed (none), not reached (none); Test Files 951 passed (951); Tests 12230 passed, 2 skipped (12232); format:changed clean; docs:check-links 5433 references resolve; check:repo-awareness-snapshot in step (204 pages, 583 documents). Phase-0 evidence on d1e4ae7: lint, typecheck, full unit suite, caring-contacts:db:test 213 passed on local PostgreSQL 16, npm audit (1 high: browserslist), Semgrep OSS. Not run: verify:ui (no UI change; pinned Chromium absent), verify:release, check:drift (no Docker daemon), every provider-backed gate."
       },
       {
         "date": "2026-07-30",
