@@ -855,7 +855,7 @@ export function ClinicalNotesChecklistPanel({
                 )}
                 aria-hidden="true"
               >
-                <RowIcon className="h-4 w-4" />
+                <RowIcon aria-hidden="true" className="h-4 w-4" />
               </span>
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">

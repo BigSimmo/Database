@@ -2112,7 +2112,7 @@ export function MasterSearchHeader({
               ) : usesSendAffordance ? (
                 <Send aria-hidden="true" className="size-icon-lg" />
               ) : usesModeIdentityAffordance ? (
-                <ModeIdentityIcon className="size-icon-lg" />
+                <ModeIdentityIcon aria-hidden="true" className="size-icon-lg" />
               ) : (
                 <Search aria-hidden="true" className="size-icon-lg" />
               )}

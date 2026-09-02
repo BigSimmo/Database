@@ -273,7 +273,7 @@ export function CompareScreen() {
                           className={`border-t border-[color:var(--border)] font-semibold ${dense ? "px-4 py-3" : "px-5 py-4"}`}
                         >
                           <span className="flex items-center gap-2.5">
-                            <r.icon className="size-icon-md shrink-0" strokeWidth={1.7} />
+                            <r.icon aria-hidden="true" className="size-icon-md shrink-0" strokeWidth={1.7} />
                             {r.label}
                           </span>
                         </th>
