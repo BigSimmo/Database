@@ -3,7 +3,11 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ReviewStatePageContent } from "@/components/developer-area/hub/review-state-page-content";
-import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
+import {
+  loadRepoAwarenessSnapshot,
+  reviewRecordsNewestFirst,
+  reviewStateCounts,
+} from "@/lib/developer-area/repo-awareness-snapshot";
 
 // PanelPageShell's back control is a ContextualBackLink, which calls
 // next/navigation's useRouter for its history-aware click handler. Outside an
@@ -33,6 +37,12 @@ vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) =
 });
 
 const snapshot = loadRepoAwarenessSnapshot();
+// The snapshot stores records ordered by `head` so concurrent appends merge
+// cleanly; reading order and totals are the page's job. These mirror what the
+// component derives, so the assertions below describe rendered output rather
+// than the storage order.
+const displayRecords = reviewRecordsNewestFirst(snapshot.review_state.records);
+const counts = reviewStateCounts(displayRecords);
 
 describe("developer review state page", () => {
   it("renders inside the shared shell with the repository freshness label", () => {
@@ -43,12 +53,8 @@ describe("developer review state page", () => {
 
   it("shows records and distinct recorded refs as separate readable values", () => {
     render(<ReviewStatePageContent />);
-    expect(screen.getByTestId("developer-review-state-count-records-value")).toHaveTextContent(
-      String(snapshot.review_state.counts.records),
-    );
-    expect(screen.getByTestId("developer-review-state-count-refs-value")).toHaveTextContent(
-      String(snapshot.review_state.counts.refs),
-    );
+    expect(screen.getByTestId("developer-review-state-count-records-value")).toHaveTextContent(String(counts.records));
+    expect(screen.getByTestId("developer-review-state-count-refs-value")).toHaveTextContent(String(counts.refs));
     expect(screen.getByText("distinct recorded refs")).toBeInTheDocument();
   });
 
@@ -60,7 +66,7 @@ describe("developer review state page", () => {
 
   it("renders only the current page's records (up to 50 on page 1) — never the full committed set", () => {
     render(<ReviewStatePageContent />);
-    const expectedFirstPageCount = Math.min(50, snapshot.review_state.counts.records);
+    const expectedFirstPageCount = Math.min(50, counts.records);
     expect(within(screen.getByTestId("developer-review-state-records")).getAllByRole("listitem")).toHaveLength(
       expectedFirstPageCount,
     );
@@ -79,12 +85,12 @@ describe("developer review state page", () => {
     const previousLinks = screen.getAllByRole("link", { name: "Previous page" });
     expect(previousLinks[0]).toHaveAttribute("href", "?page=1");
     const secondPageRows = within(screen.getByTestId("developer-review-state-records")).getAllByRole("listitem");
-    expect(secondPageRows[0]).toHaveTextContent(snapshot.review_state.records[50].head);
+    expect(secondPageRows[0]).toHaveTextContent(displayRecords[50].head);
   });
 
   it("clamps an out-of-range requested page to the last real page", () => {
     render(<ReviewStatePageContent requestedPage={999999} />);
-    const totalPages = Math.max(1, Math.ceil(snapshot.review_state.counts.records / 50));
+    const totalPages = Math.max(1, Math.ceil(counts.records / 50));
     expect(screen.getByText(new RegExp(`Page ${totalPages} of ${totalPages}`))).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Next page" })).not.toBeInTheDocument();
   });
@@ -92,14 +98,18 @@ describe("developer review state page", () => {
   it("shows the newest record first and never a raw escaped pipe", () => {
     render(<ReviewStatePageContent />);
     const rows = within(screen.getByTestId("developer-review-state-records")).getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent(snapshot.review_state.records[0].head);
+    expect(rows[0]).toHaveTextContent(displayRecords[0].head);
+    // The page must APPLY reading order, not inherit it. The stored order is by
+    // `head`, so its first record is not the newest one — if this ever passes
+    // without `reviewRecordsNewestFirst`, the page is showing storage order.
+    expect(snapshot.review_state.records[0].head).not.toBe(displayRecords[0].head);
     expect(screen.getByTestId("developer-review-state-records").textContent).not.toMatch(/\\\|/);
   });
 
   it("renders a record's outcome verbatim, in full, never classified or truncated (ruling R7)", () => {
     render(<ReviewStatePageContent />);
     const rows = within(screen.getByTestId("developer-review-state-records")).getAllByRole("listitem");
-    const pageRecords = snapshot.review_state.records.slice(0, 50);
+    const pageRecords = displayRecords.slice(0, 50);
     let longestIndex = 0;
     for (const [index, record] of pageRecords.entries()) {
       if (record.outcome.length > pageRecords[longestIndex].outcome.length) longestIndex = index;
@@ -111,7 +121,7 @@ describe("developer review state page", () => {
   it("renders a clear empty state instead of an empty review list", () => {
     vi.mocked(loadRepoAwarenessSnapshot).mockReturnValue({
       ...snapshot,
-      review_state: { ...snapshot.review_state, records: [], counts: { records: 0, refs: 0 } },
+      review_state: { ...snapshot.review_state, records: [] },
     });
 
     render(<ReviewStatePageContent />);
