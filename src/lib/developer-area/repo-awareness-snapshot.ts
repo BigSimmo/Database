@@ -6,6 +6,7 @@ import {
   type DocumentationSection,
   type QuarantinedTest,
   type RepoAwarenessSnapshot,
+  type ReviewRecord,
 } from "./repo-awareness-types";
 
 /**
@@ -73,6 +74,43 @@ export function isQuarantineExpired(entry: QuarantinedTest, now: Date): boolean 
     return false;
   }
   return now.getTime() > endOfExpiryDay.getTime();
+}
+
+/**
+ * The review-state totals, derived rather than stored.
+ *
+ * `ReviewStateSection` explains why: a stored aggregate over an append-only set
+ * conflicts on every concurrent append. Computing both here — once, from the
+ * same array the page renders — keeps the guarantee the stored counts gave,
+ * that a count and its own list cannot disagree.
+ *
+ * `refs` counts distinct recorded refs, not records: one branch reviewed twice
+ * at different heads is one ref and two records, which is what the panel's two
+ * tiles are there to tell apart.
+ */
+export function reviewStateCounts(records: readonly ReviewRecord[]): { records: number; refs: number } {
+  return { records: records.length, refs: new Set(records.map((record) => record.ref)).size };
+}
+
+/**
+ * Newest first, for reading. The snapshot stores records ordered by `head` so
+ * concurrent appends merge cleanly, so presentation order has to be applied
+ * here — see `buildReviewStateSection` in the generator.
+ *
+ * Copies before sorting: the snapshot is a module-level import shared by every
+ * request, and sorting it in place would mutate that shared array.
+ *
+ * Ties keep the stored order, which is itself deterministic, so repeated calls
+ * on one snapshot always produce the same list.
+ */
+export function reviewRecordsNewestFirst(records: readonly ReviewRecord[]): ReviewRecord[] {
+  return [...records].sort(
+    (left, right) =>
+      right.date.localeCompare(left.date) ||
+      left.ref.localeCompare(right.ref) ||
+      left.head.localeCompare(right.head) ||
+      left.scope.localeCompare(right.scope),
+  );
 }
 
 export type DocumentEntry = DocumentationSection["documents"][number];
