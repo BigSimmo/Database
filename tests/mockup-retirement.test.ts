@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   auditDeletions,
   auditIndex,
+  deletedMockupFiles,
   deletedRouteSlugs,
   inlineCodeSpans,
   listRouteSlugs,
@@ -34,7 +35,10 @@ function fakeRepo(files: Record<string, string>, directories: Record<string, str
     readdirSync: (p: string) => {
       const key = normalize(p);
       const hit = Object.entries(directories).find(([name]) => key.endsWith(name));
-      return (hit?.[1] ?? []).map((name) => ({ name, isDirectory: () => !name.includes(".") }));
+      // A route directory with no explicit contents is assumed runnable: listRouteSlugs now
+      // requires a surviving page.tsx, and most cases here are about the index, not liveness.
+      if (!hit) return [{ name: "page.tsx", isDirectory: () => false }] as never;
+      return hit[1].map((name) => ({ name, isDirectory: () => !name.includes(".") })) as never;
     },
     existsSync: (p: string) => Object.keys(directories).some((name) => normalize(p).endsWith(name)),
   } as never;
@@ -92,6 +96,25 @@ describe("mockup index parsing", () => {
   it("returns an empty record when the section is absent", () => {
     expect(retiredSlugs("# No section here").size).toBe(0);
   });
+
+  /**
+   * Evidence bar item 1 is a written successor. A row naming a route but leaving the successor
+   * or evidence cell blank says nothing, and must not license a deletion.
+   */
+  it.each([
+    ["a blank successor", "| 2026-09-02 | `gone` |  | Evidence. |"],
+    ["blank evidence", "| 2026-09-02 | `gone` | `winner` |  |"],
+    ["both blank", "| 2026-09-02 | `gone` |  |  |"],
+  ])("refuses to record a retirement with %s", (_label, row) => {
+    const markdown = [
+      RETIRED_SECTION_HEADING,
+      "",
+      "| Retired | Route | Superseded by | Evidence |",
+      "| --- | --- | --- | --- |",
+      row,
+    ].join("\n");
+    expect(retiredSlugs(markdown).has("gone")).toBe(false);
+  });
 });
 
 describe("index audit", () => {
@@ -115,6 +138,22 @@ describe("index audit", () => {
       { [MOCKUP_ROUTE_ROOT]: ["still-here"] },
     );
     expect(auditIndex("/repo", fs).violations.join()).toContain("still exists on disk");
+  });
+
+  /**
+   * A leftover stylesheet or asset must not keep a slug "live" — that silently suppressed the
+   * retirement-record check for a route nobody could load.
+   */
+  it("counts a route as live only while a page.tsx survives under it", () => {
+    const fs = fakeRepo(
+      { "mockups/README.md": "# M\n\n`with-page`\n" },
+      {
+        [MOCKUP_ROUTE_ROOT]: ["with-page", "leftover-assets"],
+        "with-page": ["page.tsx"],
+        "leftover-assets": ["styles.css"],
+      },
+    );
+    expect(listRouteSlugs("/repo", fs)).toEqual(["with-page"]);
   });
 
   it("ignores the shared shell files, which are not routes", () => {
@@ -233,6 +272,25 @@ describe("deleted route slugs", () => {
 
   it("stays quiet when a sibling page under the same route survives", () => {
     expect(deletedRouteSlugs([`${MOCKUP_ROUTE_ROOT}/stays/nested/page.tsx`], ["stays"])).toEqual([]);
+  });
+});
+
+describe("deletion scope", () => {
+  const runGit = (out: string) => () => out;
+
+  /**
+   * 82 modules in this surface are reachable only from mockup routes and have no "mockup" in
+   * their path, so a filename filter drops exactly the support files a retirement strands.
+   */
+  it("scans a support file with no mockup in its name once a retirement is in the diff", () => {
+    const deleted = deletedMockupFiles("base", {
+      runGit: runGit(`${MOCKUP_ROUTE_ROOT}/gone/page.tsx\nsrc/lib/some-support-module.ts\n`),
+    });
+    expect(deleted).toContain("src/lib/some-support-module.ts");
+  });
+
+  it("stays out of the way of a diff that retires no mockup", () => {
+    expect(deletedMockupFiles("base", { runGit: runGit("src/lib/unrelated.ts\n") })).toEqual([]);
   });
 });
 

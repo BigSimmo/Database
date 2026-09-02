@@ -93,9 +93,26 @@ export function listRouteSlugs(root, fileSystem = NODE_FILE_SYSTEM) {
   // indistinguishable from a healthy repo and is exactly the soft-skip this gate must not do.
   if (!fileSystem.existsSync(base))
     throw new Error(`${MOCKUP_ROUTE_ROOT} does not exist — cannot audit the mockup surface`);
+  // A route is live only while a page.tsx survives under it. Enumerating directories alone let a
+  // leftover stylesheet or asset keep a slug "live", which silently suppressed the
+  // retirement-record check for a route nobody can load any more.
+  const hasPage = (dir) => {
+    let entries;
+    try {
+      entries = fileSystem.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return false;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() && entry.name === "page.tsx") return true;
+    }
+    return entries.some((entry) => entry.isDirectory() && hasPage(resolve(dir, entry.name)));
+  };
+
   return fileSystem
     .readdirSync(base, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !NON_ROUTE_ENTRIES.has(entry.name))
+    .filter((entry) => hasPage(resolve(base, entry.name)))
     .map((entry) => entry.name)
     .sort();
 }
@@ -161,6 +178,13 @@ export function retiredSlugs(markdown) {
     const cells = line.split("|").map((cell) => cell.trim());
     const route = inlineCodeSpans(cells[2] ?? "")[0];
     if (!route) continue;
+    // Evidence bar item 1 is a WRITTEN SUCCESSOR. A row that names a route but leaves the
+    // successor or evidence cell blank is not a retirement record — recording the slug from it
+    // would let a deletion through on the strength of a table row that says nothing.
+    const separator = /^-{2,}$/u;
+    const successor = cells[3] ?? "";
+    const evidence = cells[4] ?? "";
+    if (!successor || separator.test(successor) || !evidence || separator.test(evidence)) continue;
     slugs.add(route.replace(/^\/mockups\//u, "").replace(/\/.*$/u, ""));
   }
   return slugs;
@@ -208,14 +232,24 @@ export function auditIndex(root, fileSystem = NODE_FILE_SYSTEM) {
   return { routeCount: slugs.length, retiredCount: retired.size, violations };
 }
 
-/** Files a diff deletes outright, restricted to the mockup surface. */
+/**
+ * Files a diff deletes outright, in scope for the reference scan.
+ *
+ * Naming alone is not the scope. The survey behind this policy found 82 modules reachable only
+ * from mockup routes with no "mockup" anywhere in their path (`src/components/ward-management/**`
+ * is 58 of them), so a filename filter would drop exactly the support files a retirement is most
+ * likely to strand. When a diff retires anything from the mockup surface, every deletion under
+ * `src`, `tests`, `scripts` and `worker` is scanned; when it retires nothing, the scan is empty
+ * and the gate stays out of the way of unrelated changes.
+ */
 export function deletedMockupFiles(base, { root = process.cwd(), runGit = sh } = {}) {
-  const raw = runGit(["diff", "--diff-filter=D", "--name-only", base, "--", "src", "tests"], root);
-  return raw
+  const raw = runGit(["diff", "--diff-filter=D", "--name-only", base, "--", "src", "tests", "scripts", "worker"], root);
+  const deleted = raw
     .split("\n")
     .map((line) => normalizeRepoPath(line.trim()))
-    .filter(Boolean)
-    .filter((file) => file.startsWith(`${MOCKUP_ROUTE_ROOT}/`) || /mockup/iu.test(file));
+    .filter(Boolean);
+  const retiresMockups = deleted.some((file) => file.startsWith(`${MOCKUP_ROUTE_ROOT}/`) || /mockup/iu.test(file));
+  return retiresMockups ? deleted : [];
 }
 
 /** Route slugs a diff removes entirely (no surviving page.tsx under them). */
