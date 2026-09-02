@@ -10,6 +10,7 @@ import {
   countOnePixelShadowSpreadsInSource,
   countRawCssZIndicesInSource,
   findDebtPathRegressions,
+  findDisabledOpacityUsesInSource,
   findCssLayoutTransitionsInSource,
   findDensityRecipeOverridesInSource,
   findErrorStateCountPropsInSource,
@@ -31,6 +32,7 @@ import {
   hasLegacyTapClass,
   listPrimitiveRecipeSourcePaths,
   minHeightPixels,
+  DISABLED_OPACITY_CLASS,
   SUB_TAP_MIN_HEIGHT_PREFILTER,
   rawColorContractSource,
   readPrimitiveRecipeSources,
@@ -271,6 +273,45 @@ describe("design-system contract helpers", () => {
       findInteractiveTapFloorDeclarationsInSource("src/example.tsx", '<button className="min-h-px">X</button>'),
     ).toEqual(["src/example.tsx:1"]);
   });
+
+  it("recognises next/link <Link> as an interactive tap-floor tag (Gate 2, docs/design-system/sweep-fix-tap-floors-round-2.md §9)", () => {
+    const find = (source: string) => findInteractiveTapFloorDeclarationsInSource("src/example.tsx", source);
+
+    // The real regression this extension closes: document-search-results.tsx
+    // carried a `<Link>` with a banned `sm:min-h-7` step-down that the walker's
+    // tag list, limited to native HTML tags, could not see at all.
+    expect(find('<Link href="/x" className="min-h-tap sm:min-h-7">Save</Link>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<Link href="/x" className="min-h-6">Save</Link>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<Link href="/x" className={cn("min-h-tap", compact && "min-h-9")}>Save</Link>')).toEqual([
+      "src/example.tsx:1",
+    ]);
+
+    // A safe Link must stay clean, and the sanctioned compact-meta step-down
+    // applies to Link exactly as it does to every other recognised tag.
+    expect(find('<Link href="/x" className="min-h-tap sm:min-h-compact-meta">Save</Link>')).toEqual([]);
+    expect(find('<Link href="/x" className="min-h-tap">Save</Link>')).toEqual([]);
+
+    // Deliberately narrow: this does NOT resolve a `className` forwarded from a
+    // caller through a wrapper component — `DiagnosisTermChip`'s own `<Link>`
+    // stays invisible here because the override text never appears in this
+    // file at all. That is a documented, separate blind spot
+    // (sweep-fix-tap-floors-round-2.md §9), not something this extension claims
+    // to close.
+    expect(
+      find(
+        [
+          'function DiagnosisTermChip({ className }) {',
+          '  return <Link href="/x" className={cn("min-h-tap", className)}>Go</Link>;',
+          '}',
+        ].join("\n"),
+      ),
+    ).toEqual([]);
+
+    // Every other JSX component reference stays untouched — this is Link-only,
+    // not a general component-tag resolver.
+    expect(find('<CustomLink href="/x" className="min-h-6">Save</CustomLink>')).toEqual([]);
+  });
+
 
   it("finds whitespace, fallback, URL, string and template --text-soft consumers in TypeScript", () => {
     const source = [
@@ -907,6 +948,52 @@ describe("design-system contract helpers", () => {
       "src/components/demo.tsx:2",
     ]);
   });
+
+  it("flags a native disabled:opacity-<n> as bypassing controlDisabled (COMPONENTS.md §9.33)", () => {
+    const find = (source: string) => findDisabledOpacityUsesInSource("src/example.tsx", source);
+
+    expect(
+      find('export function Demo() { return <button disabled className="disabled:opacity-40">X</button>; }'),
+    ).toEqual(["src/example.tsx:1 (disabled:opacity-40)"]);
+
+    // A shared recipe constant is resolved the same way every other class-root
+    // ratchet in this file resolves one — through the variable, not only a
+    // literal JSX className.
+    expect(
+      find(
+        [
+          'const pagerStepClass = "disabled:opacity-40 disabled:cursor-not-allowed";',
+          'export function Demo() { return <button disabled className={pagerStepClass}>X</button>; }',
+        ].join("\n"),
+      ),
+    ).toEqual(["src/example.tsx:1 (disabled:opacity-40)"]);
+
+    // `aria-disabled:opacity-<n>` is a distinct, not-yet-covered surface and
+    // must stay invisible to this ratchet — this is the exact shape production
+    // carries in `document-image-filmstrip.tsx`, `in-page-nav-classes.ts`, and
+    // the second declaration in `therapy-compass/controls.ts`.
+    expect(
+      find('export function Demo() { return <button aria-disabled className="aria-disabled:opacity-45">X</button>; }'),
+    ).toEqual([]);
+
+    // The `controlDisabled` encoding itself (token colour/cursor/shadow, no
+    // opacity) must never be flagged — that is the compliant shape this rule
+    // exists to steer components toward.
+    expect(
+      find(
+        'export function Demo() { return <button disabled className="disabled:cursor-not-allowed disabled:bg-[color:var(--surface-subtle)]">X</button>; }',
+      ),
+    ).toEqual([]);
+  });
+
+  it("backstops disabledOpacityUses with a whole-file text scan that ignores aria-disabled (COMPONENTS.md §9.33)", () => {
+    const matches = (source: string) => [...source.matchAll(DISABLED_OPACITY_CLASS)].map((match) => match[0].trim());
+
+    expect(matches('className="disabled:opacity-40"')).toEqual(['"disabled:opacity-40']);
+    expect(matches('className="sm:disabled:opacity-40"')).toEqual(['"sm:disabled:opacity-40']);
+    expect(matches('className="aria-disabled:opacity-45"')).toEqual([]);
+  });
+
 
   it("flags a child with a heavier resting elevation than its in-flow parent", () => {
     const source = [
