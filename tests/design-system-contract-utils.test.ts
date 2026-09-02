@@ -301,9 +301,9 @@ describe("design-system contract helpers", () => {
     expect(
       find(
         [
-          'function DiagnosisTermChip({ className }) {',
+          "function DiagnosisTermChip({ className }) {",
           '  return <Link href="/x" className={cn("min-h-tap", className)}>Go</Link>;',
-          '}',
+          "}",
         ].join("\n"),
       ),
     ).toEqual([]);
@@ -312,7 +312,6 @@ describe("design-system contract helpers", () => {
     // not a general component-tag resolver.
     expect(find('<CustomLink href="/x" className="min-h-6">Save</CustomLink>')).toEqual([]);
   });
-
 
   it("finds whitespace, fallback, URL, string and template --text-soft consumers in TypeScript", () => {
     const source = [
@@ -964,7 +963,7 @@ describe("design-system contract helpers", () => {
       find(
         [
           'const pagerStepClass = "disabled:opacity-40 disabled:cursor-not-allowed";',
-          'export function Demo() { return <button disabled className={pagerStepClass}>X</button>; }',
+          "export function Demo() { return <button disabled className={pagerStepClass}>X</button>; }",
         ].join("\n"),
       ),
     ).toEqual(["src/example.tsx:1 (disabled:opacity-40)"]);
@@ -998,17 +997,15 @@ describe("design-system contract helpers", () => {
   it("flags a visible node carrying aria-live (SPEC.md §9.2)", () => {
     const find = (source: string) => findVisibleLiveRegionsInSource("src/example.tsx", source);
 
-    expect(
-      find('export function Demo() { return <p aria-live="polite">{count}</p>; }'),
-    ).toEqual(["src/example.tsx:1"]);
+    expect(find('export function Demo() { return <p aria-live="polite">{count}</p>; }')).toEqual(["src/example.tsx:1"]);
 
     // A statically-known "off" literal never announces.
     expect(find('export function Demo() { return <p aria-live="off">{count}</p>; }')).toEqual([]);
 
     // Genuinely sr-only at every possible resolved value: not a violation.
-    expect(
-      find('export function Demo() { return <p className="sr-only" aria-live="polite">{count}</p>; }'),
-    ).toEqual([]);
+    expect(find('export function Demo() { return <p className="sr-only" aria-live="polite">{count}</p>; }')).toEqual(
+      [],
+    );
 
     // A container-style live region (the ToastRegion shape): exempt via aria-relevant.
     expect(
@@ -1052,7 +1049,6 @@ describe("design-system contract helpers", () => {
       ),
     ).toEqual([]);
   });
-
 
   it("flags a child with a heavier resting elevation than its in-flow parent", () => {
     const source = [
