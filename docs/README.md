@@ -128,6 +128,7 @@ npm run docs:check-links
 - [ingestion-concurrency-fix-workorder.md](ingestion-concurrency-fix-workorder.md) — ingestion concurrency workorder
 - [redesign/](redesign/) — premium redesign plans, decision log, token adoption
 - [superpowers/](superpowers/) — agent-authored plans and specs
+- **Care Plan (prototype, developer-gated under `/mockups/care-plan`)** — [superpowers/specs/2026-08-20-care-plan-design.md](superpowers/specs/2026-08-20-care-plan-design.md) is the binding design spec, [care-plan-context.md](care-plan-context.md) the binding glossary, [superpowers/plans/2026-08-20-care-plan-implementation.md](superpowers/plans/2026-08-20-care-plan-implementation.md) the implementation plan, [care-plan/sdd-ledger.md](care-plan/sdd-ledger.md) the build ledger and [care-plan/complete-work-ledger.md](care-plan/complete-work-ledger.md) the record of what landed; the dated handoffs, transcripts and reports under [care-plan/](care-plan/) are point-in-time records
 
 ## Subdirectory map
 
