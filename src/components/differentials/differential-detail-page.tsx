@@ -413,7 +413,7 @@ function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; ter
                 label={cleaned}
                 slug={termLinks[cleaned] ?? null}
                 tone="danger"
-                className={cn(!termLinks[cleaned] && theme.chip, "min-h-6 shrink-0 px-2 text-2xs")}
+                className={cn(!termLinks[cleaned] && theme.chip, "min-h-compact-meta shrink-0 px-2 text-2xs")}
               />
             );
           })}

@@ -606,9 +606,18 @@ function DocumentSearchHome({
       footer={
         <div className="grid w-full gap-3">
           {documentCount > 0 ? (
-            <p className="text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
-              {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-            </p>
+            <>
+              <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+              </p>
+              {/* The visible count above can change while this home screen stays
+                  mounted (ingestion polling updates the indexed total), so the
+                  live announcement lives on this separate sr-only twin rather
+                  than on the visible node itself — SPEC.md §9.2. */}
+              <span className="sr-only" role="status" aria-live="polite">
+                {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+              </span>
+            </>
           ) : null}
         </div>
       }

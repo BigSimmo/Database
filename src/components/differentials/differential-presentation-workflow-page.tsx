@@ -317,7 +317,7 @@ function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkfl
                       label={segment.text}
                       slug={segment.slug}
                       tone="danger"
-                      className="min-h-6 px-2 text-2xs font-bold xl:min-h-7 xl:text-xs"
+                      className="min-h-compact-meta px-2 text-2xs font-bold xl:text-xs"
                     />
                   ))}
                 </Fragment>
