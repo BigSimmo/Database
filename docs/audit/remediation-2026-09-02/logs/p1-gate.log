@@ -1,0 +1,438 @@
+== gate p1 at 2026-09-02T23:17:13Z head=a29874017
+-- porcelain:
+-- commits:
+a29874017 medications: bind the lexicon sign-off to the mappings it covers (M22)
+7005a6150 medications: stop a documented interaction composing to the all-clear verdict (H2)
+cdaf9b68f medications: read formulation strengths decimal-first, and never badge a concentration (H1)
+-- format
+already formatted
+-- merge-tree vs origin/main
+merge-tree clean
+-- diff-integrity
+[diff-integrity] self-test: 23/23 passed.
+[diff-integrity] PASS — 4 changed test file(s), 62 -> 90 test case(s), against base 705c2f64a.
+-- verify:pr-local plan
+PR-local verification plan (dry run):
+- npm run check:runtime
+- npm run check:installed-lock-parity
+- npm run format:changed
+- npm run check:diff-integrity
+- npm run sitemap:check
+- npm run check:repo-awareness-snapshot
+- npm run docs:check-index
+- npm run docs:check-inventory
+- npm run docs:check-scripts
+- npm run docs:check-links
+- npm run check:branch-review-ledger
+- npm run check:outstanding-issues
+- npm run check:ledger-write-discipline
+- npm run lint
+- npm run typecheck
+- npm run test
+- npm run build
+- npm run check:rag:fixtures
+- npm run check:medication-interactions
+- npm run check:medication-lexicon-report
+- offline RAG production contracts skipped: no RAG-scoped changes (fixtures still selected)
+-- verify:pr-local run
+Ledger write discipline passed for 705c2f64a788..HEAD.
+
+> npm run lint
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 lint
+> node scripts/run-heavy.mjs --npm-script lint:internal
+
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 lint:internal
+> node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js src tests scripts worker supabase playwright eslint.config.mjs next.config.ts playwright.config.ts playwright.visual.config.ts vitest.config.mts --max-warnings 0 --no-error-on-unmatched-pattern --cache --cache-location node_modules/.cache/eslint/
+
+[gate-receipts] recorded a pass for "lint:internal" (6097 input files).
+
+> npm run typecheck
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 typecheck
+> node scripts/run-heavy.mjs --npm-script typecheck:internal
+
+[gate-receipts] REUSED — "typecheck:internal" already exited 0 on this exact content 9m ago (2026-09-02T23:13:28.676Z).
+[gate-receipts] inputs 6097 files, hash 310163b31d4e. This is a reused receipt, not a fresh run.
+[gate-receipts] Force a re-run with GATE_RECEIPTS=refresh, or disable with GATE_RECEIPTS=off.
+
+> npm run test
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 test
+> node scripts/run-vitest.mjs run --reporter=dot
+
+[gate-receipts] REUSED — "vitest" already exited 0 on this exact content 14m ago (2026-09-02T23:08:14.779Z).
+[gate-receipts] inputs 6097 files, hash 310163b31d4e. This is a reused receipt, not a fresh run.
+[gate-receipts] Force a re-run with GATE_RECEIPTS=refresh, or disable with GATE_RECEIPTS=off.
+
+> npm run build
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 prebuild
+> node scripts/generate-outstanding-issues-snapshot.mjs --with-pending
+
+[snapshot] wrote data/outstanding-issues-snapshot.json (with pending inbox requests)
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 build
+> node scripts/run-heavy.mjs --npm-script build:internal
+
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 build:internal
+> node scripts/guard-next-build.mjs && npm run check:upload-limit-parity && node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build --webpack && node scripts/check-client-bundle-secrets.mjs
+
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:upload-limit-parity
+> node scripts/check-upload-limit-parity.mjs --self-test && node scripts/check-upload-limit-parity.mjs
+
+upload-limit parity self-test passed.
+Upload-limit parity passed: client and server both resolve to 150 MB.
+▲ Next.js 16.3.3 (webpack)
+✓ Running next.config.ts took 4.5s
+- Experiments (use with caution):
+  · cpus: 1
+  · optimizePackageImports
+  · proxyClientMaxBodySize: "151mb"
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.2min
+  Running TypeScript ...
+  Finished TypeScript in 116s ...
+  Collecting page data using 1 worker ...
+  Generating static pages using 1 worker (0/1997) ...
+  Generating static pages using 1 worker (499/1997) 
+  Generating static pages using 1 worker (998/1997) 
+  Generating static pages using 1 worker (1497/1997) 
+✓ Generating static pages using 1 worker (1997/1997) in 19.8s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /api/account/favourites
+├ ƒ /api/account/preferences
+├ ƒ /api/answer
+├ ƒ /api/answer-feedback
+├ ƒ /api/answer/stream
+├ ƒ /api/caring-contacts/access-trail
+├ ƒ /api/caring-contacts/assignments/[planId]
+├ ƒ /api/caring-contacts/dispatches
+├ ƒ /api/caring-contacts/notification-preferences
+├ ƒ /api/caring-contacts/pathway-versions
+├ ƒ /api/caring-contacts/plans
+├ ƒ /api/caring-contacts/plans/[planId]
+├ ƒ /api/caring-contacts/plans/[planId]/contacts/[contactId]
+├ ƒ /api/caring-contacts/referrals
+├ ƒ /api/caring-contacts/schedule
+├ ƒ /api/caring-contacts/service-state
+├ ƒ /api/caring-contacts/session
+├ ƒ /api/caring-contacts/team
+├ ƒ /api/caring-contacts/training
+├ ƒ /api/clinical-ask/stream
+├ ƒ /api/clinical-quality
+├ ƒ /api/differentials
+├ ƒ /api/differentials/[slug]
+├ ƒ /api/differentials/presentations/[slug]
+├ ƒ /api/documents
+├ ƒ /api/documents/[id]
+├ ƒ /api/documents/[id]/cover
+├ ƒ /api/documents/[id]/labels
+├ ƒ /api/documents/[id]/reindex
+├ ƒ /api/documents/[id]/reviews
+├ ƒ /api/documents/[id]/search
+├ ƒ /api/documents/[id]/signed-url
+├ ƒ /api/documents/[id]/summarize
+├ ƒ /api/documents/[id]/table-facts
+├ ƒ /api/documents/bulk
+├ ƒ /api/documents/bulk/reindex
+├ ƒ /api/documents/images/batch
+├ ƒ /api/eval-cases
+├ ƒ /api/health
+├ ƒ /api/health/ready
+├ ƒ /api/images/[id]/signed-url
+├ ƒ /api/images/signed-urls
+├ ƒ /api/ingestion/batches
+├ ƒ /api/ingestion/jobs
+├ ƒ /api/ingestion/jobs/[id]/retry
+├ ƒ /api/ingestion/quality
+├ ƒ /api/jobs
+├ ƒ /api/local-project-id
+├ ƒ /api/medications
+├ ƒ /api/medications/[slug]
+├ ƒ /api/registry/records
+├ ƒ /api/registry/records/[slug]
+├ ƒ /api/search
+├ ƒ /api/search/interaction
+├ ƒ /api/search/universal
+├ ƒ /api/setup-status
+├ ƒ /api/speech/transcribe
+├ ƒ /api/upload
+├ ƒ /api/webhooks/railway
+├ ƒ /api/webhooks/supabase/document-change
+├ ○ /apple-icon
+├ ƒ /applications
+├ ƒ /auth/callback
+├ ƒ /calculators
+├ ƒ /calculators/search
+├ ƒ /caring-contacts
+├ ƒ /caring-contacts/guidance
+├ ƒ /caring-contacts/patients
+├ ƒ /caring-contacts/patients/[patientId]
+├ ƒ /caring-contacts/plans/new
+├ ƒ /caring-contacts/reports
+├ ƒ /caring-contacts/schedule
+├ ƒ /caring-contacts/team
+├ ƒ /caring-contacts/templates
+├ ƒ /caring-contacts/templates/[pathwayId]
+├ ƒ /dictionary
+├ ƒ /dictionary/[slug]
+├ ƒ /dictionary/browse
+├ ƒ /dictionary/compare
+├ ƒ /dictionary/search
+├ ƒ /dictionary/sources
+├ ƒ /dictionary/topics
+├ ƒ /dictionary/topics/[slug]
+├ ƒ /differentials
+├ ƒ /differentials/compare
+├ ƒ /differentials/diagnoses
+├ ƒ /differentials/diagnoses/[slug]
+├ ƒ /differentials/presentations
+├ ƒ /differentials/presentations/[slug]
+├ ƒ /differentials/search
+├ ƒ /documents
+├ ƒ /documents/[id]
+├ ƒ /documents/search
+├ ƒ /documents/source
+├ ƒ /documents/source/evidence
+├ ƒ /dsm
+├ ƒ /dsm/compare
+├ ƒ /dsm/diagnoses/[slug]
+├ ƒ /dsm/diagnoses/[slug]/differentials
+├ ƒ /dsm/search
+├ ƒ /factsheets
+├ ƒ /factsheets/[slug]
+├ ƒ /factsheets/search
+├ ƒ /factsheets/topics
+├ ƒ /favourites
+├ ƒ /forms
+├ ƒ /forms/[slug]
+├ ƒ /forms/search
+├ ƒ /formulation
+├ ƒ /formulation/[slug]
+├ ƒ /formulation/builder
+├ ƒ /formulation/compare
+├ ƒ /formulation/map
+├ ƒ /formulation/search
+├ ○ /icon.svg
+├   /icons/[variant]
+│ ├ ● /icons/icon-192
+│ ├ ● /icons/icon-512
+│ ├ ● /icons/maskable-192
+│ └ ● [+3 more paths]
+├ ○ /manifest.webmanifest
+├ ƒ /medications
+├ ƒ /medications/[slug]
+├ ƒ /mockups/accessible-table-browser-fixture
+├ ƒ /mockups/also-matches-accents
+├ ƒ /mockups/answer-chat-perfected
+├ ƒ /mockups/answer-chat-perfected-v2
+├ ƒ /mockups/answer-chat-redesign
+├ ƒ /mockups/answer-loading-redesign
+├ ƒ /mockups/calculators-bedside-sheet
+├ ƒ /mockups/calculators-clinical-console
+├ ƒ /mockups/calculators-directory-grid
+├ ƒ /mockups/calculators-guided-flow
+├ ƒ /mockups/calculators-popup-sheet
+├ ƒ /mockups/calculators-search
+├ ƒ /mockups/calculators-search-page
+├ ƒ /mockups/calculators-show-all
+├ ƒ /mockups/care-plan
+├ ƒ /mockups/care-plan/governance
+├ ƒ /mockups/care-plan/patients
+├ ƒ /mockups/care-plan/patients/[patientId]
+├ ƒ /mockups/care-plan/patients/[patientId]/history
+├ ƒ /mockups/care-plan/patients/[patientId]/management-plan
+├ ƒ /mockups/care-plan/patients/[patientId]/management-plan/edit
+├ ƒ /mockups/care-plan/patients/[patientId]/management-plan/print
+├ ƒ /mockups/care-plan/patients/[patientId]/management-plan/review
+├ ƒ /mockups/care-plan/patients/[patientId]/patient-plan
+├ ƒ /mockups/care-plan/patients/[patientId]/patient-plan/edit
+├ ƒ /mockups/care-plan/patients/[patientId]/patient-plan/print
+├ ƒ /mockups/care-plan/patients/[patientId]/presentations
+├ ƒ /mockups/care-plan/patients/[patientId]/presentations/[presentationId]
+├ ƒ /mockups/care-plan/patients/[patientId]/presentations/new
+├ ƒ /mockups/care-plan/patients/[patientId]/safety-plan
+├ ƒ /mockups/care-plan/patients/[patientId]/safety-plan/edit
+├ ƒ /mockups/care-plan/patients/[patientId]/safety-plan/print
+├ ƒ /mockups/care-plan/reviews
+├ ƒ /mockups/care-plan/system-states
+├ ƒ /mockups/care-plan/team
+├ ƒ /mockups/caring-contacts
+├ ƒ /mockups/caring-contacts/contacts/[contactId]
+├ ƒ /mockups/caring-contacts/guidance
+├ ƒ /mockups/caring-contacts/patients
+├ ƒ /mockups/caring-contacts/patients/[patientId]
+├ ƒ /mockups/caring-contacts/plans/[planId]
+├ ƒ /mockups/caring-contacts/plans/new
+├ ƒ /mockups/caring-contacts/reports
+├ ƒ /mockups/caring-contacts/schedule
+├ ƒ /mockups/caring-contacts/system-states
+├ ƒ /mockups/caring-contacts/team
+├ ƒ /mockups/caring-contacts/templates
+├ ƒ /mockups/caring-contacts/templates/[pathwayId]
+├ ƒ /mockups/development
+├ ƒ /mockups/development/clinical-answer-failures
+├ ƒ /mockups/development/clinical-trust
+├ ƒ /mockups/development/corpus-health
+├ ƒ /mockups/development/documentation
+├ ƒ /mockups/development/ingestion
+├ ƒ /mockups/development/ledger
+├ ƒ /mockups/development/review-state
+├ ƒ /mockups/development/routes
+├ ƒ /mockups/development/test-health
+├ ƒ /mockups/dictionary-browse-header
+├ ƒ /mockups/dictionary-browse-header-compact
+├ ƒ /mockups/dictionary-control-row
+├ ƒ /mockups/document-image-status
+├ ƒ /mockups/document-navigation-contract
+├ ƒ /mockups/document-navigation-final
+├ ƒ /mockups/document-navigation-perfected
+├ ƒ /mockups/document-phone-zero-chrome
+├ ƒ /mockups/document-search
+├ ƒ /mockups/document-search-evidence-lens
+├ ƒ /mockups/document-search-triage-board
+├ ƒ /mockups/document-search/search
+├ ƒ /mockups/document-search/source
+├ ƒ /mockups/document-search/source-overlays
+├ ƒ /mockups/document-search/source/evidence
+├ ƒ /mockups/document-top-navigation
+├ ƒ /mockups/factsheets-compact-view
+├ ƒ /mockups/factsheets-topics-phone
+├ ƒ /mockups/favourites-hub
+├ ƒ /mockups/favourites-phone-perfected
+├ ƒ /mockups/filter-sheet-restyle
+├ ƒ /mockups/medication-prescribing
+├ ƒ /mockups/mode-dropdown
+├ ƒ /mockups/phone-inpage-navigation
+├ ƒ /mockups/phone-mode-sheet-yes
+├ ƒ /mockups/pinned-plus-menu
+├ ƒ /mockups/privacy-live-signal-perfected
+├ ƒ /mockups/privacy-page-directions
+├ ƒ /mockups/recent-searches-bottom
+├ ƒ /mockups/search-band-directions
+├ ƒ /mockups/search-heading
+├ ƒ /mockups/search-lens-menu
+├ ƒ /mockups/search-refine-adaptive
+├ ƒ /mockups/services-filter-options
+├ ƒ /mockups/services-filter-refined
+├ ƒ /mockups/settings-search-clinical
+├ ƒ /mockups/settings-search-general
+├ ƒ /mockups/settings-search-privacy
+├ ƒ /mockups/sidebar-live
+├ ƒ /mockups/therapy-navigation-context
+├ ƒ /mockups/therapy-navigation-dock
+├ ƒ /mockups/therapy-navigation-rail
+├ ƒ /mockups/tools-action-workbench
+├ ƒ /mockups/tools-clinical-lanes
+├ ƒ /mockups/tools-command-center
+├ ƒ /mockups/tools-search-directions
+├ ƒ /mockups/tools-search-mode
+├ ƒ /mockups/tools-split-clinical-brief
+├ ƒ /mockups/tools-split-compact-sheet
+├ ƒ /mockups/tools-split-pane
+├ ƒ /mockups/tools-split-safety-deck
+├ ƒ /mockups/tools-task-directory
+├ ƒ /mockups/tools-workflow-board
+├ ƒ /mockups/universal-search-command
+├ ƒ /mockups/universal-search-redesign
+├ ƒ /mockups/verification-notice-subtle
+├ ƒ /mockups/ward-flow
+├ ƒ /mockups/ward-flow/capacity
+├ ƒ /mockups/ward-flow/constellation
+├ ƒ /mockups/ward-flow/discharges
+├ ƒ /mockups/ward-flow/ed/[edId]
+├ ƒ /mockups/ward-flow/escalation
+├ ƒ /mockups/ward-flow/exceptions
+├ ƒ /mockups/ward-flow/governance
+├ ƒ /mockups/ward-flow/handover
+├ ƒ /mockups/ward-flow/movements
+├ ƒ /mockups/ward-flow/network
+├ ƒ /mockups/ward-flow/patients/[patientId]
+├ ƒ /mockups/ward-flow/queue
+├ ƒ /mockups/ward-flow/search
+├ ƒ /mockups/ward-flow/transport
+├ ƒ /mockups/ward-flow/transport/officer
+├ ƒ /mockups/ward-flow/ward/[unitId]
+├ ƒ /mockups/warning-consolidation
+├ ƒ /mockups/warning-line
+├ ○ /opengraph-image
+├ ƒ /privacy
+├ ƒ /reference/colour-coding
+├ ○ /robots.txt
+├ ƒ /safety-plan
+├ ƒ /services
+├ ƒ /services/[slug]
+├ ƒ /services/search
+├ ƒ /sources
+├ ƒ /sources/[sourceId]
+├ ƒ /sources/method
+├ ƒ /sources/publishers
+├ ƒ /sources/topics
+├ ƒ /specifiers
+├ ƒ /specifiers/[slug]
+├ ƒ /specifiers/builder
+├ ƒ /specifiers/compare
+├ ƒ /specifiers/map
+├ ƒ /specifiers/search
+├ ƒ /therapy-compass
+├ ƒ /therapy-compass/[slug]
+├ ƒ /therapy-compass/[slug]/brief
+├ ƒ /therapy-compass/[slug]/sheet
+├ ƒ /therapy-compass/compare
+├ ƒ /therapy-compass/pathways
+├ ƒ /therapy-compass/recommend
+├ ƒ /therapy-compass/review
+├ ƒ /therapy-compass/search
+└ ƒ /tools
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+
+Client bundle secret surface check passed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 postbuild
+> node scripts/generate-outstanding-issues-snapshot.mjs
+
+[snapshot] wrote data/outstanding-issues-snapshot.json
+
+> npm run check:rag:fixtures
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:rag:fixtures
+> node scripts/check-rag-fixtures.mjs
+
+Offline RAG fixture and manifest validation passed (36 golden cases, 26 suites).
+
+> npm run check:medication-interactions
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:medication-interactions
+> node scripts/run-tsx.mjs scripts/build-medication-interaction-index.ts --check
+
+[medication-interactions] data/medication-interaction-index.json is up to date (531 rows).
+
+> npm run check:medication-lexicon-report
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:medication-lexicon-report
+> node scripts/run-tsx.mjs scripts/build-medication-lexicon-report.ts --check
+
+[lexicon-report] docs/medication-interaction-lexicon-review.md is up to date (37 catalogue terms).
+[lexicon-report] WARNING: the sign-off recorded 2026-08-22 does not cover the current mappings (no mappings hash recorded, now 4365ee5988f345e18104b5f863b6882f3726ba8a0457d4335ce8941352aa7ce9). Re-check every term that changed and re-record the sign-off with the current hash.
+
+PR-local verification summary:
+- completed: check:runtime, check:installed-lock-parity, format:changed, check:diff-integrity, sitemap:check, check:repo-awareness-snapshot, docs:check-index, docs:check-inventory, docs:check-scripts, docs:check-links, check:branch-review-ledger, check:outstanding-issues, check:ledger-write-discipline, lint, typecheck, test, build, check:rag:fixtures, check:medication-interactions, check:medication-lexicon-report
+- failed: (none)
+- not reached: (none)
+EXIT=0

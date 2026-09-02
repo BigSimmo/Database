@@ -1,0 +1,665 @@
+{
+  "p1": {
+    "id": "p1",
+    "name": "Medication reference correctness",
+    "effort": "high",
+    "agentType": "clinical-governance-reviewer",
+    "findings": [
+      "H1",
+      "H2",
+      "M22"
+    ],
+    "owned": [
+      "src/lib/medication-badges.ts",
+      "src/lib/medication-interactions.ts",
+      "src/components/clinical-dashboard/medication-considerations.tsx",
+      "docs/medication-interaction-lexicon-review.md",
+      "scripts/check-medication-lexicon-report.mjs (and its generator if the sign-off hash lives there)",
+      "tests/medication-badges.test.ts",
+      "tests/medication-interactions.test.ts",
+      "tests for the lexicon report script"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:medication-interactions and npm run check:medication-lexicon-report",
+    "rag_line": "RAG impact: no retrieval behaviour change — medication reference rendering only; no RAG file touched",
+    "governance_preflight": true,
+    "notes": "H1: match a decimal-aware strength (\\d+(?:\\.\\d+)?) with its unit and never read a per-mL concentration or a combination ('2/0.5 mg') as a tablet strength; emit no badge rather than a wrong one; add unit cases for 0.5 mg, 7.5 mg, 5 mg/mL and 2/0.5 mg; do not widen to a first-number fallback (see the generator comment at scripts/build-medication-interaction-index.ts:119-124). H2: a LOW-only interaction result must never compose to the success tone or the 'No alert found' headline — introduce a distinct informational tone that ranks below caution and above success in SEMANTIC_TONE_PRIORITY, and assert the headline; keep the Stage-5 note that main recently added 'never show an all-clear over a check that could not run' (#2538) — read that change first and build on it. M22: bind the sign-off to a content hash of the lexicon + catalogue terms so the report script fails or warns when either changes after the sign-off date; keep the existing sign-off caveat sentence."
+  },
+  "p2": {
+    "id": "p2",
+    "name": "Clinical text and table rendering (answer path, RAG-adjacent)",
+    "effort": "high",
+    "agentType": "clinical-governance-reviewer",
+    "findings": [
+      "H3",
+      "L19",
+      "M1",
+      "M9",
+      "M8",
+      "L111",
+      "L109",
+      "L64"
+    ],
+    "owned": [
+      "src/components/AccessibleTable.tsx",
+      "src/lib/clinical-safety.ts",
+      "src/lib/source-text-sanitizer.ts",
+      "src/lib/source-governance.ts",
+      "src/lib/ward-output.ts",
+      "src/lib/answer-*.ts text-rendering helpers only",
+      "tests/accessible-table*.test.tsx",
+      "tests/clinical-safety*.test.ts",
+      "tests/source-text-sanitizer*.test.ts",
+      "tests/source-governance*.test.ts",
+      "tests/ward-output*.test.ts",
+      "one new test file for the RAG_TEXT_WEAK_OR_RELAXATION branch (L64) — test only"
+    ],
+    "gate": "npm run verify:pr-local (heavy; the classifier adds eval:rag:offline and eval:rag:adversarial:offline because source-text-sanitizer.ts and source-governance.ts set rag_eval_changed)",
+    "rag_line": "RAG impact: no retrieval behaviour change — text rendering, table cleaning and citation caveats only; no ranking, ordering, comparator, selection or retrieval RPC change",
+    "governance_preflight": true,
+    "notes": "READ docs/rag-behaviour/safeguards.md and docs/rag-behaviour/refuted-approaches.md BEFORE editing. Never insert or reorder a comparator key, never change a relevance score, never touch src/lib/rag/**, clinical-search, retrieval-selection, released-search-order or ranking-config. H3: when a header cell cleans to empty under clinicalOnly, drop the whole column (header and body cells together) or keep a placeholder header — never shift body cells; DOM test with a 'Source: 3' header. L19: strip the in-cell page pointer and its brackets together. M1: when the clipboard copy truncates a table, append an explicit marker line ('… N more rows not copied') and keep the on-screen table unchanged. M9: narrow the protocol/policy/procedure hyphen rule so ordinary hyphenated phrases survive; add the cited examples as regression cases. M8: a source whose clinical_validation_status is 'unknown' or missing gets the same 'not locally validated' caveat as unverified sources (conservative), with a test; do not change which sources are selected. L111: cut safety-note text at a word boundary, never inside a numeric token. L109: replace the quadratic digit-run regex with a linear scan or a bounded quantifier and add a long-input test. L64: add a test that exercises RAG_TEXT_WEAK_OR_RELAXATION=true and =false at the integration point without changing behaviour; if the only way needs a src/lib/rag/** edit, skip L64 and say so."
+  },
+  "p3": {
+    "id": "p3",
+    "name": "Session and patient-context privacy",
+    "effort": "high",
+    "agentType": "general-purpose",
+    "findings": [
+      "M4",
+      "M10",
+      "L2",
+      "L6",
+      "L1",
+      "L8"
+    ],
+    "owned": [
+      "src/lib/patient-profile-storage.ts",
+      "src/lib/supabase/client.tsx (sign-out / session-expired / user-change path only)",
+      "src/components/favourites/favourites-storage.ts",
+      "src/components/favourites/*.ts(x) only where the parser/regex lives",
+      "src/components/care-plan/**/plan-draft.ts (and its sign-out hook)",
+      "src/lib/logger.ts",
+      "sentry.client.config.ts, sentry.server.config.ts, sentry.edge.config.ts (ignoreErrors only)",
+      "docs/codebase-index.md line 793 (patient profile sentence only)",
+      "tests/patient-profile-storage*.test.ts",
+      "tests/favourites*.test.ts",
+      "tests/care-plan-plan-draft*.test.ts",
+      "tests/logger*.test.ts",
+      "tests/sentry*.test.ts"
+    ],
+    "gate": "npm run verify:pr-local (heavy)",
+    "rag_line": "RAG impact: none — no RAG surface touched",
+    "governance_preflight": true,
+    "notes": "M4: clear the profile in signOut, on markSessionExpired and when the signed-in user id changes, and do it through the profile's own change event so subscribers that cache by raw string (patient-profile-storage.ts:158-160) refresh; state in the commit message that clearing on markSessionExpired also wipes an in-progress context on a transient refresh failure (accepted). M10: widen the favourites timestamp parser to accept Postgres microsecond precision ('.550361+00:00') and add that fixture. L2: scope favourites pins/last-opened keys by user id or clear them on sign-out, matching recent-queries behaviour. L6: clear the Care Plan draft (patient name, mobile) from sessionStorage on sign-out, session expiry and account switch — reuse the same sign-out hook as M4. L1: make the key-redaction regex match camelCase/snake_case query/answer keys (queryText, query_text, rawQuery, normalizedQuery, question, answerText, answer_text) with tests. L8: replace substring ignoreErrors matchers with anchored/exact patterns so genuine server errors are not dropped."
+  },
+  "p4": {
+    "id": "p4",
+    "name": "Dormant Clinical Ask made truly dormant",
+    "effort": "high",
+    "agentType": "general-purpose",
+    "findings": [
+      "M16",
+      "L33",
+      "L16",
+      "L17",
+      "L124",
+      "M34"
+    ],
+    "owned": [
+      "src/app/api/speech/transcribe/**",
+      "src/app/api/clinical-ask/**",
+      "src/lib/clinical-ask/**",
+      "src/components/clinical-ask/**",
+      "src/lib/security-headers.ts (the Permissions-Policy microphone directive only)",
+      "tests/security-headers.test.ts (the microphone pin only)",
+      "tests/speech-transcription-route*.test.ts",
+      "tests/clinical-ask*.test.ts",
+      "the one PIA paragraph that says the composer routes into Clinical Ask (docs/privacy-impact-assessment*.md — that paragraph only; P10 owns the rest of the PIA)"
+    ],
+    "gate": "npm run verify:pr-local (heavy)",
+    "rag_line": "RAG impact: none — Clinical Ask is a separate, flag-gated path; no RAG ranking surface touched",
+    "governance_preflight": true,
+    "notes": "M16: when CLINICAL_ASK_ENABLED is false, /api/speech/transcribe returns 404 before any auth, Supabase, rate-limiter or OpenAI call; set Permissions-Policy microphone=() and update the microphone=(self) pin in tests/security-headers.test.ts:59 in the same commit; test with a flag stub. L33: /api/clinical-ask/stream checks the master flag before authentication and before consuming the durable rate limiter, and answers 404 (not 200 with an error frame) when off. L16: the catalogue tier must return nothing (and the ladder must say so) when nothing matches instead of substituting the whole catalogue. L17: the client stream surfaces rate_limited and unauthorized codes distinctly from internal_error. L124: remove the always-empty 'Review extract' disclosure (server strips extracts by contract) or render it only when an extract exists. M34: correct the PIA sentence so it states that Clinical Ask has no user entry point since PR #2360 and is flag-gated; do not touch other PIA sections."
+  },
+  "p5": {
+    "id": "p5",
+    "name": "Developer hub and administrator routes",
+    "effort": "high",
+    "agentType": "frontend-ui-reviewer",
+    "findings": [
+      "L30",
+      "L31",
+      "L32",
+      "L43",
+      "L29",
+      "M11",
+      "L14",
+      "L15",
+      "L80",
+      "L82",
+      "L76",
+      "L69",
+      "L121",
+      "L81"
+    ],
+    "owned": [
+      "src/lib/developer-area/**",
+      "src/components/developer-area/**",
+      "src/app/mockups/development/**",
+      "src/app/api/ingestion/** (rate limits and the quality-review bound only)",
+      "src/app/api/health/**",
+      "scripts/production-readiness.ts (one added assertion only)",
+      "tests/proxy.test.ts (added cases only, no existing case changed)",
+      "tests/developer-area*.test.ts(x)",
+      "tests/ingestion-*route*.test.ts",
+      "tests/health*.test.ts",
+      "tests/production-readiness*.test.ts"
+    ],
+    "gate": "npm run verify:pr-local (heavy)",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "L30: DeveloperAreaGate must honour NEXT_PUBLIC_MOCKUPS_ENABLED only under the proxy's double-flag exception (src/proxy.ts:282: PLAYWRIGHT_OFFLINE_MODE plus the mockups flag) — ignoring the flag outright in production breaks the isolated Playwright production build whose @mockup journeys reach the gated prefixes only through that short-circuit; add one assertion to scripts/production-readiness.ts that the flag is not set in production; do NOT edit src/proxy.ts (P15 owns it). L31: re-run the administrator check on client-side navigation between hub pages (route-level guard or a client hook), tests included. L32/L43/L29: add the same rate limit the sibling admin route ingestion/quality uses to /api/ingestion/jobs, the retry POST and the other two sibling admin routes, and to /api/health/ready. M11: bound the quality review page-text load (explicit range/limit, and surface 'more than N' rather than silently truncating at the PostgREST cap). L14: print stamps with an explicit timezone (Australia/Perth) consistently on server and client. L15: count failed jobs from the server's full count, matching 'active jobs'. L80/L82/L76/L69/L121: correct the comments, panel labels, hub card text and test titles; L81: hub-panels.ts:134 says 15 modes — make it 16 or derive it from the registry."
+  },
+  "p6": {
+    "id": "p6",
+    "name": "Caring Contacts live surface",
+    "effort": "medium",
+    "agentType": "general-purpose",
+    "findings": [
+      "M13",
+      "L113",
+      "L50",
+      "L74"
+    ],
+    "owned": [
+      "src/lib/tools-catalog.ts",
+      "src/lib/app-modes.ts (the isSearchableAppMode tautology only)",
+      ".env.example",
+      "docs/caring-contacts/** except hazard-log.md and the message-review pack",
+      "docs/deployment-architecture.md (one paragraph on CARING_CONTACTS_DATABASE_URL)",
+      "tests/tools-catalog*.test.ts",
+      "tests/app-modes*.test.ts",
+      "tests/caring-contacts-docs*.test.ts if one exists"
+    ],
+    "gate": "npm run verify:pr-local (heavy)",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": true,
+    "notes": "M13: the Tools catalogue card for Caring Contacts must be hidden, or shown as 'demonstration only' with no Open action, unless isCaringContactsDemoEnabled() is true — keep the Playwright offline exception so the ui-caring-contacts-workspace journey keeps its entry point; add a test tying the card to that predicate. Main recently retired seven mockups and changed tests/ui-tools-search-mode-mockup.spec.ts — read src/lib/tools-catalog.ts on this branch first. L113: toolCatalogRecordById must not return the first tool for an unknown id; isSearchableAppMode must not be tautological. L50: document CARING_CONTACTS_DATABASE_URL where operators look (.env.example with a comment, and the deployment architecture doc). L74: correct the Phase 2B handover and the master progress ledger under docs/caring-contacts so they no longer instruct merging four branches or call Phase 2B not started."
+  },
+  "p7": {
+    "id": "p7",
+    "name": "Scripts, test safety and ledger tooling",
+    "effort": "medium",
+    "agentType": "general-purpose",
+    "findings": [
+      "M15",
+      "M18",
+      "M28",
+      "L59",
+      "L26",
+      "L60",
+      "L35",
+      "L128",
+      "L133",
+      "L63"
+    ],
+    "owned": [
+      "scripts/** EXCEPT verify-pr-local.mjs, check-gate-manifest.mjs, check-clinical-hazard-controls.mjs, check-owner-scope-api.mjs, playwright-pr-shards.mjs, generate-site-map.ts, check-migration-history.mjs, production-readiness.ts, check-medication-lexicon-report.mjs",
+      "scripts/run-vitest.mjs",
+      "caring-contacts/run-db-tests.mjs",
+      "scripts/lib/test-environment.mjs",
+      ".gitignore",
+      "supabase/.branches/_current_branch (git rm --cached only)",
+      "tests for those scripts (tests/run-vitest*.test.ts, tests/enrich-documents*.test.ts, tests/issues-*.test.ts, tests/ledger-lookup*.test.ts, tests/clean-artifacts*.test.ts)"
+    ],
+    "gate": "npm run verify:pr-local (heavy)",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "M15: assert a loopback host for CARING_CONTACTS_DATABASE_URL in the db-test helper and scrub the variable in offlineTestEnvironment unless an explicit opt-in variable is set — and honour that opt-in inside run-vitest.mjs itself (it applies offlineTestEnvironment to whatever caring-contacts/run-db-tests.mjs passes), otherwise caring-contacts:db:test and CI's caring-contacts-db job break; prove both paths with tests. M18: enrich:documents requires --write to mutate, --all-owners to cross owners, and calls checkSupabaseProject() first; default is dry-run. M28/L59: the /issues reader and the SessionStart hook's reader honour issues:queue --outcome corrections and the pending inbox (already-closed rows not shown as open) — script changes only, NEVER edit docs/outstanding-issues.md or the inbox. L26: clean:artifacts must not match the git-tracked docs/archive/staging-tenancy-evidence-29795051547/ (fix the glob and the .gitignore line). L60: report-only sweep scripts default to offline and take an explicit --network flag. L35: pin the five packages design-sync.mjs installs and document the script, or make it refuse without an explicit flag. L128: one findOwnerIdByEmail and one confirmation helper in scripts/lib, callers updated. L133: ledger:lookup prints paths one per line (or a count) instead of a 60 KB line. L63: git rm --cached supabase/.branches/_current_branch and ignore it."
+  },
+  "p8a": {
+    "id": "p8a",
+    "name": "CI workflows and supply chain",
+    "effort": "medium",
+    "agentType": "general-purpose",
+    "findings": [
+      "M19",
+      "M20",
+      "M25",
+      "M29",
+      "L36",
+      "L37",
+      "L38",
+      "L54",
+      "L55",
+      "L20",
+      "L91",
+      "L92",
+      "L129"
+    ],
+    "owned": [
+      ".github/workflows/* EXCEPT ci.yml",
+      ".github/dependabot.yml",
+      "CODEOWNERS or .github/CODEOWNERS",
+      "package.json (overrides, allowScripts and @types/node only) and package-lock.json",
+      "railway.json, railway.worker.json (watch patterns)",
+      ".coderabbit.yaml / codex auto-resolve config for L92",
+      "tests/github-actions*.test.ts, tests/ci-*.test.ts that pin those workflows (update pins to match, never delete a test)"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:github-actions, check:gitleaks-pinned, check:npm-ci-dry-run, check:installed-lock-parity",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "M19: the owner approved registry calls — run `npm update browserslist` (no major bump), then `npm audit --omit=dev --audit-level=high` must be clean and `npm audit` reported; commit package-lock.json; do not touch any other dependency. M20: add a pip ecosystem for worker/python and eval/docling to dependabot.yml; make the Trivy step upload SARIF or fail on HIGH so a person sees it. M25: give the daily staging isolation workflow a failure notification path (reuse notify-ci-failure.yml's pattern). M29: change the live Web-Vitals workflow's default routes to the final (non-redirecting) paths. L36: pin the advisory Semgrep image to the same digest the blocking job uses. L37: drop the unused permissions from the secret-scan workflow. L38: enforce the collaborator claim in the @claude workflows (author_association check). L54: add the missing script to the Railway watch patterns. L55: correct allowScripts (esbuild 0.28.2, add @sentry/cli). L20: pin @types/node to the 24.x major and set the Dependabot group so it stays there. L91: fix CODEOWNERS RAG paths to src/lib/rag/. L92: correct the Codex auto-resolve high-risk path list to files that exist. L129: remove the override that matches nothing and record a rationale comment for the two exact pins (package.json cannot carry comments — put it in docs/dependencies or the nearest doc the overrides already cite)."
+  },
+  "p8b": {
+    "id": "p8b",
+    "name": "Local gates and orphaned tests",
+    "effort": "high",
+    "agentType": "general-purpose",
+    "findings": [
+      "M24",
+      "M30",
+      "M33",
+      "L22",
+      "L47",
+      "M31",
+      "M32"
+    ],
+    "owned": [
+      ".github/workflows/ci.yml",
+      "scripts/verify-pr-local.mjs",
+      "scripts/check-gate-manifest.mjs (only if the counting rule must change)",
+      "scripts/check-clinical-hazard-controls.mjs",
+      "scripts/check-owner-scope-api.mjs",
+      "scripts/playwright-pr-shards.mjs",
+      "playwright.config.ts",
+      "tests/verification-plan*.test.ts",
+      "tests/playwright-pr-shards.test.ts",
+      "tests/ci-*.test.ts that pin ci.yml",
+      "the restored 320px AccessibleTable spec and the mockup fixture route it needs",
+      "tests/ui-tools-show-all.spec.ts (matcher only)",
+      "CLAUDE.md (the '36 static/consistency gates' count only)",
+      ".claude/skills/gates/SKILL.md (the 'check N of 39' count only)",
+      "docs/agents/test-deletion-guard.md (one note on the merge-commit blind spot)",
+      "tests/check-medication-interactions-index*.test.ts (new)",
+      "tests/clinical-hazard-controls*.test.ts"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:gate-manifest, check:verification-plan, check:ci-scope, check:playwright-pr-shards, check:browser-test-plan, check:owner-scope, check:clinical-hazard-controls",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "M24: add a staticHeavyGuards list to verify-pr-local.mjs (check:owner-scope, check:function-grants, check:migration-role, and the other static-pr steps Stage 5 listed: check:upload-limit-parity, check:gate-manifest and the docs/ledger steps) and change the assertPlan self-test expectations in the SAME commit — check:verification-plan runs on every PR. M30: add check:medication-interactions to static-pr under the same condition as its siblings and a unit test comparing the interaction index to the snapshot. M33: add check:clinical-hazard-controls to static-pr with a full-history fetch (fetch-depth: 0 or a targeted fetch) and make the script assert that each named test actually references the control (not mere existence); it must print a clear message on a shallow clone instead of failing. L22: fix the malformed metacharacter-escaping regex in that script. Every gate added to static-pr or verify:cheap requires bumping the counts check:gate-manifest parses in CLAUDE.md and the gates skill in the same commit; run npm run check:gate-manifest. L47/#J43Z6B: extend check-owner-scope-api.mjs to src/lib/** files importing createAdminClient ONLY IF you can assemble a complete allowlist of deliberate public-corpus reads (owner_id IS NULL by design) that keeps `npm run check:owner-scope` green on this tree; if any doubt, do not widen — report the 26 sites and the proposed allowlist in needs_owner_decision. M31: restore the 320px AccessibleTable journey (it needs the fixture route: check whether main's mockup retirement (#2543) removed it; if the route is gone, restore the journey against a surviving fixture or report). M32: add ui-tools-show-all.spec.ts to the Playwright testMatch/project and to scripts/playwright-pr-shards.mjs plus its test. Never delete or skip a test."
+  },
+  "p9": {
+    "id": "p9",
+    "name": "Agent tooling and permissions",
+    "effort": "medium",
+    "agentType": "general-purpose",
+    "findings": [
+      "M21",
+      "M35",
+      "L39",
+      "L40",
+      "L41",
+      "L61",
+      "L62",
+      "L102",
+      "L132"
+    ],
+    "owned": [
+      ".claude/settings.json",
+      ".claude/agents/*.md (scope globs only)",
+      ".claude/hooks/*.sh (the PR-handoff wording only)",
+      ".cursor/**",
+      ".mcp.json",
+      "scripts/setup-claude-cloud.sh (checksum pins only)",
+      ".cursorignore",
+      "tests/claude-settings*.test.ts, tests/claude-hooks*.test.ts, tests/agent-scopes*.test.ts if they exist"
+    ],
+    "gate": "npm run verify:pr-local (docs/light plan if no src or scripts change; heavy otherwise) plus npm run check:skills and the claude-hooks check",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "M21: replace the blanket Bash(git push:*) allow with the safe spellings (git push -u origin <branch>, git push origin HEAD, plain git push) and keep the force/main denies; make the deny rules cover --force, --force-with-lease, -f, +refs, and main/master targets in every spelling. M35: review-agent scope globs must include src/lib/rag/** and the current file names. L39: add features=docs,development to the Cursor Supabase MCP entry. L40: deny rules must also match mcp__Supabase__* (capitalised connector spelling). L41: pin checksums for the Node tarball and gh tarball downloads where upstream publishes SHASUMS; leave the plugin install as is but document it. L61: make the PR-handoff hook wording agree with docs/agents/pull-request-workflow.md (30-minute babysit default). L62: change the Cursor repo-auditor skill to triage-only, matching the Claude twin. L102: remove the workstation-path condition. L132: strip the BOM from .cursorignore. Do not change any hook's exit behaviour or timeouts (docs/agents/claude-hook-scripts.md)."
+  },
+  "p10": {
+    "id": "p10",
+    "name": "Privacy and governance documents",
+    "effort": "medium",
+    "agentType": "clinical-governance-reviewer",
+    "findings": [
+      "M2",
+      "M7",
+      "L103",
+      "L104",
+      "L7",
+      "L5",
+      "L4"
+    ],
+    "owned": [
+      "src/app/privacy/**",
+      "src/components/privacy/** (privacy-page-content.tsx)",
+      "docs/privacy-impact-assessment*.md EXCEPT the Clinical Ask composer paragraph (P4 owns that)",
+      "docs/observability-slos.md",
+      "src/components/calculators/** (the 'Source' label text only)",
+      "public/brand/preview.html",
+      "src/components/care-plan/mockups/fixtures.ts (a comment beside verifiedOn) and the care-plan doc that lists the numbers",
+      "tests/privacy-page.dom.test.tsx",
+      "tests/privacy-ui.test.ts (only if a heading changes)",
+      "tests/calculators*.test.ts(x) for the label"
+    ],
+    "gate": "npm run verify:pr-local (heavy)",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": true,
+    "notes": "M7: the /privacy page must state accurately that there is a shared public corpus (documents promoted to public are searchable by every account and anonymously) and that private uploads stay owner-scoped; write it in plain clinical-user language; re-run tests/privacy-page.dom.test.tsx. M2: add the browser-side persistence of raw query text and answer threads (sessionStorage, 12 h TTL) to the PIA data inventory with retention and clearing behaviour. L103: correct the attestation text that calls the retention migration 'staging' and state that it created the production pg_cron jobs. L104: mark the four SLO thresholds as targets that nothing measures yet, or remove the claim that they are alerted. L7: calculators cite an internal governance spec as a clinical 'Source' — relabel that link 'Governance reference' (or similar) so it is not presented as clinical evidence; keep the link. L5: add noindex to public/brand/preview.html and remove the Google Fonts preconnect. L4: add a re-verification cadence note beside the verifiedOn values (do not change the numbers)."
+  },
+  "p11": {
+    "id": "p11",
+    "name": "Documentation drift sweep",
+    "effort": "medium",
+    "agentType": "general-purpose",
+    "findings": [
+      "L72",
+      "L73",
+      "L77",
+      "L79",
+      "L83",
+      "L84",
+      "L85",
+      "L86",
+      "L87",
+      "L89",
+      "L96",
+      "L97",
+      "L99",
+      "L100",
+      "L101"
+    ],
+    "owned": [
+      "docs/**/*.md EXCEPT docs/caring-contacts/**, docs/privacy-impact-assessment*.md, docs/observability-slos.md, docs/medication-interaction-lexicon-review.md, docs/database-drift-detection.md, docs/codebase-index.md line 793, docs/agents/test-deletion-guard.md, docs/outstanding-issues*.md, docs/branch-review-*",
+      "README.md",
+      "mockups/README.md",
+      "design-qa.md (root)",
+      "public/llms.txt",
+      "public/robots.txt (only if the README sentence is the side to change)",
+      "scripts/generate-site-map.ts (the caveat string and the fallback text for the nine routes) and docs/site-map.md via npm run sitemap:update",
+      "tests/ui-smoke.spec.ts line 1478 only (the llms.txt brand pin)",
+      "docs/README.md"
+    ],
+    "gate": "npm run verify:pr-local (heavy because the generator and a spec change) plus npm run docs:check-links, docs:check-index, docs:check-inventory, docs:check-scripts, sitemap:check",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "L73 is owned by P16 (skip it here). L86: change the brand in public/llms.txt and the single pin at tests/ui-smoke.spec.ts:1478 together. L84: fix the site-map generator's robots/404 caveat string to describe reality (robots.txt allows everything; /mockups returns 404 in production) and regenerate docs/site-map.md; align the README sentence. L100: give the nine product routes (including the five Sources catalogue routes) real descriptions in the generator's source of truth so the fallback text disappears. L89: catalogue the 44 uncatalogued top-level scripts in docs/scripts-index.md (one line each, from their header comments). L99: the owner wants the full catalogue — add EVERY uncatalogued maintained document under docs/ (the audit counted 469 of 582 missing, including the 32 root-level docs and the 18 docs/agents rule files) to docs/README.md under the existing categories, one line each with a short description taken from the document's own title or first paragraph; generate the candidate list with a script run (ls/rg against the existing links) so none is missed; do not add or remove files. L97: add a superseded banner to root design-qa.md; do not delete it. L72/L77/L79/L83/L85/L87/L96/L101: correct the statements to match the code on this branch, verifying each against the file it describes. Never edit ledger tables, the inbox or review records; do not add or remove any document (the repo-awareness snapshot is regenerated only by P12)."
+  },
+  "p13": {
+    "id": "p13",
+    "name": "Sandboxes and UI tidy-ups",
+    "effort": "medium",
+    "agentType": "frontend-ui-reviewer",
+    "findings": [
+      "L66",
+      "L65",
+      "L67",
+      "L115",
+      "L135",
+      "L126",
+      "L127"
+    ],
+    "owned": [
+      "tests/ward-*.test.ts (new cases only)",
+      "tests/caring-contacts-mockup-*.test.ts (new cases only)",
+      "tests/eslint-rules*.test.ts (new)",
+      "tests/sw*.test.ts / tests/service-worker*.test.ts (new)",
+      "tests/helpers/** (new shared helpers)",
+      "the six Playwright specs that inline expectNoPageHorizontalOverflow and gotoApp (helper import only, no assertion change)",
+      "src/components/reference/colour-coding-reference-content.tsx (the dead ternary only)",
+      "src/app/offline/**",
+      "src/app/global-error.tsx (lang attribute only)"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run plan:browser (dry run) for the spec edits; browser proof left to CI",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "L66: assert blocked→confirmed, confirmed→blocked, blocked→released and the three state-refusal branches of the bed-release reducer. L65: test the resume-plan reducer action. L67: unit tests for the four untested custom ESLint rules (eslint-rules/*.mjs) and a service-worker test that /forms-pdf/*.pdf is handled as the allow-list says. L115/L135: remove the dead isGuide ternary (both branches identical). L126: replace the legacy 'KB' mark on the offline page with the current brand mark and set lang=\"en-AU\" in global-error. L127: move the byte-identical expectNoPageHorizontalOverflow and gotoApp helpers into tests/helpers and import them from the six specs without changing any assertion; run npm run plan:browser (dry run) and record its level. Never skip or delete a test; do not change tests/flake-ledger.json."
+  },
+  "p14": {
+    "id": "p14",
+    "name": "Worker, ingestion and caches",
+    "effort": "high",
+    "agentType": "ingestion-worker-reviewer",
+    "findings": [
+      "L3",
+      "L12",
+      "L13",
+      "L24",
+      "L11",
+      "L21",
+      "L134",
+      "L117"
+    ],
+    "owned": [
+      "worker/** (TypeScript and Python)",
+      "supabase/functions/ingestion-worker/** (a guard only; no migration, no RPC change)",
+      "src/lib/ingestion*.ts",
+      "src/lib/committed-generation*.ts or wherever the predicate lives",
+      "the answer/indexing-stamp cache module (src/lib/rag-cache.ts or src/lib/rag/cache*.ts — cache keys and eviction only)",
+      "eval/docling/** (legacy runner keys)",
+      "tests/worker-*.test.ts, worker/python tests, tests/ingestion*.test.ts, tests/rag-cache*.test.ts"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:worker-python-locks:static; if a src/lib/rag/ file is touched the PR line is 'RAG impact: no retrieval behaviour change — cache keys and eviction order only'",
+    "rag_line": "RAG impact: no retrieval behaviour change — cache keys and eviction order only; no ranking, ordering or selection change",
+    "governance_preflight": true,
+    "notes": "L3: route the assertion-tagging warning through the worker's safe-logging boundary (no chunk text in console.warn). L12: isolate per-image errors so one vision-rejected image fails that image, not the document; cap raw image emission and normalise PDF-filter MIME types in the Python path. L13: guard markJobFailure in the catch path so the rest of the claimed batch is not stranded; validate limit (reject NaN) and reject GET. L24: the dormant ingestion-worker Edge Function must not be able to stamp a never-extracted document as indexed (guard on extraction evidence); do not change invoke_ingestion_worker SQL (that would be a migration). L11: make the TypeScript committed-generation predicate fail closed like the SQL. L21: an indexing-stamp query error must produce a distinct cache key (or bypass cache) rather than the empty-corpus key. L134: refreshing a hot answer must move it to the most-recent position (true LRU) instead of keeping its old insertion slot. L117: read table row/column counts from the right keys in the docling lab legacy runner. Do not touch ranking, selection or retrieval RPCs; read docs/rag-behaviour/safeguards.md before touching any cache file under src/lib/rag/."
+  },
+  "p15": {
+    "id": "p15",
+    "name": "Edge, API and app-shell hardening",
+    "effort": "high",
+    "agentType": "general-purpose",
+    "findings": [
+      "L28",
+      "L34",
+      "L110",
+      "L108",
+      "L112",
+      "L9",
+      "L44",
+      "L76-residual",
+      "L82-residual"
+    ],
+    "owned": [
+      "src/proxy.ts",
+      "src/lib/security-headers.ts (the CSP connect-src only)",
+      "src/lib/api-csrf*.ts or wherever the Sec-Fetch-Site guard lives",
+      "src/app/api/setup-status/**",
+      "src/components/WebVitalsReporter*.tsx and its registration in src/app/layout.tsx (that line only)",
+      "the universal-search 'view all' link builder",
+      "src/lib/mode-redirects.ts",
+      "src/lib/env.ts (a startup warning only)",
+      "tests/proxy.test.ts (new cases only), tests/security-headers.test.ts (CSP cases only), tests/api-csrf*.test.ts, tests/setup-status*.test.ts, tests/web-vitals*.test.ts, tests/mode-redirects*.test.ts",
+      "src/app/mockups/layout.tsx (comment text only)",
+      "scripts/generate-repo-awareness-snapshot.ts:55 and scripts/ci-change-scope.mjs:290 (comment text only — p7 is done with scripts by the time p15 runs)"
+    ],
+    "gate": "npm run verify:pr-local (heavy)",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "L28: add an Origin/Referer allow check to the API CSRF guard for state-changing requests when Fetch Metadata is absent, keeping same-origin browser flows and the existing tests green. L34: remove the three wildcard Sentry ingest origins from connect-src unless a browser Sentry SDK is registered (there is none). L110: add Vary: Authorization (and the operator-token header) to /api/setup-status. L108: make WebVitalsReporter a genuine no-op in production (no observers registered) as its comment claims, or correct the comment and gate it by env. L112: universal-search 'view all' links target the final consolidated paths directly, no redirect hop. L9: restore or explicitly remove the legacy /?mode=<differentials|specifiers> redirect, with a test either way. L44: when RAG_QUERY_HASH_SECRET is unset outside production, log one clear warning that answer feedback is disabled instead of failing silently. Do not touch the developer gate (P5) or the microphone directive (P4). Residual docs-drift p5 could not reach: src/proxy.ts:268-269 says 'the two prototypes' and src/app/mockups/layout.tsx says 'the two developer-gated subtrees' — there are four developer-gated prefixes (DEVELOPER_GATED_PATH_PREFIXES); correct both comments. scripts/generate-repo-awareness-snapshot.ts:55 and scripts/ci-change-scope.mjs:290 repeat 'do not exist in production' for /mockups — reword to say the four developer-gated subtrees are served behind the administrator gate and the rest return 404; comments only, no logic change."
+  },
+  "p16": {
+    "id": "p16",
+    "name": "Database — prepare only, never merged by this programme",
+    "effort": "high",
+    "agentType": "supabase-schema-guardian",
+    "findings": [
+      "M12",
+      "M23",
+      "L25",
+      "L73"
+    ],
+    "owned": [
+      "supabase/migrations/<new timestamped>.sql (two: the corpus-flip fix and its fail-fast validation guard)",
+      "supabase/schema.sql (regenerated via the repo's tooling if the function body changes)",
+      "scripts/check-migration-history.mjs and its test (own commit)",
+      "caring-contacts/supabase/migrations/<new>.sql (own commit)",
+      "docs/database-drift-detection.md",
+      "tests/document-corpus-access-mode.test.ts (add cases; do not weaken the 'does not rewrite high-volume derived artifacts' pin without recording why)",
+      "tests/migration-history*.test.ts"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:migration-role, check:function-grants, check:owner-scope, check:drift self-tests (offline), tests/migration-history-guards.test.ts; CI Migration replay job",
+    "rag_line": "RAG impact: no retrieval behaviour change — the fix nulls child-artefact owner_id on a public flip so existing public-retrieval predicates see them; no predicate, ranking or ordering change (state this only if true after reading the retrieval predicate; otherwise say 'behaviour change' and stop for the owner)",
+    "governance_preflight": true,
+    "notes": "MERGING A MIGRATION DEPLOYS TO THE LIVE CLINICAL DATABASE WITHIN SECONDS. This package only PREPARES: the PR stays a draft, no auto-merge, and its body says 'merge only inside the approved window' (never 'awaiting deploy window' or any deferred-deploy phrase — scripts/pr-policy.mjs blocks those). M12: Stage 5 noted tests/document-corpus-access-mode.test.ts:78 pins the decision not to rewrite high-volume derived artefacts synchronously, and every live document has owner_id NULL today so the flip is a no-op on current data — so prefer the smallest correct change: a migration that updates set_document_corpus_access_mode to null the label/summary/table-fact owner_id for the flipped documents in the same transaction with a bounded statement, plus a fail-fast validation guard migration modelled exactly on 20260804110240_restore_rag_search_health_indexes.sql (set local timeouts, presence + definition checks, one raise exception, never builds); update the function header comment; add test cases; every migration must run inside one transaction (no CONCURRENTLY). If the retrieval predicate route would be simpler, do NOT take it (protected RAG surface) — report it. M23: check:migration-history must exit non-zero when a merged migration is unapplied (localOnly), with a self-test; own commit; the PR body must note the gate is listed never-touch in the gate-consolidation audit and races the push-triggered live-drift run. L25: a Caring Contacts migration (separate database) that brings pathway_versions and retention_state under the transactional audit guard; own commit; run the caring-contacts db test suite locally against the local PostgreSQL 16 if it is running (it is a local container process, not Supabase), otherwise say it was not run. L73: correct the three false statements in docs/database-drift-detection.md. Read AGENTS.md 'Supabase project safety' and docs/database-drift-detection.md first. Target role postgres; never a platform-reserved role."
+  },
+  "p12": {
+    "id": "p12",
+    "name": "Ledger housekeeping (lands last)",
+    "effort": "medium",
+    "agentType": "general-purpose",
+    "findings": [],
+    "owned": [
+      "docs/outstanding-issues-inbox/** (new request files created only by npm run issues:add|update|done)",
+      "docs/branch-review-records/** (new records created only by npm run ledger:append)",
+      "data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json (regenerated by their generators)"
+    ],
+    "gate": "npm run check:outstanding-issues, check:branch-review-ledger, check:ledger-write-discipline, check:repo-awareness-snapshot, then verify:pr-local",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": true,
+    "notes": "Run only the sanctioned commands; never edit docs/outstanding-issues.md, docs/branch-review-ledger.md or any existing record. Before every closure, grep docs/outstanding-issues-inbox/ for a pending request on that id (#B0530F and #27TWKM already have done requests — skip them)."
+  },
+  "p17": {
+    "id": "p17",
+    "name": "Dead-code triage with the repository protocol",
+    "effort": "high",
+    "agentType": "repo-auditor",
+    "findings": [
+      "L114",
+      "L119",
+      "L120",
+      "L122",
+      "L123",
+      "L125",
+      "L124"
+    ],
+    "owned": [
+      "src/components/calculators/index.ts (barrel exports only)",
+      "src/components/ward-management/** (the three export-only cleanups)",
+      "src/lib/clinical-ask/** (unreachable branch, unused telemetry module, priorTurns field) — p4 owns behaviour there and finished before this package; read git log origin/main..claude/audit-fix-p4 first and do not undo it",
+      "the ~25 unused mockup exports knip reports",
+      "public/mockups/*.png (the three top-level colour-system PNGs) and the mockups/README.md index line",
+      "knip.json (a narrower mockup ignore if L122 is adopted)",
+      "tests that pin any of the above",
+      "src/components/clinical-dashboard/clinical-ask-answer-surface.tsx (the always-empty 'Review extract' disclosure only, L124) and its test"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:dead-code-candidate -- --diff origin/main and npm run check:knip",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": false,
+    "notes": "The repository rule (docs/agents/dead-code-deletion.md) is mandatory: before removing any exported symbol or file, stage the deletion and run `npm run check:dead-code-candidate -- --diff origin/main`; obey its refusal list (plans with unchecked boxes, specs, tests that pin the symbol). Remove ONLY what the gate allows; for every symbol it refuses, leave it and record the refusal reason in findings_skipped. L114: drop the six mockup components from the calculators barrel if nothing production imports them and the gate allows. L119/L120/L122: convert exports used only in-file to non-exports where allowed, and narrow the knip mockup ignore so mockup exports are checked (keep check:knip green by adding explicit ignores for what must stay). L123: remove the three unindexed brand PNGs from public/mockups if nothing references them (rg the whole repo, including docs and tests) or add them to the index. L125: remove the unreachable governance branch, the unused telemetry module and the accepted-but-unused priorTurns field in clinical-ask, or identifier-scan the field; if this conflicts with p4's commits, skip and say so. PR #2204 was walked back seven times for exactly this class of change: when in doubt, do not delete. L124 (reassigned from p4): the always-empty 'Review extract' disclosure in src/components/clinical-dashboard/clinical-ask-answer-surface.tsx (~lines 306-309) — remove it or render it only when an extract exists; the server strips extracts by contract; add/adjust the DOM test."
+  },
+  "p18": {
+    "id": "p18",
+    "name": "Design decisions made explicit",
+    "effort": "high",
+    "agentType": "general-purpose",
+    "findings": [
+      "M3",
+      "L53",
+      "L52",
+      "L56",
+      "L95",
+      "L46",
+      "L109",
+      "M31-readme",
+      "M30-counts",
+      "M4-settings-clear",
+      "L8-docs"
+    ],
+    "owned": [
+      "src/lib/source-text-sanitizer.ts (M3 only; p2 finished first — read git log origin/main..claude/audit-fix-p2 and build on it; skip M3 if it would conflict)",
+      "tests/source-text-sanitizer*.test.ts",
+      "bundle-budget.json via the repo tooling only, plus a decision record (docs/mockups-bundle-ceiling.md or the nearest existing decisions doc)",
+      "docs/superpowers/plans/*ward*.md (tick boxes only, each verified against code)",
+      "docs/agents/dead-code-deletion.md (the plan-checkbox rule wording)",
+      "AGENTS.md — ONLY the prose paragraph beginning 'Five sections stay here in full'; never the five gate-parsed sections themselves",
+      "src/components/clinical-dashboard/ClinicalDashboard.tsx and one new extracted component file beside it",
+      "tests for the extracted component",
+      "src/lib/rag/rag-answer-text.ts — ONLY the answerSentenceFragments regex (L109); protected surface: no other line, no ranking/selection/ordering change",
+      "src/lib/clinical-review-queue.ts — the validation-status predicate only (M8 sibling), plus its test",
+      "tests/rag-answer-text*.test.ts (new long-input case)",
+      "mockups/README.md (the accessible-table-browser-fixture row only)",
+      "package.json (the verify:cheap:internal chain only) plus CLAUDE.md and .claude/skills/gates/SKILL.md gate counts (p8b did not change them; move them with this change)",
+      "src/components/clinical-dashboard/settings-dialog.tsx (privacy 'Clear' action only) and its test",
+      "docs/error-tracking.md (Sentry ignoreErrors documentation)"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:maintainability-budgets, check:dead-code-candidate, check:gate-manifest, and every test that reads AGENTS.md (rg -l AGENTS.md tests/)",
+    "rag_line": "RAG impact: no retrieval behaviour change — M3 changes only which threshold sentences survive text sanitisation, not ranking or selection (if that is not true, say 'behaviour change' and stop for the owner)",
+    "governance_preflight": true,
+    "notes": "M3: source-text-sanitizer.ts records the bare-integer exclusion as a trade-off that keeps 'Appendix 1' noise dropping; implement a narrower rule that keeps a bare-integer sentence when it carries a clinical threshold cue (unit, comparator word, threshold keyword) and still drops appendix/page noise, with regression cases for both; read docs/rag-behaviour/safeguards.md first; never touch src/lib/rag/**. L53: write the mockups bundle-ceiling decision record (value, rationale, review cadence) and re-baseline once with the repo's own tooling, never by hand-editing the JSON. L52/L56: for each of the nine landed Ward Flow plans, tick every checkbox whose task is verifiably implemented on main (cite the file in the tick line), leave the rest unticked, and add one sentence to the plan-checkbox rule in docs/agents/dead-code-deletion.md stating that ticked boxes release the pin. L95: correct the AGENTS.md claim paragraph so it matches reality (which sections are gate-parsed, which are pointers) WITHOUT changing the five sections themselves; run every test that reads AGENTS.md. L46: ClinicalDashboard.tsx sits at 4,100 of a 4,140-line budget — extract one cohesive self-contained section into its own component file (no behaviour change), leave the budget file untouched, add a rendering test for the extracted component, run the existing dashboard tests. L109 (reassigned from p2): the quadratic digit-run regex lives at src/lib/rag/rag-answer-text.ts (answerSentenceFragments); replace it with a linear scan or bounded quantifier that produces byte-identical output on the existing test corpus, add a long-digit-run timing/regression case, touch nothing else in that file, and carry the PR line 'RAG impact: no retrieval behaviour change — answer text fragmenting regex only, identical output pinned by test'. M8 sibling: src/lib/clinical-review-queue.ts treats only validation === 'unverified' as needing review, so an 'unknown' or missing status never reaches the queue; make the predicate conservative (unknown/missing behaves like unverified) with a test, matching p2's caveat change. M31-readme: mockups/README.md's accessible-table-browser-fixture row still says no committed test navigates to it; p8b restored tests/ui-accessible-table-mockup.spec.ts — name it. M30-counts: p8b added check:medication-interactions and check:clinical-hazard-controls to CI static-pr and verify:pr-local but not to verify:cheap:internal; add both to the verify:cheap:internal chain in package.json in the same position as their siblings and bump the counts check:gate-manifest parses (CLAUDE.md '36 static/consistency gates' and the gates skill 'check N of 39') in the same commit; run npm run check:gate-manifest; the hazard gate now prints CLINICAL_HAZARD_CONTROLS_SHALLOW_CLONE and skips ancestry checks on shallow clones, so it is safe in verify:cheap. M4-settings-clear (from p3): the settings dialog's privacy 'Clear' button should also clear the patient physiology profile via the lib seam p3 introduced (read git log origin/main..claude/audit-fix-p3 first; p3 finished before this package); add a DOM test. L8-docs (from p3): document the now-anchored Sentry ignoreErrors list in docs/error-tracking.md."
+  },
+  "p19": {
+    "id": "p19",
+    "name": "Security design items",
+    "effort": "high",
+    "agentType": "general-purpose",
+    "findings": [
+      "L27",
+      "L42",
+      "L23",
+      "L68",
+      "L41"
+    ],
+    "owned": [
+      "the proxy claims signing/verification module (src/lib/*claims* or where it lives); if it lives inside src/proxy.ts, p15 finished first — read git log origin/main..claude/audit-fix-p15 and make the smallest change on top",
+      "src/lib/public-api-access.ts and the anonymous limiter",
+      "src/app/api/eval-cases/** and its capture library (ownership validation only)",
+      "playwright.config.ts (L68 only) or docs/testing.md (the decision record) — NOT .github/workflows/ci.yml (p8b owns it)",
+      "scripts/setup-claude-cloud.sh and other provisioning scripts (checksum pins)",
+      "tests for each"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run plan:browser (dry run) for any Playwright change",
+    "rag_line": "RAG impact: no retrieval behaviour change — eval-case capture validates ownership only; no ranking, fixture or harness scoring change",
+    "governance_preflight": true,
+    "notes": "L27: give the proxy claims token an expiry and bind it to the request (method plus path, or a per-request nonce) with a constant-time compare; keep the INTERNAL_SERVICE_KEY fallback only if it is declared in env.ts and .env.example, otherwise remove it; tests for expiry, tamper and replay. L42: add an aggregate anonymous ceiling (per window across all anonymous callers) on OpenAI-backed generation using the existing durable limiter, failing closed with a clear 429; document the numbers. L23: eval-capture must reject chunk ids and file names the caller does not own (validate against the owner-scoped document set) — read docs/rag-behaviour/safeguards.md first; no scoring or fixture change. L68: decide and implement — add mobile-webkit and mobile-pwa-standalone to the blocking PR project set behind the existing UI-change condition if their runtime is acceptable (check the last release-matrix timing), otherwise record in docs/testing.md why they stay release-only. L41: pin SHA-256 checksums for the Node and gh tarballs where upstream publishes SHASUMS; pin the third-party plugin to an exact version."
+  },
+  "p20": {
+    "id": "p20",
+    "name": "Data, generated types and dependencies",
+    "effort": "high",
+    "agentType": "general-purpose",
+    "findings": [
+      "L45",
+      "L49",
+      "L118",
+      "L131"
+    ],
+    "owned": [
+      "scripts/build-specifiers-search-index.ts (new generator) and a check:specifiers-index freshness script, wired into package.json scripts only (NOT ci.yml or verify-pr-local.mjs — p8b owns those; say in the PR that static-pr wiring is a follow-up)",
+      "data/specifiers-search-index.json (regenerated)",
+      "Dockerfile.worker and worker/python requirements (docling model revision pin)",
+      "src/lib/supabase/database.types.ts (regenerated) and the casts that worked around it",
+      "package.json dependencies + package-lock.json for the pdfjs-dist / zip de-duplication and the undeclared playwright-core import",
+      "tests for the generator and the freshness script"
+    ],
+    "gate": "npm run verify:pr-local (heavy) plus npm run check:worker-python-locks:static, check:npm-ci-dry-run, check:installed-lock-parity, check:assets",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": true,
+    "notes": "The owner approved public npm registry calls for this programme. L45: write the generator that produces data/specifiers-search-index.json from its true source (find where the specifiers data lives), make the file header point at the real script, add a freshness check (regenerate and compare) with an npm script entry, regenerate and commit; explain every difference from the committed file in the PR. L49: pin the docling model download to a revision — read it from the installed docling package metadata or lockfile if possible; if a huggingface.co read is needed and blocked, record the exact command the owner must run and skip. L118: regenerate database.types.ts — try `npx supabase gen types typescript --local` against a local Postgres loaded from supabase/schema.sql if the CLI and a local PostgreSQL are available (local only; never the linked project); if not possible, write the five missing tables and fifteen RPC signatures by hand from supabase/schema.sql, remove the casts that worked around them, and say so. L131: de-duplicate pdfjs-dist to one major (prefer what production imports; move the other consumers), the ZIP implementations to one, and declare playwright-core where imported; run the pdf/zip-related tests; if a dedupe would change PDF rendering behaviour, keep both and explain."
+  },
+  "p21": {
+    "id": "p21",
+    "name": "Clinical governance documents — drafts for owner sign-off",
+    "effort": "high",
+    "agentType": "clinical-governance-reviewer",
+    "findings": [
+      "M6",
+      "L4"
+    ],
+    "owned": [
+      "docs/caring-contacts/hazard-log.md (new, marked DRAFT — REQUIRES CLINICAL SIGN-OFF)",
+      "docs/caring-contacts/message-review-pack.md (new, same marking)",
+      "docs/caring-contacts/phase-1-handoff.md (correct the recovery command that names a non-existent commit)",
+      "docs/README.md lines for the new files (same commit as the files, so docs:check-links passes)",
+      "src/components/care-plan/mockups/fixtures.ts (a verification-record comment only; numbers unchanged) and docs/care-plan/crisis-lines-verification.md (new)",
+      "data/repo-awareness-snapshot.json (regenerate once, because documents are added — the one package allowed to)"
+    ],
+    "gate": "npm run verify:pr-local (the snapshot routes it heavy) plus npm run docs:check-links, docs:check-index, check:repo-awareness-snapshot",
+    "rag_line": "RAG impact: none",
+    "governance_preflight": true,
+    "notes": "M6: the hazard log and message-review pack cited by P1 ledger row #1S81R8 exist in no commit. Draft both from what the repository already records: the existing hazard analysis docs, docs/caring-contacts/*, clinical-hazard-controls.json, the Caring Contacts governance and message-policy code and tests, and ledger rows #1S81R8 and #TDKW4W. Structure the hazard log as a table (id, hazard, cause, harm, existing control with file:line, residual risk, owner, status) covering at least the three unmitigated hazards the ledger names (safety officer, lived-experience review, Aboriginal health review) and every hazard the code enforces; the review pack lists each governed message template with its policy check and evidence. Mark both files DRAFT at the top with 'requires clinical sign-off by the owner before any real-patient use' — a starting point, not clinical authority. L4: create docs/care-plan/crisis-lines-verification.md recording each printed number, the source used to check it (cite URLs already present in repository docs; otherwise mark 'to verify — no network in this session'), the verifiedOn date from the fixture, and a six-monthly re-verification cadence; change no number."
+  }
+}

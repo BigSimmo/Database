@@ -1,0 +1,72 @@
+{
+  "impl": {
+    "package": "p2",
+    "commits": [
+      "fc1ce67a3 clinical tables: drop blanked metadata columns without shifting body cells (H3)",
+      "9bbb55939 clinical tables: remove in-cell page pointers with their brackets (L19)",
+      "338be46ac ward output: mark clipboard tables truncated at six rows (M1)",
+      "372ff8c8b clinical safety: stop deleting hyphenated phrases after protocol/policy (M9)",
+      "171cb7edf source governance: caveat sources whose validation status is unknown (M8)",
+      "af3b66345 clinical safety: cut safety-note text at a word boundary (L111)",
+      "72dec6e95 tests: cover both states of RAG_TEXT_WEAK_OR_RELAXATION at the merge point (L64)"
+    ],
+    "findings_fixed": [
+      "H3",
+      "L19",
+      "M1",
+      "M9",
+      "M8",
+      "L111",
+      "L64"
+    ],
+    "findings_skipped": [
+      {
+        "id": "L109",
+        "reason": "The quadratic regex is at /home/user/wt/p2/src/lib/rag/rag-answer-text.ts:192 (answerSentenceFragments, still present and unchanged on this branch). That file is under src/lib/rag/**, which is neither in this package's owned-files list nor editable under the package notes ('never touch src/lib/rag/**') and the audit's _never-touch.md protected-surface list. No owned file can carry the fix, so nothing was changed. Impact is a bounded synchronous CPU cost on the answer route (no correctness effect); it needs an owner-approved RAG-surface change."
+      }
+    ],
+    "tests_added": [
+      "tests/accessible-table.dom.test.tsx: 'drops a metadata column that cleans to empty without shifting clinical body cells' (H3 — red before fix: the Max dose cell rendered 'RANZCP')",
+      "tests/accessible-table.dom.test.tsx: 'removes an in-cell page pointer together with its brackets' (L19 — red before fix: '0.6 mmol/L ()')",
+      "tests/ward-output.test.ts: 'marks a table truncated by the clipboard copy (M1)' (red before fix: no marker for an 8-row ANC grid, in both the ward-note and visual-evidence emitters)",
+      "tests/clinical-safety.test.ts: 'keeps ordinary hyphenated phrases after protocol, policy or procedure (M9)' (red before fix: 'Follow the clozapine only after haematology review.')",
+      "tests/clinical-safety.test.ts: 'never cuts a safety finding inside a numeric token (L111)' (red before fix: 'ANC 1500' rendered as 'ANC 1.')",
+      "tests/source-governance.test.ts: 'treats an unknown clinical_validation_status as not locally validated (M8)' (red before fix: no warnings at all) plus the locally_reviewed/approved counter-case",
+      "tests/rag-text-weak-or-relaxation.test.ts (new file): both states of RAG_TEXT_WEAK_OR_RELAXATION at searchTextChunkCandidates — off fires one lexical RPC and reports 'none'; on fires the OR-relaxed hop, reports 'weak_augment', and appends behind both strict matches"
+    ],
+    "files_touched": [
+      "/home/user/wt/p2/src/components/AccessibleTable.tsx",
+      "/home/user/wt/p2/src/lib/ward-output.ts",
+      "/home/user/wt/p2/src/lib/clinical-safety.ts",
+      "/home/user/wt/p2/src/lib/source-governance.ts",
+      "/home/user/wt/p2/tests/accessible-table.dom.test.tsx",
+      "/home/user/wt/p2/tests/ward-output.test.ts",
+      "/home/user/wt/p2/tests/clinical-safety.test.ts",
+      "/home/user/wt/p2/tests/source-governance.test.ts",
+      "/home/user/wt/p2/tests/rag-text-weak-or-relaxation.test.ts"
+    ],
+    "residual_risk": "Every change is in rendering, text cleaning or caveat emission; no ranking, ordering, comparator key, relevance score, selection path or retrieval RPC was touched, and no src/lib/rag/** source file was edited (the one new file there is a test). Proof run locally and offline: the full unit suite, 954 files / 12348 tests, all green, plus eslint and tsc -p tsconfig.typecheck.json clean. Three residual risks worth naming. (1) M8 widens the \"not locally validated\" caveat from the literal status \"unverified\" to anything that is not locally_reviewed or approved, so more answers will now carry that warning badge and more sources will show it — severity stays \"warning\", so no answer that previously succeeded is now refused, but the visible caveat rate on partially-enriched documents will rise; that is the conservative direction the governance doc asks for, and it is deliberately not fed back into retrieval (Refutation 3). The matching asymmetry in src/lib/clinical-review-queue.ts:87 is unfixed because that file is outside this package. (2) H3 now drops a whole column when its header cleans to empty; the normalizer never emits an empty header (it synthesizes \"Details N\"/\"Column N\"), so only a header that was pure provenance can trigger it, but a table whose header was genuinely only a page or file reference over clinical values would lose that column rather than misalign it — misalignment was the graver hazard. (3) L111 cuts at a word boundary, and because the trailing \"...\" is normalised away downstream, a truncated Safety chip can now end at a sentence boundary with no visible truncation marker; that was already true before this change (the marker was collapsed to a full stop), and the chip still carries its citation link. Not run, by the package's own rules: npm run verify:pr-local and the offline RAG eval steps its classifier would add (eval:rag:offline, eval:rag:adversarial:offline) because source-governance.ts sets rag_eval_changed; CI must run them. No provider-backed command was executed.",
+    "needs_owner_decision": [
+      "L109 (quadratic answerSentenceFragments regex in src/lib/rag/rag-answer-text.ts) needs an owner decision to edit a protected RAG surface. The change is display-only (bounded CPU, no ordering effect), so it should qualify for 'RAG impact: no retrieval behaviour change', but it cannot be made from this package's owned files.",
+      "M8's sibling asymmetry in src/lib/clinical-review-queue.ts (validation === 'unverified' only) means a document whose validation status is 'unknown' still never enters the clinical review queue for that reason. That file belongs to no package in this programme; decide whether it should be fixed in the same governance change.",
+      "The audit's Stage-5 correction on M8 notes that no inspected writer currently produces the absent-field shape, so live prevalence is unverified (checking it needs a provider-backed Supabase read). Confirm whether a read is wanted to size the newly-caveated source population before this ships."
+    ]
+  },
+  "review": {
+    "pass": true,
+    "blocking": [],
+    "notes": [
+      "Scope check: `git diff origin/main...HEAD --stat` lists exactly 9 files (4 source, 5 test), all inside the p2 owned list. No file under src/lib/rag/**, clinical-search, retrieval-selection, released-search-order, ranking-config, ledgers/inbox/records, flake ledger, diff-integrity.json, bundle budget, AGENTS.md or CLAUDE.md was touched. `--diff-filter=D` shows no deletions; no `-export` lines; no it/describe.skip/only/todo added; no existing test case removed. `npm run check:diff-integrity` => `[diff-integrity] PASS — 5 changed test file(s), 57 -> 66 test case(s), against base 705c2f64a.`",
+      "Red-before-fix verified empirically, not just by reading: I copied the tree to the scratchpad, restored the four source files from origin/main, and ran the five test files there. Result: `Test Files 4 failed | 1 passed (5)`, `Tests 6 failed | 60 passed (66)` — exactly the six new behavioural tests failed (H3: heading/cell assertion; L19: `expected 'Target0.6 mmol/L ()' not to contain '('`; M1: `to contain 'Showing 6 of 8 rows'`; M9: `Received: 'Follow the clozapine only after haematology review. | Per local of two antipsychotics ...'`; L111: `not to match /ANC\\s+1\\b/`; M8: `expected [] to deeply equal [ObjectContaining{...}]`). The L64 file passes in both states by design (it pins current behaviour, no source change). Each test asserts the actual failure the finding describes, not a weaker proxy.",
+      "Gate runs on the branch (all offline, no provider): `npx vitest run` on the five touched test files => `Test Files 5 passed (5)`, `Tests 66 passed (66)`. `npx eslint` on all 9 files => exit 0, no output. `npx prettier --check` on all 9 => `All matched files use Prettier code style!`. `tsc -p tsconfig.typecheck.json --noEmit` (includes tests/**) => exit 0. `npm run eval:rag:offline` => `Offline RAG fixture and production-contract checks passed.` (26 files / 630 tests, includes answer-render-policy.test.ts, the M8 consumer). `npm run eval:rag:adversarial:offline` => `Offline adversarial fixture validation and regression harness passed.` (25 tests). Also green: client-secret-surface, rag-generation-fingerprint, rag-imputation-contract, retrieval-query-variants, source-metadata(+browser-safety), source-badges-off-vocab (132 tests). Note `npm run test:focused -- --files <tests>` fails closed by design (`Focused test selection is unsafe: test or configuration paths changed`), so vitest was invoked directly. Not run by me: `npm run build` and the full `npm run test` (implementer reports 954 files / 12348 tests green); `verify:pr-local --dry-run` confirms the plan includes eval:rag:offline and eval:rag:adversarial:offline because source-governance.ts sets rag_eval_changed — CI must run the full plan.",
+      "L109 skip reason verified true: `src/lib/rag/rag-answer-text.ts:192` still reads `return value.match(/(?:\\d+\\.\\d+|[^.!?])+[.!?]?/g) ?? [value];` and the file is under src/lib/rag/** (never-touch, not in the owned list). Nothing was changed there. Needs the owner decision the implementer named.",
+      "M8 widening is exactly the finding's scope, not wider: `normalizeSourceMetadata` (src/lib/source-metadata.ts:68-73) already defaults a null/absent status to \"unverified\", so sources with no metadata got the caveat before and after (probe: null => [unverified_source], {} => [unverified_source]); only the literal \"unknown\" changes. Registry rows cannot carry \"unknown\" (migrations pin `validation_status in ('unverified','locally_reviewed','approved')`), so registry-backed answers are unaffected in live data. Minor wording inconsistency worth a follow-up: the per-source badge label (`validationStatusLabel`, source-metadata.ts:141) still says \"Validation unknown\" while the answer-level warning now says \"have not been locally validated\"; and evidence-panels.tsx:1043 / clinical-review-queue.ts:87 still compare `=== \"unverified\"` only (outside this package, already flagged by the implementer).",
+      "M9 note (non-blocking): the new regex `\\b(?:[Pp]rocedure|[Pp]olicy|[Pp]rotocol)\\s+(?=[A-Z0-9/-]*\\d)[A-Z]{2,}(?:-[A-Z0-9]+)+...` with only the `g` flag no longer scrubs an all-caps keyword (\"PROCEDURE PAE-PRO-0338/16\", \"POLICY MH-POL-0012\"), so the code comment at src/lib/clinical-safety.ts:82-83 (\"The keyword stays case-insensitive by spelling\") is inaccurate. In a probe through extractSafetyFindings the upstream sanitizer already removed both all-caps examples, so the practical effect is small and the audit's own fix sketch sanctioned dropping `i`; if desired, add `PROCEDURE|POLICY|PROTOCOL` to the alternation. Pre-existing and unchanged: a genuine token like \"protocol ANC-1500\" is still scrubbed because it is upper-case with a digit.",
+      "L111 note (non-blocking, pre-existing): `truncateAtSafeBoundary` never splits a token, but the appended \"...\" is normalised by `sanitizeAnswerText` — probe: \"Target serum lithium level 0.6...\" => \"Target serum lithium level 0.6.\" and a trailing orphan fragment (\"and ANC...\") is dropped entirely. So a truncated Safety chip still reads as a complete sentence, and a value can be cut from its unit at the word boundary. This was already true before the change (implementer's residual risk 3); a follow-up could prefer the last sentence terminator inside the window when one exists.",
+      "L19 note: the fix follows the package note (strip pointer with its brackets) rather than the finding's alternative (keep the pointer for verification). `emptyBracketPattern` sweeps any empty `()`/`[]` pair in every clinicalOnly cell, including pairs not produced by the scrub — acceptable for clinical tables. The bracketed pattern also absorbs an optional leading \"see\" (\"(see page 3)\").",
+      "H3 note: the chosen remedy drops the blanked column entirely (permitted by the package note; body values under it are removed rather than shifted). The normalizer never emits an empty header, so only a header that cleans to nothing under clinicalOnly (\"Source: 3\", \"Page 2\", a file name) triggers it. The test covers \"Source: 3\" only; \"Page 2\"/\"Citation 1\" go through the same code path.",
+      "M1 note: both emitters (`clinicalTableToTextRows` and `formatDisplayedVisualEvidenceForClipboard`) append `Showing 6 of N rows — open the source document for the full table.` only when N > 6; the H4 low-confidence caveat line and its ordering are untouched; on-screen AccessibleTable is untouched. `normalizeAccessibleTable` does not cap rows, so N is the true row count.",
+      "L64 note: the new test mocks `@/lib/env` with a Proxy and drives `searchTextChunkCandidates` directly; the flag is read at call time at src/lib/rag/rag-candidate-sources.ts:280, so the mock reaches the real integration point. Assertions match the code: one RPC and `text_or_relaxation_used: \"none\"` when off; a second OR-relaxed RPC, `\"weak_augment\"`, and append-behind ordering via `mergeSearchResults(merged, orResults)` when on. No src/lib/rag/** source file changed. `git status` in the worktree is clean after all gate runs (gate-receipts wrote nothing tracked)."
+    ]
+  }
+}

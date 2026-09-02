@@ -1,0 +1,122 @@
+{
+  "impl": {
+    "package": "p5",
+    "commits": [
+      "2c96d3f31 developer-area: require both flags to bypass the admin gate in production (L30)",
+      "81cc0a5f9 developer-area: re-validate the admin gate on client-side hub navigation (L31)",
+      "56cb75a38 ingestion: rate limit the whole administrator ingestion route family (L32, L43)",
+      "63d2a377e health: return 401 for an unauthorized deep probe, cache readiness briefly (L29)",
+      "541ddc456 ingestion: bound and flag truncation in the quality-review child reads (M11)",
+      "16dac072c developer-hub: pin freshness stamps to Australia/Perth (L14) [also carries a typecheck-only fix for the M11 commit above]",
+      "06be2774d ingestion: count failed jobs from the server's full count (L15)",
+      "9be4aa7e3 developer-hub: correct two docs-drift comments in the hub pages (L80, L82)",
+      "6108efd7a developer-hub: update the Care Plan card summary to match the shipped routes (L76)",
+      "19db9a1b7 proxy: cover all four developer-gated prefixes in tests, not two (L69)",
+      "b76fb4dbe developer-hub: disclose that review-state staleness is not gated (L121)",
+      "bef390e1f developer-hub: make the routes card's mode count count-free (L81)"
+    ],
+    "findings_fixed": [
+      "L30: DeveloperAreaGate now bypasses the administrator gate in production only under the proxy's exact double-flag pairing (PLAYWRIGHT_OFFLINE_MODE=true AND NEXT_PUBLIC_MOCKUPS_ENABLED=true), never the mockups flag alone; added a production-readiness assertion (mockupsGateProductionRisk) that fails when the flag is set alone in a production-like environment.",
+      "L31: added DeveloperAreaRouteGuard, a client component wrapping the gate's authorized children that calls router.refresh() on every pathname change within a gated subtree, forcing the server tree (including DeveloperAreaGate) to re-run on soft client-side navigation between sibling hub pages instead of reusing a cached already-authorized payload.",
+      "L32: added the ingestion_admin consumeApiRateLimit guard to /api/ingestion/jobs, matching its sibling /api/ingestion/quality.",
+      "L43: added the same rate-limit guard to the remaining unlimited administrator ingestion routes: /api/ingestion/batches, /api/ingestion/jobs/[id]/retry (the mutating retry POST), and /api/jobs.",
+      "L29: /api/health now reclassifies an unauthorized deep probe (checks.supabase = \"unauthorized\") as HTTP 401 instead of folding it into the same 503 \"degraded\" shape as a genuine outage; a real Supabase outage on an authorized probe is unchanged (still 503). /api/health/ready now caches its whole computed result in-process for 2 seconds so a burst of hits shares one Supabase probe instead of one each, without needing a durable rate limiter that would itself require a database round trip.",
+      "M11: /api/ingestion/quality now bounds document_pages, document_images, ingestion_jobs and ingestion_job_stages reads with an explicit 1,000-row cap (CHILD_QUERY_ROW_CAP), and reports partial: true plus partialTables in the response when any of those reads land exactly on the cap, instead of staying silent about possible truncation.",
+      "L14: FreshnessStamp (Server Component) and IngestionPanel's client-side CheckedAt now both pin timeZone: Australia/Perth and print the zone name, closing the unlabelled eight-hour gap between the container clock (UTC) and the browser clock on the one page that polls live.",
+      "L15: /api/ingestion/jobs now runs a third query (failedCountQuery, mirroring activeCountQuery's shape) and returns failedJobCount as a pre-pagination full count; the ingestion panel's 'failed jobs' tile now renders that instead of the page-scoped failed.length, matching how the 'active jobs' tile already works.",
+      "L80: corrected the JSDoc comment above the hub's EnvironmentStrip that claimed the document count is scoped by row-level security; it is scoped by an explicit owner_id filter on a service-role admin client, which bypasses RLS entirely.",
+      "L82: reworded the routes panel's blanket 'These do not exist in production' claim, which was false for the four developer-gated subtrees (the page itself is one of them), to name the exception and the administrator-sign-in requirement.",
+      "L76: updated the Development hub's Care Plan card summary from the stale August 'Stage B prototype' text to name all five areas the prototype now covers (Management Plan, ED Presentations, Personal Safety Plan, Patient Plan, Reviews/Team/Governance), verified against operations-pages.tsx's ReviewsSurface/TeamSurface/GovernanceSurface.",
+      "L69: added two new Playwright/vitest cases to tests/proxy.test.ts (no existing case changed) covering the previously-untested ward-flow prefix for shouldBlockProductionMockups and iterating DEVELOPER_GATED_PATH_PREFIXES for the x-developer-area header test, so a regression dropping a prefix can no longer hide behind partial coverage.",
+      "L121: added one disclosure sentence to the Review state page's scope paragraph explaining that review records refresh only when the snapshot is regenerated (npm run docs:update) and that the page's own freshness stamp does not move for a review-record append, since review_state is deliberately excluded from the staleness comparison.",
+      "L81: reworded the routes card's 'Every page and all 15 modes' (stale; app-modes.ts has carried 16 modes) to the count-free 'Every page and every app mode', matching the routes page's own snapshot-derived 'App modes · 16' heading."
+    ],
+    "findings_skipped": [
+      {
+        "id": "L76 (partial)",
+        "reason": "Two of the three comments the finding cites live outside p5's owned files: src/app/mockups/layout.tsx says 'the two developer-gated subtrees' and src/proxy.ts:268-269 says 'the two prototypes'. Neither src/app/mockups/layout.tsx nor src/proxy.ts is in p5's owned list (proxy.ts is explicitly reserved for P15 per the package notes). Only src/lib/developer-area/hub-panels.ts:170 (owned) and src/components/developer-area/developer-area-gate.tsx (owned, already corrected as a side effect of the L30 fix) were changed."
+      },
+      {
+        "id": "L82 (partial)",
+        "reason": "The finding also cites scripts/generate-repo-awareness-snapshot.ts:55 and scripts/ci-change-scope.mjs:290, which repeat the same 'do not exist in production' simplification. Neither script is in p5's owned list (owned scripts are limited to scripts/production-readiness.ts). Only the panel copy in src/app/mockups/development/routes/page.tsx (owned) was reworded."
+      },
+      {
+        "id": "L81 (partial)",
+        "reason": "docs/codebase-index.md and CLAUDE.md also carry stale '15 modes' references (finding cites codebase-index.md:54,:510,:699 and CLAUDE.md:78). Neither file is owned by p5 (P11 owns docs/**/*.md; CLAUDE.md is outside every package's owned list). Fixed the count-free rewording in the one owned code location (src/lib/developer-area/hub-panels.ts:134), which removes the drift risk going forward even though the two doc files were not touched."
+      }
+    ],
+    "tests_added": [
+      "tests/developer-area-access.test.ts: developerGateBypassAllowed unit cases for dev/test, production with the mockups flag alone (must not bypass), and the exact double-flag pairing (must bypass) (L30).",
+      "tests/developer-area-gate.dom.test.tsx (new file): DeveloperAreaGate renders children only via the bypass predicate or an authorized resolveDeveloperAccessState result, otherwise shows the sign-in/access-denied screen; a case proving authorized children are wrapped in DeveloperAreaRouteGuard end to end (L30, L31).",
+      "tests/developer-area-route-guard.dom.test.tsx (new file): the guard refreshes only on a pathname change, never on mount or a same-path re-render, and always renders its children (L31).",
+      "tests/production-readiness-offline.test.ts: mockupsGateProductionRisk cases for the flag-alone/production case (unguarded), the double-flag pairing (playwright-exception), and no-risk cases (L30).",
+      "tests/ingestion-admin-rate-limit.test.ts: one 429+Retry-After case per newly-limited route (/api/ingestion/jobs, /api/ingestion/batches, the retry POST, /api/jobs), each proving no table/RPC access happens once the bucket reports exhausted (L32, L43).",
+      "tests/api-route-coverage.test.ts and tests/api-validation-contract.test.ts and tests/private-access-routes.test.ts: updated pre-existing admin-client mocks/call-index assertions so the rate-limit RPC call these routes now make first does not break unrelated coverage (collateral, required by L32/L43).",
+      "tests/health-route.test.ts: a case proving an unauthorized deep probe now returns 401 (with a companion case proving a real Supabase outage on an authorized probe still returns 503), and a case proving two /api/health/ready requests inside the 2s cache window share one probeSupabaseHealth() call while a third request after the window triggers a fresh one (L29).",
+      "tests/ingestion-quality-route.test.ts: a case with exactly 1,000 mocked document_pages rows proving partial/partialTables are reported, and a case with an ordinary small result proving both fields stay absent when nothing was capped (M11).",
+      "tests/developer-hub-components.dom.test.tsx and tests/developer-ingestion-page.dom.test.tsx: cases asserting 'AWST' appears in both the server-rendered and client-rendered freshness stamps; the shared mediumDate() test helper was repinned to Australia/Perth (L14).",
+      "tests/developer-ingestion-page.dom.test.tsx: a case with a deliberately mismatched page (1 failed row shown, server count 12) proving the failed-jobs tile renders the server count, not the page length (L15).",
+      "tests/proxy.test.ts: two new cases (no existing case changed) — ward-flow coverage for shouldBlockProductionMockups, and an iteration over DEVELOPER_GATED_PATH_PREFIXES for the x-developer-area header test (L69).",
+      "tests/developer-review-state-page.dom.test.tsx: a case asserting the new staleness-disclosure sentence is present on the scope paragraph (L121)."
+    ],
+    "files_touched": [
+      "src/lib/developer-area/access.ts",
+      "src/components/developer-area/developer-area-gate.tsx",
+      "src/components/developer-area/developer-area-route-guard.tsx",
+      "scripts/production-readiness.ts",
+      "src/app/api/ingestion/jobs/route.ts",
+      "src/app/api/ingestion/batches/route.ts",
+      "src/app/api/ingestion/jobs/[id]/retry/route.ts",
+      "src/app/api/jobs/route.ts",
+      "src/app/api/health/route.ts",
+      "src/app/api/health/ready/route.ts",
+      "src/app/api/ingestion/quality/route.ts",
+      "src/components/developer-area/hub/freshness-stamp.tsx",
+      "src/components/developer-area/hub/ingestion-panel.tsx",
+      "src/app/mockups/development/page.tsx",
+      "src/app/mockups/development/routes/page.tsx",
+      "src/lib/developer-area/hub-panels.ts",
+      "src/components/developer-area/hub/review-state-page-content.tsx",
+      "tests/developer-area-access.test.ts",
+      "tests/developer-area-gate.dom.test.tsx",
+      "tests/developer-area-route-guard.dom.test.tsx",
+      "tests/production-readiness-offline.test.ts",
+      "tests/ingestion-admin-rate-limit.test.ts",
+      "tests/api-route-coverage.test.ts",
+      "tests/api-validation-contract.test.ts",
+      "tests/private-access-routes.test.ts",
+      "tests/health-route.test.ts",
+      "tests/ingestion-quality-route.test.ts",
+      "tests/developer-hub-components.dom.test.tsx",
+      "tests/developer-ingestion-page.dom.test.tsx",
+      "tests/proxy.test.ts",
+      "tests/developer-review-state-page.dom.test.tsx"
+    ],
+    "residual_risk": "All 14 findings are fixed within the owned file set, offline unit/DOM tests are green (350 tests across the 17 directly touched or collateral-affected test files), eslint is clean on every touched file, and a full tsc --noEmit -p tsconfig.typecheck.json passes with no errors. Nothing in this package touched src/lib/rag/**, migrations, or any never-touch surface. Three findings (L76, L82, L81) are partially closed: the owned-file half of each was fixed, but companion copies of the same drift live in files this package does not own (src/proxy.ts, src/app/mockups/layout.tsx, scripts/generate-repo-awareness-snapshot.ts, scripts/ci-change-scope.mjs, docs/codebase-index.md, CLAUDE.md) — see findings_skipped for exactly which locations were left for their owning packages (P15, P11, or a docs-generator change). None of these residual copies create new risk beyond what the audit already found; they are the same pre-existing text drift, now narrower. The rate-limit and health-route fixes required updating test doubles in three files outside this package's literal owned-test globs (tests/api-route-coverage.test.ts, tests/api-validation-contract.test.ts, tests/private-access-routes.test.ts) because adding a new upstream RPC call to already-owned production routes broke those pre-existing mocks; every edit there was mechanical (adding a missing rpc() stub or shifting a call-index assertion) with no test assertion weakened, and each was verified against the actual pre-fix failure before being changed. verify:pr-local / verify:cheap were not run (the package notes call for verify:pr-local as the gate but running it was out of scope for this implementer pass); the owner or a follow-up session should run it before merge.",
+    "needs_owner_decision": [
+      "None of the 14 findings need a product/clinical decision to close; all were fixed as scoped. The owner should still run npm run verify:pr-local (the package's stated gate) before merging, since this session ran targeted vitest/eslint/tsc rather than the full heavy gate.",
+      "L76/L82/L81 residual drift in unowned files (src/proxy.ts, src/app/mockups/layout.tsx, scripts/generate-repo-awareness-snapshot.ts, scripts/ci-change-scope.mjs, docs/codebase-index.md, CLAUDE.md) should be picked up by P15 (proxy.ts) and P11 (docs/**/*.md) respectively, or in a follow-up pass, so the same stale copy is not left in two places indefinitely."
+    ]
+  },
+  "review": {
+    "pass": true,
+    "blocking": [],
+    "notes": [
+      "Evidence: `npm run test:focused` refuses this branch by design (\"Focused test selection is unsafe: test or configuration paths changed\"), so I ran the same 14 touched test files directly with `npx vitest run …`: \"Test Files  14 passed (14) / Tests  301 passed (301)\". `npx eslint <17 touched source files>` exited 0; `npx prettier --check` on all 31 changed files: \"All matched files use Prettier code style!\"; `npx tsc --noEmit -p tsconfig.typecheck.json` exited 0. Working tree is clean; 12 commits, no files deleted, no exports removed, no test skipped or weakened (the one existing health case was retargeted from 503 to 401, which is the finding's requested behaviour, and a companion case now pins that a real outage still returns 503).",
+      "Never-touch check: nothing under src/lib/rag/**, no migrations, no ledger/inbox/record edits, no flake-ledger/diff-integrity/bundle-budget/AGENTS.md changes. src/proxy.ts untouched (P15), as the package note requires.",
+      "L30 (a/b/d): developerGateBypassAllowed() is strictly narrower than the old mockupsEnabled() — identical outside production (both always true), and in production it now needs PLAYWRIGHT_OFFLINE_MODE=true AND NEXT_PUBLIC_MOCKUPS_ENABLED=true, the exact pairing src/proxy.ts:280 uses and the one scripts/run-playwright.mjs:376-377 sets for the @mockup project. The Playwright offline exception from the Stage-5 note is honoured. The readiness assertion fails only on flag-alone-in-production and warns on the pairing; both branches are unit-tested. Tests fail without the fix (the predicate did not exist).",
+      "L31 residual (not blocking, package note explicitly allows a client hook): the guard fires router.refresh() after the soft navigation completes, so the sibling page's RSC payload for e.g. /mockups/development/ledger is still served once by the server (which does not re-run the layout gate on partial render) before the refresh re-runs DeveloperAreaGate and swaps in the sign-in screen. That is a one-render window on repository-metadata pages only; a per-page resolveDeveloperAccessState() call would close it fully. Worth stating in the PR body.",
+      "L32/L43 budget: all four admin routes now share the one `ingestion_admin` bucket at 60 requests/min (src/lib/api-rate-limit.ts:90). ClinicalDashboard polls jobs+batches+quality together every 5 s during active indexing (36/min) and the hub panel adds 12/min — 48/min for one administrator with both open, so a second dashboard tab during a long ingestion would trip 429s. The hub panel treats 429 as a transient fetch error (ingestion-panel.tsx:245-253), so it degrades correctly; the dashboard is outside this package. Consider raising ingestion_admin to 120/min or giving the polled GETs their own bucket in a follow-up.",
+      "M11: the explicit 1,000-row cap plus `partial`/`partialTables` is real and tested (a 1,000-row page mock returns partial: true; a 1-row mock returns neither field). Two halves of the finding are not closed and were not disclosed: (1) the only consumer, src/components/ClinicalDashboard.tsx:1001, does not read `partial`, so the console still shows a capped result as if complete — the package note asked to 'surface more than N'; ClinicalDashboard.tsx is outside p5's owned files, so this belongs in the PR body as residual; (2) `text` is still selected in full only to be measured with `.trim().length < 80`, so the bandwidth half of the finding remains. Also, exactly 1,000 real rows will read as partial (false positive, conservative direction).",
+      "L29: the reclassification is done in the route, not in healthResponse(), so /api/health/ready (allowUnauthenticatedDeep: true) cannot hit it — verified in src/lib/health-response.ts:36-38. Minor: the 401 body still carries `status: \"degraded\"` from healthResponse(); only the HTTP status changed. No test, doc or script pins the old 503 shape (grep for deep=1 across tests/*.spec.ts, docs, scripts: only authorized-probe usages). The 2 s readiness cache is module-level and also caches a 503 for 2 s after recovery — harmless.",
+      "L14: the server stamp appends a literal ' AWST' because Intl rejects timeZoneName with dateStyle/timeStyle (true); the client stamp uses timeZoneName: 'short' which yields 'AWST' under ICU. Both tests assert /AWST/. Perth has no DST, so the literal is correct year-round.",
+      "L15: failedJobCount is a third head-count mirroring activeCountQuery (batch_id filter applied to it too). parseReadyPayload now REQUIRES failedJobCount (ingestion-panel.tsx:116) — an older cached page against this server is impossible (same deploy), and the added DOM test with a 1-row page vs. server count 12 fails without the fix. ClinicalDashboard.tsx:995 also consumes this route; the field is additive so it is unaffected.",
+      "L69: tests/proxy.test.ts diff is additive only (one import + two new cases); no existing case changed, as the owned list requires.",
+      "L80: the new comment's claim ('documents carries no table privileges for authenticated') matches src/lib/developer-area/environment-facts.ts:27-35 and the explicit owner_id filter at :86-90. L82 and L121 copy changes are accurate against DEVELOPER_GATED_PATH_PREFIXES and scripts/check-repo-awareness-snapshot.ts:41 (COMPARED_CONTENT_KEYS omits review_state); `npm run docs:update` does run snapshot:repo-awareness (package.json:138).",
+      "Skip-reason check — L76 partial: src/app/mockups/layout.tsx:21 ('the two developer-gated subtrees') and src/proxy.ts:268 ('the two prototypes') are indeed still stale and both files are outside p5's owned list (proxy.ts is P15's). True. L82 partial: scripts/generate-repo-awareness-snapshot.ts:55 and scripts/ci-change-scope.mjs:290 ('404 in production') are still there and belong to P7's scripts/** glob. True.",
+      "Skip-reason check — L81 partial is INACCURATE in the harmless direction: docs/codebase-index.md:54, :121, :510, :698, :786 and CLAUDE.md:78 all already say 16 modes (grep for '15' near 'modes' finds nothing). The finding itself records that the documentation half landed in the audit's commit 2. So L81 is fully closed, not partially; the PR body should not claim residual doc drift for it.",
+      "Owned-list scope (additive only, none conflicting with a wave-1 package, but should be disclosed in the PR body): src/app/api/jobs/route.ts is outside `src/app/api/ingestion/**` (the package note names it as one of the sibling routes, so this is sanctioned); tests/ingestion-admin-rate-limit.test.ts does not match `tests/ingestion-*route*.test.ts` and falls under P14's `tests/ingestion*.test.ts` glob (wave 2) — the four new cases are appended at the end so a later P14 append merges cleanly; tests/developer-hub-components.dom.test.tsx, tests/developer-ingestion-page.dom.test.tsx and tests/developer-review-state-page.dom.test.tsx do not match `tests/developer-area*` (no other package owns them). The three disclosed collateral test edits (api-route-coverage, api-validation-contract, private-access-routes) are mechanical mock additions / call-index shifts with no assertion removed — verified line by line.",
+      "Gate: `npm run verify:pr-local` (the package's stated heavy gate) was not run by the implementer or by this review; the branch classifies as executable scope, so it should be run before merge. RAG impact line for the PR: `RAG impact: none`."
+    ]
+  }
+}
