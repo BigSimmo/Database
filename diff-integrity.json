@@ -1,0 +1,7 @@
+{
+  "maxRemovedFraction": 0.25,
+  "minRemovedCases": 3,
+  "perFileMaxRemovedFraction": 0.5,
+  "perFileMinRemovedCases": 3,
+  "approvedReductions": []
+}
