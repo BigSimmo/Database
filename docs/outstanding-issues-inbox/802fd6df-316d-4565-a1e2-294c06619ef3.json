@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "802fd6df-316d-4565-a1e2-294c06619ef3",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#Z5P2BW",
+    "outcome": "Both halves closed, in different ways. The FIRST defect (the scan refuses 'lead' with no notion of a job title, so raw identifiers pass while the correct plain-words label fails) was already closed by Ruling [143] on 2026-08-27, which put the three-alternative narrowing into tests/helpers/caring-contacts-prohibited-language.ts: 'the clinical programme lead' now passes alongside clinicalProgrammeLead, so the scan no longer rewards leaving developer wording on a clinical screen. The SECOND and larger defect is closed by this change: src/lib/caring-contacts/** is now a third scan root in tests/caring-contacts-interface-vocabulary.test.ts, so the sealed domain's wording constants (STOP_REASON_WORDING and APPROVAL_ROLE_WORDING, CARING_CONTACT_ROLE_WORDING, PATHWAY_APPROVAL_ROLE_WORDING, PLAN_ASSURANCE_WORDING, message-copy.ts) are read by a prohibited-language check for the first time. Two exemptions, both held against rot by their own tests: message-rules.ts whole, as the definition site of the rule doing the scanning, and reach-reporting.ts's no-safe-disclosure discriminant by exact string. The literal table is pinned as not-an-ignore-list: a different offending string in the same file still fails. Verified by mutation, not only by a green run.",
+    "baseRowFingerprint": "3b1f2adbb1c86c1d04aedeb8f9134ef87bf4e9a90ac37d2505b256db23454b0f"
+  }
+}
