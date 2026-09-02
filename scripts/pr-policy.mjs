@@ -89,17 +89,36 @@ const operationalRiskPatterns = [
 // claiming the deploy is later than the merge is not.
 const migrationPatterns = [/^supabase\/migrations\//];
 
-// Closed, deliberately narrow list of phrases asserting that deployment is separate
-// from — or later than — the merge. "Merge inside the approved deploy window" is
-// legitimate and required, and a truthful "applies to live on merge" is the wording
-// this gate is steering authors toward; neither may match.
+// Deliberately narrow: only phrases asserting that deployment is separate from — or
+// later than — the merge. "Merge inside the approved deploy window" is legitimate and
+// required, and a truthful "applies to live on merge" is the wording this gate steers
+// authors toward; neither may match. `appl(?:y|ies|ied|ication)` rather than a bare
+// `appl` prefix so "pending clinical governance approval" — an approval sought BEFORE
+// merge, which is the sanctioned control — is not mistaken for a deferred apply.
+const DEPLOY_WORD = String.raw`(?:deploy(?:ment|s|ed|ing)?|appl(?:y|ies|ied|ying|ication)s?)`;
+
 const deployDeferralPatterns = [
-  /\bawait(?:s|ing|ed)?\b[^.\n]{0,24}\bdeploy/i,
-  /\bpending\b[^.\n]{0,24}\b(?:deploy|apply|application)/i,
-  /\b(?:do not|don'?t|must not|will not|won'?t|not for)\s+deploy/i,
-  /\bnot yet\s+(?:applied|deployed|live)\b/i,
-  /\bdefer(?:red|ring|s)?\b[^.\n]{0,24}\bdeploy|\bdeploy(?:ment)?\b[^.\n]{0,24}\bdefer(?:red|ral)/i,
+  // "awaiting deploy window", "pending application"
+  new RegExp(String.raw`\b(?:await(?:s|ing|ed)?|pending)\b[^\n]{0,32}?\b${DEPLOY_WORD}`, "i"),
+  // ...and the same claim with the words reversed: "deployment is pending operator approval".
+  new RegExp(String.raw`\b${DEPLOY_WORD}\b[^\n]{0,60}?\b(?:pending|deferred|awaiting|on hold|held back)\b`, "i"),
+  // Out-of-band application: "deployed manually", "applied separately", "applied later".
+  new RegExp(String.raw`\b${DEPLOY_WORD}\b[^\n]{0,32}?\b(?:manually|by hand|out of band|separately|later)\b`, "i"),
+  // Explicitly sequenced after the merge, in either word order.
+  new RegExp(String.raw`\b${DEPLOY_WORD}\b[^\n]{0,32}?\b(?:after|post|following|once)[\s-]*(?:the\s+)?merg`, "i"),
+  new RegExp(String.raw`\b(?:after|post|following|once)[\s-]*(?:the\s+)?merg\w*\b[^\n]{0,32}?\b${DEPLOY_WORD}`, "i"),
+  // Outright denial.
+  /\b(?:do not|don'?t|must not|will not|won'?t|not for|never)\s+(?:be\s+)?deploy/i,
+  /\bnot yet\s+(?:applied|deployed|live|in production)\b/i,
+  new RegExp(String.raw`\bdefer(?:red|ring|s)?\b[^\n]{0,32}?\b${DEPLOY_WORD}`, "i"),
 ];
+
+// A deferral is only false when it is about the migration. A PR may legitimately carry a
+// migration AND a real operational constraint on something merging does not do — "do not
+// deploy the staging worker until its image passes smoke tests" makes no claim about when
+// the migration applies, so body statements must name the database subject to be in scope.
+const migrationSubjectPattern =
+  /\b(?:migration|schema|database|supabase|postgres|ddl|sql|table|index|constraint|foreign key|rls)\b/i;
 
 // RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md). Narrower than
 // clinicalRiskPatterns: these files change (or re-measure) retrieval/ranking ORDERING
@@ -268,14 +287,27 @@ export function ragImpactDeclared(body) {
   return { declared: true, satisfied: (noChange || canary) && detail.length >= 12 };
 }
 
-// Returns the first deferred-deploy claim found in the title or body, so the error
-// message can quote the author's own words back rather than making them guess which
-// phrase tripped the gate.
-export function deployDeferralClaim(title, body) {
-  const haystack = `${String(title ?? "")}\n${String(body ?? "")}`;
+// Returns the first deferred-deploy claim found, so the error message can quote the
+// author's own words back rather than making them guess which phrase tripped the gate.
+function deferralInSegment(segment) {
   for (const pattern of deployDeferralPatterns) {
-    const match = haystack.match(pattern);
-    if (match) return { claimed: true, phrase: match[0].trim() };
+    const match = segment.match(pattern);
+    if (match) return match[0].trim();
+  }
+  return "";
+}
+
+export function deployDeferralClaim(title, body) {
+  // The title describes the whole PR, and this gate only runs on a PR that carries a
+  // migration, so a deferral claim there is necessarily a claim about the migration.
+  const titleClaim = deferralInSegment(String(title ?? ""));
+  if (titleClaim) return { claimed: true, phrase: titleClaim };
+  // Body statements are scoped per sentence/clause so an unrelated deployment
+  // constraint elsewhere in the same PR cannot trip the gate.
+  for (const segment of String(body ?? "").split(/[.;\n]+/)) {
+    if (!migrationSubjectPattern.test(segment)) continue;
+    const claim = deferralInSegment(segment);
+    if (claim) return { claimed: true, phrase: claim };
   }
   return { claimed: false, phrase: "" };
 }
@@ -824,10 +856,42 @@ function selfTest() {
     false,
     "schema.sql mirrors the schema and applies nothing; only supabase/migrations/** deploys",
   );
-  assert.equal(
+  assert.match(
     deployDeferralClaim("chore: pending deployment of the index", "").phrase.toLowerCase(),
-    "pending deploy",
+    /^pending deployment/,
     "the detector must return the matched phrase for the error message",
+  );
+  // Behaviour table pinned in both directions. The `true` rows are claims that merging
+  // does not honour; the `false` rows are statements this repository requires authors to
+  // be able to make, and each one is a false positive a wider pattern would cause.
+  for (const [text, expected, why] of [
+    ["This migration will be deployed manually after merge.", true, "manual post-merge apply"],
+    ["Deployment of the schema change is pending operator approval.", true, "subject between the words"],
+    ["The owner foreign key migration will be applied out of band by the operator.", true, "out of band"],
+    ["This migration is deployed after merge by the release owner.", true, "sequenced after the merge"],
+    ["The migration is not yet applied to production.", true, "not yet applied"],
+    ["Do not deploy the staging worker until its image passes smoke tests.", false, "not about the migration"],
+    ["This migration is pending clinical governance approval before merge.", false, "approval sought BEFORE merge"],
+    ["This migration applies to the live database within seconds of merge.", false, "the truthful wording"],
+    ["Merge this migration only inside the approved deploy window.", false, "choosing when to merge"],
+    ["The index was prebuilt by the operator; this migration validates it.", false, "operator prebuild workflow"],
+  ]) {
+    assert.equal(deployDeferralClaim("", text).claimed, expected, `${why}: ${text}`);
+  }
+  // Scoping is what makes the false-positive rows above hold at PR level too: a PR may
+  // carry a migration AND a real constraint on something merging does not do.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "fix(db): restrict owner deletion on the four public-visibility tables",
+      body: completeBody.replace(
+        "- Rollback: revert the workflow commit.",
+        "- Rollback: revert in one commit.\n- Do not deploy the staging worker until its image passes smoke tests.",
+      ),
+      headRef: "codex/migration",
+      files: migrationFiles,
+    }).ok,
+    true,
+    "an unrelated deployment constraint must not block a migration PR",
   );
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
