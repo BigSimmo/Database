@@ -6,10 +6,13 @@ import { describe, expect, it } from "vitest";
 import {
   BROWSER_SPEC_PATTERN,
   browserTestPlan,
+  flagValue,
   isBrowserLanePath,
   isRenderingSource,
   isSharedFoundation,
   ownershipKeys,
+  playwrightSpecPatterns,
+  projectsForSpecs,
   specsReferencing,
 } from "../scripts/browser-test-plan.mjs";
 
@@ -202,6 +205,111 @@ describe("browser test plan", () => {
     });
   });
 
+  /**
+   * A selection that no Playwright project collects is worse than no selection:
+   * the run exits 0 having executed nothing. `chromium` carries
+   * `grepInvert: /@mockup/` and `chromium-mockups` carries `grep: /@mockup/`, so
+   * the project is part of the selection. Codex P2 on PR #2553.
+   */
+  describe("routes specs to the project that collects them", () => {
+    const patterns = playwrightSpecPatterns();
+
+    it("reads both patterns out of playwright.config.ts", () => {
+      // Extracted, not copied — a regex duplicated into this file would drift.
+      expect(patterns.production).toBeInstanceOf(RegExp);
+      expect(patterns.mockup).toBeInstanceOf(RegExp);
+    });
+
+    it("sends a production spec to chromium alone", () => {
+      expect(projectsForSpecs(["tests/ui-smoke.spec.ts"], patterns)).toEqual({
+        projects: ["chromium"],
+        unroutable: [],
+      });
+    });
+
+    it("sends a mockup spec to chromium-mockups alone", () => {
+      // Under `--project=chromium` this collects nothing, because that project
+      // grep-inverts `@mockup`.
+      expect(projectsForSpecs(["tests/ui-care-plan-mockup.spec.ts"], patterns)).toEqual({
+        projects: ["chromium-mockups"],
+        unroutable: [],
+      });
+    });
+
+    it("sends a spec that holds both kinds to both projects", () => {
+      // ui-tools.spec.ts matches both testMatch patterns: production journeys
+      // plus `@mockup` ones. Either project alone runs half of it.
+      expect(projectsForSpecs(["tests/ui-tools.spec.ts"], patterns)).toEqual({
+        projects: ["chromium", "chromium-mockups"],
+        unroutable: [],
+      });
+    });
+
+    it("runs both projects rather than guessing when the patterns cannot be read", () => {
+      expect(projectsForSpecs(["tests/ui-smoke.spec.ts"], { production: null, mockup: null })).toEqual({
+        projects: ["chromium", "chromium-mockups"],
+        unroutable: [],
+      });
+    });
+
+    it("escalates rather than emit a command that would collect nothing", () => {
+      const result = browserTestPlan({
+        files: ["tests/ui-nonexistent.spec.ts"],
+        scope: { ui_changed: true },
+        specSources: SPECS,
+        sourceSources: new Map(),
+        specPatterns: patterns,
+      });
+      expect(result.level).toBe("full");
+      expect(result.unroutableSpecs).toEqual(["tests/ui-nonexistent.spec.ts"]);
+    });
+
+    it("puts the routed projects on the command it prints", () => {
+      const result = browserTestPlan({
+        files: ["tests/ui-care-plan-mockup.spec.ts"],
+        scope: { ui_changed: true },
+        specSources: SPECS,
+        sourceSources: new Map(),
+        specPatterns: patterns,
+      });
+      expect(result.level).toBe("changed");
+      expect(result.stages[0].command.args).toContain("--project=chromium-mockups");
+      expect(result.stages[0].command.args).not.toContain("--project=chromium");
+    });
+  });
+
+  /**
+   * The documented syntax is the two-token form. A parser that only reads the `=`
+   * spelling does not error — it falls through to the `origin/main` diff and
+   * plans, or with `--run` executes, tests for a different change. Codex P2 on
+   * PR #2553, and the same failure mode this file already guards against when it
+   * calls `ci-change-scope.mjs`.
+   */
+  describe("selector flags", () => {
+    it("reads both documented spellings", () => {
+      expect(flagValue(["--files", "a.tsx,b.ts"], "--files")).toBe("a.tsx,b.ts");
+      expect(flagValue(["--files=a.tsx,b.ts"], "--files")).toBe("a.tsx,b.ts");
+      expect(flagValue(["--diff", "HEAD~1"], "--diff")).toBe("HEAD~1");
+      expect(flagValue(["--diff=HEAD~1"], "--diff")).toBe("HEAD~1");
+    });
+
+    it("treats a following flag as a missing value, not as the value", () => {
+      expect(flagValue(["--files", "--run"], "--files")).toBeUndefined();
+      expect(flagValue(["--run"], "--files")).toBeUndefined();
+    });
+
+    it("honours the two-token form end to end", () => {
+      // The regression was silent: the planner reported on the working tree
+      // instead, so the file count is what proves the value was read.
+      const output = execFileSync(process.execPath, ["scripts/browser-test-plan.mjs", "--files", "docs/testing.md"], {
+        cwd: root,
+        encoding: "utf8",
+      });
+      expect(output).toContain("(1 changed file(s))");
+      expect(output).toContain("level: none");
+    });
+  });
+
   describe("stays in step with the repository it plans for", () => {
     it("recognises the browser specs that exist today", () => {
       const specs = execFileSync("git", ["ls-files", "tests/ui-*.spec.ts"], { cwd: root, encoding: "utf8" })
@@ -282,6 +390,17 @@ describe("browser test plan", () => {
       expect(source).toContain("this is focused browser proof, not the full UI gate");
       // The plan must state what CI does with the same change rather than assert it.
       expect(source).toContain("deriveCiCoverage");
+    });
+
+    it("prints the CI preconditions it cannot evaluate instead of asserting coverage", () => {
+      // `ui-critical-fast` is guarded on `github.event.pull_request.draft != true`,
+      // which no worktree can read. Collapsing that into a bare "CI runs it"
+      // told the operator the opposite of the truth on a draft PR.
+      const source = read("scripts/browser-test-plan.mjs");
+      expect(source).toContain("ciAssumptions");
+      expect(source).toContain("ONLY IF these hold");
+      const workflow = read(".github/workflows/ci.yml");
+      expect(workflow).toContain("github.event.pull_request.draft != true");
     });
 
     it("is dry-run by default", () => {

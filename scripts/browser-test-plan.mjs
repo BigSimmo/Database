@@ -107,6 +107,77 @@ export const SHARED_FOUNDATION_PATTERNS = [
 /** A Playwright spec this planner can select. Mirrors `uiPatterns` in `ci-change-scope.mjs`. */
 export const BROWSER_SPEC_PATTERN = /^tests\/(?:ui-.*|answer-progress-ui-smoke)\.spec\.ts$/;
 
+/**
+ * The two `testMatch` patterns from `playwright.config.ts`, read from that file
+ * rather than copied into this one.
+ *
+ * `chromium` carries `grepInvert: /@mockup/` and `chromium-mockups` carries
+ * `grep: /@mockup/`, so a project is not a stylistic choice: selecting a
+ * mockup-only spec under `--project=chromium` collects nothing and the run
+ * "passes" having executed no test at all. `tests/ui-tools.spec.ts` matches BOTH
+ * patterns — it holds production journeys and `@mockup` ones — so a mixed spec
+ * needs both projects.
+ *
+ * Extracted at runtime, because a copy of a regex in two files is a copy that
+ * drifts. If the extraction fails the caller runs both projects, which is the
+ * conservative direction: too many tests, never none.
+ *
+ * @param {(path: string, encoding: string) => string} [readFile]
+ * @returns {{ production: RegExp | null, mockup: RegExp | null }}
+ */
+export function playwrightSpecPatterns(readFile = readFileSync) {
+  const extract = (source, name) => {
+    // One regex literal, delimiters included, and nothing beyond it. A greedy
+    // `/.*/ ` runs from the first slash in the file to the last and yields a
+    // pattern that matches nothing — which reads as "no project collects this
+    // spec" and escalated every spec-only change to the full suite. The literal
+    // may sit on the line after the `=`, contains no newline, and escapes its own
+    // slashes, so those are exactly the three things this allows.
+    const match = source.match(new RegExp(`const\\s+${name}\\s*=\\s*(/(?:[^/\\\\\\n]|\\\\.)+/)\\s*;`));
+    if (!match) return null;
+    try {
+      return new RegExp(match[1].slice(1, -1));
+    } catch {
+      return null;
+    }
+  };
+  try {
+    const source = readFile(path.join(projectRoot, "playwright.config.ts"), "utf8");
+    return { production: extract(source, "productionSpecPattern"), mockup: extract(source, "mockupSpecPattern") };
+  } catch {
+    return { production: null, mockup: null };
+  }
+}
+
+/**
+ * The `--project` flags that will actually collect `specs`.
+ *
+ * `unroutable` is the fail-closed half: a spec neither project collects cannot be
+ * run by any selection, so the plan must escalate rather than emit a command that
+ * silently matches nothing.
+ *
+ * @param {string[]} specs
+ * @param {{ production: RegExp | null, mockup: RegExp | null }} patterns
+ * @returns {{ projects: string[], unroutable: string[] }}
+ */
+export function projectsForSpecs(specs, patterns) {
+  // Without both patterns there is nothing to route on; run both projects rather
+  // than guess which one a spec belongs to.
+  if (!patterns.production || !patterns.mockup) {
+    return { projects: ["chromium", "chromium-mockups"], unroutable: [] };
+  }
+  const projects = new Set();
+  const unroutable = [];
+  for (const spec of specs) {
+    const production = patterns.production.test(spec);
+    const mockup = patterns.mockup.test(spec);
+    if (production) projects.add("chromium");
+    if (mockup) projects.add("chromium-mockups");
+    if (!production && !mockup) unroutable.push(spec);
+  }
+  return { projects: [...projects].sort(), unroutable };
+}
+
 export function isSharedFoundation(file) {
   return SHARED_FOUNDATION_PATTERNS.some((pattern) => pattern.test(file));
 }
@@ -238,8 +309,16 @@ export function specsReferencing(keys, specSources) {
  * @param {Map<string, string>} input.specSources every browser spec -> its contents
  * @param {Map<string, string>} input.sourceSources changed UI source files -> their contents
  * @param {"auto" | "full"} [input.mode]
+ * @param {{ production: RegExp | null, mockup: RegExp | null }} [input.specPatterns]
  */
-export function browserTestPlan({ files, scope, specSources, sourceSources, mode = "auto" }) {
+export function browserTestPlan({
+  files,
+  scope,
+  specSources,
+  sourceSources,
+  mode = "auto",
+  specPatterns = { production: null, mockup: null },
+}) {
   const normalized = [...new Set((files ?? []).map(normalize).filter(Boolean))].sort();
   const uiChanged = Boolean(scope?.ui_changed);
 
@@ -320,6 +399,17 @@ export function browserTestPlan({ files, scope, specSources, sourceSources, mode
   // file whose own assertions the diff rewrote.
   const specsToRun = [...new Set([...changedSpecs, ...attribution.flatMap((entry) => entry.owners)])].sort();
 
+  // A selection is only real if some project collects it. `chromium` excludes
+  // `@mockup` and `chromium-mockups` collects only those, so the project is part
+  // of the selection, not a default.
+  const routing = projectsForSpecs(specsToRun, specPatterns);
+  if (level !== "full" && level !== "none" && routing.unroutable.length > 0) {
+    level = "full";
+    reasons.push(
+      `No Playwright project collects ${routing.unroutable.join(", ")}, so a focused command would run nothing; the full suite runs instead.`,
+    );
+  }
+
   const stages = [];
   if (level === "full") {
     stages.push({
@@ -331,7 +421,14 @@ export function browserTestPlan({ files, scope, specSources, sourceSources, mode
     stages.push({
       id: "browser-owners",
       label: `complete browser specs owning the change (${specsToRun.length})`,
-      command: { executable: "node", args: ["scripts/run-playwright.mjs", ...specsToRun, "--project=chromium"] },
+      command: {
+        executable: "node",
+        args: [
+          "scripts/run-playwright.mjs",
+          ...specsToRun,
+          ...routing.projects.map((project) => `--project=${project}`),
+        ],
+      },
     });
   }
 
@@ -343,6 +440,8 @@ export function browserTestPlan({ files, scope, specSources, sourceSources, mode
     attribution,
     unattributed,
     foundation,
+    projects: routing.projects,
+    unroutableSpecs: routing.unroutable,
     unclassifiedBrowserFiles,
     laneMirrorDrifted,
     uiChanged,
@@ -357,6 +456,30 @@ export function renderCommand(command) {
 /* ------------------------------------------------------------------ *
  * CLI                                                                *
  * ------------------------------------------------------------------ */
+
+/**
+ * A value flag written either way: `--files a,b` or `--files=a,b`.
+ *
+ * Accepting only the `=` spelling is not a cosmetic gap. The documented syntax is
+ * the two-token form, and a parser that ignores it does not error — it falls
+ * through to the `origin/main` diff and plans, or with `--run` EXECUTES, a
+ * different change from the one asked about. That is the same failure this file
+ * already guards against when calling `ci-change-scope.mjs`, and it was reported
+ * here as a P2 on PR #2553.
+ *
+ * @param {string[]} argv
+ * @param {string} name
+ * @returns {string | undefined}
+ */
+export function flagValue(argv, name) {
+  const inline = argv.find((argument) => argument.startsWith(`${name}=`));
+  if (inline) return inline.slice(name.length + 1);
+  const index = argv.indexOf(name);
+  if (index < 0) return undefined;
+  const next = argv[index + 1];
+  // `--files --run` is a missing value, not a value of "--run".
+  return next && !next.startsWith("--") ? next : undefined;
+}
 
 function git(args) {
   return execFileSync("git", args, { cwd: projectRoot, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -481,8 +604,8 @@ function main(argv) {
     return 0;
   }
 
-  const fileFlag = argv.find((arg) => arg.startsWith("--files="))?.slice("--files=".length);
-  const diffBase = argv.find((arg) => arg.startsWith("--diff="))?.slice("--diff=".length) ?? "origin/main";
+  const fileFlag = flagValue(argv, "--files");
+  const diffBase = flagValue(argv, "--diff") ?? "origin/main";
   const files = fileFlag ? fileFlag.split(",").map(normalize).filter(Boolean) : changedFilesFromGit(diffBase);
 
   const scope = readChangeScope(files);
@@ -492,6 +615,7 @@ function main(argv) {
     specSources: readAllSpecs(),
     sourceSources: readSources(files),
     mode: argv.includes("--full") ? "full" : "auto",
+    specPatterns: playwrightSpecPatterns(),
   });
 
   // What CI will do with this same change, read from the workflow rather than
@@ -500,9 +624,23 @@ function main(argv) {
   const ciCritical = deriveCiCoverage(projectRoot, "test:e2e:critical", { scope });
   const ciShards = deriveCiCoverage(projectRoot, "test:e2e:pr:shard", { scope });
   const ciRunsBrowser = ciCritical.covered || ciShards.covered;
+  // `deriveCiCoverage` reports guards it cannot evaluate from a worktree — draft
+  // state and event name — in `assumed`, and returns `covered: true` anyway. The
+  // draft one is not hypothetical: `ui-critical-fast` carries
+  // `github.event.pull_request.draft != true`, so on a draft PR CI skips the very
+  // job this planner cites as the reason narrowing is safe. Collapsing that to a
+  // bare boolean told the operator the opposite of the truth, so the assumptions
+  // are printed with the verdict rather than dropped.
+  const ciAssumptions = [...new Set([...(ciCritical.assumed ?? []), ...(ciShards.assumed ?? [])])];
 
   if (argv.includes("--json")) {
-    console.log(JSON.stringify({ ...plan, ci: { critical: ciCritical, shards: ciShards, ciRunsBrowser } }, null, 2));
+    console.log(
+      JSON.stringify(
+        { ...plan, ci: { critical: ciCritical, shards: ciShards, ciRunsBrowser, assumptions: ciAssumptions } },
+        null,
+        2,
+      ),
+    );
     return 0;
   }
 
@@ -514,6 +652,14 @@ function main(argv) {
   }
   if (plan.level === "none") {
     console.log("  CI: Production UI is skipped for this scope on GitHub too, so nothing is being left unrun.");
+  } else if (ciRunsBrowser && ciAssumptions.length > 0) {
+    console.log(
+      "  CI: Production UI runs the complete Chromium suite on this change ONLY IF these hold, which cannot be read from a worktree:",
+    );
+    for (const assumption of ciAssumptions) console.log(`       - ${assumption}`);
+    console.log(
+      "       A draft PR is the case that bites: the critical UI job is skipped for drafts, so nothing repeats a narrowed run.",
+    );
   } else if (ciRunsBrowser) {
     console.log(
       "  CI: Production UI runs the complete Chromium suite on this change, so a narrowed local run is not a coverage hole.",

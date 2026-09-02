@@ -139,6 +139,20 @@ shell/chrome coordinator set), a browser-lane path it cannot classify, or a dele
 file all escalate to the full suite on their own. The arbiter's bug costs a redundant
 run; this one's would cost an unrun journey, so the defaults point the other way.
 
+**The project is part of the selection.** `chromium` grep-inverts `@mockup` and
+`chromium-mockups` collects only those, so a mockup spec run under `--project=chromium`
+collects nothing and "passes" having executed no test. The planner reads both
+`testMatch` patterns out of `playwright.config.ts` (rather than copying them, which
+would drift) and routes each selected spec accordingly — `tests/ui-tools.spec.ts` holds
+both kinds and gets both projects. A spec neither project collects escalates to the full
+suite rather than producing a command that matches nothing.
+
+**Coverage that rests on an unreadable precondition is reported as conditional.**
+`ui-critical-fast` is guarded on `github.event.pull_request.draft != true`, which no
+worktree can evaluate. On a draft PR CI skips the very job that makes narrowing safe, so
+the planner prints those assumptions with the verdict instead of stating flatly that CI
+will repeat the run.
+
 Non-negotiable, and the reason the saving is allowed at all:
 
 - **A narrowed run is not the UI gate.** Report it as "focused browser proof at level
