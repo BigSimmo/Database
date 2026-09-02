@@ -29,6 +29,7 @@ import {
   findTypeStepCssUsagesInSource,
   findTypeStepUsagesInSource,
   findUnapprovedZIndexClassesInSource,
+  findVisibleLiveRegionsInSource,
   hasLegacyTapClass,
   listPrimitiveRecipeSourcePaths,
   minHeightPixels,
@@ -992,6 +993,64 @@ describe("design-system contract helpers", () => {
     expect(matches('className="disabled:opacity-40"')).toEqual(['"disabled:opacity-40']);
     expect(matches('className="sm:disabled:opacity-40"')).toEqual(['"sm:disabled:opacity-40']);
     expect(matches('className="aria-disabled:opacity-45"')).toEqual([]);
+  });
+
+  it("flags a visible node carrying aria-live (SPEC.md §9.2)", () => {
+    const find = (source: string) => findVisibleLiveRegionsInSource("src/example.tsx", source);
+
+    expect(
+      find('export function Demo() { return <p aria-live="polite">{count}</p>; }'),
+    ).toEqual(["src/example.tsx:1"]);
+
+    // A statically-known "off" literal never announces.
+    expect(find('export function Demo() { return <p aria-live="off">{count}</p>; }')).toEqual([]);
+
+    // Genuinely sr-only at every possible resolved value: not a violation.
+    expect(
+      find('export function Demo() { return <p className="sr-only" aria-live="polite">{count}</p>; }'),
+    ).toEqual([]);
+
+    // A container-style live region (the ToastRegion shape): exempt via aria-relevant.
+    expect(
+      find(
+        'export function Demo() { return <div role="log" aria-live="polite" aria-relevant="additions text">{children}</div>; }',
+      ),
+    ).toEqual([]);
+
+    // role="status" alone, with no aria-live at all, is out of this scanner's
+    // scope by design — it only inspects nodes that actually carry the
+    // attribute (a documented, narrower boundary than the rule's full text).
+    expect(find('export function Demo() { return <div role="status">{label}</div>; }')).toEqual([]);
+  });
+
+  it("resolves a conditional className per branch, not as one combined blob of source text (regression: a visible branch was masked by 'sr-only' appearing in the other branch)", () => {
+    const find = (source: string) => findVisibleLiveRegionsInSource("src/example.tsx", source);
+
+    // The exact production shape this regression test guards: a node that is
+    // fully visible and styled whenever it has something to say, and sr-only
+    // only when empty. The naive "does 'sr-only' appear anywhere in this
+    // attribute's source text" check incorrectly exempted this — the visible
+    // branch is the ONLY one reachable at the moment the node has content.
+    expect(
+      find(
+        [
+          "export function Notice({ notice }) {",
+          "  return (",
+          '    <p role="status" aria-live="polite" className={notice ? "visible-box" : "sr-only"}>',
+          "      {notice}",
+          "    </p>",
+          "  );",
+          "}",
+        ].join("\n"),
+      ),
+    ).toEqual(["src/example.tsx:3"]);
+
+    // Both branches sr-only: never visible regardless of the condition, so no finding.
+    expect(
+      find(
+        'export function Demo({ hide }) { return <p aria-live="polite" className={hide ? "sr-only" : "sr-only"}>{x}</p>; }',
+      ),
+    ).toEqual([]);
   });
 
 

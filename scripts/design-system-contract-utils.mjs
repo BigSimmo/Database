@@ -1815,10 +1815,30 @@ export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
  * (the toast-region shape in `ui/toast.tsx`, where the visible toast cards
  * ARE the announcement) — architecturally different from a single visible
  * node whose own text mutates in place, which is the failure mode this rule
- * exists to catch. `role="status"` / `role="alert"` alone are deliberately
- * NOT exempt: `LoadingPanel`'s spinner variant carried `role="status"` on a
- * visible node and was still a violation, because the role already implies
- * the live semantics the explicit attribute duplicates.
+ * exists to catch. `role="status"` / `role="alert"` is not, on its own, a
+ * reason to exempt a node that also carries `aria-live`: `LoadingPanel`'s
+ * spinner variant originally carried both on a visible node, and having
+ * `role="status"` did not save it from being a violation — the role already
+ * implies the live semantics the explicit attribute duplicated, which is why
+ * the fix removed the attribute rather than adding `sr-only`.
+ *
+ * Scope, stated plainly so it cannot be misread as broader than it is: this
+ * scanner only inspects elements that carry an explicit `aria-live`
+ * attribute. A visible `role="status"`/`role="alert"` node with NO
+ * `aria-live` at all (the shape `LoadingPanel`'s spinner variant has today,
+ * after the fix above) is outside this function's scope, not exempted by
+ * it — the two are different guarantees. Widening the scanner to also flag
+ * bare `role="status"`/`role="alert"` would require triaging every such role
+ * in `src/**` for whether it is already a compliant static-content pattern,
+ * which this change does not attempt.
+ *
+ * `sr-only` is checked per resolved className *alternative*
+ * (`jsxClassAlternatives`), not against one combined blob of source text. A
+ * node whose className is `notice ? "visible classes" : "sr-only"` is a real
+ * violation the moment `notice` is truthy — the only time the node has
+ * anything to announce — even though the string "sr-only" appears somewhere
+ * in the attribute's source text. Only a node whose EVERY resolved
+ * alternative is sr-only is genuinely never visible.
  */
 export function findVisibleLiveRegionsInSource(relativePath, sourceText) {
   if (!relativePath.endsWith(".tsx")) return [];
@@ -1859,8 +1879,19 @@ export function findVisibleLiveRegionsInSource(relativePath, sourceText) {
             ? (attributeStringValue(relevantAttribute) ?? "")
             : "";
         const isAdditionsContainer = /\badditions\b/.test(relevantValue);
-        const classText = jsxClassNameText(opening, source);
-        const isSrOnly = /\bsr-only\b/.test(classText);
+        const classAttribute = attributes.find(
+          (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+        );
+        const classAlternatives =
+          classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassAlternatives(classAttribute) : [];
+        // Every possible resolved value must be sr-only for the node to be
+        // genuinely never-visible; an unresolvable className (e.g. a bare
+        // identifier) falls back to the combined-text heuristic so a truly
+        // opaque expression stays in scope rather than silently exempt.
+        const isSrOnly =
+          classAlternatives.length > 0
+            ? classAlternatives.every((alternative) => /\bsr-only\b/.test(alternative))
+            : /\bsr-only\b/.test(jsxClassNameText(opening, source));
         if (!isAlwaysOff && !isSrOnly && !isAdditionsContainer) {
           const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
           findings.push(`${relativePath}:${line}`);

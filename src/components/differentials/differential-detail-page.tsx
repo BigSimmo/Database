@@ -413,6 +413,11 @@ function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; ter
                 label={cleaned}
                 slug={termLinks[cleaned] ?? null}
                 tone="danger"
+                // compact-meta (40px), not min-h-tap: a "Watch for" row mixes
+                // linked and unlinked tags of identical size, so a tap-sized
+                // chip only when linked would jump size mid-row. TOKENS.md §2's
+                // compact-meta role list ("filter chips") is the closest
+                // documented fit (TOKENS.md requires this comment).
                 className={cn(!termLinks[cleaned] && theme.chip, "min-h-compact-meta shrink-0 px-2 text-2xs")}
               />
             );
