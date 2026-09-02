@@ -37,6 +37,16 @@ const workflowBranchMutationPattern =
 //
 // A gate expression that can render "true" on its own (`|| 'true'`) is treated
 // as a defeated gate, not a satisfied one. Every unknown shape fails closed.
+//
+// A later Codex review defeated the structural version two more ways, both now
+// closed. A gate can be defeated by the SHELL around it rather than inside its
+// `${{ }}`: `is_true "$A" && is_true "$B" || true` names and tests both gates and
+// still always runs, so the guard SHAPE is now allowlisted — no top-level `||`,
+// no always-true term — instead of only its gate expressions being read. And a
+// forbidden trigger can be written in YAML shapes the denylist did not parse:
+// quoted flow-sequence items kept their quotes (`on: ["…", "workflow_dispatch"]`)
+// and flow mappings were not read at all, so both are normalized before the
+// denylist sees them.
 const REAPER_SCRIPT_FILE = /cleanup-abandoned-reindex-generations\.ts/;
 // Floor, so deleting the npm alias from package.json cannot disable the rule.
 const REAPER_BASELINE_COMMANDS = ["reindex:cleanup-staged"];
@@ -286,15 +296,73 @@ function collectJobs(lines) {
   return jobs;
 }
 
+/**
+ * Split `text` on `operator` at the TOP level only — never inside quotes, brackets or
+ * braces. Used both to read `on:` flow collections and to take a shell guard apart, and in
+ * both places a naive `String.split` is the bug: it cuts inside `[{ cron: "0 1 * * *" }]`
+ * and inside a quoted shell argument.
+ */
+function splitOutsideGroups(text, operator) {
+  const parts = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (quote) {
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if ("[{(".includes(character)) depth += 1;
+    else if ("]})".includes(character)) depth -= 1;
+    else if (depth === 0 && text.startsWith(operator, index)) {
+      parts.push(text.slice(start, index));
+      index += operator.length - 1;
+      start = index + 1;
+    }
+  }
+  parts.push(text.slice(start));
+  return parts;
+}
+
+/**
+ * The trigger name from one `on:` entry, in any of the shapes YAML allows for it: a bare
+ * scalar, a sequence item (`- push`), a quoted scalar, and a mapping key with or without
+ * quotes. The first version kept the quotes on flow-sequence items, so
+ * `on: ["repository_dispatch", "workflow_dispatch"]` produced the name `"workflow_dispatch"`
+ * — quotes included — and the denylist's `has("workflow_dispatch")` missed it. Flow mappings
+ * were not read at all. Either shape let a secret-bearing destructive workflow declare a
+ * branch-selectable trigger and still pass (Codex review).
+ */
+function normalizeTriggerName(item) {
+  let value = item.trim().replace(/^-\s*/, "").trim();
+  const colon = value.indexOf(":");
+  if (colon >= 0) value = value.slice(0, colon);
+  return value
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .trim();
+}
+
 function declaredTriggers(lines) {
   const triggers = new Set();
-  const start = lines.findIndex((line) => /^["']?on["']?:/.test(line));
+  const start = lines.findIndex((line) => /^["']?on["']?\s*:/.test(line));
   if (start < 0) return triggers;
-  const inline = /^["']?on["']?:\s*(\S.*)$/.exec(lines[start]);
+  const inline = /^["']?on["']?\s*:\s*(\S.*)$/.exec(lines[start]);
   if (inline) {
-    const body = inline[1].trim();
-    for (const item of body.replace(/^\[|\]$/g, "").split(",")) {
-      const trigger = item.trim();
+    // One layer of flow collection, sequence or mapping: `[a, b]`, `{ a: …, b: … }`, or a
+    // bare scalar. Splitting outside groups keeps `{ schedule: [{ cron: "0 1 * * *" }] }`
+    // in one piece instead of cutting it at the cron expression's commas.
+    const body = inline[1]
+      .trim()
+      .replace(/^[[{]/, "")
+      .replace(/[\]}]$/, "");
+    for (const item of splitOutsideGroups(body, ",")) {
+      const trigger = normalizeTriggerName(item);
       if (trigger) triggers.add(trigger);
     }
   }
@@ -302,10 +370,50 @@ function declaredTriggers(lines) {
     const line = lines[index];
     if (line.trim() === "") continue;
     if (/^\S/.test(line)) break;
-    const key = /^ {2}([A-Za-z_]+):/.exec(line);
-    if (key) triggers.add(key[1]);
+    // Block mapping keys (quoted or not) and block sequence items alike.
+    const key = /^ {2}(["']?)([A-Za-z_][A-Za-z0-9_-]*)\1\s*:/.exec(line);
+    if (key) {
+      triggers.add(key[2]);
+      continue;
+    }
+    const sequenceItem = /^ {2}-\s*(\S.*)$/.exec(line);
+    if (sequenceItem) {
+      const trigger = normalizeTriggerName(sequenceItem[1]);
+      if (trigger) triggers.add(trigger);
+    }
   }
   return triggers;
+}
+
+// A conjunct that is true whatever the gates say. `|| true` is the dangerous one, but a
+// bare `true`, `:`, `1` or `[ 1 ]` term does the same job.
+const ALWAYS_TRUE_TERM = /^(?:true|:|1|\[\s*1\s*\]|\[\[\s*1\s*\]\]|test\s+1)$/;
+
+/**
+ * Is the shell condition guarding the apply path a shape that can actually gate it?
+ *
+ * `evaluateGate` reads the `${{ }}` expressions and can therefore see a gate DEFEATED
+ * inside GitHub-expression syntax, but it cannot see one defeated by the SHELL around it:
+ * `if is_true "$APPLY_REQUESTED" && is_true "$APPLY_ALLOWED" || true; then` names both
+ * gates, satisfies both checks, and always enters the destructive branch (Codex review).
+ *
+ * A gate has no need of `||` — a disjunction is only as strong as its weakest branch, which
+ * is the opposite of gating — so the shape is allowlisted rather than pattern-matched, and
+ * anything unfamiliar fails closed.
+ */
+function guardShapeFailure(condition) {
+  const text = condition.trim();
+  if (!text) return null;
+  if (splitOutsideGroups(text, "||").length > 1) {
+    return `its enclosing conditional is a disjunction, so it is entered whenever ANY branch holds: \`${text}\`. A gate cannot contain \`||\`; use \`&&\` between the gate tests.`;
+  }
+  for (const conjunct of splitOutsideGroups(text, "&&")) {
+    const term = conjunct.trim().replace(/^\(+/, "").replace(/\)+$/, "").trim();
+    if (ALWAYS_TRUE_TERM.test(term)) {
+      return `its enclosing conditional contains the always-true term \`${term}\`, so the branch is entered regardless of the gates: \`${text}\`.`;
+    }
+  }
+  return null;
 }
 
 function reaperApplyFailures(fileName, source, commands) {
@@ -326,6 +434,14 @@ function reaperApplyFailures(fileName, source, commands) {
       failures.push(
         `${prefix}. Line ${entry.index + 1} reaches it with no enclosing shell conditional at all. Naming the gates in a comment, or declaring them in an env: block, is not gating on them.`,
       );
+      continue;
+    }
+    const shapeFailure = guardShapeFailure(guard);
+    if (shapeFailure) {
+      // Reported instead of the per-gate results, not alongside them: when the condition
+      // is a tautology the gates it names are irrelevant, and printing "gate satisfied"
+      // beside "the branch always runs" is the confusion this check exists to remove.
+      failures.push(`${prefix}. Line ${entry.index + 1} names its gates, but ${shapeFailure}`);
       continue;
     }
     for (const gate of reaperApplyGates) {
@@ -430,7 +546,7 @@ function collectPinFailures(root) {
   return failures;
 }
 
-// Reaper fixtures A-I. Every one but H is a way the FIRST version of this rule
+// Reaper fixtures A-M. Every one but H is a way some earlier version of this rule
 // could be walked past: a security review copied that rule into a harness and
 // found six of these passed or never fired. They are kept as executable
 // counter-examples so a future simplification cannot quietly reopen any of them.
@@ -540,6 +656,54 @@ const reaperFixtures = [
       "# Apply requires github.event.client_payload.apply and vars.REINDEX_REAPER_APPLY.\n" +
       "name: comment only\non:\n  repository_dispatch:\n    types: [reindex-reaper]\njobs:\n  reap:\n    if: vars.REINDEX_REAPER_ENABLED == 'true'\n    steps:\n" +
       "      - run: npm run reindex:cleanup-staged -- --apply --yes\n",
+  },
+  {
+    // J. Both gates named and tested, then defeated by the shell around them. The
+    // `${{ }}` expressions are impeccable; the branch still always runs.
+    file: "reaper-j-tautology.yml",
+    mustFail: "is a disjunction",
+    yaml:
+      "name: j\non:\n  repository_dispatch:\n    types: [reindex-reaper]\njobs:\n  reap:\n    if: vars.REINDEX_REAPER_ENABLED == 'true'\n    steps:\n" +
+      "      - env:\n          APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}\n" +
+      "          APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}\n" +
+      '        run: |\n          if [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ] || true; then\n' +
+      "            npm run reindex:cleanup-staged -- --apply --yes\n          fi\n",
+  },
+  {
+    // M. The second gate's test replaced by a constant while its env: declaration stays
+    // in place, so the gate is still named everywhere a reader would look for it.
+    file: "reaper-m-constant-term.yml",
+    mustFail: "always-true term",
+    yaml:
+      "name: m\non:\n  repository_dispatch:\n    types: [reindex-reaper]\njobs:\n  reap:\n    if: vars.REINDEX_REAPER_ENABLED == 'true'\n    steps:\n" +
+      "      - env:\n          APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}\n" +
+      "          APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}\n" +
+      '        run: |\n          if [ "$APPLY_REQUESTED" = "true" ] && [ 1 ]; then\n' +
+      "            npm run reindex:cleanup-staged -- --apply --yes\n          fi\n",
+  },
+  {
+    // K. The forbidden trigger written as a QUOTED flow-sequence item. Identical in
+    // meaning to fixture I, and invisible to a denylist that never strips the quotes.
+    file: "reaper-k-quoted-flow-trigger.yml",
+    mustFail: "must not be triggerable by workflow_dispatch",
+    yaml:
+      'name: k\non: ["repository_dispatch", "workflow_dispatch"]\njobs:\n  reap:\n    if: vars.REINDEX_REAPER_ENABLED == \'true\'\n    steps:\n' +
+      "      - env:\n          APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}\n" +
+      "          APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}\n" +
+      '        run: |\n          if [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then\n' +
+      "            npm run reindex:cleanup-staged -- --apply --yes\n          fi\n",
+  },
+  {
+    // L. The same trigger as a flow MAPPING, whose commas sit inside a nested cron
+    // sequence — the case a naive comma split gets wrong even after quote stripping.
+    file: "reaper-l-flow-mapping-trigger.yml",
+    mustFail: "must not be triggerable by workflow_dispatch",
+    yaml:
+      "name: l\non: { schedule: [{ cron: \"45 19 * * 0\" }], workflow_dispatch: {} }\njobs:\n  reap:\n    if: vars.REINDEX_REAPER_ENABLED == 'true'\n    steps:\n" +
+      "      - env:\n          APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}\n" +
+      "          APPLY_ALLOWED: ${{ vars.REINDEX_REAPER_APPLY }}\n" +
+      '        run: |\n          if [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then\n' +
+      "            npm run reindex:cleanup-staged -- --apply --yes\n          fi\n",
   },
   {
     // The job-level enable gate is required too, not just the two apply gates.
