@@ -7,10 +7,13 @@
 > branch independently carries its own. What remains outstanding is the Phase 6 half only —
 > §4, now narrowed. Re-verify every SHA below before acting on it; branches move.
 
-**Why this file exists.** The fix was finished and then sat. It lives on a branch nobody else
-can see, and the one place it was needed — the Phase 6 morning page — is on a different
-branch that is still being worked. A session with no memory of any of this needs to be able
-to pick it up without re-deriving it, and without re-opening the parts that are settled.
+**Why this file exists.** It was written when the fix was stranded on an unpushed branch, to
+stop that work being lost. That is no longer the situation and the introduction it carried has
+been removed rather than left to contradict the banner above: the fix has landed, twice, by two
+independent routes, and nothing needs carrying anywhere. What the file is _for_ now is the
+opposite job — stopping a session from redoing settled work. It records what is done, what the
+numbers actually are, and the one thing genuinely left: a **decision** about spec D5 on the
+Phase 6 branch, which §4 shows is not the test the earlier drafts asked for.
 
 Companion documents, none of which this file duplicates:
 
@@ -21,9 +24,10 @@ Companion documents, none of which this file duplicates:
 | Phase 5's handover, for the house style  | `docs/ward-flow-phase-5-handover.md`                                         |
 
 The Phase 6 spec is **not on this branch** — it exists only on
-`claude/ward-flow-phases-6-7-design`. Read it there
-(`git show claude/ward-flow-phases-6-7-design:docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md`)
-rather than concluding it is missing. The other two are here.
+`claude/ward-flow-phases-6-7-design`, and it is readable from anywhere, including a cloud
+container, once that branch is fetched (§4 gives the exact commands; note the `origin/` prefix,
+without which the `git show` fails in a fresh clone). Read it there rather than concluding it is
+missing. The other two are here.
 
 ---
 
@@ -37,14 +41,16 @@ served `NOW_ANCHOR` (642 — 10:42) no matter what instant it was handed. The pr
 two real jobs — acting as a "do not tick" flag, and seeding a clock checkpoint the pinned
 path never reads again — and one job it only appeared to do.
 
-**It was latent, not active.** Every `initialNow=` call site in the suite passes `NOW_ANCHOR`,
-and `NOW_ANCHOR + 0` equals `initialNow` precisely when the pinned instant _is_ `NOW_ANCHOR`.
+**It was latent, not active.** Every `initialNow=` call site in the suite passed `NOW_ANCHOR`
+at the time (see §3 for the current figure, which is no longer uniform), and `NOW_ANCHOR + 0`
+equals `initialNow` precisely when the pinned instant _is_ `NOW_ANCHOR`.
 So no test was ever asserting against a clock it did not receive, and no screen was ever
 wrong at runtime — the live app never passes the prop at all.
 
 **Why it still mattered.** It made every time-of-day branch in the ward screens unreachable
 through the real provider. A test could not obtain any clock other than the one instant the
-fixture happens to be authored around. That is what forced the workaround described in §4.
+fixture happens to be authored around. That is what forced the workaround §4 retires under
+"The workaround has moved".
 
 ---
 
