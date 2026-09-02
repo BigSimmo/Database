@@ -394,10 +394,47 @@ export function toolCatalogRecordById(id: string): ToolCatalogRecord {
   return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
 }
 
-/** Hide account-scoped Favourites / Saved workflows from guest Tools surfaces. */
+/**
+ * Whether the Caring Contacts card may be offered at all.
+ *
+ * The workspace behind it fails closed in production (`isCaringContactsDemoEnabled`,
+ * src/lib/caring-contacts-server/session.ts): every route 404s until enterprise sign-on
+ * exists, with one exception for the isolated Playwright production server. Offering
+ * the card there would put an "Open" button on the live launcher whose target is a
+ * dead link on a suicide-prevention surface, so the card follows the same lock.
+ *
+ * It cannot call that predicate: the module is server-only, and the catalogue is
+ * rendered by client components, which see only what the client bundle inlines —
+ * `NODE_ENV` and `NEXT_PUBLIC_DEMO_MODE`. `PLAYWRIGHT_OFFLINE_MODE` never reaches the
+ * browser, and reading it here would make the server and the client disagree about
+ * the list. The two predicates still agree everywhere a server can start: a production
+ * process carrying `NEXT_PUBLIC_DEMO_MODE=true` without the Playwright offline flag is
+ * refused by `src/instrumentation.ts`. Pinned by tests/tools-catalog.test.ts.
+ *
+ * Both reads must stay as literal `process.env.NAME` member expressions — that is
+ * what Next inlines into the client bundle; an indirection reads `undefined` there.
+ */
+export function isCaringContactsToolListed(
+  environment: string | undefined = process.env.NODE_ENV,
+  demoMode: string | undefined = process.env.NEXT_PUBLIC_DEMO_MODE,
+): boolean {
+  if (environment !== "production") return true;
+  return demoMode === "true";
+}
+
+/**
+ * The catalogue as a given session may see it: account-scoped Favourites / Saved
+ * workflows are hidden from guests, and the Caring Contacts card is hidden wherever
+ * its workspace is locked (see `isCaringContactsToolListed`).
+ */
 export function toolCatalogRecordsForSession(options: { authenticated: boolean; demoMode: boolean }) {
-  if (canAccessFavouritesMode(options)) return toolCatalogRecords;
-  return toolCatalogRecords.filter((tool) => tool.id !== "favourites" && !tool.href.startsWith("/favourites"));
+  const favouritesAllowed = canAccessFavouritesMode(options);
+  const caringContactsListed = isCaringContactsToolListed();
+  return toolCatalogRecords.filter((tool) => {
+    if (tool.id === "caring-contacts") return caringContactsListed;
+    if (favouritesAllowed) return true;
+    return tool.id !== "favourites" && !tool.href.startsWith("/favourites");
+  });
 }
 
 export function toolSearchText(tool: ToolCatalogRecord) {
