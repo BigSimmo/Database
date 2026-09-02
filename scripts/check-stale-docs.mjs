@@ -109,6 +109,7 @@ export function lastCommitDate(path) {
 // in one is proof a file exists, not proof anyone is reading or relying on it.
 const GENERATED_CATALOGS = new Set([
   "docs/site-map.md",
+  "docs/branch-review-index.md",
   "data/repo-awareness-snapshot.json",
   "data/outstanding-issues-snapshot.json",
 ]);
