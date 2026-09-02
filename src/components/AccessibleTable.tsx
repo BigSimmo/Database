@@ -127,9 +127,18 @@ function clinicalOnlyTable(table: NormalizedAccessibleTable) {
     .map(({ index }) => index);
 
   const indexes = keptIndexes.length ? keptIndexes : table.header.map((_, index) => index);
-  const header = indexes.map((index) => cleanClinicalTableText(table.header[index])).filter(Boolean);
+  // Audit H3: cleaning can blank a header that survived the metadata-header
+  // filter, because that filter only matches a bare word ("source") while the
+  // cell cleaner also strips "Source: 3", "Page 2" and file names. Dropping the
+  // blanked header on its own left body rows at their original width, and the
+  // renderer reads each body cell by header position — so every later value
+  // shifted one column left, printing a dose under the wrong heading and
+  // discarding the last value. Drop the header and its body cells together.
+  const cleanedHeader = indexes.map((index) => cleanClinicalTableText(table.header[index]));
+  const renderedIndexes = indexes.filter((_, position) => Boolean(cleanedHeader[position]));
+  const header = cleanedHeader.filter(Boolean);
   const body = table.body
-    .map((row) => indexes.map((index) => cleanClinicalTableText(row[index] ?? "")))
+    .map((row) => renderedIndexes.map((index) => cleanClinicalTableText(row[index] ?? "")))
     .filter((row) => row.some(Boolean));
 
   if (!header.length || !body.length) return null;
