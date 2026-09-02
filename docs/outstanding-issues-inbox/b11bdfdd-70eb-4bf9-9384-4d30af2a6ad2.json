@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b11bdfdd-70eb-4bf9-9384-4d30af2a6ad2",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Web-container sessions start on a shallow clone, so two committed specs fail with messages that read as content errors",
+    "detail": "Measured 2026-09-02 in a Claude Code web container on origin/main 45a3dcacb. The session's checkout is a SHALLOW CLONE (depth 102). Two specs in the committed suite then fail, stably across two full runs, and neither message says anything about history depth: tests/clinical-hazard-controls.test.ts fails with 'CLINICAL-TRUTH-AUTHORITY: reviewedCommit does not exist 883f1007a85cd4e02198f39c12c4a4e467d4b89e' plus 'path is absent from reviewedCommit', and tests/rag-plan-package-parity.test.ts fails with 'manifest reconciledBase is unavailable locally: f3d1a3cce2c943ad3083425ed9c7c46dbef23087' from scripts/build-rag-plan-packages.mjs --check --require-origin-main. Both read as governance-manifest corruption, which is exactly the wrong conclusion: the commits are real and simply absent from a truncated history. PROOF: git fetch --deepen=2000 takes the clone from 102 to 5462 commits, both commits then resolve under git cat-file -e, and the two specs pass 27/27 with no code change. AGENTS.md already prescribes this remedy under 'Deleting code you believe is dead' for check:dead-code-candidate ('assessed on a shallow clone, where nothing can be dated - run git fetch --deepen=2000 first'), so the fix is known; it is simply not applied at session start and these two specs are not covered by that note. COST: a full npm run test is about six minutes, so a session can burn two of them before recognising the pattern, and the plausible-looking failure text invites someone to 'fix' a hazard manifest that is not broken. OPTIONS, cheapest first: have .claude/hooks/session-start.sh deepen the clone when git rev-parse --is-shallow-repository reports true (it already provisions Node and runs npm ci, so it is the natural place and the cost is one fetch); or make the two checks detect a shallow repository and fail with that as the stated reason rather than naming the commit; or document it in docs/testing.md. The first is preferred because it fixes the dead-code gate's known problem at the same time.",
+    "source": "session 2026-09-02, PR #2530 verification",
+    "issueUlid": "01M1G8RF0Q1M0J6DDX9C5G79V9"
+  }
+}
