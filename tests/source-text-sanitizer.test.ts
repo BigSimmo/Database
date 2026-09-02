@@ -174,6 +174,33 @@ describe("source text sanitizer", () => {
     expect(usefulness.text).not.toContain("Liverpool University");
   });
 
+  // M3 (audit 2026-09-02, H2 residual): a bare-integer threshold that follows
+  // a scale/score cue ("score of 8", "stage 2") carries no unit, range or
+  // comparator, so the H2 rescue did not fire and the title heuristic blanked
+  // the whole sentence. The narrower cue rescue keeps it.
+  it("keeps bare-integer threshold sentences that name a score, stage or grade (M3)", () => {
+    const text =
+      "A Glasgow Coma Scale score of 8 indicates severe head injury. The Sedation Scale score of 3 means unrousable to voice. Stage 2 on the Clozapine Guideline requires urgent review.";
+
+    const usefulness = clinicalProseUsefulness(text);
+
+    expect(usefulness.text).toContain("score of 8 indicates severe head injury");
+    expect(usefulness.text).toContain("score of 3 means unrousable to voice");
+    expect(usefulness.text).toContain("Stage 2");
+    expect(usefulness.useful).toBe(true);
+  });
+
+  it("still drops bare-integer appendix and page noise beside a title (M3 guard)", () => {
+    const noisy =
+      "Neuroleptic side effect Guideline Appendix 1. Clozapine Monitoring Procedure page 4 of 12. Sedation Protocol section 3.";
+
+    const usefulness = clinicalProseUsefulness(noisy);
+
+    expect(usefulness.text).not.toContain("Appendix 1");
+    expect(usefulness.text).not.toContain("page 4 of 12");
+    expect(usefulness.text).not.toContain("section 3");
+  });
+
   it("scores document-control snippets as low yield without hiding document viewer provenance", () => {
     const text = "Neuroleptic side effect Guideline PAE-PRO-0338/16 Page 5 of 5";
 
