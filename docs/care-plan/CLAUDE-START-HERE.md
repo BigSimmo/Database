@@ -1,5 +1,12 @@
 # Care Plan — Claude start here
 
+> **SUPERSEDED, 1 September 2026 — do not act on the status line below.** It says Tasks 10 and 11
+> are not started. All eleven tasks are complete and merged to `main` (PR #2383, squash
+> `e15b250cf`), and the branch it names has been merged and its remote deleted. Read
+> **[`HANDOFF-START-HERE.md`](./HANDOFF-START-HERE.md)** instead. This file is kept because its
+> account of the design authorities, the reading order and the thirteen binding product decisions is
+> still accurate and still useful.
+
 **Last updated:** 22 August 2026 (Australia/Perth)  
 **Implementation status:** Tasks 1–8 complete, reviewed and committed. Task 9 (Patient Plan) is on this branch. Tasks 10–11 not started.  
 **Design status:** Approved  
