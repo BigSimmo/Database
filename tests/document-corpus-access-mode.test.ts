@@ -25,6 +25,10 @@ const childOwnerGuardMigration = readFileSync(
   new URL("../supabase/migrations/20260902090100_validate_corpus_flip_child_owner_alignment.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const childOwnerFunction = childOwnerMigration.slice(
+  childOwnerMigration.indexOf("create or replace function public.set_document_corpus_access_mode(p_mode text)"),
+  childOwnerMigration.indexOf("comment on function public.set_document_corpus_access_mode(text)"),
+);
 const schemaSql = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
 
 describe("document corpus access mode migration", () => {
@@ -169,8 +173,28 @@ describe("corpus flip aligns the retrieval-scoped derived owners", () => {
     expect(childOwnerMigration).not.toContain("set owner_id = snapshot.owner_id");
   });
 
-  it("bounds the added statements so the switch stays a synchronous operational call", () => {
-    expect(childOwnerMigration).toContain("set lock_timeout = '15s' set statement_timeout = '120s'");
+  it("bounds the added work with an executable ceiling rather than an inert setting", () => {
+    // PostgreSQL arms the statement-timeout timer once, when the top-level
+    // statement starts, so a function-level `set statement_timeout` never
+    // re-arms it for the call it is attached to: it would read as a
+    // rollback-on-timeout safeguard while doing nothing at all. lock_timeout is
+    // different -- it is re-read at every lock wait -- and stays pinned. The
+    // real ceiling is therefore executable SQL, pinned here statement by
+    // statement.
+    expect(childOwnerMigration).toContain("security definer set search_path = '' set lock_timeout = '15s' as $$");
+    expect(childOwnerFunction).not.toContain("statement_timeout");
+    expect(childOwnerFunction).toContain("v_max_child_rows constant integer := 200000;");
+    // Each branch probes its candidate child rows through a subquery that stops
+    // at the ceiling, and refuses before touching a row.
+    expect(childOwnerFunction.match(/limit v_max_child_rows \+ 1/g)?.length).toBe(2);
+    expect(childOwnerFunction.match(/if v_child_row_probe > v_max_child_rows then/g)?.length).toBe(2);
+    // Each of the six updates then adds its real row_count, and the branch
+    // raises -- rolling the whole flip back -- if a concurrent insert pushed the
+    // total past the ceiling.
+    expect(childOwnerFunction.match(/get diagnostics v_updated = row_count;/g)?.length).toBe(6);
+    expect(childOwnerFunction.match(/if v_child_rows > v_max_child_rows then/g)?.length).toBe(2);
+    expect(childOwnerFunction.match(/using errcode = '54000'/g)?.length).toBe(4);
+    expect(childOwnerMigration).toContain("publish in batches through public.publish_approved_documents instead");
   });
 
   it("corrects the header rationale that called derived owners irrelevant to visibility", () => {
@@ -189,6 +213,21 @@ describe("corpus flip aligns the retrieval-scoped derived owners", () => {
     for (const table of retrievalScopedTables) {
       expect(childOwnerGuardMigration).toContain(table);
     }
+    // The guard asserts the executable ceiling, not the comment that describes
+    // it, and rejects a function-level statement_timeout being reintroduced as a
+    // safeguard it cannot be.
+    for (const fragment of [
+      "v_max_child_rows constant integer := 200000",
+      "limit v_max_child_rows + 1",
+      "if v_child_row_probe > v_max_child_rows then",
+      "get diagnostics v_updated = row_count",
+      "if v_child_rows > v_max_child_rows then",
+    ]) {
+      expect(childOwnerGuardMigration).toContain(fragment);
+    }
+    expect(childOwnerGuardMigration).toContain(
+      "statement_timeout is set on the function, where it cannot bound the running call",
+    );
   });
 });
 

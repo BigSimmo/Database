@@ -9,12 +9,20 @@
 -- an older form), this version raises instead of passing quietly.
 --
 -- Timeouts use SET LOCAL so they do not leak into later migrations applied on
--- the same CLI session connection (plain SET is session-scoped).
+-- the same CLI session connection (plain SET is session-scoped). SET LOCAL here
+-- does bound this guard: it runs as its own top-level statement before the DO
+-- block starts, which is the one position where a statement_timeout change
+-- takes effect.
 --
 -- The fragments below are the load-bearing half of the corpus switch: the three
 -- derived tables whose own owner_id reaches public.retrieval_owner_matches must
--- be published with their documents and restored with them, and the switch must
--- stay service-role-only with its search_path and timeouts pinned.
+-- be published with their documents and restored with them; the added work must
+-- carry the executable row ceiling (an explicit LIMIT on the probe and a
+-- GET DIAGNOSTICS re-check that raises), not a comment claiming a bound; and the
+-- switch must stay service-role-only with its search_path and lock_timeout
+-- pinned. A function-level statement_timeout is rejected on purpose: PostgreSQL
+-- arms that timer when the top-level statement starts, so a function SET clause
+-- cannot bound its own call and would only look like a safeguard.
 
 set local search_path = public, extensions, pg_catalog;
 set local lock_timeout = '5s';
@@ -48,7 +56,13 @@ begin
           ('update public.document_labels l set owner_id = existing_owner.id'),
           ('update public.document_summaries s set owner_id = existing_owner.id'),
           ('update public.document_table_facts f set owner_id = existing_owner.id'),
-          ('join auth.users existing_owner on existing_owner.id = snapshot.owner_id')
+          ('join auth.users existing_owner on existing_owner.id = snapshot.owner_id'),
+          ('v_max_child_rows constant integer := 200000'),
+          ('limit v_max_child_rows + 1'),
+          ('if v_child_row_probe > v_max_child_rows then'),
+          ('get diagnostics v_updated = row_count'),
+          ('if v_child_rows > v_max_child_rows then'),
+          ('using errcode = ''54000''')
       ) as t(fragment)
     loop
       if position(required.fragment in normalized) = 0 then
@@ -66,11 +80,14 @@ begin
     if position('search_path=' in replace(config_text, ' ', '')) = 0 then
       wrong_settings := array_append(wrong_settings, 'search_path is not pinned');
     end if;
-    if position('statement_timeout=' in replace(config_text, ' ', '')) = 0 then
-      wrong_settings := array_append(wrong_settings, 'statement_timeout is not pinned');
-    end if;
     if position('lock_timeout=' in replace(config_text, ' ', '')) = 0 then
       wrong_settings := array_append(wrong_settings, 'lock_timeout is not pinned');
+    end if;
+    if position('statement_timeout=' in replace(config_text, ' ', '')) > 0 then
+      wrong_settings := array_append(
+        wrong_settings,
+        'statement_timeout is set on the function, where it cannot bound the running call'
+      );
     end if;
     if acl_text ~ '(^|[ ,])(anon|authenticated)=' or acl_text ~ '(^|[ ,])=X' then
       wrong_settings := array_append(wrong_settings, 'execute is granted beyond service_role');
@@ -84,7 +101,7 @@ begin
      or cardinality(missing_fragments) > 0
      or cardinality(wrong_settings) > 0 then
     raise exception
-      'corpus access switch was recorded without its retrieval-scoped derived owner alignment; apply 20260902090000 before marking this version applied. Missing: %; Unaligned: %; Settings: %',
+      'corpus access switch was recorded without its retrieval-scoped derived owner alignment or its row ceiling; apply 20260902090000 before marking this version applied. Missing: %; Unaligned: %; Settings: %',
       coalesce(nullif(array_to_string(absent_objects, ', '), ''), '(none)'),
       coalesce(nullif(array_to_string(missing_fragments, ', '), ''), '(none)'),
       coalesce(nullif(array_to_string(wrong_settings, ', '), ''), '(none)');

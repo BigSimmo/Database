@@ -9671,14 +9671,17 @@ language plpgsql
 security definer
 set search_path = ''
 set lock_timeout = '15s'
-set statement_timeout = '120s'
 as $$
 declare
+  v_max_child_rows constant integer := 200000;
   v_state public.document_corpus_access_state%rowtype;
   v_activation_id uuid;
   v_snapshot_count integer;
   v_document_count integer;
   v_public_count integer;
+  v_child_row_probe integer;
+  v_child_rows integer := 0;
+  v_updated integer;
 begin
   if p_mode not in ('private', 'public') then
     raise exception 'document corpus access mode must be private or public'
@@ -9729,6 +9732,39 @@ begin
     from public.documents d
     on conflict (activation_id, document_id) do nothing;
 
+    -- Bound the added work before doing any of it: the probe stops at the
+    -- ceiling and the switch refuses the whole flip rather than turning an
+    -- operational call into an unbounded rewrite.
+    select count(*)::integer
+    into v_child_row_probe
+    from (
+      select 1
+      from public.document_corpus_access_snapshots snapshot
+      join public.document_labels l
+        on l.document_id = snapshot.document_id and l.owner_id = snapshot.owner_id
+      where snapshot.activation_id = v_activation_id
+      union all
+      select 1
+      from public.document_corpus_access_snapshots snapshot
+      join public.document_summaries s
+        on s.document_id = snapshot.document_id and s.owner_id = snapshot.owner_id
+      where snapshot.activation_id = v_activation_id
+      union all
+      select 1
+      from public.document_corpus_access_snapshots snapshot
+      join public.document_table_facts f
+        on f.document_id = snapshot.document_id and f.owner_id = snapshot.owner_id
+      where snapshot.activation_id = v_activation_id
+      limit v_max_child_rows + 1
+    ) bounded_probe;
+
+    if v_child_row_probe > v_max_child_rows then
+      raise exception
+        'document corpus access switch would rewrite more than % retrieval-scoped derived owner rows in one synchronous call; publish in batches through public.publish_approved_documents instead',
+        v_max_child_rows
+        using errcode = '54000';
+    end if;
+
     -- ALTER TABLE takes an ACCESS EXCLUSIVE lock. The trigger bypass is
     -- therefore invisible to concurrent sessions and rolls back on failure.
     execute 'alter table public.documents disable trigger documents_require_publication_approval';
@@ -9756,6 +9792,8 @@ begin
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = l.document_id
       and l.owner_id = snapshot.owner_id;
+    get diagnostics v_updated = row_count;
+    v_child_rows := v_child_rows + v_updated;
 
     update public.document_summaries s
     set owner_id = null, updated_at = now()
@@ -9763,6 +9801,8 @@ begin
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = s.document_id
       and s.owner_id = snapshot.owner_id;
+    get diagnostics v_updated = row_count;
+    v_child_rows := v_child_rows + v_updated;
 
     update public.document_table_facts f
     set owner_id = null
@@ -9770,6 +9810,15 @@ begin
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = f.document_id
       and f.owner_id = snapshot.owner_id;
+    get diagnostics v_updated = row_count;
+    v_child_rows := v_child_rows + v_updated;
+
+    if v_child_rows > v_max_child_rows then
+      raise exception
+        'document corpus access switch rewrote % retrieval-scoped derived owner rows, above the % row synchronous bound; the flip is rolled back',
+        v_child_rows, v_max_child_rows
+        using errcode = '54000';
+    end if;
 
     update public.document_corpus_access_state
     set
@@ -9789,6 +9838,40 @@ begin
     end if;
 
     v_activation_id := v_state.activation_id;
+
+    -- The restore carries the same ceiling as the publish it reverses.
+    select count(*)::integer
+    into v_child_row_probe
+    from (
+      select 1
+      from public.document_corpus_access_snapshots snapshot
+      join auth.users existing_owner on existing_owner.id = snapshot.owner_id
+      join public.document_labels l
+        on l.document_id = snapshot.document_id and l.owner_id is null
+      where snapshot.activation_id = v_activation_id
+      union all
+      select 1
+      from public.document_corpus_access_snapshots snapshot
+      join auth.users existing_owner on existing_owner.id = snapshot.owner_id
+      join public.document_summaries s
+        on s.document_id = snapshot.document_id and s.owner_id is null
+      where snapshot.activation_id = v_activation_id
+      union all
+      select 1
+      from public.document_corpus_access_snapshots snapshot
+      join auth.users existing_owner on existing_owner.id = snapshot.owner_id
+      join public.document_table_facts f
+        on f.document_id = snapshot.document_id and f.owner_id is null
+      where snapshot.activation_id = v_activation_id
+      limit v_max_child_rows + 1
+    ) bounded_probe;
+
+    if v_child_row_probe > v_max_child_rows then
+      raise exception
+        'document corpus access switch would rewrite more than % retrieval-scoped derived owner rows in one synchronous call; publish in batches through public.publish_approved_documents instead',
+        v_max_child_rows
+        using errcode = '54000';
+    end if;
 
     execute 'alter table public.documents disable trigger documents_require_publication_approval';
     update public.documents d
@@ -9829,6 +9912,8 @@ begin
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = l.document_id
       and l.owner_id is null;
+    get diagnostics v_updated = row_count;
+    v_child_rows := v_child_rows + v_updated;
 
     update public.document_summaries s
     set owner_id = existing_owner.id, updated_at = now()
@@ -9837,6 +9922,8 @@ begin
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = s.document_id
       and s.owner_id is null;
+    get diagnostics v_updated = row_count;
+    v_child_rows := v_child_rows + v_updated;
 
     update public.document_table_facts f
     set owner_id = existing_owner.id
@@ -9845,6 +9932,15 @@ begin
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = f.document_id
       and f.owner_id is null;
+    get diagnostics v_updated = row_count;
+    v_child_rows := v_child_rows + v_updated;
+
+    if v_child_rows > v_max_child_rows then
+      raise exception
+        'document corpus access switch rewrote % retrieval-scoped derived owner rows, above the % row synchronous bound; the flip is rolled back',
+        v_child_rows, v_max_child_rows
+        using errcode = '54000';
+    end if;
 
     update public.document_corpus_access_state
     set mode = 'private', activation_id = null, activated_at = null, updated_at = now()
@@ -9876,7 +9972,7 @@ end;
 $$;
 
 comment on function public.set_document_corpus_access_mode(text) is
-  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows together with the three derived owner columns that are themselves retrieval visibility decisions (document_labels, document_summaries, document_table_facts); private mode restores surviving owners and quarantines deleted-owner rows from document and retrieval reads. Derived artifacts filtered through their parent document owner are never rewritten.';
+  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows together with the three derived owner columns that are themselves retrieval visibility decisions (document_labels, document_summaries, document_table_facts); private mode restores surviving owners and quarantines deleted-owner rows from document and retrieval reads. Derived artifacts filtered through their parent document owner are never rewritten. Each branch refuses, and rolls the whole flip back, rather than rewriting more than 200000 of those derived rows in one synchronous call; publish a larger corpus in batches through public.publish_approved_documents. Wall-clock bounding belongs to the caller: issue set local statement_timeout in the same transaction, because a function-level setting cannot re-arm a timer the running statement already started.';
 
 revoke all on function public.set_document_corpus_access_mode(text)
   from public, anon, authenticated, service_role;
