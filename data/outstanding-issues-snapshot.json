@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "a4a95ec89b59bec602065376278598b8a0b896fa",
-    "committed_at": "2026-09-02T14:22:01+08:00"
+    "sha": "98eee7e77568982179013fd02ad1b9ace2c09a8e",
+    "committed_at": "2026-09-02T10:28:04+00:00"
   },
   "counts": {
-    "open": 70,
+    "open": 69,
     "p1": 2,
-    "p2": 49,
+    "p2": 48,
     "p3": 19,
     "queued": 7,
     "pending": 0,
-    "resolved": 459
+    "resolved": 469
   },
   "queue": [
     {
@@ -238,15 +238,6 @@
       "added": "2026-08-21"
     },
     {
-      "id": "#Y090R5",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "data/outstanding-issues-snapshot.json is a generated file every inbox PR must regenerate, so any two concurrent ledger PRs conflict on it and the loser must re-resolve after every main merge",
-      "detail": "Observed 2026-08-22 on PR #2284, which conflicted twice within about an hour and was closed rather than untangled. check:outstanding-issues-snapshot requires the committed data/outstanding-issues-snapshot.json to be in step with docs/outstanding-issues.md plus every pending inbox request, so a PR that queues a request MUST commit a regenerated snapshot or CI fails with 'counts.pending: committed N vs regenerated M'. But the regenerated content depends on every OTHER pending request too, so the file differs between any two concurrent ledger PRs and conflicts as soon as either lands. Recent main history shows the collision surface is real, not theoretical: 93af96cf8, 4cbac0ceb, 2ca31d6d8 and 639108f07 all touch that one file. The immutable-request design deliberately removed this class of conflict for the requests themselves; the snapshot reintroduces it in a single generated artifact, which is the same serial-only bottleneck #EH9VA6 and the ledger write-discipline work were meant to eliminate. Resolution is mechanical but must be done exactly once per main merge - never hand-merge it: take main's version then re-run node scripts/generate-outstanding-issues-snapshot.mjs. Options worth weighing: regenerate the snapshot during npm run issues:reconcile (the already-serialized step) instead of in every request-adding PR, so ordinary branches never touch the file; or have the check tolerate a snapshot that is in step with the canonical ledger while ignoring pending-request counts; or add a union/regenerate merge strategy. Whichever is chosen, this bites every future issues PR that does not land within the gap between other ledger merges. SECOND SYMPTOM, same root cause, measured 2026-08-22 on PR #2299: because the file lives under data/ - the generated CLINICAL snapshot export directory - scripts/pr-policy.mjs classifies it clinicalRisk:true. Confirmed by calling classifyPullRequestFiles directly: ['data/outstanding-issues-snapshot.json'] alone returns clinicalRisk:true, while the inbox JSONs alone return false. So every ledger PR that regenerates the snapshot is forced to carry a complete ## Clinical Governance Preflight in its body for a file holding no clinical data at all, and fails PR policy with 'Clinical-risk paths require the ## Clinical Governance Preflight section' until it does. That is ceremony with no safety value, and it trains reviewers to tick clinical governance boxes reflexively on changes that have nothing to do with clinical output - which is the failure mode that section exists to prevent. Moving regeneration into issues:reconcile fixes both symptoms at once; relocating the artefact out of data/ would fix this second one on its own.",
-      "source": "session 2026-08-22, closing PR #2284",
-      "added": "2026-08-22"
-    },
-    {
       "id": "#J8SJQ9",
       "priority": "P2",
       "type": "issue",
@@ -254,15 +245,6 @@
       "detail": "FOUND BY THE PACKET 2 CANARY, run 32589154243 (2026-08-22). \"What metabolic monitoring is required for antipsychotics?\" now returns the source-backed review stub — \"The uploaded documents contain relevant guidance on metabolic monitoring for antipsychotics, but a full written answer could not be completed just now. Relevant document passages are cited below\" — because the extractive candidate behind it was one of the two incoherent guidance-wrapper answers that #NPQJKP shipped a predicate to reject. The degradation is correct behaviour; the underlying defect it exposes is that the answer path cannot produce a usable written answer for this query at all. THIS IS NOT AN EVAL-CASE BUG AND MUST NOT BE FIXED BY ADDING acceptSourceOnly. All four cases carrying that flag document the same rationale: the corpus has no single authoritative source, so a source pointer is a legitimate answer, and quality-discharge-documentation deliberately drops mustContainAny for exactly that reason. quality-antipsychotic-metabolic-monitoring is the opposite case — it names expectedFiles [\"MHSP.MetabolicScreening.pdf\"], an authoritative source exists, and antipsychotic metabolic monitoring is a routine question a psychiatrist should get answered in prose. Adding the flag would silence a true signal. The targeting eval already grades it correctly at score 0 with reason \"source-backed review stub\", even though its mustContainAny [\"metabolic\", \"monitor\"] is satisfied by the stub text, so the instrument is working and only the answer is missing. FIRST DIAGNOSTIC STEP, because it splits the problem in two: determine whether generation was attempted for this case at all. The same run recorded provider_attempted:false for 11 of 30 targeting cases. If OpenAI was never called for this one, the cause is upstream of answer quality entirely (routing, admission control, or the retry ladder — note Packet 1 covers deadline admission control and should be checked for overlap before starting). If it was called and returned nothing usable, the cause is in extraction or generation for the medication_dose_risk class against this document. Do not begin work without checking Packet 1 and Packet 3 (#S4R2W3) for overlap: all three touch rag.ts, and overlapping changes ruin canary attribution.",
       "source": "canary run 32589154243; src/lib/rag/rag-eval-cases.ts quality-antipsychotic-metabolic-monitoring; ledger #NPQJKP",
       "added": "2026-08-22"
-    },
-    {
-      "id": "#EFETZT",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The repo-awareness snapshot goes stale on any PR that waits, and it already reddened CI once",
-      "detail": "UPDATE 2026-08-27 (PR #2413, second and third occurrences): this is not only a staleness problem, it also produces hard git merge conflicts that block auto-merge. data/repo-awareness-snapshot.json conflicted twice in fifteen minutes on one PR head — first when main advanced to be65b8a, again when main advanced to fb88b47 — each time setting mergeable_state=dirty, which suppresses refs/pull/<n>/merge so pull_request CI (CI, Gitleaks, Semgrep) does not run at all and the check list reads empty rather than red. Both were resolved identically: git merge origin/main, git checkout --theirs the snapshot, npm run snapshot:repo-awareness, commit, push. The staleness half also reproduced: check:repo-awareness-snapshot failed Static PR checks with 'review_state differs from the repository'. Cost per occurrence is one full CI round trip plus a push, and it scales with how many PRs are open, since every merge to main regenerates the file for all of them. Reinforces the fix direction already proposed on this row: exclude docs/branch-review-records/ from the compared content the way captured_revision already is, or compare a narrower key set. Adding .gitattributes merge guidance for this path would blunt the conflict half but not the CI-staleness half.",
-      "source": "PR #2359 CI failure, 2026-08-25",
-      "added": "2026-08-25"
     },
     {
       "id": "#JZ8B36",
@@ -287,7 +269,7 @@
       "priority": "P2",
       "type": "task",
       "summary": "Retrieval RPC still treats a null document owner as public, so the owner_id republication hole is only half closed",
-      "detail": "RE-VERIFIED against current main c944fcdad78e106a7fb7b9c99e5e3a829e022fc4 on 2026-09-01. CLOSED: the owner-deletion path is no longer outstanding. public.documents, document_labels, document_summaries and document_table_facts now use ON DELETE RESTRICT, with the live migration and a schema proof that pins the four visibility tables and their exact restrict action. CODE DEFECT (unresolved): public.retrieval_owner_matches treats the public sentinel as row_owner_id IS NULL, and retrieval_owner_matches_v2 treats include_public as row_owner_id IS NULL; neither predicate requires metadata.public_corpus = true. An ownerless row without the publication marker could therefore still enter a public retrieval result. EXPOSURE (measured 2026-09-01, owner-approved read-only GET against ref sjrfecxgysukkwxsowpy): total documents 2851; owner_id NOT NULL = 0; owner_id IS NULL = 2851; of those, metadata.public_corpus = true = 2851. EXPOSED COUNT = 0. The production corpus is deliberately published and has no privately owned or unmarked ownerless document. PRIORITY: P2, not P1. NEXT: change the retrieval contract so its public branch requires both owner_id IS NULL and metadata.public_corpus = true, preserving owned-document retrieval; this is a protected RAG behaviour change and requires the RAG flag, an offline regression proof, and a live eval-canary pair.",
+      "detail": "RE-VERIFIED against current main c944fcdad78e106a7fb7b9c99e5e3a829e022fc4 on 2026-09-01. CLOSED: the owner-deletion path is no longer outstanding. public.documents, document_labels, document_summaries and document_table_facts now use ON DELETE RESTRICT, with the live migration and a schema proof that pins the four visibility tables and their exact restrict action. CODE DEFECT (unresolved): public.retrieval_owner_matches treats the public sentinel as row_owner_id IS NULL, and retrieval_owner_matches_v2 treats include_public as row_owner_id IS NULL; neither predicate requires metadata.public_corpus = true. An ownerless row without the publication marker could therefore still enter a public retrieval result. EXPOSURE (measured 2026-09-01, owner-approved read-only GET against ref sjrfecxgysukkwxsowpy): total documents 2851; owner_id NOT NULL = 0; owner_id IS NULL = 2851; of those, metadata.public_corpus = true = 2851. EXPOSED COUNT = 0. The production corpus is deliberately published and has no privately owned or unmarked ownerless document. PRIORITY: P2, not P1. NEXT: change the retrieval contract so its public branch requires both owner_id IS NULL and metadata.public_corpus = true, preserving owned-document retrieval; this is a protected RAG behaviour change and requires the RAG flag, an offline regression proof, and a live eval-canary pair. RE-MEASURED 2026-09-02 (independent user-authorised read-only query, same ref): unchanged at public_marked=2851, ownerless_unmarked=0, owned=0, total=2851, so EXPOSED COUNT remains 0 across two consecutive days. That read also answered a question this row never recorded: public.document_corpus_access_state.mode = 'public'. set_document_corpus_access_mode('public') has therefore been run against live at some point, even though no migration or script in the repo invokes it and the table seeds to 'private' (20260825025032:43-45). That operator back-stamp is what closed the legacy ownerless-but-unmarked population described in the 20260825025032 header, and it is why this defect currently has zero blast radius. The exposure is zero by data state, not by predicate, so any future ownerless insert that skips the marker re-opens it silently and the NEXT step above still stands.",
       "source": "repo-wide audit at 3ed1932 (six domain reviewers); re-verified against current main c944fcdad78e106a7fb7b9c99e5e3a829e022fc4 and an owner-approved read-only production count, database coordination chat 2026-09-01",
       "added": "2026-08-23"
     },
@@ -319,15 +301,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#JFRCZ4",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "check:repo-awareness-snapshot needs git, and nobody has established what it does without it",
-      "detail": "The gate shells out to git ls-files and git log through the generator, and it now sits in verify:cheap, verify:pr-local and CI. What it does in a git-less checkout - a git archive export, which is the very technique the Phase 2 spec section 8.2 names as a required proof - has never been tested. The generator itself is proven to fail loudly there, which is correct under ruling R5 because it only ever runs from docs:update. The gate is different: it runs in three gate chains, so a git-less environment turns a safety check into an unexplained failure. Establish the behaviour and document it, or make the gate skip explicitly with a stated reason rather than erroring.",
-      "source": "Phase 2 whole-branch review, PR #2359",
-      "added": "2026-08-25"
-    },
-    {
       "id": "#9P4XAE",
       "priority": "P2",
       "type": "issue",
@@ -342,15 +315,6 @@
       "type": "issue",
       "summary": "Medication source_status current is derived from a substring and never expires",
       "detail": "medication-records.ts derives source_status from sourceText.includes('checked'). The snapshot Sources rows carry real dates (all 2026-05/06 today) but nothing parses or ages them, so these records will still report current in 2028; medication-badges only ever renders Review due or Outdated from an explicit sourceStatus this derivation cannot produce. The same substring also matches the negative forms 'not checked' and 'unchecked'. The sibling validation_status literal was fixed in the audit branch; this half remains. FIX: parse the ISO date already present in the source text and return review_due past a defined interval, unknown when no date parses.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
-      "id": "#Z61JRT",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The batch image endpoint calls getPublicUrl against a bucket pinned private, so public-corpus figures silently fail to load",
-      "detail": "api/images/signed-urls/route.ts:109 uses getPublicUrl for every image whose document isPublicDocument, but clinical-images is inserted and re-asserted with public = false. The URL 404s while the route still returns HTTP 200, so nothing surfaces as an error. The singular route (images/[id]/signed-url) always signs correctly. Latent privacy edge: if the bucket is ever flipped public to fix this, the same branch hands out permanent unauthenticated URLs, and isPublicDocument checks metadata markers BEFORE owner_id, so a document with a non-null owner carrying public_corpus metadata would take that branch too. FIX: delete the public branch and sign uniformly.",
       "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
       "added": "2026-08-23"
     },
@@ -389,15 +353,6 @@
       "detail": "Sixteen migration files contain no executable DDL. tests/migration-history-placeholders.test.ts tracks only six of the ten select-1 files; untracked are 20260629100000, 20260702170000, 20260708160000 and 20260709150000. 20260702170000 is the sharpest: supabase/drift-allowlist.json allowlists every neighbour in its window (100000 through 180000) but not it, and every allowlisted neighbour carries real DDL while 20260702170000_fix_match_chunks_text_n1.sql is bare select 1. The allowlist header states it was seeded by name from the repo, NOT by a live read. NEXT (operator, read-only): select (public.schema_drift_snapshot() -> 'migration_history'); and check statement counts for those versions. Any zero-statement row without an allowlist entry needs a 20260804110240-pattern validation guard.",
       "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
       "added": "2026-08-23"
-    },
-    {
-      "id": "#ZM8902",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "docs:check-links passes over a broken relative markdown link in a spec, so a binding document went missing unnoticed",
-      "detail": "scripts/check-docs-links.mjs reported 1905 references resolving while docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md line 180 linked to ../../caring-contacts/design-handoff.md, a file that has never existed, and line 131 described it as binding. Found by hand on 2026-08-19 and repointed to interaction-matrix.md, which actually holds the 24-row modality matrix. The gate is a check that cannot fail for this class of link: verify whether relative markdown links outside a recognised prefix are skipped, and close the gap. Same family as the mutation-testing concerns already recorded for stderr hooks and tail-masked exit codes.",
-      "source": "Caring Contacts doc repair 2026-08-19",
-      "added": "2026-08-18"
     },
     {
       "id": "#CJCH2E",
@@ -472,15 +427,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#N8B176",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "isPublicDocument ranks caller-adjacent metadata above owner_id",
-      "detail": "src/lib/documents/is-public-document.ts:49-61 returns true for metadata.public_corpus, is_public, public, visibility === 'public' or source_kind === 'registry_record' BEFORE consulting owner_id at :64 - a second, weaker definition of public than the one the DB and publish_approved_documents use. Not exploitable today: upload metadata is server-constructed and bulk edit accepts only a fixed key schema. But the function is exported as a standardized predicate and documented for reuse, so the next access decision that adopts it inherits a metadata-driven publication bypass. FIX: make owner_id === null the first and authoritative check, or scope the helper to rendering only.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#J43Z6B",
       "priority": "P2",
       "type": "rec",
@@ -497,15 +443,6 @@
       "detail": "generate-drift-manifest.ts replays supabase/schema.sql and embeds ITS sha256; CI's db-reset-verify runs supabase migration up --local, proving the chain APPLIES but never diffing the result against schema.sql. A migration whose function or policy body diverges from the mirror passes every gate. Object-NAME parity does hold today (all create targets across 211 migrations resolve into schema.sql) but it is enforced by hand-written per-object tests, not systematically. FIX: after migration up --local, replay schema.sql into a second scratch database and diff schema_drift_snapshot() between the two. Fully offline and containerised, no provider access. DEMONSTRATED 2026-09-01, no longer theoretical: live-drift run 33484535655 (red on main at d3074946a) reported its sole unexpected finding as public.correct_clinical_query_terms(text,real) def_hash manifest e2356565 vs live 2ebaf978. Cause was exactly this gap - migration 20260831100000 (PR #2477) redefined that function with a duplicated 'and length(canonical) between 4 and 40' predicate and supabase/schema.sql was never updated to match, so the manifest disagreed with live while every pre-merge gate stayed green. The db-reset-verify assertion that did run is committed.schema_sha256 === generated.schema_sha256 (.github/workflows/ci.yml ~L1082-1095), which only catches an unrefreshed manifest, not a chain/mirror divergence. Behaviour impact of that instance was nil (the duplicate predicate is a boolean no-op) but it cost a red daily alarm and a remediation PR, and it is the second occurrence of this failure class after the #316 root cause (SET work_mem absent from schema.sql). Strengthens the case for scheduling the containerised two-database diff above.",
       "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f; demonstrated by live-drift run 33484535655, classified by the database coordination chat 2026-09-01",
       "added": "2026-08-23"
-    },
-    {
-      "id": "#AGRAKQ",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Caring Contacts: the interface prohibited-language helper has the same 'lead' job-title collision B2 just fixed for messages",
-      "detail": "NARROWED TO PLURALS; re-measured against origin/main d1bb2c197 on 2026-09-02 by executing the pattern, not by reading it. A done request (461a406d) claimed the plural case was fixed and was cancelled; the cancellation's stated reason was wrong (the row is open), but the outcome is right, because the plural case is NOT fixed. HALF DONE: tests/helpers/caring-contacts-prohibited-language.ts now carries the same negative lookbehind the message rules use -- (?<!\\b(?:incident|programme|clinical|service|team) )\\blead\\b -- so both examples this row named by name now pass. Run against the live pattern: 'incident lead' ok, 'team lead' ok, 'clinical lead' ok, 'programme lead' ok. STILL BROKEN: the alternation also contains a bare \\bleads\\b with no lookbehind, and it sits ahead of the narrowed branch, so every plural job title is still flagged -- 'clinical leads' matches on 'leads', as do 'programme leads' and 'Clinical Leads'. The commercial sense the branch exists to catch ('sales leads', 'lead generation') is correctly still flagged, so the fix is to extend the same modifier lookbehind to the plural branch rather than to delete it. Reusing COMMERCIAL_LEAD_PATTERN from src/lib/caring-contacts/message-rules.ts line 81 remains the cheapest route, and the alternative the row already allows -- recording why interface copy should be stricter than message copy -- is still open as a decision.",
-      "source": "Task C implementer concern 3, 2026-08-24",
-      "added": "2026-08-24"
     },
     {
       "id": "#W53DY5",
@@ -526,21 +463,12 @@
       "added": "2026-08-22"
     },
     {
-      "id": "#CTA8CR",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "A stale 'D4 is OFF' production-deploy claim survives uncorrected in two places in the live-drift forensics doc",
-      "detail": "docs/audit/live-drift-forensics-2026-08.md:1243-1244 and :1720 both assert flatly, with no forward pointer, that D4 is OFF and nothing reaches production on merge. A later section at :2056-2072 corrects this to 'treat D4 as UNRESOLVED and assume merging a migration PR deploys it to production'. A third instance at :2024 DOES carry a superseded pointer, so the doc's own convention exists and simply was not applied to the earlier two. A future session jumping to the Phase 4 or #Q5JHBJ sections would reasonably read the stale claim as settled fact about a live clinical database. FIX: add the same one-line superseded pointer at both sites. Also check docs/database-remediation-coordination.md:159, which references the same ambiguity.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#4STSM1",
       "priority": "P2",
       "type": "task",
-      "summary": "Caring Contacts synthetic production build: spec approved and committed, implementation plan not yet written",
-      "detail": "docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md is the binding spec: ten decision-lock revisions, the sealed domain rules layer, a dedicated Supabase project hard-separated from the Clinical KB project, seven screens required by existing decisions but never designed, four recommended screens, the design non-regression contract and the elevation brief. Delivery is two pull requests with subagent-driven development: (1) rules plus datastore plus doc repairs, (2) screens plus demo clock, synthetic caseload and training mode. Next step is the writing-plans skill to produce the implementation plan for part one. Design phase itself is complete and merged (PR #2095, #2133).",
-      "source": "Caring Contacts design session 2026-08-19",
+      "summary": "Caring Contacts synthetic production build: Phases 1 and 2 built and merged; Phase 3 planned but not built",
+      "detail": "SUPERSEDES the original row, which said the implementation plan was unwritten and named part one as the next step. Verified against main at 45a3dca on 2026-09-02: part one's plan is docs/superpowers/plans/2026-08-19-caring-contact-domain-and-datastore.md with its eleven test-first tasks, and it landed - the sealed domain layer (36 modules under src/lib/caring-contacts/), eight migrations under caring-contacts/supabase/migrations/, and 73 caring-contacts test files are all on main. Phase 2 landed too, under docs/superpowers/plans/2026-08-24-caring-contact-phase-2b-screens.md, with the production workspace routes under src/app/caring-contacts/. WHAT REMAINS is Phase 3, 'make it demonstrable' (spec §10, §2.9 and the rehearsed demonstration path), which spec §13 said folds into the Phase 2 pull request 'unless it grows' - Phase 2B merged without it, so it grew and now needs its own PR. Its plan was written in PR #2520 as docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md: eleven test-first tasks in five groups covering the advanceable demo clock and its production-absence proof, the seed extended from five patients to twelve across all nine required states, the §2.9 bounded clinical-record plan summary with its exclusions asserted as absences, training mode isolated at the store seam, and the five-minute path as a tracked document plus an executable journey. The plan is DRAFT, not approved for execution, and carries four questions for the owner - none blocking its first task: (1) is the §2.9 summary a print view or a saveable file (the plan assumes print, the safer half); (2) contact detail and system states exist as mockup routes with no production equivalent - Phase 2 gap or deliberate; (3) are the five existing seeded patient names kept and seven added; (4) spec §14's four open decisions remain open, of which the patient-visible reply wording is spoken aloud during the demonstration. NEXT STEP is owner approval of the plan, then subagent-driven execution of its Task 1.",
+      "source": "Verified repo read at main 45a3dca; plan written in PR #2520, 2026-09-02",
       "added": "2026-08-18"
     },
     {
@@ -553,15 +481,6 @@
       "added": "2026-08-24"
     },
     {
-      "id": "#875H6T",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Ward Flow: six agreed enhancements not yet assigned to a phase",
-      "detail": "Ward prediction track record; 'why not here' across the whole state for one patient; a sixty-second self-driving guided tour; out-of-area ledger; 'waiting since' promoted in the priority queue; named moments on the demo clock. All accepted by the product owner 2026-08-26 and described in docs/ward-flow-roadmap.md.",
-      "source": "Product-owner direction, 2026-08-26",
-      "added": "2026-08-26"
-    },
-    {
       "id": "#9GPWT3",
       "priority": "P2",
       "type": "issue",
@@ -569,15 +488,6 @@
       "detail": "predicted -> confirmed -> blocked -> released is a software model of how a bed comes free. A bed may be confirmed and blocked simultaneously in reality, and 'predicted' may compress several states a charge nurse would separate. Cheap to change while synthetic; recorded in the Phase 5 spec as D14 and as the assumption most likely to be wrong. Check before Phase 7 builds on it.",
       "source": "Ward Flow Phase 5 design, 2026-08-26",
       "added": "2026-08-26"
-    },
-    {
-      "id": "#Z5P2BW",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Caring Contacts: the vocabulary scan rewards leaving developer identifiers on screen, and the sealed domain it pushes copy into is watched by no vocabulary scan at all",
-      "detail": "Found in Phase 2B Task 7, 2026-08-25, and sharpened by its re-review. Two joined defects. FIRST, the scan is inverted. `tests/caring-contacts-interface-vocabulary.test.ts` refuses \"lead\" as a whole word anywhere under `src/components/caring-contacts/workspace/**` and `src/app/caring-contacts/**`, with no notion of a job title. So the raw role identifiers `clinicalProgrammeLead` and `livedExperienceRepresentative` PASS — only because there is no word boundary inside `ProgrammeLead` — while the correct plain-words labels a clinician should read FAIL. The scan currently rewards leaving developer gibberish on a clinical screen. SECOND, and larger: the workaround pushes that copy into `src/lib/caring-contacts/**`, which is outside EVERY prohibited-language scan in this repository. Only the interface scan and the overlay definition tests use `CARING_CONTACTS_PROHIBITED_LANGUAGE`, and neither reaches `src/lib`. So role wording now lives where no vocabulary check watches it — not merely exempt from the \"lead\" rule, unwatched entirely. That hole pre-dates Task 7 (`service-state.ts` already had it) and correctly did not block the fix. THE FIX IS SMALLER THAN IT LOOKS: `src/lib/caring-contacts/message-rules.ts` line 81's `COMMERCIAL_LEAD_PATTERN` is an already-written, already-tested negative lookbehind for `incident|programme|clinical|team|service` that would exempt every one of these offences unchanged, and that file records why an allowlist of commercial modifiers was itself a defect. Reusing it in the interface scan is a one-line change; extending a scan to cover the sealed domain's user-facing string constants is the separable second half. Deliberately not done in Task 7: the implementer had already narrowed one safety guard that round, and widening a second to admit a word it had just introduced is the wrong direction to argue from.",
-      "source": "session 2026-08-25",
-      "added": "2026-08-25"
     },
     {
       "id": "#PAMATF",
@@ -722,6 +632,87 @@
       "detail": "Task 5b made the Patients directory search match patient names, and the filter is a GET form (server-side filtering was mandated by the brief; Ruling 13 forbids client state; the approved design requires name search). So a search reaches the address bar, browser history, any Referer header and any server access log as ?q=<name>. Before Task 5b only synthetic identifiers went there. Judged NOT a defect by both the implementer's reviewer and the controller -- there was no compliant alternative under the standing constraints -- and recorded deliberately rather than fixed quietly, because it is exactly the kind of residual that gets carried into a real build unnoticed. Decide before any deployment carrying real patient names: POST-and-redirect, a client boundary accepted as an exception to Ruling 13, or an accepted risk with logging scrubbed.",
       "source": "Task 5b review finding I-4, 2026-08-25",
       "added": "2026-08-24"
+    },
+    {
+      "id": "#707F09",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "The developer hub's pending-requests panel reads empty during local dev, because no lifecycle regenerates the snapshot for the dev server",
+      "detail": "Raised by Codex review on PR #2530 (scripts/generate-outstanding-issues-snapshot.mjs) and verified rather than accepted on trust. THE FINDING IS CORRECT: npm run dev and npm run ensure invoke no prebuild, so ledger-snapshot.ts imports the committed JSON and the ledger page's 'requests not yet applied' count and list render empty while requests exist in docs/outstanding-issues-inbox/. That is the #338 class of failure the developer hub exists to prevent - a panel silently under-reporting. IT IS NOT A REGRESSION FROM PR #2530, and this matters for how it gets fixed: measured on main at 45a3dcacb before that branch existed, the committed snapshot already carried counts.pending 0 while 8 inbox requests were tracked in the same commit. The panel was already blank in dev. PR #2530 changed it from accidentally blank to blank by design, and added a gate that keeps it that way, so the fix now has to be deliberate. THE OBVIOUS FIX IS WRONG: adding a predev that generates the pending-inclusive form would write a populated pending into the tracked working tree on every dev-server start, which is precisely the churn #Y090R5 records and PR #2530 removed - and check:outstanding-issues-snapshot now fails on a committed non-empty pending, so a developer would be left with a permanently dirty tracked file that the gate refuses. Two shapes are worth weighing instead. (a) A development-only reader: the ledger page merges docs/outstanding-issues-inbox/*.json from disk when NODE_ENV is not production, leaving the committed artefact untouched. Cheap, but it adds an environment-conditional code path to a module whose docstring records that reading docs/ live was deliberately rejected because the production image never copies docs/ - the divergence would be benign here (production gets the true list from prebuild) but the reasoning must be written down rather than quietly reversed. (b) Generate the pending-inclusive form to a SEPARATE gitignored sidecar that the page reads when present, so nothing tracked is ever dirtied; costs a second artefact and a tolerant reader. Neither is urgent: the panel is administrator-gated, 404s for non-admins in production, and is correct in the deployed image because prebuild regenerates it there.",
+      "source": "Codex review on PR #2530, 2026-09-02",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#TK9GH7",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Two tests fail on a shallow clone as ordinary assertion failures rather than refusing, so every Claude Cloud session running npm run test sees two spurious regressions",
+      "detail": "Hit and diagnosed in a Claude Code remote session on 2026-09-02, while checking whether a CI failure on PR #2521 was real. The remote container clones this repository shallow (106 commits at session start), and on that clone npm run test reports 'Test Files 2 failed | 945 passed' with 12063 tests passing. Both failures are artefacts of the truncated history, not defects: tests/clinical-hazard-controls.test.ts fails with 37 entries of the form 'manifest: reviewedCommit does not exist 883f1007a85cd4e02198f39c12c4a4e467d4b89e' and 'H1: path is absent from reviewedCommit src/lib/answer-verification.ts', and tests/rag-plan-package-parity.test.ts fails with 'manifest reconciledBase is unavailable locally: f3d1a3cce2c943ad3083425ed9c7c46dbef23087' from scripts/build-rag-plan-packages.mjs --check --require-origin-main. PROVEN environmental rather than assumed: git rev-parse --is-shallow-repository returned true and git cat-file could not resolve either commit; after git fetch --deepen=3000 brought the clone to 5466 commits both commits resolved and both test files passed (Test Files 2 passed, Tests 19 passed) with no code change whatsoever. WHY IT MATTERS: this is the single broadest gate in the repository, and on the container type these sessions run in it always reports two red files. An agent reading that output has to either investigate both from scratch, as this session did, or learn to ignore failures in the full suite -- and the second habit is the dangerous one, because it is exactly how a real regression in one of these two files would be waved past. The failures also name clinical hazard controls, which is the worst possible file to train anyone to skip. THE PATTERN TO ADOPT ALREADY EXISTS in this repository: docs/outstanding-issues.md records other surfaces that detect a shallow clone and refuse explicitly rather than producing an indeterminate result, including an exported shallowCloneRefusal that prints no inventory and exits 1, and check:dead-code-candidate which refuses a shallow assessment and tells the caller to run git fetch --deepen=2000 first. NEXT STEP: have both tests check git rev-parse --is-shallow-repository, or the resolvability of the specific manifest commit, before asserting, and either skip with a named reason or fail with the deepen remediation in the message, so the output distinguishes 'cannot be assessed here' from 'this is broken'. Do not simply delete or relax the assertions -- verifying that a manifest's reviewedCommit still exists is the point of both.",
+      "source": "Claude Code remote session on PR #2521, 2026-09-02; reproduced and cleared by git fetch --deepen=3000",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#5ECZQA",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Batch image signed-url route swallows per-item createSignedUrls errors and still returns 200",
+      "detail": "src/app/api/images/signed-urls/route.ts:105 checks only the top-level signed.error returned by createSignedUrls. supabase-js returns a per-path result array of { error, path, signedUrl }, so a single path that fails to sign yields an entry with no usable signedUrl while the top-level error stays null. The loop at :112-122 then skips that image because of the if (signedUrl) guard, and the route returns HTTP 200 with the image silently absent from the urls map. The client (src/lib/batch-signed-urls.ts) treats a missing key as \"not returned\" rather than \"failed\", so a figure disappears from the document view with nothing logged and no error surfaced anywhere. This is a milder instance of exactly the silent-failure class that #Z61JRT was about, and it survived that fix because the fix replaced getPublicUrl with createSignedUrls without adding per-item error handling. It is not a privacy or tenancy defect: the owner-scope gate at :70-88 has already run, so only images the caller is entitled to reach ever get to the signing step. The impact is diagnosability and a confusing partial render, not exposure. FIX: inspect each per-path result, and either surface a per-image error field in the response so the client can distinguish \"failed\" from \"not found\", or log the failing paths through the existing observability layer so a systematic storage problem is visible rather than presenting as scattered missing figures. Prefer the first: the response shape is already a per-id record, so an error discriminant fits without a breaking change. Note the singular route src/app/api/images/[id]/signed-url/route.ts:71 has the mirror-image gap, dereferencing signed.data.signedUrl without a null guard where the batch route has an explicit !signed.data check. Worth aligning both in the same change.",
+      "source": "Found while verifying #Z61JRT on main 45a3dca, 2026-09-02; supabase-schema-guardian review of src/app/api/images/signed-urls/route.ts",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#686WHW",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Two sessions closing the same ledger row is a race the loser cannot lose gracefully: it hard-fails the planner, its outcome text is discarded, and the archived row cannot then be corrected",
+      "detail": "Hit and worked through on PR #2521, 2026-09-02, and recorded because the cost fell entirely on the session that did the larger piece of work. THE RACE: two sessions independently queued done requests for #0HYHTH (mine 2a381215, the other 59f035ef) and update-then-done for #AGRAKQ. The reconciliation on main (#2542) applied the other session's requests first. THREE CONSEQUENCES, in increasing order of how badly they behave. (1) The loser does not merely lose. My done for #0HYHTH threw '#0HYHTH is no longer open' and my done for #AGRAKQ threw 'is stale: the ledger row changed after this request was queued', and because docs:check-links runs the planner, BOTH hard-failed an unrelated CI check on a PR whose diff had nothing to do with either row. The branch was blocked until each was cancelled or reissued by hand. (2) A cancel queued against a request that has already been applied silently becomes a no-op: both fd9de7fe and 1e305210 now report 'did not take effect -- the cancellation is recorded but changed nothing; correct the affected row with a new update request'. So an attempt to supersede another session's close leaves a record that reads as an action but is not one. (3) That suggested remedy does not exist for a closed row. issues:update rejects with '#0HYHTH is not in Open items' (scripts/ledger-inbox.mjs, the fingerprint branch requires the row be in Open items), so once the race is lost the winning outcome text is final and the archive cannot be corrected through the tooling at all. CONCRETE DAMAGE, which is also the correction this row exists to carry: #0HYHTH is archived with an outcome describing the interface vocabulary scan as it stood at B3 -- two roots, src/components/caring-contacts/workspace and src/app/caring-contacts -- and naming the sealed domain as outstanding residue. PR #2521 took that scan to FIVE roots, adding src/lib/caring-contacts/**, src/lib/caring-contacts-server/** and src/app/api/caring-contacts/**, which closes the residue the archived text still describes as open. A reader of the archive today would conclude the sealed domain is unwatched. It is not. Treat this row as the correction to that archived outcome, since the archived row itself cannot be amended. CANDIDATE FIXES: make a done request against an already-closed row a warning that no-ops, like the cancel case, rather than a throw, so one session's race loss cannot red an unrelated PR's CI; allow update on an archived row, or provide an explicit amend-outcome action, so a superseded outcome can be corrected rather than being final by accident; and consider having reconcile prefer the LATER of two competing closes for the same row, or at least surface both outcomes, since the second is usually the better-informed one. Related but distinct from #Y090R5, which covers the generated snapshot file conflicting between concurrent inbox PRs.",
+      "source": "PR #2521 vs reconciliation #2542, 2026-09-02",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#9ZGNW7",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Developer-hub CODE still flips perf_changed, so an admin-only mockup route pulls a full Lighthouse run",
+      "detail": "Found while fixing #EFETZT on 2026-09-02 and deliberately NOT fixed in that PR, because it means editing a fail-closed CI classification surface. PR #2530 added data/repo-awareness-snapshot.json to perfExclusionPatterns in scripts/ci-change-scope.mjs, mirroring the carve-out data/outstanding-issues-snapshot.json already had for the same reason (PR #2302). That closes the common case - a handoff PR that only regenerates the snapshot no longer pays a ~7-minute Lighthouse budget run against a budget the change cannot move. It does NOT close the code case. src/components/developer-area/hub/** and src/lib/developer-area/** match the generic 'src' entry in perfPatterns (ci-change-scope.mjs:226) and are not excluded, because only the ROUTE WRAPPER lives under the excluded src/app/mockups prefix - the panel components live one directory hop away under src/components. So a PR touching the developer hub's own code still triggers lighthouse-budget for /mockups/development/**, which 404s for non-admins in production (src/app/mockups/layout.tsx and src/proxy.ts gate it behind DEVELOPER_AREA_HEADER) and cannot appear in either budgeted journey. WHY IT WAS LEFT: the exclusion list is a fail-closed safety surface, and widening it by directory prefix risks exempting a future component that IS reachable from a budgeted route. The safe shape is probably an explicit list of the developer-hub component and lib paths rather than a prefix, pinned by an assertScope self-test beside the two that already exist (ci-change-scope.mjs:1022), plus a test proving a non-hub file under src/components still flips perf_changed. Cost of leaving it is bounded and only paid by developer-hub PRs, which are rare.",
+      "source": "session 2026-09-02, PR #2530; verification-router review",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#97W4FD",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "A change that WEAKENS a clinical safety guard living under tests/ escapes the governance preflight gate, and PR #2521 demonstrated it rather than hypothesised it",
+      "detail": "Raised by the clinical-governance-reviewer on PR #2521, 2026-09-02, and then demonstrated by that same PR one commit later. scripts/pr-policy.mjs decides whether a PR must carry a completed '## Clinical Governance Preflight' by matching changed paths against clinicalRiskPatterns, which covers src/lib/*clinical*, src/app/api/, supabase/, src/data/ and similar. It has no pattern for tests/**. But several of this repository's clinical safety guards ARE tests: tests/caring-contacts-interface-vocabulary.test.ts is the only software check on prohibited wording across five source trees; tests/helpers/caring-contacts-prohibited-language.ts is the single shared definition of that vocabulary; tests/caring-contacts-overlay-definitions.test.ts holds the 24 frozen overlay rows against docs/caring-contacts/interaction-matrix.md; and the Ruling [143] parity block is what stops the message-side 'lead' rule drifting looser than the screen's. THE GATE IS DIRECTION-BLIND: it reads paths, not intent, so it cannot tell strengthening a guard from removing one. THIS IS DEMONSTRATED, NOT HYPOTHESISED. An earlier version of this row listed 'relaxing the lead lookbehind' among the changes that would slip through. The next commit on that same branch, 33e1ffd, did exactly that: it loosened the interface prohibited-language rule so plural job titles are permitted on screen, which is a deliberate owner-approved change to clinical-copy wording, and classifyPullRequestFiles returned clinicalRisk:false for it, so no preflight was required and no reviewer was prompted to look for clinical consequences. The preflight was completed voluntarily and the change was reviewed by a subagent, both by choice; nothing in the required checks asked for either. A second near miss on the same PR: its first draft exempted src/lib/caring-contacts/message-rules.ts as a whole file, which would have put the five sentences a discharged patient reads by SMS permanently outside the scan. A subagent review caught it. Nothing in the required checks would have. CANDIDATE FIXES, increasing cost: name the specific guard test files in clinicalRiskPatterns, cheap and precise but needs maintaining as guards are added; or match tests/** paths that import CARING_CONTACTS_PROHIBITED_LANGUAGE or the message rules, self-maintaining but needs an import scan in pr-policy; or a narrower gate firing only when such a file's diff is net-deleting. Prefer whichever keeps a false positive cheap: the cost of a wrong classification is one preflight section a human fills in, and the cost of the current gap is an unreviewed weakening of a patient-facing safety guard.",
+      "source": "clinical-governance-reviewer on PR #2521, 2026-09-02; demonstrated by commit 33e1ffd on the same PR",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#1M0J6D",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Web-container sessions start on a shallow clone, so two committed specs fail with messages that read as content errors",
+      "detail": "Measured 2026-09-02 in a Claude Code web container on origin/main 45a3dcacb. The session's checkout is a SHALLOW CLONE (depth 102). Two specs in the committed suite then fail, stably across two full runs, and neither message says anything about history depth: tests/clinical-hazard-controls.test.ts fails with 'CLINICAL-TRUTH-AUTHORITY: reviewedCommit does not exist 883f1007a85cd4e02198f39c12c4a4e467d4b89e' plus 'path is absent from reviewedCommit', and tests/rag-plan-package-parity.test.ts fails with 'manifest reconciledBase is unavailable locally: f3d1a3cce2c943ad3083425ed9c7c46dbef23087' from scripts/build-rag-plan-packages.mjs --check --require-origin-main. Both read as governance-manifest corruption, which is exactly the wrong conclusion: the commits are real and simply absent from a truncated history. PROOF: git fetch --deepen=2000 takes the clone from 102 to 5462 commits, both commits then resolve under git cat-file -e, and the two specs pass 27/27 with no code change. AGENTS.md already prescribes this remedy under 'Deleting code you believe is dead' for check:dead-code-candidate ('assessed on a shallow clone, where nothing can be dated - run git fetch --deepen=2000 first'), so the fix is known; it is simply not applied at session start and these two specs are not covered by that note. COST: a full npm run test is about six minutes, so a session can burn two of them before recognising the pattern, and the plausible-looking failure text invites someone to 'fix' a hazard manifest that is not broken. OPTIONS, cheapest first: have .claude/hooks/session-start.sh deepen the clone when git rev-parse --is-shallow-repository reports true (it already provisions Node and runs npm ci, so it is the natural place and the cost is one fetch); or make the two checks detect a shallow repository and fail with that as the stated reason rather than naming the commit; or document it in docs/testing.md. The first is preferred because it fixes the dead-code gate's known problem at the same time.",
+      "source": "session 2026-09-02, PR #2530 verification",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#6APN03",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Corpus health panel and the hub document count have never been seen against the real library",
+      "detail": "Both merged (#2504, #2512) and both were built in a cloud container with no live database and no browser, so every test uses stand-in data. Confirmation needs a machine with live Supabase config and a signed-in administrator: run npm run ensure, open /mockups/development and check the environment strip shows a real document count rather than 'document count unavailable', then open /mockups/development/corpus-health and check the four status tiles show numbers rather than 'Not read'. Then record which of the five spread cases resolveQualitySpread reports for extraction quality. An unverified report says every document may carry an identical placeholder quality_score. A uniform reading is a prompt to investigate and NOT a confirmed fault: assessDocumentIndexQuality starts the score at 1 and only subtracts penalties before rounding to three decimals, so a cleanly extracted corpus legitimately scores 1.000 for every document. Treat a uniform 0.00 as the suspicious case, since 0 is the column default and extraction_quality defaults to unknown, and corroborate against the issues array and metrics JSON on the same rows before recording anything against the scoring pipeline. Full context in docs/corpus-health-panel-handover.md.",
+      "source": "docs/corpus-health-panel-handover.md",
+      "added": "2026-09-02"
+    },
+    {
+      "id": "#1NMMZS",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Caring Contacts: the plural job-title exemption also permits preceding-verb commercial phrasing, because the companion list only guards words that follow the word",
+      "detail": "Measured by the clinical-governance-reviewer on commit 33e1ffd, 2026-09-02, and left open deliberately rather than fixed there. CARING_CONTACTS_PROHIBITED_LANGUAGE in tests/helpers/caring-contacts-prohibited-language.ts exempts 'leads' when one of five job-title qualifiers (incident, programme, clinical, service, team) sits immediately before it, per the owner decision that closed #AGRAKQ. The commercial-companion branch that stops an exemption licensing what follows it guards words AFTER the word -- generation, capture, nurturing, magnet, pipeline, numbers -- which is where singular commercial English puts them ('lead generation', 'lead capture'). Plural commercial English puts them BEFORE ('capture leads', 'convert leads', 'unconverted leads'), and nothing guards that position. Measured strings refused before the change and permitted after: 'Capture clinical leads', 'Convert team leads', 'Nurture clinical leads', 'Generate service leads', 'Qualify incident leads', 'Score service leads', 'Export clinical leads', 'Track clinical leads', 'Reactivate service leads', 'Unconverted service leads', 'Warm clinical leads', 'Cold team leads', 'Total clinical leads', 'clinical leads dashboard', 'team leads funnel', 'service leads report', 'clinical leads outreach', 'service leads enrichment', 'Our team leads are up 20% this quarter.', 'How many clinical leads did we get this month?'. Bare commercial plurals are all still refused ('sales leads', 'new leads', 'warm leads', 'qualified leads', 'leads capture', a lone 'Leads'), as is 'clinical leads capture'. FAILURE SCENARIO: someone builds a referral-intake view in the workspace and labels it 'Unconverted service leads' or 'clinical leads dashboard'; the vocabulary scan passes and CRM funnel framing lands on the clinician-facing surface of a suicide-prevention programme, which is the drift this guard exists to catch. No such string exists in the tree today. WHY NOT FIXED: the singular pair has the same shape of hole -- 'Capture the clinical lead' was permitted on both surfaces before any of this -- so it is a pre-existing structural gap made easier to reach, not a new class. Both obvious fixes cost more than they buy. Requiring a determiner, (?<!\\b(?:the|our|its|their|these|those) (?:incident|programme|clinical|service|team) )\\bleads\\b, was measured: it keeps 'The clinical leads met on Tuesday.' permitted and closes all of the above except the 'Our team leads are up 20%' case, but it would refuse an ordinary screen heading of 'Clinical leads' on a team roster, which is the exact wording the owner's decision existed to permit, and it fails five of the currently pinned phrases so the corpus would need rewriting as sentences. Listing commercial verbs would rebuild the allowlist that message-rules.ts records as the original B2 defect, since commercial vocabulary is open-ended. NEXT STEP: leave as measured and documented -- the enumerated strings are in the helper's own comment so the boundary is visible to the next reader -- and revisit only if a real screen label trips it or the owner wants the roster-heading case traded away. The message surface is unaffected: COMMERCIAL_LEAD_PATTERN still refuses every plural outright.",
+      "source": "clinical-governance-reviewer on commit 33e1ffd, PR #2521, 2026-09-02",
+      "added": "2026-09-02"
     }
   ],
   "pending": []
