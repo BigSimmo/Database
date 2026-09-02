@@ -471,7 +471,11 @@ in-page navigation work defaults to the DocumentViewer template above.
     content had already ended carried 8-273px of scroll range as a result — a scrollbar on a page
     that fits, and a wheel notch that jolts into the bottom stop. Phone floors are unaffected:
     below `sm` the document owns scrolling and there is no bounded box to fill. Guarded by the
-    "pages that fit the window have no scroll range" cases in `tests/ui-chrome-scroll.spec.ts`.
+    "pages that fit the window have no scroll range" cases in `tests/ui-chrome-scroll.spec.ts`, and
+    repo-wide by `tests/viewport-fill-contract.test.ts`, which scans all of `src/**` for any
+    `(min-)h-[calc(100dvh - …)]` class or `(min-)height: calc(100dvh - …)` declaration rather than
+    checking a list of named files, and carries the exempt phone floors in one exact-count allowlist
+    that fails closed when an entry goes stale.
 
 The PWA notice rules that use `:has(#main-content ...)` are a deliberately
 bounded post-hydration exception. `#main-content` can disappear briefly while
