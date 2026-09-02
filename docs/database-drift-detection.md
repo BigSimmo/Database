@@ -5,7 +5,7 @@ Last updated: 2026-08-18 (migration-history probe, guard-migration contract, ind
 This repo's worst operational incidents were live-vs-repo schema drift: hybrid
 retrieval RPCs silently broken on live for an unknown period, and migrations
 recorded as applied whose objects were absent. `search_schema_health()` guards
-a curated subset (signatures, 22 required indexes, execution smoke).
+a curated subset (signatures, 30 required indexes, execution smoke).
 `check:drift` generalizes that into a full-inventory comparison of **every**
 application-owned object against `supabase/schema.sql`.
 
@@ -69,13 +69,20 @@ missing on live despite an applied history):
   while the planner refuses to use it. `20260804110240` checks both flags at
   apply time, so the guard exists for that one migration but not for the
   ongoing probe.
-- **Nothing gates on it.** `check:drift` runs only from
-  `.github/workflows/live-drift.yml` — `workflow_dispatch` plus a weekly Sunday
-  18:30 UTC cron — and blocks no PR or release. Coverage of the plain
-  missing-index class is genuine (indexes compare by name on `table` +
-  `def_hash`, and `supabase/drift-allowlist.json` is empty, so a missing index
-  fails the run), but nothing forces a run between the drift appearing and
-  runtime `search_schema_health()` noticing.
+- **No pull request gates on it; a merge to `main` does.** `check:drift` runs
+  only from `.github/workflows/live-drift.yml`, and that is three triggers, not
+  two: `workflow_dispatch`, a weekly Sunday 18:30 UTC cron, and **every push to
+  `main` that touches `supabase/migrations/**` or `supabase/schema.sql`**.
+  `AGENTS.md` ("Supabase project safety") names that post-merge run the
+  schema-application gate — BOTH `check:drift` and `check:migration-history`
+  must be green before a merged migration counts as applied. It still blocks no
+  pull request and no release, so drift arriving by any other route (a change
+  applied on live by hand, a failed scheduled job) still waits for the cron or a
+  dispatch before anything but runtime `search_schema_health()` notices.
+  Coverage of the plain missing-index class is genuine: indexes compare by name
+  on `table` + `def_hash`, and the object categories of
+  `supabase/drift-allowlist.json` are empty — its 20 entries are all
+  `migration_history` rows — so a missing index fails the run.
 
 Both are decisions rather than defects: adding validity to the snapshot RPC is
 a migration, and raising the cadence spends provider budget. Recorded so the
@@ -250,10 +257,12 @@ pass; the finding is the point.
 
 ## Runtime index-monitoring ratchet
 
-`search_schema_health()` monitors a curated `required_indexes` list (22 names
-in the latest definer, `20260706010000_search_schema_health_m13_guard.sql`)
-plus `index_aliases`; the 20 indexes absent on live in 2026-08 were invisible
-to it. `tests/search-health-index-coverage.test.ts` now requires that **every
+`search_schema_health()` monitors a curated `required_indexes` list (30 names in
+the latest definer, `20260819100300_monitor_restored_retrieval_indexes.sql`,
+which appended the eight deferred monitor candidates to the 22 of
+`20260706010000_search_schema_health_m13_guard.sql`) plus `index_aliases`; the
+20 indexes absent on live in 2026-08 were invisible to it.
+`tests/search-health-index-coverage.test.ts` now requires that **every
 repo-defined index on the retrieval-critical tables** — `documents`,
 `document_chunks`, `document_index_units`, `document_embedding_fields`,
 `document_memory_cards`, `rag_retrieval_logs` — is either monitored (in
@@ -265,12 +274,14 @@ and a `disposition`:
   (ingestion bookkeeping, FK support, listings) but not clinical retrieval;
   `check:drift`'s full index inventory still reports it missing.
 - `monitor-candidate` — retrieval-facing (`*_search_idx` / `*_terms_idx` GINs)
-  or currently absent on live per forensics §1.3 (`document_chunks_anchor_idx`,
+  or absent on live per forensics §1.3 (`document_chunks_anchor_idx`,
   `document_index_units_heading_path_idx`,
   `documents_registry_projection_lookup_idx` — the three of the 20 that sit on
-  these tables; the other 17 are on tables outside this scope). A Phase 4.4
-  migration extending `required_indexes` must decide each; they stay flagged
-  until then.
+  these tables; the other 17 are on tables outside this scope). The disposition
+  still exists, but **no entry carries it now**: `20260819100300` was the Phase
+  4.4 migration that decided all eight, so the file's 36 remaining entries are
+  every one `accepted-unmonitored`. A new flagged index gets this disposition
+  and its own deciding migration.
 
 "Repo-defined" is computed two ways and unioned — an order-aware replay of
 every `create/drop index` in `supabase/migrations/`, and the manifest's
