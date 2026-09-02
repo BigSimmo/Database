@@ -20,7 +20,7 @@ directory at each handover.
 
 ## What is here, and what is not
 
-**Here (32 files):** every task brief (1 to 6, 6A, 7 to 12), every implementer report, every task
+**Here (50 files, including this README):** every task brief (1 to 6, 6A, 7 to 12), every implementer report, every task
 review and re-review, the Task 6 fix-round findings, the Task 7 controller addendum, and
 `progress.md` — the full execution ledger.
 

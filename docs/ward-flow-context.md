@@ -162,10 +162,17 @@ Phase boundaries and their reasoning are in §18 of the design spec.
 
 ### Routes today
 
-`/ward-management` (coordinator) · `/network` · `/queue` · `/capacity` · `/movements` ·
-`/exceptions` · `/transport` · `/governance` · `/patients/[patientId]`
+All Ward Flow routes live under the developer-gated `/mockups/ward-flow` prefix (the sandbox
+move; `/ward-management` paths no longer exist). The eight views: `/mockups/ward-flow`
+(coordinator) · `/mockups/ward-flow/network` · `/mockups/ward-flow/queue` ·
+`/mockups/ward-flow/capacity` · `/mockups/ward-flow/movements` · `/mockups/ward-flow/exceptions` ·
+`/mockups/ward-flow/transport` · `/mockups/ward-flow/governance`; plus
+`/mockups/ward-flow/patients/[patientId]`, the Phase 3 role screens (`ed/[edId]`, `ward/[unitId]`,
+`transport/officer`) and the Phase 4-5 boards (`handover`, `escalation`, `search`, `discharges`).
+`src/components/ward-management/ward-nav.ts` is the source of truth.
 
-`/constellation` was retired by Phase 2. The mode navigation now lives in the left rail, not in a
+`/mockups/ward-flow/constellation` was retired by Phase 2 and remains as a redirect-only stub to
+`/mockups/ward-flow/network`. The mode navigation now lives in the left rail, not in a
 horizontal strip.
 
 ---

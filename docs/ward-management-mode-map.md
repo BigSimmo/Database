@@ -5,9 +5,12 @@
 **Superseded:** the nine-mode strip this document describes is superseded by the role-first
 structure (flow coordinator, ED, ward, transport officer, specialist boards) set out in
 [`docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`](./superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md).
-That design has not been built yet — Phase 2 is what actually retires these modes — so this
-document still describes the routes as they exist today. Read the design spec for where the
-product is headed; read this document for what is currently live.
+Phases 2-5 of that design are built (see `docs/ward-flow-context.md` for the phase table). The
+route table below is the **coordinator-view subset** — the eight `WARD_VIEWS` entries. The role
+screens and specialist boards added by Phases 3-5 are listed in the second table below; the
+source of truth for both is `WARD_VIEWS` + `WARD_NAV` in
+`src/components/ward-management/ward-nav.ts`, and `tests/ward-landmarks.test.ts` pins the full
+count (17 routes: 16 renderable + 1 redirect-only).
 
 **Phase 2 update (Task 9):** Constellation (`/mockups/ward-flow/constellation`) is retired. The
 route remains as a server `redirect()` to `/mockups/ward-flow/network` so live-main bookmarks do
@@ -50,6 +53,25 @@ The public WA sources used to ground the wireframes establish five important con
 | Exceptions     | `/mockups/ward-flow/exceptions` | Which time-sensitive exception needs an owner action?                       | Action inbox organised by overdue, expiring and stale state            | All roles             |
 | Transport      | `/mockups/ward-flow/transport`  | Is the legal/document/booking chain ready for safe transfer?                | Transport readiness board and metro/country pathway cues               | ED / Flow coordinator |
 | Governance     | `/mockups/ward-flow/governance` | Why did the system recommend this, who confirmed it, and what is synthetic? | AI assurance, audit trail, data boundary and source register           | Authorised reviewers  |
+
+### Role screens and specialist boards (Phases 3-5)
+
+The nine routes below complete the 17-route sandbox. They are not modes in the eight-view sense:
+the three role screens are entered from `WardRoleSwitcher` (the two dynamic ones can only be
+linked as one example instance each, `exampleOnly` in `WARD_NAV`), and the four boards sit
+outside the eight views.
+
+| Route                                     | What it is                                                                                  | Source                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `/mockups/ward-flow/ed/[edId]`            | Emergency department role screen (Phase 3); rail links the `peel-ed` example                | `src/app/mockups/ward-flow/ed/[edId]`         |
+| `/mockups/ward-flow/ward/[unitId]`        | Ward role screen (Phase 3); rail links the `rph-adult-secure` example                       | `src/app/mockups/ward-flow/ward/[unitId]`     |
+| `/mockups/ward-flow/transport/officer`    | Transport officer phone screen (Phase 3)                                                    | `src/app/mockups/ward-flow/transport/officer` |
+| `/mockups/ward-flow/patients/[patientId]` | Synthetic patient detail                                                                    | `src/app/mockups/ward-flow/patients`          |
+| `/mockups/ward-flow/handover`             | Shift handover board (Phase 4)                                                              | `src/app/mockups/ward-flow/handover`          |
+| `/mockups/ward-flow/escalation`           | Escalation board (Phase 4)                                                                  | `src/app/mockups/ward-flow/escalation`        |
+| `/mockups/ward-flow/search`               | Patient search board (Phase 4); the only Ward Flow surface with a search slot               | `src/app/mockups/ward-flow/search`            |
+| `/mockups/ward-flow/discharges`           | Discharges board (Phase 5)                                                                  | `src/app/mockups/ward-flow/discharges`        |
+| `/mockups/ward-flow/constellation`        | Redirect-only stub to `/mockups/ward-flow/network` (Phase 2 retirement; see the note above) | `src/app/mockups/ward-flow/constellation`     |
 
 **Navigation:** the left `ClinicalRail` carries both the global PsychSift application switcher
 and, below it, Ward Flow's own eight mode links (icon-only, each with its own accessible name) —
