@@ -14,7 +14,7 @@ npm run sitemap:check
 ## Mockup index, by topic
 
 A quick-scan catalogue of every route under `src/app/mockups/` and what state it's in, so
-nobody has to open 72 folders to find out what's still useful. `docs/site-map.md` remains
+nobody has to open every folder to find out what's still useful. `docs/site-map.md` remains
 the authoritative list of exact live paths (regenerate it after any change here); this
 table exists to group those paths by topic and record a status for each one.
 
@@ -245,10 +245,11 @@ Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clini
 Runnable mockups under `src/app/mockups/*` inherit the shared PsychSift header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
-- Favourites mockups and Tools mockups that provide their own primary search surface keep the shared app header but hide the bottom composer.
+- `src/app/mockups/mockups-layout-client.tsx` is the suppression registry: it carries the route-specific rules (by exact path or prefix) for which mockups hide the composer, the header, or both — Favourites and Tools mockups that provide their own primary search surface, the phone-frame studies that draw their own chrome, the Caring Contact and Care Plan prototypes, and more. Add a new mockup's rule there with a comment saying why, rather than inventing a route-local override.
+- Two subtrees bypass the shell entirely rather than rendering inside it with the chrome switched off: Ward Flow (`/mockups/ward-flow/**`) and the Developer Hub (`/mockups/development/**`). The comment block in that file records why (duplicate `<main>` landmarks and pointer interception when nested).
 - Use `?mode=answer`, `?mode=documents`, `?mode=prescribing`, `?mode=evidence`, or `?mode=favourites` to preview the active search mode.
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
-- If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
+- If a future mockup must be standalone, add it to the bypass branch in `mockups-layout-client.tsx` (the Ward Flow pattern) or move it outside the `/mockups` route shell; do not copy the shell's header or composer into the page.
 
 ## Calculators Show all chip (2026-08-24)
 
@@ -454,7 +455,7 @@ Three sticky header directions for record pages that use `InformationPageBreadcr
 
 **Outcome: direction 02 shipped**, as the breadcrumb shape of the existing `InPageNavHeader` rather than a new component — omitting `sections` drops the disclosure and the track, and `primaryAction` / `mode` / `showBackLabel` shape the row. Adopted first on `/factsheets/<slug>`, where the reading level rides the `mode` slot. Contract: `docs/search-chrome-behaviour.md` ("The breadcrumb shape").
 
-**The runnable `/mockups/breadcrumb-header` route was removed once 02 shipped.** It was not deleted for tidiness: `check:bundle-budget` totals every built chunk, mockups included, and `main` sits at roughly +9.4% against a 10% tolerance, so the study's two scratch chunks (~9.8 KiB gzip) alone pushed the repo to +10.1% and failed `Build` — the same failure PR #1580 hit, at the same number. A design-scratch route that 404s in production is the wrong thing to spend the last of that headroom on. The table above is the durable record; recover the route from history if the alternatives need re-reading.
+**The runnable `/mockups/breadcrumb-header` route was removed once 02 shipped.** It was not deleted for tidiness: at the time, `check:bundle-budget` totalled every built chunk, mockups included, and `main` sat at roughly +9.4% against a 10% tolerance, so the study's two scratch chunks (~9.8 KiB gzip) alone pushed the repo to +10.1% and failed `Build` — the same failure PR #1580 hit, at the same number. (Since PR #1779 `bundle-budget.json` keeps mockups in their own `mockups` scratch bucket with a 25% tolerance, separate from the `production` bucket, so a scratch route no longer competes with production headroom.) A design-scratch route that 404s in production is the wrong thing to spend the last of that headroom on. The table above is the durable record; recover the route from history if the alternatives need re-reading.
 
 ## Services filter surface (2026-08-11)
 
