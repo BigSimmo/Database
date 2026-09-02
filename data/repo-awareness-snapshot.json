@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "d247db72afce3d28a45d496334927a6c5cb5762e",
-    "committed_at": "2026-09-02T03:17:21+00:00"
+    "sha": "563896ea8b430830f0297e5f9ec6ae0644d88f99",
+    "committed_at": "2026-09-02T04:41:10+00:00"
   },
   "routes": {
     "modes": [
@@ -4427,6 +4427,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-09-02",
+        "ref": "claude/instruction-tiering-n9vs14",
+        "head": "563896ea8b430830f0297e5f9ec6ae0644d88f99",
+        "scope": "Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference files",
+        "outcome": "No findings. Reorganisation only: all 662 non-blank AGENTS.md lines verified byte-identical across the post-change tree; the 48 removed CLAUDE.md lines are restatements whose canonical text was located in the rules layer. Gate-parsed sections quarantined in place; every heading retained as a pointer so external section-name references still resolve. Two guards repaired that the move would otherwise have weakened (docs/agents added to workflow scope maps and userFacingProductSurfaces).",
+        "checks": "verify:cheap (12050 passed; 2 pre-existing shallow-clone failures reproduced on unmodified origin/main); 10 doc-parsing test files 151 passed; check:gate-manifest; check:skills; docs:check-links; docs:check-scripts; check:repo-awareness-snapshot; check:migration-role; check:pr-policy; check:codex-cloud; ci-change-scope self-test; format:check; CI green (Static PR checks + PR required)"
+      },
       {
         "date": "2026-09-02",
         "ref": "codex/smart-local-modes-20260901",
@@ -25725,8 +25733,8 @@
       }
     ],
     "counts": {
-      "records": 2662,
-      "refs": 1627
+      "records": 2663,
+      "refs": 1628
     }
   }
 }
