@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { playwrightArgsForPrUiShard, prUiShardGroups } from "../scripts/playwright-pr-shards.mjs";
+
 /**
  * Pull a named regex literal out of playwright.config.ts and rebuild it.
  *
@@ -81,6 +83,97 @@ describe("Playwright production-project isolation", () => {
       `${spec} is not collected by productionSpecPattern, so the workspace has no browser gate at all`,
     ).toBe(true);
     expect(mockupSpecPattern.test(spec), `${spec} leaked into the advisory mockup project`).toBe(false);
+  });
+
+  /**
+   * The Caring Contacts activation journey (#JZA0XK) is the repository's ONE spec that runs against
+   * a different server: `run-playwright.mjs` starts a second `next start` with
+   * `CARING_CONTACTS_DEMO_SEED=on`, and `chromium-caring-contacts-seeded` is the only project
+   * pointed at it.
+   *
+   * Both directions matter and both fail silently rather than loudly:
+   *
+   *  - Missed by `seededSpecPattern` or the top-level `testMatch`, it never runs, and the wizard
+   *    goes back to having zero browser evidence on a green pull request.
+   *  - Caught by `productionSpecPattern`, it runs in the projects aimed at the UNSEEDED server,
+   *    where `demo-seed-referral-wren` does not exist. The wizard would render the same
+   *    `PlanStartStateNotice` the workspace spec already pins, and the journey would fail for a
+   *    reason that has nothing to do with the wizard.
+   *
+   * The gate wiring is pinned here too: a spec collected by a project no gate ever selects is the
+   * same defect as a spec collected by nothing.
+   */
+  it("collects the seeded caring-contacts activation spec only in the seeded project", () => {
+    const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const productionSpecPattern = configPattern(source, "productionSpecPattern");
+    const mockupSpecPattern = configPattern(source, "mockupSpecPattern");
+    const seededSpecPattern = configPattern(source, "seededSpecPattern");
+    const testMatch = source.match(/testMatch:\s*(\/.*\/),/);
+    expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+    const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
+
+    const spec = "tests/ui-caring-contacts-activation.spec.ts";
+    expect(existsSync(resolve(process.cwd(), spec)), `${spec} is missing`).toBe(true);
+    expect(testMatchPattern.test(spec), `${spec} is not collected by top-level testMatch`).toBe(true);
+    expect(
+      seededSpecPattern.test(spec),
+      `${spec} is not collected by seededSpecPattern, so the activation wizard has no browser gate at all`,
+    ).toBe(true);
+    expect(
+      productionSpecPattern.test(spec),
+      `${spec} leaked into the projects pointed at the UNSEEDED server, where its referral does not exist`,
+    ).toBe(false);
+    expect(mockupSpecPattern.test(spec), `${spec} leaked into the advisory mockup project`).toBe(false);
+
+    // The seeded project exists, matches only that pattern, and reads its own base URL from the
+    // second server rather than inheriting the primary one.
+    expect(source).toMatch(
+      /name: ["']chromium-caring-contacts-seeded["'],\s+testMatch: seededSpecPattern,\s+grepInvert: mockupTag,/m,
+    );
+    expect(source).toContain("const seededBaseURL = process.env.PLAYWRIGHT_SEEDED_BASE_URL;");
+    expect(source).toContain("baseURL: seededBaseURL ?? baseURL,");
+
+    // No production spec may be pulled into the seeded project either: it would then run against a
+    // populated store while its own assertions describe an empty one.
+    for (const file of readdirSync(resolve(process.cwd(), "tests")).filter((entry) => entry.endsWith(".spec.ts"))) {
+      if (`tests/${file}` === spec) continue;
+      expect(seededSpecPattern.test(`tests/${file}`), `${file} was pulled into the seeded project`).toBe(false);
+    }
+
+    // GATE WIRING. A focused script, the `verify:ui` PR gate, and CI's Production UI shards.
+    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    expect(packageJson.scripts?.["test:e2e:caring-contacts-activation"]).toBe(
+      "node scripts/run-playwright.mjs --project=chromium-caring-contacts-seeded tests/ui-caring-contacts-activation.spec.ts",
+    );
+    expect(packageJson.scripts?.["test:e2e:pr"]).toContain("--project=chromium-caring-contacts-seeded");
+    expect(prUiShardGroups[1]).toContain(spec);
+    expect(playwrightArgsForPrUiShard(1)).toContain("--project=chromium-caring-contacts-seeded");
+    // ...and only the shard that holds it pays for the second server.
+    expect(playwrightArgsForPrUiShard(2)).not.toContain("--project=chromium-caring-contacts-seeded");
+  });
+
+  /**
+   * `run-playwright.mjs` owns both servers, and the primary one must stay EMPTY: the workspace
+   * spec's empty-caseload assertions (including its wizard count of 0) are observations of a real
+   * production state, and seeding that server would delete them rather than add anything.
+   */
+  it("starts the seeded server separately and leaves the primary server's environment alone", () => {
+    const runner = readFileSync(resolve(process.cwd(), "scripts/run-playwright.mjs"), "utf8");
+
+    expect(runner).toContain('CARING_CONTACTS_DEMO_SEED: "on"');
+    // Exactly ONE environment object sets it, and it is the seeded server's. A second assignment
+    // would be the primary server's, which is how the workspace spec's empty-caseload assertions
+    // would start observing a fixture instead of a state.
+    expect(runner.match(/CARING_CONTACTS_DEMO_SEED\s*:/g)?.length).toBe(1);
+    expect(runner).toContain("testEnv.PLAYWRIGHT_SEEDED_BASE_URL = seededBaseUrl;");
+    // Started only when the seeded project is selected, and torn down with the primary server on
+    // every exit path — `cleanup()` is registered for exit, SIGINT and SIGTERM above.
+    expect(runner).toContain("if (seededServerRequested) {");
+    expect(runner).toContain("stopOwnedProcessTree(seededServer);");
+    // The same readiness probe, not a second weaker one.
+    expect(runner).toContain("await waitForServer(seededBaseUrl, seededServer);");
   });
 
   /**
