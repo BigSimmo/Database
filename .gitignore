@@ -129,8 +129,9 @@ __pycache__/
 # vercel
 .vercel
 
-# supabase local CLI state
+# supabase local CLI state (per-machine; the CLI's own scaffold ignores both)
 supabase/.temp/
+supabase/.branches/
 
 # typescript
 *.tsbuildinfo

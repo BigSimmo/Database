@@ -39,4 +39,10 @@ describe("tracked repository files are never ignored artifacts", () => {
     // Downloaded CI artifacts with the same prefix stay ignored.
     expect(isIgnored("docs/archive/staging-tenancy-evidence-00000000000/staging-tenancy-evidence.json")).toBe(true);
   });
+
+  it("does not track the Supabase CLI's per-machine branch state and ignores it", () => {
+    expect(trackedPaths("supabase/.branches")).toEqual([]);
+    expect(isIgnored("supabase/.branches/_current_branch")).toBe(true);
+    expect(isIgnored("supabase/.temp/cli-latest")).toBe(true);
+  });
 });
