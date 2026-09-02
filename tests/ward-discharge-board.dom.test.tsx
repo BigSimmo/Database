@@ -15,6 +15,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { EVENING_SHIFT_END_MINUTES } from "@/components/ward-management/ward-bed-availability";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -56,6 +57,19 @@ function FarFutureReleaseFlagger() {
       flag far-future release
     </button>
   );
+}
+
+/**
+ * The rendered "Expected" cell of every data row in a group's table — the third column, which
+ * `discharge-board.tsx` fills with `BAND_LABELS[releaseBand(release, now)]`. Read through the
+ * rendered table rather than by calling `releaseBand` again, so the assertion fails if the band
+ * the screen SHOWS stops matching the clock the provider serves.
+ */
+function expectedColumn(table: HTMLElement): string[] {
+  return within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[2]?.textContent ?? "");
 }
 
 describe("DischargeBoard", () => {
@@ -153,5 +167,71 @@ describe("DischargeBoard", () => {
       .map((key) => within(screen.getByTestId(`ward-discharge-table-${key}`)).getAllByRole("row").length - 1)
       .reduce((sum, count) => sum + count, 0);
     expect(totalDataRows).toBe(9);
+  });
+
+  /**
+   * Both tests below exist because of #YTR84P. `WardFlowProvider`'s `initialNow` prop once
+   * discarded its value — the render body forced `elapsed = 0` when pinned, so a pinned provider
+   * always served `NOW_ANCHOR` (642, 10:42) whatever instant it was handed. The provider now
+   * serves the instant it is given, and these are the first tests that spend that: each drives one
+   * of `releaseBand`'s two `now`-dependent branches (`ward-bed-availability.ts`) through a real
+   * rendered screen rather than by calling the pure function directly, which is what
+   * `tests/ward-bed-availability.test.ts` already does. Under the old provider both renders below
+   * would be indistinguishable from a render at `NOW_ANCHOR`, so both tests would fail — that is
+   * the regression they are here to catch, and it is a defect no other DOM suite can see, since
+   * every one of them pins `NOW_ANCHOR` and never moves it.
+   */
+  it("moves a confirmed release from By midday to Now once the pinned clock passes its expected instant", () => {
+    // The confirmed group is WR-001 (expectedAt NOW_ANCHOR + 45 = 687) and WR-004 (+30 = 672) in
+    // the real fixture (ward-movements.ts). Both fall after NOW_ANCHOR (642) and at or before
+    // MIDDAY_MINUTES (720), so at the anchor both sit in the by-midday band.
+    const atAnchor = render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <DischargeBoard />
+      </WardFlowProvider>,
+    );
+
+    expect(expectedColumn(screen.getByTestId("ward-discharge-table-confirmed"))).toEqual(["By midday", "By midday"]);
+    atAnchor.unmount();
+
+    // 11:40 — past both expected instants, still the same operating day, still before midday. The
+    // ONLY thing that differs between the two renders is the instant handed to the provider, so a
+    // provider that ignored it would render "By midday" twice.
+    render(
+      <WardFlowProvider initialNow={700}>
+        <DischargeBoard />
+      </WardFlowProvider>,
+    );
+
+    expect(expectedColumn(screen.getByTestId("ward-discharge-table-confirmed"))).toEqual(["Now", "Now"]);
+  });
+
+  it("drops yesterday's released row out of Released today when the pinned clock is the next operating day", () => {
+    // `releaseBand`'s other `now`-dependent branch: a released bed counts as released TODAY for its
+    // own operating day only. WR-008 is released with confirmedAt NOW_ANCHOR - 15 (627, day 0), so
+    // a clock a full day later must drop it — the same-clock-time trap the band comment warns
+    // about, since 627 + 1440 falls at the identical time of day.
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR + MINUTES_PER_DAY}>
+        <DischargeBoard />
+      </WardFlowProvider>,
+    );
+
+    // Empty groups render their reason note instead of a table, so the table must be gone entirely.
+    expect(screen.getByTestId("ward-discharge-group-released-today-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-discharge-table-released-today")).not.toBeInTheDocument();
+
+    // Dropped from the group is not the same as dropped from the board: WR-008 must still be
+    // declared at the foot, which is the half a "the group is empty" assertion cannot reach.
+    const excluded = screen.getByTestId("ward-discharge-excluded");
+    expect(excluded).toHaveTextContent(/^1\b/);
+    expect(excluded.textContent?.toLowerCase()).not.toContain("none");
+
+    // The other eight releases are untouched: every fixture expectedAt falls at or before
+    // EVENING_SHIFT_END_MINUTES (1320), so none of them is excluded by the day-later clock.
+    const listed = ["blocked", "confirmed", "predicted"]
+      .map((key) => within(screen.getByTestId(`ward-discharge-table-${key}`)).getAllByRole("row").length - 1)
+      .reduce((sum, count) => sum + count, 0);
+    expect(listed).toBe(8);
   });
 });
