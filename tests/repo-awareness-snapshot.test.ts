@@ -6,6 +6,8 @@ import {
   isQuarantineExpired,
   loadRepoAwarenessSnapshot,
   resolveRepoFreshness,
+  reviewRecordsNewestFirst,
+  reviewStateCounts,
 } from "@/lib/developer-area/repo-awareness-snapshot";
 import { REPO_AWARENESS_SNAPSHOT_VERSION } from "@/lib/developer-area/repo-awareness-types";
 
@@ -29,15 +31,51 @@ describe("loadRepoAwarenessSnapshot", () => {
     expect(snapshot.version).toBe(REPO_AWARENESS_SNAPSHOT_VERSION);
     expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
     expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
-    expect(snapshot.review_state.counts.records).toBeGreaterThan(2_500);
+    expect(snapshot.review_state.records.length).toBeGreaterThan(2_500);
   });
 
-  it("keeps each section's count equal to the length of its own list", () => {
+  it("keeps each stored count equal to the length of its own list", () => {
     const snapshot = loadRepoAwarenessSnapshot();
     expect(snapshot.routes.counts.pages).toBe(snapshot.routes.pages.length);
     expect(snapshot.documentation.counts.documents).toBe(snapshot.documentation.documents.length);
     expect(snapshot.test_health.counts.quarantined).toBe(snapshot.test_health.quarantined.length);
-    expect(snapshot.review_state.counts.records).toBe(snapshot.review_state.records.length);
+  });
+
+  it("stores review records ordered by head, so concurrent appends merge cleanly", () => {
+    // The committed corpus itself, not a fixture: this is the property that
+    // stops a `ledger:append` on two branches conflicting on the same lines
+    // (`#EFETZT`). A regenerated snapshot that clusters appends again fails here.
+    const heads = loadRepoAwarenessSnapshot().review_state.records.map((record) => record.head);
+    expect([...heads].sort((left, right) => left.localeCompare(right))).toEqual(heads);
+  });
+
+  it("carries no stored review-state aggregate, which could not merge", () => {
+    expect(loadRepoAwarenessSnapshot().review_state).not.toHaveProperty("counts");
+  });
+});
+
+describe("reviewStateCounts", () => {
+  it("counts records and distinct refs from the list the page renders", () => {
+    const records = loadRepoAwarenessSnapshot().review_state.records;
+    const counts = reviewStateCounts(records);
+    expect(counts.records).toBe(records.length);
+    expect(counts.refs).toBe(new Set(records.map((record) => record.ref)).size);
+    // One ref reviewed at several heads is one ref and several records, which
+    // is exactly what the panel's two tiles exist to tell apart.
+    expect(counts.refs).toBeLessThan(counts.records);
+  });
+});
+
+describe("reviewRecordsNewestFirst", () => {
+  it("puts the newest record first without mutating the shared snapshot", () => {
+    const stored = loadRepoAwarenessSnapshot().review_state.records;
+    const storedOrder = stored.map((record) => record.head);
+    const sorted = reviewRecordsNewestFirst(stored);
+    const dates = sorted.map((record) => record.date);
+    expect([...dates].sort((left, right) => right.localeCompare(left))).toEqual(dates);
+    // The snapshot is a module-level import shared by every request, so sorting
+    // it in place would reorder it for every later reader.
+    expect(stored.map((record) => record.head)).toEqual(storedOrder);
   });
 });
 

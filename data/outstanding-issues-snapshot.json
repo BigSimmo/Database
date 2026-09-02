@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 19,
     "queued": 7,
-    "pending": 3,
+    "pending": 0,
     "resolved": 459
   },
   "queue": [
@@ -724,24 +724,5 @@
       "added": "2026-08-24"
     }
   ],
-  "pending": [
-    {
-      "request_id": "b2ac31a2-2e6c-47b6-a1fc-2687653a4e2b",
-      "action": "add",
-      "summary": "tests/ui-ward-morning.spec.ts drives view controls that WB-DB-11 stopped rendering, so it cannot pass against the Phase 6 branch head",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "c9cdd57b-970c-4444-8a86-2bec5149eeb1",
-      "action": "add",
-      "summary": "The 2026-08-22 decision to accept intermittent CodeRabbit review rests on a premise that is false: it is blocked by a star-count eligibility gate, not the spending cap",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "f5078359-d4ea-4a91-b376-d5bbecb452a6",
-      "action": "add",
-      "summary": "Corpus health panel and the hub document count have never been seen against the real library",
-      "created_at": "2026-09-02"
-    }
-  ]
+  "pending": []
 }
