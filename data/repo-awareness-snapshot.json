@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "ca9dd8faef36efd2b5fd4d318f1da076eb3fb702",
-    "committed_at": "2026-09-02T09:16:15+00:00"
+    "sha": "cdfb3fdda5533c126e76fecaf4e0352a6757249f",
+    "committed_at": "2026-09-02T11:12:52+00:00"
   },
   "routes": {
     "modes": [
@@ -1547,6 +1547,11 @@
       },
       {
         "path": "docs/agents/repository-skills-and-issues.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/test-deletion-guard.md",
         "section": "agents",
         "catalogued": false
       },
@@ -4432,9 +4437,9 @@
       }
     ],
     "counts": {
-      "documents": 579,
+      "documents": 580,
       "catalogued": 111,
-      "uncatalogued": 468,
+      "uncatalogued": 469,
       "sections": 21
     }
   },
