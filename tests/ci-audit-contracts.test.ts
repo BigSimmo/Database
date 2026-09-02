@@ -170,3 +170,22 @@ describe("L38: the @claude workflows enforce the collaborator boundary they desc
     expect(read(".github/workflows/claude.yml")).toMatch(/owner, member or collaborator/i);
   });
 });
+
+describe("L54: every script a Dockerfile copies is a Railway watch pattern for that service", () => {
+  const copiedScripts = (dockerfile: string) =>
+    Array.from(new Set(Array.from(read(dockerfile).matchAll(/^COPY (scripts\/[\w.-]+) /gm), (match) => match[1])));
+
+  it.each([
+    ["Dockerfile", "railway.app.json"],
+    ["Dockerfile.worker", "railway.worker.json"],
+  ])("%s scripts are watched by %s", (dockerfile, railwayConfig) => {
+    const watch = (JSON.parse(read(railwayConfig)) as { build: { watchPatterns: string[] } }).build.watchPatterns;
+    const scripts = copiedScripts(dockerfile);
+    expect(scripts.length).toBeGreaterThan(0);
+    // A change to an image-build-time script alone must rebuild the image,
+    // otherwise the deployed image runs a script version main no longer has.
+    for (const script of scripts) {
+      expect(watch, `${railwayConfig} does not watch ${script}`).toContain(`/${script}`);
+    }
+  });
+});
