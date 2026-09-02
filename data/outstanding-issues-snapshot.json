@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "d247db72afce3d28a45d496334927a6c5cb5762e",
-    "committed_at": "2026-09-02T03:17:21+00:00"
+    "sha": "a4a95ec89b59bec602065376278598b8a0b896fa",
+    "committed_at": "2026-09-02T14:22:01+08:00"
   },
   "counts": {
     "open": 70,
@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 19,
     "queued": 7,
-    "pending": 1,
+    "pending": 3,
     "resolved": 459
   },
   "queue": [
@@ -725,6 +725,18 @@
     }
   ],
   "pending": [
+    {
+      "request_id": "b2ac31a2-2e6c-47b6-a1fc-2687653a4e2b",
+      "action": "add",
+      "summary": "tests/ui-ward-morning.spec.ts drives view controls that WB-DB-11 stopped rendering, so it cannot pass against the Phase 6 branch head",
+      "created_at": "2026-09-02"
+    },
+    {
+      "request_id": "c9cdd57b-970c-4444-8a86-2bec5149eeb1",
+      "action": "add",
+      "summary": "The 2026-08-22 decision to accept intermittent CodeRabbit review rests on a premise that is false: it is blocked by a star-count eligibility gate, not the spending cap",
+      "created_at": "2026-09-02"
+    },
     {
       "request_id": "f5078359-d4ea-4a91-b376-d5bbecb452a6",
       "action": "add",

@@ -118,8 +118,22 @@ review sessions on someone else's PR still function normally.
 
 ## Automated review coverage (owner decision, 2026-08-22)
 
-CodeRabbit's included allowance is capped and review is intermittent (`#CCZ4HB`). The decision and root-cause analysis are documented in `docs/decisions/ccz4hb-review-coverage.md`.
+**The decision (2026-08-22, owner):** leave the CodeRabbit spending cap as it is and accept that
+automated review from that bot is intermittent. Option (c) of three — not a gate, not a cap
+raise. Recorded closed as `#CCZ4HB`, analysis in `docs/decisions/ccz4hb-review-coverage.md`.
 
+**Correction 2026-09-02 — the premise of that decision no longer holds.** CodeRabbit is not
+reviewing this repository _at all_, and not for budget reasons. Measured across PRs #2522 and
+#2542: it reports _"This repository does not receive automatic reviews because it has fewer than
+10 stars"_ (the repo has 0; `Plan: Team`). That is a categorical eligibility gate, so the cap is
+irrelevant to it and "intermittent" understates the position. The Codex connector does work and
+is currently the only automated reviewer; Cursor Bugbot is the tool actually reporting a spend
+limit. Read the 2026-09-02 correction at the top of the decision doc before acting on the
+analysis beneath it, which diagnoses the wrong constraint. **The owner may want to revisit the
+decision on the corrected facts; until then it stands.**
+
+- Do not treat a missing CodeRabbit review as a budget symptom, and do not undraft a PR to obtain
+  one — both gates apply and undrafting escalates CI to the full heavy set for nothing.
 - Draft PRs are skipped by CodeRabbit outright; undrafting mid-CI cancels the in-flight run.
 - **Do not weaken, skip, or relax any required check to compensate.** Required gates carry the deterministic safety net and must stay strict.
 - Clinical-risk and RAG-surface diffs still require their PR-body preflight sections in full (`scripts/pr-policy.mjs`).
@@ -151,3 +165,36 @@ Bundle only when every item being combined is:
 Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still gets the smallest correct gate run against it before joining the PR.
 
 <!-- END:pull-request-workflow -->
+
+## Ledger PRs trip the clinical-governance gate, and the checklist is matched literally
+
+Every ledger PR touches `data/outstanding-issues-snapshot.json`. `classifyPullRequestFiles` in
+`scripts/pr-policy.mjs` marks anything under `data/` as clinical-risk — that is where generated
+clinical exports live, so the rule fails closed over the whole directory. It is working as
+designed; the file genuinely sits in a clinical-export directory. **Do not narrow the classifier
+to make a bookkeeping PR pass.**
+
+The consequence: the moment such a PR is marked ready for review, `pr-policy` blocks it until the
+body carries a complete `## Clinical Governance Preflight` with **all seven boxes checked**. On a
+diff containing no executable file every item is trivially and verifiably true, so answering them
+is honest rather than box-ticking — but say why beside each, in prose.
+
+**The trap that costs a CI cycle.** Items are matched by exact string equality
+(`checkedEntries.some((entry) => entry === item)`), so a checked line must reproduce the template
+wording _and nothing else_. Appending an explanation to the line — `- [x] <item> — because ...` —
+silently fails to match and the gate rejects a body that looks complete. Copy the seven lines
+verbatim from `.github/pull_request_template.md` and put the reasoning in a paragraph beneath
+them.
+
+**Check the body offline instead of learning this from CI.** `evaluatePullRequestPolicy` is
+exported for exactly this, and it is the same function the workflow calls:
+
+```bash
+node -e "import('./scripts/pr-policy.mjs').then(m=>{
+  const body=require('fs').readFileSync('/tmp/body.md','utf8');
+  console.log(m.evaluatePullRequestPolicy({title:'...', body, files:['data/outstanding-issues-snapshot.json']}));
+})"
+```
+
+Expect `ok: true` with empty `errors` before pushing. Note also that undrafting escalates CI to
+the full heavy set — build and all browser shards — even for a diff with no code in it.
