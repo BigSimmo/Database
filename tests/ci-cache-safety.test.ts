@@ -183,6 +183,15 @@ describe("CI cache safety", () => {
     );
   });
 
+  // The interaction index is the artefact the UI reads to decide whether a drug can be
+  // shown as clear. Its freshness gate was local-only until audit M30, so a snapshot-only
+  // merge through the bare-PR route shipped a stale index with every check green.
+  it("runs the medication interaction index drift check through static-heavy scope (M30)", () => {
+    expect(workflow).toMatch(
+      /name: Medication interaction index drift\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-interactions/,
+    );
+  });
+
   it("does not repeat focused workflow contracts inside the full coverage run", () => {
     expect(workflow).toContain(
       "if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'",

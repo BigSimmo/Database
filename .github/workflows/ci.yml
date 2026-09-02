@@ -235,6 +235,15 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:medication-lexicon-report
 
+      # The interaction index is generated from the medication snapshot plus the
+      # lexicon, and the UI reads it to decide whether a drug can be shown as
+      # clear. Same #333 shape as the lexicon report above: local-only until audit
+      # M30, so a snapshot-only merge through the bare-PR route shipped a stale
+      # index green. Same static-heavy condition verify-pr-local.mjs uses.
+      - name: Medication interaction index drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:medication-interactions
+
       - name: GitHub Actions pin check
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:github-actions
