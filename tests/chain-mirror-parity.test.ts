@@ -7,7 +7,7 @@ import {
   compareChainAgainstMirror,
   formatReport,
   parityEntryProblems,
-  withoutHistoryProbe,
+  comparableSnapshot,
   type ParityAllowlistEntry,
 } from "../scripts/check-chain-mirror-parity";
 
@@ -107,8 +107,8 @@ describe("chain vs schema.sql parity comparison", () => {
       migration_history_probe: "ok",
     };
     expect(compareChainAgainstMirror(withFunction("aaa"), chain, []).findings).toEqual([]);
-    expect(withoutHistoryProbe(chain)).not.toHaveProperty("migration_history");
-    expect(withoutHistoryProbe(chain)).not.toHaveProperty("migration_history_probe");
+    expect(comparableSnapshot(chain)).not.toHaveProperty("migration_history");
+    expect(comparableSnapshot(chain)).not.toHaveProperty("migration_history_probe");
   });
 });
 
@@ -157,11 +157,14 @@ describe("chain-mirror allowlist is fail-closed", () => {
     const keys = file.entries.map((entry) => `${entry.category}|${entry.kind}|${entry.key}`);
     expect(new Set(keys).size, "duplicate allowlist entries").toBe(keys.length);
 
-    // The live gate's allowlist must never absorb chain-vs-mirror divergence: an
-    // entry there blinds the weekly live-drift alarm, which is a different and
-    // much more consequential thing to go blind about.
-    const live = JSON.parse(read("supabase/drift-allowlist.json")) as { entries: { category: string }[] };
-    expect(live.entries.every((entry) => entry.category === "migration_history")).toBe(true);
+    // The two allowlists must stay separate: an entry in the live one blinds the
+    // weekly live-drift alarm, a different and far more consequential thing to go
+    // blind about. Assert SEPARATION, not a policy on the live file's contents —
+    // check:drift legitimately supports object-category entries there, and
+    // constraining that from this suite would fail a future live entry with a
+    // confusing message from an unrelated gate.
+    expect(read("scripts/check-drift.ts")).not.toContain("chain-mirror-allowlist");
+    expect(read("scripts/check-chain-mirror-parity.ts")).not.toContain("drift-allowlist.json");
   });
 
   it("names every snapshot category the comparison covers", () => {
@@ -193,6 +196,22 @@ describe("the report says which side is which", () => {
     expect(formatReport(compareChainAgainstMirror(EMPTY_SNAPSHOT, withFunction("aaa"), []), false)).toContain(
       "the migration chain builds it, schema.sql does not describe it",
     );
+  });
+
+  it("drops the live gate's history-probe advice, which is false and harmful here", () => {
+    // compareDriftSnapshots emits "migration 20260818090000 is not deployed; the
+    // schema_drift_snapshot() function mismatch is that pending deploy, not a
+    // body regression" whenever a snapshot has no history probe. True for the
+    // live gate. Here the probe IS applied and this script stripped it — and the
+    // sentence coaches the reader to dismiss exactly the class of finding this
+    // gate exists to surface.
+    const chain = { ...withFunction("aaa"), migration_history: [], migration_history_probe: "ok" };
+    const result = compareChainAgainstMirror(withFunction("aaa"), chain, []);
+    for (const info of result.infos) {
+      expect(info).not.toMatch(/migration-history probe not present/i);
+      expect(info).not.toMatch(/not a body regression/i);
+    }
+    expect(formatReport(result, false)).not.toMatch(/not a body regression/i);
   });
 
   it("says so plainly when the two builds agree", () => {
@@ -245,9 +264,49 @@ describe("CI wiring for the parity gate", () => {
     }
   });
 
-  it("says out loud when the comparison produced no evidence", () => {
-    expect(workflow).toContain("- name: Report a missing chain/mirror parity capture");
-    expect(workflow).toContain("chain/mirror parity did not run");
+  it("says out loud when either parity step produced no evidence", () => {
+    // Both parity steps carry continue-on-error, so a crashing compare step is a
+    // grey mark nobody reads. Without covering its outcome too, "found thirteen
+    // divergences" and "has been crashing for a month" look identical.
+    expect(workflow).toContain("- name: Report a chain/mirror parity step that produced no evidence");
+    expect(workflow).toContain(
+      "steps.chain-snapshot.outcome != 'success' || steps.chain-mirror-parity.outcome != 'success'",
+    );
+    expect(workflow).toContain("chain/mirror parity produced no evidence");
+  });
+
+  it("does not build the container name through a pipeline that set -o pipefail can kill", () => {
+    // `docker ps | grep | head` under `set -o pipefail` fails the step on a
+    // SIGPIPE from head, and grep exiting 1 on no match aborts before the
+    // explicit `test -n` can explain what happened.
+    const parityBlock = workflow.slice(
+      workflow.indexOf("- name: Capture the migration chain's schema snapshot"),
+      workflow.indexOf("- name: Upload regenerated drift manifest"),
+    );
+    expect(parityBlock).toContain("--filter 'name=^supabase_db_'");
+    expect(parityBlock).not.toContain("| grep '^supabase_db_'");
+  });
+
+  it("report-only mode has an expiry, so the follow-up cannot be forgotten", () => {
+    // The strict/tolerance tie above keeps the two consistent but is satisfied
+    // forever by a gate that never becomes strict. The only forcing function for
+    // ending report-only is otherwise a code comment. Once the first real CI run
+    // has printed the divergence set there is nothing left to wait for, so this
+    // goes red if the phase is still open past the deadline.
+    const REPORT_ONLY_DEADLINE = new Date("2026-12-01T00:00:00Z");
+    const parityBlock = workflow.slice(
+      workflow.indexOf("- name: Capture the migration chain's schema snapshot"),
+      workflow.indexOf("- name: Upload regenerated drift manifest"),
+    );
+    const stillReportOnly = !parityBlock.includes("--strict");
+    if (!stillReportOnly) return;
+
+    expect(
+      Date.now(),
+      "chain/mirror parity is still report-only past its deadline. The first CI run has long since printed the " +
+        "divergence set: commit it to supabase/chain-mirror-allowlist.json with a reason each, add --strict, and " +
+        "remove the continue-on-error lines in the same change. Move the deadline only with a reason in the PR body.",
+    ).toBeLessThan(REPORT_ONLY_DEADLINE.getTime());
   });
 
   it("routes a change to the parity script into the job that runs it", () => {

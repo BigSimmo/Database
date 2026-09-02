@@ -103,17 +103,35 @@ export function parityEntryProblems(entry: ParityAllowlistEntry): string[] {
 }
 
 /**
- * The migration-history probe is live-only by design. Removing it from both
- * sides here keeps `compareDriftSnapshots` from reporting the chain database's
- * (entirely expected) `supabase_migrations` rows as parity findings.
+ * Reduce a snapshot to the parts worth comparing between two builds.
+ *
+ * `migration_history` / `migration_history_probe` are live-only by design:
+ * removing them from both sides keeps `compareDriftSnapshots` from reporting the
+ * chain database's (entirely expected) `supabase_migrations` rows as parity
+ * findings. `captured_at` goes too — it is a timestamp, it is in no compared
+ * category, and the manifest side has already dropped it, so leaving it in would
+ * only make the two shapes differ for no reason.
  */
-export function withoutHistoryProbe(snapshot: Record<string, unknown>): Record<string, unknown> {
+export function comparableSnapshot(snapshot: Record<string, unknown>): Record<string, unknown> {
   const copy = { ...snapshot };
   delete copy.migration_history;
   delete copy.migration_history_probe;
   delete copy.captured_at;
   return copy;
 }
+
+/**
+ * `compareDriftSnapshots` emits an info line when a snapshot carries no
+ * migration-history probe, telling the reader that migration
+ * 20260818090000 is not deployed and that a `schema_drift_snapshot` function
+ * mismatch is therefore "that pending deploy, not a body regression".
+ *
+ * True for the live gate. False and actively harmful here: the probe IS applied
+ * in the chain database and this script stripped it deliberately, and the
+ * sentence coaches the reader to dismiss exactly the class of finding this gate
+ * exists to surface. Drop it.
+ */
+const SUPPRESSED_INFO = /migration-history probe not present in the live snapshot/i;
 
 export type ParityResult = {
   findings: Finding[];
@@ -135,8 +153,8 @@ export function compareChainAgainstMirror(
 ): ParityResult {
   const valid = allowlist.filter((entry) => parityEntryProblems(entry).length === 0);
   const comparison = compareDriftSnapshots(
-    withoutHistoryProbe(mirror),
-    withoutHistoryProbe(chain),
+    comparableSnapshot(mirror),
+    comparableSnapshot(chain),
     valid as unknown as AllowlistEntry[],
   );
 
@@ -150,7 +168,7 @@ export function compareChainAgainstMirror(
       finding,
     })),
     staleEntries: allowlist.filter((entry) => !usedKeys.has(`${entry.category}|${entry.kind}|${entry.key}`)),
-    infos: comparison.infos,
+    infos: comparison.infos.filter((info) => !SUPPRESSED_INFO.test(info)),
   };
 }
 
@@ -347,6 +365,17 @@ function main() {
   console.log(report);
   const summaryPath = arg("--summary") ?? process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) writeFileSync(summaryPath, report, { flag: "a" });
+
+  // A job summary nobody is required to open is not a signal. While the gate is
+  // report-only the annotation IS the output — without it, "the gate found
+  // thirteen divergences" and "the gate has been silently crashing for a month"
+  // look identical from the checks list.
+  if (result.findings.length > 0) {
+    console.log(
+      `::warning::chain/mirror parity: ${result.findings.length} divergence(s) between the migration chain and ` +
+        `supabase/schema.sql — see this job's summary${strict ? "" : " (report-only, not blocking the merge)"}.`,
+    );
+  }
 
   if (result.findings.length > 0 && strict) process.exitCode = 1;
 }

@@ -1121,7 +1121,10 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          db_container="$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -n 1)"
+          # --filter rather than `| grep | head`: under `set -o pipefail` a SIGPIPE
+          # from head is a step failure, and grep exiting 1 on no match aborts
+          # before the explicit `test -n` can say what went wrong.
+          db_container="$(docker ps --format '{{.Names}}' --filter 'name=^supabase_db_' | head -n 1)"
           test -n "${db_container}"
           docker exec -i "${db_container}" \
             psql -U postgres -d postgres -tA -v ON_ERROR_STOP=1 \
@@ -1137,10 +1140,13 @@ jobs:
             --chain /tmp/chain-snapshot.json \
             --mirror-manifest supabase/drift-manifest.json
 
-      - name: Report a missing chain/mirror parity capture
-        if: steps.chain-snapshot.outcome != 'success'
+      - name: Report a chain/mirror parity step that produced no evidence
+        # Both steps above carry continue-on-error, so without this a crashing
+        # compare step is a grey mark nobody reads and is indistinguishable from
+        # a clean run. Cover the compare outcome too, not just the capture.
+        if: steps.chain-snapshot.outcome != 'success' || steps.chain-mirror-parity.outcome != 'success'
         run: |
-          echo "::warning::chain/mirror parity did not run - the chain snapshot capture failed. It is report-only today so it does not block the merge, but it means the comparison produced no evidence."
+          echo "::warning::chain/mirror parity produced no evidence (capture=${{ steps.chain-snapshot.outcome }}, compare=${{ steps.chain-mirror-parity.outcome }}). It is report-only today so it does not block the merge, but the comparison did not run."
 
       - name: Upload regenerated drift manifest
         if: always()
