@@ -2,7 +2,15 @@
 import { describe, expect, it } from "vitest";
 
 import { contactId, planId, teamId } from "@/lib/caring-contacts/ids";
-import { applyContactTransition, applyPlanTransition, type Contact, type Plan } from "@/lib/caring-contacts/model";
+import {
+  TERMINAL_PLAN_STATES,
+  applyContactTransition,
+  applyPlanTransition,
+  planSendingHold,
+  type Contact,
+  type Plan,
+  type PlanState,
+} from "@/lib/caring-contacts/model";
 
 const basePlan = (state: Plan["state"]): Plan => ({
   id: planId("PLAN-1"),
@@ -142,5 +150,53 @@ describe("contact lifecycle", () => {
   it("increments the version on every accepted transition", () => {
     const result = applyContactTransition(baseContact("scheduled"), { type: "startProcessing" });
     expect(result.ok && result.value.version).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// planSendingHold — why a plan is not sending, whatever its contacts say (#PAMATF)
+//
+// Moved here from ./schedule-view, where it was written for one screen while the read that most
+// needed it -- `listSendableContacts` -- could not reach it without importing a view module. Its
+// doc there called it "THE GATE listSendableContacts DOES NOT HAVE"; both now consult this.
+// ---------------------------------------------------------------------------
+
+describe("planSendingHold", () => {
+  it("holds a plan nobody has started, and says which hold it is", () => {
+    // The state #PAMATF is about. Contacts are written `scheduled` when the plan is CREATED, so a
+    // draft plan's contacts look exactly like an active plan's and only the plan can tell them
+    // apart.
+    expect(planSendingHold("draft")).toBe("planNotStarted");
+  });
+
+  it("lets an active plan send, so it is a gate rather than a blanket refusal", () => {
+    expect(planSendingHold("active")).toBeNull();
+  });
+
+  it("keeps paused apart from not-started and from ended", () => {
+    // Three different facts, and a caller has to be able to say which: a plan a coordinator paused
+    // is not a plan nobody started, and neither is a plan that has finished.
+    expect(planSendingHold("paused")).toBe("planPaused");
+    expect(new Set(["planNotStarted", "planPaused", "planEnded"]).size).toBe(3);
+  });
+
+  it("holds every state the model already calls terminal, with no second list to keep in step", () => {
+    // Derived from TERMINAL_PLAN_STATES rather than typed out, so a fourth terminal state added
+    // there cannot be classified as sending here without this failing. The module additionally
+    // throws at load if the two disagree, so a build that got it wrong never starts.
+    expect(TERMINAL_PLAN_STATES.length).toBeGreaterThan(0);
+    for (const state of TERMINAL_PLAN_STATES) {
+      expect(planSendingHold(state)).toBe("planEnded");
+    }
+  });
+
+  it("classifies every PlanState, so a new one cannot default into sending", () => {
+    // The exhaustive switch is a compile-time guarantee; this is the runtime half. Any state whose
+    // hold is `undefined` fell through, which the type system would already have refused.
+    const every: readonly PlanState[] = ["draft", "active", "paused", "withdrawn", "cancelled", "completed"];
+    for (const state of every) {
+      expect(planSendingHold(state)).not.toBeUndefined();
+    }
+    expect(every.filter((state) => planSendingHold(state) === null)).toEqual(["active"]);
   });
 });

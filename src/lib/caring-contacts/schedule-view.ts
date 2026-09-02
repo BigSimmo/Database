@@ -9,9 +9,9 @@
 // the contact's own state. This module is an AGGREGATION OVER EXISTING RULES, not a new rule, so a
 // second store read would add a second thing to keep honest -- and team scoping, the fact this
 // domain guards hardest, comes free from the read that is already scoped. `listSendableContacts`
-// is deliberately NOT used: it filters on the contact state alone with no plan-state gate, so a
-// draft plan's contacts present there as sendable, and that is a filed defect on a different
-// surface rather than something to work around here.
+// is still deliberately NOT used, but no longer because it is wrong: since #PAMATF it consults the
+// owning plan's state through `planSendingHold`, the very function this module used to own. It is
+// not used because a SCHEDULE has to show what will NOT be sent, and why, as well as what will.
 //
 // WHY IT LIVES IN THE SEALED DOMAIN rather than beside the route or the screen. Three of the four
 // rules it composes are already owned here -- the window mapping (./schedule), the sendability
@@ -38,46 +38,30 @@
 // argument.
 import { awstCalendarDay, awstCalendarDayOffset, awstWallTimeToInstant } from "./clock";
 import type { ContactId, PatientId, PlanId } from "./ids";
-import { contactSendability, type ContactSendability, type ContactState, type MessageType } from "./model";
+import {
+  contactSendability,
+  planSendingHold,
+  type ContactSendability,
+  type ContactState,
+  type MessageType,
+  type PlanSendingHold,
+} from "./model";
 import type { PlanState, SendingPreference } from "./model";
 import { summariseStoredContacts, type PlanRecord, type StoredContact, type StoredContactSummary } from "./repository";
 import { isAwstCalendarDay, SENDING_PREFERENCE_OPTIONS, sendingPreferenceAt } from "./schedule";
 
 /**
- * Why a plan is not sending, whatever its individual contacts say. Null means the plan itself is
- * not in the way.
+ * `planSendingHold` and its type moved to ./model (#PAMATF, 2026-09-02).
  *
- * THIS IS THE GATE `listSendableContacts` DOES NOT HAVE. A draft plan's contacts sit in
- * `scheduled` and a paused plan's do too -- neither lifecycle write touches them -- so a read that
- * asked only the contact would announce a plan nobody has started, and a plan a coordinator
- * deliberately paused, as work the service is about to do. `planNotStarted` and `planPaused` are
- * different facts from each other and from `planEnded`, and a screen has to be able to say which.
+ * Its own doc used to call it "THE GATE `listSendableContacts` DOES NOT HAVE", which was the
+ * accurate description of a rule about the domain that happened to live in a view module. That
+ * read now has the gate, and consults this same function, so the rule sits beside the state
+ * machine that produces the states -- exactly where `contactSendability` sits, and for the reason
+ * this module's own header gives for putting it there.
+ *
+ * Re-exported so every existing import of these names still resolves.
  */
-export type PlanSendingHold = "planNotStarted" | "planPaused" | "planEnded";
-
-/**
- * An exhaustive switch rather than a list of held states, for the same reason `contactSendability`
- * is one: a `PlanState` added later and left unclassified must not compile, so a new state cannot
- * default into "this plan is sending".
- */
-export function planSendingHold(state: PlanState): PlanSendingHold | null {
-  switch (state) {
-    case "draft":
-      return "planNotStarted";
-    case "active":
-      return null;
-    case "paused":
-      return "planPaused";
-    case "withdrawn":
-    case "cancelled":
-    case "completed":
-      return "planEnded";
-    default: {
-      const unclassified: never = state;
-      return unclassified;
-    }
-  }
-}
+export { planSendingHold, type PlanSendingHold };
 
 /**
  * Whether a contact's state is one a person has to look at.

@@ -737,10 +737,13 @@ describe("what the screen says when the plan was created but did not start (Ruli
 
   it("says the contacts are scheduled, because creating a plan schedules them", () => {
     // ROUND 2, C2. This said "no message is scheduled to go out yet", which the domain contradicts:
-    // `createPlan` writes every contact in state `scheduled` at creation, and `listSendableContacts`
-    // filters on that state with no plan-state gate in either store. What actually stops a message
-    // is that nothing sends -- there is no provider, and `simulation.ts` is the only reader of that
-    // list anywhere in the tree.
+    // `createPlan` writes every contact in state `scheduled` at creation. That is still true and is
+    // what the copy says. What is no longer true is the rest of the original note -- that
+    // `listSendableContacts` filtered on contact state "with no plan-state gate in either store".
+    // Since #PAMATF both stores consult the owning plan first, so a draft plan offers nothing
+    // sendable. The copy is unaffected either way: its subject is what CREATING a plan does.
+    // What still stops a message regardless is that nothing sends -- there is no provider, and
+    // `simulation.ts` is the only reader of that list anywhere in the tree.
     for (const refusal of ALL_REFUSALS) {
       expect(whole(refusal), `${refusal} still claims nothing is scheduled`).not.toMatch(
         /no message is scheduled|nothing is scheduled/i,

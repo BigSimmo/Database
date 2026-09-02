@@ -25,7 +25,7 @@ import { fingerprintOf } from "./fingerprint";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "./hospital-events";
 import { contactId } from "./ids";
 import type { ActorId, ContactId, PathwayVersionId, PlanId, TeamId } from "./ids";
-import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition } from "./model";
+import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition, planSendingHold } from "./model";
 import type { Contact, ContactAction, ContactState, Plan, Referral, TransitionResult } from "./model";
 import { defaultNotificationPreferences, type NotificationPreferences } from "./notification-preferences";
 import { applyPathwayVersionTransition, type PathwayVersion } from "./pathway-versions";
@@ -1425,8 +1425,14 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     async listSendableContacts(planId: PlanId, context: ReadContext) {
       const stored = visiblePlan(planId, context, READ_ACTIONS.contacts);
       if (!stored) return [];
-      // Keyed off the stored contact state, which was set from `sendableContacts` at creation and
-      // then only ever moved by the lifecycle. Nothing here looks at `sendAt`.
+      // THE PLAN IS ASKED FIRST (#PAMATF). Contacts are written `scheduled` at CREATION, while the
+      // plan is still a draft, and no plan lifecycle write touches them -- so a filter on the
+      // contact alone announced a plan nobody had started, and a plan a coordinator had paused, as
+      // messages about to go out. The rule is `planSendingHold`'s, in ./model, so this store and
+      // the Postgres one cannot answer it differently.
+      if (planSendingHold(stored.plan.state) !== null) return [];
+      // Then the contact's own state, as before: set from `sendableContacts` at creation and then
+      // only ever moved by the lifecycle. Nothing here looks at `sendAt`.
       return stored.contacts.filter((entry) => entry.contact.state === "scheduled").map(cloneStoredContact);
     },
 

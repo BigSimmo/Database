@@ -44,7 +44,7 @@ import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } fr
 import { fingerprintOf } from "../fingerprint";
 import { actorId as toActorId, contactId, idempotencyKey as toIdempotencyKey, teamId as toTeamId } from "../ids";
 import type { PathwayVersionId, PatientId, PlanId, ReferralId, TeamId } from "../ids";
-import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition } from "../model";
+import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition, planSendingHold } from "../model";
 import type {
   Contact,
   ContactAction,
@@ -2431,8 +2431,18 @@ export function createPostgresRepository(
       return runRead(context, async (connection) => {
         const stored = await readPlanRecord(connection, planId);
         if (!stored) return [];
-        // Keyed off the stored contact state, set from `sendableContacts` at creation and then only
-        // ever moved by the lifecycle. Nothing here looks at `send_at`.
+        // THE PLAN IS ASKED FIRST (#PAMATF). Contacts are written `scheduled` at CREATION, while
+        // the plan is still a draft, and no plan lifecycle write touches them -- so a filter on the
+        // contact alone announced a plan nobody had started, and a plan a coordinator had paused,
+        // as messages about to go out. The rule is `planSendingHold`'s, in ../model, so this store
+        // and the in-memory one cannot answer it differently.
+        //
+        // NO EXTRA QUERY AND NO JOIN: `readPlanRecord` above already selected the plan row, and
+        // `state` is in the column list it selects. A read that raced a concurrent activation sees
+        // the older state and returns nothing, which is the fail-closed direction.
+        if (planSendingHold(textOf(stored.planRow.state) as PlanState) !== null) return [];
+        // Then the contact's own state, as before: set from `sendableContacts` at creation and then
+        // only ever moved by the lifecycle. Nothing here looks at `send_at`.
         return stored.contactRows.filter((row) => textOf(row.state) === "scheduled").map(toStoredContact);
       });
     },
