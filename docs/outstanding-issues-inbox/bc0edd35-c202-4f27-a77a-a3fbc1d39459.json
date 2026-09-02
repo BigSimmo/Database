@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "bc0edd35-c202-4f27-a77a-a3fbc1d39459",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3ceb4af2-3073-4d3d-8f60-eb1e126a015f",
+    "reason": "Withdrawing my own close: it was right about what the row names and wrong to close the row on it. Pending update da8e92bb, from another session on the same day, contradicts it, and I re-measured by executing both patterns rather than reading them. Both examples #AGRAKQ names by name now pass on both surfaces - 'the incident lead' and 'the clinical programme lead' are permitted by the interface helper and by validateGovernedMessage - so the singular collision the row was filed for is genuinely fixed. But every PLURAL job title is still refused on both surfaces: 'clinical leads', 'programme leads', 'team leads', 'service leads' and 'incident leads' all match the bare \\bleads\\b alternative, which sits ahead of the narrowed branch and carries no lookbehind. That is ordinary English usage being refused, so the row's question is not settled and closing it would have buried a live disagreement between two sessions. One correction to da8e92bb, which should not be acted on as written: reusing COMMERCIAL_LEAD_PATTERN from src/lib/caring-contacts/message-rules.ts is no longer the route, because since Ruling [143] on 2026-08-27 that pattern is term for term identical to the interface helper and carries the same bare \\bleads\\b. Both surfaces are now equally strict, so the row's alternative framing - record why interface copy should be stricter than message copy - no longer fits either. The real question is narrower than the row: Ruling [143] refused plurals deliberately, reasoning that nobody's job title is plural, and it did so to stop 'team leads' being permitted in a patient's message while the screen refused it. Whether that reasoning survives contact with 'the clinical leads met on Tuesday' is an open decision for the owner, and changing it would move a guard on patient-visible message copy, so it is not one to take while closing a ledger row. The docstring correction in PR #2521 lands regardless and is accurate either way."
+  }
+}
