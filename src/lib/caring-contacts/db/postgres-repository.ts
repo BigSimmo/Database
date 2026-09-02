@@ -186,6 +186,33 @@ const PLAN_COLUMNS = `id, team_id, patient_id, referral_id, pathway_version_id, 
   discharge_at, created_at, completed_at, sending_preference, patient_name, patient_mobile_number,
   patient_identifiers`;
 
+/**
+ * What a LIST read of plans selects: `PLAN_COLUMNS` minus every patient column (#RZVMPD).
+ *
+ * `PLAN_COLUMNS` above is right for `readPlanRecord` and `selectPlanForUpdate`, whose callers
+ * genuinely need the patient detail -- `getEpisode` projects all three and `markRetentionCleared`
+ * clears them. `listPlans` needs none of them: `toPlanRecord` maps the plan, the ids, the dates,
+ * the outcome, the contacts and the attestations, and touches no patient column at all. So the
+ * caseload read was pulling every patient's name, mobile number and identifier list for the whole
+ * team, on every render, to throw all three away.
+ *
+ * NOTHING WAS RELEASED, AND THAT IS NOT THE POINT. `PlanRecord` excludes `patientDetail`
+ * structurally, so the guarantee held; what did not hold is that the data need never have entered
+ * the process. This narrows in the QUERY, not only in the mapping afterwards -- the standard
+ * `listPatientNames` below already sets.
+ *
+ * `patient_name` is dropped here too, not only the mobile number and the identifiers. Names have
+ * their own read with its own capability check and its own `patientNameDirectory` access-audit
+ * object type (Ruling 91), which exists so "who read patients' names, and when" is answerable.
+ * Pulling names inside a read audited as `plan` under-counts that trail.
+ *
+ * A SEPARATE CONSTANT RATHER THAN A NARROWED `PLAN_COLUMNS`. Narrowing the shared one in place
+ * would leave `getEpisode` projecting `undefined` for three patient fields, which no type checks
+ * and which is a worse defect than the one this fixes.
+ */
+const PLAN_LIST_COLUMNS = `id, team_id, patient_id, referral_id, pathway_version_id, state, version,
+  outcome, discharge_at, created_at, completed_at, sending_preference`;
+
 const CONTACT_COLUMNS = `id, plan_id, team_id, sequence, state, version, cadence_label, calendar_day,
   send_at, message_type, suppressed_reason`;
 
@@ -2329,7 +2356,7 @@ export function createPostgresRepository(
     async listPlans(context: ReadContext) {
       if (!mayReadOwnTeam(context, READ_ACTIONS.plan)) return [];
       return runRead(context, async (connection) => {
-        const plans = await connection.query(`select ${PLAN_COLUMNS} from caring_contacts.plans order by id`);
+        const plans = await connection.query(`select ${PLAN_LIST_COLUMNS} from caring_contacts.plans order by id`);
         const contacts = await connection.query(
           `select ${CONTACT_COLUMNS} from caring_contacts.contacts order by plan_id, sequence`,
         );
@@ -2371,13 +2398,13 @@ export function createPostgresRepository(
      * the mobile number or the identifier list into the process at all -- its narrowing is in the
      * query, not only in the mapping afterwards.
      *
-     * Read that as a claim about this method, NOT about the page. `PLAN_COLUMNS` includes
-     * `patient_mobile_number` and `patient_identifiers`, and `listPlans` selects it verbatim, so the
-     * Patients directory still pulls both for its whole caseload on every render and discards them
-     * in `toPlanRecord`. What the projection changes is what is RELEASED, which is the substance:
-     * nothing outside this file can obtain those fields through it. Narrowing `listPlans`' own
-     * column list is a real privacy improvement on a hot path and is tracked separately, because it
-     * deserves its own review rather than riding along with a names read.
+     * That claim now holds of the PAGE as well, not only of this method (#RZVMPD, 2026-09-02).
+     * `listPlans` used to select `PLAN_COLUMNS` verbatim, so the Patients directory pulled every
+     * patient's name, mobile number and identifier list for its whole caseload on every render and
+     * discarded all three in `toPlanRecord`. It selects `PLAN_LIST_COLUMNS` instead, which carries
+     * no patient column at all -- so this projection is once again the only list-shaped read in
+     * this store that touches a name, which is what makes its `patientNameDirectory` access-audit
+     * entry a complete answer to "who read patients' names".
      */
     async listPatientNames(context: ReadContext) {
       if (!mayReadAllOwnTeam(context, PATIENT_NAME_READ_ACTIONS)) return [];
