@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 import {
   assessEnrichmentHealth,
@@ -177,5 +179,55 @@ describe("selectStrictGateRepairCandidates", () => {
     expect(
       selectStrictGateRepairCandidates([row({ enrichment_status: null, indexing_v3_agent_status: null })], 50),
     ).toHaveLength(1);
+  });
+});
+
+// Found in review on PR #2548. The dry run used to read one bounded page (the 500 oldest
+// indexed documents) and filter it locally, while apply calls the RPC, which filters the
+// whole corpus and only then applies the limit. So a corpus whose oldest 500 rows are healthy
+// previewed as "0 candidates" and then queued real re-ingestions — OpenAI spend against live
+// clinical documents — that the operator was never shown. Dry-run-by-default is the only
+// safety property this script has, so the preview must be a superset of apply, never a sample.
+describe("repair script preview scans before it limits", () => {
+  const source = readFileSync(new URL("../scripts/repair-strict-enrichment-gate.ts", import.meta.url), "utf8");
+
+  const statusRow = (overrides: Partial<StrictGateStatusRow> = {}): StrictGateStatusRow => ({
+    document_id: "11111111-1111-1111-1111-111111111111",
+    gate_passed: true,
+    missing: [],
+    enrichment_status: "completed",
+    indexing_v3_agent_status: "completed",
+    quality_extraction_quality: "good",
+    ...overrides,
+  });
+
+  it("pages the view instead of reading one bounded slice", () => {
+    expect(source).toContain(".range(offset, offset + PAGE_SIZE - 1)");
+    // A bare .limit() on the preview query is the exact defect: it truncates before the
+    // predicate runs. The RPC's own p_limit is passed separately and is not this.
+    expect(source).not.toMatch(/\.eq\("document_status", "indexed"\)[\s\S]{0,200}?\.limit\(/);
+  });
+
+  it("stops early rather than walking the corpus once the limit is met", () => {
+    expect(source).toContain("candidates.length < limit");
+    expect(source).toContain("if (rows.length < PAGE_SIZE) break;");
+  });
+
+  // The predicate stays in one place. Reimplementing it as PostgREST filters would change its
+  // null handling (`neq` drops NULLs; the TS reads NULL as not-completed), and that direction
+  // undercounts — which is the direction that costs money.
+  it("keeps the candidate predicate in selectStrictGateRepairCandidates", () => {
+    expect(source).toContain("selectStrictGateRepairCandidates(rows, limit - candidates.length)");
+    expect(source).not.toMatch(/\.neq\("(?:enrichment_status|indexing_v3_agent_status|quality_extraction_quality)"/);
+  });
+
+  it("finds a candidate that sits past the old 500-row window", () => {
+    const healthy = Array.from({ length: 500 }, (_, index) => statusRow({ document_id: `healthy-${index}` }));
+    const failing = statusRow({
+      document_id: "failing-501",
+      gate_passed: false,
+      missing: ["index_units"],
+    });
+    expect(selectStrictGateRepairCandidates([...healthy, failing], 50)).toEqual([failing]);
   });
 });

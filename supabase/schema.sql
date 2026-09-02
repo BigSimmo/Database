@@ -7404,6 +7404,11 @@ begin
     where c.gate_passed
       and j.document_id = c.document_id
       and j.status in ('pending', 'processing')
+      and not (
+        j.status = 'processing'
+        and j.locked_at is not null
+        and j.locked_at >= now() - make_interval(mins => 45)
+      )
     returning j.document_id
   ),
   deferred_open_jobs as (
@@ -7422,6 +7427,11 @@ begin
     where not c.gate_passed
       and j.document_id = c.document_id
       and j.status in ('pending', 'processing')
+      and not (
+        j.status = 'processing'
+        and j.locked_at is not null
+        and j.locked_at >= now() - make_interval(mins => 45)
+      )
     returning j.document_id
   ),
   queued_repair_jobs as (

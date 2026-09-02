@@ -73,24 +73,45 @@ async function main() {
 
   assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Strict enrichment gate repair");
 
-  const preview = await supabase
-    .from("document_strict_gate_status")
-    .select(
-      "document_id, gate_passed, missing, enrichment_status, indexing_v3_agent_status, quality_extraction_quality",
-    )
-    .eq("document_status", "indexed")
-    .order("document_updated_at", { ascending: true, nullsFirst: true })
-    .limit(500);
-  if (preview.error) throw new Error(preview.error.message);
+  // Scan the WHOLE indexed corpus, then take the limit -- the order the RPC uses. Reading one
+  // bounded page and filtering it locally inverts that: if the oldest page happens to be
+  // healthy, the preview reports zero candidates and apply then queues real re-ingestions the
+  // operator was never shown. Dry-run-by-default is this script's entire safety property, so
+  // the preview has to be a superset of what apply touches, not a sample of it.
+  //
+  // The predicate deliberately stays in selectStrictGateRepairCandidates rather than moving
+  // into the PostgREST filter: `neq` drops NULLs under SQL three-valued logic while the TS
+  // predicate reads NULL as "not completed", and that difference would UNDERCOUNT -- the one
+  // direction that costs money. Paging a 2851-row view a thousand at a time is cheap; getting
+  // the null semantics subtly wrong is not.
+  const PAGE_SIZE = 1000;
+  const candidates: StrictGateStatusRow[] = [];
+  for (let offset = 0; candidates.length < limit; offset += PAGE_SIZE) {
+    const page = await supabase
+      .from("document_strict_gate_status")
+      .select(
+        "document_id, gate_passed, missing, enrichment_status, indexing_v3_agent_status, quality_extraction_quality",
+      )
+      .eq("document_status", "indexed")
+      .order("document_updated_at", { ascending: true, nullsFirst: true })
+      .order("document_id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (page.error) throw new Error(page.error.message);
 
-  const candidates = selectStrictGateRepairCandidates((preview.data ?? []) as StrictGateStatusRow[], limit);
+    const rows = (page.data ?? []) as StrictGateStatusRow[];
+    if (rows.length === 0) break;
+    candidates.push(...selectStrictGateRepairCandidates(rows, limit - candidates.length));
+    if (rows.length < PAGE_SIZE) break;
+  }
   const failing = candidates.filter((row) => row.gate_passed !== true).length;
   console.log(`Repair candidates: ${candidates.length}`);
   console.log(`  gate-failing   : ${failing}  (each queues a full re-ingestion)`);
   console.log(`  gate-passing   : ${candidates.length - failing}  (recorded state reconciled only)`);
-  console.log("  note           : a lower bound on the gate-passing side — the open-ingestion-job");
-  console.log("                   disjunct is not visible from this view. Never an undercount of");
-  console.log("                   the gate-failing side, which is the one that costs money.");
+  console.log("  note           : the whole indexed corpus is scanned before the limit is applied,");
+  console.log("                   so this is never a sample. It remains a lower bound on the");
+  console.log("                   gate-passing side — the open-ingestion-job disjunct is not");
+  console.log("                   visible from this view. Never an undercount of the gate-failing");
+  console.log("                   side, which is the one that costs money.");
 
   if (!args.apply) {
     console.log("\nDry run only. Re-run with --apply to reconcile these documents.");

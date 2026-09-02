@@ -19,17 +19,32 @@
 -- wrong copy would have shipped that difference as an undeclared second behaviour change and
 -- moved the def_hash 20260819110500 pins for reasons unrelated to this issue.
 --
--- The only changes here are the reset_agent_jobs CTE and the 'agent_job_reset' element it
--- adds to the returned `repaired` array. Everything else is byte-identical to the deployed
--- body.
+-- Three changes, not one. The reset_agent_jobs CTE and its 'agent_job_reset' element in the
+-- returned `repaired` array are new. The third is a lease-age guard added to the two
+-- PRE-EXISTING CTEs completed_open_jobs and deferred_open_jobs, so those two are no longer
+-- byte-identical to the deployed body; everything else still is.
 --
--- The deployed body has no lease-age guard anywhere, so the new CTE carries its own: a row
--- the agent currently holds is left alone. Without it the gate_passed disjunct would match a
--- document mid-run -- gate_passed is a structural fact about the artifacts present, and
--- request_indexing_v3_enrichment re-queues a document without clearing them, so it stays
--- true for the whole of the new run -- and clearing status/locked_by/locked_at underneath
--- that run would make request_ingestion_reindex_if_agent_idle read the agent as idle and
--- approve a concurrent reindex over the same artifact tables.
+-- The deployed body has no lease-age guard anywhere. That was survivable while the function
+-- had no caller. This change gives it one, so the hazard stops being latent and the guard has
+-- to go on every CTE that writes a lock column, not only the new one:
+--
+--   * reset_agent_jobs would match a document mid-run without it. gate_passed is a structural
+--     fact about the artifacts present, and request_indexing_v3_enrichment re-queues a
+--     document without clearing them, so it stays true for the whole of the new run. Clearing
+--     status/locked_by/locked_at underneath that run would make
+--     request_ingestion_reindex_if_agent_idle read the agent as idle and approve a concurrent
+--     reindex over the same artifact tables.
+--   * completed_open_jobs has the same exposure for a different reason. During an atomic
+--     reindex the OLD artifact generation deliberately stays live (reindex-pipeline.ts commits
+--     per generation), so gate_passed can be true while an ingestion job is actively
+--     processing. Marking that job 'completed' and clearing its lease lets the worker keep
+--     mutating artifacts after it has lost ownership of them.
+--   * deferred_open_jobs clears the same lease columns on the not-gate_passed side and needs
+--     the guard for the same reason.
+--
+-- All three use the same 45-minute window, so a stale lease is still recoverable and a live
+-- one is never taken. Found in review on PR #2548; the fix is deliberately the same predicate
+-- in all three places rather than three variants.
 --
 -- Applying this changes no behaviour on its own: the function is invoked by nothing
 -- automatically, and the operator script added alongside it is dry-run by default.
@@ -178,6 +193,11 @@ begin
     where c.gate_passed
       and j.document_id = c.document_id
       and j.status in ('pending', 'processing')
+      and not (
+        j.status = 'processing'
+        and j.locked_at is not null
+        and j.locked_at >= now() - make_interval(mins => 45)
+      )
     returning j.document_id
   ),
   deferred_open_jobs as (
@@ -196,6 +216,11 @@ begin
     where not c.gate_passed
       and j.document_id = c.document_id
       and j.status in ('pending', 'processing')
+      and not (
+        j.status = 'processing'
+        and j.locked_at is not null
+        and j.locked_at >= now() - make_interval(mins => 45)
+      )
     returning j.document_id
   ),
   queued_repair_jobs as (
