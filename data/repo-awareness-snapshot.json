@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "a683a5a6af3d400574bb8ef55e199e0c8665c60f",
-    "committed_at": "2026-09-02T11:35:41+00:00"
+    "sha": "1884f238596417c403c00c40a52e42fe0b204238",
+    "committed_at": "2026-09-02T19:20:09+00:00"
   },
   "routes": {
     "modes": [
@@ -1772,6 +1772,11 @@
       },
       {
         "path": "docs/audit/design-audit-2026-07-17.md",
+        "section": "audit",
+        "catalogued": true
+      },
+      {
+        "path": "docs/audit/full-repository-audit-2026-09-02.md",
         "section": "audit",
         "catalogued": true
       },
@@ -4447,8 +4452,8 @@
       }
     ],
     "counts": {
-      "documents": 582,
-      "catalogued": 113,
+      "documents": 583,
+      "catalogued": 114,
       "uncatalogued": 469,
       "sections": 21
     }
