@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9f4217c2-b63d-43cc-a81e-41bb2579359b",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "deep-memory.ts deletes enrichment artifacts unscoped, racing the indexing-v3-agent route that writes them",
+    "detail": "Recorded 2026-09-02 while assessing #W98GR7, whose ordering claim turned out to describe this defect rather than indexing-v3-agent. docs/ingestion-state-machine.md R24d describes a cross-route race: deep-memory.ts issues unscoped deletes over the same artifact families that supabase/functions/indexing-v3-agent writes, and the agent's own deletes are scoped to metadata->>'generated_by' = 'indexing-v3-agent' precisely so they cannot remove another producer's rows. An unscoped delete on the other route has no such protection and can remove rows the agent has just committed, or be interleaved with the agent's transaction. This is a different code path from the one #W98GR7 named, and was left out of that change to keep its diff to the repair-caller and monitoring gaps. NEXT: read docs/ingestion-state-machine.md R24d, scope deep-memory.ts's deletes by producer the way the agent's are, and pin the scoping in a test. Ingestion surface, so it needs the clinical governance preflight.",
+    "source": "docs/ingestion-state-machine.md R24d (lines 254-265); supabase/functions/indexing-v3-agent/index.ts (generated_by-scoped deletes); offline audit during #W98GR7, 2026-09-02",
+    "issueUlid": "01M1G88HX62GWD4ZGZSJKX8BR8"
+  }
+}

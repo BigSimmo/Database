@@ -7449,6 +7449,61 @@ begin
           and j.status in ('pending', 'processing')
       )
     returning document_id
+  ),
+  -- The half this function was missing (#W98GR7). Everything above reconciles
+  -- documents.metadata, document_index_quality and ingestion_jobs. None of it touches
+  -- indexing_v3_agent_jobs, which is the table claim_indexing_v3_agent_jobs actually reads:
+  -- that RPC excludes 'needs_enrichment_artifacts' by name and excludes 'failed' via
+  -- `attempt_count < max_attempts`, and nothing anywhere resets either. So a document could
+  -- be "repaired" into a completed metadata state while remaining permanently unclaimable,
+  -- or be re-queued for enrichment that the agent could never pick up.
+  --
+  -- gate_passed: the artifacts are present, so the row is completed, not retried.
+  -- not gate_passed: the row goes back to claimable with a fresh attempt budget. That reset
+  -- is deliberate and only ever happens under an explicit operator run; the deferral budget
+  -- (INDEXING_V3_MAX_DEFERRALS, default 6) still bounds the agent's own retries, and each
+  -- repair stamps a counter so a document being repaired again and again is visible rather
+  -- than looping silently.
+  --
+  -- A row the agent currently holds is left alone: `locked_at` within the lease window is
+  -- excluded, so a repair cannot pull the lease out from under a live claim.
+  reset_agent_jobs as (
+    update public.indexing_v3_agent_jobs a
+    set
+      status = case when c.gate_passed then 'completed' else 'pending' end,
+      enrichment_status = case when c.gate_passed then 'completed' else 'pending' end,
+      attempt_count = case when c.gate_passed then a.attempt_count else 0 end,
+      locked_by = null,
+      locked_at = null,
+      next_run_at = case when c.gate_passed then null else now() end,
+      last_error = case
+        when c.gate_passed then null
+        else 'strict enrichment gate missing: ' || array_to_string(c.missing, ',')
+      end,
+      metadata = coalesce(a.metadata, '{}'::jsonb) || jsonb_build_object(
+        'strict_gate_repair', jsonb_build_object(
+          'at', now(),
+          'gate_passed', c.gate_passed,
+          'missing', to_jsonb(c.missing),
+          'previous_status', a.status,
+          'previous_attempt_count', a.attempt_count,
+          'count', coalesce((a.metadata->'strict_gate_repair'->>'count')::integer, 0) + 1
+        )
+      ),
+      updated_at = now()
+    from candidates c
+    where a.document_id = c.document_id
+      and not (
+        a.status = 'processing'
+        and a.locked_at is not null
+        and a.locked_at >= now() - make_interval(mins => 45)
+      )
+      and (
+        c.gate_passed
+        or a.status in ('failed', 'needs_enrichment_artifacts')
+        or a.attempt_count >= a.max_attempts
+      )
+    returning a.document_id
   )
   select
     c.document_id,
@@ -7458,7 +7513,8 @@ begin
       case when c.gate_passed then 'quality_good' else null end,
       case when exists (select 1 from completed_open_jobs j where j.document_id = c.document_id) then 'open_jobs_completed' else null end,
       case when exists (select 1 from deferred_open_jobs j where j.document_id = c.document_id) then 'open_jobs_deferred' else null end,
-      case when exists (select 1 from queued_repair_jobs j where j.document_id = c.document_id) then 'repair_job_queued' else null end
+      case when exists (select 1 from queued_repair_jobs j where j.document_id = c.document_id) then 'repair_job_queued' else null end,
+      case when exists (select 1 from reset_agent_jobs j where j.document_id = c.document_id) then 'agent_job_reset' else null end
     ], null)::text[] as repaired,
     case when c.gate_passed then 'completed' else 'deferred' end as status,
     c.counts,
