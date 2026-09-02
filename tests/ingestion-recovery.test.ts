@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildIngestionRecoveryPlan,
+  reconcileIngestionRecoveryPlan,
   INGESTION_RECOVERY_JOB_STATUSES,
   isFreshProcessingJob,
   isRecoverableProcessingJob,
@@ -195,5 +196,109 @@ describe("ingestion queue recovery planning", () => {
 
     expect(isRecoverableProcessingJob(job, now, 45)).toBe(false);
     expect(isFreshProcessingJob(job, now, 45)).toBe(true);
+  });
+});
+
+// The plan is computed against a point-in-time snapshot and then sits at an interactive
+// confirmation prompt for an unbounded time. Applying it unguarded runs `reset_document_index`,
+// which deletes every chunk, page, image and section for the document with no guard of its own.
+// These pin the re-validation that stands between the stale plan and that destructive write.
+describe("ingestion recovery plan reconciliation (R20/R21)", () => {
+  const now = new Date("2026-06-15T00:00:00.000Z");
+  const staleAfterMinutes = 45;
+
+  const staleJob = {
+    id: "job-stale",
+    document_id: "doc-a",
+    status: "processing",
+    locked_at: "2026-06-14T22:00:00.000Z",
+    documents: { status: "processing", chunk_count: 0, owner_id: "owner-1" },
+  };
+
+  it("keeps an action whose rows have not moved, and carries the observed state for the write guard", () => {
+    const planned = buildIngestionRecoveryPlan({ now, staleAfterMinutes, jobs: [staleJob] }).actions;
+    expect(planned).toHaveLength(1);
+
+    const { applicable, skipped } = reconcileIngestionRecoveryPlan({
+      planned,
+      jobs: [staleJob],
+      now,
+      staleAfterMinutes,
+    });
+
+    expect(skipped).toEqual([]);
+    expect(applicable).toHaveLength(1);
+    expect(applicable[0]).toMatchObject({
+      action: { action: "retry", jobId: "job-stale", documentId: "doc-a" },
+      expected: {
+        jobStatus: "processing",
+        jobLockedAt: "2026-06-14T22:00:00.000Z",
+        documentStatus: "processing",
+        documentOwnerId: "owner-1",
+      },
+    });
+  });
+
+  it("drops a retry whose document finished indexing while the plan awaited confirmation", () => {
+    const planned = buildIngestionRecoveryPlan({ now, staleAfterMinutes, jobs: [staleJob] }).actions;
+    expect(planned[0]).toMatchObject({ action: "retry", documentId: "doc-a" });
+
+    // The worker committed a generation during the prompt: the document is indexed with chunks.
+    const { applicable, skipped } = reconcileIngestionRecoveryPlan({
+      planned,
+      jobs: [{ ...staleJob, status: "failed", documents: { status: "indexed", chunk_count: 42, owner_id: "owner-1" } }],
+      now,
+      staleAfterMinutes,
+    });
+
+    expect(applicable.filter((entry) => entry.action.action === "retry")).toEqual([]);
+    expect(skipped).toEqual([{ action: planned[0], reason: "state_changed" }]);
+  });
+
+  it("drops an action whose job was re-claimed by a live worker", () => {
+    const planned = buildIngestionRecoveryPlan({ now, staleAfterMinutes, jobs: [staleJob] }).actions;
+
+    // A worker reclaimed the stale lock; the job is now freshly processing and must be left alone.
+    const { applicable, skipped } = reconcileIngestionRecoveryPlan({
+      planned,
+      jobs: [{ ...staleJob, locked_at: "2026-06-14T23:58:00.000Z" }],
+      now,
+      staleAfterMinutes,
+    });
+
+    expect(applicable).toEqual([]);
+    expect(skipped).toEqual([{ action: planned[0], reason: "state_changed" }]);
+  });
+
+  it("drops an action whose job left the open statuses entirely", () => {
+    const planned = buildIngestionRecoveryPlan({ now, staleAfterMinutes, jobs: [staleJob] }).actions;
+
+    const { applicable, skipped } = reconcileIngestionRecoveryPlan({
+      planned,
+      jobs: [],
+      now,
+      staleAfterMinutes,
+    });
+
+    expect(applicable).toEqual([]);
+    expect(skipped).toEqual([{ action: planned[0], reason: "job_closed" }]);
+  });
+
+  it("preserves supersede-before-retry ordering across reconciliation", () => {
+    const jobs = [
+      staleJob,
+      {
+        id: "job-sibling",
+        document_id: "doc-a",
+        status: "failed",
+        locked_at: null,
+        documents: { status: "processing", chunk_count: 0, owner_id: "owner-1" },
+      },
+    ];
+    const planned = buildIngestionRecoveryPlan({ now, staleAfterMinutes, jobs }).actions;
+
+    const { applicable } = reconcileIngestionRecoveryPlan({ planned, jobs, now, staleAfterMinutes });
+
+    expect(applicable.map((entry) => entry.action.action)).toEqual(["supersede", "retry"]);
   });
 });
