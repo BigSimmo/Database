@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 19,
     "queued": 7,
-    "pending": 7,
+    "pending": 0,
     "resolved": 459
   },
   "queue": [
@@ -724,48 +724,5 @@
       "added": "2026-08-24"
     }
   ],
-  "pending": [
-    {
-      "request_id": "247ff620-b5b1-436b-9435-430f5dedbc3e",
-      "action": "done",
-      "summary": "#DVRZA4: Resolved in PR #2520, in the 'add the newer entry' direction rather than the 'remove the older entry' direction the row suggested. Both snapshots were already listed in .prettierignore; the residual defect was that the newer entry justified itself by claiming parity with the older one. Measured: data/outstanding-issues-snapshot.json genuinely fails prettier --check, so its entry is load-bearing and removing it would cause exactly the regeneration churn it prevents; data/repo-awareness-snapshot.json passes today, so its entry is forward-looking insurance. Its comment now names the real mechanism - the generator writes JSON.stringify(_, null, 2), which always expands arrays, and the two agree only because every array in that schema holds multi-field objects, which Prettier never collapses.",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "250fb5a6-dd95-47d8-ba69-a8f3e9efbe53",
-      "action": "done",
-      "summary": "#875H6T: Closed in PR #2520. All six assigned in docs/ward-flow-roadmap.md, each with its reason recorded under the file's own rule that an unexplained assignment gets moved by the next person who finds it inconvenient. Phase 6: the sixty-second guided tour and named demo-clock moments - every beat the tour scripts already exists after Phase 5 (priority queue, coordinator screen, discharge confirmation, egress board), so neither needs anything built first and both serve what Phase 6 was promoted for. Phase 8: 'why not here?' (the inverse of decision 14's can-take-them overlay, needing Phase 7's bed-type matching and Phase 8's distance) and the out-of-area ledger (where its own text already put it). Phase 9: the ward prediction track record (needs accumulated history, and a sixth figure would reopen decision 13) and 'waiting since' (Phase 9 already names waiting-time equity). No new phase and no rewritten phase description; the enhancements themselves remain to be built inside those phases.",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "3c5d6d42-0952-4bc8-a1f7-a4858789d0ed",
-      "action": "done",
-      "summary": "#CTA8CR: Fixed in PR #2520. Verified against main at 45a3dca: the two sites the row named, and docs/database-remediation-coordination.md:159, were already corrected before this session, and the third instance the row cited as the convention had its pointer added by PR #2476. One bare claim survived at the Phase 4 production-push step, where the pre-flight's 'exactly the four new versions' reading was offered as confirmation that auto-deploy is off - the precise inference §D4 refutes, since it tested deploy-while-open rather than deploy-on-merge. It now carries the same one-line superseded pointer. The claim itself stands: the document's convention is to point forward, not rewrite a forensics record.",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "81f20b9d-c84b-4929-8528-91e2fc8b4a01",
-      "action": "done",
-      "summary": "#ZM8902: Closed in PR #2520. The checker itself already resolved relative markdown links against the containing file, so the class was not skipped - a probe document linking to ../../caring-contacts/design-handoff.md was reported as MISSING. What was absent was the half the row turns on, 'a check that cannot fail': tests/check-docs-links.test.ts covered only two helper exports, leaving the link classification one refactor away from reopening. main()'s per-document collection is now exported as collectDocumentFailures({ target, markdown, targetAnchorsCache }), so the gate and its tests run one implementation, and three tests pin the exact escaped shape, including that the checked count rises when the link is present so 'resolved' cannot be confused with 'skipped'. Watched failing under a deliberate mutation before being trusted; gate output unchanged at 4736 references.",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "b9a2d8d3-bf12-4961-b1c5-2424eca1fbd4",
-      "action": "update",
-      "summary": "#4STSM1: summary → Caring Contacts synthetic production build: Phases 1 and 2 built and merged; Phase 3 planned but not built; detail → SUPERSEDES the original row, which said the implementation plan was unwritten and named part one as the next step. Verified against main at 45a3dca on 2026-09-02: part one's plan is docs/superpowers/plans/2026-08-19-caring-contact-domain-and-datastore.md with its eleven test-first tasks, and it landed - the sealed domain layer (36 modules under src/lib/caring-contacts/), eight migrations under caring-contacts/supabase/migrations/, and 73 caring-contacts test files are all on main. Phase 2 landed too, under docs/superpowers/plans/2026-08-24-caring-contact-phase-2b-screens.md, with the production workspace routes under src/app/caring-contacts/. WHAT REMAINS is Phase 3, 'make it demonstrable' (spec §10, §2.9 and the rehearsed demonstration path), which spec §13 said folds into the Phase 2 pull request 'unless it grows' - Phase 2B merged without it, so it grew and now needs its own PR. Its plan was written in PR #2520 as docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md: eleven test-first tasks in five groups covering the advanceable demo clock and its production-absence proof, the seed extended from five patients to twelve across all nine required states, the §2.9 bounded clinical-record plan summary with its exclusions asserted as absences, training mode isolated at the store seam, and the five-minute path as a tracked document plus an executable journey. The plan is DRAFT, not approved for execution, and carries four questions for the owner - none blocking its first task: (1) is the §2.9 summary a print view or a saveable file (the plan assumes print, the safer half); (2) contact detail and system states exist as mockup routes with no production equivalent - Phase 2 gap or deliberate; (3) are the five existing seeded patient names kept and seven added; (4) spec §14's four open decisions remain open, of which the patient-visible reply wording is spoken aloud during the demonstration. NEXT STEP is owner approval of the plan, then subagent-driven execution of its Task 1.; source → Verified repo read at main 45a3dca; plan written in PR #2520, 2026-09-02",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "da308925-8094-4c05-88fd-f6dc36ad4361",
-      "action": "cancel",
-      "summary": "Cancel request 247ff620-b5b1-436b-9435-430f5dedbc3e: Withdrawn as a duplicate. An earlier pending request, f20b4b9f-00bb-4f82-8958-ef926eedb5bd, already closes #DVRZA4 with the same verdict (verified against origin/main d1bb2c197), and two pending mutations on one row block reconcile. Retained here so the extra evidence is not lost: PR #2520 additionally corrected the data/repo-awareness-snapshot.json entry's comment. Measured on 45a3dca, data/outstanding-issues-snapshot.json genuinely fails prettier --check, so its entry is load-bearing and the row's suggested direction of removing it would cause exactly the churn it prevents; data/repo-awareness-snapshot.json passes today, so its entry is forward-looking insurance. The 'compares like with like' rationale quoted in the surviving request describes the comment as it read before that correction - check:repo-awareness-snapshot compares parsed JSON, not formatting - and the file now names the real mechanism instead.",
-      "created_at": "2026-09-02"
-    },
-    {
-      "request_id": "f5078359-d4ea-4a91-b376-d5bbecb452a6",
-      "action": "add",
-      "summary": "Corpus health panel and the hub document count have never been seen against the real library",
-      "created_at": "2026-09-02"
-    }
-  ]
+  "pending": []
 }
