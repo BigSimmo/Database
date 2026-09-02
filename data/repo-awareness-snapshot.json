@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "10d3bcbdceb64c4eb1cde112f86ece198dc78ba4",
-    "committed_at": "2026-09-02T07:54:29+00:00"
+    "sha": "0170b2ffc883b5535afcd9b00dcc9353b6de5ab3",
+    "committed_at": "2026-09-02T08:30:04+00:00"
   },
   "routes": {
     "modes": [
@@ -3691,6 +3691,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
         "section": "superpowers",
         "catalogued": false
@@ -4427,9 +4432,9 @@
       }
     ],
     "counts": {
-      "documents": 578,
+      "documents": 579,
       "catalogued": 113,
-      "uncatalogued": 465,
+      "uncatalogued": 466,
       "sections": 21
     }
   },
