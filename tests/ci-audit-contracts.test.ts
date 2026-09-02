@@ -74,3 +74,41 @@ describe("M25: the daily staging tenancy harness has a failure reporting path", 
     expect(names).toContain(name);
   });
 });
+
+describe("M29: the live Web-Vitals default routes can produce a verdict", () => {
+  const workflow = read(".github/workflows/live-web-vitals.yml");
+  const defaultRoutes = workflow.match(/^\s+default:\s*"((?:\/[^"]*)?)"\s*$/m)?.[1];
+
+  it("declares a default route list", () => {
+    expect(defaultRoutes).toBeDefined();
+    expect(defaultRoutes!.split(",").length).toBeGreaterThan(0);
+  });
+
+  // The summariser deliberately rejects a report whose final URL differs from
+  // the requested URL, so a default entry that server-redirects (the retired
+  // `/dsm`, `/forms`, `/therapy-compass` mode homes since #2157/#2308) can
+  // never be graded. Every default route must therefore resolve to a page.tsx
+  // that renders in place. `/` is the one route whose `redirect(` is guarded
+  // by legacy query parameters (docs/site-map.md: "Main PsychSift shell"), so
+  // its plain GET renders and it is exempt from the redirect check.
+  it.each((defaultRoutes ?? "").split(","))("default route %s renders in place rather than redirecting", (route) => {
+    const segment = route === "/" ? "" : route.replace(/^\//, "");
+    const candidates = [`src/app/(search-app)/${segment}/page.tsx`, `src/app/${segment}/page.tsx`].map((path) =>
+      path.replace("//", "/"),
+    );
+    const page = candidates.find((candidate) => exists(candidate));
+    expect(page, `no page.tsx for ${route} (tried ${candidates.join(", ")})`).toBeDefined();
+    if (route !== "/") {
+      expect(read(page!)).not.toMatch(/\bredirect\(/);
+    }
+  });
+
+  it("keeps the summariser's test fixture in step with the workflow default", () => {
+    const fixture = read("tests/summarise-web-vitals.test.ts").match(/const DEFAULT_ROUTES = "([^"]+)"/)?.[1];
+    expect(fixture).toBe(defaultRoutes);
+  });
+
+  it("no longer instructs recording the verdict against the closed #017 row", () => {
+    expect(workflow).not.toMatch(/Record the verdict in docs\/outstanding-issues\.md against #017/);
+  });
+});
