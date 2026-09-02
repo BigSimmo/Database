@@ -195,6 +195,28 @@ export function AnswerUtilityActions({
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const feedbackTriggerRef = useRef<HTMLButtonElement>(null);
   const closeFeedback = useCallback(() => setFeedbackOpen(false), []);
+  /**
+   * Submitting closes the sheet, because the sheet is where the outcome is NOT.
+   *
+   * `ClinicalDashboard.submitAnswerFeedback` reports every outcome — success,
+   * network failure, an expired feedback token, and synthetic demo answers —
+   * through the page-level `actionNotice` alone, which renders outside this
+   * portaled modal. While the sheet is open that notice is behind the backdrop
+   * and the page under it is inert, so the reader sees a tap that did nothing.
+   * The demo and expired-token paths are the worst of it: both return before
+   * `pendingFeedback` is ever set, so there is not even a spinner to explain the
+   * silence.
+   *
+   * This did not arise until the list became a modal (2026-09-02). As an in-flow
+   * disclosure the notice was simply visible above it, so nothing had to close.
+   */
+  const submitFeedbackAndClose = useCallback(
+    (feedbackType: AnswerFeedbackType) => {
+      onSubmitFeedback?.(feedbackType);
+      setFeedbackOpen(false);
+    },
+    [onSubmitFeedback],
+  );
   return (
     <section className="max-w-[68ch]" aria-label="Answer utilities">
       {/* Copy sits left; the two verdict controls sit right, as the approved
@@ -287,7 +309,12 @@ export function AnswerUtilityActions({
         >
           {/* The sheet header already asks the question, so the panel does not
               ask it again. */}
-          <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" chrome="bare" />
+          <AnswerFeedbackPanel
+            pending={pendingFeedback}
+            onSubmit={submitFeedbackAndClose}
+            tone="problems"
+            chrome="bare"
+          />
         </Sheet>
       ) : null}
     </section>

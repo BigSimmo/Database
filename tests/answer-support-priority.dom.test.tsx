@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AnswerUtilityActions, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
 import type { AnswerState } from "@/components/ui/answer-state";
@@ -172,6 +172,35 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     // opposite of what the reader meant.
     expect(within(panel).queryByRole("button", { name: /Verified/ })).not.toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: /Wrong source/ })).toBeInTheDocument();
+  });
+
+  it("closes the sheet on submission so the outcome notice is reachable", async () => {
+    // The dashboard reports every outcome — success, network failure, an expired
+    // feedback token, and synthetic demo answers — through the page-level notice
+    // alone, which renders outside this portaled modal. Leaving the sheet open
+    // puts that notice behind the backdrop with the page inert, so the tap reads
+    // as having done nothing. Codex P2 on PR #2541; it did not exist while the
+    // list was an in-flow disclosure.
+    const user = userEvent.setup();
+    const onSubmitFeedback = vi.fn();
+    render(
+      <AnswerUtilityActions
+        copied={false}
+        onCopy={() => undefined}
+        pendingFeedback={null}
+        onSubmitFeedback={onSubmitFeedback}
+      />,
+    );
+
+    const report = screen.getByTestId("answer-feedback-trigger");
+    await user.click(report);
+    const sheet = await screen.findByTestId("answer-feedback-sheet");
+    await user.click(within(sheet).getByRole("button", { name: /Wrong source/ }));
+
+    expect(onSubmitFeedback).toHaveBeenCalledTimes(1);
+    expect(onSubmitFeedback).toHaveBeenCalledWith("wrong_source");
+    await waitFor(() => expect(screen.queryByTestId("answer-feedback-sheet")).not.toBeInTheDocument());
+    expect(report).toHaveAttribute("aria-expanded", "false");
   });
 
   it("routes the safety sheet from the header chip now that the support card is gone", () => {
