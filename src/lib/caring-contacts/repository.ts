@@ -917,7 +917,19 @@ export interface CaringContactRepository {
    */
   listPatientNames(context: ReadContext): Promise<PatientNameProjection[]>;
   listContacts(planId: PlanId, context: ReadContext): Promise<StoredContact[]>;
-  /** The contacts that may actually go out. Keyed off contact state, never off `sendAt`. */
+  /**
+   * The contacts that may actually go out.
+   *
+   * Keyed off the OWNING PLAN's state and then the contact's own, never off `sendAt`. The plan half
+   * arrived with #PAMATF: contacts are written `scheduled` at creation, while the plan is still a
+   * draft, and no plan lifecycle write touches them -- so a contract keyed on the contact alone
+   * promised a draft plan's messages, and a paused plan's, as work about to happen. Both stores
+   * consult `planSendingHold` in ./model, so neither can answer it its own way.
+   *
+   * Empty for a held plan, which is deliberately the same answer a plan with nothing left to send
+   * gives: this returns what may go out, and a caller that needs to know WHY nothing may has
+   * `planSendingHold` itself, which distinguishes not-started, paused and ended.
+   */
   listSendableContacts(planId: PlanId, context: ReadContext): Promise<StoredContact[]>;
   listAuditEvents(context: ReadContext): Promise<AuditEvent[]>;
   getEpisode(planId: PlanId, context: ReadContext): Promise<Episode | null>;
