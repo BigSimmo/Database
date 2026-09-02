@@ -132,6 +132,7 @@ npm run docs:check-links
 
 | Directory                                        | What lives there                                                                                                                                                                                         |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [agents/](agents/)                               | Agent-rule reference files `AGENTS.md` delegates to by name — the full text of rules its always-loaded core only points at                                                                               |
 | [rag-behaviour/](rag-behaviour/)                 | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.**                                                                                    |
 | [prompts/](prompts/)                             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                                                                                                           |
 | [codex/](codex/)                                 | Per-lens Codex ultra-review output folders, one per review dimension                                                                                                                                     |

@@ -15,14 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 576
-- Distinct ref cells: 361
-- Distinct reviewed heads: 559
+- Records: 577
+- Distinct ref cells: 362
+- Distinct reviewed heads: 560
 - Date range: `2026-08-12` to `2026-09-02`
 
 Records per date, newest first:
 
-- `2026-09-02` — 1 record
+- `2026-09-02` — 2 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
 - `2026-08-30` — 3 records
@@ -51,6 +51,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
 | 2026-09-02 | codex/smart-local-modes-20260901 | smart local modes integration | Fixed calculator identity matches inside natural-language queries; no… | [23084cec](branch-review-records/23084cec05666473530d8878ab4246ada0dbdb860c28584da348ade298ccf63c.record.md) |
+| 2026-09-02 | claude/instruction-tiering-n9vs14 | Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference fil… | No findings. Reorganisation only: all 662 non-blank AGENTS.md lines ve… | [9b97c2e6](branch-review-records/9b97c2e689cead2aabfd99148f22120ca4d7f1b907be8e06dc595b279216be69.record.md) |
 | 2026-09-01 | PR-2504 | Resolve Codex P1: corpus-health table access | Verified the authenticated role lacks table SELECT; the administrator-… | [5d80826b](branch-review-records/5d80826bf56625f7a05594bf5c46f05a421a883a038ace94c07ca265528f1dba.record.md) |
 | 2026-09-01 | PR-2507 | Run PR sweep: enforce Favourites phone tap-target minimum | Replaced the blacklist-only target guard with a positive 48px-or-row-w… | [8b140d28](branch-review-records/8b140d281375ce001e5f712e3c697b4828186a605e096bb86342f16f0452610a.record.md) |
 | 2026-09-01 | codex/smart-local-modes-20260901 (PR #2508) | PR #2508 native Smart catalogue matching | Fixed P1 Compare result-order regression; no additional P0-P3 findings… | [9d028419](branch-review-records/9d02841985e0414aa379b2fbbb0f47077e456cf6454d23e55e46487dc4dd2e8a.record.md) |
