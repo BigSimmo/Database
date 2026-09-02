@@ -4,9 +4,11 @@
 //
 // IT ADDS NO STORE READ (Ruling 124). The read is `listPlans` -- already team-scoped, already free
 // of patient identity -- and `buildScheduleRange` in the sealed domain does the rest. So this route
-// publishes an aggregation rather than opening a second retrieval surface, and `listSendableContacts`
-// is deliberately not used: it has no plan-state gate, so a draft plan's contacts present there as
-// sendable.
+// publishes an aggregation rather than opening a second retrieval surface. `listSendableContacts`
+// is still deliberately not used, but no longer because it is wrong: since #PAMATF it consults the
+// owning plan's state, so a draft plan's contacts no longer present there as sendable. It is not
+// used because a SCHEDULE shows what will not be sent as well as what will, and a list of only the
+// sendable ones cannot answer that.
 //
 // It records its own object type, `contactSchedule`, rather than the caseload's `plan`. Ruling 46's
 // instruction, and see that member's note in `access-audit.ts` for why provenance is not the test.
