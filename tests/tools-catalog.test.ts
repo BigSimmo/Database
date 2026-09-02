@@ -122,6 +122,13 @@ describe("tools catalog", () => {
     ).not.toContain("favourites");
   });
 
+  it("throws for an unknown tool id instead of substituting the first tool", () => {
+    expect(() => toolCatalogRecordById("not-a-tool")).toThrow(/not-a-tool/);
+    for (const tool of toolCatalogRecords) {
+      expect(toolCatalogRecordById(tool.id)).toBe(tool);
+    }
+  });
+
   it("keeps the mockup fixtures derived from catalog identity fields", () => {
     for (const fixture of mockupToolFixtures) {
       const record = toolCatalogRecordById(fixture.id);

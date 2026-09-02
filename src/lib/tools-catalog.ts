@@ -390,8 +390,17 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
   },
 ];
 
+/**
+ * Resolves a catalogue record by id, and throws for an id the catalogue does not
+ * know. It used to fall back to the first record, so a typo rendered the PsychSift
+ * Search card in place of the tool that was asked for instead of failing; the only
+ * caller builds mockup fixtures at module load, where a thrown error is caught by the
+ * fixture test before anything is rendered.
+ */
 export function toolCatalogRecordById(id: string): ToolCatalogRecord {
-  return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
+  const record = toolCatalogRecords.find((tool) => tool.id === id);
+  if (!record) throw new Error(`Unknown tool catalogue id: ${id}`);
+  return record;
 }
 
 /**
