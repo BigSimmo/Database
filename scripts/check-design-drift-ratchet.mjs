@@ -28,8 +28,9 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const ROOT = new URL("..", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const RATCHET_PATH = `${ROOT}docs/design-system/drift-ratchet.json`;
 const MANIFEST_PATH = `${ROOT}docs/design-system/adoption-manifest.json`;
 
@@ -70,6 +71,46 @@ function countInlineStyles() {
     });
   }
   return hits;
+}
+
+// Best-effort: find the specific style={{ sites added since the ceiling's baseline
+// commit, by walking `git diff --unified=0` hunks rather than re-scanning every
+// tracked file. Returns null (caller falls back to the full list) when the baseline
+// commit isn't reachable locally — e.g. a shallow clone that never fetched it.
+function findNewInlineStyleSites(baselineSha) {
+  let diffOutput;
+  try {
+    diffOutput = execFileSync(
+      "git",
+      ["diff", "--no-color", "--unified=0", baselineSha, "--", "*.ts", "*.tsx", "*.js", "*.jsx"],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+  } catch {
+    return null;
+  }
+  const added = [];
+  let file = null;
+  let nextLine = null;
+  for (const line of diffOutput.split("\n")) {
+    if (line.startsWith("+++ ")) {
+      const path = line.slice(4).trim();
+      file = path === "/dev/null" ? null : path.replace(/^b\//, "");
+      continue;
+    }
+    if (line.startsWith("@@")) {
+      const match = line.match(/\+(\d+)/);
+      nextLine = match ? Number(match[1]) : null;
+      continue;
+    }
+    if (line.startsWith("+")) {
+      const content = line.slice(1);
+      if (file && nextLine != null && !isCommentLine(content) && content.includes("style={{")) {
+        added.push({ file, line: nextLine });
+      }
+      if (nextLine != null) nextLine += 1;
+    }
+  }
+  return added;
 }
 
 function countUnimportedRegisteredComponents() {
@@ -148,13 +189,27 @@ if (failures.length > 0) {
     console.error(`  - ${m.key}: ${m.ceiling} -> ${m.current} (+${m.current - m.ceiling})`);
   }
   if (failures.some((m) => m.key === "inlineStyles")) {
-    console.error(
-      "\n  New inline styles found (first 20):\n" +
-        inlineStyleHits
-          .slice(0, 20)
-          .map((h) => `    ${h.file}:${h.line}`)
-          .join("\n"),
-    );
+    const baselineSha = ratchet.inlineStyles.baselineSource;
+    const added = findNewInlineStyleSites(baselineSha);
+    if (added && added.length > 0) {
+      console.error(
+        `\n  New inline styles vs baseline ${baselineSha} (first 20 of ${added.length}):\n` +
+          added
+            .slice(0, 20)
+            .map((h) => `    ${h.file}:${h.line}`)
+            .join("\n"),
+      );
+    } else {
+      console.error(
+        `\n  Could not diff against baseline ${baselineSha} (unreachable locally, e.g. a shallow ` +
+          `clone) — showing the first 20 of all ${inlineStyleHits.length} current sites instead, not ` +
+          "just the new ones:\n" +
+          inlineStyleHits
+            .slice(0, 20)
+            .map((h) => `    ${h.file}:${h.line}`)
+            .join("\n"),
+      );
+    }
     console.error(
       "\n  Classify each new site per docs/design-system/drift-measurement-2026-09-02.md: LEGITIMATE " +
         "(genuinely dynamic, no token fits) or BYPASS (use the token instead). If it's genuinely LEGITIMATE, " +
