@@ -36,6 +36,25 @@ export type RoutesSection = {
   };
 };
 
+/**
+ * `sections[]` carries a name and nothing else, deliberately.
+ *
+ * It once carried per-section `documents` and `uncatalogued` totals — thirty
+ * numbers across fifteen sections that nothing read, because the documentation
+ * page computes `section.documents.length` at render from the list it is about
+ * to show. `#XHADPV` asked for that to be a decision rather than an omission,
+ * since it made the generator's "counts are computed once, so a count and its
+ * own list cannot disagree" rule carry an undocumented exception. The decision
+ * is to stop emitting them, and the rule it follows is the one stated on
+ * `ReviewStateSection` below: a count over a set that grows by append is
+ * derived at render; a count over a closed set stays generator-computed.
+ *
+ * `counts` here is that second case and stays. `documents` and `sections` are
+ * closed sets — they change only when someone deliberately adds a document or a
+ * section, never as a side effect of another branch's work — so a stored total
+ * cannot become a conflict, and computing it once in the generator keeps it
+ * honest against its own list.
+ */
 export type DocumentationSection = {
   documents: { path: string; section: string; catalogued: boolean }[];
   sections: { name: string }[];
