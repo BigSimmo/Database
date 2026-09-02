@@ -391,7 +391,8 @@ function main() {
   if (!vacuous && tenancy.violations.length === 0 && rpc.violations.length === 0) {
     console.log(
       `✓ owner-scope phase 2: ${tenancy.counts.direct} direct, ${tenancy.counts.userKeyed} user-keyed, ` +
-        `${tenancy.counts.derived} derived-tier and ${tenancy.counts.untiered} untiered-table queries scoped ` +
+        `${tenancy.counts.derived} derived-tier, ${tenancy.counts.untiered} untiered-table and ` +
+        `${tenancy.counts.dynamicFrom} dynamic-table-dispatch queries scoped ` +
         `on their chain or declared; ${rpc.dispatcherCallSites.length} versioned-RPC call sites, all literal.`,
     );
   } else if (tenancy.violations.length > 0 || rpc.violations.length > 0) {

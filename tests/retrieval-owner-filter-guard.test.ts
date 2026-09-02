@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   DERIVED_QUERY_INVENTORY,
+  DYNAMIC_FROM_DECLARATIONS,
+  DYNAMIC_TABLE,
   PROOF_KINDS,
   SCANNED_LIB_MODULES,
   SCOPE_EXEMPTIONS,
@@ -493,7 +495,7 @@ describe("per-chain owner scope (direct and user-keyed tiers)", () => {
     expect(sites).toHaveLength(2);
     expect(sites.filter((site) => site.ownerScopedChain)).toHaveLength(1);
 
-    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [], untiered: [] });
+    const { violations } = evaluateSites({ dynamicFrom: [], sites, exemptions: [], inventory: [], untiered: [] });
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain("undeclared scope-exemption query");
   });
@@ -513,7 +515,9 @@ describe("per-chain owner scope (direct and user-keyed tiers)", () => {
     );
     expect(scoped[0].userScopedChain).toBe(true);
     expect(unscoped[0].userScopedChain).toBe(false);
-    expect(evaluateSites({ sites: unscoped, exemptions: [], inventory: [], untiered: [] }).violations).toHaveLength(1);
+    expect(
+      evaluateSites({ dynamicFrom: [], sites: unscoped, exemptions: [], inventory: [], untiered: [] }).violations,
+    ).toHaveLength(1);
     // owner_id is NOT a substitute: these tables have no owner_id column at all.
     const wrongColumn = scanFixture(
       FIXTURE_FILE,
@@ -564,7 +568,7 @@ describe("derived-tier inventory (blind spot A)", () => {
     const derived = sites.filter((site) => site.tier === "derived");
     expect(derived).toHaveLength(1);
 
-    const { violations } = evaluateSites({ sites, exemptions: [], inventory: [], untiered: [] });
+    const { violations } = evaluateSites({ dynamicFrom: [], sites, exemptions: [], inventory: [], untiered: [] });
     expect(violations.filter((violation) => violation.includes("undeclared derived-inventory query"))).toHaveLength(1);
   });
 
@@ -581,11 +585,12 @@ describe("derived-tier inventory (blind spot A)", () => {
         reason: "fixture",
       },
     ];
-    expect(evaluateSites({ sites, exemptions: [], inventory, untiered: [] }).violations).toEqual([]);
+    expect(evaluateSites({ dynamicFrom: [], sites, exemptions: [], inventory, untiered: [] }).violations).toEqual([]);
 
     // The identity is checked in the AST, not trusted from the reason string: declaring a
     // different identifier than the one the owner-scoped query pinned must fail.
     const wrongIdentifier = evaluateSites({
+      dynamicFrom: [],
       sites,
       exemptions: [],
       inventory: [{ ...inventory[0], identifier: "otherId" }],
@@ -607,6 +612,7 @@ describe("derived-tier inventory (blind spot A)", () => {
       }`,
     );
     const violations = evaluateSites({
+      dynamicFrom: [],
       sites,
       exemptions: [],
       inventory: [
@@ -643,7 +649,9 @@ describe("derived-tier inventory (blind spot A)", () => {
       proof: PROOF_KINDS.DOCUMENTS_INNER_JOIN,
       reason: "fixture",
     };
-    expect(evaluateSites({ sites: joined, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual([]);
+    expect(
+      evaluateSites({ dynamicFrom: [], sites: joined, exemptions: [], inventory: [entry], untiered: [] }).violations,
+    ).toEqual([]);
 
     const unfiltered = scanFixture(
       FIXTURE_FILE,
@@ -652,6 +660,7 @@ describe("derived-tier inventory (blind spot A)", () => {
       }`,
     );
     const violations = evaluateSites({
+      dynamicFrom: [],
       sites: unfiltered,
       exemptions: [],
       inventory: [entry],
@@ -679,9 +688,10 @@ describe("derived-tier inventory (blind spot A)", () => {
         return supabase.from("document_chunks").select("id").eq("document_id", id);
       }`,
     );
-    expect(evaluateSites({ sites: withHelper, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual(
-      [],
-    );
+    expect(
+      evaluateSites({ dynamicFrom: [], sites: withHelper, exemptions: [], inventory: [entry], untiered: [] })
+        .violations,
+    ).toEqual([]);
 
     const withoutHelper = scanFixture(
       FIXTURE_FILE,
@@ -690,7 +700,13 @@ describe("derived-tier inventory (blind spot A)", () => {
       }`,
     );
     expect(
-      evaluateSites({ sites: withoutHelper, exemptions: [], inventory: [entry], untiered: [] }).violations.join("\n"),
+      evaluateSites({
+        dynamicFrom: [],
+        sites: withoutHelper,
+        exemptions: [],
+        inventory: [entry],
+        untiered: [],
+      }).violations.join("\n"),
     ).toContain("no owning-document helper in this scope was handed `id`");
   });
 
@@ -712,9 +728,10 @@ describe("derived-tier inventory (blind spot A)", () => {
         return supabase.from("document_chunks").select("content").in("document_id", documentIds);
       }`,
     );
-    expect(evaluateSites({ sites: derivedList, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual(
-      [],
-    );
+    expect(
+      evaluateSites({ dynamicFrom: [], sites: derivedList, exemptions: [], inventory: [entry], untiered: [] })
+        .violations,
+    ).toEqual([]);
 
     const requestSuppliedList = scanFixture(
       FIXTURE_FILE,
@@ -724,9 +741,13 @@ describe("derived-tier inventory (blind spot A)", () => {
       }`,
     );
     expect(
-      evaluateSites({ sites: requestSuppliedList, exemptions: [], inventory: [entry], untiered: [] }).violations.join(
-        "\n",
-      ),
+      evaluateSites({
+        dynamicFrom: [],
+        sites: requestSuppliedList,
+        exemptions: [],
+        inventory: [entry],
+        untiered: [],
+      }).violations.join("\n"),
     ).toContain("not the declared documentIds");
   });
 
@@ -751,7 +772,9 @@ describe("derived-tier inventory (blind spot A)", () => {
         return document ? chunk : notFound();
       }`,
     );
-    expect(evaluateSites({ sites: verified, exemptions: [], inventory: [entry], untiered: [] }).violations).toEqual([]);
+    expect(
+      evaluateSites({ dynamicFrom: [], sites: verified, exemptions: [], inventory: [entry], untiered: [] }).violations,
+    ).toEqual([]);
 
     const unverified = scanFixture(
       FIXTURE_FILE,
@@ -761,12 +784,19 @@ describe("derived-tier inventory (blind spot A)", () => {
       }`,
     );
     expect(
-      evaluateSites({ sites: unverified, exemptions: [], inventory: [entry], untiered: [] }).violations.join("\n"),
+      evaluateSites({
+        dynamicFrom: [],
+        sites: unverified,
+        exemptions: [],
+        inventory: [entry],
+        untiered: [],
+      }).violations.join("\n"),
     ).toContain("the parent document is never verified");
   });
 
   it("fails a stale entry that no longer matches any query site", () => {
     const violations = evaluateSites({
+      dynamicFrom: [],
       sites: [],
       exemptions: [],
       inventory: [
@@ -793,6 +823,7 @@ describe("derived-tier inventory (blind spot A)", () => {
       }`,
     );
     const violations = evaluateSites({
+      dynamicFrom: [],
       sites,
       exemptions: [],
       inventory: [
@@ -832,9 +863,9 @@ describe("P1-1 — an update payload is a written VALUE, not a filter", () => {
     // Previously `update:owner_id` was an OWNER_PROOF, so this reported ownerScoped with
     // zero violations while rewriting every other tenant's documents to the caller.
     expect(massReassign[0].ownerScopedChain, JSON.stringify(massReassign[0].proofs)).toBe(false);
-    expect(evaluateSites({ sites: massReassign, exemptions: [], inventory: [], untiered: [] }).violations).toHaveLength(
-      1,
-    );
+    expect(
+      evaluateSites({ dynamicFrom: [], sites: massReassign, exemptions: [], inventory: [], untiered: [] }).violations,
+    ).toHaveLength(1);
   });
 
   it("rejects an owner_id write filtered only by a request-supplied id", () => {
@@ -984,6 +1015,194 @@ describe("P2-3 — write-payload identifiers resolve lexically, not file-wide by
   });
 });
 
+describe("Codex-1 — a payload identifier binds where it is declared, not anywhere in the function", () => {
+  it("does not let a sibling block's const vouch for an untrusted payload", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST(request) {
+        const body = await request.json();
+        if (SHOULD_SEED) {
+          const rows = [{ owner_id: user.id }];
+          void rows;
+        }
+        return supabase.from("documents").insert(body.rows);
+      }`,
+    );
+    // The earlier fix bounded resolution to the enclosing function but still scanned its
+    // whole body, so this block's `rows` bound at a use site it never reaches.
+    expect(sites[0].ownerScopedChain, JSON.stringify(sites[0].proofs)).toBe(false);
+  });
+
+  it("does not let a `let` that is reassigned before the write count as a stamp", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST(request) {
+        let rows = [{ owner_id: user.id }];
+        rows = await request.json();
+        return supabase.from("documents").insert(rows);
+      }`,
+    );
+    expect(sites[0].ownerScopedChain, JSON.stringify(sites[0].proofs)).toBe(false);
+  });
+
+  it("does not fall through a shadowing parameter to an outer const of the same name", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `const rows = [{ owner_id: SYSTEM_OWNER_ID }];
+      export async function POST(rows) {
+        return supabase.from("documents").insert(rows);
+      }`,
+    );
+    expect(sites[0].ownerScopedChain, JSON.stringify(sites[0].proofs)).toBe(false);
+  });
+
+  it("still resolves the binding that really is in scope at the write", () => {
+    const sameBlock = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        if (ready) {
+          const rows = [{ owner_id: user.id }];
+          return supabase.from("documents").insert(rows);
+        }
+        return null;
+      }`,
+    );
+    expect(sameBlock[0].ownerScopedChain).toBe(true);
+
+    const outerBlock = scanFixture(
+      FIXTURE_FILE,
+      `export async function POST() {
+        const rows = [{ owner_id: user.id }];
+        if (ready) {
+          return supabase.from("documents").insert(rows);
+        }
+        return null;
+      }`,
+    );
+    expect(outerBlock[0].ownerScopedChain).toBe(true);
+  });
+});
+
+describe("Codex-2 — ownership facts stop at nested functions the query is not inside", () => {
+  it("does not let a never-invoked nested helper pin the document id", () => {
+    const sites = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET(request) {
+        const never = async () => {
+          return supabase.from("documents").select("id").eq("id", id).eq("owner_id", ownerId).maybeSingle();
+        };
+        void never;
+        return supabase.from("document_chunks").select("content").eq("document_id", id);
+      }`,
+    );
+    const chunks = sites.find((site) => site.table === "document_chunks");
+    // Before the fix this collection recursed into every nested function, so an
+    // owner-scoped query that never runs satisfied OWNER_PINNED_DOCUMENT_ID for a read
+    // that had no scoping of its own.
+    expect(chunks?.facts.ownerScopedDocumentIds.has("id")).toBe(false);
+    expect(chunks?.facts.hasOwnerScopedDocumentsQuery).toBe(false);
+  });
+
+  it("keeps the facts a query can genuinely see, in its own scope and in its own callback", () => {
+    const sameScope = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET(request) {
+        const owned = await supabase.from("documents").select("id").eq("id", id).eq("owner_id", ownerId).maybeSingle();
+        if (!owned.data) return notFound();
+        return supabase.from("document_chunks").select("content").eq("document_id", id);
+      }`,
+    );
+    expect(sameScope.find((site) => site.table === "document_chunks")?.facts.ownerScopedDocumentIds.has("id")).toBe(
+      true,
+    );
+
+    const ownCallback = scanFixture(
+      FIXTURE_FILE,
+      `export async function GET(request) {
+        return Promise.all(
+          ids.map(async (id) => {
+            const owned = await supabase
+              .from("documents")
+              .select("id")
+              .eq("id", id)
+              .eq("owner_id", ownerId)
+              .maybeSingle();
+            if (!owned.data) return null;
+            return supabase.from("document_chunks").select("content").eq("document_id", id);
+          }),
+        );
+      }`,
+    );
+    expect(ownCallback.find((site) => site.table === "document_chunks")?.facts.ownerScopedDocumentIds.has("id")).toBe(
+      true,
+    );
+  });
+});
+
+describe("Codex-3 — a table named through an identifier fails closed", () => {
+  const dynamicFixture = `export async function POST() {
+    const naming = { from: (table) => adminSupabase.from(table) };
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const ids = Array.from(new Set(list));
+    await adminSupabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(path, buffer);
+    return planDocumentName({ supabase: naming, ownerId, ids });
+  }`;
+
+  it("reports the dynamic dispatch and ignores Buffer.from, Array.from and storage buckets", () => {
+    const sites = scanFixture(FIXTURE_FILE, dynamicFixture).filter((site) => site.tier === "dynamic-from");
+    expect(sites).toHaveLength(1);
+    expect(sites[0].argument).toBe("table");
+  });
+
+  it("fails an undeclared dynamic dispatch", () => {
+    const { violations } = evaluateSites({
+      sites: scanFixture(FIXTURE_FILE, dynamicFixture),
+      exemptions: [],
+      inventory: [],
+      untiered: [],
+      dynamicFrom: [],
+    });
+    expect(violations.join("\n")).toMatch(/undeclared dynamic-from query/);
+  });
+
+  it("refuses a declaration whose delegate is not itself scanned", () => {
+    const { violations } = evaluateSites({
+      sites: scanFixture(FIXTURE_FILE, dynamicFixture),
+      exemptions: [],
+      inventory: [],
+      untiered: [],
+      dynamicFrom: [
+        {
+          file: FIXTURE_FILE,
+          table: DYNAMIC_TABLE,
+          fn: "POST",
+          queries: 1,
+          proof: PROOF_KINDS.DYNAMIC_TABLE_DISPATCH,
+          delegate: "src/lib/not-scanned.ts",
+          reason: "a delegate nothing reads is exactly the blind spot this closes",
+        },
+      ],
+    });
+    // A declaration pointing at an unscanned module would move the blind spot rather than
+    // close it, so the entry has to name a module the scan actually reads.
+    expect(violations.join("\n")).toMatch(/is not in SCANNED_LIB_MODULES/);
+  });
+
+  it("sees the real dynamic dispatch the review found, declared against a scanned delegate", () => {
+    expect(DYNAMIC_FROM_DECLARATIONS).toHaveLength(1);
+    const [entry] = DYNAMIC_FROM_DECLARATIONS;
+    expect(entry.file).toBe("src/app/api/upload/route.ts");
+    expect(SCANNED_LIB_MODULES).toContain(entry.delegate);
+    // The delegate is scanned as an ordinary direct-tier site, so its owner filter is
+    // proven mechanically rather than asserted in the declaration's prose.
+    const documentNaming = scanTenancy(process.cwd()).sites.filter(
+      (site) => site.file === entry.delegate && site.table === "documents",
+    );
+    expect(documentNaming.length).toBeGreaterThan(0);
+    expect(documentNaming.every((site) => site.ownerScopedChain)).toBe(true);
+  });
+});
+
 describe("P2-4 — sanctioned names are resolved, not matched as text", () => {
   it("rejects a file-local no-op named withOwnerReadScope", () => {
     const shadowed = scanFixture(
@@ -1047,7 +1266,13 @@ describe("P2-4 — sanctioned names are resolved, not matched as text", () => {
       }`,
     );
     expect(
-      evaluateSites({ sites: shadowed, exemptions: [], inventory: [entry], untiered: [] }).violations.join("\n"),
+      evaluateSites({
+        dynamicFrom: [],
+        sites: shadowed,
+        exemptions: [],
+        inventory: [entry],
+        untiered: [],
+      }).violations.join("\n"),
     ).toContain("no owning-document helper in this scope was handed `id`");
   });
 
@@ -1108,7 +1333,13 @@ describe("P2-5 — a table outside the three tiers is signalled, never silently 
     const sites = untieredFixture();
     expect(sites).toHaveLength(1);
     expect(sites[0].tier).toBe("untiered");
-    const { violations, counts } = evaluateSites({ sites, exemptions: [], inventory: [], untiered: [] });
+    const { violations, counts } = evaluateSites({
+      dynamicFrom: [],
+      sites,
+      exemptions: [],
+      inventory: [],
+      untiered: [],
+    });
     expect(counts.untiered).toBe(1);
     // Before the fourth signal this query produced NO site, NO violation and no mention
     // anywhere: zero coverage with zero signal.
@@ -1118,6 +1349,7 @@ describe("P2-5 — a table outside the three tiers is signalled, never silently 
 
   it("passes once the table is declared with a reason", () => {
     const violations = evaluateSites({
+      dynamicFrom: [],
       sites: untieredFixture(),
       exemptions: [],
       inventory: [],
@@ -1143,6 +1375,7 @@ describe("P2-5 — a table outside the three tiers is signalled, never silently 
       }`,
     );
     const violations = evaluateSites({
+      dynamicFrom: [],
       sites,
       exemptions: [],
       inventory: [],

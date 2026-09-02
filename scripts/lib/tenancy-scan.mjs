@@ -68,6 +68,10 @@ export const SCANNED_LIB_MODULES = [
   // Operator observability aggregates read by /api/health's deep probe.
   "src/lib/observability/answer-slo.ts",
   "src/lib/observability/spend-metrics.ts",
+  // The delegate behind the ONE dynamic table dispatch in the scanned set: /api/upload
+  // hands it `(table) => adminSupabase.from(table)`, so its `documents` query is the real
+  // owner filter for that path and was previously scanned by nothing (Codex review).
+  "src/lib/document-naming.ts",
 ];
 
 export const API_DIR_SEGMENTS = ["src", "app", "api"];
@@ -567,46 +571,83 @@ function callbackReturnsStampedRow(callback, columns) {
 }
 
 /**
- * The initializer of `identifier`, resolved LEXICALLY: the nearest enclosing function scope
- * first (without descending into nested functions), then a top-level `const` at module
- * scope. The previous implementation walked the whole file for any variable of that name,
- * so two handlers sharing a common identifier (`rows`, `payload`, `record`) collided and an
- * owner-stamped variable in helper A vouched for `rows = body.rows` in handler B
- * (security review P2-3).
+ * The initializer of `identifier`, resolved LEXICALLY AT ITS USE SITE: the nearest
+ * enclosing scope that binds the name wins — its own block, then each enclosing block,
+ * then the function, then a top-level `const` at module scope.
+ *
+ * Two earlier versions were both unsound. The first searched the whole file for any
+ * variable of that name, so an owner-stamped `rows` in helper A vouched for
+ * `rows = body.rows` in handler B (security review P2-3). The second bounded that to the
+ * enclosing function but still scanned its entire body, so a declaration in a SIBLING
+ * block — including an unreachable one — bound at a use site it never reaches, and
+ * `if (false) { const rows = [{ owner_id: user.id }]; }` made a later `insert(rows)` over
+ * an untrusted payload pass (Codex review).
+ *
+ * A binding whose value cannot be read — a parameter, a destructuring pattern, a `let`,
+ * a declaration with no initializer — returns null and STOPS the walk rather than falling
+ * through to an outer declaration of the same name. The inner binding shadows, so falling
+ * through would attribute the outer one's owner stamp to a value that never held it.
  */
-function lexicalInitializer(sourceFile, identifier) {
+function lexicalInitializer(identifier) {
   const name = identifier.text;
-  const inScope = (scopeNode) => {
-    let found = null;
-    const visit = (node) => {
-      if (found) return;
-      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name && node.initializer) {
-        found = node.initializer;
-        return;
+
+  /** Does this binding name — identifier or destructuring pattern — bind `name`? */
+  const bindsName = (bindingName) => {
+    if (!bindingName) return false;
+    if (ts.isIdentifier(bindingName)) return bindingName.text === name;
+    if (ts.isObjectBindingPattern(bindingName) || ts.isArrayBindingPattern(bindingName)) {
+      return bindingName.elements.some((element) => ts.isBindingElement(element) && bindsName(element.name));
+    }
+    return false;
+  };
+
+  // Declarations made DIRECTLY in this statement list. Deliberately NOT recursive: that
+  // recursion is exactly what let a sibling block's `const` bind at this use site.
+  const directDeclaration = (statements) => {
+    for (const statement of statements ?? []) {
+      if (!ts.isVariableStatement(statement)) continue;
+      for (const declaration of statement.declarationList.declarations) {
+        if (bindsName(declaration.name)) return declaration;
       }
-      if (ts.isFunctionLike(node) || ts.isClassLike(node)) return;
-      ts.forEachChild(node, visit);
-    };
-    ts.forEachChild(scopeNode, visit);
-    return found;
+    }
+    return null;
+  };
+
+  const scopeStatements = (node) => {
+    if (ts.isSourceFile(node) || ts.isBlock(node) || ts.isModuleBlock(node)) return node.statements;
+    if (ts.isCaseClause(node) || ts.isDefaultClause(node)) return node.statements;
+    return null;
+  };
+
+  /** Bindings a scope introduces other than through its own statement list. */
+  const bindsUnreadably = (node) => {
+    if (ts.isFunctionLike(node) && (node.parameters ?? []).some((parameter) => bindsName(parameter.name))) return true;
+    if (ts.isCatchClause(node) && bindsName(node.variableDeclaration?.name)) return true;
+    return Boolean(
+      (ts.isForStatement(node) || ts.isForOfStatement(node) || ts.isForInStatement(node)) &&
+      node.initializer &&
+      ts.isVariableDeclarationList(node.initializer) &&
+      node.initializer.declarations.some((declaration) => bindsName(declaration.name)),
+    );
+  };
+
+  // Only a `const` bound to a plain identifier yields a value worth reasoning about. A
+  // `let` can be reassigned between its declaration and the write, so its initializer
+  // proves nothing about what is actually sent.
+  const readableInitializer = (declaration) => {
+    if (!ts.isIdentifier(declaration.name) || !declaration.initializer) return null;
+    const list = declaration.parent;
+    if (!list || !ts.isVariableDeclarationList(list) || !(list.flags & ts.NodeFlags.Const)) return null;
+    return declaration.initializer;
   };
 
   let current = identifier.parent;
-  while (current && !ts.isSourceFile(current)) {
-    if (ts.isFunctionLike(current)) {
-      const found = inScope(current);
-      if (found) return found;
-    }
+  while (current) {
+    if (bindsUnreadably(current)) return null;
+    const declaration = directDeclaration(scopeStatements(current));
+    if (declaration) return readableInitializer(declaration);
+    if (ts.isSourceFile(current)) break;
     current = current.parent;
-  }
-  for (const statement of sourceFile.statements) {
-    if (!ts.isVariableStatement(statement)) continue;
-    if (!(statement.declarationList.flags & ts.NodeFlags.Const)) continue;
-    for (const declaration of statement.declarationList.declarations) {
-      if (ts.isIdentifier(declaration.name) && declaration.name.text === name && declaration.initializer) {
-        return declaration.initializer;
-      }
-    }
   }
   return null;
 }
@@ -617,12 +658,12 @@ function lexicalInitializer(sourceFile, identifier) {
  * "build the rows above, then `.upsert(rows)`" idiom is still recognised as stamping the
  * owner column rather than forced into an exemption it does not need.
  */
-function payloadStampsColumn(sourceFile, argument, columns) {
+function payloadStampsColumn(argument, columns) {
   if (!argument) return false;
   if (expressionStampsColumn(argument, columns)) return true;
   const identifier = unwrapExpression(argument);
   if (!identifier || !ts.isIdentifier(identifier)) return false;
-  const initializer = lexicalInitializer(sourceFile, identifier);
+  const initializer = lexicalInitializer(identifier);
   return Boolean(initializer) && expressionStampsColumn(initializer, columns);
 }
 
@@ -671,8 +712,8 @@ function analyzeChain(sourceFile, fromCall, context) {
     // to the caller, and was reported as ownerScoped before 2026-09-02 (security review
     // P1-1). An update is scoped by its `.eq(...)` filters or not at all.
     if (call.name === "insert" || call.name === "upsert") {
-      if (payloadStampsColumn(sourceFile, first, new Set(["owner_id"]))) proofs.push(`${call.name}:owner_id`);
-      if (payloadStampsColumn(sourceFile, first, new Set(["user_id"]))) proofs.push(`${call.name}:user_id`);
+      if (payloadStampsColumn(first, new Set(["owner_id"]))) proofs.push(`${call.name}:owner_id`);
+      if (payloadStampsColumn(first, new Set(["user_id"]))) proofs.push(`${call.name}:user_id`);
     }
   }
 
@@ -701,7 +742,7 @@ const USER_PROOF = /^(eq|in):user_id$|^(insert|upsert):user_id$|^or:user_id$/;
  * proof: which identifiers were pinned by an owner-scoped `documents` query, which were
  * handed to an owning-document helper, and which are locally declared.
  */
-function scopeFacts(sourceFile, scopeNode, context) {
+function scopeFacts(sourceFile, scopeNode, context, reachableScopes = new Set()) {
   const ownerScopedDocumentIds = new Set();
   const owningHelperArguments = new Set();
   const localDeclarations = new Set();
@@ -753,11 +794,65 @@ function scopeFacts(sourceFile, scopeNode, context) {
       });
     }
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) localDeclarations.add(node.name.text);
-    ts.forEachChild(node, visit);
+    ts.forEachChild(node, (child) => {
+      // A nested function's body is NOT part of this scope's execution unless the query
+      // being proved sits inside it. Descending unconditionally let a never-invoked helper
+      // or callback donate its owner-scoped `documents` query to the enclosing handler, so
+      // an otherwise unscoped derived-tier read passed OWNER_PINNED_DOCUMENT_ID on the
+      // strength of code that never runs (Codex review). `reachableScopes` is the chain of
+      // function-like nodes between the query and this scope — the ones it is lexically
+      // inside, and therefore the ones that demonstrably run when it does.
+      if (ts.isFunctionLike(child) && !reachableScopes.has(child)) return;
+      visit(child);
+    });
   };
   if (scopeNode) visit(scopeNode);
 
   return { ownerScopedDocumentIds, owningHelperArguments, localDeclarations, hasOwnerScopedDocumentsQuery };
+}
+
+/* ------------------------------------------------- dynamic table dispatch */
+
+/** The stand-in table name for a `.from(identifier)` whose table cannot be read statically. */
+export const DYNAMIC_TABLE = "(dynamic)";
+
+// `.from()` is not a PostgREST-only method name. These receivers are the built-ins whose
+// `.from` has nothing to do with the database, and excluding them by name is safe because
+// they are globals that cannot be a Supabase client.
+const NON_POSTGREST_FROM_RECEIVERS = new Set([
+  "Array",
+  "ArrayBuffer",
+  "BigInt64Array",
+  "BigUint64Array",
+  "Buffer",
+  "Date",
+  "Float32Array",
+  "Float64Array",
+  "Int8Array",
+  "Int16Array",
+  "Int32Array",
+  "Map",
+  "Number",
+  "Object",
+  "Set",
+  "String",
+  "Uint8Array",
+  "Uint16Array",
+  "Uint32Array",
+]);
+
+/**
+ * Is this `.from()` receiver plausibly a PostgREST client, rather than a built-in or a
+ * Storage handle? Storage's `.from(bucket)` names a bucket, not a table: it carries no
+ * tenancy column and is governed by bucket policy, so it is not this scan's business.
+ * Everything unrecognised is treated as a database client, so the check FAILS CLOSED —
+ * an unfamiliar receiver is reported rather than silently dropped.
+ */
+function isPostgrestFromReceiver(receiver) {
+  if (!receiver) return false;
+  if (ts.isIdentifier(receiver) && NON_POSTGREST_FROM_RECEIVERS.has(receiver.text)) return false;
+  if (ts.isPropertyAccessExpression(receiver) && receiver.name.text === "storage") return false;
+  return true;
 }
 
 /* ------------------------------------------------------------------- scan */
@@ -784,18 +879,51 @@ export function analyzeSource({ relativePath, source, tiers }) {
 
   const factsFor = (node) => {
     const scopeNode = enclosingNamedScopeNode(node) ?? sourceFile;
-    if (!factsCache.has(scopeNode)) factsCache.set(scopeNode, scopeFacts(sourceFile, scopeNode, context));
-    return factsCache.get(scopeNode);
+    // Innermost first, so the cache key below is the tightest scope containing the query.
+    const reachableScopes = new Set();
+    let current = node.parent;
+    while (current && current !== scopeNode) {
+      if (ts.isFunctionLike(current)) reachableScopes.add(current);
+      current = current.parent;
+    }
+    // Two sites in the same nested callback share a key; two sites in DIFFERENT callbacks
+    // under one named scope do not, because they can see different facts.
+    const cacheKey = reachableScopes.values().next().value ?? scopeNode;
+    if (!factsCache.has(cacheKey)) {
+      factsCache.set(cacheKey, scopeFacts(sourceFile, scopeNode, context, reachableScopes));
+    }
+    return factsCache.get(cacheKey);
   };
 
   const visit = (node) => {
-    if (
+    const isFromCall =
       ts.isCallExpression(node) &&
       ts.isPropertyAccessExpression(node.expression) &&
       node.expression.name.text === "from" &&
-      node.arguments.length === 1 &&
-      isStringLiteral(node.arguments[0])
-    ) {
+      node.arguments.length === 1;
+    if (isFromCall && !isStringLiteral(node.arguments[0]) && isPostgrestFromReceiver(node.expression.expression)) {
+      // A table named through an identifier matches no tier, so before this the query left
+      // the scan with no signal whatsoever — and one such site is real: /api/upload builds
+      // `{ from: (table) => adminSupabase.from(table) }` and hands it to planDocumentName,
+      // whose `documents` query is the actual owner filter. Deleting that filter left both
+      // phases green (Codex review). Every dynamic dispatch must now be declared, naming
+      // where the owner filter it delegates to actually lives.
+      sites.push({
+        file: relativePath,
+        table: DYNAMIC_TABLE,
+        tier: "dynamic-from",
+        scope: enclosingNamedScope(node),
+        line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1,
+        argument: node.arguments[0].getText(sourceFile),
+        proofs: [],
+        ownerScopedChain: false,
+        userScopedChain: false,
+        documentFilter: null,
+        innerJoinsDocuments: false,
+        facts: factsFor(node),
+      });
+    }
+    if (isFromCall && isStringLiteral(node.arguments[0])) {
       const table = node.arguments[0].text;
       const tier = tiers.direct.has(table)
         ? "direct"
@@ -935,6 +1063,10 @@ export const PROOF_KINDS = {
   // The table carries none of the three tenancy columns, so no tier covers it at all and no
   // mechanical proof is even definable. Declaration-only, and the declaration is the signal.
   UNTIERED_TABLE: "untiered-table",
+  // The table name is not a string literal, so no tier can claim the query and no chain
+  // predicate can be read. Declaration-only: the entry must name the scanned module the
+  // dispatch delegates to, and that module is where the owner filter is then checked.
+  DYNAMIC_TABLE_DISPATCH: "dynamic-table-dispatch",
 };
 
 const CLINICAL_QUALITY_REASON =
@@ -1410,6 +1542,26 @@ export const UNTIERED_TABLE_DECLARATIONS = [
   },
 ];
 
+/**
+ * Every `.from(identifier)` in the scanned set whose table cannot be read statically. The
+ * list is exhaustive and ratcheting: a new dynamic dispatch fails the scan until someone
+ * writes down where its owner filter lives. `delegate` must be a module the scan actually
+ * reads (SCANNED_LIB_MODULES), so the declaration points at coverage rather than replacing
+ * it — a delegate outside the scanned set would be exactly the blind spot this closes.
+ */
+export const DYNAMIC_FROM_DECLARATIONS = [
+  {
+    file: "src/app/api/upload/route.ts",
+    table: DYNAMIC_TABLE,
+    fn: "POST",
+    queries: 1,
+    proof: PROOF_KINDS.DYNAMIC_TABLE_DISPATCH,
+    delegate: "src/lib/document-naming.ts",
+    reason:
+      'A one-method adapter — `{ from: (table) => adminSupabase.from(table) }` — narrowing the admin client to the shape planDocumentName accepts. The route passes no table name of its own; the only table the delegate reaches is `documents`, and its query filters `.eq("owner_id", args.ownerId)` on its own chain from the id the route resolved through requireOwnerScope. That delegate is in SCANNED_LIB_MODULES, so the filter is checked mechanically as a direct-tier site rather than trusted from this prose.',
+  },
+];
+
 /* -------------------------------------------------------- proof verification */
 
 /** Does `site` satisfy the mechanical proof `entry` declares? Returns null, or the reason it does not. */
@@ -1445,6 +1597,13 @@ export function proofFailure(entry, site) {
         return "this scope runs no owner-scoped documents query, so the parent document is never verified";
       return null;
     case PROOF_KINDS.REVIEWED_INDIRECT:
+      return null;
+    case PROOF_KINDS.DYNAMIC_TABLE_DISPATCH:
+      // Nothing on the chain can be verified — the table is not knowable here. What IS
+      // verified is that the named delegate is inside the scanned set, so the filter this
+      // entry points at is itself under the gate rather than taken on trust.
+      if (!SCANNED_LIB_MODULES.includes(entry.delegate))
+        return `delegate ${entry.delegate ?? "(none declared)"} is not in SCANNED_LIB_MODULES, so its owner filter is not scanned by anything`;
       return null;
     case PROOF_KINDS.UNTIERED_TABLE:
       if (site.tier !== "untiered") return `\`${site.table}\` is in the ${site.tier} tier, not outside every tier`;
@@ -1546,11 +1705,13 @@ export function evaluateSites({
   exemptions = SCOPE_EXEMPTIONS,
   inventory = DERIVED_QUERY_INVENTORY,
   untiered = UNTIERED_TABLE_DECLARATIONS,
+  dynamicFrom = DYNAMIC_FROM_DECLARATIONS,
 }) {
   const unscopedDirect = sites.filter((site) => site.tier === "direct" && !site.ownerScopedChain);
   const unscopedUserKeyed = sites.filter((site) => site.tier === "user-keyed" && !site.userScopedChain);
   const derivedSites = sites.filter((site) => site.tier === "derived");
   const untieredSites = sites.filter((site) => site.tier === "untiered");
+  const dynamicFromSites = sites.filter((site) => site.tier === "dynamic-from");
 
   const violations = [
     ...reconcile(exemptions, [...unscopedDirect, ...unscopedUserKeyed], "scope-exemption"),
@@ -1561,6 +1722,12 @@ export function evaluateSites({
       "untiered-table",
       "This table carries no owner_id, user_id or document_id column, so no tier covers it. Give it a tenancy column, or add",
     ),
+    ...reconcile(
+      dynamicFrom,
+      dynamicFromSites,
+      "dynamic-from",
+      "The table name is not a string literal, so no tier claims this query and no chain predicate can be read. Name the table literally, or add",
+    ),
   ];
 
   return {
@@ -1570,6 +1737,7 @@ export function evaluateSites({
       userKeyed: sites.filter((site) => site.tier === "user-keyed").length,
       derived: derivedSites.length,
       untiered: untieredSites.length,
+      dynamicFrom: dynamicFromSites.length,
       unscopedDirect: unscopedDirect.length,
       unscopedUserKeyed: unscopedUserKeyed.length,
     },
