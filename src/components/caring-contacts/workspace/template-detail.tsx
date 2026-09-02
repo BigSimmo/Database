@@ -33,6 +33,7 @@ import {
   templateLifecycleOf,
   type TemplateLifecycle,
 } from "./templates-library";
+import { workspacePanelPadded } from "./surfaces";
 
 /**
  * ONE governed pathway version, in full: its lifecycle, its dual approval, the wording its own
@@ -123,8 +124,7 @@ const LIFECYCLE_ICONS: Readonly<Record<TemplateLifecycle, ComponentType<SVGProps
 const backLinkClass =
   "inline-flex min-h-tap min-w-0 items-center gap-2 self-start rounded-[var(--radius-md)] px-2 text-sm font-semibold text-[color:var(--clinical-accent)] underline decoration-dotted underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const cardClass =
-  "min-w-0 rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 forced-colors:border-[CanvasText]";
+const cardClass = workspacePanelPadded;
 
 const cardHeadingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
 

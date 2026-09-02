@@ -14,6 +14,7 @@ import {
 } from "@/lib/caring-contacts/pathway-versions";
 
 import { ListEmptyState } from "./list-empty-state";
+import { workspacePanelPadded } from "./surfaces";
 
 /**
  * The governed pathway versions this team holds, and the approval history behind each one.
@@ -442,7 +443,7 @@ function PathwayVersionRow({ version }: { version: PathwayVersion }) {
   const unwritten = MESSAGE_TYPE_ORDER.filter((type) => !held.includes(type));
 
   return (
-    <li className="min-w-0 rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 forced-colors:border-[CanvasText]">
+    <li className={workspacePanelPadded}>
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-[color:var(--text-muted)]">Governed version</p>

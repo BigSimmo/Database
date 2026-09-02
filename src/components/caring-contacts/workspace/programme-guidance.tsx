@@ -3,6 +3,7 @@ import { CheckCircle2, CircleHelp, Info, MessageSquareText, ShieldCheck } from "
 import { AWST_TIME_ZONE } from "@/lib/caring-contacts/clock";
 import { PATIENT_VISIBLE_NO_REPLY_NOTICE } from "@/lib/caring-contacts/message-copy";
 import { CARING_CONTACT_ROLE_WORDING } from "@/lib/caring-contacts/permissions";
+import { workspacePanelFlush } from "./surfaces";
 
 /**
  * Programme boundaries and operational guidance -- the approved Guidance design, built.
@@ -55,12 +56,15 @@ const LANGUAGE_RULES: readonly { readonly term: string; readonly rule: string }[
   { term: "Actions", rule: "Verb first, and name the object acted on." },
 ];
 
-const sectionClass =
-  "overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)]";
+const sectionClass = workspacePanelFlush;
 
 export function ProgrammeGuidance() {
+  // Two columns of prose only at 1440px. At `lg:` this gave ~296px of text per column after the
+  // cards' own padding — roughly forty characters, well under a comfortable measure — and the
+  // paragraphs are already capped at `var(--measure)`, so a single column costs nothing below that
+  // width. `min-[1440px]:` rather than a named breakpoint, per design-system GATES §3b.
   return (
-    <div className="grid min-w-0 gap-5 lg:grid-cols-2" data-testid="caring-contacts-guidance">
+    <div className="grid min-w-0 gap-5 min-[1440px]:grid-cols-2" data-testid="caring-contacts-guidance">
       <div className="min-w-0 space-y-5">
         <section
           aria-labelledby="caring-contacts-guidance-boundary"

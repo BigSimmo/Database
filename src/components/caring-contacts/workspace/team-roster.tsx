@@ -9,6 +9,7 @@ import type { CoordinatorWorkload, TeamWorkloadView, UnclaimedWork } from "@/lib
 
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
+import { workspacePanelFlush } from "./surfaces";
 
 /**
  * Where this team's caring-contact work is sitting -- the Team screen's body (Phase 2B Task 18).
@@ -66,8 +67,7 @@ export type TeamRosterProps = {
   readonly mayReassignPlan: boolean;
 };
 
-const sectionClass =
-  "overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)]";
+const sectionClass = workspacePanelFlush;
 
 const cellClass = "px-4 py-3 align-top text-sm text-[color:var(--text)]";
 

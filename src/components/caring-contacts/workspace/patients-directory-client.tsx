@@ -14,6 +14,7 @@ import {
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
 import type { PatientsDirectoryRow } from "./patients-directory-row";
+import { workspacePanelPadded } from "./surfaces";
 
 /**
  * The team's caseload -- the CLIENT half, and the reason the boundary exists.
@@ -518,7 +519,7 @@ function PatientRow({ row }: { row: PatientsDirectoryRow }) {
   const explanation = suppressionExplanation(row.absorbedContactCount, row.otherSuppressedContactCount);
 
   return (
-    <li className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 forced-colors:border-[CanvasText]">
+    <li className={workspacePanelPadded}>
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">

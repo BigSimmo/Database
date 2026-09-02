@@ -3,6 +3,7 @@ import { GitCompareArrows, Info, ListChecks, Users } from "lucide-react";
 import type { DispatchDiscrepancySummary, OperationalReport } from "@/lib/caring-contacts/operational-reporting";
 import type { ReachDisclosure } from "@/lib/caring-contacts/reach-reporting";
 import { REACH_REPORTING_GOVERNANCE } from "@/lib/caring-contacts/reach-reporting-governance";
+import { workspacePanel, workspacePanelFlush } from "./surfaces";
 
 /**
  * Aggregate operational reporting, and the programme-reach section spec §2.5 owes.
@@ -55,10 +56,9 @@ export type OperationalReportsProps = {
   readonly reach: ReachReportingSection;
 };
 
-const sectionClass =
-  "overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)]";
+const sectionClass = workspacePanelFlush;
 
-const tileClass = "rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-4";
+const tileClass = `${workspacePanel} px-5 py-4`;
 
 const measureValueClass = "mt-2 text-2xl font-semibold tabular-nums text-[color:var(--text-heading)]";
 
@@ -192,7 +192,15 @@ export function OperationalReports({
 
   return (
     <div className="min-w-0 space-y-5" data-testid="caring-contacts-reports">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/*
+        Four across only at 1440px. At `lg:` — where this used to switch — four tiles left 127px
+        of content each after `tileClass`'s `px-5`, for a `text-2xl` numeral plus a label like
+        "Median minutes, attempt to resolution", which wrapped to five or six lines under the
+        number it belonged to. Two-up holds 306px per tile across 1024-1439.
+
+        `min-[1440px]:` rather than a named breakpoint, per design-system GATES §3b.
+      */}
+      <div className="grid gap-3 sm:grid-cols-2 min-[1440px]:grid-cols-4">
         <Measure
           label="Still to send today"
           value={planMeasure(report.today.stillToSend)}
