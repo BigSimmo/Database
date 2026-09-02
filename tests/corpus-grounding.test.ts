@@ -427,14 +427,38 @@ describe("out-of-corpus guard (#000GN4)", () => {
       import("../src/lib/clinical-search"),
       import("../src/lib/rag/rag-query-guard"),
     ]);
-    // The hyphen is the case that makes the two normalizations disagree: `normalizeAnalysisText`
-    // folds it to a space before classifyRagQuery sees it, while the guard tests the raw string.
+    // Both call sites now normalize the same way, so every separator variant of a listed
+    // phrase behaves identically in both. Raised in review on PR #2546: the shared constant
+    // was being applied to the normalized query in one place and the raw query in the other,
+    // which is the same divergence — one level down — that folding the two pattern copies into
+    // one was meant to end. The non-breaking space and the double space are the pasted-text
+    // cases; the committed control uses an ordinary hyphen, checked byte by byte, so none of
+    // these was failing before. They are pins against the divergence returning, not repairs.
     for (const query of [
       "What antibiotic dose is recommended for community-acquired pneumonia?",
       "What antibiotic dose is recommended for community acquired pneumonia?",
+      "What antibiotic dose is recommended for community\u00a0acquired\u00a0pneumonia?",
+      "What antibiotic dose is recommended for community  acquired  pneumonia?",
+      "What antibiotic dose is recommended for COMMUNITY-ACQUIRED PNEUMONIA?",
     ]) {
-      expect(classifyRagQuery(query).queryClass).toBe("unsupported_or_general");
-      expect(shouldShortCircuitUnsupportedSearch(query, analyzeClinicalQuery(query))).toBe(true);
+      expect(classifyRagQuery(query).queryClass, query).toBe("unsupported_or_general");
+      expect(shouldShortCircuitUnsupportedSearch(query, analyzeClinicalQuery(query)), query).toBe(true);
+    }
+  });
+
+  // The narrowing this PR exists for must survive normalization: an in-corpus psychiatric
+  // question still reaches retrieval rather than being refused content-blind.
+  it("still lets in-corpus queries through after normalization", async () => {
+    const [{ analyzeClinicalQuery }, { shouldShortCircuitUnsupportedSearch }] = await Promise.all([
+      import("../src/lib/clinical-search"),
+      import("../src/lib/rag/rag-query-guard"),
+    ]);
+    for (const query of [
+      "Which SSRI is first line for generalised anxiety disorder?",
+      "ssri induced hyponatraemia monitoring",
+      "clozapine antibiotic prophylaxis",
+    ]) {
+      expect(shouldShortCircuitUnsupportedSearch(query, analyzeClinicalQuery(query)), query).toBe(false);
     }
   });
 });

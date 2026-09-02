@@ -7,7 +7,7 @@ import {
   medicationSafetyEntitiesInText,
 } from "@/lib/medication-entities";
 import { freshnessDecayPenalty, rankingConfig } from "@/lib/ranking-config";
-import { clearlyOutsideCorpusMedicalPattern } from "@/lib/rag/rag-query-guard";
+import { clearlyOutsideCorpusMedicalPattern, normalizeGuardQuery } from "@/lib/rag/rag-query-guard";
 import type {
   ClinicalQueryAnalysis,
   ClinicalQueryIntent,
@@ -387,15 +387,12 @@ function tokens(text: string) {
 }
 
 /** Normalize analysis text. */
-function normalizeAnalysisText(text: string) {
-  return text
-    .normalize("NFKC")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .replace(/[^a-z0-9%/.]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// One definition, shared with the guard that consumes its output. This used to be a private
+// copy here while `rag-query-guard.ts` matched the raw query, so the constant the two modules
+// share was applied to two different strings. Moved rather than duplicated; the body is
+// unchanged, so every other caller in this file behaves exactly as before. See
+// `normalizeGuardQuery`'s own note for why this mattered (PR #2546).
+const normalizeAnalysisText = normalizeGuardQuery;
 
 /** Corrected tokens. */
 function correctedTokens(query: string) {

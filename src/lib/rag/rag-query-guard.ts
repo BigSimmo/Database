@@ -50,9 +50,41 @@ function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
   return true;
 }
 
+/**
+ * The SINGLE normalizer for text that `clearlyOutsideCorpusMedicalPattern` is matched against.
+ *
+ * `clinical-search.ts` owned an identical private copy and applied it to its own call site
+ * while this module matched the RAW query, so one shared constant had two different inputs —
+ * the same divergence, one level down, that folding the two pattern copies into one was meant
+ * to end. Pasted clinical text is where it bites: a non-breaking space or a stray double space
+ * between the words of a listed phrase left the two call sites disagreeing about whether the
+ * same question was out of corpus, and the class selects the composition menu, second-stage
+ * rerank engagement, and part of the search cache key. Raised in review on PR #2546. The
+ * bot's specific example was wrong — `unsupported-pneumonia-antibiotic` in `rag-eval-cases.ts`
+ * uses an ordinary hyphen and space, verified byte by byte, so no eval control was broken —
+ * but the divergence it points at is real.
+ *
+ * Widening is confined to whitespace and punctuation variants of phrases already on the list,
+ * which is why it is safe on a protected surface: it can only make an out-of-corpus phrase
+ * match the way its canonical spelling already does. `unavailableDocumentNoisePattern` and
+ * `clearlyNonClinicalConsumerPattern` are deliberately left on the raw query — they are local
+ * to this module, share no constant with any other call site, and so have no divergence to
+ * close. Changing their input would be an undeclared behaviour change.
+ */
+export function normalizeGuardQuery(text: string) {
+  return text
+    .normalize("NFKC")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/[^a-z0-9%/.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
   if (unavailableDocumentNoisePattern.test(query)) return true;
-  if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
+  if (clearlyOutsideCorpusMedicalPattern.test(normalizeGuardQuery(query)) && analysis.documentTitleTerms.length === 0)
+    return true;
   if (!unsupportedSoftTailEligible(analysis)) return false;
   if (clearlyNonClinicalConsumerPattern.test(query)) return true;
   return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
@@ -61,7 +93,8 @@ export function shouldShortCircuitUnsupportedSearch(query: string, analysis: Cli
 // True only for queries that would short-circuit via the soft tail itself, not a pattern guard.
 export function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQueryAnalysis) {
   if (unavailableDocumentNoisePattern.test(query)) return false;
-  if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return false;
+  if (clearlyOutsideCorpusMedicalPattern.test(normalizeGuardQuery(query)) && analysis.documentTitleTerms.length === 0)
+    return false;
   if (!unsupportedSoftTailEligible(analysis)) return false;
   if (clearlyNonClinicalConsumerPattern.test(query)) return false;
   return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
