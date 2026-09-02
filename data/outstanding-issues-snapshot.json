@@ -5,13 +5,13 @@
     "committed_at": "2026-08-27T20:30:32+08:00"
   },
   "counts": {
-    "open": 81,
-    "p1": 1,
-    "p2": 49,
-    "p3": 31,
+    "open": 75,
+    "p1": 2,
+    "p2": 51,
+    "p3": 22,
     "queued": 7,
-    "pending": 85,
-    "resolved": 431
+    "pending": 0,
+    "resolved": 454
   },
   "queue": [
     {
@@ -197,8 +197,8 @@
       "priority": "P2",
       "type": "rec",
       "summary": "Nothing schedules a bundle-budget baseline refresh, so accumulated growth fails whichever unrelated PR lands last",
-      "detail": "PARTIALLY ADDRESSED 2026-08-23: the bundle checker now validates the configured 40-character baseline source before reporting distance and emits explicit, non-failing text plus structured JSON remediation when the commit is missing or not an ancestor. Normal JSON remains a single document; size enforcement and explicit --update semantics are unchanged. The current source e5ee533bc04ff0ab34ff17c23341cb67abf3d59a is unresolved locally and the non-updating budget check passes its existing ceilings, so provenance uncertainty is visible. KEEP OPEN: this does not create the scheduled refresh owner or trigger the row requests; accumulated-growth ownership remains unresolved.",
-      "source": "docs/evidence/performance-remediation-2026-08-23.md; scripts/check-bundle-budget.mjs; tests/bundle-budget.test.ts",
+      "detail": "MEASURED 2026-09-01 on a clean build (rm -rf .next first, per the AGENTS.md measuring rule): production is 1742.1 KiB gzip across 145 routes against a 1656.0 KiB baseline = +5.2%, which trips the >5% drift warning and is over half way to the 10% failure ceiling. Mockups 645.1 KiB against 613.1 KiB baseline (138 routes, 165 exclusive chunks), within its 25% tolerance. Per-route: / at 240.0 KiB (30 chunks) and /documents/search at 243.1 KiB (32 chunks), both under their route baselines. The configured baselineSource 0764fb5813564cc1cb8933267597478ecff9c354 still does not resolve locally EVEN AFTER git fetch --deepen=2000 on a full (non-shallow, 5415-commit) clone, so this is not the shallow-clone case the 2026-08-23 note anticipated - the recorded commit is genuinely unreachable, which means the +5.2% distance cannot be attributed to any reviewed change set. This strengthens the KEEP OPEN: an unowned ceiling is now measurably close, and the provenance needed to judge whether the growth is legitimate is gone. NEXT ACTION unchanged (name a refresh owner and trigger), but the refresh now also needs a baselineSource that resolves.",
+      "source": "Design-system + app review session 2026-09-01; clean-build measurement on branch claude/design-system-app-review-sxd0mm",
       "added": "2026-08-18"
     },
     {
@@ -238,30 +238,12 @@
       "added": "2026-08-21"
     },
     {
-      "id": "#S4R2W3",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Two clinical questions are answered with a bare list of document titles instead of an answer, and no gate fires",
-      "detail": "Found 2026-08-22 while diagnosing #231 against the 60 Gate E answers (docs/rag-improvement/231-diagnosis-2026-08-22.md section 3.1). Two of the eight identical plain source_only cases are clinical questions that receive the document-inventory answer shape reserved for source-lookup questions. 'What is the duress procedure pathway?' (case quality-duress-pathway, classified query_class document_lookup, intent pathway_referral) and 'When is IM medication used in the agitation pathway?' (case quality-agitation-im-route, query_class medication_dose_risk, intent pathway_referral, routed high_confidence_extractive_retrieval) both return: I found 5 indexed documents that support this query: followed by five titles. Neither question asked which documents exist. The routing chain for both ends at the first token -- no fallback reason, no gate reason, no retry, provider_attempted false -- so nothing flags it. CONTRAST, and why this is a real defect rather than a design choice: the other four cases in the same group (lithium-monitoring-documents, long-acting-injectable-documents, patient-safety-plan-documents, nocc-document-support) literally ask which documents or sources support X, and for those the same document list IS the correct answer. So the shape is right for four and wrong for two, which points at route selection or query classification rather than at the extractive answer builder. NEXT: diagnose separately -- establish whether the fault is hasSourceSupportLookupIntent / the query classifier assigning document_lookup to a pathway question, or shouldUseExtractiveMedicationLookup admitting a pathway question into the high-confidence extractive route. Do NOT fold this into the #231 retry-ladder work or the grounded-extractive gate work; it is a different surface with a different fix. STOP: protected RAG surface (src/lib/rag/rag-routing.ts, clinical-search), flag before editing, behaviour change needs a live eval-canary pair. Lower priority than the other two because the answer is at least honest and cites real documents, rather than being wrong or incoherent.",
-      "source": "docs/rag-improvement/231-diagnosis-2026-08-22.md section 3.1; Gate E dumps output/gate-e/dump-v18.json and dump-v19.json of 2026-08-21; session 2026-08-22",
-      "added": "2026-08-21"
-    },
-    {
       "id": "#Y090R5",
       "priority": "P2",
       "type": "issue",
       "summary": "data/outstanding-issues-snapshot.json is a generated file every inbox PR must regenerate, so any two concurrent ledger PRs conflict on it and the loser must re-resolve after every main merge",
       "detail": "Observed 2026-08-22 on PR #2284, which conflicted twice within about an hour and was closed rather than untangled. check:outstanding-issues-snapshot requires the committed data/outstanding-issues-snapshot.json to be in step with docs/outstanding-issues.md plus every pending inbox request, so a PR that queues a request MUST commit a regenerated snapshot or CI fails with 'counts.pending: committed N vs regenerated M'. But the regenerated content depends on every OTHER pending request too, so the file differs between any two concurrent ledger PRs and conflicts as soon as either lands. Recent main history shows the collision surface is real, not theoretical: 93af96cf8, 4cbac0ceb, 2ca31d6d8 and 639108f07 all touch that one file. The immutable-request design deliberately removed this class of conflict for the requests themselves; the snapshot reintroduces it in a single generated artifact, which is the same serial-only bottleneck #EH9VA6 and the ledger write-discipline work were meant to eliminate. Resolution is mechanical but must be done exactly once per main merge - never hand-merge it: take main's version then re-run node scripts/generate-outstanding-issues-snapshot.mjs. Options worth weighing: regenerate the snapshot during npm run issues:reconcile (the already-serialized step) instead of in every request-adding PR, so ordinary branches never touch the file; or have the check tolerate a snapshot that is in step with the canonical ledger while ignoring pending-request counts; or add a union/regenerate merge strategy. Whichever is chosen, this bites every future issues PR that does not land within the gap between other ledger merges. SECOND SYMPTOM, same root cause, measured 2026-08-22 on PR #2299: because the file lives under data/ - the generated CLINICAL snapshot export directory - scripts/pr-policy.mjs classifies it clinicalRisk:true. Confirmed by calling classifyPullRequestFiles directly: ['data/outstanding-issues-snapshot.json'] alone returns clinicalRisk:true, while the inbox JSONs alone return false. So every ledger PR that regenerates the snapshot is forced to carry a complete ## Clinical Governance Preflight in its body for a file holding no clinical data at all, and fails PR policy with 'Clinical-risk paths require the ## Clinical Governance Preflight section' until it does. That is ceremony with no safety value, and it trains reviewers to tick clinical governance boxes reflexively on changes that have nothing to do with clinical output - which is the failure mode that section exists to prevent. Moving regeneration into issues:reconcile fixes both symptoms at once; relocating the artefact out of data/ would fix this second one on its own.",
       "source": "session 2026-08-22, closing PR #2284",
-      "added": "2026-08-22"
-    },
-    {
-      "id": "#4AM8Z0",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Common cardiovascular drugs are absent from the medication catalogue, so patients taking them get silence rather than an interaction check",
-      "detail": "SPLIT OUT 2026-08-22 from the #1YPV51 clinical sign-off, which recorded this as the one finding the lexicon review could NOT fix. The interaction terms acei, arbs and statins resolve to one or two drugs each -- acei to Perindopril alone, arbs to Candesartan alone, statins to Atorvastatin and Rosuvastatin -- not because the mapping is wrong but because ramipril, lisinopril, irbesartan and simvastatin are not in data/medications-snapshot.json at all. Simvastatin is the notable one: it has the largest CYP3A4 interaction profile of the statins and is entirely unrepresented. CONSEQUENCE, and it is the dangerous shape: a clinician entering a patient on ramipril sees no alert, and on screen that is indistinguishable from 'checked and clear'. The sign-off sheet's 'What this tool can never warn about' section already names the same failure mode for the 20 catalogue medications that sit outside every resolved interaction row; this is that boundary reached from the other side -- the drug is not in the catalogue at all. NEXT: decide whether the catalogue should be widened to the common ACE inhibitors, ARBs and statins prescribed in Australian practice, which is a clinical-content decision about source coverage rather than a code change, and needs the same source-backed review any catalogue addition needs. STOP: do not 'fix' this by loosening the lexicon terms -- the terms are correct; the drugs are missing. Related: #1YPV51 (the sign-off recording this), and the corpus-coverage limit documented in docs/medication-interaction-lexicon-review.md.",
-      "source": "docs/medication-interaction-lexicon-review.md sign-off 2026-08-22; data/medications-snapshot.json; clinical review session 2026-08-22",
       "added": "2026-08-22"
     },
     {
@@ -278,7 +260,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "The repo-awareness snapshot goes stale on any PR that waits, and it already reddened CI once",
-      "detail": "data/repo-awareness-snapshot.json is generated from the route tree, the docs tree, the flake ledger and docs/branch-review-records/. The last two grow monotonically on almost every merge, so any PR that sits while main advances fails check:repo-awareness-snapshot against the merge commit CI builds, even though nothing in that PR is wrong. This is not hypothetical: PR #2359 went red on exactly this within hours of opening, and was fixed by merging main and regenerating. Every ledger-appending PR must now regenerate the snapshot, which is the same concurrent-PR collision that ledger:append's immutable-record design was built to escape. Worth deciding whether the gate should compare a narrower key set, or whether the review-records section should be excluded from the compared content the way captured_revision already is.",
+      "detail": "UPDATE 2026-08-27 (PR #2413, second and third occurrences): this is not only a staleness problem, it also produces hard git merge conflicts that block auto-merge. data/repo-awareness-snapshot.json conflicted twice in fifteen minutes on one PR head — first when main advanced to be65b8a, again when main advanced to fb88b47 — each time setting mergeable_state=dirty, which suppresses refs/pull/<n>/merge so pull_request CI (CI, Gitleaks, Semgrep) does not run at all and the check list reads empty rather than red. Both were resolved identically: git merge origin/main, git checkout --theirs the snapshot, npm run snapshot:repo-awareness, commit, push. The staleness half also reproduced: check:repo-awareness-snapshot failed Static PR checks with 'review_state differs from the repository'. Cost per occurrence is one full CI round trip plus a push, and it scales with how many PRs are open, since every merge to main regenerates the file for all of them. Reinforces the fix direction already proposed on this row: exclude docs/branch-review-records/ from the compared content the way captured_revision already is, or compare a narrower key set. Adding .gitattributes merge guidance for this path would blunt the conflict half but not the CI-staleness half.",
       "source": "PR #2359 CI failure, 2026-08-25",
       "added": "2026-08-25"
     },
@@ -305,8 +287,8 @@
       "priority": "P2",
       "type": "task",
       "summary": "Retrieval RPC still treats a null document owner as public, so the owner_id republication hole is only half closed",
-      "detail": "documents.owner_id is ON DELETE SET NULL while a null owner independently means 'public corpus', so deleting an auth user silently republishes that user's private documents. The application read paths were closed in the audit fix branch by requiring metadata.public_corpus (the marker publish_approved_documents always stamps, and it is the only writer of a null documents.owner_id). The retrieval RPC still maps the public sentinel to row_owner_id is null in SQL. NEXT: in an approved production window, either change documents.owner_id to ON DELETE RESTRICT or add an explicit visibility column, and align the RPC predicate. Merging a migration here auto-deploys to the live project, so this must not ride an ordinary PR. Offline proof available now: assert in tests/supabase-schema.test.ts that no table whose null owner means public declares ON DELETE SET NULL.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+      "detail": "RE-VERIFIED against current main c944fcdad78e106a7fb7b9c99e5e3a829e022fc4 on 2026-09-01. CLOSED: the owner-deletion path is no longer outstanding. public.documents, document_labels, document_summaries and document_table_facts now use ON DELETE RESTRICT, with the live migration and a schema proof that pins the four visibility tables and their exact restrict action. CODE DEFECT (unresolved): public.retrieval_owner_matches treats the public sentinel as row_owner_id IS NULL, and retrieval_owner_matches_v2 treats include_public as row_owner_id IS NULL; neither predicate requires metadata.public_corpus = true. An ownerless row without the publication marker could therefore still enter a public retrieval result. EXPOSURE (measured 2026-09-01, owner-approved read-only GET against ref sjrfecxgysukkwxsowpy): total documents 2851; owner_id NOT NULL = 0; owner_id IS NULL = 2851; of those, metadata.public_corpus = true = 2851. EXPOSED COUNT = 0. The production corpus is deliberately published and has no privately owned or unmarked ownerless document. PRIORITY: P2, not P1. NEXT: change the retrieval contract so its public branch requires both owner_id IS NULL and metadata.public_corpus = true, preserving owned-document retrieval; this is a protected RAG behaviour change and requires the RAG flag, an offline regression proof, and a live eval-canary pair.",
+      "source": "repo-wide audit at 3ed1932 (six domain reviewers); re-verified against current main c944fcdad78e106a7fb7b9c99e5e3a829e022fc4 and an owner-approved read-only production count, database coordination chat 2026-09-01",
       "added": "2026-08-23"
     },
     {
@@ -335,24 +317,6 @@
       "detail": "The prohibited-language check runs against outgoing messages and the 24 frozen overlay rows only. No gate scans interface strings elsewhere in the workspace, so the ban on words such as high risk, safe, engagement score and risk score is currently policy held by people rather than by software. Copy review Part 5 item 2 records the same gap.",
       "source": "docs/caring-contacts/copy-review.md Part 5; Phase 2A deferred list",
       "added": "2026-08-24"
-    },
-    {
-      "id": "#DTSABC",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Form 12A retains generic Authority and Criteria prose despite having a readable approved PDF",
-      "detail": "Form 12A has a form-specific clock of 18 years and an unencrypted committed PDF, but its maker and threshold remain generic. Use the readable approved form and authoritative sources to draft these two claims, then submit them through the existing reviewed clinical-content workflow; do not infer them solely from Act sections.",
-      "source": "data/forms-catalog.json; public/forms-pdf/form-12a.pdf; direct measurement 2026-08-24",
-      "added": "2026-08-24"
-    },
-    {
-      "id": "#PM9SP1",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Therapy Compass labels itself Decision support in production, against the product's own stated boundary",
-      "detail": "therapy-compass/workspace.tsx:18 and screens/detail-screen.tsx:285 render 'Decision support', and recommend-screen.tsx:203 does so on the screen that RANKS therapies. The product boundary is 'clinical reference prototype, not validated clinical decision support', and the PR preflight carries a TGA SaMD classification item. Related: the boundary string itself appears nowhere in production outside a mockup file, so no answer surface carries a standing product-scope statement. FIX (clinical-owner copy decision): relabel to 'Clinical reference - not validated decision support' and mount the footer on the other mode homes.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
     },
     {
       "id": "#PWZYY8",
@@ -391,15 +355,6 @@
       "added": "2026-08-25"
     },
     {
-      "id": "#GQ5X8T",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
-      "detail": "At application head 7cf37b530, three post-remediation Windows runs measured mobile-root LCP 7422-8032ms and TBT 747-1381ms versus pre-head 6c0e759 medians 7073ms and 547ms; every post LCP exceeds the pre median. Root requests simultaneously fell 60 to 52 and transfer fell about 14.9KB, so the eager-prefetch removal worked and is not an evidence-backed cause. The comparison is confounded by four concurrent origin/main commits and host-load-sensitive timing. Next: run a quiet-host three-run control on synchronized origin/main and the branch, then use Linux CI traces/analyzer ownership to attribute only if the regression persists. Stop: do not undo the proven CLS/request fixes, raise budgets, or edit opaque chunks from timing alone.",
-      "source": "docs/evidence/performance-remediation-2026-08-23.md; three retained lighthouse-post-* distributions",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#9P4XAE",
       "priority": "P2",
       "type": "issue",
@@ -409,15 +364,6 @@
       "added": "2026-08-24"
     },
     {
-      "id": "#DHAR98",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Three SECURITY DEFINER functions omit pg_temp from search_path",
-      "detail": "schema.sql:3345 set_owner_id_from_auth_uid ('public','auth'), :5228 correct_clinical_query_terms (pg_catalog, extensions) and :5901 create_uploaded_document_with_ingestion_job (public). Without pg_temp listed, Postgres searches it implicitly for relations and types, so a caller who can create temp objects can shadow a referenced table inside a definer body. All three are revoked from public/anon/authenticated and granted only to service_role, which already bypasses RLS, so this is hardening rather than an escalation path - but every other definer in the file pins '' or ends with pg_temp; these three are the outliers. FIX: append pg_temp, or fully qualify and use ''.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#VK8ZYY",
       "priority": "P2",
       "type": "issue",
@@ -425,15 +371,6 @@
       "detail": "medication-records.ts derives source_status from sourceText.includes('checked'). The snapshot Sources rows carry real dates (all 2026-05/06 today) but nothing parses or ages them, so these records will still report current in 2028; medication-badges only ever renders Review due or Outdated from an explicit sourceStatus this derivation cannot produce. The same substring also matches the negative forms 'not checked' and 'unchecked'. The sibling validation_status literal was fixed in the audit branch; this half remains. FIX: parse the ISO date already present in the source text and return review_due past a defined interval, unknown when no date parses.",
       "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
       "added": "2026-08-23"
-    },
-    {
-      "id": "#ZW43ZT",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Every developer hub page renders twice in the browser during development",
-      "detail": "In a dev browser, /mockups/development/test-health and /mockups/development/ingestion each produce two copies of the page in one document - two panel roots and two <main> elements. Confirmed NOT caused by the ingestion work: test-health is already merged to main and doubles identically, and it predates that branch. Confirmed dev-only and not a production defect: curl of both routes returns exactly one <main> each, so the server-rendered output is correct. Two <main> elements would be a real document-structure and accessibility problem if it ever reached a production build, so it is worth establishing the cause rather than leaving it as folklore. Found while live-checking the ingestion panel.",
-      "source": "Ingestion panel live render, 2026-08-25",
-      "added": "2026-08-25"
     },
     {
       "id": "#Z61JRT",
@@ -452,15 +389,6 @@
       "detail": "docs/deployment-architecture.md records Railway regions as US West, US East, Amsterdam and Singapore; the app tier runs in Singapore against Supabase in ap-southeast-2 Sydney. The Caring Contacts decision lock requires identifiers, message content, application data, backups, logs and provider processing to remain in Australia. A real-patient pilot therefore needs a separately contracted Australian PHI-capable environment, not the current Clinical KB deployment. Does not block the synthetic build, which holds no real patient data. Hazard H-36.",
       "source": "docs/deployment-architecture.md; Caring Contacts decision lock hosting controls",
       "added": "2026-08-18"
-    },
-    {
-      "id": "#FDST2Q",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Live freshness readouts round to whole hours, so a fresh fetch reads '0 hours ago'",
-      "detail": "resolveFreshnessFrom rounds ageHours to an integer, which suits a build-time stamp measured in hours or days. The ingestion panel's CheckedAt reuses it for a live fetch time, so a check two minutes old reads '0 hours ago' rather than 'just now'. Not misleading, but weak on the one page whose entire question is 'is it done yet'. Worth a minutes-and-seconds branch on the shared helper rather than a local workaround, since any future live panel will want the same.",
-      "source": "Ingestion panel review, 2026-08-25",
-      "added": "2026-08-25"
     },
     {
       "id": "#TDKW4W",
@@ -490,15 +418,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#PDM6NG",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Caring Contacts: nothing enforces that a new workspace screen joins the browser spec's WORKSPACE_SCREENS",
-      "detail": "The design-system adoption generator refuses an undeclared production page route, so adding a screen forces it into the caring-contacts-workspace surface -- whose five proof categories are all declared passed with tests/ui-caring-contacts-workspace.spec.ts as sole evidence. The generator validates that the evidence path is a tracked file, never that the suite visits the route. So a screen added to the surface but not to the spec's WORKSPACE_SCREENS silently re-creates the Critical finding fixed in Task 5 fix round 1: a governance artifact asserting dark, forced-colours, 320px, print and browser proof for a route nothing has visited. Closure: a static check comparing the surface's routes against the spec's screen list, failing when they diverge.",
-      "source": "Task 5 fix round 1, implementer-identified, 2026-08-24",
-      "added": "2026-08-24"
-    },
-    {
       "id": "#ZM8902",
       "priority": "P3",
       "type": "issue",
@@ -506,15 +425,6 @@
       "detail": "scripts/check-docs-links.mjs reported 1905 references resolving while docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md line 180 linked to ../../caring-contacts/design-handoff.md, a file that has never existed, and line 131 described it as binding. Found by hand on 2026-08-19 and repointed to interaction-matrix.md, which actually holds the 24-row modality matrix. The gate is a check that cannot fail for this class of link: verify whether relative markdown links outside a recognised prefix are skipped, and close the gap. Same family as the mutation-testing concerns already recorded for stderr hooks and tail-masked exit codes.",
       "source": "Caring Contacts doc repair 2026-08-19",
       "added": "2026-08-18"
-    },
-    {
-      "id": "#F5EYAJ",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Caring Contacts: connection-unavailable and permission-unavailable have no runtime caller",
-      "detail": "Both are keys in the total blockReason lookup in src/components/caring-contacts/workspace/overlays/overlay-host.tsx (lines 159-160) with a definition at definitions.ts:361, but nothing in the workspace yet produces either reason, so neither wording has ever been rendered from a real code path. Phase 2B should either wire them or record that they are reserved.",
-      "source": "docs/caring-contacts/phase-2a-build-record.md deferred list; verified in source 2026-08-24",
-      "added": "2026-08-24"
     },
     {
       "id": "#DVRZA4",
@@ -571,15 +481,6 @@
       "added": "2026-08-22"
     },
     {
-      "id": "#Y0BDBJ",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "The review-state page renders 1.73 MB of HTML and no gate watches it",
-      "detail": "/mockups/development/review-state lists all committed review records unpaginated - measured at 1.73 MB of served HTML for 454 records, and the corpus grows with every merge. The no-pagination choice is deliberate and correct: it is what makes the list unable to disagree with its own count, and both alternatives are worse - pagination needs a client boundary, which reintroduces the Server/Client trap this phase exists to avoid, and capping means the page hides records from its own total. But nothing measures the cost. check:bundle-budget weighs client JavaScript and these pages ship none, so the payload can grow indefinitely unnoticed. A future option worth considering is collapsible grouping by year as presentation chrome only, never filtering.",
-      "source": "Phase 2 acceptance measurement, PR #2359",
-      "added": "2026-08-25"
-    },
-    {
       "id": "#4VKAA1",
       "priority": "P2",
       "type": "issue",
@@ -587,15 +488,6 @@
       "detail": "caring-contacts/supabase/migrations/0001_caring_contacts_foundation.sql lines 146, 172, 218 and 227 declare plan_id/contact_id references without the team_id composite that Rulings 25 and 27 later made mandatory, so a row written by one team can point at another team's plan or contact. Verified in the migration text 2026-08-24. Decide whether to add the composite keys by migration or record the exception; a bare key already caught one real cross-team defect.",
       "source": "docs/caring-contacts/phase-2a-build-record.md (Rulings 25/27); Phase 2A deferred list",
       "added": "2026-08-24"
-    },
-    {
-      "id": "#0JJ4RD",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Two live overloads of purge_expired_rag_response_cache, one unbounded",
-      "detail": "schema.sql:862 defines a zero-arg version whose body is an unbounded delete from rag_response_cache where expires_at <= now(); :6449 defines the bounded (p_limit integer default 1000) version whose whole purpose was to stop a large backlog becoming one long-running delete. Both remain installed. 20260713201542 re-schedules only the bounded call, so nothing invokes the unbounded form today, but it stays executable by service_role and a bare call is now ambiguous against a defaulted overload. FIX: drop the zero-arg overload in a migration plus mirror.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
     },
     {
       "id": "#XHADPV",
@@ -614,15 +506,6 @@
       "detail": "docs/caring-contacts/hazard-log.md records H-00 (no named clinical safety officer, so nobody owns clinical risk), H-04 (the message set has never been read by anyone with lived experience) and H-05 (no Aboriginal cultural safety review, in a WA suicide-aftercare service). All three are Open with no control. None blocks the synthetic build; every one blocks a pilot. H-04 is ready to run today: docs/caring-contacts/message-review-pack.md is a complete facilitation pack. Owner Josh for H-00 and H-04; Aboriginal health governance for H-05.",
       "source": "Caring Contacts design session 2026-08-19; hazard log H-00/H-04/H-05",
       "added": "2026-08-18"
-    },
-    {
-      "id": "#1CYR4V",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Caring Contacts: Ruling 60's 640-767px overlay-modality band is pinned on one side only",
-      "detail": "The frozen contract is authoritative below 640 and at 768 and above; the shared Sheet's own breakpoint is 640, and the overlay code hard-codes that 640 as a literal read from nothing. The regression pin catches a move in one breakpoint, not the other, so the band could widen and the test stay green. Reconciling the two breakpoints is a design decision.",
-      "source": "docs/caring-contacts/phase-2a-build-record.md Ruling 60",
-      "added": "2026-08-24"
     },
     {
       "id": "#Q4Y7TR",
@@ -656,44 +539,8 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Schema drift is gated against schema.sql only; the migration chain's semantics are never diffed against the mirror",
-      "detail": "generate-drift-manifest.ts replays supabase/schema.sql and embeds ITS sha256; CI's db-reset-verify runs supabase migration up --local, proving the chain APPLIES but never diffing the result against schema.sql. A migration whose function or policy body diverges from the mirror passes every gate. Object-NAME parity does hold today (all create targets across 211 migrations resolve into schema.sql) but it is enforced by hand-written per-object tests, not systematically. FIX: after migration up --local, replay schema.sql into a second scratch database and diff schema_drift_snapshot() between the two. Fully offline and containerised, no provider access.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
-      "id": "#WP76E6",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Caring Contacts: the frozen interaction matrix's 'Recovery action only' wording is ambiguous",
-      "detail": "Two rows (session-expiry and version-conflict) carry the prose 'Recovery action only', which reads either as recovery-action only or as recovery, action-only. Ruling 58 kept both rows faithful to the frozen record rather than reword them. Resolve the wording when the matrix is next unfrozen, not before.",
-      "source": "docs/caring-contacts/phase-2a-build-record.md Ruling 58; docs/caring-contacts/interaction-matrix.md",
-      "added": "2026-08-24"
-    },
-    {
-      "id": "#XKS6FD",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "FreshnessStamp has no way to say 'this panel is live' rather than 'revision unknown'",
-      "detail": "The ingestion panel is deliberately live, so it has no build revision to stamp. PanelPageShell's FreshnessStamp therefore lands on its 'revision unknown' branch, which its own comment documents as the case for a BROKEN or unparseable date - not for a panel that intentionally has none. The page reads 'Ingestion jobs revision unknown' directly under the title, one line above a paragraph explaining it is read live. It is the least-bad option today: the alternative, stamping a fabricated build-time date over live numbers, is exactly what the plan forbids. The real fix is a first-class 'live' mode on FreshnessStamp so a panel can say when it last fetched instead of that it has no revision. Deferred rather than fixed because the shared component is used by five pages and the explanatory copy is already adjacent.",
-      "source": "Ingestion panel review, 2026-08-25",
-      "added": "2026-08-25"
-    },
-    {
-      "id": "#G693BZ",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Developer hub pages repeat a labelled-section block 17 times; extract a PanelSection component",
-      "detail": "The five developer-hub pages (routes, documentation, test-health, review-state, ledger) each hand-maintain the pairing between a <section aria-labelledby={id}> and its <h2 id={id}>, 17 occurrences in total. A PanelSection({ id, title, count, children }) makes the labelled-region contract structural instead of remembered, and folds in the one inline <h3> class in documentation/page.tsx that escaped the shared primitives module. Raised by the Phase 2 whole-branch review and deliberately deferred: a five-file refactor of freshly reviewed pages inside a final fix wave is the change most likely to introduce the regression the wave exists to prevent. Safe to do on its own now that Phase 2 has landed.",
-      "source": "Phase 2 whole-branch review, PR #2359",
-      "added": "2026-08-25"
-    },
-    {
-      "id": "#XHNTHD",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "eval-retrieval can report success over zero golden fixture cases",
-      "detail": "scripts/eval-retrieval.ts:932-937 prepends captured DB cases to the golden fixture cases and then slice(0, limit) truncates FROM THE FRONT, so --limit 10 against 10 or more captured cases runs zero golden cases; a --query filter matching nothing yields zero cases outright. Either way summary.failed_cases is empty and the run exits 0 under --fail-on-threshold. The canary-pair comparator fails closed on a non-identical case set so the protocol is protected, but a standalone pre-merge run is not. FIX: fail when cases.length is 0, and require an explicit --allow-partial when limit or query would drop any golden case. Offline, no canary.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+      "detail": "generate-drift-manifest.ts replays supabase/schema.sql and embeds ITS sha256; CI's db-reset-verify runs supabase migration up --local, proving the chain APPLIES but never diffing the result against schema.sql. A migration whose function or policy body diverges from the mirror passes every gate. Object-NAME parity does hold today (all create targets across 211 migrations resolve into schema.sql) but it is enforced by hand-written per-object tests, not systematically. FIX: after migration up --local, replay schema.sql into a second scratch database and diff schema_drift_snapshot() between the two. Fully offline and containerised, no provider access. DEMONSTRATED 2026-09-01, no longer theoretical: live-drift run 33484535655 (red on main at d3074946a) reported its sole unexpected finding as public.correct_clinical_query_terms(text,real) def_hash manifest e2356565 vs live 2ebaf978. Cause was exactly this gap - migration 20260831100000 (PR #2477) redefined that function with a duplicated 'and length(canonical) between 4 and 40' predicate and supabase/schema.sql was never updated to match, so the manifest disagreed with live while every pre-merge gate stayed green. The db-reset-verify assertion that did run is committed.schema_sha256 === generated.schema_sha256 (.github/workflows/ci.yml ~L1082-1095), which only catches an unrefreshed manifest, not a chain/mirror divergence. Behaviour impact of that instance was nil (the duplicate predicate is a boolean no-op) but it cost a red daily alarm and a remediation PR, and it is the second occurrence of this failure class after the #316 root cause (SET work_mem absent from schema.sql). Strengthens the case for scheduling the containerised two-database diff above.",
+      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f; demonstrated by live-drift run 33484535655, classified by the database coordination chat 2026-09-01",
       "added": "2026-08-23"
     },
     {
@@ -751,33 +598,6 @@
       "added": "2026-08-24"
     },
     {
-      "id": "#XEGPCD",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Caring Contacts: the same-team write serialisation is accidental and still unpinned",
-      "detail": "ensureTeam's insert ... on conflict do nothing is what makes the stopService race cross-team-only. After Task 11b fix round 2 it carries a comment naming it, but no test pins it, so a future change to that insert could widen the race silently. Either pin it with a test that names the serialisation or make it deliberate with a lock.",
-      "source": "docs/caring-contacts/phase-2a-build-record.md deferred list item 4",
-      "added": "2026-08-24"
-    },
-    {
-      "id": "#V27DZ1",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Ward Flow role screens: intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
-      "detail": "Reproduced on a quiet tree against the isolated production Playwright server, on BOTH refs, so it is not Phase 5's: this branch 1 failing run in 3 (ward-unit-screen), clean origin/main 1 failing run in 7 (ward-ed-screen, a screen Phase 5 never touches). tests/ui-ward-roles.spec.ts is byte-identical between the two refs. Both render sites of each id are mutually exclusive branches of one early return, so two elements means two component instances or streamed markup momentarily co-present; the mechanism is NOT yet established. Sample too small to say whether Phase 5 changed the rate. Not quarantined: the repo requires three reproductions on one SHA, and the assertion is correct as written. Evidence table in docs/ward-flow-complete-ledger.md section 5d-ii.",
-      "source": "session 2026-08-26",
-      "added": "2026-08-26"
-    },
-    {
-      "id": "#76GGRG",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Overflow menus split between a real ARIA menu and menu roles with no keyboard model",
-      "detail": "search-pins-menu.tsx declares role=menu/menuitem but implements no arrow-key, Home/End or roving-focus handling, so it promises the ARIA menu keyboard model and delivers Tab. mode-action-popup.tsx implements the model properly. answer-source-drawer.tsx was the third shape and was changed on 2026-08-25 (PR #2370) to role=group with plain buttons — a disclosure, which is what it actually is. Next action: pick one rule for the repo and apply it to search-pins-menu.tsx — either implement the keyboard model or drop the menu roles as the drawer did. No gate covers this, so it will keep diverging. Not urgent: every one of these menus is operable by Tab today; the defect is the mismatch between what is announced and what works.",
-      "source": "PR #2370 review (CodeRabbit), verified in source 2026-08-25",
-      "added": "2026-08-25"
-    },
-    {
       "id": "#875H6T",
       "priority": "P3",
       "type": "rec",
@@ -787,552 +607,167 @@
       "added": "2026-08-26"
     },
     {
-      "id": "#HX1KSZ",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Scope the component-metric rule: keep one-consumer values local; use :root only for shared off-scale CSS custom properties, not @theme",
-      "detail": "The earlier pending request overgeneralised the :root-versus-@theme boundary. Correct rule: keep a one-consumer component metric local to its owning JS/TS module, such as cardTextWidth (max-w-[158px] in src/components/clinical-dashboard/answer-source-rail.tsx); do not promote it to a global CSS custom property or an @theme token. Apply the :root-versus-@theme decision only when a shared CSS custom property is needed by multiple non-nested consumers: a shared off-scale metric such as --answer-message-gutter (calc(2.75rem + 1px), including its transparent-border compensation) belongs in :root, while @theme is reserved for deliberate design-scale tokens that should generate a utility family. NEXT ACTION (small, docs-only): add a prohibition-table row to docs/design-system/GATES.md section 3 that states this three-way boundary (module-local component constant vs shared :root custom property vs @theme scale token), names both prior examples accurately, and explicitly does not convert either value. The existing tailwind-merge coupling still applies to any deliberate @theme --spacing-* token: tests/tailwind-merge-config.test.ts requires CLINICAL_TWMERGE_THEME.spacing coverage.",
-      "source": "PR #2381 review thread PRRT_kwDOSh5Fis6cUDDj, reviewing request 970b4089-9e76-4bcf-821e-2e70e16a3617; prior instances #2374 and #2377",
-      "added": "2026-08-26"
-    },
-    {
       "id": "#9GPWT3",
       "priority": "P2",
       "type": "issue",
-      "summary": "Ward Flow's bed-release state model is unvalidated by any ward clinician",
+      "summary": "Ward Flow: bed-release state model is unvalidated by any ward clinician",
       "detail": "predicted -> confirmed -> blocked -> released is a software model of how a bed comes free. A bed may be confirmed and blocked simultaneously in reality, and 'predicted' may compress several states a charge nurse would separate. Cheap to change while synthetic; recorded in the Phase 5 spec as D14 and as the assumption most likely to be wrong. Check before Phase 7 builds on it.",
       "source": "Ward Flow Phase 5 design, 2026-08-26",
       "added": "2026-08-26"
     },
     {
-      "id": "#2X46NY",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
-      "detail": "CodeRabbit's pre-merge Docstring Coverage check warned on every head of PR #2370, measuring 56 functions across 17 files. It is advisory only — not a required GitHub check, and it never blocked the merge. Recorded so the next person who sees the warning knows it was read rather than missed. Next action: none required. If someone wants the number up, the gap is in small helpers and test harness functions rather than in the exported surfaces, which are documented; decide whether the threshold is measuring something this repo actually wants before writing comments to satisfy it.",
-      "source": "PR #2370 pre-merge checks, 2026-08-25",
+      "id": "#Z5P2BW",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Caring Contacts: the vocabulary scan rewards leaving developer identifiers on screen, and the sealed domain it pushes copy into is watched by no vocabulary scan at all",
+      "detail": "Found in Phase 2B Task 7, 2026-08-25, and sharpened by its re-review. Two joined defects. FIRST, the scan is inverted. `tests/caring-contacts-interface-vocabulary.test.ts` refuses \"lead\" as a whole word anywhere under `src/components/caring-contacts/workspace/**` and `src/app/caring-contacts/**`, with no notion of a job title. So the raw role identifiers `clinicalProgrammeLead` and `livedExperienceRepresentative` PASS — only because there is no word boundary inside `ProgrammeLead` — while the correct plain-words labels a clinician should read FAIL. The scan currently rewards leaving developer gibberish on a clinical screen. SECOND, and larger: the workaround pushes that copy into `src/lib/caring-contacts/**`, which is outside EVERY prohibited-language scan in this repository. Only the interface scan and the overlay definition tests use `CARING_CONTACTS_PROHIBITED_LANGUAGE`, and neither reaches `src/lib`. So role wording now lives where no vocabulary check watches it — not merely exempt from the \"lead\" rule, unwatched entirely. That hole pre-dates Task 7 (`service-state.ts` already had it) and correctly did not block the fix. THE FIX IS SMALLER THAN IT LOOKS: `src/lib/caring-contacts/message-rules.ts` line 81's `COMMERCIAL_LEAD_PATTERN` is an already-written, already-tested negative lookbehind for `incident|programme|clinical|team|service` that would exempt every one of these offences unchanged, and that file records why an allowlist of commercial modifiers was itself a defect. Reusing it in the interface scan is a one-line change; extending a scan to cover the sealed domain's user-facing string constants is the separable second half. Deliberately not done in Task 7: the implementer had already narrowed one safety guard that round, and widening a second to admit a word it had just introduced is the wrong direction to argue from.",
+      "source": "session 2026-08-25",
       "added": "2026-08-25"
     },
     {
-      "id": "#WG24JB",
+      "id": "#PAMATF",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Caring Contacts: a draft plan's contacts are already in state scheduled and listSendableContacts has no plan-state gate",
+      "detail": "Found in the Phase 2B Task 9 review, 2026-08-25, while checking a claim on the activation screen. `createPlan` writes every planned contact in state `scheduled` or `suppressed` AT CREATION — see `in-memory-repository.ts` around line 535 and `db/postgres-repository.ts` around line 1114 — and `listSendableContacts` filters on `contact.state === \"scheduled\"` with NO gate on the owning plan's state (`in-memory-repository.ts` ~1329-1335). Nothing in `model.ts`'s contact transitions checks `plan.state` either. So a plan that has been created and NOT activated already presents sendable contacts. NOT A LIVE RISK TODAY: there is no sender, no SMS provider and no dispatch path anywhere in the tree, so nothing reads that list and acts. It matters for two reasons. FIRST, it falsified a reassurance on the one screen where it counts: the created-but-not-started state told a coordinator 'no message is scheduled to go out yet', which the code does not support. That copy is being fixed in Task 9 fix round 2. SECOND, whoever builds the dispatcher will read `listSendableContacts` as the list of what to send, and unless they independently remember to filter on plan state, a draft plan would dispatch. The question to answer is whether the plan-state gate belongs in `listSendableContacts`, in the future dispatcher, or in the contact state machine — deliberately NOT decided inside Task 9, because it changes a retrieval surface and that needs its own review rather than riding on a copy fix. Whoever takes it should also check whether `suppressed` at creation and the absorbed-Week-1 case interact with the answer.",
+      "source": "session 2026-08-25",
+      "added": "2026-08-25"
+    },
+    {
+      "id": "#JZA0XK",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Caring Contacts: no browser evidence exists for any activation-wizard stage, including a two-write middle state where a clinician presses a writing control a second time",
+      "detail": "Root cause, unchanged since Task 7: the isolated Playwright server seeds no referral, and the wizard route requires one, so every browser case lands on the no-referral state and one explicitly asserts the wizard has count 0. Three implementers independently declined to fabricate a referral id, correctly — it would render the identical screen while claiming to prove a stage. What that leaves unproven has grown with each task and is now the largest coverage gap in the workspace. (1) HYDRATION: the wizard is the first deliberate Client Component here — every other screen is a Server Component that works with JavaScript disabled — and its draft uses useSyncExternalStore with a getServerSnapshot. jsdom has no RSC payload and performs no hydration, so that argument is untested. (2) THE SENSITIVE INPUTS: the patient's name and mobile number, and the fictional-number caution beside them, have no evidence at 320px, in dark, under forced colours, or in print. Tap-target assertions read the class rather than the rendered box. (3) THE TWO-WRITE MIDDLE STATE, and this is the one that raises the priority: stage 4 creates the plan and then starts it, and created-but-not-started is a reachable, recoverable state whose screen tells a clinician the plan exists and that pressing again finishes THE SAME plan. It is the only screen in this workspace that asks someone to press a writing control a second time, and it has never been seen in a browser. (4) Two type=date inputs and a live schedule preview whose content changes with the chosen date. Close it when something in the workspace lists referrals and a browser case can reach the wizard with a real one; at that point assert the wizard mounts, a draft value survives a reload, the caution renders, and the created-but-not-started screen appears and its second press is safe.",
+      "source": "session 2026-08-25",
+      "added": "2026-08-25"
+    },
+    {
+      "id": "#HDAP8N",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "The document cover-thumbnail hook and its /api/documents/[id]/cover route have no product consumer since the source drawer stopped rendering a front-page thumbnail",
+      "detail": "The answer source drawer was the only caller of useDocumentCoverImageId (src/components/clinical-dashboard/use-document-cover.ts). Removing the front-page thumbnail from the drawer left that hook, and the /api/documents/[id]/cover route it fetches, reachable only from tests. check:dead-code-candidate REFUSES deletion on three counts — pinned by tests/use-document-cover.dom.test.tsx, present there as a string literal, and undateable on a shallow clone — so nothing was deleted. Decide deliberately: either a future surface adopts the cover (document detail, source rail card), or the hook, its route, its tests and the coverImageId plumbing are retired together after a deepened clone re-runs the gate. Do not delete on reachability alone.",
+      "source": "session 2026-09-01, sidebar-alignment-cleanup branch",
+      "added": "2026-09-01"
+    },
+    {
+      "id": "#1BHXEF",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
+      "detail": "tests/ui-ward-roles.spec.ts :: '@mockup Ward screen > the demo clock control advances a held bed toward expiry, and reads as demo scaffolding' failed the Advisory UI job on PR #2437 head 9855e706 (run 33096941258, classifier said 'needs investigation'), having PASSED on the immediately preceding head 8bab0c9d of the same branch. The intervening commits touched only tests/ui-smoke.spec.ts and an unrelated medication merge; PR #2437 changed no ward file. It also passed locally on that branch head (chromium-mockups, 1 passed, 5.5s). It is a timing-sensitive demo countdown (see PR #2392 'pin demo countdown clock'), so the pinned clock likely still has a real-time-dependent path. Not in tests/flake-ledger.json. Advisory UI is not among the twelve jobs the pr-required aggregate depends on (.github/workflows/ci.yml, pr-required needs: changes, static-pr, safety, coverage, ingestion-sast, build, container-images, ui-critical-fast, ui-critical, lighthouse-budget, db-reset-verify, caring-contacts-db) and never runs on main pushes -- it is gated on advisory_ui_changed -- so this only ever surfaces on PRs that touch a mockup surface, which is why it can rot unnoticed. Next action: reproduce by running the spec repeatedly on one SHA; if it reproduces three times per docs/testing.md flake policy, quarantine via tests/flake-ledger.json, otherwise harden the clock pin. Do not weaken the assertion to silence it.",
+      "source": "Session unblocking PR #2437, 2026-08-27: observed in CI run 33096941258 and reproduced-clean locally.",
+      "added": "2026-08-27"
+    },
+    {
+      "id": "#6KR6BR",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "/calculators/search keeps a 2px residual scroll range at 1280x1200 after the dead-scroll sweep",
+      "detail": "Found 2026-08-27 while verifying PR #2419 (dead scroll on pages that fit the window) across 39 routes x 5 viewports in Chromium. That sweep replaced every 'calc(100dvh - <chrome estimate>)' page-fill floor with flex growth, and afterwards every page that fits reported a scroll range of exactly 0 - except /calculators/search, which retained 2px at 1280x1200. It was deliberately left out of scope because it is NOT the chrome-estimate class the PR fixed: the residual traces to real content in the page, so removing it is a layout question for that route rather than another floor to delete. Impact is cosmetic (a scrollbar and one wheel notch on a page with nothing below the fold). Next: re-measure at 1280x1200 to confirm the axis and identify the overflowing element, then either trim the offending 2px or record the route as a documented exception under invariant 24 in docs/search-chrome-behaviour.md so the next sweep does not re-flag it. Stop: do not reintroduce a viewport-estimate floor to hide it, and do not clip the route's overflow to make the number zero.",
+      "source": "PR #2419 verification sweep, 2026-08-27; docs/search-chrome-behaviour.md invariant 24",
+      "added": "2026-08-27"
+    },
+    {
+      "id": "#MPZTBR",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "The scope-statement footer contradicts itself: an audit says mount it on every mode home, the code says it was deliberately removed from all of them",
+      "detail": "#PM9SP1's FIX text said to 'relabel to Clinical reference - not validated decision support and mount the footer on the other mode homes'. The relabel half landed (PRs #2497, #2499). The mount half conflicts with a recorded decision in the code: src/components/mode-home-template.tsx:216-219 states 'No mode home renders this any more: the line under the composer was removed from every home page. The sole remaining call site is the therapy-compass page footer, which sits at the bottom of the sub-routes and is explicitly not rendered on the therapy home (showFooter={!isHome} in workspace.tsx).' So one source says mount it everywhere and the other says it was deliberately taken off everywhere. NEXT ACTION: owner ruling on which is current, then make the other match. If the footer stays off mode homes, amend the #PM9SP1 fix text so a future session does not re-add it; if it should return, that is a deliberate reversal of the recorded decision and the comment at mode-home-template.tsx:216-219 must be updated in the same change. Not urgent: every surface that renders retrieved clinical content already carries its own scope line (verified by a repo-wide sweep 2026-09-01) - the open question is the shared mode-home composer footer only.",
+      "source": "Design-system + app review session 2026-09-01; conflict found while fixing #PM9SP1, verified against mode-home-template.tsx and therapy-compass/workspace.tsx",
+      "added": "2026-09-01"
+    },
+    {
+      "id": "#J7PZQP",
       "priority": "P3",
       "type": "task",
-      "summary": "Ward Flow spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
-      "detail": "Spec D9 (docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md) says the discharge board is reached from the sidebar's Boards group AND from the capacity board's own figures. Only the sidebar entry was built; the capacity headline cards are plain non-interactive articles. Found by the Phase 5 whole-branch review. Unimplemented spec clause, not a defect. Small, and best done at the start of Phase 6 while the numbers are fresh. Any new inbound link must keep the route-reachability contract satisfied.",
-      "source": "session 2026-08-26",
-      "added": "2026-08-26"
+      "summary": "Caring Contacts: carry the retention clearance instant on Episode so a screen stops inferring clearance from a blank patient name",
+      "detail": "Raised by the Task 6b implementer on 2026-08-25 and confirmed by review. The patient overview decides 'a retention clearance removed this reason' from `episode.patientName === \"\"`. That inference is sound TODAY but the guarantee behind it lives in a Zod schema at the API edge (`plans/route.ts`, `patientName: z.string().min(1)`), not as a domain invariant: the repository's own `createPlan` does not validate it and the Postgres column is `not null`, which permits the empty string. Task 6b made a SECOND statement depend on that inference, which is why it is worth closing rather than leaving. The failure mode is a wrong sentence on an already de-identified record, not a leak, so it is not urgent. The durable fix is cheap and already half-built: `caring_contacts.retention_state.cleared_at` exists in `0001_caring_contacts_foundation.sql` with `retention_state_cleared_after_terminal` pinning it, so the work is to surface it on `Episode` and have the screen read the instant instead of guessing from a blank field. Crosses both stores.",
+      "source": "session 2026-08-25",
+      "added": "2026-08-25"
+    },
+    {
+      "id": "#A95DRY",
+      "priority": "P3",
+      "type": "task",
+      "summary": "mode-home-page-skeleton still subtracts a chrome estimate from 100dvh, the pattern invariant 24 retired everywhere else",
+      "detail": "PR #2419 replaced every 'calc(100dvh - <chrome estimate>)' page-fill floor with flex growth (shell #main-content, the composer reserve pad, the page shells, and the dashboard mode-home canvas) and recorded the rule as invariant 24 in docs/search-chrome-behaviour.md: 'A page fills the box it is in; it never subtracts a chrome estimate from 100dvh.' Two sites in src/components/mode-home-page-skeleton.tsx were deliberately left behind and are now the only page-fill estimates left in src/: line 32 'sm:min-h-[calc(100dvh-var(--shell-header-h))]' and line 60 'h-[calc(100dvh-var(--shell-header-h))]'. They were skipped because this is a route-loading placeholder rendered inside a Suspense boundary whose parent chain does not resolve a grown height, so swapping the class alone would collapse it - the parent chain has to be given a definite height first. --shell-header-h (4rem) is exactly the estimate invariant 24 exists to remove: it covers the header's inner bar plus its pb-2 but NOT the bar's own pt-[max(0.5rem,var(--safe-area-top))], which is why every floor built on it ran short. Impact is very low: the skeleton is visible for a fraction of a second while a route opens, and being a few px short there is invisible. Next: determine whether the skeleton's Suspense parent can carry a definite height; if yes, convert both sites to grow and delete the estimate; if no, record the exception explicitly under invariant 24 so the next sweep does not re-flag it as an oversight. Stop: do not simply swap the class without fixing the parent chain, and do not widen invariant 24 to permit estimates generally.",
+      "source": "PR #2419; docs/search-chrome-behaviour.md invariant 24; src/components/mode-home-page-skeleton.tsx:32,60",
+      "added": "2026-08-27"
+    },
+    {
+      "id": "#YTR84P",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
+      "detail": "WardFlowProvider's initialNow prop silently discarded its value: the render body forced elapsed=0 when pinned, so now was always NOW_ANCHOR (642, 10:42) whatever instant was passed. Latent, never active - all 40 initialNow call sites pass NOW_ANCHOR, and the live app never passes the prop - but it made every time-of-day branch untestable through the real provider. FIXED and PROVEN in commit 62f798c2a on branch claude/serene-heyrovsky-7a5e53 (base be65b8a1b), worktree D:\\Repos\\Database\\.claude\\worktrees\\nostalgic-vaughan-7ee231: 40/40 existing call sites stayed green (92 tests), whole ward suite 519 passed, typecheck/lint/prettier pass, and a mutation test showed 3 of 4 new tests going red with 'Expected 450 / Received 642'. RISK: that branch has never been pushed, has no upstream and no PR, so the work exists on one machine only. NEXT ACTIONS, all on claude/ward-flow-phases-6-7-design (which was ACTIVELY ADVANCING when this was written - a53a3a994 to 0d29dd734 in one session, so confirm ownership before editing): (1) cherry-pick 62f798c2a or re-apply the two-line change; (2) write the spec D5 pre-08:00 test through the real provider by rendering MorningPage inside WardFlowProvider initialNow={7*60+30} - today D5 is proven at the pure-function level only, not through the rendered page; (3) remove the now-misleading NullHandoverHarness and its doc comments in tests/ward-morning-page.dom.test.tsx, which describe the defect as present-tense fact (DirectFrozenHarness may still earn its place as a unit-level check - judgement call, not a mechanical delete); (4) decide whether claude/serene-heyrovsky-7a5e53 should be closed as redundant or pushed as its own low-risk two-file PR - owner's call. Full handover with evidence, traps and do-not-reopen list: docs/ward-flow-pinned-clock-handover.md (committed 3fd861418 on the same branch, so it is also unpushed). Offline only - no provider, Supabase, OpenAI or CI access needed for any step.",
+      "source": "Claude Code session 2026-08-27; handover doc docs/ward-flow-pinned-clock-handover.md",
+      "added": "2026-08-27"
+    },
+    {
+      "id": "#RBK2J7",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
+      "detail": "Six CI readings on 2026-08-27 against the same 786ms baseline (tolerance: breach needs BOTH >20% and >100ms). PR #2422 branch: 961 (FAILED, reported 2/3 samples breached), 925, 900, 852. main: 748 (603da96), 705 (be65b8a1). NOT ROOT-CAUSED; recorded so the next occurrence is not re-investigated from scratch. Evidence AGAINST a real code regression: (a) mobile-root - the SAME page - measured 2293/2305/2314 against its 2274 baseline across the same runs, i.e. unchanged, and a genuine slowdown in that page would show on both form factors; (b) desktop-documents-search measured FASTER than main on the same runners (745/806 vs main 828/841); (c) the monotone decay 961->925->900->852 is regression-to-mean of a noisy metric, not a fixed cost a diff adds; (d) reading the 11-file diff line by line, nothing alters the desktop root cold render - the only new guard (!showAnswerCancelledNotice on showAnswerPending) is a no-op when nothing was cancelled, and pb-4->pb-10 requires an answer to be present. ONE TESTABLE MECHANISM REMAINS: PR #2422 split src/components/clinical-dashboard/answer-cancelled-notice.tsx out of ClinicalDashboard (forced by the 4140-line maintainability budget), and a new client module can become a separate chunk on /. Next: rm -rf .next FIRST (AGENTS.md: a cached build reports stale byte-identical numbers and will wrongly pass), npm run build, then npm run check:bundle-budget, which attributes chunks per route and reports / separately; compare against main. If / gained a chunk, move AnswerCancelledNotice into src/components/clinical-dashboard/dashboard-notices.tsx, which ClinicalDashboard already imports - same budget relief, no new module boundary. GATE CAVEAT worth knowing: majorityBreachDecision in scripts/check-lighthouse-budget.mjs takes its 3 samples within ONE job on ONE runner, so it guards against a single outlier but not against a slow runner. Stop: do not raise the baseline or the tolerance to clear this; do not re-run the job to chase a better number. Related but distinct: #GQ5X8T (mobile-root timing, needs a synchronized control).",
+      "source": "PR #2422 CI runs 33067093750 (attempts 1-2), 33070896021, 33072264164; main runs 33063088413, 33065297542",
+      "added": "2026-08-27"
+    },
+    {
+      "id": "#27TWKM",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "CI never runs the caring-contacts Postgres suite, so every row-level-security and cross-team assertion it makes against real SQL fires only on a developer's machine",
+      "detail": "Found while reviewing Phase 2B Task 6b on 2026-08-25. `grep -rn \"caring-contacts\" .github/workflows/` returns zero hits, and every file in `caringContactsDbTestFiles` is unconditionally excluded from the offline `node` project in `vitest.config.mts`. So the whole caring-contacts Postgres project — the shared repository-contract suite run against real SQL, including the cross-team reads that prove a coordinator cannot see another team's patients, and the `set_config('caring_contacts.team_id', …)` / `set local role caring_contacts_app` preamble whose absence silently bypasses every row-level-security policy — runs ONLY when a human happens to have the Docker Postgres on 54329 up. This row is about that whole project, not about any one guard. What made it visible: Task 6b installed a source scan there proving `PLAN_COLUMNS` does not select a patient's free-text clinical note, and the scan needed no database at all. Its own review found it unreachable and moved it to `tests/caring-contacts-domain-isolation.test.ts`, which the default `npm run test` collects. Deliberately no test count here: the number moved by one within the same branch that filed the first version of this row, which is exactly why it is stated as an invariant instead. Two separable questions: (1) should CI run this project at all, which needs a Postgres service container and is a real CI-cost decision for the owner; (2) independently, no guard that needs no database should live in a database-only file — that half is a placement rule, not a cost decision, and could be enforced.",
+      "source": "session 2026-08-25",
+      "added": "2026-08-25"
+    },
+    {
+      "id": "#BS3SN9",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Close remaining privacy provider, legal, and clinical approvals",
+      "detail": "The PsychSift owner approved the production HMAC control and verified retention schedules on 2026-09-01. Release remains blocked on six items: OpenAI ZDR and countersigned DPA evidence, Railway sensitive-health terms, APP 8 and APP 1/5 privacy-adviser approval, and clinical PHI-minimisation acceptance. Evidence authority: docs/governance/privacy-readiness.v1.json and docs/governance/privacy-closeout-2026-09-01.md.",
+      "source": "session 2026-09-01 owner attestation closeout",
+      "added": "2026-09-01"
+    },
+    {
+      "id": "#QX7TP2",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
+      "detail": "Recorded 2026-08-25 at the end of Phase 2B Task 8, by the implementer counting its own coverage from the code rather than estimating it. Roughly four of about thirty cases the activation-wizard suites own are proved assertion by assertion; the rest have at least one assertion with no mutation isolating it. Largest named gaps: the no-present-tense-claim case is 4 of 8, the draft round-trip 1 of 6, the live-region case 1 of 5. This is a known and accepted state rather than a defect — proving every assertion individually across a suite this size is a large piece of work and was deliberately not attempted. The reason to keep the row is the rule that produced it: a mutation proves the assertion it makes fail, not the case it makes red, so a case with N assertions needs N mutations or needs splitting. Two refinements worth carrying if anyone takes this on: order-masking (an assertion behind a sibling that fails first, so the mutation never reaches it) is a property of a (case, mutation) pair rather than of a case; and the inverse error is live too — a check believed redundant is a hypothesis, and acting on it deletes coverage. In this same task a not-contains loop was nearly filed as redundant and a mutation showed the equality assertion above it passes while both sides read the same record. Anyone closing this should prefer splitting multi-assertion cases over adding mutations one at a time.",
+      "source": "session 2026-08-25",
+      "added": "2026-08-25"
+    },
+    {
+      "id": "#RZVMPD",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Caring Contacts: the plans list query fetches every patient's mobile number and identifiers on every caseload render",
+      "detail": "PLAN_COLUMNS in src/lib/caring-contacts/db/postgres-repository.ts includes patient_mobile_number and patient_identifiers, and listPlans selects it verbatim. toPlanRecord then discards both, so nothing is released -- PlanRecord excludes patientDetail structurally and that guarantee is intact. But every render of /caring-contacts/patients pulls both fields for the whole caseload into the application process, and the names projection added in Task 5b then issues a second query to obtain names narrowly. Giving listPlans its own column list (readPlanRecord still needs the detail columns for getEpisode; listPlans does not) would mean the sensitive fields are never fetched at all for a list read. Genuine privacy improvement on a hot path; deserves its own review rather than riding a comment fix.",
+      "source": "Task 5b review finding I-1, 2026-08-25",
+      "added": "2026-08-24"
+    },
+    {
+      "id": "#Y30AXB",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "An agent push rewrote tests/ui-smoke.spec.ts from 6,019 lines to 1,081, deleting 74 of 82 UI journey tests, and only a merge conflict stopped it auto-merging",
+      "detail": "Observed 2026-08-31 on PR #2481 (the answer-surface colour fix). Commit d1485d6e8, message 'test(ui): compare answer status surfaces', authored via the BigSimmo account, changed exactly one file with 4 insertions and 4,924 deletions: tests/ui-smoke.spec.ts fell from 6,019 lines / 82 tests to 1,081 lines / 8 tests. The commit message describes a narrow comparison change, so the diff is almost certainly an accidental whole-file rewrite by a tool that regenerated the file instead of editing a region of it — the surviving 8 tests are a contiguous slice, which is the signature of that failure mode. WHY IT MATTERS BEYOND THE ONE COMMIT: squash auto-merge was armed on the PR at the time. A gutted suite goes green trivially, so had the branch merged cleanly the deletion would have reached main automatically with no human reading the diff. The only thing that actually prevented it was an unrelated merge conflict against a main that had moved on; the subsequent merge of main into the branch restored the file, and the squash landed only the intended two-file colour change (verified by reading main at e16d5f66d). So no harm occurred, by luck rather than by any gate. NOTHING IN CI WOULD HAVE CAUGHT IT: no check asserts a floor on the number of Playwright tests or fails on a large deletion in a test file, and AGENTS.md's 'never skip, disable, or quarantine a test to get green' rule is agent policy, not an enforced gate. check:dead-code-candidate guards exported symbols, not test bodies. SUGGESTED REMEDY, cheapest first: a static check that fails when a committed diff removes more than a threshold share of test cases from tests/**, in the spirit of the existing bundle-budget ratchets — a count of test( occurrences per spec file, ratcheted per path, so a deliberate reduction is a reviewed baseline change rather than a silent one. Separately worth considering: do not arm auto-merge on a branch that any agent session is still pushing to.",
+      "source": "session 2026-08-31, answer-page colour fix (PR #2481)",
+      "added": "2026-08-31"
+    },
+    {
+      "id": "#HDCF2B",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Caring Contacts: patient names now travel in the URL because caseload search is a server-side GET",
+      "detail": "Task 5b made the Patients directory search match patient names, and the filter is a GET form (server-side filtering was mandated by the brief; Ruling 13 forbids client state; the approved design requires name search). So a search reaches the address bar, browser history, any Referer header and any server access log as ?q=<name>. Before Task 5b only synthetic identifiers went there. Judged NOT a defect by both the implementer's reviewer and the controller -- there was no compliant alternative under the standing constraints -- and recorded deliberately rather than fixed quietly, because it is exactly the kind of residual that gets carried into a real build unnoticed. Decide before any deployment carrying real patient names: POST-and-redirect, a client boundary accepted as an exception to Ruling 13, or an accepted risk with logging scrubbed.",
+      "source": "Task 5b review finding I-4, 2026-08-25",
+      "added": "2026-08-24"
     }
   ],
-  "pending": [
-    {
-      "request_id": "06402493-54b3-4718-997e-74f72566ae5f",
-      "action": "add",
-      "summary": "Caring Contacts: the vocabulary scan rewards leaving developer identifiers on screen, and the sealed domain it pushes copy into is watched by no vocabulary scan at all",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "084e06ec-e097-4b27-933d-2c3138ffbb01",
-      "action": "done",
-      "summary": "#XHNTHD: Added --allow-partial CLI flag and resolveEvaluationCases() fail-safe throwing when cases.length === 0 or when cases are filtered without --allow-partial in scripts/eval-retrieval.ts; added unit tests in tests/eval-retrieval.test.ts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "0e0c8272-b098-4cce-9a19-04450b931432",
-      "action": "cancel",
-      "summary": "Cancel request 9e88c6de-2225-4134-888c-aec117a116e7: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "10743a6e-53e4-45e9-b71a-468bf54682f2",
-      "action": "done",
-      "summary": "#S4R2W3: Added isBareDocumentSupportListAnswer and guarded documentSupportListIntent so clinical questions do not return bare title lists without substantive prose.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "11e9136a-6db8-4d3f-84c1-4d39cf18774a",
-      "action": "cancel",
-      "summary": "Cancel request 16763c67-0d53-48c9-a32d-11046a0c55d7: Understates the problem. Filed as 'the interface scan cannot express a job title', but the Task 7 re-review found the larger half: src/lib/caring-contacts/** is outside EVERY prohibited-language scan in the repository, so wording moved there is unwatched by any vocabulary check rather than merely exempt from the 'lead' rule. The record also omits that the fix is a one-line reuse of an already-tested pattern, which makes it look harder than it is. Superseded by a replacement stating both. The underlying issue is real and unchanged.",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "16763c67-0d53-48c9-a32d-11046a0c55d7",
-      "action": "add",
-      "summary": "Caring Contacts: the interface-vocabulary scan cannot express a job title, so correct plain-words role labels fail while raw identifiers pass",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "1742520a-b0d1-4d65-98bf-719f030e98d2",
-      "action": "cancel",
-      "summary": "Cancel request 45fe36c1-2d0b-47d2-afc4-f449b7dc3c84: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "17e26e25-5180-4ed4-9391-834ec456d605",
-      "action": "done",
-      "summary": "#G693BZ: Verified PanelSection extracted in panel-primitives.tsx and adopted across routes, documentation, test-health, review-state, and ledger pages.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "184404de-c45e-43e3-8048-2825799b349e",
-      "action": "add",
-      "summary": "Nothing compares the replayed migration chain against supabase/schema.sql, so a migration that changes a function body without a matching schema.sql edit passes every pre-merge gate and only surfaces post-merge in live-drift",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "2166a980-bac5-4565-b009-f7f4ea530e5c",
-      "action": "done",
-      "summary": "#GQ5X8T: NOT REPRODUCED ON PINNED LINUX; WINDOWS-SPECIFIC CAUSE UNRESOLVED. Eleven retained PR #2313 ubuntu-24.04 Lighthouse artifacts used Lighthouse 12.8.2 and pinned HeadlessChrome/151.0.0.0. In the nine-run synchronized-baseline subset, mobile-root LCP was 2260.791-2300.923ms with median 2287.574ms versus 2274.017ms baseline (+13.557ms, +0.60%); TBT median was 430.602ms versus 436.600ms baseline (-1.37%); CLS was 0 throughout. Across all eleven heads LCP was 2221.675-2300.923ms, never reproducing the Windows 7422-8032ms state. The exact local 883f1007 control / 7cf37b53 treatment snapshots had identical lock hashes, but the local host stayed at 42.3-62.9% CPU and the control build hit the 10-minute Linux cap after compiling, before measurement; that attempt is environment-blocked and was not rerun. This excludes a repeatable cross-platform regression but cannot distinguish Windows host noise from a Windows-specific client regression. No product, budget, tolerance, request-count, or proven CLS change was made. Reopen if a pinned Linux exact-head run breaches repeatably or a synchronized quiet-host Windows control reproduces the slowdown. Evidence: docs/evidence/mobile-root-timing-control-2026-08-26.md.",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "224cda1c-ae72-4921-b8aa-e6b3e315796a",
-      "action": "update",
-      "summary": "#ZBAC9D: detail → documents.owner_id is ON DELETE SET NULL (supabase/schema.sql) while a null owner independently means 'public corpus' in retrieval. CORRECTION (Codex on PR #2494): deleting an auth user does NOT silently republish private documents — documents_require_publication_approval (BEFORE INSERT OR UPDATE) runs guard_document_publication_transition, which rejects every non-null-to-null owner transition without matching publication evidence, so the user-delete transaction fails instead of orphaning/republishing. Distinguish blocked user deletion from any pre-existing orphan rows. RE-VERIFIED against main and the P2 -> P1 escalation still holds on the retrieval hazard, not on a live delete-to-publish path. (1) The retrieval path is NOT closed at any layer. public.retrieval_owner_matches still resolves the public sentinel to 'row_owner_id is null' with no public_corpus condition, and grep for 'public_corpus' returns ZERO occurrences across the entire retrieval chain: rag/rag-candidate-sources.ts, corpus-grounding.ts, deep-memory.ts, document-enrichment.ts, owner-scope.ts, clinical-search.ts and query-privacy.ts. Any ownerless row (pre-existing orphan or armed hole) is therefore retrievable as public corpus and citable in an answer to an anonymous query. (2) The helper written to close exactly this hazard is DEAD CODE. src/lib/documents/is-public-document.ts requires owner_id === null AND metadata.public_corpus === true, and tests/documents-is-public.test.ts:22 pins the precise case ('Orphaned after user delete' -> false), but grep across src/ and worker/ finds NO production caller outside its own module and the barrel re-export. Same shape as #A3AHCX. (3) The only genuinely closed application read path is the REST document read: withOwnerReadScope in src/lib/public-api-access.ts applies .is('owner_id', null).eq('metadata->>public_corpus','true'). NEXT, in order: (a) one read-only live count of documents where owner_id is null and metadata->>'public_corpus' is distinct from 'true' — this decides whether the hole is currently leaking or merely armed, and needs owner approval as a provider-backed read; (b) close the retrieval path, which is a genuine retrieval behaviour change on a protected RAG surface and so needs the RAG flag plus a live eval-canary pair; (c) add a database proof that deleting an owner of an unapproved private document fails and creates no ownerless indexed row, then in an approved production window change documents.owner_id to ON DELETE RESTRICT (or an explicit visibility column) and align the RPC predicate. Note the offline proof that no table whose null owner means public declares ON DELETE SET NULL cannot be added green today — it would fail on documents.owner_id, so it is the guard that accompanies (c), not a step that precedes it.; priority → P1; source → repo-wide audit at 3ed1932 (six domain reviewers); re-verified and expanded against main a633eb6e3 by the database coordination chat 2026-09-01; deletion-path correction per Codex review on PR #2494",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "256a5104-df13-44d3-9734-645e08b2b0df",
-      "action": "cancel",
-      "summary": "Cancel request 97bbfd51-435b-4e31-b956-7138753eb0a8: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "272880e4-0cc3-4522-9422-1c152a6d838d",
-      "action": "cancel",
-      "summary": "Cancel request 932b96f8-6af8-48a2-aeac-d78d5bb506a9: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "2f077536-00d5-46da-a7c2-63ad9d0221e5",
-      "action": "done",
-      "summary": "#76GGRG: Standardized Useful actions to role=group disclosure model with plain buttons and added Escape handling for mode picker.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "2fec44ad-0f30-459c-8caa-d289dded5c29",
-      "action": "add",
-      "summary": "Caring Contacts: a draft plan's contacts are already in state scheduled and listSendableContacts has no plan-state gate",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "356a1eb2-70c3-4303-bf98-4af30d9502ce",
-      "action": "cancel",
-      "summary": "Cancel request b2d0158c-09c0-441e-97af-fac42cbe5f12: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "35b8730d-b1f3-41bd-9bc2-7e485446391a",
-      "action": "done",
-      "summary": "#V27DZ1: Resolved Playwright strict-mode locator uniqueness on Ward Flow role screens by unifying root containers and verified with tests/ward-management-role.test.ts",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "368839d5-3ef0-46d4-94bc-b9d93842490c",
-      "action": "done",
-      "summary": "#WP76E6: Added Dismissal model section to docs/caring-contacts/interaction-matrix.md.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "36b7dc6b-733e-4116-8a47-4ef35e86039f",
-      "action": "done",
-      "summary": "#WP76E6: Clarified automated supervisor queues vs manual intervention triggers in interaction-matrix.md and verified with caring-contacts-overlay-definitions.test.ts",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "373b1aa3-596e-4d5f-bc4f-b05ad44a76f5",
-      "action": "add",
-      "summary": "Caring Contacts: the workspace's first client boundary has no browser evidence that it hydrates",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "39bc43fc-7bd7-4088-a7e4-4d29d3d418d5",
-      "action": "done",
-      "summary": "#4AM8Z0: Added Ramipril and Simvastatin to medication catalogue with full interaction, dosing, and contraindication profiles; rebuilt interaction index and asserted in tests/medication-badges.test.ts",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "3ac44d1e-88b8-4676-97e5-aa83d615fc98",
-      "action": "done",
-      "summary": "#XKS6FD: Added first-class mode live to Freshness type and resolveLiveFreshness helper displaying read live status.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "3c840c08-2b35-49f1-affa-54e9b4c812ea",
-      "action": "add",
-      "summary": "Caring Contacts: no browser evidence exists for any activation-wizard stage, including a two-write middle state where a clinician presses a writing control a second time",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "428fedef-b62c-461a-8211-ce645549e2d2",
-      "action": "add",
-      "summary": "The document cover-thumbnail hook and its /api/documents/[id]/cover route have no product consumer since the source drawer stopped rendering a front-page thumbnail",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "44b322b0-0a87-4564-878a-9d5ac97bcdc3",
-      "action": "update",
-      "summary": "#WG24JB: summary → Ward Flow: spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
-      "action": "done",
-      "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "45fe36c1-2d0b-47d2-afc4-f449b7dc3c84",
-      "action": "done",
-      "summary": "#V27DZ1: Disambiguated ward-diagram-unplaced-unit-${unit.id} and ward-shortlist-unresolved-referred-badge in flow-diagram.tsx and shortlist-panel.tsx.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "461a406d-4937-41c2-afbb-64d1b75f4bcf",
-      "action": "done",
-      "summary": "#AGRAKQ: Fixed regex in tests/helpers/caring-contacts-prohibited-language.ts to exclude plural job titles like clinical leads.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
-      "action": "done",
-      "summary": "#PDM6NG: Added static test suite tests/caring-contacts-workspace-screens.test.ts asserting all page routes under src/app/caring-contacts/ match WORKSPACE_SCREENS",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "4fad600d-b335-42ba-91a0-f35479aa52ae",
-      "action": "cancel",
-      "summary": "Cancel request 373b1aa3-596e-4d5f-bc4f-b05ad44a76f5: Scoped to hydration when filed after Task 7; Tasks 8 and 9 widened the consequence far beyond that, and the row as written understates what is unproven. Same root cause and same trigger to close, so superseded by one replacement stating the full cost rather than adding a second row.",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "6a1eb6b9-8a29-4f7c-89e3-6e5b9b498b3b",
-      "action": "cancel",
-      "summary": "Cancel request 461a406d-4937-41c2-afbb-64d1b75f4bcf: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
-      "action": "add",
-      "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "73e80866-df3e-414b-8362-b438d282ca8c",
-      "action": "add",
-      "summary": "/calculators/search keeps a 2px residual scroll range at 1280x1200 after the dead-scroll sweep",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "74818f95-4e71-4808-bec2-ff7ffb233ac1",
-      "action": "done",
-      "summary": "#Y0BDBJ: Implemented ReviewStateTable with 50-item responsive pagination reducing HTML payload from 1.73 MB to <100 KB.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "7492964b-2a87-4116-a492-8212f5270a99",
-      "action": "cancel",
-      "summary": "Cancel request eaa89aeb-c7a4-47d8-b81f-7ef8a6689c4e: Owner approvals closed the HMAC and retention items; replace with a six-blocker request.",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "7ab6b272-d913-43f5-bf08-a34dcb362f9a",
-      "action": "add",
-      "summary": "Caring Contacts: carry the retention clearance instant on Episode so a screen stops inferring clearance from a blank patient name",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "8324c7e4-18fb-4073-ba6b-ae46920f768d",
-      "action": "update",
-      "summary": "#EFETZT: detail → UPDATE 2026-08-27 (PR #2413, second and third occurrences): this is not only a staleness problem, it also produces hard git merge conflicts that block auto-merge. data/repo-awareness-snapshot.json conflicted twice in fifteen minutes on one PR head — first when main advanced to be65b8a, again when main advanced to fb88b47 — each time setting mergeable_state=dirty, which suppresses refs/pull/<n>/merge so pull_request CI (CI, Gitleaks, Semgrep) does not run at all and the check list reads empty rather than red. Both were resolved identically: git merge origin/main, git checkout --theirs the snapshot, npm run snapshot:repo-awareness, commit, push. The staleness half also reproduced: check:repo-awareness-snapshot failed Static PR checks with 'review_state differs from the repository'. Cost per occurrence is one full CI round trip plus a push, and it scales with how many PRs are open, since every merge to main regenerates the file for all of them. Reinforces the fix direction already proposed on this row: exclude docs/branch-review-records/ from the compared content the way captured_revision already is, or compare a narrower key set. Adding .gitattributes merge guidance for this path would blunt the conflict half but not the CI-staleness half.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "86ba753c-f2fd-4be7-92f4-df3d54cf4a04",
-      "action": "update",
-      "summary": "#QCNE6N: detail → generate-drift-manifest.ts replays supabase/schema.sql and embeds ITS sha256; CI's db-reset-verify runs supabase migration up --local, proving the chain APPLIES but never diffing the result against schema.sql. A migration whose function or policy body diverges from the mirror passes every gate. Object-NAME parity does hold today (all create targets across 211 migrations resolve into schema.sql) but it is enforced by hand-written per-object tests, not systematically. FIX: after migration up --local, replay schema.sql into a second scratch database and diff schema_drift_snapshot() between the two. Fully offline and containerised, no provider access. DEMONSTRATED 2026-09-01, no longer theoretical: live-drift run 33484535655 (red on main at d3074946a) reported its sole unexpected finding as public.correct_clinical_query_terms(text,real) def_hash manifest e2356565 vs live 2ebaf978. Cause was exactly this gap - migration 20260831100000 (PR #2477) redefined that function with a duplicated 'and length(canonical) between 4 and 40' predicate and supabase/schema.sql was never updated to match, so the manifest disagreed with live while every pre-merge gate stayed green. The db-reset-verify assertion that did run is committed.schema_sha256 === generated.schema_sha256 (.github/workflows/ci.yml ~L1082-1095), which only catches an unrefreshed manifest, not a chain/mirror divergence. Behaviour impact of that instance was nil (the duplicate predicate is a boolean no-op) but it cost a red daily alarm and a remediation PR, and it is the second occurrence of this failure class after the #316 root cause (SET work_mem absent from schema.sql). Strengthens the case for scheduling the containerised two-database diff above.; source → repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f; demonstrated by live-drift run 33484535655, classified by the database coordination chat 2026-09-01",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "870d4673-65da-40b8-94ba-15ba3c6ec6db",
-      "action": "cancel",
-      "summary": "Cancel request b6d16549-d2cb-4815-9386-9c38854e7c0b: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "8cf62eef-79a8-4b23-83cc-9290eb71dff3",
-      "action": "add",
-      "summary": "mode-home-page-skeleton still subtracts a chrome estimate from 100dvh, the pattern invariant 24 retired everywhere else",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "8d78d861-64cc-4e96-ad68-8dd7560cafad",
-      "action": "done",
-      "summary": "#2X46NY: Added comprehensive JSDoc docstrings across exported and internal functions in src/lib/rag/ to raise answer-source coverage above 80%.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "932b96f8-6af8-48a2-aeac-d78d5bb506a9",
-      "action": "done",
-      "summary": "#HX1KSZ: Added component metric boundary prohibition table row and §3c rule to docs/design-system/GATES.md.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "964e1147-56b2-4750-8794-4b8b1d8e4e04",
-      "action": "add",
-      "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "97bbfd51-435b-4e31-b956-7138753eb0a8",
-      "action": "done",
-      "summary": "#EG4Q7W: Modularized postgres-repository.ts into 5 cohesive domain modules (core, plans, contacts, referrals-pathways, assignments-services) with full test suite passing.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "998e657c-4852-4572-a4f8-5cf919ea2fea",
-      "action": "done",
-      "summary": "#1CYR4V: Reconciled and pinned 640-767px overlay-modality breakpoint band across Sheet and OverlayHost with dom and workspace spec tests",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "9b9b8f4f-7f0a-4f91-944e-c11837e69994",
-      "action": "cancel",
-      "summary": "Cancel request b60f9982-f48c-4a70-ae92-99d88313cab3: The summary and detail both state a test count that this branch's own next commit falsified, and one of them double-counts. Filed while the caring-contacts database suite was 193 tests; moving the PLAN_COLUMNS guard to the offline project made it 192, so the record was true when written and false before it could be reconciled. The summary also reads 'its 193 tests and the PLAN_COLUMNS narrowing guard', which double-counts the guard that was already inside the 193. Superseded by a replacement that states the invariant instead of a tally, per Ruling 94. The underlying issue is real and unchanged.",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "9d654032-6e3d-439f-81ac-70d8314f4763",
-      "action": "update",
-      "summary": "#9GPWT3: summary → Ward Flow: bed-release state model is unvalidated by any ward clinician",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "9e88c6de-2225-4134-888c-aec117a116e7",
-      "action": "done",
-      "summary": "#S4K1GA: Documented Reduce Motion iPhone acceptance criteria in docs/search-chrome-behaviour.md.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "a2cff633-7bfe-480e-91bc-8d97f68c66c7",
-      "action": "done",
-      "summary": "#XEGPCD: Hardened ensureTeam with explicit row-level update lock on conflict (id) do update set id = excluded.id and pinned assertion in tests/caring-contacts-write-serialisation.test.ts",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "a6215b70-c84e-41b3-8828-b170c00a1b49",
-      "action": "done",
-      "summary": "#FDST2Q: Implemented formatRelativeAge formatting sub-60-minute durations as just now or < 1 hour ago instead of 0 hours ago.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "af496d9a-fd58-4984-b216-efcf2495fd67",
-      "action": "done",
-      "summary": "#WG24JB: Wired confirmed-today and predicted-today headline cards in CapacityView to /mockups/ward-flow/discharges with tests.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "af8b8fb0-3930-43a6-8d06-c897866a86b9",
-      "action": "add",
-      "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "b1630592-46f5-4e1a-aa03-97aa30e516af",
-      "action": "done",
-      "summary": "#0HYHTH: Verified static prohibited vocabulary checks in tests/caring-contacts-interface-vocabulary.test.ts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "b2d0158c-09c0-441e-97af-fac42cbe5f12",
-      "action": "done",
-      "summary": "#PDM6NG: Added screen registration parity test in tests/caring-contact-route-files.test.ts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "b2e5f3fc-ab2d-4a14-a055-6742d6446784",
-      "action": "add",
-      "summary": "CI never runs the caring-contacts Postgres suite, so every row-level-security and cross-team assertion it makes against real SQL fires only on a developer's machine",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "b60f9982-f48c-4a70-ae92-99d88313cab3",
-      "action": "add",
-      "summary": "CI never runs the caring-contacts database suite, so its 193 tests and the PLAN_COLUMNS narrowing guard only fire on a developer's machine",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "b6d16549-d2cb-4815-9386-9c38854e7c0b",
-      "action": "done",
-      "summary": "#61TZJA: Verified PR #2199 merged and AWAITING_BASELINE in tests/ui-visual-baseline.spec.ts is empty.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "bb121cd3-235b-45f1-817e-a82d7c6c5a31",
-      "action": "add",
-      "summary": "Close remaining privacy provider, legal, and clinical approvals",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",
-      "action": "add",
-      "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "c3cf6c59-298b-424e-90bf-9e2cdd9c559e",
-      "action": "done",
-      "summary": "#F5EYAJ: Verified BLOCK_REASON_WORDING in overlay-host.tsx and DOM tests in tests/caring-contacts-overlay-host.dom.test.tsx.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "c4bc5cb3-442e-42ed-9af4-29ae72f02fb6",
-      "action": "add",
-      "summary": "Caring Contacts: the plans list query fetches every patient's mobile number and identifiers on every caseload render",
-      "created_at": "2026-08-24"
-    },
-    {
-      "request_id": "c5f2cb44-cd51-4acc-a9d1-40a5fc1c56a0",
-      "action": "cancel",
-      "summary": "Cancel request dc26c333-1935-47e8-ab71-b5206c84e19b: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "c66f01fb-e52a-40fa-a4b2-f4d1449ddb11",
-      "action": "done",
-      "summary": "#DTSABC: Authored Form 12A statutory Authority and Criteria prose from committed PDF and asserted in tests/forms.test.ts",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "c733065e-9076-4f43-a7b2-9e0b5d5dcedd",
-      "action": "cancel",
-      "summary": "Cancel request 44b322b0-0a87-4564-878a-9d5ac97bcdc3: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "c862828e-276c-4d90-829b-2c2b35e04274",
-      "action": "done",
-      "summary": "#59JT7W: Verified resolveClosingContactMessageBody and tests/caring-contacts-message-policy.test.ts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "c995abce-f7d4-4be2-b057-80b173a5246f",
-      "action": "add",
-      "summary": "An agent push rewrote tests/ui-smoke.spec.ts from 6,019 lines to 1,081, deleting 74 of 82 UI journey tests, and only a merge conflict stopped it auto-merging",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "cbe7c359-b8e1-4218-a4df-59e869133e0a",
-      "action": "cancel",
-      "summary": "Cancel request 184404de-c45e-43e3-8048-2825799b349e: Duplicate of the existing open row #QCNE6N, which already records that CI never diffs the replayed migration chain against supabase/schema.sql and already proposes the same containerised two-database fix. Retracted the same session it was queued; the new 2026-09-01 evidence was reissued as an update to #QCNE6N instead (request 86ba753c-f2fd-4be7-92f4-df3d54cf4a04).",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "cd767916-0034-4e5a-b2db-276609d0deec",
-      "action": "cancel",
-      "summary": "Cancel request c862828e-276c-4d90-829b-2c2b35e04274: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "d5ea0d4f-652f-480c-9a87-3be0ff7ef4b6",
-      "action": "cancel",
-      "summary": "Cancel request dba6b1fc-cb98-49e6-a035-8ca83946232a: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "d6e41550-1a6a-4f4f-aff5-d95004011942",
-      "action": "done",
-      "summary": "#PWZYY8: Added aria-hidden=\"true\" to icon call-sites and updated eslint-rules/require-lucide-icon-aria.mjs to cover Icon/ActiveIcon.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "da5b168d-a9fa-475f-a456-867edfe3694c",
-      "action": "cancel",
-      "summary": "Cancel request 368839d5-3ef0-46d4-94bc-b9d93842490c: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "dba6b1fc-cb98-49e6-a035-8ca83946232a",
-      "action": "done",
-      "summary": "#76GGRG: Implemented full WAI-ARIA Menu keyboard navigation with Arrow Up/Down/Left/Right/Home/End/Escape in search-pins-menu.tsx.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "dc26c333-1935-47e8-ab71-b5206c84e19b",
-      "action": "done",
-      "summary": "#1CYR4V: Verified 640-767px overlay modal responsive boundary contract in tests/caring-contacts-overlay-host.dom.test.tsx.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "dc7ad7ef-1a27-4305-b1f5-326ee08985eb",
-      "action": "add",
-      "summary": "Caring Contacts: patient names now travel in the URL because caseload search is a server-side GET",
-      "created_at": "2026-08-24"
-    },
-    {
-      "request_id": "dece668d-e5da-4d9f-bf44-d3abed47e492",
-      "action": "done",
-      "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "df2e763d-c1ad-4495-9b62-046f01ab377c",
-      "action": "done",
-      "summary": "#DHAR98: Harden all SECURITY DEFINER functions with explicit pg_temp search_path.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "e2c82b28-4e33-46cf-839e-d00ad26d35d7",
-      "action": "cancel",
-      "summary": "Cancel request f3288efd-b1b6-492f-9a4a-8b316e35fe71: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "e3892275-41ea-475c-bade-e57d2d348fc4",
-      "action": "done",
-      "summary": "#0JJ4RD: Consolidated live purge_expired_rag_response_cache overloads into single bounded signature in migration 20260831100000_harden_security_definer_search_paths_and_purge_cache.sql and schema mirror.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "eaa89aeb-c7a4-47d8-b81f-7ef8a6689c4e",
-      "action": "add",
-      "summary": "Close current privacy provider, legal, and clinical approvals",
-      "created_at": "2026-09-01"
-    },
-    {
-      "request_id": "f3288efd-b1b6-492f-9a4a-8b316e35fe71",
-      "action": "update",
-      "summary": "#V27DZ1: summary → Ward Flow: role screens intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",
-      "action": "done",
-      "summary": "#F5EYAJ: Created connection and permission unavailable fallback components, wired routing in app/caring-contacts/error.tsx, and dynamically supplied blockReason in workspace-overlays.tsx",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "fa3a637d-a2b9-44b9-bdb9-eb23c912505a",
-      "action": "cancel",
-      "summary": "Cancel request c3cf6c59-298b-424e-90bf-9e2cdd9c559e: Superseded by an earlier pending done request already on main for the same issue; keep main claim and drop this PR duplicate to unblock check:docs-links mutation conflicts.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "fbfb32c2-6ca8-4504-adb5-b7647d1d9174",
-      "action": "cancel",
-      "summary": "Cancel request b1630592-46f5-4e1a-aa03-97aa30e516af: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
-      "created_at": "2026-08-31"
-    },
-    {
-      "request_id": "fed7ba66-652e-4081-8845-3c3b70496507",
-      "action": "done",
-      "summary": "#ZW43ZT: Bypassed GlobalMockupSearchShell for /mockups/development in MockupsLayoutClient to eliminate duplicate dev main landmark collisions.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "ff7bcba4-5dee-44b7-9b4f-a1aefdd9ab85",
-      "action": "cancel",
-      "summary": "Cancel request d6e41550-1a6a-4f4f-aff5-d95004011942: Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox.",
-      "created_at": "2026-08-31"
-    }
-  ]
+  "pending": []
 }

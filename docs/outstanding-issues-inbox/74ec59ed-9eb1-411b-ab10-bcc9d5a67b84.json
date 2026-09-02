@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "74ec59ed-9eb1-411b-ab10-bcc9d5a67b84",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#PWZYY8",
+    "outcome": "Resolved; verified against origin/main d1bb2c197 on 2026-09-02. Both halves of the row are closed. THE LINT RULE IS NO LONGER BLIND: eslint-rules/require-lucide-icon-aria.mjs:51-52 now resolves a JSX tag named Icon or ActiveIcon in addition to a direct lucide-react import, so an icon received as an icon: LucideIcon prop and rendered bare is flagged, with an autofix that inserts aria-hidden=\"true\". THE CALL SITES ARE MARKED: all four components the row named by name in src/components/clinical-dashboard/document-ui.tsx (DocumentBadge:82, DocumentActionLink:132, DocumentActionAnchor:149, DocumentActionButton:166) carry aria-hidden=\"true\", and evidence-panels.tsx:1257 -- the site the row cited as inconsistent with its own Loader2 sibling -- now matches that sibling. MEASURED, not sampled: a scan of every <Icon> and <ActiveIcon> element in non-mockup src/**/*.tsx finds 184 sites, 182 of which declare aria-hidden, aria-label, aria-labelledby, role or title. The two that do not are both in src/components/settings-search-mockups/settings-search-mockup-page.tsx, which is design scratch and outside the production gates. NOTE, not a blocker: the rule's own header comment (line 9) still reads that icons passed around as icon: LucideIcon values are out of scope, which line 51 has since falsified. A stale comment, not a coverage hole. HISTORY: a done request for this row (d6e41550) was cancelled on 2026-08-31 with the reason 'target issue is no longer in Open items on current main'. That premise was wrong -- the row was and remained open -- so the close was lost rather than applied. This request re-closes it on directly verified evidence rather than on the cancelled claim.",
+    "baseRowFingerprint": "da667e76e2022fb63e3ea55f8621433bde734f2367f1ce8eb62fe373ca5de62e"
+  }
+}
