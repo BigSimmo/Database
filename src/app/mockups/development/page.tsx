@@ -94,10 +94,15 @@ export default async function DeveloperHubPage() {
            *
            * The document count and the signed-in email come from one Supabase
            * round trip in `resolveHubEnvironmentFacts`, which is what makes this
-           * Server Component async. That count is owner-scoped by the database's
-           * own row-level security, not by anything asserted here, and every
-           * failure path returns `null` rather than `0` — see that module for why
-           * the distinction is load-bearing.
+           * Server Component async. That count is owner-scoped by an explicit
+           * `owner_id` filter on a server-only admin client — the service role
+           * bypasses row-level security entirely, so that filter is the whole of
+           * the scoping guarantee, not an addition to it (see
+           * `resolveHubEnvironmentFacts` for why the user-client/RLS route this
+           * comment used to describe cannot work: `documents` carries no table
+           * privileges for `authenticated`). Every failure path returns `null`
+           * rather than `0` — see that module for why the distinction is
+           * load-bearing.
            */}
           <EnvironmentStrip
             demoMode={environment.demoMode}
