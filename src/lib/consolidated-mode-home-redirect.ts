@@ -188,14 +188,37 @@ export function standaloneModeSearchPath(modeId: AppModeId): string | null {
  * `query` counts alongside `q` for the same reason as the consolidated paths: a
  * legacy `?query=` deep link must read as submitted rather than landing on the
  * home with its query silently dropped.
+ *
+ * A recognized catalogue filter key forwards on its own, without needing
+ * `run=1`. `run=1` exists to distinguish a still-being-typed `q` from a
+ * submitted one — a distinction that only makes sense for free text entered
+ * into a composer. `/sources?topic=governance` or `?usedBy=dictionary` were
+ * shareable catalogue links before the home/catalogue split (`#ZBAC9D`'s
+ * sibling review finding); there is no "draft" state for a filter chip, so
+ * requiring `run=1` for them only ever silently drops the filter on the home.
  */
+const sourcesCatalogueFilterKeys = [
+  "band",
+  "jurisdiction",
+  "type",
+  "publisher",
+  "topic",
+  "lifecycle",
+  "status",
+  "validation",
+  "usedBy",
+  "sort",
+] as const;
+
 export function standaloneModeSubmittedSearchTarget(pathname: string, search: URLSearchParams): string | null {
   if (!Object.hasOwn(standaloneModeSearchPaths, pathname)) return null;
   const target = standaloneModeSearchPaths[pathname as keyof typeof standaloneModeSearchPaths];
 
   const params = new URLSearchParams(search);
   const query = (params.get("q")?.trim() || params.get("query")?.trim()) ?? "";
-  if (!query || params.get("run") !== "1") return null;
+  const submittedQuery = query.length > 0 && params.get("run") === "1";
+  const hasCatalogueFilter = sourcesCatalogueFilterKeys.some((key) => params.has(key));
+  if (!submittedQuery && !hasCatalogueFilter) return null;
 
   return `${target}?${params.toString()}`;
 }

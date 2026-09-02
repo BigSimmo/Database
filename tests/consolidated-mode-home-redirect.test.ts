@@ -251,6 +251,18 @@ describe("standalone mode homes with a separate results route", () => {
     expect(submitted("/sources", "q=%20&run=1")).toBeNull();
   });
 
+  // A filter chip has no "draft" state the way a typed query does — a link
+  // carrying one is a complete, shareable catalogue selection on its own, so it
+  // forwards without needing `run=1`.
+  it("forwards a filter-only deep link even without run=1", () => {
+    expect(submitted("/sources", "topic=governance")).toBe("/sources/search?topic=governance");
+    expect(submitted("/sources", "usedBy=dictionary")).toBe("/sources/search?usedBy=dictionary");
+    expect(submitted("/sources", "band=A&jurisdiction=AU")).toBe("/sources/search?band=A&jurisdiction=AU");
+    // A filter alongside a draft (unsubmitted) query still forwards; the filter
+    // is the reason, not the query.
+    expect(submitted("/sources", "q=RANZCP&topic=governance")).toBe("/sources/search?q=RANZCP&topic=governance");
+  });
+
   it("never matches a sub-route, another mode home, or a mode without a separate results route", () => {
     for (const pathname of [
       "/sources/search",
