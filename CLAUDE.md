@@ -18,6 +18,11 @@ in it is already in force. This file is the **orientation layer** — what the s
 it is laid out, how work flows through it. It deliberately does not restate AGENTS.md policy;
 where the two ever disagree, **AGENTS.md wins**.
 
+`AGENTS.md` is a small always-loaded core — the boundaries that prevent irreversible harm, plus
+the sections a gate parses by exact text — and an index. Every other rule keeps its heading there
+and its full text in a named file under `docs/agents/`. Read that file before acting in its area;
+its rules are in force whether or not you have opened it.
+
 | Need                                        | Read                                                                                                         |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Rules, gates, shortcuts, safety boundaries  | `AGENTS.md` (auto-loaded)                                                                                    |
@@ -36,28 +41,16 @@ see the AI tooling map in `docs/agents-guide.md`.
 
 ## Highest-consequence rules
 
-Full text and rationale in `AGENTS.md`. These are the ones most easily violated by accident:
+Full text and rationale in `AGENTS.md`, which now carries these boundaries in its core, ahead of
+everything else: the provider confirmation boundary, Supabase project safety (merging a migration
+reaches the live clinical database within seconds), RAG ranking protection, Railway project safety
+and local server safety. The Next.js warning is the block at the top of `AGENTS.md`. Review-ledger
+lookup before reviewing a branch or PR is in
+[`docs/agents/codex-review-throttling.md`](docs/agents/codex-review-throttling.md), and the rule
+that evidence is never compressed is in
+[`docs/agents/external-skill-precedence.md`](docs/agents/external-skill-precedence.md).
 
-- **Providers need explicit confirmation.** Never touch OpenAI, Supabase, GitHub/GitLab,
-  hosted CI, or any provider-backed workflow — including indirectly, via scripts, tests, or
-  release gates — without the user saying so. Prefer local/offline/mocked checks; report the
-  command and ask.
-- **This is not the Next.js you know.** Next 16 has breaking changes versus most training
-  data. Read `node_modules/next/dist/docs/` before writing framework code.
-- **RAG ranking surfaces are protected.** Flag the task _before_ editing anything under
-  `src/lib/rag/**`, clinical-search, retrieval-selection, ranking-config, answer-ranking,
-  the eval harness, or the golden fixture — even for a rename or a comment. Behaviour
-  changes need a live eval-canary pair. Read `docs/rag-behaviour/` first.
-- **Supabase target is pinned.** Live project `Clinical KB Database`, ref
-  `sjrfecxgysukkwxsowpy`. The ref `qjgitjyhxrwxsrydablr` is stale — never use it. Migrations
-  target role `postgres`.
-- **Check the review ledger before reviewing a branch or PR:**
-  `npm run ledger:lookup -- <ref> --scope "<scope>"`. Never scan or hand-write
-  `docs/branch-review-ledger.md`; it is a frozen historical table and new reviews use immutable records.
-- **Never assume `localhost:3000`.** Use `npm run ensure` and the URL it prints.
-- **Evidence is never compressed.** Paste the decisive line from a gate. Exit code 0 alone
-  is not proof — `verify:ui` can exit non-zero on lock-contention timeout rather than
-  soft-skipping green.
+Do not restate any of them here. A second copy is how these two files drift.
 
 ## Stack and runtime
 
@@ -80,54 +73,14 @@ dependencies. `npm install` also installs the repo's git hooks.
 (`src/lib/demo-data.ts`, `public/demo-documents/`) via `isDemoMode()` in `src/lib/env.ts`.
 Production never silently falls back — missing config fails loudly.
 
-## Repository layout
+## Repository layout and the two main flows
 
-```
-src/app/          Next.js App Router — (search-app) route group, api/, auth/, mockups/
-src/components/   UI; clinical-dashboard/ is the shell, *-mockups.tsx are design scratch
-src/lib/          ~200 modules — rag/, supabase/, validation/, observability/,
-                  extractors/, webhooks/ are the extracted subdirectories
-src/data/         Static clinical content (DSM, formulation, therapies indexes)
-data/             Generated clinical snapshot exports loaded at runtime — regenerate, never hand-edit
-supabase/         migrations/ (source of truth), schema.sql (mirror), functions/
-worker/           Ingestion worker; worker/python/ is the OCR stack
-scripts/          gates, eval, reindex, governance, dev — counted and mapped in docs/scripts-index.md
-tests/            Vitest unit + Playwright E2E, side by side
-docs/             Runbooks, governance, plans; docs/README.md categorises them
-eslint-rules/     Repo-specific lint rules (see Conventions below)
-mockups/          Notes for the design-scratch routes under src/app/mockups/
-plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
-.claude/          Claude Code agents, skills, hooks, settings
-.agents/          Single-word skill catalogue (`npm run skills`)
-.cursor/          Cursor project rules and local-agent configuration
-.design-sync/     Generated design-system package metadata and validation notes
-.githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
-.vscode/          Shared VS Code workspace recommendations and settings
-```
+The `src/` tree, the 15 app modes, and the two flows that matter — answer (read path) and
+ingestion (write path) — are mapped in
+[`docs/codebase-index.md`](docs/codebase-index.md), under "Orientation summary" and the detailed
+sections that follow it. Start there for any real task.
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
-
-The product surface is **15 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
-answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
-prescribing, tools, calculators, therapy-compass, factsheets, dictionary.
-
-## The two flows that matter
-
-**Answer (read path).** `/api/answer` → `src/lib/rag/rag.ts` orchestrates: hybrid retrieval
-via Postgres RPCs (pgvector HNSW + tsvector/trigram) → `retrieval-selection` →
-`answer-ranking` → routed OpenAI generation (fast vs strong) → `answer-verification` and
-render policy → cited answer. If generation fails the quality gates it degrades to a
-deterministic **source-only** answer that still cites real documents — that is expected
-behaviour, not a bug. Responses cache in `rag_response_cache`.
-
-**Ingestion (write path).** `/api/upload` → private `clinical-documents` bucket + a row in
-`ingestion_jobs` → `worker/main.ts` (or the `indexing-v3-agent` Edge Function) claims the
-job → extract (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI
-embeddings → chunks, pages, images, embedding fields, index units, table facts → quality
-gates in `document_index_quality`. Reindex commits atomically per generation
-(`reindex-pipeline.ts`). Lifecycle detail: `docs/ingestion-state-machine.md`.
-
-Both paths are owner-scoped: `owner-scope.ts`, `query-privacy.ts`, `authorization.ts`.
 
 ## Development workflow
 
@@ -166,38 +119,17 @@ applies; unknown non-document paths fail closed to heavy scope.
 
 ## Conventions the gates enforce
 
-These fail builds, so they are worth knowing before you write code:
+These fail builds, so they are worth knowing before you write code. Button wiring, orphan routes,
+internal navigation and the mockup exemptions are in
+[`docs/agents/wiring-and-bundle-budget.md`](docs/agents/wiring-and-bundle-budget.md); the
+one-composer rule is in `AGENTS.md` "Search chrome behaviour"; PR bodies as parsed input are in
+[`docs/agents/external-skill-precedence.md`](docs/agents/external-skill-precedence.md). One
+convention has no home in the rules layer and stays here:
 
-- **Button wiring.** Every `<button>` does something — handler, submit inside a form, or
-  navigation. A control unavailable for a stated reason uses `aria-disabled="true"` + an inert
-  handler + `title="… — coming soon"` + `sr-only` note; native `disabled` is for transient
-  inertness only, and the two attributes together fail lint. Enforced by
-  `eslint-rules/require-button-wiring.mjs`. Never blanket-disable the rule.
-- **No orphan routes.** A new production page route needs an inbound link from real nav,
-  then `npm run sitemap:update`, a `docs/codebase-index.md` entry, and a reachability
-  assertion. Enforced by `tests/route-reachability.test.ts`.
-- **Internal navigation** uses `<Link>` / `router.push` / server `redirect()` — never a raw
-  `<a href="/…">`. Build hrefs from `app-modes.ts`, `tools-catalog.ts`, `universal-search.ts`.
-- **One search composer per page.** A page uses the shell/dashboard composer, an in-flow hero
-  composer, or the document-viewer composer — never two. Phone composers are edge-to-edge;
-  hidden chrome means zero reserve. Read `docs/search-chrome-behaviour.md` first.
 - **Design tokens, not hex.** `eslint-rules/no-hardcoded-hex.mjs`, plus type-scale,
   icon-scale, z-index-ladder, and lucide-icon-aria rules. Production tap targets are
   `min-h-12` (48 px) — do **not** "fix" them down to `min-h-11` for a generic WCAG rule; that
   reintroduces a known `ui-smoke` flake.
-- **PR bodies are parsed input.** `scripts/pr-policy.mjs` hard-blocks merges when a
-  clinical-risk diff lacks a complete `## Clinical Governance Preflight` or a RAG-surface
-  diff lacks a satisfying `RAG impact:` line. Write those in full prose from
-  `.github/pull_request_template.md`, structure verbatim — paraphrasing silently fails.
-- **Mockups are exempt from two gates, not all of them.** `src/app/mockups/**` and `*-mockups.tsx`
-  are design scratch and 404 in production, so they sit outside the **wiring** and **reachability**
-  gates — and nothing else. They are still compiled: they are typechecked like any source, and their
-  client chunks are still weighed by `check:bundle-budget` — but since 2026-08-09 against a separate
-  `mockups` scratch baseline (tolerance 25%), not the `production` one (tolerance 10%). That split
-  reconciled `/issues` `#013` and `#252`: the old single total charged design scratch against a
-  ceiling named as though it were production weight, which is how PR #1580 blocked at `+10.1%` for
-  chunks no user can load. See the "Bundle budget" section in `AGENTS.md`; a mockup-only PR can still
-  fail `Build`, just only on genuine runaway growth.
 
 ## Repo-specific tooling
 
