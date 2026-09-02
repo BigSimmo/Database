@@ -120,3 +120,46 @@ describe("review-agent scopes", () => {
     expect(markdown).not.toContain("src/lib/rag*.ts");
   });
 });
+
+/**
+ * Cursor loads its own copies of some Claude surfaces. They are the same rules for a different
+ * editor, so where the Claude twin carries a safety contract the Cursor copy must carry it too
+ * (audit L62, L102, L132): the repo-auditor is triage-only, the Supabase skill's repository
+ * override cannot depend on a workstation path, and `.cursorignore` must not start with a BOM
+ * (`.editorconfig` is `charset = utf-8`; a BOM on line 1 would silently break a real pattern
+ * moved there).
+ */
+describe("cursor twins of the claude surfaces", () => {
+  it("cursor repo-auditor skill is triage-only, like the claude repo-auditor agent", () => {
+    const cursor = readFileSync(join(repoRoot, ".cursor/skills/repo-auditor/SKILL.md"), "utf8");
+    const claude = readFileSync(join(repoRoot, ".claude/agents/repo-auditor.md"), "utf8");
+    for (const contract of [
+      "Do not delete or move files during a review",
+      "treat as candidates only",
+      "is **not** dead even if statically unimported",
+    ]) {
+      expect(claude, `claude twin lost its contract: ${contract}`).toContain(contract);
+      expect(cursor, `cursor repo-auditor must carry the triage contract: ${contract}`).toContain(contract);
+    }
+    expect(cursor).not.toMatch(/safely remove/i);
+  });
+
+  it("cursor supabase skill's repository override does not depend on a workstation path", () => {
+    const skill = readFileSync(join(repoRoot, ".cursor/skills/supabase/SKILL.md"), "utf8");
+    expect(skill).not.toMatch(/C:\\/);
+    expect(skill).toContain("any checkout of BigSimmo/Database");
+    // The fragments `npm run check:skills` asserts must survive the rewording.
+    for (const contract of [
+      "prove the target is a disposable local development database",
+      "never use `execute_sql`",
+      "require explicit user approval",
+    ]) {
+      expect(skill).toContain(contract);
+    }
+  });
+
+  it(".cursorignore has no UTF-8 byte-order mark", () => {
+    const bytes = readFileSync(join(repoRoot, ".cursorignore"));
+    expect([bytes[0], bytes[1], bytes[2]], ".cursorignore starts with EF BB BF").not.toEqual([0xef, 0xbb, 0xbf]);
+  });
+});
