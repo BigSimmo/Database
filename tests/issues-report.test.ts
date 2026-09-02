@@ -10,6 +10,7 @@ import {
   classifyAgentSafeWins,
   loadRevalidatedLedger,
   parseCliArgs,
+  renderIssuesReport,
 } from "../scripts/issues-report.mjs";
 
 const queueRows = [
@@ -186,6 +187,51 @@ describe("issues report", () => {
     const composite = report.recommended.find((row: QueueRow) => row.ids.length > 1);
     expect(composite, "the composite queue row must be reported").toBeDefined();
     expect(composite!.outcome).toBe("composite stays as written");
+  });
+
+  it("surfaces an operator's issues:queue --outcome correction beside the row detail", () => {
+    // Since #M6JNR8 the queue's Outcome cell is editable through `issues:queue --outcome`,
+    // and the skill tells operators to use it for re-grades. Substituting the row Detail
+    // for that cell silently discarded the correction from the only surface sessions read.
+    const markdown = [
+      "# Outstanding",
+      "<!-- issues:next-id=5 -->",
+      "## Recommended execution queue",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
+      "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
+      "| 1 | `#001` | A1 | Operator | Now | 1 hour | OPERATOR-CORRECTED OUTCOME via issues:queue --outcome |",
+      "| 2 | `#002` | A2 | Standard | Next | 30 min | identical prose |",
+      "| 3 | `#002`, `#003` | A2 | Standard | Next | 30 min | composite stays as written |",
+      "## Open items",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
+      "| #001 | P1 | task | urgent | ROW DETAIL TEXT | src | 2026-01-01 |",
+      "| #002 | P2 | task | left | identical prose | src | 2026-01-01 |",
+      "| #003 | P2 | task | right | detail three | src | 2026-01-01 |",
+      "## Resolved / archive",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #004 | task | old | done | 2026-01-01 |",
+    ].join("\n");
+    const report = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true });
+
+    type QueueRow = { ids: string[]; outcome: string; gate: string | null };
+    const corrected = report.recommended.find((row: QueueRow) => row.ids[0] === "#001");
+    expect(corrected!.outcome).toBe("ROW DETAIL TEXT");
+    expect(corrected!.gate).toBe("OPERATOR-CORRECTED OUTCOME via issues:queue --outcome");
+    // The A1 blocker projection carries the same correction.
+    expect(report.priorityBlockers[0].gate).toBe("OPERATOR-CORRECTED OUTCOME via issues:queue --outcome");
+    // Nothing to add when the two cells still say the same thing.
+    const same = report.recommended.find((row: QueueRow) => row.ids[0] === "#002" && row.ids.length === 1);
+    expect(same!.gate).toBeNull();
+    // A composite row already shows its own queue cell as the outcome.
+    const composite = report.recommended.find((row: QueueRow) => row.ids.length > 1);
+    expect(composite!.outcome).toBe("composite stays as written");
+    expect(composite!.gate).toBeNull();
+
+    const rendered = renderIssuesReport(report, false);
+    expect(rendered).toContain("ROW DETAIL TEXT");
+    expect(rendered).toContain("gate/stop (queue cell): OPERATOR-CORRECTED OUTCOME via issues:queue --outcome");
   });
 
   it("keeps queue-only safety gates when deriving displayed queue prose", () => {

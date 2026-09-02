@@ -94,22 +94,24 @@ export function buildIssuesReport(markdown, source, options = {}) {
         added: cells[6],
       };
     });
-  // Report each queue row's prose from the cited row's own Detail cell rather
-  // than the queue's Outcome cell. They were independent copies of the same
-  // prose and drifted, and since this report is what /issues reads back, the
-  // drifted copy was the one acted on — the #231 queue cell spent days pointing
-  // at an approach that row had already refuted. The queue cell cannot be
-  // re-corrected in place (no inbox request type reaches it, and
-  // check:ledger-write-discipline rejects a direct edit), so the duplication is
-  // removed at the point of use instead. Order, acuity, capability, when and
-  // estimate stay from the queue, which is the only place they exist.
+  // Report each queue row's prose from the cited row's own Detail cell, and keep the
+  // queue's own Outcome cell beside it as `gate` whenever the two differ. The two cells
+  // were once independent copies of the same prose and drifted; because this report is
+  // what /issues reads back, the drifted copy was the one acted on — the #231 queue cell
+  // spent days pointing at an approach that row had already refuted. Since #M6JNR8 the
+  // queue cell IS correctable in place (`npm run issues:queue -- '#id' --outcome "..."`)
+  // and the issues skill tells operators to use it for re-grades, so dropping the cell
+  // would silently discard those corrections. Detail stays the prose; the queue cell is
+  // shown as the gate/stop condition. Order, acuity, capability, when and estimate stay
+  // from the queue, which is the only place they exist.
   const detailById = new Map(openRows.map((row) => [row.id, row.detail]));
   let derived = queue.map((row) => {
     // A composite ID(s) cell has no single row to speak for it; keep the queue
     // text there rather than arbitrarily picking one of the cited rows.
-    if (row.ids.length !== 1) return row;
+    if (row.ids.length !== 1) return { ...row, gate: null };
     const detail = detailById.get(row.ids[0]);
-    return detail ? { ...row, outcome: detail } : row;
+    if (!detail) return { ...row, gate: null };
+    return { ...row, outcome: detail, gate: row.outcome === detail ? null : row.outcome };
   });
 
   if (options.ward) {
@@ -190,21 +192,29 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
   };
 }
 
-function render(report, winsOnly) {
+export function renderIssuesReport(report, winsOnly) {
   const { source, counts } = report;
-  console.log(
+  const lines = [];
+  lines.push(
     `[issues] source=${source.ref} revalidated=${source.revalidated} branch=${source.branch} behind=${source.behind ?? "unknown"} ahead=${source.ahead ?? "unknown"}`,
   );
-  if (source.warning) console.log(`[issues] WARNING: ${source.warning}`);
+  if (source.warning) lines.push(`[issues] WARNING: ${source.warning}`);
   const rows = winsOnly ? report.agentSafeWins : report.recommended;
-  console.log(`[issues] open=${counts.open} recommended=${counts.recommended} shown=${rows.length}`);
+  lines.push(`[issues] open=${counts.open} recommended=${counts.recommended} shown=${rows.length}`);
   if (winsOnly && report.priorityBlockers.length) {
-    console.log(
+    lines.push(
       `[issues] A1 priority remains ahead of wins: ${report.priorityBlockers.map((row) => row.ids.join(",")).join(" ")}`,
     );
   }
-  for (const row of rows)
-    console.log(`${row.order}. ${row.ids.join(", ")} · ${row.acuity} · ${row.estimate} · ${row.outcome}`);
+  for (const row of rows) {
+    lines.push(`${row.order}. ${row.ids.join(", ")} · ${row.acuity} · ${row.estimate} · ${row.outcome}`);
+    if (row.gate) lines.push(`   gate/stop (queue cell): ${row.gate}`);
+  }
+  return lines.join("\n");
+}
+
+function render(report, winsOnly) {
+  console.log(renderIssuesReport(report, winsOnly));
 }
 
 export function parseCliArgs(argv) {
