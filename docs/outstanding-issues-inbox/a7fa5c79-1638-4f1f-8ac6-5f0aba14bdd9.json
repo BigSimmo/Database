@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a7fa5c79-1638-4f1f-8ac6-5f0aba14bdd9",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "differential-records.ts asserts validation_status \"locally_reviewed\" from a literal, over a snapshot whose own governance says \"Pending review\"",
+    "detail": "src/lib/differential-records.ts:31 deriveGovernanceFromSnapshot() returns validation_status: \"locally_reviewed\" unconditionally (line 44), while data/differentials-snapshot.json governance.reviewStatus is \"Pending review\" (verified 2026-09-02) — the same call derives source_status: \"review_due\" from that string, so one field says pending and the other claims review happened. Both presentationToRow (line 55) and diagnosisToRow (line 78) write it into differential_records, and src/components/differentials/differential-detail-page.tsx:673-692 renders it to the clinician. src/lib/medication-records.ts:65-86 fixed exactly this and its comment states the reason: deriveTrust in src/lib/answer-render-policy.ts:146 accepts \"locally_reviewed\" as satisfying the authority gate for high-risk clinical claims (line 177), so the vocabulary must never be asserted from a literal. Verified caveat: deriveTrust reads documents.metadata.clinical_validation_status (src/lib/source-authority-registry.ts:410-424), not differential_records.validation_status, so the two share the vocabulary rather than one code path — the direct harm is an unearned governance badge on the differentials surface, and the shared vocabulary is why the medication sibling was fixed. NEXT STEP: derive it from recorded verification evidence as src/lib/registry-records.ts:47-48 does from verification.locallyVerified, or default to \"unverified\"; add a test pinning that a \"Pending review\" snapshot never produces \"locally_reviewed\".",
+    "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
+    "issueUlid": "01M1GA0K9SWM4DNWT4AGYW2ZNY"
+  }
+}
