@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -221,5 +221,42 @@ describe("L55: allowScripts describes the install scripts the lock actually runs
       .map(([path, entry]) => `${path.replace(/^.*node_modules\//, "")}@${entry.version}`)
       .filter((key) => allowScripts[key] !== true);
     expect(uncovered).toEqual([]);
+  });
+});
+
+describe("L91: every CODEOWNERS pattern matches something in the tree", () => {
+  const patterns = read(".github/CODEOWNERS")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => line.split(/\s+/)[0])
+    .filter((pattern) => pattern !== "*");
+
+  function matches(pattern: string) {
+    const relative = pattern.replace(/^\//, "");
+    if (relative.endsWith("/")) return existsSync(new URL(`../${relative}`, import.meta.url));
+    if (!relative.includes("*")) return exists(relative);
+    const slash = relative.lastIndexOf("/");
+    const dir = relative.slice(0, slash);
+    const glob = new RegExp(
+      `^${relative
+        .slice(slash + 1)
+        .replace(/[.]/g, "\\.")
+        .replace(/\*/g, ".*")}$`,
+    );
+    if (!existsSync(new URL(`../${dir}`, import.meta.url))) return false;
+    return readdirSync(new URL(`../${dir}/`, import.meta.url)).some((name) => glob.test(name));
+  }
+
+  it.each(patterns)("%s names an existing surface", (pattern) => {
+    expect(matches(pattern), `${pattern} matches no file — review routing would silently fall to the catch-all`).toBe(
+      true,
+    );
+  });
+
+  it("routes review on the RAG directory, not the pre-#994 flat files", () => {
+    expect(patterns).toContain("/src/lib/rag/");
+    expect(patterns).not.toContain("/src/lib/rag.ts");
+    expect(patterns).not.toContain("/src/lib/rag-*.ts");
   });
 });
