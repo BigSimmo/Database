@@ -199,6 +199,13 @@ describe("developer corpus health page", () => {
     const note = screen.getByTestId("developer-corpus-health-quality-spread");
     expect(note).toHaveTextContent("All 2851 scored documents carry the identical score 0.00");
     expect(note).toHaveTextContent(/not usable as a measure/);
+    // Raised in review of PR #2539. `assessDocumentIndexQuality` starts the
+    // score at 1 and only subtracts penalties, then rounds to three decimals,
+    // so a corpus that extracted cleanly can legitimately score the same value
+    // for every document. Naming the tie as proof of a broken scorer would be
+    // the same overclaiming this panel exists to avoid.
+    expect(note).toHaveTextContent(/not by itself evidence that scoring is broken/);
+    expect(note).toHaveTextContent(/starts at 1.00 and only subtracts penalties/);
     // Zero is also the column's default, so this reading cannot be told apart
     // from a corpus nothing ever scored — and the page must say so.
     expect(note).toHaveTextContent(/what a corpus that was never scored looks like/);

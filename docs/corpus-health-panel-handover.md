@@ -93,8 +93,18 @@ distribution.** So the panel was built to report that condition rather than hide
 figures are not usable as a measure of any document, and adds that a uniform `0` is also what a corpus
 nobody ever scored looks like (`quality_score` defaults to `0`, `extraction_quality` to `unknown`).
 
-If the live data turns out to be uniform, that is a finding to raise about the scoring pipeline, not
-a panel to quietly ship.
+**A uniform reading is a signal to investigate, not a confirmed fault.** Raised in review of PR #2539
+and verified against `src/lib/index-quality.ts`: `assessDocumentIndexQuality` starts `qualityScore`
+at `1` and only subtracts penalties, then rounds to three decimals (`index-quality.ts:138-167`). A
+corpus that extracted cleanly — no issues, no duplicate chunks, adequate heading and section-path
+coverage, no tables or images to score — legitimately lands on `1.000` for every document. So
+equality proves an absence of observed spread, and nothing more.
+
+Corroborate before blaming the pipeline. A uniform `0.00` is the strong case, because `0` is the
+column default and `extraction_quality` defaults to `unknown`: rows carrying both look exactly like
+rows nothing ever wrote. A uniform `1.00` is the weak case and is what a healthy library looks like.
+Between those, check the `issues` array and the `metrics` JSON on the same rows, and confirm the
+worker's write path actually ran, before recording anything against scoring.
 
 ## How to confirm — the next session's first task
 
@@ -105,9 +115,10 @@ Requires a machine with live Supabase configuration and a signed-in administrato
    of "document count unavailable".
 3. Open `/mockups/development/corpus-health` and confirm the four status tiles show numbers rather
    than "Not read".
-4. Read the extraction-quality section and record which of the five spread cases it reports. If it
-   says every scored document carries an identical score, that confirms the rumour — capture it as a
-   ledger issue against the scoring pipeline.
+4. Read the extraction-quality section and record which of the five spread cases it reports. A
+   `uniform` reading is a prompt to investigate, not a verdict — see the caveat above. Check the
+   `issues` and `metrics` on the listed rows before recording anything against the scoring pipeline,
+   and treat a uniform `0.00` as far more suspicious than a uniform `1.00`.
 5. Sanity-check one entry in "Finished but unsearchable" against the real document: an indexed
    document with zero chunks should genuinely have no retrievable text.
 
