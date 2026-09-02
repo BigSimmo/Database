@@ -222,6 +222,70 @@ history is squashed and the row disappears) the entry shows as stale on the
 next run — delete it. Never widen a class or drop `objects` to make an entry
 pass; the finding is the point.
 
+## Chain-vs-mirror parity (`npm run check:chain-mirror-parity`)
+
+`check:drift` compares **live** against `supabase/schema.sql`. CI's `db-reset-verify`
+proves the migration chain **applies** (`supabase migration up --local`) and that the
+drift manifest is **not stale** (committed vs generated `schema_sha256`). Nothing
+compared the _result_ of the chain against the mirror, so a migration whose function
+body or policy predicate diverged from `schema.sql` passed every pre-merge gate.
+
+That is `#QCNE6N`, and it is not theoretical. On 2026-09-01 migration
+`20260831100000` (PR #2477) redefined `public.correct_clinical_query_terms(text,real)`
+with a duplicated predicate and `schema.sql` was never updated to match. Every
+pre-merge gate stayed green; the post-merge `live-drift` run went red on `main`
+(`def_hash` manifest `e2356565` vs live `2ebaf978`). Behaviour impact was nil — the
+duplicate predicate is a boolean no-op — but it cost a red daily alarm and a
+remediation PR, and it is the second occurrence of this class after `#316`.
+
+**How it runs.** In `db-reset-verify`, after the replay and after `drift:manifest`
+regenerates the manifest from this PR's `schema.sql`:
+
+- the **chain** side is `public.schema_drift_snapshot()` read out of the Supabase
+  emulator database the migrations just built;
+- the **mirror** side is that regenerated manifest's `snapshot`, which is a
+  `schema.sql` replay — so no second replay is built;
+- `scripts/check-chain-mirror-parity.ts` compares them with `compareDriftSnapshots`,
+  the same comparator the live gate uses. Two comparators would eventually disagree
+  about what "different" means, and then one of them would be wrong.
+
+`migration_history` and `migration_history_probe` are stripped from both sides **by
+construction**, never allowlisted: a `schema.sql` replay has no `supabase_migrations`
+schema, so the category can only produce noise here. It stays the live gate's business.
+
+**Known asymmetry.** The two sides come from different images — the emulator versus
+the pinned bare `supabase/postgres` — so some reported difference is platform
+provenance rather than real divergence. Building both sides identically was tried and
+does not work: a mirror database created inside the emulator has no `auth` schema for
+`schema.sql`'s `references auth.users(id)` columns, and reproducing the chain inside
+the bare image means driving the whole chain by hand rather than through
+`supabase migration up`.
+
+**Report-only, with an expiry.** The gate lands printing divergences rather than
+blocking, because the existing set (backlog item 10 above, plus schema.sql-only
+storage buckets) has never been measured and blocking on an unmeasured set just
+teaches people to ignore a red check. It emits a `::warning::` on any divergence and a
+second one if either step produced no evidence, so a silently-crashing gate cannot be
+mistaken for a clean one. `tests/chain-mirror-parity.test.ts` ties the mode to the
+failure tolerance — `--strict` and `continue-on-error` cannot coexist — and expires
+report-only mode on **2026-12-01**, after which the suite goes red until the phase
+ends.
+
+**Ending report-only** is one small PR: take the divergence list from a real run's job
+summary, commit it to `supabase/chain-mirror-allowlist.json` with a reason each, add
+`--strict`, and delete the `continue-on-error` lines in the same change.
+
+**`supabase/chain-mirror-allowlist.json` is not `supabase/drift-allowlist.json`, and
+they must never merge.** An entry in the live allowlist blinds the weekly live-drift
+alarm. An entry here only says "the chain and the mirror are knowingly different in
+this one place", and the live gate still catches the consequence post-merge. A test
+asserts neither script reads the other's file.
+
+> Note for whoever adds this to `verify:cheap` later: the matcher in
+> `check-gate-manifest.mjs` that pairs a local gate with its CI step is anchored to a
+> single-line `run:` invocation, and this gate's CI step uses a multi-line `run: |`.
+> It would not register as CI coverage without changing that matcher first.
+
 ## Runtime index-monitoring ratchet
 
 `search_schema_health()` monitors a curated `required_indexes` list (22 names
@@ -388,4 +452,7 @@ live project need explicit operator approval.
     live): 13 keys where the chain diverges from schema.sql — buckets are only
     created by schema.sql, `documents`/`ingestion_jobs` updated*at trigger
     variants, post-legacy-drop embedding-fields index set,
-    `document_chunks_content_trgm_idx` shape, `rag_visual_eval*\*` shapes.
+    `document_chunks_content_trgm_idx` shape, `rag_visual_eval*\*` shapes. That
+    count is a 2026-07-07 hand measurement and has never been re-measured; the
+    chain/mirror parity gate above is what re-measures it, on every
+    database-touching PR.

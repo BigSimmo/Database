@@ -312,4 +312,17 @@ describe("CI wiring for the parity gate", () => {
   it("routes a change to the parity script into the job that runs it", () => {
     expect(read("scripts/ci-change-scope.mjs")).toContain("check-chain-mirror-parity");
   });
+
+  it("is documented where operators read about drift, with its expiry", () => {
+    // A gate whose only explanation is a comment in ci.yml is a gate the next
+    // operator will not know exists, let alone know is report-only.
+    const runbook = read("docs/database-drift-detection.md");
+    expect(runbook).toContain("## Chain-vs-mirror parity (`npm run check:chain-mirror-parity`)");
+    expect(runbook).toContain("2026-12-01");
+    expect(runbook).toContain("must never merge");
+    // Backlog item 10 is the measurement this gate re-takes; it should say so.
+    // Prettier reflows prose, so match on collapsed whitespace rather than on
+    // wherever the line happens to wrap today.
+    expect(runbook.replace(/\s+/g, " ")).toContain("chain/mirror parity gate above is what re-measures it");
+  });
 });
