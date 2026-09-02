@@ -345,16 +345,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/answer-evidence-popups",
-        "file": "src/app/mockups/answer-evidence-popups/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/answer-home-proposal",
-        "file": "src/app/mockups/answer-home-proposal/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/answer-loading-redesign",
         "file": "src/app/mockups/answer-loading-redesign/page.tsx",
         "area": "mockup"
@@ -650,33 +640,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/document-navigation-final-review",
-        "file": "src/app/mockups/document-navigation-final-review/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-navigation-pane",
-        "file": "src/app/mockups/document-navigation-pane/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/document-navigation-perfected",
         "file": "src/app/mockups/document-navigation-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-fused-directions",
-        "file": "src/app/mockups/document-phone-fused-directions/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-title",
-        "file": "src/app/mockups/document-phone-title/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/document-phone-title-refined",
-        "file": "src/app/mockups/document-phone-title-refined/page.tsx",
         "area": "mockup"
       },
       {
@@ -1461,9 +1426,9 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 204,
+      "pages": 197,
       "product_pages": 67,
-      "mockup_pages": 137,
+      "mockup_pages": 130,
       "redirects": 18,
       "api": 60
     }
@@ -1551,6 +1516,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/agents/test-deletion-guard.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
         "path": "docs/agents/upload-shortcut.md",
         "section": "agents",
         "catalogued": false
@@ -1574,6 +1544,11 @@
         "path": "docs/api-jobs-ops-surface.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/app-modes-decision-brief.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/archive/BRANCH_ARCHIVE_20260709.md",
@@ -1766,6 +1741,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/audit/gate-consolidation-audit-2026-09-02.md",
+        "section": "audit",
+        "catalogued": false
+      },
+      {
         "path": "docs/audit/latency-audit-2026-07-28.md",
         "section": "audit",
         "catalogued": true
@@ -1832,6 +1812,16 @@
       },
       {
         "path": "docs/branch-cleanup-guide.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/branch-review-archival-policy.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/branch-review-index.md",
         "section": "root",
         "catalogued": true
       },
@@ -3026,6 +3016,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/mockup-retirement-policy.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/mode-aware-clinical-ask-local-handover.md",
         "section": "root",
         "catalogued": true
@@ -3692,6 +3687,11 @@
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-sources-mode.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4432,9 +4432,9 @@
       }
     ],
     "counts": {
-      "documents": 579,
-      "catalogued": 111,
-      "uncatalogued": 468,
+      "documents": 586,
+      "catalogued": 114,
+      "uncatalogued": 472,
       "sections": 21
     }
   },
@@ -10112,6 +10112,14 @@
         "checks": "get_check_runs (PR required: success), get_review_comments (0 unresolved threads)"
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-vocabulary-tmnc89",
+        "head": "46826866540c1d3767a3fa6216adbbbde6719f14",
+        "scope": "caring-contacts plural job-title exemption",
+        "outcome": "Second clinical-governance review on this branch, covering commit 33e1ffd specifically -- the only commit here that LOOSENS a guard rather than widening one. Verdict: nothing blocks. The loosening is screen-only, the message side is provably untouched (git diff origin/main 33e1ffd -- src/ produced no output at all; COMMERCIAL_LEAD_PATTERN and PROVISIONAL_MESSAGE_RULES byte-identical to origin/main), the Ruling [143] parity invariant still has force with both vacuity guards holding (7 screen-refused and 12 screen-permitted phrases in the union), and the new tests are falsifiable by the mutation that matters -- simulating a copy of the plural branches into COMMERCIAL_LEAD_PATTERN fails six assertions naming the permitted phrase. Four findings acted on in 4682686, none requiring a pattern change. The most important is that message-rules.ts's own comment still told a future editor the two definitions mirror each other term for term and still carried 'Nobody's title is plural' as live reasoning -- inviting precisely the tidy-up the screen-only decision forbids -- and now records the divergence instead. The review also measured that the plural exemption is wider than 'plural job titles': the companion list guards words AFTER the word, where singular commercial English puts them, while plural commercial English puts them BEFORE ('Capture clinical leads', 'Unconverted service leads', 'clinical leads dashboard'), a position nothing guards. That is a pre-existing structural gap made easier to reach rather than a new class -- 'Capture the clinical lead' was already permitted on both surfaces beforehand -- and both obvious fixes cost more than they buy: a determiner requirement would refuse an ordinary 'Clinical leads' roster heading, the exact wording the owner decision existed to permit, and a commercial-verb list would rebuild the allowlist message-rules.ts records as the original B2 defect. Enumerated in the helper's comment and filed as its own P3 row rather than fixed. Also fixed: two phrases were pinned against the screen only and never reached the union invariant. Governance note carried into the ledger: classifyPullRequestFiles returns clinicalRisk:false for a PR whose purpose is loosening a clinical-copy guard, so no preflight was required and none of the review was compelled -- the direction blindness already filed as its own row, now demonstrated by this branch rather than hypothesised.",
+        "checks": "npx vitest run over all 69 caring-contacts test files: Test Files 69 passed (69), Tests 1477 passed (1477). npm run typecheck: clean, gate-receipts recorded a pass for typecheck:internal (6011 input files). npx eslint on all three changed files including src/lib/caring-contacts/message-rules.ts: clean. npx prettier --check on every changed file: All matched files use Prettier code style. npm run docs:check-links: 4731 repo path references resolve. npm run check:outstanding-issues: snapshot in step (75 open, 19 pending). npm run check:ledger-write-discipline: passed for 45a3dcacb54a..HEAD. GitHub CI on head 33e1ffd: all 28 check runs completed with no failures, PR required success; CI on 4682686 pending at time of writing. Reviewer independently ran vitest on 3 caring-contacts files (45 tests) rather than the full 69, and said so. Not run: verify:pr-local, verify:cheap, verify:ui, verify:release -- comment-only source change, no production behaviour touched. Nothing provider-backed was run."
+      },
+      {
         "date": "2026-08-08",
         "ref": "claude/mode-routing-search-pages-jabe17",
         "head": "468cc3fce85726a66098af0600d2b5d5951e3213",
@@ -10590,6 +10598,14 @@
         "scope": "testing-speed: phone-chrome keep-root, pr-local #167, explicit UI shards, viewport trim, playwright revision #255",
         "outcome": "implemented; focused + ci-workflow contracts green; Production UI wall-time confirmation pending first CI run",
         "checks": "vitest focused+ci-workflows; playwright-pr-shards --validate; check:playwright-browser-revision; check:outstanding-issues"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/gate-audit-ujhkqb",
+        "head": "4dcd8ddece3b4ec3cbe75cace784214eb7e14be9",
+        "scope": "prlanded",
+        "outcome": "merged clean, content diff empty against branch tip",
+        "checks": "verify:pr-local green (multiple re-runs across 8 conflict resolutions), full CI green after one confirmed flake (Production UI privacy-sticky-chrome strict-mode double-render, unrelated to this PR's diff) re-ran and passed"
       },
       {
         "date": "2026-07-28",
@@ -16800,6 +16816,14 @@
         "checks": "merge origin/main and/or conflict re-check only; no provider-backed checks run"
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-vocabulary-tmnc89",
+        "head": "969cc7f8889181758c93eb725e8eab7be6dc5e1e",
+        "scope": "prlanded",
+        "outcome": "Merged and verified. Two-dot content diff between the squash commit and the branch tip 21f4ef3da was empty, so all fifteen commits landed and nothing was orphaned by the squash+auto-merge race. The ~20 queued inbox requests it carried are applied by PR #2559, which rebased onto this squash and absorbed them; #Z5P2BW, #0HYHTH and #AGRAKQ are archived there, and the two follow-ups this branch filed (#686WHW, #1NMMZS) are added.",
+        "checks": "prlanded content diff empty; full CI green on 21f4ef3da (PR required, Build, Unit coverage, Production UI 1/2/3 + critical, Caring Contacts database, Safety and config checks, Lighthouse, Static PR checks, PR policy, PR mergeability, Semgrep, Gitleaks, GitGuardian); one review thread, resolved"
+      },
+      {
         "date": "2026-07-29",
         "ref": "claude/latency-fixes-2026-07-29",
         "head": "96a4c76da12b4478539b44fdc01a59ccfe791890",
@@ -17070,6 +17094,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "supersedes prior #1160 row: final HEAD after prettier site-map; merge origin/main clean; stale sitemap fixed; no threads",
         "checks": "vitest site-map pass; sitemap:check pass; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/mockup-retirement-xw0vmn",
+        "head": "9985c1709eff661f42a42be3744e585c831816a5",
+        "scope": "mockup retirement policy and sweep",
+        "outcome": "Reviewed by two fresh agents before push; both found real defects and all were fixed on this head. (1) An adversarial 'argue every candidate is still alive' pass withdrew two of nine retirement candidates. document-navigation-final is partly adopted, not superseded: production document-viewer/section-nav.tsx:143 renders its heading as the string 'flex items-baseline justify-between px-0.5 pb-2', which exists in exactly two files repo-wide (production and that draft at line 278) and is absent from document-navigation-perfected, so production is a hybrid of two drafts. document-phone-zero-chrome returned UNCERTAIN because the kept document-navigation-contract carries its 'zero new chrome, sheet not pane' thesis verbatim and both landed in the one squash 6230c4db, so authorship cannot be established. Both restored, along with their chrome-suppression branches in mockups-layout-client.tsx, which would otherwise have shipped a duplicate composer over both studies. Nine retirements became seven. That pass also confirmed the winner identification independently (flexGrow/weight/pending/Loader2 appear in perfected and in no other draft) and re-ran check:dead-code-candidate, reading every distinct refusal reason and pulling the pinning file for the two that could plausibly have been real; both were bare-name collisions. (2) A frontend-ui-reviewer pass on the full diff found that two doc corrections introduced by this branch were themselves false, both since verified with picomatch: mockups are NOT exempt from CodeRabbit (.coderabbit.yaml's '!mockups/**' is root-anchored and excludes only the repo-root notes directory) and NOT blind to knip (its ignore is a basename filter, so route page.tsx files and _/mockups/_* subtrees are still scanned; what suppresses findings is check:knip omitting unused-file analysis repo-wide). It also found the new gate advertised enforcement nothing invoked (no caller passed --diff), that the gate missed relative imports, dynamic imports, CSS composes and route-path literals, and that the sweep had consequently left four dead pathname branches in mockups-layout-client.tsx which the gate passed clean. All fixed with tests; check:mockups now runs --diff auto so all three modes are enforced in verify:cheap and CI. Two fail-open holes closed: listRouteSlugs returned [] on a missing route root (passing as '0 routes indexed'), and the Retired table's column order was trusted positionally. Three findings filed to the /issues inbox rather than fixed here: the calculators mockup still serving prescribing/ECT/admission directives that PR #2491 removed from production on clinical-safety grounds (those routes 404 in production, so not patient-facing); the loss of the repo's only source-text heading-hierarchy contract; and two pieces of pre-existing dead wiring. Note the heavy CI jobs are skipped on draft PRs by design in this repo, so server-side green is not yet demonstrated.",
+        "checks": "check:mockups (self-test + 72 routes indexed, 14 retired + 13 deleted files recorded and unreferenced); npm run test (947 files, 12098 passed, 4 skipped); lint; typecheck; check:gate-manifest (38 gates, 35 static, consistent); sitemap:check; docs:check-links (4742 refs); check:outstanding-issues; check:ledger-write-discipline; prettier --check on all changed files; bundle budget on two cold builds (mockups 611.6 KiB / 160 chunks / 133 routes, -0.3% vs baseline). check:dead-code-candidate --diff REFUSES (64/201) and is reported as refusing, not green: every refusal is a bare-symbol-name collision on a file-local or framework-convention identifier; no threshold or refusal-list entry was changed. Not run: verify:ui (only non-mockup change is the /mockups route-group shell, which 404s in production) and any provider-backed gate."
       },
       {
         "date": "2026-07-28",
@@ -20374,6 +20406,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "before: behind/conflicting + PR policy FAIL (missing Clinical Governance Preflight + RAG impact). after: merged origin/main cleanly; PR policy still FAIL — body edit forbidden this sweep (needs human to add Clinical Governance Preflight + RAG impact line); no unresolved review threads worked",
         "checks": "merge only; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/caring-contacts-vocabulary-tmnc89",
+        "head": "c4ead393eef53bad18ce122da7164715b0b4878d",
+        "scope": "caring-contacts prohibited-language scan",
+        "outcome": "Reviewed by the clinical-governance-reviewer subagent before the push; no blocker. Verdict: no guard is weaker than origin/main at any point in the diff, and tests/helpers/caring-contacts-prohibited-language.ts is documentation-only (its non-comment content hashes identically on both sides). The reviewer replicated both scanners across all 109 files in the five roots and ran 13 adversarial fixtures against the raw-prose refactor, confirming it coverage-neutral: the only differences are removed duplicate reports, and no input was found where the old scan catches and the new one misses. Three findings were fixed in the diff rather than deferred. FIRST and most serious, the definition-site exemption for src/lib/caring-contacts/message-rules.ts was whole-file, which would have put the five sentences a discharged patient reads by SMS -- programmeLine, operatingHours, emergencyDirection, crisisSupportContact and closingStatement -- permanently outside the scan, on the commit whose purpose was to reach unwatched wording; it matters because this vocabulary is wider than PROVISIONAL_MESSAGE_RULES.prohibitedTerms and validateGovernedMessage checks none of the extra terms. It is now computed from the policy, exempting only text that is exactly a declared term. SECOND, its anti-rot test was unfalsifiable by construction (non-emptiness cannot fail there) and now asserts the offence SET. THIRD, the scope comment claimed src/lib/tools-catalog.ts was clean of this vocabulary when it carries bestFor: 'Safe and effective prescribing'; the comment now names that match. Verified by mutation rather than by a green run alone: planted offences in service-state.ts, reach-reporting.ts, message-rules.ts closingStatement, demo-seed.ts and an api/caring-contacts route each failed the scan naming file and exact string, and JSX text containing an apostrophe is still caught. Residual risk recorded and not fixed here: a change WEAKENING a clinical safety guard that lives under tests/ escapes the governance preflight gate, because clinicalRiskPatterns has no pattern for the tests that are themselves the guard.",
+        "checks": "npx vitest run over all 69 caring-contacts test files: Test Files 69 passed (69), Tests 1476 passed (1476). npm run typecheck: clean, gate-receipts recorded a pass for typecheck:internal (6002 input files). npx eslint on both changed files: clean. npx prettier --check on every changed file: All matched files use Prettier code style. npm run check:outstanding-issues: snapshot in step (75 open, 13 pending), ledger inbox check passed, outstanding-issues guard passed 529 rows. npm run docs:check-links: reproduced the CI failure locally, then passed (4731 repo path references resolve). npm run check:ledger-write-discipline, docs:check-index, docs:check-inventory, docs:check-scripts: all passed. GitHub CI on head c4ead39: all 25 check runs completed with no failures, PR required success. Not run and not required for a tests-only diff with no production module touched: verify:pr-local, verify:cheap, verify:ui, verify:release. Nothing provider-backed was run."
       },
       {
         "date": "2026-07-30",
@@ -24526,6 +24566,14 @@
         "scope": "Run PR sweep: main sync",
         "outcome": "before: CI already green on prior head; branch behind main only (mergeable_state: behind), confirmed clean via git merge-tree. No fix needed. Synced via mcp__github__update_pull_request_branch (authenticated human identity). No unresolved review threads. CI re-running on new head.",
         "checks": "no local gate re-run needed (prior head was fully green); no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/care-plan-next (PR #2528)",
+        "head": "f71db1dbaa78b14109363183a3ed9f6e84810259",
+        "scope": "Run PR sweep: review threads + main sync",
+        "outcome": "Fixed 1 of 3 Codex P2 threads: added the in-file SUPERSEDED banner to HANDOFF-2026-08-24-SUPERSEDED.md. Two threads replied to and left open for the owner: the reserved-fiction-range mobile numbers and the capture provenance both require regenerating the captures from a pinned commit using the git-ignored evidence atlas, which is not reachable from a cloud session, and hand-editing the captures would falsify the provenance the second thread is about. Merged origin/main (65 behind, merge-tree clean, no conflicts).",
+        "checks": "prettier --check . (All matched files use Prettier code style!); docs:check-links (4811 references resolve); check:repo-awareness-snapshot (in step, 579 documents); no provider-backed checks run"
       },
       {
         "date": "2026-07-25",
