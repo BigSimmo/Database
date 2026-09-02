@@ -178,10 +178,15 @@ export async function buildManifest(existing) {
     }
     const { passwordProtected, failure } = await derivePdfPasswordProtection(bytes, `Form ${asset.code}`);
     if (failure) failures.push(failure);
+    // Spread first, then override ONLY the three derived fields. Enumerating the
+    // known keys instead would silently drop any other field an asset carries, and
+    // the drop would be invisible until it mattered: `--check` would report drift,
+    // and the regeneration it tells the operator to run would erase the field for
+    // good. The provenance fields this generator cannot compute — `officialPdfUrl`
+    // above all — are exactly the ones that must survive it untouched. The
+    // unreadable-file path above already spreads; these two must not disagree.
     assets.push({
-      code: asset.code,
-      localPath: asset.localPath,
-      officialPdfUrl: asset.officialPdfUrl,
+      ...asset,
       sha256: sha256(bytes),
       bytes: bytes.byteLength,
       passwordProtected,

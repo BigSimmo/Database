@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import formsActSectionCues from "../data/forms-act-section-cues.json";
 import formsPdfManifest from "../data/forms-pdf-manifest.json";
-import { derivePdfPasswordProtection } from "../scripts/build-forms-pdf-manifest.mjs";
+import { buildManifest, derivePdfPasswordProtection } from "../scripts/build-forms-pdf-manifest.mjs";
 
 import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
@@ -267,6 +267,33 @@ describe("psychiatry form records", () => {
       passwordProtected: false,
       failure: null,
     });
+  });
+
+  it("preserves manifest fields it does not derive when regenerating", async () => {
+    // The generator computes exactly three fields — sha256, bytes and passwordProtected.
+    // Everything else is provenance it cannot recompute: `officialPdfUrl` is the link a
+    // reader follows to check the committed bytes against the publisher, and this script
+    // is offline by contract, so a dropped URL could never be restored from the PDFs.
+    //
+    // Enumerating known keys when rebuilding an asset would drop any other field silently,
+    // and the failure mode is quiet then destructive: `--check` reports drift, and the
+    // regeneration it instructs the operator to run erases the field permanently. Adding a
+    // field to this manifest is a live prospect (an `editingRestricted` fact is already a
+    // queued follow-up), so this pins preservation before that lands rather than after.
+    const existing = JSON.parse(readFileSync(join(process.cwd(), "data", "forms-pdf-manifest.json"), "utf8")) as {
+      assets: Array<Record<string, unknown>>;
+    };
+    const probe = { ...existing.assets[0], reviewedAt: "2026-09-02", editingRestricted: true };
+    const { manifest } = await buildManifest({ ...existing, assets: [probe, ...existing.assets.slice(1)] });
+    const rebuilt = manifest.assets[0] as Record<string, unknown>;
+
+    expect(rebuilt.reviewedAt).toBe("2026-09-02");
+    expect(rebuilt.editingRestricted).toBe(true);
+    // The derived fields are still authoritative — preservation must not shadow them.
+    expect(rebuilt.officialPdfUrl).toBe(existing.assets[0].officialPdfUrl);
+    expect(rebuilt.sha256).toBe(existing.assets[0].sha256);
+    expect(rebuilt.bytes).toBe(existing.assets[0].bytes);
+    expect(rebuilt.passwordProtected).toBe(existing.assets[0].passwordProtected);
   });
 
   it("populates Form 12A statutory Authority and Criteria priority facts from readable approved PDF", () => {
