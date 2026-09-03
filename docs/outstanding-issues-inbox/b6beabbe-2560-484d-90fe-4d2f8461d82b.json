@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b6beabbe-2560-484d-90fe-4d2f8461d82b",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Undeclared CSS custom properties make two ward-board controls stop looking like controls",
+    "detail": "board/board.module.css sets background and border on .awayButton (a button) and .leavingSelect (a select), both min-height 3rem tap targets, from --clinical-surface/--clinical-border/--clinical-text, none of which is declared anywhere; ward-management.module.css does the same with --ward-surface on .blockerInput and .blockerButton:disabled. background and border are non-inherited so they fall away; color is inherited so text survives. Every missing token is an isolated absentee from a family that otherwise exists (--clinical-accent and --ward-border are declared), so the fix is the correct existing token name, not a fallback. Nine of the ten bad references have a real declared token they should have used; --clinical-border-subtle has no analog and needs an owner decision. Caught by tests/design-token-contract.test.ts. Measured at fb17db7b1.",
+    "source": "Ward Builder One closing sweep 2026-09-02",
+    "issueUlid": "01M1G4PANRGCTFD7DTPSDGJZ43"
+  }
+}

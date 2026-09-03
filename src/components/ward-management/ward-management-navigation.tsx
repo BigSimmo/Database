@@ -100,8 +100,15 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
 
       <WardIconRail activeMode={activeMode} hiddenOnDesktop={!collapsed} onExpand={() => setCollapsed(false)} />
 
+      {/* `data-print-hide` on both rails: navigation is chrome and must not print. The global print
+          reset in globals.css hides `header, nav, button` by element name and says in terms "do not
+          extend this list" — the sanctioned mechanism is this attribute (SPEC §4.12). Without it the
+          rail prints as a 72px strip of navigation icons down the left of EVERY Ward Flow page, with
+          the content inset by that much: measured on the real print render at 900px on 2026-08-29 and
+          recorded in board.module.css, correctly left unfixed there because a one-screen override
+          would have repaired the page in front of that session and left the other four. */}
       {!collapsed ? (
-        <aside className={sidebarStyles.panel} aria-label="Ward Flow sidebar">
+        <aside className={sidebarStyles.panel} aria-label="Ward Flow sidebar" data-print-hide="">
           <div className={sidebarStyles.panelScroll}>
             <WardSidebarNav activeMode={activeMode} onCollapse={() => setCollapsed(true)} />
           </div>
@@ -144,6 +151,7 @@ function WardIconRail({
     <aside
       className={`${shellStyles.clinicalRail}${hiddenOnDesktop ? ` ${shellStyles.railHiddenOnDesktop}` : ""}`}
       aria-label="Ward Flow"
+      data-print-hide=""
     >
       {/* The brand mark. Below 64rem it is a plain link to Ward Flow's own home; from 64rem the
           expand control takes its place, revealing PanelLeftOpen on hover the way the clinical

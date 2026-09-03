@@ -1,0 +1,1640 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-referral-control-labels.dom.test.tsx (2 tests | 2 failed) 683ms
+     × the intake form's submit control reads "Send referral" 520ms
+     × the match view's decline control reads "Decline referral" 162ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-referral-control-labels.dom.test.tsx > the two referral controls are findable by the words on them > the intake form's submit control reads "Send referral"
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name `/send referral/i`
+
+Here are the accessible roles:
+
+  link:
+
+  Name "Ward Flow":
+  [36m<a[39m
+    [33mclass[39m=[32m"_phoneBrand_d20c9a"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow"[39m
+  [36m/>[39m
+
+  Name "Ward Flow home":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Ward Flow home"[39m
+    [33mclass[39m=[32m"_railBrand_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow"[39m
+  [36m/>[39m
+
+  Name "Command":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Command"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow"[39m
+    [33mtitle[39m=[32m"Command"[39m
+  [36m/>[39m
+
+  Name "Network":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Network"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/network"[39m
+    [33mtitle[39m=[32m"Network"[39m
+  [36m/>[39m
+
+  Name "Priority queue":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Priority queue"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/queue"[39m
+    [33mtitle[39m=[32m"Priority queue"[39m
+  [36m/>[39m
+
+  Name "Capacity":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Capacity"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/capacity"[39m
+    [33mtitle[39m=[32m"Capacity"[39m
+  [36m/>[39m
+
+  Name "Movements":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Movements"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/movements"[39m
+    [33mtitle[39m=[32m"Movements"[39m
+  [36m/>[39m
+
+  Name "Exceptions":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Exceptions"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/exceptions"[39m
+    [33mtitle[39m=[32m"Exceptions"[39m
+  [36m/>[39m
+
+  Name "Transport":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Transport"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/transport"[39m
+    [33mtitle[39m=[32m"Transport"[39m
+  [36m/>[39m
+
+  Name "Governance":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Governance"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/governance"[39m
+    [33mtitle[39m=[32m"Governance"[39m
+  [36m/>[39m
+
+  Name "All wards":
+  [36m<a[39m
+    [33maria-label[39m=[32m"All wards"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/wards"[39m
+    [33mtitle[39m=[32m"All wards"[39m
+  [36m/>[39m
+
+  Name "Officer":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Officer"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/transport/officer"[39m
+    [33mtitle[39m=[32m"Officer"[39m
+  [36m/>[39m
+
+  Name "Ward — RPH Adult Secure":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Ward — RPH Adult Secure"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/ward/rph-adult-secure"[39m
+    [33mtitle[39m=[32m"Ward — RPH Adult Secure"[39m
+  [36m/>[39m
+
+  Name "Ward board — RPH Adult Secure":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Ward board — RPH Adult Secure"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/board/rph-adult-secure"[39m
+    [33mtitle[39m=[32m"Ward board — RPH Adult Secure"[39m
+  [36m/>[39m
+
+  Name "Emergency department":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Emergency department"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/ed/peel-ed"[39m
+    [33mtitle[39m=[32m"Emergency department"[39m
+  [36m/>[39m
+
+  Name "Handover":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Handover"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/handover"[39m
+    [33mtitle[39m=[32m"Handover"[39m
+  [36m/>[39m
+
+  Name "Escalation":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Escalation"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/escalation"[39m
+    [33mtitle[39m=[32m"Escalation"[39m
+  [36m/>[39m
+
+  Name "Patient search":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Patient search"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/search"[39m
+    [33mtitle[39m=[32m"Patient search"[39m
+  [36m/>[39m
+
+  Name "Discharges":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Discharges"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/discharges"[39m
+    [33mtitle[39m=[32m"Discharges"[39m
+  [36m/>[39m
+
+  Name "Morning bed state":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Morning bed state"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/morning"[39m
+    [33mtitle[39m=[32m"Morning bed state"[39m
+  [36m/>[39m
+
+  Name "Referral board":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Referral board"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/referrals"[39m
+    [33mtitle[39m=[32m"Referral board"[39m
+  [36m/>[39m
+
+  Name "Out of area":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Out of area"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/out-of-area"[39m
+    [33mtitle[39m=[32m"Out of area"[39m
+  [36m/>[39m
+
+  Name "Back to the developer hub":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Back to the developer hub"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/development"[39m
+    [33mtitle[39m=[32m"Back to the developer hub"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Open Ward Flow menu":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"Open Ward Flow menu"[39m
+    [33mclass[39m=[32m"_menuButton_d20c9a"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Expand sidebar":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Expand sidebar"[39m
+    [33mclass[39m=[32m"_railExpand_10f60f"[39m
+    [33mtitle[39m=[32m"Expand sidebar"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Switch role":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"ward-role-switcher-menu"[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"Switch role"[39m
+    [33mclass[39m=[32m"_trigger_f93be2"[39m
+    [33mtitle[39m=[32m"Switch role"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Demo clock controls — not a clinical action":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"ward-demo-controls-menu"[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"Demo clock controls — not a clinical action"[39m
+    [33mclass[39m=[32m"_trigger_9d90a4"[39m
+    [33mdata-testid[39m=[32m"ward-demo-controls-trigger"[39m
+    [33mtitle[39m=[32m"Demo clock controls — moves only the prototype's scenario clock, never a clinical action"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Submit":
+  [36m<button[39m
+    [33maria-describedby[39m=[32m"ward-referral-intake-unavailable-reason"[39m
+    [33maria-disabled[39m=[32m"true"[39m
+    [33mclass[39m=[32m"_submit_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-submit"[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "Ward Flow":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"Ward Flow"[39m
+    [33mclass[39m=[32m"_clinicalRail_10f60f"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "Ward Flow views":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"Ward Flow views"[39m
+    [33mclass[39m=[32m"_railNav_10f60f"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "Ward Flow role screens":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Ward Flow role screens"[39m
+    [33mclass[39m=[32m"_railGroup_10f60f"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  Name "Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app"[39m
+    [33mclass[39m=[32m"_railGroup_10f60f"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  Name "Ward Flow specialist boards":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Ward Flow specialist boards"[39m
+    [33mclass[39m=[32m"_railGroup_10f60f"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  Name "Needs a secure bed":
+  [36m<fieldset[39m
+    [33mclass[39m=[32m"_choiceCard_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-secureBedNeeded"[39m
+  [36m/>[39m
+
+  Name "Needs a bed that can hold someone involuntarily":
+  [36m<fieldset[39m
+    [33mclass[39m=[32m"_choiceCard_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-involuntaryBedNeeded"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"_main_4a648b"[39m
+    [33mid[39m=[32m"main-content"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_pageSubtitle_4a648b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_unavailableReason_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-unavailable"[39m
+    [33mid[39m=[32m"ward-referral-intake-unavailable-reason"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"_pageHeader_4a648b"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Raise a referral":
+  [36m<h1[39m
+    [33mclass[39m=[32m"_pageTitle_4a648b"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "Age band":
+  [36m<select[39m
+    [33mclass[39m=[32m"_select_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-ageBand"[39m
+    [33mid[39m=[32m"ward-referral-intake-ageBand"[39m
+  [36m/>[39m
+
+  Name "Sex":
+  [36m<select[39m
+    [33mclass[39m=[32m"_select_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-sex"[39m
+    [33mid[39m=[32m"ward-referral-intake-sex"[39m
+  [36m/>[39m
+
+  Name "Home region":
+  [36m<select[39m
+    [33mclass[39m=[32m"_select_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-homeRegion"[39m
+    [33mid[39m=[32m"ward-referral-intake-homeRegion"[39m
+  [36m/>[39m
+
+  Name "Referral source":
+  [36m<select[39m
+    [33mclass[39m=[32m"_select_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-source"[39m
+    [33mid[39m=[32m"ward-referral-intake-source"[39m
+  [36m/>[39m
+
+  Name "Urgency":
+  [36m<select[39m
+    [33mclass[39m=[32m"_select_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-urgency"[39m
+    [33mid[39m=[32m"ward-referral-intake-urgency"[39m
+  [36m/>[39m
+
+  Name "Origin site":
+  [36m<select[39m
+    [33mclass[39m=[32m"_select_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-originSiteCode"[39m
+    [33mid[39m=[32m"ward-referral-intake-originSiteCode"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "Choose one":
+  [36m<option[39m
+    [33mvalue[39m=[32m"not-answered"[39m
+  [36m/>[39m
+
+  Name "Adult":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Adult"[39m
+  [36m/>[39m
+
+  Name "Older adult":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Older adult"[39m
+  [36m/>[39m
+
+  Name "Youth":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Youth"[39m
+  [36m/>[39m
+
+  Name "Choose one":
+  [36m<option[39m
+    [33mvalue[39m=[32m"not-answered"[39m
+  [36m/>[39m
+
+  Name "Female":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Female"[39m
+  [36m/>[39m
+
+  Name "Male":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Male"[39m
+  [36m/>[39m
+
+  Name "Choose one":
+  [36m<option[39m
+    [33mvalue[39m=[32m"not-answered"[39m
+  [36m/>[39m
+
+  Name "Perth Metropolitan":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Perth Metropolitan"[39m
+  [36m/>[39m
+
+  Name "Peel":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Peel"[39m
+  [36m/>[39m
+
+  Name "South West":
+  [36m<option[39m
+    [33mvalue[39m=[32m"South West"[39m
+  [36m/>[39m
+
+  Name "Great Southern":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Great Southern"[39m
+  [36m/>[39m
+
+  Name "Wheatbelt":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Wheatbelt"[39m
+  [36m/>[39m
+
+  Name "Goldfields-Esperance":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Goldfields-Esperance"[39m
+  [36m/>[39m
+
+  Name "Mid West":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Mid West"[39m
+  [36m/>[39m
+
+  Name "Gascoyne":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Gascoyne"[39m
+  [36m/>[39m
+
+  Name "Pilbara":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Pilbara"[39m
+  [36m/>[39m
+
+  Name "Kimberley":
+  [36m<option[39m
+    [33mvalue[39m=[32m"Kimberley"[39m
+  [36m/>[39m
+
+  Name "Choose one":
+  [36m<option[39m
+    [33mvalue[39m=[32m"not-answered"[39m
+  [36m/>[39m
+
+  Name "Community":
+  [36m<option[39m
+    [33mvalue[39m=[32m"community"[39m
+  [36m/>[39m
+
+  Name "Crisis service":
+  [36m<option[39m
+    [33mvalue[39m=[32m"crisis_service"[39m
+  [36m/>[39m
+
+  Name "Police":
+  [36m<option[39m
+    [33mvalue[39m=[32m"police"[39m
+  [36m/>[39m
+
+  Name "Ambulance":
+  [36m<option[39m
+    [33mvalue[39m=[32m"ambulance"[39m
+  [36m/>[39m
+
+  Name "Inter-hospital":
+  [36m<option[39m
+    [33mvalue[39m=[32m"inter_hospital"[39m
+  [36m/>[39m
+
+  Name "Choose one":
+  [36m<option[39m
+    [33mvalue[39m=[32m"not-answered"[39m
+  [36m/>[39m
+
+  Name "Tier 1 · most urgent":
+  [36m<option[39m
+    [33mvalue[39m=[32m"1"[39m
+  [36m/>[39m
+
+  Name "Tier 2 · urgent":
+  [36m<option[39m
+    [33mvalue[39m=[32m"2"[39m
+  [36m/>[39m
+
+  Name "Tier 3 · least urgent":
+  [36m<option[39m
+    [33mvalue[39m=[32m"3"[39m
+  [36m/>[39m
+
+  Name "Choose one":
+  [36m<option[39m
+    [33mvalue[39m=[32m"not-answered"[39m
+  [36m/>[39m
+
+  Name "Royal Perth Hospital (RPH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"RPH"[39m
+  [36m/>[39m
+
+  Name "Sir Charles Gairdner Hospital (SCGH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"SCGH"[39m
+  [36m/>[39m
+
+  Name "Fiona Stanley Hospital (FSH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"FSH"[39m
+  [36m/>[39m
+
+  Name "Armadale Health Service (ARM)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"ARM"[39m
+  [36m/>[39m
+
+  Name "St John of God Midland Public Hospital (SJGM)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"SJGM"[39m
+  [36m/>[39m
+
+  Name "Rockingham General Hospital (RGH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"RGH"[39m
+  [36m/>[39m
+
+  Name "Joondalup Health Campus (JHC)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"JHC"[39m
+  [36m/>[39m
+
+  Name "Peel Health Campus (PEEL)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"PEEL"[39m
+  [36m/>[39m
+
+  Name "Fremantle Hospital (FRE)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"FRE"[39m
+  [36m/>[39m
+
+  Name "Bentley Health Service (BTY)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"BTY"[39m
+  [36m/>[39m
+
+  Name "Graylands Hospital (GRY)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"GRY"[39m
+  [36m/>[39m
+
+  Name "Albany Health Campus (ALB)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"ALB"[39m
+  [36m/>[39m
+
+  Name "Bunbury Hospital (BUN)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"BUN"[39m
+  [36m/>[39m
+
+  Name "Broome Hospital (BRM)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"BRM"[39m
+  [36m/>[39m
+
+  Name "Geraldton Hospital (GER)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"GER"[39m
+  [36m/>[39m
+
+  Name "Kununurra District Hospital (KUN)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"KUN"[39m
+  [36m/>[39m
+
+  Name "St John of God Subiaco Hospital (SJGS)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"SJGS"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  radio:
+
+  Name "Yes":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-secureBedNeeded-yes"[39m
+    [33mname[39m=[32m"ward-referral-intake-secureBedNeeded"[39m
+    [33mtype[39m=[32m"radio"[39m
+  [36m/>[39m
+
+  Name "No":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-secureBedNeeded-no"[39m
+    [33mname[39m=[32m"ward-referral-intake-secureBedNeeded"[39m
+    [33mtype[39m=[32m"radio"[39m
+  [36m/>[39m
+
+  Name "Yes":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-involuntaryBedNeeded-yes"[39m
+    [33mname[39m=[32m"ward-referral-intake-involuntaryBedNeeded"[39m
+    [33mtype[39m=[32m"radio"[39m
+  [36m/>[39m
+
+  Name "No":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-involuntaryBedNeeded-no"[39m
+    [33mname[39m=[32m"ward-referral-intake-involuntaryBedNeeded"[39m
+    [33mtype[39m=[32m"radio"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  checkbox:
+
+  Name "Transport needed":
+  [36m<input[39m
+    [33mdata-testid[39m=[32m"ward-referral-intake-transportNeeded"[39m
+    [33mtype[39m=[32m"checkbox"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_screen_4a648b"[39m
+      [33mdata-testid[39m=[32m"ward-referral-intake-screen"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_phoneBar_d20c9a"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"_phoneBrand_d20c9a"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_d20c9a"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_phoneBrandName_d20c9a"[39m
+          [36m>[39m
+            [0mWard Flow[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Open Ward Flow menu"[39m
+          [33mclass[39m=[32m"_menuButton_d20c9a"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-menu"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 5h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 12h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 19h16"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"Ward Flow"[39m
+        [33mclass[39m=[32m"_clinicalRail_10f60f"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-label[39m=[32m"Ward Flow home"[39m
+          [33mclass[39m=[32m"_railBrand_10f60f"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Expand sidebar"[39m
+          [33mclass[39m=[32m"_railExpand_10f60f"[39m
+          [33mtitle[39m=[32m"Expand sidebar"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _railExpandBrand_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-left-open _railExpandIcon_10f60f"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ward-referral-control-labels.dom.test.tsx:56:19
+     54|     // By role and accessible name, so the pin survives the label movi…
+     55|     // the label ceasing to say what the control does.
+     56|     expect(screen.getByRole("button", { name: /send referral/i })).toB…
+       |                   ^
+     57|   });
+     58|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |jsdom| tests/ward-referral-control-labels.dom.test.tsx > the two referral controls are findable by the words on them > the match view's decline control reads "Decline referral"
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name `/decline referral/i`
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "RF-001":
+  [36m<h2[39m
+    [33mclass[39m=[32m"_matchHeading_4a648b"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchGovernance_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-governance"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchTier_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-tier"[39m
+    [33mdata-tier[39m=[32m"2"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchSummary_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-summary"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_waitBadge_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-wait"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-accepting-count"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_syntheticNotice_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-synthetic-notice"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-rph-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-rph-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-rph-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-rph-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-fre-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-fre-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-fre-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-fre-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-scgh-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-scgh-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-scgh-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-scgh-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-fsh-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-fsh-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-fsh-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-fsh-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-arm-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-arm-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-sjgm-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-sjgm-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-rgh-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-rgh-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-bty-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-bty-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-bty-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-bty-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-bty-youth"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-bty-youth"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-gry-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-gry-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-gry-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-gry-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-alb-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-alb-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-bun-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-bun-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-brm-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-brm-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-ger-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-ger-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-kun-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-kun-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-sjgs-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-sjgs-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchBand_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-sjgs-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-reason-sjgs-adult-secure"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_noBedAccepts_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-no-bed"[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"_bandGroup_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-group-under_an_hour"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"_bandGroup_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-group-one_to_three_hours"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"_bandGroup_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-group-three_hours_or_more"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"_bandGroup_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-group-air_transport_only"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"_bandGroup_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-band-group-not_recorded"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"_bandRows_4a648b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"_bandRows_4a648b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"_bandRows_4a648b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"_bandRows_4a648b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"_bandRows_4a648b"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-rph-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-rph-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-fre-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-fre-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-scgh-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-scgh-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-fsh-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-fsh-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-arm-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-sjgm-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-rgh-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-bty-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-bty-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-bty-youth"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-gry-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-gry-older-adult"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-alb-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-bun-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-brm-adult-secure"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-ger-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-kun-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-sjgs-adult-open"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-row-sjgs-adult-secure"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Record that a local bed was sought and none was suitable":
+  [36m<button[39m
+    [33mclass[39m=[32m"_localBedButton_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-local-bed-sought"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Submit":
+  [36m<button[39m
+    [33mclass[39m=[32m"_declineButton_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-decline"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "Decline reason":
+  [36m<select[39m
+    [33mclass[39m=[32m"_select_4a648b"[39m
+    [33mdata-testid[39m=[32m"ward-referral-match-decline-reason"[39m
+    [33mid[39m=[32m"ward-referral-match-decline-reason"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "No suitable bed":
+  [36m<option[39m
+    [33mvalue[39m=[32m"no_suitable_bed"[39m
+  [36m/>[39m
+
+  Name "Age band not provided here":
+  [36m<option[39m
+    [33mvalue[39m=[32m"age_band_not_provided_here"[39m
+  [36m/>[39m
+
+  Name "Sex designation unavailable":
+  [36m<option[39m
+    [33mvalue[39m=[32m"sex_designation_unavailable"[39m
+  [36m/>[39m
+
+  Name "Secure bed unavailable":
+  [36m<option[39m
+    [33mvalue[39m=[32m"secure_bed_unavailable"[39m
+  [36m/>[39m
+
+  Name "Belongs to another service":
+  [36m<option[39m
+    [33mvalue[39m=[32m"belongs_to_another_service"[39m
+  [36m/>[39m
+
+  Name "Referred elsewhere":
+  [36m<option[39m
+    [33mvalue[39m=[32m"referred_elsewhere"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"_matchPanel_4a648b"[39m
+      [33mdata-testid[39m=[32m"ward-referral-match-panel"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"_matchHeading_4a648b"[39m
+      [36m>[39m
+        [0mRF-001[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_matchGovernance_4a648b"[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-governance"[39m
+      [36m>[39m
+        [36m<strong>[39m
+          [0mNot a medical device.[0m
+        [36m</strong>[39m
+        [0m Every unit below is listed in the network's own fixed order — this view never ranks units by suitability and never suggests which bed is best. A coordinator decides.[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_matchTier_4a648b"[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-tier"[39m
+        [33mdata-tier[39m=[32m"2"[39m
+      [36m>[39m
+        [0mTier 2 · urgent[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_matchSummary_4a648b"[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-summary"[39m
+      [36m>[39m
+        [0mYouth[0m
+        [0m · [0m
+        [0mFemale[0m
+        [0m · [0m
+        [0mPerth Metropolitan[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_waitBadge_4a648b"[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-wait"[39m
+      [36m>[39m
+        [0m40m waiting[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_noBedAccepts_4a648b"[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-no-bed"[39m
+        [33mrole[39m=[32m"alert"[39m
+      [36m>[39m
+        [0mNo unit accepts this referral right now — every reason is listed below.[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-accepting-count"[39m
+      [36m>[39m
+        [0m0[0m
+        [0m of [0m
+        [0m23[0m
+        [0m units accept this referral right now.[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_syntheticNotice_4a648b"[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-synthetic-notice"[39m
+      [36m>[39m
+        [0mTravel times on this screen are invented, like every bed number in this prototype. Nobody has measured or checked how far any of these hospitals is from anywhere, and no distance shown here should be relied on.[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_matchList_4a648b"[39m
+        [33mdata-testid[39m=[32m"ward-referral-match-list"[39m
+      [36m>[39m
+        [36m<details[39m
+          [33mclass[39m=[32m"_bandGroup_4a648b"[39m
+          [33mdata-testid[39m=[32m"ward-referral-match-band-group-under_an_hour"[39m
+        [36m>[39m
+          [36m<summary[39m
+            [33mclass[39m=[32m"_bandSummary_4a648b"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"_bandLabel_4a648b"[39m
+            [36m>[39m
+              [0mUnder an hour from home[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"_bandCounts_4a648b"[39m
+              [33mdata-testid[39m=[32m"ward-referral-match-band-counts-under_an_hour"[39m
+            [36m>[39m
+              [0m4 units in this band · 0 accept this referral[0m
+            [36m</span>[39m
+          [36m</summary>[39m
+          [36m<ul[39m
+            [33mclass[39m=[32m"_bandRows_4a648b"[39m
+          [36m>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+              [33mdata-testid[39m=[32m"ward-referral-match-row-rph-adult-secure"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"_matchRowTop_4a648b"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"_matchUnitName_4a648b"[39m
+                [36m>[39m
+                  [0mRPH Adult Secure[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"_matchBand_4a648b"[39m
+                [33mdata-testid[39m=[32m"ward-referral-match-band-rph-adult-secure"[39m
+              [36m>[39m
+                [0mUnder an hour from home[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+                [33mdata-testid[39m=[32m"ward-referral-match-reason-rph-adult-secure"[39m
+              [36m>[39m
+                [0mAdult unit does not match a youth referral[0m
+              [36m</p>[39m
+            [36m</li>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+              [33mdata-testid[39m=[32m"ward-referral-match-row-rph-older-adult"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"_matchRowTop_4a648b"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"_matchUnitName_4a648b"[39m
+                [36m>[39m
+                  [0mRPH Older Adult[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"_matchBand_4a648b"[39m
+                [33mdata-testid[39m=[32m"ward-referral-match-band-rph-older-adult"[39m
+              [36m>[39m
+                [0mUnder an hour from home[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+                [33mdata-testid[39m=[32m"ward-referral-match-reason-rph-older-adult"[39m
+              [36m>[39m
+                [0mOlder adult unit does not match a youth referral[0m
+              [36m</p>[39m
+            [36m</li>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"_matchRowDeclines_4a648b"[39m
+              [33mdata-testid[39m=[32m"ward-referral-match-row-fre-adult-open"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"_matchRowTop_4a648b"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"_matchUnitName_4a648b"[39m
+                [36m>[39m
+                  [0mFRE Adult Open[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"_matchBand_4a648b"[39m
+                [33mdata-testid[39m=[32m"ward-referral-match-band-fre-adult-open"[39m
+              [36m>[39m
+                [0mUnder an hour from home[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"_matchReasonText_4a648b"[39m
+                [33mdata-testid[39m=[32m"ward-refe...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ward-referral-control-labels.dom.test.tsx:85:19
+     83|     );
+     84|
+     85|     expect(screen.getByRole("button", { name: /decline referral/i })).…
+       |                   ^
+     86|   });
+     87| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  03:23:20
+   Duration  2.27s (transform 395ms, setup 198ms, import 496ms, tests 683ms, environment 746ms)
+

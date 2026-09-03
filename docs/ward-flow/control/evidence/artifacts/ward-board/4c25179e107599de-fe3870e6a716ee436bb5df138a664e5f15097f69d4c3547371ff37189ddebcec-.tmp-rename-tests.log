@@ -1,0 +1,39 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+ ❯ |jsdom| tests/ward-discharge-board.dom.test.tsx (8 tests | 1 failed) 793ms
+     × groups releases under Blocked, Confirmed, Predicted, Released today, in that exact order 240ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-discharge-board.dom.test.tsx > DischargeBoard > groups releases under Blocked, Confirmed, Predicted, Released today, in that exact order
+AssertionError: expected [ 'Blocked', 'Confirmed', …(2) ] to deeply equal [ 'Blocked', 'Confirmed', …(2) ]
+
+- Expected
++ Received
+
+  [
+    "Blocked",
+    "Confirmed",
+    "Predicted",
+-   "Released today",
++   "Discharged today",
+  ]
+
+ ❯ tests/ward-discharge-board.dom.test.tsx:66:22
+     64|
+     65|     const headings = screen.getAllByRole("heading", { level: 2 }).map(…
+     66|     expect(headings).toEqual(["Blocked", "Confirmed", "Predicted", "Re…
+       |                      ^
+     67|   });
+     68|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 77 passed (78)
+      Tests  1 failed | 1182 passed (1183)
+   Start at  02:31:42
+   Duration  31.10s (transform 5.45s, setup 7.63s, import 15.98s, tests 57.30s, environment 28.99s)
+

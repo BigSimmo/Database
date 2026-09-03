@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "6f92316d-ad3b-4007-a672-afc68a2ac198",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Ward Flow places patients with no eligibility check in the reducer at all",
+    "issueUlid": "01M1G4P3CAQ6WD1MK9QXD132KF"
+  }
+}

@@ -19,7 +19,21 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+
+/**
+ * Same matcher as playwright.config.ts `seededSpecPattern` (keep in sync).
+ *
+ * These specs run in `chromium-caring-contacts-seeded`, against `run-playwright.mjs`'s SECOND
+ * server, so they are deliberately NOT in `productionSpecFilePattern` above — that list is held
+ * byte-for-byte against `productionSpecPattern`, and adding them there would point the journey at
+ * the unseeded server. They still belong to a shard: a spec wired into no gate is a spec that
+ * silently never runs, which is the defect these groups exist to make impossible.
+ */
+export const seededSpecFilePattern = /^ui-caring-contacts-activation\.spec\.ts$/;
+
+/** The project each shard file must be collected by. Production files use `chromium`. */
+export const SEEDED_PR_UI_PROJECT = "chromium-caring-contacts-seeded";
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -40,6 +54,12 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-dictionary.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
   { file: "tests/ui-sources.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
+  // Arrived from `main` in the 2026-09-03 merge, which widened `productionSpecPattern` to name
+  // `tools-show-all` while this matcher still said only `tools` — so the spec was a production
+  // journey that belonged to no shard. Zero timing follows the convention above: keep it on the
+  // lightest measured shard until hosted timing is available, and replace this at the next
+  // refresh. A spec wired into no gate is a spec that never runs.
+  { file: "tests/ui-tools-show-all.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Critical-only acceptance coverage; the required critical job owns its runtime.
   { file: "tests/ui-clinical-ask.spec.ts", shard: 1, fullSeconds: 1, criticalSeconds: 1 },
   // Added after the timing sample. Measured locally at ~4.8s for 3 tests; replace
@@ -49,6 +69,20 @@ export const prUiSpecProfiles = Object.freeze([
   // Added with the Therapy Pathways mobile picker redesign; measured locally at
   // ~2 tests. Placed on shard 1 to keep post-critical spread within the 10s ceiling.
   { file: "tests/ui-therapy-pathways.spec.ts", shard: 1, fullSeconds: 2.0, criticalSeconds: 0 },
+  // The seeded Caring Contacts activation journey (#JZA0XK). It runs in
+  // `chromium-caring-contacts-seeded` rather than `chromium`, which is why this entry carries a
+  // `project` and the others do not. Placed on shard 1 because it is the shard with the smallest
+  // post-critical total, and the seeded server it needs is started once per shard run.
+  // ESTIMATE, not a measurement: this container could not launch a browser when the spec landed.
+  // Replace with hosted evidence at the next timing refresh — the balance guards in
+  // `tests/playwright-pr-shards.test.ts` hold either way.
+  {
+    file: "tests/ui-caring-contacts-activation.spec.ts",
+    shard: 1,
+    fullSeconds: 8.0,
+    criticalSeconds: 0,
+    project: SEEDED_PR_UI_PROJECT,
+  },
 
   { file: "tests/ui-phone-scroll-routes.spec.ts", shard: 2, fullSeconds: 129.6, criticalSeconds: 0 },
   { file: "tests/ui-phone-scroll.spec.ts", shard: 2, fullSeconds: 66.3, criticalSeconds: 0 },
@@ -117,7 +151,25 @@ export function listProductionSpecFiles(testsDir = path.join(process.cwd(), "tes
     .sort();
 }
 
-export function validatePrUiShardGroups(groups = prUiShardGroups, { listFiles = listProductionSpecFiles } = {}) {
+export function listSeededSpecFiles(testsDir = path.join(process.cwd(), "tests")) {
+  return readdirSync(testsDir)
+    .filter((file) => seededSpecFilePattern.test(file))
+    .map((file) => `tests/${file}`)
+    .sort();
+}
+
+/**
+ * Every spec the required Production UI shards must cover, whichever server it runs against.
+ *
+ * The union, not `listProductionSpecFiles` alone: an on-disk seeded spec missing from the groups
+ * has to be a shard-parity FAILURE, or the one gate that catches an unrun journey stops seeing the
+ * seeded lane at all.
+ */
+export function listPrUiSpecFiles(testsDir = path.join(process.cwd(), "tests")) {
+  return [...listProductionSpecFiles(testsDir), ...listSeededSpecFiles(testsDir)].sort();
+}
+
+export function validatePrUiShardGroups(groups = prUiShardGroups, { listFiles = listPrUiSpecFiles } = {}) {
   const onDisk = listFiles();
   const assigned = [];
   const duplicates = [];
@@ -154,9 +206,35 @@ export function filesForPrUiShard(shard, groups = prUiShardGroups) {
   return files;
 }
 
+/**
+ * The projects a shard must select, in a stable order.
+ *
+ * A file list alone is not enough: Playwright collects a file only in a project whose `testMatch`
+ * accepts it, so a seeded spec passed to a `--project=chromium` run contributes ZERO tests and the
+ * run still exits 0. Naming the seeded project alongside `chromium` is what makes the shard
+ * actually run it — and it is named only when the shard holds such a file, so no other shard pays
+ * for the second server `run-playwright.mjs` starts for it.
+ */
+export function projectsForPrUiShard(shard, groups = prUiShardGroups, profiles = prUiSpecProfiles) {
+  const files = filesForPrUiShard(shard, groups);
+  const projects = ["chromium"];
+  for (const profile of profiles) {
+    if (profile.project && files.includes(profile.file) && !projects.includes(profile.project)) {
+      projects.push(profile.project);
+    }
+  }
+  return projects;
+}
+
 export function playwrightArgsForPrUiShard(shard, { excludeCritical = false } = {}) {
   const grepInvert = excludeCritical ? "@critical|@quarantine|@mockup" : "@quarantine|@mockup";
-  return ["scripts/run-playwright.mjs", ...filesForPrUiShard(shard), "--project=chromium", "--grep-invert", grepInvert];
+  return [
+    "scripts/run-playwright.mjs",
+    ...filesForPrUiShard(shard),
+    ...projectsForPrUiShard(shard).map((project) => `--project=${project}`),
+    "--grep-invert",
+    grepInvert,
+  ];
 }
 
 function parseArgs(args) {
