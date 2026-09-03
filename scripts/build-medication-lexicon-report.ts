@@ -328,6 +328,15 @@ function warnIfSignOffIsStale(
  * two drugs, `statins` to three and `fibrates` from two rows to one, while the
  * sheet went on saying "reviewed 2026-08-22" and `--check` stayed green.
  *
+ * `sourceDenySlugs` is the third input and is signed for the same reason. It is
+ * the source-side half of a mapping: `build-medication-interaction-index.ts`
+ * drops a term match when the record carrying the row is on that list, so
+ * editing it changes which rows raise an alert while every surface and every
+ * resolved target stays identical. The live `statins` and `fibrates` exclusions
+ * are that shape — they suppress otherwise false HIGH alerts on simvastatin's
+ * and atorvastatin's own rows — and without them in the payload a sign-off
+ * would still read as current after alert routing had moved.
+ *
  * Not the rendered markdown: reflowing a table or renaming a column must not
  * invalidate a clinician's sign-off, and only the mappings are clinical.
  */
@@ -340,6 +349,7 @@ export function catalogueMappingsHash(
       id: term.id,
       surfaces: [...term.surfaces].sort(),
       denySlugs: [...(term.select?.denySlugs ?? [])].sort(),
+      sourceDenySlugs: [...(term.sourceDenySlugs ?? [])].sort(),
       resolves: [...(expansions.get(term.id) ?? [])].sort(),
     }))
     .sort((a, b) => a.id.localeCompare(b.id));

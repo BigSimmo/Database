@@ -16,8 +16,8 @@ import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import type { LexiconTerm } from "@/lib/medication-interaction-lexicon";
 import { catalogueMappingsHash, parseSignOff, signOffStatusLine } from "../scripts/build-medication-lexicon-report";
 
-const term = (id: string, surfaces: string[], denySlugs: string[] = []): LexiconTerm =>
-  ({ id, kind: "catalogue", surfaces, select: { slugs: [], denySlugs } }) as unknown as LexiconTerm;
+const term = (id: string, surfaces: string[], denySlugs: string[] = [], sourceDenySlugs?: string[]): LexiconTerm =>
+  ({ id, kind: "catalogue", surfaces, select: { slugs: [], denySlugs }, sourceDenySlugs }) as unknown as LexiconTerm;
 
 describe("catalogueMappingsHash", () => {
   const terms = [term("acei", ["ACE inhibitors"]), term("statins", ["statins"])];
@@ -46,6 +46,18 @@ describe("catalogueMappingsHash", () => {
     const rephrased = [term("acei", ["ACE inhibitors", "ACEi"]), terms[1]!];
     expect(catalogueMappingsHash(denied, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
     expect(catalogueMappingsHash(rephrased, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
+  });
+
+  it("changes when a source-side exclusion changes", () => {
+    // `sourceDenySlugs` decides which source records a term is allowed to fire
+    // on, so editing one changes which rows raise an alert without changing any
+    // surface or resolved target. The live statin and fibrate exclusions are
+    // exactly this shape: they suppress otherwise false HIGH alerts on
+    // simvastatin's and atorvastatin's own rows.
+    const excluded = [term("statins", ["statins"], [], ["simvastatin"]), terms[0]!];
+    const widened = [term("statins", ["statins"], [], ["simvastatin", "atorvastatin"]), terms[0]!];
+    expect(catalogueMappingsHash(excluded, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
+    expect(catalogueMappingsHash(widened, expansions)).not.toBe(catalogueMappingsHash(excluded, expansions));
   });
 
   it("hashes the live lexicon to a stable 64-character digest", () => {
