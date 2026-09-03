@@ -10,7 +10,11 @@ const impl = R.fix ?? R.impl;
 const review = R.review2 ?? R.review;
 const pick = (re) => (log.match(re) || [null])[0];
 const completed0 = (l) => (l.match(/- completed: .*/) || [""])[0];
-const testFiles = pick(/Test Files .*/) ?? (/(^|\s)test(,|$)/m.test(completed0(log)) ? "unit suite completed inside the run (count line not captured in this log)" : "");
+const testFiles =
+  pick(/Test Files .*/) ??
+  (/(^|\s)test(,|$)/m.test(completed0(log))
+    ? "unit suite completed inside the run (count line not captured in this log)"
+    : "");
 const tests = pick(/^ *Tests .*/m)?.trim() ?? "";
 const failed = pick(/- failed: .*/) ?? "";
 const notReached = pick(/- not reached: .*/) ?? "";
@@ -24,15 +28,22 @@ const commits = impl.commits.map((c) => `- ${c}`).join("\n");
 const preflight = P.governance_preflight
   ? `## Clinical Governance Preflight
 
-Each item confirmed against this package's diff (findings ${fixed}).
+Each item confirmed against this package's diff (findings ${fixed}). The checked line is the exact policy item; the note beneath it is the evidence (scripts/pr-policy.mjs matches the item text exactly).
 
-- [x] Source-backed claims still require linked source verification before clinical use — no change to source verification or citation requirements.
-- [x] No patient-identifiable document workflow was introduced or expanded without explicit governance approval — none introduced or expanded.
-- [x] Supabase target remains \`Clinical KB Database\` (\`sjrfecxgysukkwxsowpy\`) — no Supabase env value, migration target or configured project changes.
-- [x] Service-role keys and private document access remain server-only — no client exposure of service-role credentials; private access paths unchanged or tightened.
-- [x] Demo/synthetic content remains clearly separated from real clinical sources — unchanged.
-- [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative — unchanged or made more conservative.
-- [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed — reviewed; the changes correct reference rendering defects the 2026-09-02 audit recorded and do not add decision-support behaviour.
+- [x] Source-backed claims still require linked source verification before clinical use
+  no change to source verification or citation requirements.
+- [x] No patient-identifiable document workflow was introduced or expanded without explicit governance approval
+  none introduced or expanded.
+- [x] Supabase target remains \`Clinical KB Database\` (\`sjrfecxgysukkwxsowpy\`)
+  no Supabase env value, migration target or configured project changes.
+- [x] Service-role keys and private document access remain server-only
+  no client exposure of service-role credentials; private access paths unchanged or tightened.
+- [x] Demo/synthetic content remains clearly separated from real clinical sources
+  unchanged.
+- [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
+  unchanged or made more conservative.
+- [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
+  reviewed; the changes correct reference rendering defects the 2026-09-02 audit recorded and do not add decision-support behaviour.
 `
   : "";
 const body = `## Summary
