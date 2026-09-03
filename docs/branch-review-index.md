@@ -15,13 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 589
-- Distinct ref cells: 372
-- Distinct reviewed heads: 572
-- Date range: `2026-08-12` to `2026-09-02`
+- Records: 590
+- Distinct ref cells: 373
+- Distinct reviewed heads: 573
+- Date range: `2026-08-12` to `2026-09-03`
 
 Records per date, newest first:
 
+- `2026-09-03` — 1 record
 - `2026-09-02` — 14 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
@@ -50,6 +51,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-03 | claude/sources-mode-dropdown-home-mzw4f5 | PR #2567 Sources mode home, existing review feedback, CI, and integration with main | No new P0-P2 findings. The existing filter-only deep-link concern was… | [25566cb7](branch-review-records/25566cb7e5e57014296d21781f8af26d7a472066909492e9ffe41f3259714fef.record.md) |
 | 2026-09-02 | claude/caring-contacts-rules-r7r2ih-4 | PR #2535 (#PAMATF): model.ts planSendingHold relocation and load-time invariant, both repo… | MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r… | [0cee2b10](branch-review-records/0cee2b10b5e10b575263b1af0df0d87c555460e6e15dc052cfd1162d8fa2c265.record.md) |
 | 2026-09-02 | claude/caring-contacts-rules-r7r2ih | PR #2532 (#59JT7W + #RZVMPD, squashed to main): src/lib/caring-contacts/message-policy.ts,… | MERGED to main 2026-09-02. Closing-message refusal routed through the… | [0f22b88a](branch-review-records/0f22b88a41a63454cdb1b0ac291233906c397a7cbfca1539a0b1c020e99234df.record.md) |
 | 2026-09-02 | codex/smart-local-modes-20260901 | smart local modes integration | Fixed calculator identity matches inside natural-language queries; no… | [23084cec](branch-review-records/23084cec05666473530d8878ab4246ada0dbdb860c28584da348ade298ccf63c.record.md) |
