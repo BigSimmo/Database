@@ -29,7 +29,7 @@ test.beforeEach(async ({ page }) => {
 test("Dictionary sources redirects into the Sources catalogue", async ({ page }) => {
   await page.goto("/dictionary/sources", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/sources\/search\?usedBy=dictionary$/);
-  await expect(page.getByLabel("Filter by application usage")).toHaveValue("dictionary");
+  await expect(page.getByRole("button", { name: "Remove Used in: Dictionary filter" })).toBeVisible();
 });
 
 test("a submitted link to the Sources home forwards to the catalogue", async ({ page }) => {
@@ -60,16 +60,29 @@ test("Sources home offers the catalogue surfaces and owns its composer in the he
 
 test("@critical Sources catalogue filters and opens traceability", async ({ page }) => {
   await page.goto("/sources/search?usedBy=dictionary", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { level: 1, name: "Sources" })).toBeVisible();
-  await expect(page.getByLabel("Filter by application usage")).toHaveValue("dictionary");
-  await page.getByLabel("Filter by quality band").selectOption("D");
+  await expect(page.getByTestId("sources-catalogue-main")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Used in: Dictionary filter" })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("source");
+
+  await page.getByTestId("sources-filter-trigger-desktop").click();
+  const sheet = page.getByTestId("sources-filter-sheet");
+  await expect(sheet).toBeVisible();
+  // Sources hands the sheet four facet groups, which is past the density
+  // threshold in docs/filter-contract.md section 5, so every group without a
+  // selection starts collapsed. The band options exist only once it is opened.
+  const bandGroup = sheet.getByRole("button", { name: "Quality band", exact: true });
+  await bandGroup.click();
+  await expect(bandGroup).toHaveAttribute("aria-expanded", "true");
+  await sheet.getByRole("button", { name: /D · Review required/ }).click();
+  await expect(page).toHaveURL(/band=D/);
+
+  await page.keyboard.press("Escape");
   await page
     .getByRole("link", { name: /view source details/i })
     .first()
     .click();
-  await expect(page.getByRole("heading", { level: 2, name: "Source locations" })).toBeVisible();
-  await expect(page.getByText("Application location")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Where this source is used" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to sources" })).toBeVisible();
 });
 
 test("Sources remains operable at phone width and under accessibility media", async ({
