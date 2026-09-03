@@ -95,6 +95,32 @@ boundary. If it refuses the authoritative response, the stream emits zero verifi
 through the existing refusal/fallback contract; a preview must never disclose source content that the
 final governed response withholds.
 
+**Amendment, 2026-09-03 (owner decision), for the evidence preview only.** As first shipped, the
+preview ran the danger-level check over the whole retrieval set (`answerInputResults`) and emitted
+nothing on any hit. Because that is also the set the final response governs
+(`answer.sources = answerInputResults` in `rag.ts`), it held the invariant above exactly — and it made
+the feature unusable: one outdated or badly-extracted chunk among twelve to twenty-four retrieved
+passages blanked the whole rail, which on a real corpus is most questions, and the sources it hid were
+the clean ones.
+
+The decision is now **per document**. A danger-level document is excluded from the preview; the
+remaining sources are shown. Per card this is stricter than before — such a document can no longer
+appear in the preview at all, where the wide check merely delayed its appearance until the answer's
+own rail. The answer-level verdict (`WEAK_EVIDENCE`, from `relevance.verdict === "none"`) still
+suppresses the entire preview, because it is not a property of any one document.
+
+The residual, stated plainly rather than left to be discovered: when the final response refuses on
+source governance it blanks `sources: []`, so a preview that showed clean cards has disclosed
+document identities the final response then withholds. Those cards are documents that passed
+governance individually and are reachable by ordinary search; the refusal blocks the synthesised
+answer, not access to the documents. They are removed the moment the answer lands, because the rail
+renders only while the request is in flight. This is a deliberate, owner-approved narrowing of the
+invariant above, not an oversight, and it applies to the evidence preview only — Phase 2 answer
+sections carry generated clinical prose and keep the unamended rule.
+
+The exclusion set must never be derived from `sourceGovernanceWarnings`' returned list, which is
+capped at eight for display. Evaluate one source at a time; see `src/lib/answer-preview.ts`.
+
 Do not implement a second, weaker “stream-safe” verifier. If the current gates cannot operate on an
 independent section, that section stays buffered until the final answer. Cross-section comparisons,
 conflicts, and conclusions that depend on later sections are not independently emit-able in v1.
@@ -107,8 +133,11 @@ conflicts, and conclusions that depend on later sections are not independently e
   of `token` / `revising`.
 - Add reconciliation tests proving every preview is an exact subset of `final` and is discarded on
   error, cancellation, retry, unknown schema version, or mismatch.
-- Add a source-governance refusal fixture proving an outdated or poorly extracted danger-level source
-  emits zero evidence previews and zero answer-section units.
+- Add a source-governance fixture proving an outdated or poorly extracted danger-level source is
+  excluded from every evidence preview and emits zero answer-section units, that an answer-level
+  `WEAK_EVIDENCE` verdict emits zero evidence previews, and that exclusion holds past the
+  eight-warning display cap. (Amended 2026-09-03 with the per-document decision above; before that
+  amendment any such source emitted zero evidence previews.)
 - Add owner-boundary fixtures proving private source fields and cross-owner identifiers cannot cross
   the route boundary.
 
@@ -117,9 +146,10 @@ This phase is provider-free and must land before either visible phase.
 ### Phase 1 — retrieval-complete evidence preview
 
 - After answer evidence is ranked and the final context pack is selected, run the same danger-level
-  source-governance refusal used by the authoritative final response. Only when it permits disclosure,
-  build a preview through the existing client-source trimming policy and emit it as
-  `progress.verifiedUnit`.
+  source-governance decision used by the authoritative final response, per document (see the
+  2026-09-03 amendment above). Emit the sources it permits, through the existing client-source
+  trimming policy, as `progress.verifiedUnit`; emit nothing when the answer-level verdict is
+  danger-level or when no source survives.
 - Render it where the answer's own source rail will land, so arrival swaps content in place rather
   than moving it. As shipped this is `AnswerEvidencePreview`, a rail of unnumbered cards under the
   status line and prose placeholder — not the labelled “Selected evidence” panel this design first
@@ -127,6 +157,13 @@ This phase is provider-free and must land before either visible phase.
   prose, do not mark the answer complete, and do not number the cards: the preview is retrieval
   order while the final list is rebuilt from what the answer cites, so an early number can end up
   pointing at a different document.
+- The cards are revealed one at a time, one per `--duration-moderate`, with the first standing the
+  instant the unit arrives. Retrieval is a single call and the contract carries exactly one preview
+  per answer, so this is presentation, not live discovery: the pacing exists because a rail that
+  mounts whole is over before a reader watching an otherwise still screen registers it. The status
+  line's count is read from the same reveal, so the number always equals the cards beneath it.
+  Suppressing motion returns the full count with no timer in the path — a JS reveal could withhold
+  content in a way a CSS delay never could.
 - Preserve the current final source list, source governance warnings, feedback token, telemetry, and
   persistence behaviour.
 
