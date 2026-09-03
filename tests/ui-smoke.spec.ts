@@ -1841,6 +1841,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+    // Sources reached the desktop menu (built from `appModeDefinitions`) but not
+    // this one, which renders `phoneModeGroups` and drops any mode no group names.
+    // `tests/phone-mode-groups.test.ts` guards the constant; this is the rendered proof.
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Sources\b/ })).toBeAttached();
     await expect(modeOptions.first()).toBeInViewport();
     await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
     await expect(modeOptions.first()).toContainText("Source-backed clinical answer");

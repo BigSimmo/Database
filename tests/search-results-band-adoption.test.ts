@@ -96,6 +96,10 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "src/app/(search-app)/medications/page.tsx",
     "Medication mode home is a content slot; the band is mounted by medication-prescribing-workspace.tsx inside the dashboard shell.",
   ],
+  [
+    "src/app/(search-app)/sources/page.tsx",
+    "Sources mode home is a ModeHomeTemplate landing with no result list; the catalogue and its band live on /sources/search, which this inventory still checks.",
+  ],
   /*
    * Every consolidated mode home. These bare paths render nothing at all any more
    * — each is a `redirect()` onto the shared lightweight home — so there is no

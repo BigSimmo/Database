@@ -96,7 +96,7 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
 
   if (pathname.startsWith("/sources")) {
     const rest = pathname.slice("/sources/".length);
-    const isDetail = pathname.startsWith("/sources/") && !["topics", "publishers", "method"].includes(rest);
+    const isDetail = pathname.startsWith("/sources/") && !["search", "topics", "publishers", "method"].includes(rest);
     return {
       initialMode: "sources",
       desktopSearchPlacement: "hero",
