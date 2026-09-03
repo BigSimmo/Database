@@ -731,12 +731,17 @@ test("the arriving sources are paced apart when motion is allowed", async ({ pag
   await page.evaluate(() => {
     const stamps: number[] = [];
     (window as unknown as { __evidenceCardStamps: number[] }).__evidenceCardStamps = stamps;
+    const card = '[data-testid="answer-evidence-preview-source"]';
     new MutationObserver((records) => {
       for (const record of records) {
         for (const node of record.addedNodes) {
-          if (node instanceof HTMLElement && node.matches('[data-testid="answer-evidence-preview-source"]')) {
-            stamps.push(performance.now());
-          }
+          if (!(node instanceof HTMLElement)) continue;
+          // Descendants too, not only the node itself. The first card arrives inside the rail
+          // container, so the observer sees the container added and the card only as its
+          // child — matching the added node alone silently loses card one and makes the
+          // pacing look one beat shorter than it is.
+          const added = node.matches(card) ? 1 : node.querySelectorAll(card).length;
+          for (let index = 0; index < added; index += 1) stamps.push(performance.now());
         }
       }
     }).observe(document.body, { childList: true, subtree: true });
