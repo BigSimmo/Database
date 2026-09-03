@@ -50,6 +50,25 @@ describe("classify-visual-baseline-outcome", () => {
     expect(isPixelDriftFailure("AWAITING_BASELINE still lists dashboard-shell")).toBe(false);
   });
 
+  /**
+   * `toHaveScreenshot` names the assertion, not the outcome: a page that closes, a
+   * navigation failure, or a timeout while that assertion is pending still carries the
+   * matcher name in the JUnit title/message even though no pixel comparison ever ran.
+   * Before this, `isPixelDriftFailure` matched on the matcher name alone and would have
+   * reported this runtime failure as advisory pixel drift, letting the visual gate pass
+   * green on a crash unrelated to pixels.
+   */
+  it("keeps toHaveScreenshot runtime failures (no comparison ever ran) as non-drift", () => {
+    expect(
+      isPixelDriftFailure(
+        'expect(page).toHaveScreenshot("dashboard-shell.png") failed: Target page, context or browser has been closed',
+      ),
+    ).toBe(false);
+    expect(
+      isPixelDriftFailure('expect(page).toHaveScreenshot("dashboard-shell.png") failed: Test timeout of 60000ms exceeded'),
+    ).toBe(false);
+  });
+
   it("parses junit failure bodies for classification", () => {
     const bodies = failureBodiesFromJunit(`<?xml version="1.0"?>
       <testsuites><testsuite>

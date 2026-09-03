@@ -138,6 +138,25 @@ test.describe("token layer resolution", () => {
     const roles = rolesToCheck(pin);
     expect(roles.length, "there must be roles to check").toBeGreaterThan(0);
 
+    // The pin is authoritative for WHICH roles get checked (see `rolesToCheck` above), but
+    // that means a later token change that introduces a NEW cross-layer divergence would
+    // otherwise refresh `token-layer-divergences.json` while this spec stays green and never
+    // notices the new role. Cross-check coverage without letting the report drive the list.
+    if (pin) {
+      const report = JSON.parse(readFileSync(DIVERGENCES_PATH, "utf8")) as {
+        divergences: Record<string, Record<string, unknown>>;
+      };
+      const currentDivergentRoles = [
+        ...new Set(Object.values(report.divergences).flatMap((mode) => Object.keys(mode))),
+      ];
+      const uncovered = currentDivergentRoles.filter((role) => !pin.roles.includes(role));
+      expect(
+        uncovered,
+        `divergence report lists role(s) not covered by the pin — regenerate with ` +
+          `UPDATE_TOKEN_RESOLUTION_PIN=1 after reviewing: ${uncovered.join(", ")}`,
+      ).toEqual([]);
+    }
+
     const resolved: Record<string, Record<string, string>> = {};
     for (const state of STATES) {
       resolved[state.id] = await resolveRoles(browser, baseURL as string, state, roles);

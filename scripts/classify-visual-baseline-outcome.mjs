@@ -80,6 +80,14 @@ export function isPixelDriftFailure(text) {
   if (!haystack) return false;
   if (/snapshot doesn't exist/i.test(haystack)) return false;
   if (/AWAITING_BASELINE/i.test(haystack)) return false;
+  // `toHaveScreenshot` names the assertion, not the outcome — a page that closes, a
+  // navigation that fails, or a timeout while that assertion is pending still puts the
+  // matcher name in the JUnit title/message even though no pixel comparison ever ran.
+  // Recognise those runtime failures explicitly and keep them red rather than trusting
+  // the matcher name alone.
+  if (/has been closed|target (?:page|closed)|test timeout|navigation failed|net::err_/i.test(haystack)) {
+    return false;
+  }
   return /toHaveScreenshot/i.test(haystack) || /Screenshot comparison failed/i.test(haystack);
 }
 
