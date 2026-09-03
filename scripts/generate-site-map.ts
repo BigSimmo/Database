@@ -80,7 +80,7 @@ const documentedRedirectTargets: Record<string, string> = {
   // Pinned because the page forwards the incoming query string, so its
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
-  "/dictionary/sources": "/sources?usedBy=dictionary",
+  "/dictionary/sources": "/sources/search?usedBy=dictionary",
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
 
@@ -118,7 +118,7 @@ const routeDescriptions: Record<string, string> = {
   "/dictionary/search":
     "The clinical term and abbreviation catalogue: an empty query lists everything, a typed query narrows the same list.",
   "/dictionary/sources":
-    "Query-preserving compatibility redirect to `/sources?usedBy=dictionary`; incoming catalogue filters are retained and application usage is set to Dictionary.",
+    "Query-preserving compatibility redirect to `/sources/search?usedBy=dictionary`; incoming catalogue filters are retained and application usage is set to Dictionary.",
   "/dictionary/topics": "Clinical dictionary topic category index.",
   "/dictionary/topics/[slug]": "Clinical dictionary topic category term list.",
   "/differentials": "Differentials home and search surface.",
@@ -157,6 +157,13 @@ const routeDescriptions: Record<string, string> = {
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
+  "/sources": "Sources mode home; a submitted `?q=…&run=1` forwards to `/sources/search`, where the catalogue lives.",
+  "/sources/[sourceId]": "Clinical source traceability record: identity, rating, canonical locations and usage.",
+  "/sources/method": "How the catalogue rates, reviews and traces a source, and its stated limitations.",
+  "/sources/publishers": "Publishing bodies grouped by jurisdiction scope.",
+  "/sources/search":
+    "The ranked clinical source catalogue: filter and sort by quality band, jurisdiction, source type, publisher, topic, lifecycle and application usage.",
+  "/sources/topics": "Clinical topics derived from registered source metadata.",
   "/specifiers": "Psychiatric specifier home and local search surface.",
   "/specifiers/[slug]": "Psychiatric specifier decision-support guide.",
   "/specifiers/builder": "Structured diagnostic wording builder.",
@@ -533,7 +540,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("sources"),
       search: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
       detail:
-        "`/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
+        "`/sources` keeps a home of its own; `/sources/search` is the filterable catalogue. Also `/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
     },
     {
       mode: "Therapy Compass",
