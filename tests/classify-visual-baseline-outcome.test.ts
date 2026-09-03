@@ -65,7 +65,9 @@ describe("classify-visual-baseline-outcome", () => {
       ),
     ).toBe(false);
     expect(
-      isPixelDriftFailure('expect(page).toHaveScreenshot("dashboard-shell.png") failed: Test timeout of 60000ms exceeded'),
+      isPixelDriftFailure(
+        'expect(page).toHaveScreenshot("dashboard-shell.png") failed: Test timeout of 60000ms exceeded',
+      ),
     ).toBe(false);
   });
 
