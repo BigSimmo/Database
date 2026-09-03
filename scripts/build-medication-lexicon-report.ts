@@ -45,6 +45,36 @@ function escapePipes(value: string): string {
   return value.replaceAll("|", "\\|");
 }
 
+/** Every interaction row's text on one record, in source order. */
+function interactionRowText(record: MedicationRecord | undefined): string[] {
+  return (record?.sections ?? [])
+    .filter((section) => section.type === "inter")
+    .flatMap((section) => (section.rows ?? []).map((row) => row.val ?? ""))
+    .filter(Boolean);
+}
+
+/**
+ * Word-boundary surface match, mirroring `mentions()` in
+ * `build-medication-interaction-index.ts`.
+ *
+ * Reporting-only: it counts the rows a source-side exclusion covers so the
+ * reviewer can see its reach. It is deliberately not imported from the index
+ * builder, which is a different script with its own corpus-parsing concerns —
+ * a near-miss here would over- or under-count a row in a table, never change
+ * which alert the app raises.
+ */
+function mentionsSurface(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^A-Za-z0-9])${escaped}(?![A-Za-z0-9])`, "i").test(haystack);
+}
+
+/** One row's wording, short enough to sit in a table cell. */
+function excerpt(value: string, limit = 140): string {
+  const flat = value.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+  if (!flat) return "_no row text_";
+  return flat.length <= limit ? flat : `${flat.slice(0, limit - 1).trimEnd()}…`;
+}
+
 async function main(): Promise<void> {
   const checkOnly = process.argv.includes("--check");
   const records = JSON.parse(readFileSync(path.resolve(process.cwd(), SNAPSHOT_PATH), "utf8")) as MedicationRecord[];
@@ -169,6 +199,43 @@ async function main(): Promise<void> {
         const record = records.find((item) => item.slug === slug);
         const reason = record ? `class \`${record.class}\`, subclass \`${record.subclass}\`` : "not in catalogue";
         lines.push(`| \`${term.id}\` | ${drugLabel(slug)} | ${escapePipes(reason)} |`);
+      }
+    }
+  }
+  lines.push("");
+
+  // The other half of a deny decision, and the one that was invisible until
+  // 2026-09-03. `select.denySlugs` above says a drug is not IN the class;
+  // `sourceDenySlugs` says the class term, wherever it appears on one named
+  // record, does not name a counterparty there at all — so every row on that
+  // record stops raising an alert through this term. That is a clinical claim
+  // of exactly the same weight, and since the sign-off hash now covers it, the
+  // reviewer has to be able to read it. Signing a digest over something the
+  // sheet never rendered is the failure this document exists to prevent.
+  lines.push("## Source-side exclusions");
+  lines.push("");
+  lines.push(
+    "Records where a term is present in the text but is **not** read as naming a counterparty — usually",
+    "because the record is using the class word for its own drug. Every interaction row on the record is",
+    "affected, so each of these is a clinical claim worth checking.",
+  );
+  lines.push("");
+  const sourceDenied = catalogueTerms.filter((term) => (term.sourceDenySlugs ?? []).length > 0);
+  if (sourceDenied.length === 0) {
+    lines.push("_None._");
+  } else {
+    lines.push("| Term | Not read as a counterparty on | Rows affected | The wording it appears in |");
+    lines.push("| --- | --- | --- | --- |");
+    for (const term of sourceDenied) {
+      for (const slug of term.sourceDenySlugs ?? []) {
+        const record = records.find((item) => item.slug === slug);
+        const rows = interactionRowText(record);
+        const matched = rows.filter((row) => term.surfaces.some((surface) => mentionsSurface(row, surface)));
+        const example = matched[0] ?? "";
+        lines.push(
+          `| \`${term.id}\` | ${drugLabel(slug)} | ${matched.length} of ${rows.length} | ` +
+            `${escapePipes(excerpt(example))} |`,
+        );
       }
     }
   }

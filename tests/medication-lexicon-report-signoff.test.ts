@@ -55,6 +55,11 @@ describe("catalogueMappingsHash", () => {
     // sign-off recorded before such an edit must not read as current afterward.
     const withSourceExclusion = [term("acei", ["ACE inhibitors"], [], ["perindopril"]), terms[1]!];
     expect(catalogueMappingsHash(withSourceExclusion, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
+
+    // Widening an exclusion that already exists is the same clinical event and
+    // must invalidate a sign-off just as surely as introducing the first one.
+    const widened = [term("acei", ["ACE inhibitors"], [], ["perindopril", "ramipril"]), terms[1]!];
+    expect(catalogueMappingsHash(widened, expansions)).not.toBe(catalogueMappingsHash(withSourceExclusion, expansions));
   });
 
   it("hashes the live lexicon to a stable 64-character digest", () => {
@@ -146,5 +151,33 @@ describe("the committed review sheet", () => {
     expect(statusLine).toBe(signOffStatusLine(signOff, catalogueMappingsHash(catalogueTerms, live)));
     // The sign-off block itself is a human record and is never rewritten here.
     expect(signOff.date).toBe("2026-08-22");
+  });
+
+  it("shows every source-side exclusion the sign-off hash now covers", async () => {
+    // A digest may only cover what the sheet actually puts in front of the
+    // reviewer. `sourceDenySlugs` entered the signed payload without entering
+    // the document, which would have let a clinician attest an alert-routing
+    // decision they were never shown — the same invisibility the hash exists
+    // to close.
+    const { readFileSync } = await import("node:fs");
+    const sheet = readFileSync("docs/medication-interaction-lexicon-review.md", "utf8");
+    const excluded = INTERACTION_LEXICON.filter(
+      (item) => item.kind === "catalogue" && (item.sourceDenySlugs ?? []).length > 0,
+    );
+
+    const records = loadMedicationSnapshot();
+    const section = sheet.split("## Source-side exclusions")[1]?.split("\n## ")[0] ?? "";
+
+    expect(excluded.length).toBeGreaterThan(0);
+    expect(section).not.toBe("");
+    for (const item of excluded) {
+      for (const slug of item.sourceDenySlugs ?? []) {
+        const name = records.find((record) => record.slug === slug)?.name ?? slug;
+        const row = section
+          .split("\n")
+          .find((line) => line.trimStart().startsWith(`| \`${item.id}\``) && line.includes(name));
+        expect(row, `no source-side exclusion row for ${item.id} / ${slug}`).toBeDefined();
+      }
+    }
   });
 });
