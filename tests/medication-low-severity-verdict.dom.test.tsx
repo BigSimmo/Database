@@ -37,8 +37,10 @@ describe("patient verdict band over a documented low-severity interaction", () =
     const band = screen.getByRole("group");
     expect(band.getAttribute("data-tone")).not.toBe("success");
     expect(band.textContent).not.toMatch(/no alert found/i);
-    // The finding itself still has to be stated, not merely un-reassured.
-    expect(band.textContent).toMatch(/1 interaction/);
+    // The finding itself still has to be stated, not merely un-reassured. Count-agnostic
+    // so a catalogue change that adds or removes an interaction for this pair does not
+    // make this assertion fail for an unrelated reason.
+    expect(band.textContent).toMatch(/\d+ interactions?\b/);
     expect(band.getAttribute("aria-label")).not.toMatch(/no alert found/i);
   });
 

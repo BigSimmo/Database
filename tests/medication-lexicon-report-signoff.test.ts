@@ -16,7 +16,7 @@ import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import type { LexiconTerm } from "@/lib/medication-interaction-lexicon";
 import { catalogueMappingsHash, parseSignOff, signOffStatusLine } from "../scripts/build-medication-lexicon-report";
 
-const term = (id: string, surfaces: string[], denySlugs: string[] = [], sourceDenySlugs?: string[]): LexiconTerm =>
+const term = (id: string, surfaces: string[], denySlugs: string[] = [], sourceDenySlugs: string[] = []): LexiconTerm =>
   ({ id, kind: "catalogue", surfaces, select: { slugs: [], denySlugs }, sourceDenySlugs }) as unknown as LexiconTerm;
 
 describe("catalogueMappingsHash", () => {
@@ -48,16 +48,18 @@ describe("catalogueMappingsHash", () => {
     expect(catalogueMappingsHash(rephrased, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
   });
 
-  it("changes when a source-side exclusion changes", () => {
-    // `sourceDenySlugs` decides which source records a term is allowed to fire
-    // on, so editing one changes which rows raise an alert without changing any
-    // surface or resolved target. The live statin and fibrate exclusions are
-    // exactly this shape: they suppress otherwise false HIGH alerts on
-    // simvastatin's and atorvastatin's own rows.
-    const excluded = [term("statins", ["statins"], [], ["simvastatin"]), terms[0]!];
-    const widened = [term("statins", ["statins"], [], ["simvastatin", "atorvastatin"]), terms[0]!];
-    expect(catalogueMappingsHash(excluded, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
-    expect(catalogueMappingsHash(widened, expansions)).not.toBe(catalogueMappingsHash(excluded, expansions));
+  it("changes when a source-side exclusion changes, even though it resolves no differently", () => {
+    // build-medication-interaction-index.ts applies `sourceDenySlugs` to suppress
+    // otherwise-generated alert rows without narrowing what the term resolves to —
+    // the statin and fibrate exclusions are the live examples this guards. A
+    // sign-off recorded before such an edit must not read as current afterward.
+    const withSourceExclusion = [term("acei", ["ACE inhibitors"], [], ["perindopril"]), terms[1]!];
+    expect(catalogueMappingsHash(withSourceExclusion, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
+
+    // Widening an exclusion that already exists is the same clinical event and
+    // must invalidate a sign-off just as surely as introducing the first one.
+    const widened = [term("acei", ["ACE inhibitors"], [], ["perindopril", "ramipril"]), terms[1]!];
+    expect(catalogueMappingsHash(widened, expansions)).not.toBe(catalogueMappingsHash(withSourceExclusion, expansions));
   });
 
   it("hashes the live lexicon to a stable 64-character digest", () => {

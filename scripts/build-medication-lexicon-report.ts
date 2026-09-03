@@ -388,21 +388,21 @@ function warnIfSignOffIsStale(
  * Scoped to `catalogue` terms and their resolved drug lists because that is the
  * scope the sign-off block itself claims — `external`, `nonDrug` and `mechanism`
  * terms resolve to no catalogue drug and raise no alert. Both halves of a
- * mapping are included: the selector's own inputs (surfaces, deny-list) and what
- * they currently resolve to, so a catalogue edit that silently widens a class is
- * caught as well as a lexicon edit. Commit 0e70217cf (2026-08-28) is the case
- * this exists for: it added two medications and two deny-lists, moving `acei` to
- * two drugs, `statins` to three and `fibrates` from two rows to one, while the
- * sheet went on saying "reviewed 2026-08-22" and `--check` stayed green.
+ * mapping are included: the selector's own inputs (surfaces, deny-list,
+ * source-side exclusions) and what they currently resolve to, so a catalogue
+ * edit that silently widens a class is caught as well as a lexicon edit.
+ * Commit 0e70217cf (2026-08-28) is the case this exists for: it added two
+ * medications and two deny-lists, moving `acei` to two drugs, `statins` to
+ * three and `fibrates` from two rows to one, while the sheet went on saying
+ * "reviewed 2026-08-22" and `--check` stayed green.
  *
- * `sourceDenySlugs` is the third input and is signed for the same reason. It is
- * the source-side half of a mapping: `build-medication-interaction-index.ts`
- * drops a term match when the record carrying the row is on that list, so
- * editing it changes which rows raise an alert while every surface and every
- * resolved target stays identical. The live `statins` and `fibrates` exclusions
- * are that shape — they suppress otherwise false HIGH alerts on simvastatin's
- * and atorvastatin's own rows — and without them in the payload a sign-off
- * would still read as current after alert routing had moved.
+ * `sourceDenySlugs` is included alongside the selector's own `denySlugs`
+ * because `build-medication-interaction-index.ts` uses it to suppress
+ * otherwise-generated alert rows (a source record mentioning the term without
+ * declaring a matching counterparty) — the statin and fibrate exclusions are
+ * live examples. That suppression changes which rows the index emits just as
+ * surely as a selector change does, so a sign-off recorded before a
+ * `sourceDenySlugs` edit must not read as current afterward.
  *
  * Not the rendered markdown: reflowing a table or renaming a column must not
  * invalidate a clinician's sign-off, and only the mappings are clinical.
