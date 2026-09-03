@@ -33,6 +33,11 @@
   --st-space-24: 1.5rem;
   --st-tap: var(--spacing-tap);
   --st-leading-body: 1.45;
+  /* A display FIGURE, not body text. `.headlineValue` is a large bold number and was authored at
+     1.15; `--st-leading-body` is 1.45 and would visibly loosen it. Two different jobs, so two
+     tokens — the alternative was rounding a chosen figure leading to body leading so a contract
+     gate would stop counting it, which changes the screen to satisfy the checker. */
+  --st-leading-figure: 1.15;
 
   display: grid;
   min-height: 100dvh;
@@ -268,7 +273,7 @@
   color: var(--text-heading);
   font-size: var(--text-2xl-minus);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: var(--st-leading-figure);
 }
 
 .headlineCaption {

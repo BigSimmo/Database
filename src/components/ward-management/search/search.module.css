@@ -16,6 +16,11 @@
   --ps-space-24: 1.5rem;
   --ps-space-48: var(--spacing-tap);
   --ps-leading-body: 1.4;
+  /* Looser than body on purpose: `.referralNote` is a paragraph of explanation under a result, not
+     a row of data, and it was authored at 1.5. Declared rather than folded into
+     `--ps-leading-body` (1.4) — rounding somebody's chosen leading to make a gate pass changes the
+     rendering to satisfy a checker, which is the wrong way round. */
+  --ps-leading-note: 1.5;
 
   display: grid;
   min-height: 100dvh;
@@ -279,7 +284,7 @@
 .referralNote {
   color: var(--text-muted);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: var(--ps-leading-note);
 }
 
 .tableScroll {

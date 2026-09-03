@@ -37,6 +37,11 @@
   --wb-space-16: 1rem;
   --wb-space-20: 1.25rem;
   --wb-space-24: 1.5rem;
+  /* ⚠️ 0.5rem, and it is a LOCAL token because the scale does not carry that value: `--radius-sm`
+     is 0.375rem and `--radius-md` is 0.625rem, so either substitution would visibly change the
+     corner of all three controls below to make a contract gate stop counting a literal. Named for
+     what it is — the radius shared by this board's own controls. */
+  --wb-control-radius: 0.5rem;
   --wb-tap: var(--spacing-tap);
   --wb-leading-body: 1.4;
   /* The day count and the headline figure each sit alone on their line, so they take no extra
@@ -594,7 +599,21 @@
   border-style: dashed;
   border-color: var(--wb-border-strong);
   background: transparent;
-  color: var(--text-soft);
+  /*
+   * `--text-muted`, not `--text-soft`. The design-system contract counts `--text-soft` as a
+   * decoration-only compatibility alias that production code should not consume, and this file
+   * already uses `--text-muted` in 28 other places.
+   *
+   * ⚠️ Checked against this file's OWN reasoning before changing it, because `--text-soft` is named
+   * in the `--wb-control-edge` comment above. That comment REJECTS it — at 3.073:1 it was too weak
+   * for a control's visual boundary — so it is evidence against this usage rather than for it, and
+   * it concerns a border rather than a text colour in any case.
+   *
+   * The "absent" reading is untouched: the comment above says an empty bed is marked by a dashed
+   * edge and no fill, "so it reads as absent at a glance and in greyscale". Neither changes here.
+   * Measured against `--surface`: 4.88:1 light and 4.98:1 dark become 7.55:1 and 8.21:1.
+   */
+  color: var(--text-muted);
 }
 
 /*
@@ -2114,9 +2133,9 @@
 .leaving {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
+  gap: var(--wb-space-8);
+  margin-top: var(--wb-space-12);
+  padding-top: var(--wb-space-12);
   border-top: 1px solid var(--wb-border);
 }
 
@@ -2128,9 +2147,9 @@
 
 .leavingSelect {
   min-height: 3rem;
-  padding: 0 0.75rem;
+  padding: 0 var(--wb-space-12);
   border: 1px solid var(--wb-control-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--wb-control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -2138,9 +2157,9 @@
 
 .leavingButton {
   min-height: 3rem;
-  padding: 0 1rem;
+  padding: 0 var(--wb-space-16);
   border: 1px solid var(--clinical-accent);
-  border-radius: 0.5rem;
+  border-radius: var(--wb-control-radius);
   background: var(--clinical-accent);
   color: var(--clinical-accent-contrast);
   font: inherit;
@@ -2161,9 +2180,9 @@
  */
 .awayButton {
   min-height: 3rem;
-  padding: 0 1rem;
+  padding: 0 var(--wb-space-16);
   border: 1px solid var(--wb-control-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--wb-control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;

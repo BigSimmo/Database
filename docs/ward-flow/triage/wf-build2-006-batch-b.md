@@ -362,7 +362,7 @@ substantially rewritten since the sweep's "fix wave 1" era (the test itself docu
 describes for part (a) no longer exists in the form described.
 
 **(a) "Case-sensitive — the capitalised variant is extracted and matches nothing."** At HEAD, the check
-(`tests/ward-legal-figure-guard.test.ts:1579–1598`) does a direct, hardcoded, already-lowercase
+(`tests/ward-legal-figure-guard.test.ts`, lines 1579–1598) does a direct, hardcoded, already-lowercase
 substring match: `literals.some((literal) => literal.includes("no deadline recorded"))`. I read the
 actual production text it is checking — `src/components/ward-management/ward-management-console.tsx:83`
 and `coordinator/shortlist-panel.tsx:163` both literally render lowercase `"…no deadline recorded"` in

@@ -908,7 +908,7 @@
   flex-wrap: wrap;
   gap: var(--ward-space-10);
   align-items: flex-end;
-  margin-top: 0.75rem;
+  margin-top: var(--ward-space-12);
 }
 
 .blockerLabel {
