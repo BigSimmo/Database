@@ -1,0 +1,16 @@
+{
+  "acceptanceCriterion": "Every Ward source is accounted for exactly once, with one place that is current - proven against a mechanically generated inventory so nothing can be quietly omitted, and with zero sources left unclassified.",
+  "decisiveEvidence": "buildExpectedSourceInventory regenerated at 0cb1a2231 produced byte-identical output twice, hashing b8815764b9e2df0effde6dfc8f54ad433e5288052f010b37fa90ec4a1cca75ad both times: 895 sources - 882 ward documents across 7 refs, 6 chat-log exports, 5 auxiliary checkouts, the working line and the process audit. validateCurrentTruthManifest accepted the disposition manifest against it: 151 canonical, 735 superseded, 6 historical, 3 parked, 0 unclassified.",
+  "falsifier": "The committed inventory differs by a byte from a fresh regeneration at the source SHA; any inventory id is missing, duplicated or out of order in the manifest; unclassifiedSources is not zero; a canonical entry names a path whose blob does not match its source; or a supersession chain cycles or ends anywhere but a canonical source.",
+  "gateEvidence": {
+    "inventoryPath": "docs/ward-flow/control/evidence/current-truth/inventory-b8815764b9e2df0effde6dfc8f54ad433e5288052f010b37fa90ec4a1cca75ad.json",
+    "inventorySha256": "b8815764b9e2df0effde6dfc8f54ad433e5288052f010b37fa90ec4a1cca75ad",
+    "manifestPath": "docs/ward-flow/control/evidence/current-truth/disposition-158c1df5b32145aea60c53ed4a8565d572f7294cc565d7221379202aa572249a.json",
+    "manifestSha256": "158c1df5b32145aea60c53ed4a8565d572f7294cc565d7221379202aa572249a"
+  },
+  "id": "current-truth",
+  "kind": "ward-flow-transition-receipt",
+  "outcome": "passed",
+  "schemaVersion": 1,
+  "sourceSha": "0cb1a2231e283de470d8513b4c76952f3248739a"
+}

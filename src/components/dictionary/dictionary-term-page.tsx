@@ -329,7 +329,7 @@ export function DictionaryTermPage({ entry }: { entry: DictionaryEntry }) {
             </dl>
             <Link
               href="/dictionary/sources"
-              className="mt-5 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-[color:var(--clinical-accent)]"
+              className="mt-5 inline-flex min-h-tap items-center gap-1 text-sm font-semibold text-[color:var(--clinical-accent)] sm:min-h-10"
             >
               Review method
               <ArrowRight className="h-4 w-4" aria-hidden="true" />

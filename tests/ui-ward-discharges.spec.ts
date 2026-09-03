@@ -29,9 +29,21 @@ const UNIT_ID = "rph-adult-secure";
 const UNIT_NAME = "RPH Adult Secure";
 
 async function gotoWard(page: Page) {
-  await page.goto(`/mockups/ward-flow/ward/${UNIT_ID}`, { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
+  await page.goto(`/mockups/ward-flow/ward/${UNIT_ID}`, { waitUntil: "load" });
   await page.waitForLoadState("networkidle");
+  // The same streamed-content guard the containment test below already uses, and that
+  // `tests/ui-ward-referrals.spec.ts` uses twice, applied here for the identical reason: React's
+  // streaming leaves a hidden staging copy of the whole screen in the document for a moment, so
+  // `ward-unit-screen` resolves to two elements and a strict-mode locator throws. This helper was
+  // left behind when the containment test got the wait, so the journey below failed on its very
+  // first navigation. Waiting the staging subtree out is the fix rather than relaxing the locator
+  // to `.first()`, which would leave the journey asserting against whichever copy came first —
+  // possibly the inert server-rendered one, which no click ever reaches.
+  await expect(
+    page.locator('div[hidden][id^="S:"]'),
+    "React's streamed content is still staged, so the whole screen is duplicated in the document",
+  ).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
 }
 
 async function goToCapacityBoard(page: Page) {
@@ -47,7 +59,7 @@ async function goBackToWard(page: Page) {
 }
 
 /** The capacity board's per-unit row renders six `<span>`s in this fixed order — Now, Held,
- *  Confirmed, Predicted, Blocked, Occupied (`CapacityView`'s own JSX in
+ *  Confirmed, Expected, Blocked, Occupied (`CapacityView`'s own JSX in
  *  `ward-management-modes.tsx`) — each rendering as e.g. `"1Now"` with no space between the
  *  number and its label, so `toHaveText` matches the literal concatenation. */
 function bedStateCells(page: Page) {
@@ -55,13 +67,18 @@ function bedStateCells(page: Page) {
 }
 
 /**
- * A release row's own state label — the single `<strong>{bedReleaseStateLabels[release.state]}</strong>`
+ * A release row's own STAGE label — the first `<strong>{bedReleaseStateLabels[release.state]}</strong>`
  * in its `cardHeader` (`ward-screen.tsx`). Every row also carries a `WardFreshness` stamp that
- * literally reads "Confirmed HH:MM · NUM <ward>" for EVERY state, not only `confirmed` — the
- * reducer sets `confirmedAt`/`confirmedBy` on every `FLAG_BED_RELEASE`/`CONFIRM_BED_RELEASE`/
- * `BLOCK_BED_RELEASE` write regardless of the resulting `state`, because those fields mean "last
- * reported", not "currently in the confirmed state". A plain `toContainText("Confirmed")` on the
- * row is therefore true at every step and asserts nothing — this reads the state label alone.
+ * literally reads "Confirmed HH:MM · NUM <ward>" for EVERY stage, not only `confirmed` — the
+ * reducer sets `confirmedAt`/`confirmedBy` on every bed-release write regardless of the resulting
+ * `state`, because those fields mean "last reported", not "currently in the confirmed stage". A
+ * plain `toContainText("Confirmed")` on the row is therefore true at every step and asserts
+ * nothing — this reads the stage label alone.
+ *
+ * `.first()` matters more since the bed-model rework of 2026-08-28: a blocked row renders a
+ * SECOND `<strong>` for the flag, right after the stage. That is the change made visible — the
+ * stage and the flag are two facts shown together, where the four-stage model showed one word
+ * that erased the other.
  */
 function releaseStateLabel(row: Locator) {
   return row.locator("strong").first();
@@ -96,7 +113,11 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     );
 
     // --- Step 1: flag a bed coming free. No blocker chosen — a plain prediction. ---
-    await page.locator("#ward-bed-release-confidence").selectOption("likely");
+    // The Q1 axis change (2026-08-28): this picker asked for a confidence (`likely`) and now asks
+    // what the discharge is waiting on. "Nothing outstanding" is the value for a prediction with
+    // no obstacle — the closest thing to the old `likely`, and the right choice for a journey that
+    // goes on to prove a plain prediction moves the Expected figure.
+    await page.locator("#ward-bed-release-waiting-on").selectOption("Nothing outstanding");
     await page.locator("#ward-bed-release-expected-at").fill("16:30");
     await page.getByTestId("ward-flag-bed-release-submit").click();
 
@@ -108,24 +129,24 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     expect(newRowTestId, "a new bed-release row must appear after flagging").toBeDefined();
     const releaseId = newRowTestId!.replace("ward-bed-release-", "");
     const releaseRow = page.getByTestId(newRowTestId!);
-    await expect(releaseStateLabel(releaseRow)).toHaveText("Predicted");
+    await expect(releaseStateLabel(releaseRow)).toHaveText("Expected");
 
-    // --- The coordinator's capacity board reflects the flag: Predicted +1, Confirmed unmoved. ---
+    // --- The coordinator's capacity board reflects the flag: Expected +1, Confirmed unmoved. ---
     await goToCapacityBoard(page);
     const cells = bedStateCells(page);
     await expect(cells.nth(0)).toHaveText("1Now");
     await expect(cells.nth(2)).toHaveText("1Confirmed"); // WR-001, seeded confirmed
-    await expect(cells.nth(3)).toHaveText("1Predicted"); // the release just flagged
+    await expect(cells.nth(3)).toHaveText("1Expected"); // the release just flagged
 
     // --- Step 2: back to the ward, confirm the release. ---
     await goBackToWard(page);
     await page.getByTestId(`ward-bed-release-confirm-${releaseId}`).click();
     await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
 
-    // --- The board reflects the confirm: Confirmed +1, Predicted back to 0. ---
+    // --- The board reflects the confirm: Confirmed +1, Expected back to 0. ---
     await goToCapacityBoard(page);
     await expect(cells.nth(2)).toHaveText("2Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Predicted");
+    await expect(cells.nth(3)).toHaveText("0Expected");
 
     // --- Step 3: back to the ward, block the release with a reason from the fixed list —
     // never free text (binding spec §4). ---
@@ -133,22 +154,39 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     await page.getByTestId(`ward-bed-release-block-toggle-${releaseId}`).click();
     await page.getByTestId(`ward-bed-release-blocker-${releaseId}`).selectOption("Awaiting clean");
     await page.getByTestId(`ward-bed-release-block-submit-${releaseId}`).click();
-    await expect(releaseStateLabel(releaseRow)).toHaveText("Blocked");
+    // Bed-model rework (2026-08-28). Blocking is a FLAG, so the stage does not move: this row
+    // still reads "Confirmed", AND it now also reads "Blocked". Before the rework the stage label
+    // flipped to "Blocked" and the fact that the ward had already decided this discharge was
+    // gone from the screen entirely.
+    await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
+    await expect(page.getByTestId(`ward-bed-release-blocked-flag-${releaseId}`)).toHaveText("Blocked");
     await expect(releaseRow).toContainText("Awaiting clean");
 
-    // --- The board reflects the block: Confirmed drops back to 1. A blocked release counts as
-    // neither confirmed nor predicted (`capacityBreakdown` in `ward-bed-availability.ts`) — it is
-    // no longer on schedule but is not yet a physical fact either, and that absence from both
-    // figures is itself the honest read, not a bug this test should paper over. ---
+    // --- The board reflects the block WITHOUT losing the confirmed discharge. This assertion
+    // used to read "1Confirmed" and was the browser-level statement of the defect the rework
+    // exists to close: marking a confirmed discharge blocked dropped the ward's confirmed count
+    // by one, so the figures improved at the exact moment the ward got stuck. The bed is still a
+    // confirmed discharge — it is simply also stuck, and the stuck-ness is now its own figure. ---
     await goToCapacityBoard(page);
-    await expect(cells.nth(2)).toHaveText("1Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Predicted");
+    await expect(cells.nth(2)).toHaveText("2Confirmed");
+    await expect(cells.nth(3)).toHaveText("0Expected");
+    await expect(page.getByTestId("ward-capacity-headline-blocked-releases")).toContainText("Blocked releases");
+
+    // --- Step 3b: the flag comes off again without touching the stage. A flag that can only ever
+    // be set is not a flag, and under the four-stage model the only way out of "blocked" was a
+    // state change — which is the conflation being undone. ---
+    await goBackToWard(page);
+    await page.getByTestId(`ward-bed-release-unblock-${releaseId}`).click();
+    await expect(page.getByTestId(`ward-bed-release-blocked-flag-${releaseId}`)).toHaveCount(0);
+    await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
+    await goToCapacityBoard(page);
+    await expect(cells.nth(2)).toHaveText("2Confirmed");
 
     // --- Step 4: back to the ward, release the bed — the one transition in this lifecycle that
     // changes a real, physical bed count rather than just a record about one. ---
     await goBackToWard(page);
     await page.getByTestId(`ward-bed-release-release-${releaseId}`).click();
-    // `released` is terminal and drops off the ward's own pending list (spec D10).
+    // `discharged` is terminal and drops off the ward's own pending list (spec D10).
     await expect(releaseRow).toHaveCount(0);
 
     // --- The board reflects the release: Now (`availableNow`) rises by one — the single number
@@ -156,6 +194,116 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     await goToCapacityBoard(page);
     await expect(cells.nth(0)).toHaveText("2Now");
     await expect(cells.nth(2)).toHaveText("1Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Predicted");
+    await expect(cells.nth(3)).toHaveText("0Expected");
+  });
+
+  /**
+   * Phase 8, Task 10 fix round (F4). The discharges board's tables, across every width they are
+   * narrower at than they want to be.
+   *
+   * The Task 10 review noticed that `discharges.module.css` carried the same `.tableScroll` /
+   * `.table { min-width }` pattern that had just been found defective on the out-of-area ledger,
+   * 96px wider (44rem against 38rem), and that the pass had not looked at it. Measured in a
+   * browser before anything was changed, it reproduced on all four groups: `Freshness` — who
+   * confirmed this discharge and when — sat outside its scroller at 641, 700, 760 and 820px, and
+   * at 641px `Blocker` did too. Both were in the document at every one of those widths, which is
+   * exactly why nothing already on this branch could see it.
+   *
+   * Asserted as geometric containment rather than as a stylesheet value, so it goes on holding
+   * whatever the table's widths, the shell's padding or the icon rail become — and it is checked
+   * at four widths rather than one because, unlike the ledger's, this table's defective band ran
+   * well past the breakpoint where the card layout hands over.
+   *
+   * The floor first: every group must be rendering a table with cells in it. `toEqual([])` on a
+   * list of escaping cells passes trivially against a board that renders nothing at all, and this
+   * page renders its tables only when a group has entries.
+   */
+  test("no column of the discharges board's tables is off the screen at any width the table is used at", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 641, height: 900 });
+    await page.goto("/mockups/ward-flow/discharges", { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
+    // The streamed-content guard `tests/ui-ward-referrals.spec.ts` uses, and for the same reason:
+    // React's streaming leaves a hidden staging copy of the whole screen in the document for a
+    // moment, so every testid on this page resolves to two elements and a strict-mode locator
+    // throws. Measuring geometry against a staged duplicate would be meaningless even if it did
+    // not throw, so this waits for the staging subtree to go rather than retrying through it.
+    await expect(
+      page.locator('div[hidden][id^="S:"]'),
+      "React's streamed content is still staged, so the whole screen is duplicated in the document",
+    ).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByTestId("ward-discharge-board")).toBeVisible({ timeout: 15_000 });
+
+    const scrollers = page.locator('[data-testid^="ward-discharge-table-"]');
+    const scrollerCount = await scrollers.count();
+    expect(
+      scrollerCount,
+      "the discharges board renders no table under `ward-discharge-table-`, so the containment assertion below would pass having measured nothing",
+    ).toBeGreaterThan(0);
+
+    /*
+     * PRESENCE BEFORE CONTAINMENT — whole-branch review, W1.
+     *
+     * The geometric loop below measures whether a column ESCAPES its scroller. It says nothing
+     * about whether the column is there at all, and two ways of removing one pass it silently:
+     * delete the `th`/`td` pair and there is simply less to measure, or set `display: none` on it
+     * and the cell keeps a zero-sized rect whose `right` is 0, which can never exceed the
+     * scroller's. The `cells > 0` floor further down does not close either — five columns satisfy
+     * it as happily as six. `Freshness` — who confirmed this discharge and when, and the very
+     * column the containment check was built for — appeared in no assertion anywhere in `tests/`.
+     *
+     * `toHaveText` with an array pins the count, the order and the spelling in a single assertion.
+     * It does NOT close the hiding case, and the per-header `toBeVisible` loop below is not
+     * decoration: the review that raised this expected `toHaveText` to read only visible text, and
+     * it does not — Playwright compares `textContent` unless told otherwise, so a `th` carrying
+     * `display: none` still supplies its text. MEASURED, not assumed: with
+     * `style={{ display: "none" }}` on this table's `Freshness` header, the array assertion alone
+     * passed. `toBeVisible` is the matcher that fails for `display: none`, `visibility: hidden` and
+     * a zero-size box alike, which is the whole class the geometric loop cannot see.
+     *
+     * Pinned on the first table rather than all four: every group renders the same `<thead>` from
+     * one component, so one is the header contract and four would be the same assertion written
+     * four times. Nothing below is relaxed to make room for these.
+     */
+    const DISCHARGE_COLUMNS = ["Unit", "Health service", "Expected", "Stage", "Blocker", "Freshness"];
+    const dischargeHeaders = scrollers.first().locator("thead th");
+    await expect(
+      dischargeHeaders,
+      "the discharges board's table no longer carries exactly these six columns, in this order",
+    ).toHaveText(DISCHARGE_COLUMNS);
+    for (const [index, column] of DISCHARGE_COLUMNS.entries()) {
+      await expect(
+        dischargeHeaders.nth(index),
+        `the discharges board's \`${column}\` column is in the document but not on the screen`,
+      ).toBeVisible();
+    }
+
+    for (const width of [641, 700, 760, 820]) {
+      await page.setViewportSize({ width, height: 900 });
+      const measured = await scrollers.evaluateAll((nodes) =>
+        nodes.map((scroll) => {
+          const right = scroll.getBoundingClientRect().right;
+          const cells = [...scroll.querySelectorAll("thead th, tbody tr:first-child td")];
+          return {
+            id: scroll.getAttribute("data-testid") ?? "(no testid)",
+            cells: cells.length,
+            clipped: cells
+              .filter((cell) => cell.getBoundingClientRect().right > right + 1)
+              .map(
+                (cell) =>
+                  `${(cell.textContent ?? "").trim()} (right edge ${Math.round(cell.getBoundingClientRect().right)} vs scroller ${Math.round(right)})`,
+              ),
+          };
+        }),
+      );
+      for (const table of measured) {
+        expect(table.cells, `${table.id} at ${width}px renders no cells to measure`).toBeGreaterThan(0);
+        expect(
+          table.clipped,
+          `column(s) of ${table.id} are off the screen at ${width}px, reachable only by scrolling sideways inside the table`,
+        ).toEqual([]);
+      }
+    }
   });
 });
