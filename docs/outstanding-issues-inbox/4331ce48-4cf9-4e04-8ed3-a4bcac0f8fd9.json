@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4331ce48-4cf9-4e04-8ed3-a4bcac0f8fd9",
+  "createdOn": "2026-09-03",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Formulation strength badges take the last number in a listed range, so a multi-strength product badges one arbitrary strength",
+    "detail": "H1 (PR #2580) fixed the decimal and concentration cases but left the list-tail shape untouched, and the reviewer flagged it as pre-existing rather than introduced. Morphine's \"Tablets IR (10, 20 mg)\" badges as \"20 mg tablet\". The number is a real strength of a real product, so this is not the tenfold misread H1 closed, but the choice of which strength to show is arbitrary and a clinician glancing at the badge is given no signal that 10 mg also exists. Scope not yet measured: only the morphine case is confirmed, and the first step is to count how many of the 328 catalogue records state a comma-separated or hyphenated strength list in their formulation text. FIX candidates, in preference order: (a) render the full range when a formulation states more than one strength, so the badge reads the same as the source, (b) suppress the badge for multi-strength products, matching the conservative choice H1 already made for concentration-only and combination products. Do NOT simply switch the regex from the last match to the first without deciding the question, since that is equally arbitrary in the other direction. Any change is pinned by the corpus-wide invariant already in tests/medication-badges.test.ts.",
+    "source": "Reviewer note on PR #2580 (audit fixes P1, finding H1), recorded 2026-09-03; the same PR body carries it as a suggested follow-up finding.",
+    "issueUlid": "01M1MA4WZP7ZA9S95YQWD4A47D"
+  }
+}
