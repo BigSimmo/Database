@@ -1,0 +1,35 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-daily-sheet.dom.test.tsx (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-daily-sheet.dom.test.tsx [ tests/ward-daily-sheet.dom.test.tsx ]
+Error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mIdentifier `wardAdmissions` has already been declared
+    [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m tests/ward-daily-sheet.dom.test.tsx:15:10 [38;5;246m][0m
+    [38;5;246m│[0m
+ [38;5;246m15 │[0m [38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0mwardAdmissions[38;5;249m,[0m[38;5;249m [0m[38;5;249mW[0m[38;5;249mA[0m[38;5;249mR[0m[38;5;249mD[0m[38;5;249m_[0m[38;5;249mA[0m[38;5;249mD[0m[38;5;249mM[0m[38;5;249mI[0m[38;5;249mS[0m[38;5;249mS[0m[38;5;249mI[0m[38;5;249mO[0m[38;5;249mN[0m[38;5;249mS[0m[38;5;249m_[0m[38;5;249mA[0m[38;5;249mN[0m[38;5;249mC[0m[38;5;249mH[0m[38;5;249mO[0m[38;5;249mR[0m[38;5;249m,[0m[38;5;249m [0mwardAdmissions[38;5;249m [0m[38;5;249m}[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249m@[0m[38;5;249m/[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m/[0m[38;5;249mw[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249md[0m[38;5;249m-[0m[38;5;249mm[0m[38;5;249ma[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249mg[0m[38;5;249me[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249m/[0m[38;5;249mw[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249md[0m[38;5;249m-[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mm[0m[38;5;249mi[0m[38;5;249ms[0m[38;5;249ms[0m[38;5;249mi[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249m-[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m"[0m[38;5;249m;[0m
+ [38;5;240m   │[0m          ───────┬──────                          ───────┬──────  
+ [38;5;240m   │[0m                 ╰──────────────────────────────────────────────── `wardAdmissions` has already been declared here
+ [38;5;240m   │[0m                                                         │        
+ [38;5;240m   │[0m                                                         ╰──────── It can not be redeclared here
+[38;5;246m────╯[0m
+
+  Plugin: vite:oxc
+  File: D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/tests/ward-daily-sheet.dom.test.tsx
+ ❯ transformWithOxc node_modules/vite/dist/node/chunks/node.js:4017:19
+ ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:4088:26
+ ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:30151:51
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/node.js:20098:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  06:21:10
+   Duration  1.46s (transform 32ms, setup 293ms, import 0ms, tests 0ms, environment 973ms)
+

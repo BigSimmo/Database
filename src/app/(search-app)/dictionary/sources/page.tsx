@@ -12,5 +12,5 @@ export default async function DictionarySourcesRedirect({
     for (const item of Array.isArray(value) ? value : [value]) destination.append(key, item);
   }
   destination.set("usedBy", "dictionary");
-  redirect(`/sources?${destination.toString()}`);
+  redirect(`/sources/search?${destination.toString()}`);
 }

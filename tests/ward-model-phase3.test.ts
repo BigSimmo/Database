@@ -49,8 +49,8 @@ describe("Phase 3 model additions", () => {
 
   it("holds a bed only with a time for the hold to expire at", () => {
     for (const movement of wardMovements) {
-      if (movement.stage !== "bed_held") continue;
-      expect(movement.bedHeldUntil).toBeDefined();
+      if (movement.stage !== "pulled") continue;
+      expect(movement.pullExpiresAt).toBeDefined();
     }
   });
 

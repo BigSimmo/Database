@@ -9,6 +9,19 @@ import type {
 export type MedicationGovernance = {
   sourceStatus?: string;
   validationStatus?: string;
+  /**
+   * ISO calendar date (yyyy-mm-dd) the record's sources were last checked against
+   * the publisher, when that is known. Absent or null means the date could not be
+   * read, which is reported as such rather than smoothed over.
+   */
+  sourceCheckedAt?: string | null;
+  /**
+   * Whether the record carries any source text at all. Absent means the caller did
+   * not derive it, and the badge then makes the weaker of the two claims — asserting
+   * "no sources recorded" about a record whose sources were simply never inspected
+   * would be a fabrication, where "date unknown" is merely incomplete.
+   */
+  sourcesRecorded?: boolean;
 };
 
 export type MedicationBadge = {
@@ -217,6 +230,88 @@ function textHeuristicBadges(
   }
 }
 
+const SOURCE_CHECK_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+// Formatted from the ISO parts by hand rather than through `toLocaleDateString`, so
+// the label a server render produces is byte-identical to the one the browser
+// hydrates — no locale or timezone can shift the month by a day.
+function sourceCheckedMonthLabel(sourceCheckedAt?: string | null): string | null {
+  if (!sourceCheckedAt) return null;
+  const match = /^(\d{4})-(0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.exec(sourceCheckedAt);
+  if (!match) return null;
+  return `${SOURCE_CHECK_MONTHS[Number(match[2]) - 1]} ${match[1]}`;
+}
+
+/**
+ * Source-freshness badge, or `null` where there is nothing worth a chip.
+ *
+ * A DEFICIENCY badge, not a status readout. `current` gets no badge at all: it is the
+ * unremarkable case, its text was identical for 327 of the 330 snapshot records, and
+ * the identity cluster is already saturated. Every one of those records produces at
+ * least five badges and the detail hero renders `limit={5}`, so an always-on chip does
+ * not add a row — it evicts one, and the tone ordering made it evict prescribing
+ * information: measured at a 2026-09-02 reference date, 201 of 330 records lost their
+ * Poisons Schedule (122) or TGA/OFF indication tag (77) chip to a "Source checked …"
+ * chip carrying almost no information. A record showing neither `TGA` nor `OFF` reads
+ * as unknown regulatory status rather than approved, and the overflow `+N` chip is
+ * plain text with no tooltip, so what it swallows is genuinely unreachable. Re-toning
+ * `current` does not help; the cluster is full either way. Surface a last-checked date
+ * for a healthy record as text, never as a chip.
+ *
+ * What DOES earn a chip is a deficiency the reader cannot otherwise see: sources that
+ * are due a re-check, sources whose date could not be read, no recorded sources at all,
+ * or a recorded supersession. Those never look identical to a record checked last month
+ * again, which is the whole point of the status.
+ *
+ * The wording describes when the sources were last checked against the publisher and
+ * stops there. It never says the entry was "checked" unqualified — that reads as a
+ * claim that someone validated the content, which is the same conflation `isReviewed`
+ * above exists to prevent.
+ */
+function sourceFreshnessBadge(governance: MedicationGovernance): MedicationBadge | null {
+  const checkedMonth = sourceCheckedMonthLabel(governance.sourceCheckedAt);
+
+  if (governance.sourceStatus === "current") {
+    return null;
+  }
+  if (governance.sourceStatus === "review_due") {
+    // The actionable half leads, because the chip truncates from the end.
+    return {
+      id: "identity-source-review-due",
+      label: checkedMonth ? `Source check due — sources last checked ${checkedMonth}` : "Source check due",
+      tone: "warning",
+    };
+  }
+  if (governance.sourceStatus === "outdated") {
+    // Dormant by design: nothing derives `outdated` today. Age alone cannot establish
+    // that guidance has been superseded — that is a clinical judgement nobody has
+    // recorded — so this branch waits for a recorded-supersession flow instead of
+    // being inferred from a second, longer age threshold.
+    return { id: "identity-source-superseded", label: "Source superseded", tone: "danger" };
+  }
+  // Anything else — an explicit `unknown`, a missing status, or a value this build does
+  // not recognise — degrades to a visible warning rather than to silence. Split by which
+  // deficiency it actually is: a record with no `src` section whatsoever is worse off
+  // than one whose date merely would not parse, and saying so costs nothing.
+  if (governance.sourcesRecorded === false) {
+    return { id: "identity-source-none", label: "No sources recorded", tone: "warning" };
+  }
+  return { id: "identity-source-unknown", label: "Source date unknown", tone: "warning" };
+}
+
 export function medicationIdentityBadges(
   record: MedicationRecord,
   governance?: MedicationGovernance,
@@ -267,10 +362,11 @@ export function medicationIdentityBadges(
     pushBadge(badges, { id: "identity-reviewed", label: "Reviewed", tone: "success" });
   }
 
-  if (governance?.sourceStatus === "review_due") {
-    pushBadge(badges, { id: "identity-review-due", label: "Review due", tone: "warning" });
-  } else if (governance?.sourceStatus === "outdated") {
-    pushBadge(badges, { id: "identity-outdated", label: "Outdated", tone: "danger" });
+  if (governance) {
+    const sourceBadge = sourceFreshnessBadge(governance);
+    if (sourceBadge) {
+      pushBadge(badges, sourceBadge);
+    }
   }
 
   return sortBadgesByPriority(dedupeBadges(badges));

@@ -20,13 +20,13 @@ export type LegalStatusChangeReason = (typeof LEGAL_STATUS_CHANGE_REASONS)[numbe
  * never typed, operational and content-free. Neither describes a patient, a diagnosis, a clinical
  * judgement or a legal requirement.
  */
-export const RELEASE_HOLD_REASONS = [
+export const RELEASE_PULL_REASONS = [
   "patient_no_longer_coming",
   "bed_needed_for_another_patient",
   "ward_withdrew_the_bed",
-  "hold_made_in_error",
+  "pull_made_in_error",
 ] as const;
-export type ReleaseHoldReason = (typeof RELEASE_HOLD_REASONS)[number];
+export type ReleasePullReason = (typeof RELEASE_PULL_REASONS)[number];
 
 export const CANCEL_TRANSPORT_REASONS = [
   "provider_unavailable",
@@ -84,13 +84,286 @@ export const BED_RELEASE_BLOCKERS = [
   "Awaiting accommodation",
   "Awaiting transport",
   "Awaiting receiving-service acceptance",
+  // OWNER-APPROVED addition, 2026-08-28 ("The three lists", List 1). This entry deliberately
+  // OVERTURNS the Phase 5 exclusion recorded in the comment above ("family availability"), and
+  // the reasoning is recorded here so the next reader does not re-argue it: the "describes the person, not the bed" rule is sound in
+  // general and is kept everywhere else, but it fails on its own terms here. A discharge held up
+  // because nobody can collect someone, or because the family need a day's notice, IS a real
+  // reason the bed is not coming free. Excluding it does not stop it happening — it makes a ward
+  // record "Awaiting service coordination" instead, and the recorded reason becomes WRONG. A
+  // wrong reason is worse than a blunt one.
+  //
+  // Guardianship and financial arrangements stay excluded; the Phase 5 reasoning still holds for
+  // those two. Adding any further entry remains a recorded product decision, never an
+  // implementer's convenience.
+  //
+  // Provenance, stated because it matters: these words were proposed by an agent session and
+  // APPROVED by the product owner. No charge nurse has seen them. If a clinician offers different
+  // words, theirs replace these verbatim.
+  "Awaiting family or carer arrangement",
 ] as const;
 export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
 
+/**
+ * The bed-model rework of 2026-08-28 (`docs/ward-flow-phase-6-7-decisions.md`, Q4). Once a bed is
+ * released it may carry a short indication that it is being MADE READY — the owner's example was
+ * cleaning. His own clinical reasoning is why this is a note and not a fifth lifecycle stage:
+ *
+ * > "Once a bed is available, a patient will be pulled. Pulled patient takes hours to transport
+ * > and move, so it is fine to allocate this bed. Just have a note for preparing bed maybe until
+ * > it is ready."
+ *
+ * So the note is **informational and must NEVER gate allocation**. A bed being made ready is
+ * still offered, still counts in `availableNow`, and still appears in every figure. Anything
+ * else reintroduces the delay that answer says does not exist. Structurally this is enforced
+ * three ways and none of them is a comment: the note lives on a `BedRelease`, `capacityBreakdown`
+ * derives `availableNow` from the UNIT's own fields and never reads a release at all, and
+ * matching never reads a `BedRelease` in the first place (`tests/ward-referral-matching.test.ts`).
+ *
+ * **The owner supplied the list on 2026-08-28** ("The three lists", List 3), so this array is no
+ * longer empty and the note is expressible. Cleaning is his own example. Maintenance is the other
+ * thing expected to take a bed out of use briefly without anything clinical changing. Both
+ * describe the BED and nothing else, which is the same bar every list above holds to.
+ *
+ * Provenance, stated because it matters: these words were proposed by an agent session and
+ * APPROVED by the product owner. No charge nurse has seen them. If a clinician offers different
+ * words, theirs replace these verbatim. Adding an entry is a recorded product decision, never an
+ * implementer's convenience.
+ */
+/**
+ * WHY A COORDINATOR REFERRED DESPITE A FAILING GATE. Owner-approved verbatim, 2026-08-29 — the
+ * canonical record is `WB-DB-15` (as superseded to five) and `WB-DB-16` on the ward board
+ * specification.
+ *
+ * FIVE, not four. `WB-DB-15` shipped as four and carries its own superseded-to-five block; anyone
+ * working from the four-reason version is reading the superseded entry.
+ *
+ * Stored as the sentences themselves rather than as keys with a separate label map, matching
+ * `BED_RELEASE_BLOCKERS` and `BED_PREPARATION_NOTES` above: these are the owner's own words, and a
+ * key plus a label is two places for one fact and one of them free to drift.
+ *
+ * ⚠️ **THERE IS NEVER AN "OTHER, PLEASE SPECIFY"** (`WB-DB-16`). That entry is the whole constraint:
+ * it is how free text returns through the back door after being removed from the front. Adding one
+ * would undo the decision this list exists to implement.
+ *
+ * **"Nowhere eligible" is deliberately excluded.** It is already its own recorded act — an
+ * escalation (`RECORD_ESCALATION`) — and a second vocabulary for one fact is how two screens come
+ * to describe the same event differently.
+ */
+/**
+ * 🔴 WHY A WARD'S REFERRAL ENDED — and it may NEVER say where the patient went (`FD-23`).
+ *
+ * Until 2026-08-30 `withdrawnReferrals[].reason` was a bare `string`, and both the reducer and the
+ * seed filled it with the winner's name:
+ *
+ *     reason: `withdrawn — placed at ${acceptedUnit.name}`
+ *     reason: "Referral withdrawn once RGH Adult Secure confirmed the bed"
+ *
+ * The ward page renders that verbatim, so a LOSING ward read the ACCEPTING ward's name out of the
+ * very field that exists to record its own loss. Confirmed on screen by two sessions independently.
+ *
+ * ⚠️ **NO SHAPE GUARD COULD SEE IT.** `ward-referral-visibility.ts` holds a mutation-tested
+ * field-set allowlist at every level and this passed all of them: `reason` was a permitted field of
+ * a permitted type carrying a forbidden VALUE. A guard over shapes cannot see a fact smuggled in
+ * prose.
+ *
+ * ⚠️ **WHICH IS WHY THE FIX IS A TYPE AND NOT A BETTER SENTENCE.** Sanitising the string leaves a
+ * free-form `string` any future edit can refill, with nothing red to say so. As a union the leak is
+ * UNREPRESENTABLE rather than merely absent.
+ *
+ * The list is short because the model has exactly one way this happens today. Adding a member is a
+ * governance decision, not an implementation one — and no member may name a place.
+ *
+ * **Nothing is lost to the coordinator:** it may read `movement.acceptedUnitId` directly, because it
+ * is allowed to. The destination stops travelling inside a ward-readable string.
+ */
+/**
+ * ⚠️ **A SECOND MEMBER, 2026-09-01, AND THE COMMENT ABOVE PREDICTED EXACTLY THIS.** It warned that
+ * "another unit accepted" is true of every entry only because `ACCEPT_IN_PRINCIPLE` was the sole
+ * writer, and that a second withdrawal path with a different cause makes that label quietly wrong
+ * on a ward screen. `WITHDRAW_REFERRAL` is that second path, so the code carries its own cause
+ * rather than inheriting one that would now be false.
+ *
+ * `referrer_withdrew` says the referrer withdrew it and nothing else. It names no place, no
+ * clinical fact and nobody — the same discipline `Admission declined` already applies by dropping
+ * the person-token: the recorded fact is that the referral was withdrawn, which is complete without
+ * saying why.
+ *
+ * ⚠️ **WHY THERE IS NO REASON LIST BEHIND IT.** A referrer withdraws because the patient improved,
+ * went home, went elsewhere, or died. Those are clinical facts about a person, and this comment's
+ * own rule is that adding a member here is a governance decision and not an implementation one. So
+ * the flow is built and the vocabulary is left to the owner. If he wants reasons, they are his list.
+ */
+export const WITHDRAWAL_REASONS = ["another_unit_accepted", "referrer_withdrew"] as const;
+export type WithdrawalReason = (typeof WITHDRAWAL_REASONS)[number];
+
+/**
+ * What a ward is shown. Says the referral ended and why, and names no place.
+ *
+ * ⚠️ **"ACCEPTED", NOT "PLACED" — AND THAT IS A SECOND DEFECT, NOT A WORDING PREFERENCE.**
+ * The first code here was `placed_elsewhere`, labelled *"the patient was placed elsewhere"*.
+ * It closed the leak and kept a falsehood: `ACCEPT_IN_PRINCIPLE` leaves the movement at
+ * `accepted_awaiting_bed`, so **the patient is accepted, not moved**, and the sentence asserted
+ * a transfer that had not happened. Two sessions drafted "placed" independently and one caught
+ * it. The lesson is the one worth keeping: **each of us checked the string for the thing we
+ * were hunting, and not for whether it was true.**
+ *
+ * The wording matches the ward page verbatim, so the record and the screen cannot drift apart.
+ *
+ * ⚠️ **AND IT IS TRUE ONLY CONDITIONALLY.** "Another unit accepted" is true of every entry that
+ * can exist today because `ACCEPT_IN_PRINCIPLE` is the only writer of `withdrawnReferrals` —
+ * measured, one site, and pinned by `tests/ward-withdrawal-reason-privacy.test.ts`. A second
+ * withdrawal path with a different cause makes this label quietly wrong; the pin is what makes
+ * that a red test rather than a silent falsehood on a ward screen.
+ */
+export const withdrawalReasonLabels: Record<WithdrawalReason, string> = {
+  another_unit_accepted: "Withdrawn — another unit accepted this patient.",
+  // Says the referral ended and that the referrer ended it. Asserts nothing about the person, and
+  // names no destination — a ward reading this learns that it may stop holding the request, which
+  // is the whole of what it needs.
+  referrer_withdrew: "Withdrawn by the referrer.",
+};
+
+export const OVERRIDE_REASONS = [
+  "The receiving team has agreed despite the mismatch",
+  "Clinical urgency outweighs the mismatch",
+  "The bed information is known to be out of date",
+  "Continuity with a previous admission at this unit",
+  "Closer to the person's home or family",
+] as const;
+export type OverrideReason = (typeof OVERRIDE_REASONS)[number];
+
+export const BED_PREPARATION_NOTES = ["Being cleaned", "Awaiting maintenance or repair"] as const;
+export type BedPreparationNote = (typeof BED_PREPARATION_NOTES)[number];
+
+/**
+ * ⚠️ PLACEHOLDER VALUES. THE OWNER HAS NOT CHOSEN THESE. HE ASKED FOR TEN TO BUILD AGAINST.
+ *
+ * Owner, 2026-08-30: "patients must met a certain high threshold to be marked as urgent", then
+ * "Just have 10 placeholder urgent reasons for now." So the SHAPE is his decision and the CONTENT
+ * is a stand-in written by a session, and those two facts must not be allowed to merge. A chosen
+ * value and a provisional value look identical in code; the difference is whether anybody can find
+ * it again (`docs/ward-flow-provisional-values.md`). This block is that finding.
+ *
+ * WHY THIS LIST EXISTS AT ALL. Urgency is the primary sort and outranks every wait, so a tier that
+ * is easy to apply inflates until it means nothing — and the wait ordering underneath it stops
+ * mattering too. The threshold is the safeguard. It is expressed as a fixed list a HUMAN PICKS
+ * FROM, never a number the software evaluates: a computed threshold would breach "nothing predicts,
+ * scores, ranks or recommends a person", and a sourced clinical one would breach "no figure,
+ * timeframe or threshold from the Mental Health Act" without a named accountable owner.
+ *
+ * ⚠️ AND THESE STRAIN THIS FILE'S OWN RULE, which is why it is said out loud rather than left for a
+ * reviewer to notice. The block at the top of this file says its reasons are "operational and
+ * content-free" and that "if richer reasons are wanted they come from the product owner; no agent
+ * adds one". A reason for urgency CANNOT be entirely content-free — saying why somebody must be
+ * moved first is closer to the person than saying why a pull was released. These are written in the
+ * most operational register available (what the current setting cannot do, rather than what is
+ * wrong with the person), they carry no diagnosis, no narrative, no figure and no timeframe, and
+ * they duplicate nothing the model already holds — cohort, security need and legal status are
+ * separate fields and must not be restated here. The owner asked for them, which is the condition
+ * the rule names.
+ *
+ * ⚠️ TWO OF THESE WERE REWORDED ON 2026-08-30, AND THEY ARE STILL PLACEHOLDERS. The originals were
+ * `currently_secluded_or_restrained` and `repeated_attempts_to_leave`. Both described the PERSON;
+ * the other eight describe what the CURRENT SETTING cannot do. They now match that shape.
+ *
+ * The reason is not tidiness. A receiving ward has one question — can we safely take this person? —
+ * and the setting-shaped form answers it directly, while the person-shaped form made the ward infer
+ * it AND broadcast a fact about someone's care to every service that can see the referral. So the
+ * reword DISSOLVES the open question of who may see a reason rather than answering it: if every
+ * reason is about a ward's own capability, nothing sensitive travels with the referral, and the
+ * coordinator and the wards can hold the same list with nothing hidden and nothing filtered. One
+ * decision instead of two, and no new rule for anyone to enforce.
+ *
+ * ⚠️ THE OWNER APPROVED THIS SHAPE, RELAYED THROUGH ANOTHER SESSION. HE DID NOT WRITE THESE WORDS.
+ * The distinction that must survive every future edit of this block is the one it opened with: the
+ * SHAPE is his decision and the CONTENT is a session's stand-in. Nothing here may start reading as
+ * his language.
+ *
+ * ⚠️ THIS BLOCK ALSO SAID "AND HAS NOT SEEN THEM", AND THAT HALF IS NOW FALSE — corrected rather
+ * than deleted, because the correction is the record. On 2026-08-31 he SAW the ten, delegated the
+ * cut, and pre-accepted the result sight-unseen: *"You just choose the top 6 you think based on your
+ * understanding of flow and I accept that for now to be changed later."* Relayed to this session,
+ * not heard first-hand.
+ *
+ * So the true state is three things and they are not the same thing:
+ *   - the SHAPE is his,
+ *   - the SELECTION of six from ten is a session's, made under his delegation,
+ *   - the ACCEPTANCE is PROVISIONAL AND TIME-LIMITED BY HIS OWN WORDS — "for now to be changed
+ *     later" is his phrase and it stays.
+ *
+ * ⚠️ WHICH FOUR WENT, AND WHY, so the selection is reviewable rather than asserted:
+ *   - `one_to_one_observation_needed` — overlapped `cannot_be_observed_safely_here` and was the more
+ *     PERSON-SHAPED of the pair.
+ *   - `restrictive_measures_this_setting_cannot_sustain` — overlapped that one AND
+ *     `escort_in_place_and_unsustainable`.
+ *   - `earlier_placement_broke_down` — a HISTORY fact, not a current-state driver. It says what
+ *     happened, not what this setting cannot do.
+ *   - `this_setting_cannot_continue_current_care` — a CATCH-ALL, and a catch-all gets chosen instead
+ *     of the specific reason, which degrades the data it exists to produce.
+ *
+ * ⚠️ THE TRADE-OFF WAS STATED HERE AS REVERSIBLE, AND THE OWNER REVERSED IT ON 2026-09-03.
+ * The catch-all is BACK, so the list is SEVEN. His ruling: a coordinator sometimes has a reason
+ * that is none of the six, and forcing them to pick the nearest wrong one is worse than the data
+ * cost of a catch-all — the argument this comment made for dropping it, decided the other way by
+ * the person whose data it is.
+ *
+ * ⚠️ THE PARAGRAPH ABOVE IS KEPT BECAUSE IT WAS THE REASONING, NOT BECAUSE IT IS THE CURRENT
+ * STATE. A reader who finds it and stops would otherwise carry away a list of six. The key and
+ * label restored are VERBATIM from `e6b7afb91`, the commit that removed them.
+ *
+ * ⚠️ AND THE SETTING-SHAPED RULE SURVIVED THE CUT ON PURPOSE. Every one of the six still describes
+ * what a SETTING cannot do rather than a fact about the person — the property that dissolved the
+ * who-may-see-a-reason question above. A future edit that adds a person-shaped reason back does not
+ * merely add a word; it reopens that question and reintroduces the filtering rule the reword
+ * removed. `tests/ward-change-reasons.test.ts` pins the EIGHT and their labels.
+ *
+ * REPLACING THEM IS ONE EDIT HERE plus the labels below. Nothing else authors this list.
+ */
+export const URGENT_MARK_REASONS = [
+  "cannot_safely_prevent_leaving",
+  "cannot_be_observed_safely_here",
+  "safety_of_others_in_this_setting",
+  "no_psychiatric_cover_at_this_site",
+  "needs_medical_care_unavailable_here",
+  "escort_in_place_and_unsustainable",
+  // ⚠️ THE CATCH-ALL, RESTORED ON THE OWNER'S RULING OF 2026-09-03. It was dropped when the
+  // ten placeholders were cut to six (`e6b7afb91`), which left a coordinator whose reason is
+  // none of the six with nothing to choose. Key and label are VERBATIM from the commit that
+  // removed them, not re-invented — he approved restoring the dropped wording, so the dropped
+  // wording is what goes back.
+  "this_setting_cannot_continue_current_care",
+  // ⚠️ PLACEHOLDER COPY — OWNER DECISION OUTSTANDING. He ruled on 2026-09-03 that the entry above,
+  // though the broadest of the four that were dropped, is NOT a true "none of these apply", and
+  // approved adding one. The SHAPE is his; these exact words are a session's stand-in and he has
+  // not confirmed them.
+  //
+  // ⚠️ IT IS DELIBERATELY VAGUE, on his stated reasoning: A WRONG REASON IN A CLINICAL RECORD IS
+  // WORSE THAN A VAGUE ONE. A coordinator whose situation fits none of the seven previously had to
+  // pick the nearest wrong one, and that wrong reason is what a receiving ward then reads.
+  //
+  // ⚠️ NEVER GIVE THIS ONE A FREE-TEXT BOX (WB-DB-16). "Other, please specify" is how clinical
+  // free text re-enters a system that removed it on purpose. It stays a bare option.
+  //
+  // It also breaks this list's setting-shaped rule by construction — it describes nothing about
+  // the setting OR the person, which is precisely why it cannot be mistaken for a clinical claim.
+  "another_reason_not_listed",
+] as const;
+export type UrgentMarkReason = (typeof URGENT_MARK_REASONS)[number];
+
 export const changeReasonLabels: Record<
-  UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason,
+  UrgencyChangeReason | LegalStatusChangeReason | ReleasePullReason | CancelTransportReason | UrgentMarkReason,
   string
 > = {
+  // Placeholder labels for the placeholder list above — replaced together, never separately.
+  cannot_be_observed_safely_here: "Cannot be observed safely here",
+  no_psychiatric_cover_at_this_site: "No psychiatric cover at this site",
+  cannot_safely_prevent_leaving: "Cannot safely prevent leaving",
+  needs_medical_care_unavailable_here: "Needs medical care unavailable here",
+  safety_of_others_in_this_setting: "Safety of others in this setting",
+  escort_in_place_and_unsustainable: "Escort in place and unsustainable",
+  this_setting_cannot_continue_current_care: "This setting cannot continue current care",
+  another_reason_not_listed: "Another reason, not listed here",
   reassessed: "Reassessed",
   new_information: "New information",
   correcting_an_error: "Correcting an error",
@@ -102,7 +375,7 @@ export const changeReasonLabels: Record<
   patient_no_longer_coming: "No longer coming",
   bed_needed_for_another_patient: "Bed needed elsewhere",
   ward_withdrew_the_bed: "Ward withdrew the bed",
-  hold_made_in_error: "Hold made in error",
+  pull_made_in_error: "Pull made in error",
   provider_unavailable: "Provider unavailable",
   patient_not_ready: "Not yet ready",
   destination_changed: "Destination changed",
