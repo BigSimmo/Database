@@ -1,0 +1,81 @@
+{
+  "impl": {
+    "package": "p9",
+    "commits": [
+      "9c1696b38 permissions: replace the blanket git push allow with safe spellings (M21)",
+      "7760a4c2e agents: point the RAG and governance reviewer scopes at src/lib/rag/** (M35)",
+      "39b84e0ed cursor: restrict the Supabase MCP to docs and development features (L39)",
+      "687e0d852 permissions: deny Supabase write tools under the connector spelling too (L40)",
+      "9f8bba188 cursor: make the repo-auditor skill triage-only, matching the Claude twin (L62)",
+      "66681dd07 cursor: make the Supabase skill's repository override path-free (L102)",
+      "08bb485a4 cursor: strip the UTF-8 BOM from .cursorignore (L132)"
+    ],
+    "findings_fixed": [
+      "M21",
+      "M35",
+      "L39",
+      "L40",
+      "L62",
+      "L102",
+      "L132"
+    ],
+    "findings_skipped": [
+      {
+        "id": "L41",
+        "reason": "Not fixable offline within the owned files. Pinning the gh 2.67.0 tarball SHA-256 in scripts/setup-claude-cloud.sh requires fetching the upstream checksums file (a network call, forbidden); no local copy of the tarball or its checksums exists (only the installed gh binary, whose hash is not the upstream tarball hash), and a fabricated pin would break cloud provisioning. The Node tarball download lives in .claude/hooks/session-start.sh, which is outside the package's owned scope (.claude/hooks/*.sh is owned for PR-handoff wording only). Nothing changed; the plugin npm install is left as is per the notes."
+      },
+      {
+        "id": "L61",
+        "reason": "Needs an owner decision and touches unowned tests. The 30-minute-babysit-default wording the notes ask for is pinned the opposite way by two test files outside the owned list: tests/pr-handoff-stop.test.ts ('makes handoff the default and reserves babysitting for an explicit request', asserts 'hand over its URL and stop' and 'expressly asks') and tests/bare-pr-publication-policy.test.ts ('makes handoff the post-PR default instead of inviting CI babysitting', asserts the same two phrases in .claude/hooks/pr-handoff-stop.sh). Rewording the hook without editing both tests leaves the suite red; editing them flips a policy the owner set in PR #2220. Hook left unchanged (exit behaviour and timeouts untouched)."
+      }
+    ],
+    "tests_added": [
+      "tests/claude-code-settings.test.ts — describe 'git push tightening': 3 safe spellings allowed, 28 dangerous spellings denied and not allow-reachable, 5 prompt-only spellings not allow-reachable, no blanket Bash(git push:*) rule (M21)",
+      "tests/claude-code-settings.test.ts — 'denies every write-capable Supabase MCP tool under both the server and connector spellings' (L40)",
+      "tests/agent-scopes.test.ts (new) — brace-expands every backticked ## Scope entry in .claude/agents/*.md against the tree; requires rag-retrieval-reviewer and clinical-governance-reviewer to scope src/lib/rag/** and the description to drop src/lib/rag*.ts (M35)",
+      "tests/agent-scopes.test.ts — 'cursor repo-auditor skill is triage-only, like the claude repo-auditor agent' (L62)",
+      "tests/agent-scopes.test.ts — 'cursor supabase skill's repository override does not depend on a workstation path' (L102)",
+      "tests/agent-scopes.test.ts — '.cursorignore has no UTF-8 byte-order mark' (L132)",
+      "tests/cursor-mcp-contract.test.ts — 'restricts the Supabase MCP to the docs and development feature groups, like the Claude and Codex entries' (L39)"
+    ],
+    "files_touched": [
+      "/home/user/wt/p9/.claude/settings.json",
+      "/home/user/wt/p9/.claude/agents/rag-retrieval-reviewer.md",
+      "/home/user/wt/p9/.claude/agents/clinical-governance-reviewer.md",
+      "/home/user/wt/p9/.cursor/mcp.json",
+      "/home/user/wt/p9/.cursor/skills/repo-auditor/SKILL.md",
+      "/home/user/wt/p9/.cursor/skills/supabase/SKILL.md",
+      "/home/user/wt/p9/.cursorignore",
+      "/home/user/wt/p9/tests/claude-code-settings.test.ts",
+      "/home/user/wt/p9/tests/cursor-mcp-contract.test.ts",
+      "/home/user/wt/p9/tests/agent-scopes.test.ts"
+    ],
+    "residual_risk": "All fixes are verified offline only: the related suites (claude-code-settings, agent-scopes, cursor-mcp-contract, session-start-hook, claude-cloud-profile, database-skills, repository-skill-inventory, bare-pr-publication-policy, pr-handoff-stop: 9 files, 366 tests) pass, npx tsc --noEmit -p tsconfig.typecheck.json is clean, npm run check:skills is green, and Prettier passes on every touched file; the package gate (verify:pr-local) was not run per the hard rules. Two scope notes for the reviewer: the owned-list globs name tests/claude-settings*.test.ts, but the real settings test is tests/claude-code-settings.test.ts, and the L39 fix required its URL assertion in tests/cursor-mcp-contract.test.ts to change — both were edited on the reading that the package owns the tests of its owned files. On M21, the permission model is prefix-only (as the committed test documents), so a spelling like `git push -u origin claude/x:main` or `git push -u origin claude/x --force` is not deny-matched; it is no longer auto-allowed either only because the allow prefix `git push -u origin claude/` does match it — that shape remains auto-allowed and relies on the GitHub `Protections` ruleset and guard-push.mjs. Every other non-safe spelling now falls to the default ask rather than allow. Narrowing the allow to `claude/*` means pushes of other branch prefixes prompt instead of running silently. Claude Code's live matcher (Bash prefix semantics and MCP rule case-sensitivity) was not executed; the fixes follow the model the repository's own tests rely on. The generated-document pre-commit hook ran on every commit and produced no changes.",
+    "needs_owner_decision": [
+      "L61: choose one post-PR default. The package notes pick the 30-minute babysit default (AGENTS.md 'Babysit the pull request, then stop', docs/agents/pull-request-workflow.md, handoff skill step 8), but tests/pr-handoff-stop.test.ts and tests/bare-pr-publication-policy.test.ts pin the hook to the opposite 'hand over its URL and stop' default from PR #2220. Rewording .claude/hooks/pr-handoff-stop.sh line 333 requires updating both of those unowned tests; alternatively AGENTS.md/pull-request-workflow.md/handoff step 8 change to opt-in babysitting. Either way it is a process-policy flip, not a code fix.",
+      "L41: approve a one-off network read of https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_linux_amd64.tar.gz checksums (and nodejs.org SHASUMS256.txt for v24.19.0) so the pins can be recorded; and widen scope to .claude/hooks/session-start.sh for the Node tarball. Decide whether plugin dependency repair should use --ignore-scripts.",
+      "L39 follow-up outside owned scope: docs/agents-guide.md line ~67 still lists 'read SQL' as a sanctioned Cursor MCP use; reconcile it with docs/agents/codex-cloud-environment.md.",
+      "L62 follow-up outside owned scope: add a requireContract('.cursor/skills/repo-auditor/SKILL.md', ['Do not delete or move files during a review']) entry in scripts/list-database-skills.mjs so check:skills also pins the parity (tests/agent-scopes.test.ts pins it today)."
+    ]
+  },
+  "review": {
+    "pass": true,
+    "blocking": [],
+    "notes": [
+      "Focused proof: `npx vitest run` on the 3 touched + 6 related suites -> `Test Files  9 passed (9)` / `Tests  366 passed (366)`. `npm run test:focused -- --files ...` refuses by design (`Focused test selection is unsafe: test or configuration paths changed (tests/claude-code-settings.test.ts)`), so the direct vitest run is the evidence; the PR gate will need the full `npm run test`.",
+      "`npx eslint` on the three touched tests: clean. `npx prettier --check` on all 9 non-binary touched files: `All matched files use Prettier code style!`. `npm run check:skills`: `Database skill system valid: 35 canonical skills, 8 aliases, 67 repository SKILL.md files across 4 surfaces.` `node scripts/check-diff-integrity.mjs` (default merge base): `PASS — 3 changed test file(s), 20 -> 32 test case(s), against base 705c2f64a`. (Passing `--base origin/main` explicitly reports a spurious FAIL on tests/retrieval-owner-filter-guard.test.ts only because the branch is 3 commits behind origin/main; that file is not in this diff.)",
+      "M21 (a): pre-fix settings had `Bash(git push:*)` in allow and no deny for `origin --force`, `+refspec`, `-u origin main`, `--delete`, `--mirror`, `--no-verify`, so 'does not carry a blanket git push allow', every new `dangerousPushCommands` deny row, every 'not reachable through an allow rule' row and every `promptOnlyPushCommands` row would fail on the old file. The old 'still matched by the generic allow (deny must win via precedence)' test was inverted deliberately, not weakened: case count in that file rose 20 -> 32. Denying `git push --no-verify` is consistent with AGENTS.md ('Never skip the push hook wholesale'; the bare-publication exception is `git commit --no-verify`).",
+      "M21 residual (disclosed by the implementer, confirmed by reading): the prefix allow `Bash(git push -u origin claude/:*)` still auto-allows trailing-flag shapes such as `git push -u origin claude/x --force`, `git push -u origin claude/x --no-verify` and `git push -u origin claude/x:main`; `Bash(git push)` and `Bash(git push origin HEAD)` push `main` when run on a main checkout (pre-existing, and the package notes name both as safe spellings). A prefix-only rule language cannot express these; the GitHub `Protections` ruleset and guard-push.mjs stay the backstop. Worth a one-line mention in the PR body.",
+      "M35 (a/b): `ls src/lib/rag*.ts` -> no such file; all six named files exist under src/lib/rag/. tests/agent-scopes.test.ts brace-expands every backticked ## Scope entry of every agent and would have failed on `src/lib/rag*.ts`, `src/lib/rag-answer*.ts`, `src/lib/rag-eval-cases.ts` and the governance reviewer's `rag-source-block`/`rag-quote-verification`/`rag-answer-support` entries. The governance scope additionally names `rag-claim-support` and `rag-evidence-gates` (both exist) — an addition beyond the finding but inside the `src/lib/rag/**` line the finding asks for. No doc or script pins the old description text (only historical audit/ledger records quote it).",
+      "L39 (a): old URL lacked `features=`; the new `toBe` and the equality check against `.mcp.json` both fail pre-fix. `.codex/config.toml:26` carries the identical URL, so all three surfaces now agree. Follow-up outside scope, as the implementer flagged: docs/agents-guide.md:67 still lists 'read SQL' as a sanctioned Cursor MCP use.",
+      "L40 (a): 11 `mcp__Supabase__*` twins added, one per `mcp__supabase__*` deny row; the test derives the expected twins from the lower-case rows, so a future lower-case addition without a twin also fails. Case-sensitivity of the live MCP matcher remains unverified (as the finding says).",
+      "L62 (a): pre-fix Cursor skill matched /safely remove/ and lacked all three contract phrases; the test also re-asserts the Claude twin carries them. `scripts/list-database-skills.mjs` still has no requireContract for the Cursor repo-auditor (outside owned scope; the new test covers it for now).",
+      "L102 (a): both `C:\\Dev\\Apps\\Database` occurrences replaced; the three check:skills fragments survive at .cursor/skills/supabase/SKILL.md:16-17 and check:skills is green. Remaining `C:\\Dev\\Apps` mentions are only in docs/archive, docs/audit and docs/redesign history.",
+      "L132 (a): `git show origin/main:.cursorignore | head -c3` = `ef bb bf`; HEAD = `23 20 43` ('# C'). One-byte change, first line is a comment.",
+      "Skip reasons verified true. L41: scripts/setup-claude-cloud.sh:217-218 and .claude/hooks/session-start.sh:47-48 pipe curl straight into tar with no checksum; no local tarball or SHASUMS file exists on the box (`find / -name 'gh_2.67.0*' -o -name 'SHASUMS256*'` -> nothing); a pin needs a network read. L61: tests/pr-handoff-stop.test.ts:145-146 and tests/bare-pr-publication-policy.test.ts:37-38 pin 'hand over its URL and stop' / 'expressly asks' — the opposite of the package note's 30-minute-babysit default — and neither test is in the owned list; hook untouched (exit/timeouts unchanged).",
+      "Scope: all touched files are inside the owned list except two test files edited under the reasonable 'tests of owned files' reading — tests/claude-code-settings.test.ts (owned glob says `tests/claude-settings*.test.ts`, but the M21 finding's own fix sketch names this file) and tests/cursor-mcp-contract.test.ts (`.cursor/**` is owned and the L39 fix explicitly asks for the assertion update). No never-touch surface, no hook exit/timeout change, no gate added (gate-manifest counts untouched), no test skipped/deleted, no export/file/route/doc removed.",
+      "Housekeeping before PR: `claude/audit-fix-p9` is 3 commits behind origin/main (merge-base 705c2f64a); run `git merge-tree --write-tree origin/main HEAD` and sync per the anti-churn rule. The PR body needs `RAG impact: none` (no src/lib/rag/** file is touched — only agent prose naming it)."
+    ]
+  },
+  "note": "implementer and reviewer results recovered from a stopped workflow"
+}

@@ -1,0 +1,77 @@
+{
+  "impl": {
+    "package": "p8a",
+    "commits": [
+      "bf5853ee7 deps: update browserslist to 4.28.8 so the production npm audit high clears (M19)",
+      "2069b2958 ci: give the worker's Python parsers a vulnerability signal (M20)",
+      "20f9df948 ci: notify on Staging tenancy isolation failures (M25)",
+      "2f36dadbd ci: point the live Web-Vitals default routes at pages that render (M29)",
+      "76797a1d7 ci: digest-pin the advisory Semgrep image in sast.yml (L36)",
+      "0766b7ea8 ci: drop unused permissions from the Secret Scan workflow (L37)",
+      "79cc751e9 ci: gate the @claude workflows on author association (L38)",
+      "fbeada01a deploy: watch check-installed-lock-parity.mjs in both Railway services (L54)",
+      "4d17dfb04 deps: bring allowScripts in step with the lock (L55)",
+      "0e2f3831c governance: route CODEOWNERS review to src/lib/rag/ (L91)",
+      "157632305 ci: point the Codex auto-resolve high-risk list at the real deployment files (L92)",
+      "0b48f6650 deps: drop the dead brace-expansion@2 override and record override rationale (L129)",
+      "9588a6b39 deps: hold the @types/node major in Dependabot (L20)"
+    ],
+    "findings_fixed": [
+      "M19 (browserslist 4.28.2 -> 4.28.8 via the owner-approved `npm update browserslist`; only browserslist and its own in-range data deps moved in package-lock.json; browserslist no longer appears in `npm audit --omit=dev`)",
+      "M20 (pip Dependabot ecosystems for /worker/python and /eval/docling with hashed-lock regeneration notes; docker-image.yml now tees the Trivy summary to the job summary and a follow-up step exits 1 on HIGH/CRITICAL for schedule/push/dispatch runs so notify-ci-failure.yml delivers it — PR/merge_group runs stay advisory, keeping the existing container-ci-contract test intact)",
+      "M25 (Staging tenancy isolation added to notify-ci-failure.yml watched list)",
+      "M29 (live-web-vitals.yml default routes -> /,/therapy-compass/search,/documents/search,/dsm/search,/forms/search; #017 header instruction replaced; summarise-web-vitals fixture DEFAULT_ROUTES and cell names moved with it; summariser script untouched)",
+      "L36 (sast.yml container pinned to semgrep/semgrep:1.168.0@sha256:59fbed61…, the digest ci.yml's blocking gate uses and docs/maturity-backlog-workorders.md records as the 1.168.0 image — no registry call)",
+      "L37 (secret-scan.yml permissions reduced to contents: read)",
+      "L38 (author_association OWNER/MEMBER/COLLABORATOR gate on every trigger arm of claude.yml and claude-backlink.yml; headers reworded to the enforced gate)",
+      "L54 (/scripts/check-installed-lock-parity.mjs added to railway.app.json and railway.worker.json watchPatterns)",
+      "L55 (allowScripts: esbuild@0.28.2, plus @sentry/cli@2.58.6)",
+      "L91 (CODEOWNERS /src/lib/rag.ts and /src/lib/rag-*.ts replaced by /src/lib/rag/)",
+      "L92 (high-risk pattern -> /^(?:Dockerfile(?:\\.worker)?|railway\\.(?:app|worker)\\.json)$/; check:codex-autofix-workflow still green)",
+      "L129 (brace-expansion@2 override removed; 'Overrides rationale' table added to docs/framework-dependency-modernization-checklist.md covering every remaining override, including the two exact pins; pins themselves kept per package notes)",
+      "L20 — PARTIAL (Dependabot semver-major ignore for @types/node added with rationale comment; the pin back to ^24.x is NOT done, see needs_owner_decision)"
+    ],
+    "findings_skipped": [
+      {
+        "id": "L20 (pin half)",
+        "reason": "Pinning @types/node from ^26.4.0 to the 24.x line requires a registry call (`npm install -D @types/node@^24`) that the package notes did not approve (only `npm update browserslist` was approved) and would rewrite package-lock.json beyond the approved scope. Only the Dependabot ignore half landed. Files: package.json, package-lock.json."
+      },
+      {
+        "id": "M19 (fast-uri, out of scope)",
+        "reason": "After the browserslist update, `npm audit --omit=dev --audit-level=high` still exits 1 because of a NEWER advisory not in the audit: fast-uri 3.1.5 (high, 4 GHSAs, transitive via ajv, fixAvailable, patch-level). The notes say 'do not touch any other dependency', so it was left; full `npm audit` now reports 2 vulnerabilities (1 moderate @xmldom/xmldom, 1 high fast-uri), both transitive. The CI safety-job audit step will stay red on this PR until fast-uri is updated."
+      }
+    ],
+    "tests_added": [
+      "tests/ci-audit-contracts.test.ts (new, matches the owned tests/ci-*.test.ts pattern): 49 cases across blocks M20, M25, M29, L36, L37, L38, L54, L55, L91, L92, L129, L20 — each proven to fail before its fix and pass after",
+      "tests/summarise-web-vitals.test.ts: DEFAULT_ROUTES fixture and the dependent cell names/URLs updated to the new workflow default (no assertion weakened; 46/46 pass)"
+    ],
+    "files_touched": [
+      "/home/user/wt/p8a/package-lock.json",
+      "/home/user/wt/p8a/package.json",
+      "/home/user/wt/p8a/.github/dependabot.yml",
+      "/home/user/wt/p8a/.github/CODEOWNERS",
+      "/home/user/wt/p8a/.github/workflows/docker-image.yml",
+      "/home/user/wt/p8a/.github/workflows/notify-ci-failure.yml",
+      "/home/user/wt/p8a/.github/workflows/live-web-vitals.yml",
+      "/home/user/wt/p8a/.github/workflows/sast.yml",
+      "/home/user/wt/p8a/.github/workflows/secret-scan.yml",
+      "/home/user/wt/p8a/.github/workflows/claude.yml",
+      "/home/user/wt/p8a/.github/workflows/claude-backlink.yml",
+      "/home/user/wt/p8a/.github/workflows/codex-autofix-review-comments.yml",
+      "/home/user/wt/p8a/railway.app.json",
+      "/home/user/wt/p8a/railway.worker.json",
+      "/home/user/wt/p8a/docs/framework-dependency-modernization-checklist.md",
+      "/home/user/wt/p8a/tests/ci-audit-contracts.test.ts",
+      "/home/user/wt/p8a/tests/summarise-web-vitals.test.ts"
+    ],
+    "residual_risk": "Verified offline: all 13 commits are on claude/audit-fix-p8a in /home/user/wt/p8a, `git status --porcelain` is empty, the 12 relevant vitest suites pass (393/393), `npx tsc --noEmit -p tsconfig.typecheck.json` is clean, `check:github-actions`, `check:codex-autofix-workflow` and `check:gitleaks-pinned` pass, every edited YAML parses, and Prettier (--ignore-unknown, as guard-push uses) is clean on every touched file. Not verified: no workflow was actually dispatched, so the new docker-image.yml step (bash parsing of the Trivy summary lines, `bc` on the runner) and the author_association gates are proven only by static contract tests; `check:npm-ci-dry-run` and `check:installed-lock-parity` were not run because the first may reach the registry and the second fails in this container for a pre-existing reason (missing node_modules/.codex-installed-tree.json stamp, unrelated to this branch). Two scope notes: tests/summarise-web-vitals.test.ts and docs/framework-dependency-modernization-checklist.md are outside the literal owned list but were named by the finding (M29) and the package notes (L129) respectively. The M20 Trivy step will start failing the weekly scheduled and main-push Docker image runs whenever the base images carry a HIGH/CRITICAL CVE, which is the intended signal but may be noisy. origin/main has moved 2 commits past this branch's base (705c2f64a); no rebase was performed.",
+    "needs_owner_decision": [
+      "fast-uri high advisory (3.0.0–3.1.5, transitive via ajv, patch fix available): approve `npm update fast-uri` (or a Dependabot PR) so the lockfile-gated `npm audit --omit=dev --audit-level=high` safety step goes green — without it this PR's safety job will still fail on audit despite M19.",
+      "@types/node pin: approve `npm install -D @types/node@^24` (registry call) to complete L20; the Dependabot major hold is already in place, and the checklist row in docs/framework-dependency-modernization-checklist.md stays unchecked until the pin lands and typecheck is re-proven.",
+      "sharp exact pin: the L129 rationale table records 'relax to ^0.35.3 once an image build and check:npm-ci-dry-run prove the range' — decide whether to do that in a deps PR or keep the exact pin.",
+      "M20 noise tolerance: the Docker image build workflow now fails scheduled/main runs on any HIGH/CRITICAL in either image (base-image CVEs included), which will page via notify-ci-failure; confirm this is the wanted level or ask for a Trivy ignore file / severity narrowing."
+    ]
+  },
+  "review": null,
+  "note": "implementer result recovered from a stopped workflow; review did not complete"
+}

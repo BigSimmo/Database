@@ -1,0 +1,123 @@
+{
+  "impl": {
+    "package": "p7",
+    "commits": [
+      "29a509576 test-safety: keep the caring-contacts Postgres suites out of the default offline run (M15)",
+      "cb004c103 scripts: make enrich:documents dry-run by default with explicit --write and --all-owners (M18)",
+      "70cebe762 issues: surface issues:queue --outcome corrections beside the row detail (M28)",
+      "1c4b3b7fa issues: project the pending inbox onto /issues so queued done rows are not shown as open (L59)",
+      "61f77ad7e repo-hygiene: stop ignoring the tracked staging tenancy evidence document (L26)",
+      "ff46da6c8 repo-hygiene: untrack the Supabase CLI's per-machine branch state and ignore it (L63)",
+      "f915ef616 scripts: make the report-only sweeps contact origin only with --fetch / --prune (L60)",
+      "df064fe2f scripts: pin and gate the design-sync toolchain install, drop the shell build string (L35)",
+      "23ee374ce scripts: one findOwnerIdByEmail and one prompt helper under scripts/lib (L128)",
+      "2eeb38182 tests: satisfy the source typecheck for the M15, M18 and L35 test files (M15, M18, L35)",
+      "68086fea8 ledger: print source counts in ledger:lookup, list paths only with --verbose (L133)"
+    ],
+    "findings_fixed": [
+      "M15",
+      "M18",
+      "M28 (issues-report.mjs side)",
+      "L59 (issues-report.mjs side)",
+      "L26 (.gitignore side)",
+      "L60",
+      "L35",
+      "L128",
+      "L133",
+      "L63"
+    ],
+    "findings_skipped": [
+      {
+        "id": "M28 (SessionStart hook part)",
+        "reason": "The hook's own awk reader at .claude/hooks/issues-surface.sh is outside the package's owned files, so it still substitutes the row Detail for a single-ID queue row and does not show the queue cell. Needs a one-line awk change mirroring issues-report.mjs (print the queue cell as a gate/stop line when it differs from Detail)."
+      },
+      {
+        "id": "L59 (SessionStart hook part)",
+        "reason": "Same file, .claude/hooks/issues-surface.sh, is not owned; the hook still reads the worktree ledger without the pending inbox. Suggested fix: have the hook shell out to `node scripts/issues-report.mjs --json` (which now applies the pending batch) instead of parsing the markdown itself."
+      },
+      {
+        "id": "L26 (clean:artifacts glob)",
+        "reason": "The `clean:artifacts` script line lives in package.json, which p7 does not own (p8a owns package.json for overrides only). The .gitignore half is fixed (negation for the tracked directory), but `npx rimraf test-output*.txt docs/archive/staging-tenancy-evidence-*` will still expand to and delete the tracked docs/archive/staging-tenancy-evidence-29795051547/ directory until that glob is narrowed (e.g. to a non-tracked artifacts path)."
+      },
+      {
+        "id": "M15 (vitest.config.mts comment and docs/testing.md line)",
+        "reason": "vitest.config.mts and docs/testing.md are not owned. The config comment 'the default offline npm run test never collects them' is now true again because of the scrub in scripts/test-environment.mjs, so no behaviour gap remains; only the comment/doc wording could be refreshed to mention CARING_CONTACTS_DB_TESTS=1 and the loopback rule."
+      },
+      {
+        "id": "L35 (docs/scripts-index.md design-system row)",
+        "reason": "Documenting the script's network behaviour in docs/scripts-index.md / .design-sync/NOTES.md is outside owned files (only the auto-regenerated inventory count changed via the pre-commit hook). The script's --help and header comment now state the supply-chain shape."
+      }
+    ],
+    "tests_added": [
+      "tests/run-vitest-caring-contacts.test.ts (7 cases: scrub by default, opt-in keeps loopback URL, non-loopback refused, host classifier, runner plan, runner exits 1 before spawning on a remote host, receipt keys)",
+      "tests/enrich-documents-guards.test.ts (5 cases: dry-run default, --all-owners opt-in only, --write, unknown option/mode rejection, static order of project check before admin client and dry-run gate before any write)",
+      "tests/issues-report.test.ts (+3 cases: --outcome correction surfaced as gate, pending inbox applied with counts/closing ids, soft failure with warning)",
+      "tests/clean-artifacts-tracked-paths.test.ts (2 cases: tracked evidence doc not ignored while sibling artifacts stay ignored; supabase/.branches untracked and ignored)",
+      "tests/sweep-scripts-offline-default.test.ts (2 cases: --fetch opt-in helper and source guard; sweep-merged-branches runs offline by default and only --prune touches origin, proven in a remote-less git fixture)",
+      "tests/design-sync-supply-chain.test.ts (5 cases: pins match lockfile, unpinned refused without --allow-unpinned, buildCmd parsed to argv/append and shell syntax refused, no shell string in source, --dry-run offline by default and --install refused while pins are null)",
+      "tests/scripts-shared-helpers.test.ts (7 cases: paged case-insensitive owner lookup, purpose in not-found message, auth error surfaced, single definition guard, confirm defaults to No off-TTY, only y/yes accepted, readline created only in scripts/lib/confirm.mjs)",
+      "tests/ledger-lookup-output.test.ts (3 cases: count line vs --verbose, every default lookup line < 400 chars with verdict, --verbose/--json list every source)"
+    ],
+    "files_touched": [
+      "/home/user/wt/p7/scripts/test-environment.mjs",
+      "/home/user/wt/p7/scripts/gate-receipts.mjs",
+      "/home/user/wt/p7/caring-contacts/run-db-tests.mjs",
+      "/home/user/wt/p7/tests/run-vitest-caring-contacts.test.ts",
+      "/home/user/wt/p7/scripts/enrich-documents.ts",
+      "/home/user/wt/p7/scripts/lib/enrich-documents-args.ts (new)",
+      "/home/user/wt/p7/tests/enrich-documents-guards.test.ts",
+      "/home/user/wt/p7/docs/scripts-index.md (inventory count regenerated by the pre-commit hook, twice)",
+      "/home/user/wt/p7/scripts/issues-report.mjs",
+      "/home/user/wt/p7/tests/issues-report.test.ts",
+      "/home/user/wt/p7/.gitignore",
+      "/home/user/wt/p7/tests/clean-artifacts-tracked-paths.test.ts",
+      "/home/user/wt/p7/supabase/.branches/_current_branch (git rm --cached only; file stays on disk)",
+      "/home/user/wt/p7/scripts/sweep-branch-ledger.mjs",
+      "/home/user/wt/p7/scripts/sweep-merged-branches.mjs",
+      "/home/user/wt/p7/tests/sweep-scripts-offline-default.test.ts",
+      "/home/user/wt/p7/scripts/design-sync.mjs",
+      "/home/user/wt/p7/tests/design-sync-supply-chain.test.ts",
+      "/home/user/wt/p7/scripts/lib/find-owner-id-by-email.ts (new)",
+      "/home/user/wt/p7/scripts/lib/confirm.mjs (new)",
+      "/home/user/wt/p7/scripts/cli-utils.ts",
+      "/home/user/wt/p7/scripts/eval-utils.ts (findOwnerIdByEmail body replaced by import + re-export; no RAG ranking surface touched)",
+      "/home/user/wt/p7/scripts/import-documents.ts",
+      "/home/user/wt/p7/scripts/purge-query-logs.ts",
+      "/home/user/wt/p7/scripts/review-therapy.mjs",
+      "/home/user/wt/p7/tests/scripts-shared-helpers.test.ts",
+      "/home/user/wt/p7/scripts/branch-review-ledger.mjs",
+      "/home/user/wt/p7/tests/ledger-lookup-output.test.ts"
+    ],
+    "residual_risk": "The full unit suite was not run: other worktrees (p1, p16) held the repository's exclusive test lease throughout, so `npm run test:focused` (which also fails closed for new test files) and `scripts/run-vitest.mjs` could not be admitted. Instead each new test file plus 11 neighbouring suites (359 cases across 19 files) were run with Vitest under the offline environment with a single worker, and the offline static gates that this diff can trip all passed: `npx tsc --noEmit -p tsconfig.typecheck.json` clean, ESLint and Prettier clean on every changed file, check:ledger-write-discipline, check:diff-integrity (9 -> 43 test cases, no floor issue), docs script-ref check and docs link check green. The worktree is clean and no push, install, provider or network call was made. Behavioural risks to note: (1) M15 changes the contract for anyone who ran the caring-contacts suites by hand with `vitest --project=caring-contacts-db` outside `npm run caring-contacts:db:test` — the URL is now blanked unless CARING_CONTACTS_DB_TESTS=1 is set and the host is loopback; CI's job uses 127.0.0.1 so it passes the guard, but that CI path was not executed here. (2) L59 makes `/issues` and `issues:report` show the ledger with the pending inbox applied (today: 19 done, 4 update, 22 add), so open counts drop from ~92 to 73 relative to the raw ledger; the SessionStart hook still shows the raw view until its own file is changed. (3) L60 flips `sweep:branch-ledger` / `branch:cleanup` to offline by default; docs/branch-cleanup-guide.md still describes `--no-fetch` (accepted, now the default) and a run that relied on the implicit fetch will now refuse on a narrow refspec and tell the operator to pass --fetch. (4) L35 leaves ts-morph and geist unpinned (null), so `design-sync.mjs --install` refuses until an operator pins them or passes --allow-unpinned. (5) M18 changes `npm run enrich:documents` from write-by-default to dry-run-by-default; any runbook that relied on the old behaviour must add --write (and --all-owners where intended).",
+    "needs_owner_decision": [
+      "L35: exact versions for ts-morph and geist in scripts/design-sync.mjs DS_SYNC_PACKAGES — choosing them needs a registry lookup, which this package did not make; until then --install refuses those two packages unless --allow-unpinned is passed.",
+      "L26: narrow the `clean:artifacts` glob in package.json (not owned by p7) so it cannot expand to the tracked docs/archive/staging-tenancy-evidence-29795051547/ directory, or decide the evidence file is an artifact and `git rm --cached` it instead.",
+      "M28/L59: whether .claude/hooks/issues-surface.sh (not owned by p7) should shell out to `node scripts/issues-report.mjs --json` so the SessionStart summary also honours pending inbox requests and issues:queue --outcome corrections, or keep its independent awk reader and mirror both changes there.",
+      "L59: the pending inbox batch (45 active requests, plans cleanly against origin/main today) still needs `npm run issues:reconcile` from a dedicated branch to actually land; this package only changed how the report reads it."
+    ]
+  },
+  "review": {
+    "pass": true,
+    "blocking": [],
+    "notes": [
+      "EVIDENCE: 11 commits on origin/main..HEAD, 28 files. Worktree clean. `npx tsc --noEmit -p tsconfig.typecheck.json` exit 0 (tsconfig include covers scripts/** and tests/**, so the claim is not vacuous). `npx eslint <all 25 touched source+test files>` exit 0. `npx prettier --check` on every changed file except .gitignore: 'All matched files use Prettier code style!'. `npm run test:focused -- --files <8 new tests>` fails closed as designed ('Focused test selection is unsafe: test or configuration paths changed'), and `node scripts/run-vitest.mjs` is refused by the repository lease ('Database focused-test capacity is full (current owner PID 15689, worktree /home/user/wt/p2)'), so the suites were run with vitest directly under offlineTestEnvironment and a single worker: 15 files (the 8 new tests plus issues-report, repo-hygiene, test-runner-safety, gate-receipts, audit-remediation-tooling, branch-review-index, codex-cloud-setup, production-readiness-offline) — decisive line: 'Test Files  15 passed (15) / Tests  244 passed (244)'.",
+      "GATE NOT RUN: the package gate `npm run verify:pr-local (heavy)` was run by neither the implementer nor this review, because the heavy-run lease is held by another worktree. The orchestrator must run it (or the full `npm run test`) before handoff; nothing in this review substitutes for it.",
+      "NEVER-TOUCH / SCOPE: `git diff --stat` against docs/outstanding-issues.md, docs/outstanding-issues-inbox/**, docs/branch-review-ledger.md, docs/branch-review-records/**, tests/flake-ledger.json, diff-integrity.json, bundle-budget.json, AGENTS.md, src/lib/rag/** and .claude/hooks/** is empty. No test skipped, deleted or weakened; no export removed (cli-utils `confirm` and eval-utils `findOwnerIdByEmail` survive as re-exports); no route or document added/removed. scripts/eval-utils.ts is inside scripts/** and outside the AGENTS.md protected list (eval-retrieval.ts, clinical-aliases.ts, tuning/snapshot tooling); its change is a body-for-import swap with no ranking surface, consistent with 'RAG impact: none'. One file outside the owned list changed: docs/scripts-index.md, a single generated count (288 -> 291 script files, exactly the three new scripts/lib files) written by the pre-commit inventory hook — benign and required to keep the inventory gate green.",
+      "M15 (fixed, tests bite): tests/run-vitest-caring-contacts.test.ts case 1 asserts offlineTestEnvironment blanks CARING_CONTACTS_DATABASE_URL — pre-fix the function did not touch the key, so it fails; vitest.config.mts:10-11 treats '' as 'no DB project', and run-vitest.mjs:59 applies offlineTestEnvironment to the spawned env, so `npm run test`/test:coverage/verify:* no longer collect the destructive project. Opt-in path verified: caring-contacts/run-db-tests.mjs sets CARING_CONTACTS_DB_TESTS=1 only after the loopback check; CI job sets `CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres` and runs `npm run caring-contacts:db:test` (ci.yml:1172-1174), which passes the guard. OUTCOME_AFFECTING_ENV_VARS gains both keys (gate-receipts.mjs:311-314). Case 6 executes the runner against a remote URL and proves exit 1 with 'loopback' before any spawn.",
+      "M15 residual gap (not owned, recommend follow-up): the finding's fix sketch also asked for a loopback assertion inside `caringContactsDatabaseUrl()` in tests/helpers/caring-contacts-postgres.ts:33-45, the function that actually precedes the schema drop. It is unchanged, so a deliberate `npx vitest run --project=caring-contacts-db` (bypassing scripts/run-vitest.mjs) with a remote URL still drops the schema with no guard. Every trigger the finding names (npm run test, verify:cheap, verify:pr-local) is covered; the guard is simply not at the point of destruction. The helper is not in p7's owned files. Suggested one-liner: call `caringContactsDatabaseHostProblem(raw)` from scripts/test-environment.mjs inside that helper and throw on a non-null result.",
+      "M15 minor behaviour note: offlineTestEnvironment now throws when CARING_CONTACTS_DB_TESTS=1 and the URL is non-loopback/unparseable. In scripts/run-vitest.mjs that call (line 59) happens after acquireHeavyRunLock (line 56) and outside the try/finally at 78-82, so the throw exits with the lease held; scripts/test-run-lock.mjs:147 reclaims a dead-PID owner, so it self-heals, and the path is only reachable by hand-exporting the opt-in variable with a bad URL. Same shape in run-playwright.mjs:123/370 and run-lighthouse-budget.mjs:392/429. Moving the environment computation before the lock (or inside the try) would remove even the transient leak.",
+      "M18 (fixed): parseEnrichArgs defaults allOwners=false and write=false, refuses an ownerless run without --all-owners, rejects unknown options and bad modes; main() calls checkSupabaseProjectConfig before loadAdminClient (mirrors scripts/reindex.ts:96-108 exactly, including passing status 'warning') and returns before any `.update(`/upsert when !args.write. Dry-run path traced: only Supabase reads (loadDocuments, coverage loads) before the gate; requireOpenAIEnv is env validation, not a call. Test case 5 is a static-order check on main()'s text, which is the right shape for a provider-backed script that cannot be executed. Behaviour beyond the finding: unknown flags are now errors (previously ignored) and `--dry-run` is accepted as a no-op — both intentional per the L1/L128 hardening. The finding also asked for docs/scripts-index.md and docs/codebase-index.md entries describing the new guard semantics; neither doc is owned by p7 and this was not listed in findings_skipped — route to whichever package owns docs.",
+      "M28 (fixed on the reader side): scripts/issues-report.mjs:111-117 keeps the Detail as `outcome` and exposes the queue cell as `gate` whenever it differs; renderIssuesReport prints 'gate/stop (queue cell): ...'. Test asserts the exact pre-fix failure (queue cell 'OPERATOR-CORRECTED OUTCOME ...' vs Detail 'ROW DETAIL TEXT') and that priorityBlockers carry it. `gate` is additive so --json consumers are unaffected. Skip reason verified true: .claude/hooks/issues-surface.sh:80-84 still does `summary=detail[lookup]` and its comment still says no request type reaches the cell; the file is not in the owned list and is untouched.",
+      "L59 (fixed on the reader side): loadRevalidatedLedger now projects origin/main's inbox (git ls-tree + one cat-file --batch) plus worktree-only requests through planRequestBatch/applyRequest (signatures confirmed at scripts/ledger-inbox.mjs:127 and :222; cancel requests are excluded from plan.active so `counts[request.action]` cannot hit an unknown key), fails soft with a warning, and renderIssuesReport prints the done/update/add/queue counts and closing ids. The git-fixture test fails pre-fix (#005 would still be open). Read-only against the inbox — never-touch respected. Skip reason for the hook verified true (same unowned file, still parses the raw ledger). Note for the owner: open counts on /issues now drop (~92 -> 73) relative to the raw ledger until `npm run issues:reconcile` lands the batch; the SessionStart hook still shows the raw view, so the two surfaces disagree until the hook is changed.",
+      "L26 (PARTIAL — honest skip, but the headline defect is still live): .gitignore now re-includes the tracked directory; `git check-ignore -v docs/archive/staging-tenancy-evidence-29795051547/staging-tenancy-evidence.json` returns nothing (not ignored) while the sibling pattern stays ignored, and the test proves both. But package.json:263 is unchanged: `\"clean:artifacts\": \"npx rimraf test-output*.txt docs/archive/staging-tenancy-evidence-*\"` still shell-expands to the tracked directory and deletes it. The package's own notes said 'fix the glob and the .gitignore line', yet package.json is not in p7's owned list (p8a owns it for overrides only), so the skip reason is true. Orchestrator action: assign the one-line glob change to the package that owns package.json (narrow the pattern to the path the artifact-download workflow actually writes, or add a `git ls-files` guard), then extend tests/clean-artifacts-tracked-paths.test.ts to assert the glob matches no tracked path. Until then L26 must not be recorded as closed.",
+      "L60 (fixed): sweep-branch-ledger.mjs fetches only when sweepFetchRequested(argv) (`--fetch` present and `--no-fetch` absent) and prints the exact fetch command on stderr when it does not; sweep-merged-branches.mjs prunes only with `--prune`, proven at runtime in a remote-less git fixture (default run succeeds with 'Not contacting origin'; `--prune` fails naming origin). `--no-fetch`/`--no-prune` stay accepted as no-ops, so no caller breaks. Two deviations to record: the package note asked for a `--network` flag, the implementer used the finding's own `--fetch`/`--prune` names (equivalent intent); and the sweep-branch-ledger proof is a unit test plus a source-string guard (`expect(source).toContain('if (!sweepFetchRequested(process.argv))')`) rather than a runtime no-fetch proof — acceptable, but brittle to a harmless refactor. docs/branch-cleanup-guide.md:57 still describes `--no-fetch` as the opt-out (not owned).",
+      "L35 (fixed with an owner decision outstanding): install is opt-in (`--install`), buildCmd is parsed into argv steps with shell metacharacters refused (the committed buildCmd at .design-sync/config.json:8 parses to one spawn + one Node append, verified by the test), `spawnSync(buildCmd, {shell:true})` is gone, and the only remaining shell:true is the constant npm argv on win32. Pins: esbuild 0.28.2 and @types/react 19.2.18 match package-lock.json; @tailwindcss/cli 4.3.3 is NOT in the lockfile and is pinned by assumption to the tailwindcss version (lockstep releases) — the test enshrines that assumption; ts-morph and geist are null, so `--install` refuses until an operator pins them or passes `--allow-unpinned`. Consequence to state to the owner: a fresh `.ds-sync` cannot be populated by this script today without that decision. `--skip-install` was removed (now silently ignored as the default); .design-sync/NOTES.md:5 still documents it (not owned). The finding's request to document the network behaviour in docs/scripts-index.md is unowned and correctly listed as skipped.",
+      "L128 (fixed): one findOwnerIdByEmail in scripts/lib/find-owner-id-by-email.ts (structural client type; identical paging logic plus an empty-email guard) and one readline owner in scripts/lib/confirm.mjs; the single-definition tests scan scripts/** for `function findOwnerIdByEmail(` and `createInterface(` and would list 3 and 2 pre-fix. Behaviour beyond the finding: `confirm` now accepts 'yes' as well as 'y' (was 'y' only) and writes via output.write instead of console.log; the not-found error suffix defaults to 'running this script' for eval callers that do not pass `purpose` (was 'running evals') — wording only. cli-utils.ts re-exports from a .mjs file; tsc accepts it under the repo config (verified by the clean typecheck).",
+      "L133 (fixed): lookupFilesLine prints '<n> ledger table(s) + <m> immutable record(s)' by default and the full list only with --verbose; --json still returns every source. The runtime test runs the real `lookup HEAD` and asserts every line < 400 chars with the verdict present — this fails pre-fix on the ~60 KB files line. No consumer parses the `files:` line (grep across scripts/, .claude/, docs/agents/ found none).",
+      "L63 (fixed): `git ls-files supabase/.branches` is empty, `git check-ignore -v` resolves to .gitignore:134 `supabase/.branches/`, and the file remains on disk as the implementer said. No script, workflow or doc references the path outside docs/audit.",
+      "Stage-5 / package-note compliance: M18's correction blockquote (mitigations, nine update sites) is descriptive and needed no code change. M15's note to honour the opt-in inside run-vitest.mjs is satisfied through offlineTestEnvironment, which run-vitest.mjs:59 applies to lock.environment (process.env by default, test-run-lock.mjs:349). M28/L59's 'never edit the ledger or inbox' is respected. No gate-manifest count, microphone pin, double-flag exception, Playwright offline exception, owner-scope allowlist or migration rule is touched by this diff.",
+      "Docs left stale by scope (all unowned, all listed by the implementer except the M18 doc rows): vitest.config.mts:7-9 comment and docs/testing.md (CARING_CONTACTS_DB_TESTS opt-in and loopback rule), docs/branch-cleanup-guide.md (--fetch default), .design-sync/NOTES.md (--install replaces --skip-install), docs/scripts-index.md design-system row (design-sync network shape), docs/scripts-index.md + docs/codebase-index.md (enrich:documents guard semantics). Recommend one docs package picks all six up together."
+    ]
+  },
+  "note": "implementer and reviewer results recovered from a stopped workflow"
+}

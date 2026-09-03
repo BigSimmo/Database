@@ -1,0 +1,59 @@
+{
+  "impl": {
+    "package": "p13",
+    "commits": [
+      "6eda01d0d tests: cover untested bed-release reducer transitions and refusals (L66)",
+      "8868e6d88 tests: cover the untested resume-plan mockup reducer action (L65)",
+      "2d8a5b080 tests: cover four untested custom ESLint rules and the forms-pdf worker path (L67)",
+      "a055cd9f5 reference: remove dead isGuide ternary on the colour-coding heading class (L115/L135)",
+      "e33001781 app: set lang=\"en-AU\" on the last-resort global-error boundary (L126, partial)",
+      "6f012cb5b tests: extract the duplicated overflow/navigation helpers into tests/helpers (L127)"
+    ],
+    "findings_fixed": [
+      "L66",
+      "L65",
+      "L67",
+      "L115",
+      "L135",
+      "L126 (global-error lang attribute only, partial)",
+      "L127"
+    ],
+    "findings_skipped": [
+      {
+        "id": "L126",
+        "reason": "Only fixed the lang=\"en-AU\" half in src/app/global-error.tsx. The other half — replacing public/offline.html's legacy 'KB' mark and bumping CACHE_VERSION in public/sw.js — was not done: neither public/offline.html nor public/sw.js is in package p13's owned file list (only 'src/app/offline/**' and 'src/app/global-error.tsx (lang attribute only)' are owned), and no src/app/offline/** directory exists in this repo — the offline shell is served from public/offline.html, a path the owned-files glob does not reach. Fixing it would require editing an unowned file."
+      }
+    ],
+    "tests_added": [
+      "tests/ward-bed-release-lifecycle.test.ts: 6 new cases (blocked->confirmed, confirmed->blocked, blocked->released, and 3 refusal-branch cases with exact rejection text) — L66",
+      "tests/caring-contacts-mockup-prototype-resume.test.ts: new file, 2 cases (pause/resume round trip with audit row, resume-plan fails closed under a guard) — L65",
+      "tests/eslint-rules-no-hardcoded-hex.test.ts: new file, 6 cases — L67",
+      "tests/eslint-rules-require-z-index-ladder.test.ts: new file, 6 cases — L67",
+      "tests/eslint-rules-require-lucide-icon-aria.test.ts: new file, 10 cases — L67",
+      "tests/eslint-rules-restrict-suppress-hydration-warning.test.ts: new file, 6 cases — L67",
+      "tests/pwa-service-worker.test.ts: 1 new denylist row for /forms-pdf/form-1a.pdf — L67"
+    ],
+    "files_touched": [
+      "/home/user/wt/p13/tests/ward-bed-release-lifecycle.test.ts",
+      "/home/user/wt/p13/tests/caring-contacts-mockup-prototype-resume.test.ts",
+      "/home/user/wt/p13/tests/eslint-rules-no-hardcoded-hex.test.ts",
+      "/home/user/wt/p13/tests/eslint-rules-require-z-index-ladder.test.ts",
+      "/home/user/wt/p13/tests/eslint-rules-require-lucide-icon-aria.test.ts",
+      "/home/user/wt/p13/tests/eslint-rules-restrict-suppress-hydration-warning.test.ts",
+      "/home/user/wt/p13/tests/pwa-service-worker.test.ts",
+      "/home/user/wt/p13/src/components/reference/colour-coding-reference-content.tsx",
+      "/home/user/wt/p13/src/app/global-error.tsx",
+      "/home/user/wt/p13/tests/helpers/spec-navigation.ts",
+      "/home/user/wt/p13/tests/ui-accessibility.spec.ts",
+      "/home/user/wt/p13/tests/ui-document-image-status-mockup.spec.ts",
+      "/home/user/wt/p13/tests/ui-smoke.spec.ts",
+      "/home/user/wt/p13/tests/ui-stress.spec.ts",
+      "/home/user/wt/p13/tests/ui-tools-show-all.spec.ts",
+      "/home/user/wt/p13/tests/ui-tools.spec.ts"
+    ],
+    "residual_risk": "All seven findings this package owns got direct offline unit-test proof (vitest) except L127, whose gate explicitly defers browser proof to CI: `npm run plan:browser -- --dry-run` reported level \"full\" for the six touched Playwright specs, and both `npx eslint` and `npx tsc --noEmit -p tsconfig.typecheck.json` are clean on every touched file, but no browser actually ran these specs in this session (per hard rules, verify:ui/browser gates were not run here). L126 is only half-fixed — the offline.html brand mark and its required CACHE_VERSION bump are outside this package's owned files and are left for whichever package (if any) owns public/**; scope was not widened to claim it. gotoLauncher, a second byte-identical duplicate pair not literally named in the L127 finding text (only in ui-tools-show-all.spec.ts and ui-tools.spec.ts), was deliberately left unextracted to avoid scope creep beyond the finding's named helpers. One test file (tests/eslint-rules-no-hardcoded-hex.test.ts) needed a `Rule.RuleModule` cast to satisfy tsc, caused by that particular rule module lacking a `@type` JSDoc annotation the other three custom rules have — a pre-existing typing gap in eslint-rules/no-hardcoded-hex.mjs itself, not touched since it's outside this package's owned files.",
+    "needs_owner_decision": []
+  },
+  "review": null,
+  "note": "implementer result recovered from a stopped workflow; review did not complete"
+}
