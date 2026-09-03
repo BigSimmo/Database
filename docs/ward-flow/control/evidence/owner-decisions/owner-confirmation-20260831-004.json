@@ -1,0 +1,9 @@
+{
+  "chat": "Ward Board",
+  "decidedAt": "2026-08-31T06:59:00.000Z",
+  "decision": "owner-confirmed",
+  "decisionId": "owner-confirmation-20260831-004",
+  "kind": "ward-flow-owner-provenance-decision",
+  "schemaVersion": 1,
+  "sessionId": "db884133-9f0b-4227-abb1-8e177a1270e4"
+}

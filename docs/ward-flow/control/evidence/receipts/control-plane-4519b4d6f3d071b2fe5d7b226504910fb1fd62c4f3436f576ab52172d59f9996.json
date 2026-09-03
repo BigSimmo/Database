@@ -1,0 +1,17 @@
+{
+  "acceptanceCriterion": "The control system still passes its own validator and its own focused test at the exact tree being activated - proven by a receipt the test runner produced, not by a claim that the test was run.",
+  "decisiveEvidence": "node scripts/ward-flow/chat-control.mjs validate printed '[ward-flow-chat] VALID: 3 fixed roles, mode recovery, 0 assignment(s), 1 handover(s), 1 reset certificate(s).' and node scripts/run-vitest.mjs run tests/ward-flow-chat-control.test.ts passed, recording a runner receipt against the activation tree's own content signature.",
+  "falsifier": "The validator does not print a VALID line; the focused test does not pass; or the gate-receipt store holds no runner-produced vitest receipt whose input hash equals the committed tree being activated, which is what any later edit to that tree would cause.",
+  "gateEvidence": {
+    "focusedTestCommand": "node scripts/run-vitest.mjs run tests/ward-flow-chat-control.test.ts",
+    "focusedTestOutcome": "passed",
+    "validatorCommand": "node scripts/ward-flow/chat-control.mjs validate",
+    "validatorDecisiveLine": "[ward-flow-chat] VALID: 3 fixed roles, mode recovery, 0 assignment(s), 1 handover(s), 1 reset certificate(s).",
+    "validatorOutcome": "passed"
+  },
+  "id": "control-plane",
+  "kind": "ward-flow-transition-receipt",
+  "outcome": "passed",
+  "schemaVersion": 1,
+  "sourceSha": "0cb1a2231e283de470d8513b4c76952f3248739a"
+}

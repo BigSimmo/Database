@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "a8ddb0c4-547f-4375-8b92-7d63dfdf22db",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "53 of 61 findings from the ward DOM test sweep exist nowhere and cannot be re-checked",
+    "issueUlid": "01M1G4PSM1V70WH9G2DNT981NT"
+  }
+}

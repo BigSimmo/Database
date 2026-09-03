@@ -1,0 +1,43 @@
+{
+  "acceptanceCriterion": "npx tsc -p tsconfig.typecheck.json --noEmit reports no error in the new file, and npx next build (or npm run build) resolves the route without a params-type error. A known-good team id renders the hub; an unknown one renders the screen's own not-found state rather than throwing.",
+  "baseSha": "423e159b86409064cbb08856a38043d2e2d29e94",
+  "branch": "claude/ward-builder-community-route",
+  "falsifier": "The route passes admissions or referrals into CommunityScreen, overriding live state with a fixture; or it resolves an unknown team id to a real team instead of letting the screen render its not-found state; or params are read synchronously and the page fails at request time despite compiling.",
+  "focusedCheck": "npx tsc -p tsconfig.typecheck.json --noEmit 2>&1 | grep community — must report nothing for the new file. Then npx vitest run tests/ward-community-hub.dom.test.tsx to confirm the screen it mounts is still green.",
+  "issuedAtHead": "423e159b86409064cbb08856a38043d2e2d29e94",
+  "issuedByInstance": "ward-lead-20260831-claude-c",
+  "kind": "ward-flow-builder-assignment",
+  "modelRouting": {
+    "catcher": null,
+    "firstOfShape": true,
+    "priorSonnetReviewRejections": 0,
+    "reason": "First Builder task of any shape in this project, so it sets the pattern for every assignment after it. It also sits on Next.js 16 route conventions, where this repository's standing warning is that training data is stale and the docs in node_modules must be read instead — a wrong prior here compiles and fails at request time, which is exactly the failure a cheaper tier is worst at catching.",
+    "taskShape": "add-a-next-route-mounting-an-existing-client-screen",
+    "tier": "opus",
+    "vetoes": {
+      "clinicalLegalPrivacyOrPatientFacing": false,
+      "finalUncheckedOrJudgementCriterion": false,
+      "specPlanBriefOrDecisionRecord": false,
+      "testStrengthOrMutation": false,
+      "unknownCauseDebugging": false
+    }
+  },
+  "objective": "Give the community hub a reachable route. The screen, its derivations, its styles and its two test files all exist and pass, but nothing renders them, so the hub cannot be opened in a browser at all. Add the one route file that mounts CommunityScreen for a team id.",
+  "ownedPaths": [
+    "src/app/mockups/ward-flow/community"
+  ],
+  "schemaVersion": 1,
+  "steps": [
+    "Read the abandoned original for reference: git show 2e9499fb:src/app/mockups/ward-flow/community/[teamId]/page.tsx — it is about 13 lines and predates the rework, so treat it as a shape to follow rather than text to copy.",
+    "Read a sibling mockup route that already works, for this project's own conventions: src/app/mockups/ward-flow/board/page.tsx and its neighbours.",
+    "Read src/components/ward-management/community/community-screen.tsx for the exact props CommunityScreen accepts. It takes teamId, and optional admissions and referrals overrides that a route must NOT pass — the route supplies only the id and lets the screen read live state.",
+    "Create src/app/mockups/ward-flow/community/[teamId]/page.tsx exporting a default React component named CommunityTeamPage that reads the teamId route parameter and renders CommunityScreen with it.",
+    "This is Next.js 16 in this repository and route params are asynchronous. Read node_modules/next/dist/docs/ before writing the signature rather than relying on remembered Next conventions; getting this wrong compiles and then fails at request time.",
+    "Verify with the focused check below."
+  ],
+  "symbols": [
+    "CommunityTeamPage"
+  ],
+  "taskId": "WF-BUILD-001-COMMUNITY-ROUTE",
+  "worktree": "D:/Worktrees/Database/ward-builder-community-route"
+}

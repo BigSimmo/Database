@@ -17,19 +17,20 @@ import { FlowDiagram } from "@/components/ward-management/coordinator/flow-diagr
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
+import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 /**
  * Review Finding 4: the network view and the coordinator flow diagram both used to render a
  * `Potential` chip sourced from `unitCapacity()`'s raw release count — every release for the
- * unit regardless of state or timing, including one already `released` and one expected beyond
+ * unit regardless of state or timing, including one already `discharged` and one expected beyond
  * tonight, neither of which spec D5/D6 permit in any count. Both surfaces now read
  * `capacityBreakdown()` instead, the same figures the capacity board and the ward screen already
  * show (`tests/ward-capacity-view.dom.test.tsx`, `tests/ward-screen.dom.test.tsx`).
  *
- * WR-008 is seeded `state: "released"` at `arm-adult-open` — the review's own "zero clicks,
+ * WR-008 is seeded `state: "discharged"` at `arm-adult-open` — the review's own "zero clicks,
  * seeded data" trigger: the old figure showed `Potential 1` for a bed that had already come
- * free. The fixed figure must show Confirmed 0 / Predicted 0 for that unit instead, and the
+ * free. The fixed figure must show Confirmed 0 / Expected 0 for that unit instead, and the
  * word "Potential" must never appear on either surface again.
  *
  * WR-001 is seeded `state: "confirmed"` at `rph-adult-secure`, expected well inside today (the
@@ -37,7 +38,7 @@ import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  * control case alongside the zero case above.
  */
 describe("network view and coordinator flow diagram never show the raw potential figure", () => {
-  it("network view shows Confirmed/Predicted from capacityBreakdown(), not unitCapacity()'s potential", () => {
+  it("network view shows Confirmed/Expected from capacityBreakdown(), not unitCapacity()'s potential", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardModeWorkspace mode="network" />
@@ -51,21 +52,25 @@ describe("network view and coordinator flow diagram never show the raw potential
     // The network card's chips carry no visible label text of their own (only a `data-state`
     // attribute and a `title` tooltip — see `BedStateChips`), so the figure is read from the
     // chip matching each state rather than from a rendered word.
-    const releasedUnitCard = screen.getByTestId("ward-network-card-arm-adult-open");
-    expect(releasedUnitCard.querySelector('[data-state="confirmed"]')).toHaveTextContent("0");
-    expect(releasedUnitCard.querySelector('[data-state="predicted"]')).toHaveTextContent("0");
-    expect(releasedUnitCard.getAttribute("aria-label")).not.toMatch(/potential/i);
-    expect(releasedUnitCard.getAttribute("aria-label")).toMatch(/0 confirmed, 0 predicted/);
+    const dischargedUnitCard = screen.getByTestId("ward-network-card-arm-adult-open");
+    expect(dischargedUnitCard.querySelector('[data-state="confirmed"]')).toHaveTextContent("0");
+    expect(dischargedUnitCard.querySelector('[data-state="expected"]')).toHaveTextContent("0");
+    expect(dischargedUnitCard.getAttribute("aria-label")).not.toMatch(/potential/i);
+    expect(dischargedUnitCard.getAttribute("aria-label")).toMatch(/0 confirmed, 0 expected/);
 
     const confirmedUnitCard = screen.getByTestId("ward-network-card-rph-adult-secure");
     expect(confirmedUnitCard.querySelector('[data-state="confirmed"]')).toHaveTextContent("1");
-    expect(confirmedUnitCard.querySelector('[data-state="predicted"]')).toHaveTextContent("0");
+    expect(confirmedUnitCard.querySelector('[data-state="expected"]')).toHaveTextContent("0");
   });
 
-  it("coordinator flow diagram shows Confirmed/Predicted from capacityBreakdown(), not unitCapacity()'s potential", () => {
+  it("coordinator flow diagram shows Confirmed/Expected from capacityBreakdown(), not unitCapacity()'s potential", () => {
     render(
       <FlowDiagram
         movement={undefined}
+        /* Named rather than defaulted. `FlowDiagram` used to reach the seed through `edPressure`'s
+           old default parameter, so its ED figures were the fixture's whatever the caller meant.
+           The argument is required now and every caller says which movements it means. */
+        movements={wardMovements}
         now={NOW_ANCHOR}
         units={allUnits()}
         bedReleases={bedReleases}
@@ -77,13 +82,13 @@ describe("network view and coordinator flow diagram never show the raw potential
 
     expect(screen.queryByText(/^Potential/)).not.toBeInTheDocument();
 
-    const releasedUnitNode = screen.getByTestId("ward-diagram-unit-arm-adult-open");
-    expect(within(releasedUnitNode).queryByText(/^Potential/)).not.toBeInTheDocument();
-    expect(releasedUnitNode).toHaveTextContent("Confirmed 0");
-    expect(releasedUnitNode).toHaveTextContent("Predicted 0");
+    const dischargedUnitNode = screen.getByTestId("ward-diagram-unit-arm-adult-open");
+    expect(within(dischargedUnitNode).queryByText(/^Potential/)).not.toBeInTheDocument();
+    expect(dischargedUnitNode).toHaveTextContent("Confirmed 0");
+    expect(dischargedUnitNode).toHaveTextContent("Expected 0");
 
     const confirmedUnitNode = screen.getByTestId("ward-diagram-unit-rph-adult-secure");
     expect(confirmedUnitNode).toHaveTextContent("Confirmed 1");
-    expect(confirmedUnitNode).toHaveTextContent("Predicted 0");
+    expect(confirmedUnitNode).toHaveTextContent("Expected 0");
   });
 });

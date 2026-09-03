@@ -42,27 +42,36 @@ describe("changeAudit", () => {
       kind: "legal_status",
       by: "Duty psychiatrist",
     });
-    expect(audit[0].detail).toBe("Voluntary → Detained awaiting examination · Recorded by treating team");
-    expect(audit[0].detail).not.toMatch(/recorded_by_treating_team/);
+    expect(
+      audit[0].detail,
+      "an audit line must read as a sentence a clinician can act on, never as the raw reason code " +
+        "recorded_by_treating_team",
+    ).toBe("Voluntary → Detained awaiting examination · Recorded by treating team");
   });
 
   it("labels a hold-released reason, never the raw snake_case value", () => {
     const seeded = seedWardFlowState();
-    const heldTarget = seeded.movements.find((movement) => movement.stage === "bed_held");
-    if (!heldTarget) throw new Error("fixture requires a bed_held movement");
+    const heldTarget = seeded.movements.find((movement) => movement.stage === "pulled");
+    if (!heldTarget) throw new Error("fixture requires a pulled movement");
     const after = wardFlowReducer(seeded, {
-      type: "RELEASE_HOLD",
+      type: "RELEASE_PULL",
       role: "coordinator",
       now: 300,
       movementId: heldTarget.id,
       reason: "bed_needed_for_another_patient",
     });
     expect(after.rejections).toHaveLength(0);
-    const entries = changeAudit(after.movements).filter((entry) => entry.kind === "hold_released");
+    const entries = changeAudit(after.movements).filter((entry) => entry.kind === "pull_released");
     expect(entries).toHaveLength(1);
     expect(entries[0].detail).toBe(changeReasonLabels.bed_needed_for_another_patient);
-    expect(entries[0].detail).toBe("Bed needed elsewhere");
-    expect(entries[0].detail).not.toMatch(/bed_needed_for_another_patient/);
+    // ⚠️ The assertion above stays: pinning the label against its own constant AND against a
+    // hand-written literal is two different checks, and only the literal catches the constant
+    // changing underneath the test.
+    expect(
+      entries[0].detail,
+      "an audit line must read as a sentence a clinician can act on, never as the raw reason code " +
+        "bed_needed_for_another_patient",
+    ).toBe("Bed needed elsewhere");
   });
 
   // Ordered-pair assertion by design (per the brief's own rule): each row asserts `at`, `kind`
@@ -75,8 +84,8 @@ describe("changeAudit", () => {
     if (!urgencyTarget) throw new Error("fixture requires an open movement with urgency !== 1");
     const legalTarget = seeded.movements.find((movement) => !movement.closure && movement.id !== urgencyTarget.id);
     if (!legalTarget) throw new Error("fixture requires a second open movement");
-    const heldTarget = seeded.movements.find((movement) => movement.stage === "bed_held");
-    if (!heldTarget) throw new Error("fixture requires a bed_held movement");
+    const heldTarget = seeded.movements.find((movement) => movement.stage === "pulled");
+    if (!heldTarget) throw new Error("fixture requires a pulled movement");
     const transportTarget = seeded.movements.find(
       (movement) =>
         movement.transport !== undefined &&
@@ -103,11 +112,11 @@ describe("changeAudit", () => {
       reason: "correcting_an_error",
     });
     state = wardFlowReducer(state, {
-      type: "RELEASE_HOLD",
+      type: "RELEASE_PULL",
       role: "coordinator",
       now: 250,
       movementId: heldTarget.id,
-      reason: "hold_made_in_error",
+      reason: "pull_made_in_error",
     });
     state = wardFlowReducer(state, {
       type: "CANCEL_TRANSPORT",
@@ -126,7 +135,7 @@ describe("changeAudit", () => {
       [NOW_ANCHOR - 40, "legal_status", "WF-010"],
       [550, "transport_cancelled", transportTarget.id],
       [400, "legal_status", legalTarget.id],
-      [250, "hold_released", heldTarget.id],
+      [250, "pull_released", heldTarget.id],
       [100, "urgency", urgencyTarget.id],
     ]);
   });
@@ -178,7 +187,7 @@ describe("effectivenessNumbers", () => {
       acceptedAt: undefined,
       referredUnitIds: [],
       declines: [],
-      withdrawnReferrals: [{ unitId: "unit-b", at: 140, reason: "withdrawn — placed at Unit A" }],
+      withdrawnReferrals: [{ unitId: "unit-b", at: 140, reason: "another_unit_accepted" }],
     });
     const computableSlow = movementFrom({
       id: "WF-ACC-2",
@@ -187,7 +196,7 @@ describe("effectivenessNumbers", () => {
       acceptedAt: undefined,
       referredUnitIds: [],
       declines: [],
-      withdrawnReferrals: [{ unitId: "unit-d", at: 260, reason: "withdrawn — placed at Unit C" }],
+      withdrawnReferrals: [{ unitId: "unit-d", at: 260, reason: "another_unit_accepted" }],
     });
     // Reached acceptance (acceptedUnitId is set) but was the only unit ever referred, so
     // ACCEPT_IN_PRINCIPLE withdrew nothing and left no timestamp anywhere in this model. This
@@ -223,7 +232,7 @@ describe("effectivenessNumbers", () => {
       referredUnitIds: [],
       declines: [],
       // A stale/incidental withdrawnReferrals entry that, if read instead, would say 900 minutes.
-      withdrawnReferrals: [{ unitId: "unit-b", at: 1000, reason: "withdrawn — placed at Unit A" }],
+      withdrawnReferrals: [{ unitId: "unit-b", at: 1000, reason: "another_unit_accepted" }],
     });
     const result = effectivenessNumbers([movement]);
     expect(result.medianMinutesToAcceptance).toEqual({ value: 30, sampleSize: 1, population: 1 });
@@ -242,7 +251,7 @@ describe("effectivenessNumbers", () => {
     const unitId = target.referredUnitIds[0];
     const after = wardFlowReducer(seeded, {
       // ACCEPT_IN_PRINCIPLE is gated to role "ward" only (EVENT_ROLE in ward-flow-events.ts) —
-      // unlike RELEASE_HOLD/CANCEL_TRANSPORT, coordinator is not a permitted caller here.
+      // unlike RELEASE_PULL/CANCEL_TRANSPORT, coordinator is not a permitted caller here.
       type: "ACCEPT_IN_PRINCIPLE",
       role: "ward",
       now: target.openedAt + 45,
@@ -280,7 +289,7 @@ describe("effectivenessNumbers", () => {
       id: "WF-UC-2",
       referredUnitIds: [],
       declines: [{ unitId: "unit-b", at: 10, reason: "no_bed" }],
-      withdrawnReferrals: [{ unitId: "unit-c", at: 20, reason: "withdrawn — placed at Unit D" }],
+      withdrawnReferrals: [{ unitId: "unit-c", at: 20, reason: "another_unit_accepted" }],
       acceptedUnitId: "unit-d",
     });
     const result = effectivenessNumbers([noReferral, oneUnit, threeUnits]);
