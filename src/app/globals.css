@@ -1215,7 +1215,7 @@ summary::-webkit-details-marker {
 /* Shared-home hero copy reserve.
  *
  * The mode toggle rewrites the title and subtitle in place, so the copy block
- * must already be as tall as the tallest copy any of the 15 modes can produce
+ * must already be as tall as the tallest copy any of the 16 modes can produce
  * or the composer below it jumps. That reserve used to sit on the heading and
  * the subtitle *individually* (`min-h-[2lh]` on each), which is why the pair
  * read as two unrelated lines: with a one-line title, half of each element's
@@ -2694,6 +2694,9 @@ summary::-webkit-details-marker {
 
 .answer-suggestion-chip:disabled {
   cursor: not-allowed;
+  background: var(--surface-subtle);
+  color: var(--disabled);
+  box-shadow: none;
 }
 
 .answer-suggestion-chip-icon {
