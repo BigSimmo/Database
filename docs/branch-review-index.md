@@ -15,14 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 582
-- Distinct ref cells: 365
-- Distinct reviewed heads: 565
+- Records: 588
+- Distinct ref cells: 371
+- Distinct reviewed heads: 571
 - Date range: `2026-08-12` to `2026-09-02`
 
 Records per date, newest first:
 
-- `2026-09-02` — 7 records
+- `2026-09-02` — 13 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
 - `2026-08-30` — 3 records
@@ -50,13 +50,19 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih-4 | PR #2535 (#PAMATF): model.ts planSendingHold relocation and load-time invariant, both repo… | MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r… | [0cee2b10](branch-review-records/0cee2b10b5e10b575263b1af0df0d87c555460e6e15dc052cfd1162d8fa2c265.record.md) |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih | PR #2532 (#59JT7W + #RZVMPD, squashed to main): src/lib/caring-contacts/message-policy.ts,… | MERGED to main 2026-09-02. Closing-message refusal routed through the… | [0f22b88a](branch-review-records/0f22b88a41a63454cdb1b0ac291233906c397a7cbfca1539a0b1c020e99234df.record.md) |
 | 2026-09-02 | codex/smart-local-modes-20260901 | smart local modes integration | Fixed calculator identity matches inside natural-language queries; no… | [23084cec](branch-review-records/23084cec05666473530d8878ab4246ada0dbdb860c28584da348ade298ccf63c.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | prlanded | Merged and verified. Two-dot content diff between the squash commit an… | [23e5e883](branch-review-records/23e5e883d9bcff4f4082898eb6b5e2d5b08596a4b9f2945b2768d2149852bbf8.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | caring-contacts prohibited-language scan | Reviewed by the clinical-governance-reviewer subagent before the push;… | [2672ead5](branch-review-records/2672ead51d97f295e2cf156914c4c940ac17eba55d569f189224986f2e9797ce.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | caring-contacts plural job-title exemption | Second clinical-governance review on this branch, covering commit 33e1… | [3f5afc46](branch-review-records/3f5afc461d6cd9444e4720b112fa5b424610487e28999e732d87d342fa4a492b.record.md) |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih-2 | PR #2533 (#RZVMPD): db/postgres-repository.ts PLAN_LIST_COLUMNS, schedule-view.ts doc comm… | MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r… | [4618bc97](branch-review-records/4618bc97849416bcc9b687e3669942b3bd9aa3c69fe34563d1eb0a56e23a55a5.record.md) |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih-3 | PR #2534 (#J7PZQP + #PAMATF, squashed to main): episode.ts, model.ts, repository.ts, sched… | MERGED to main 2026-09-02. Episode carries patientDetailClearedAt inst… | [85a37952](branch-review-records/85a379521e2bae9498d29f1f34eeacfbe6c224a8ee48ecf893be298b318e96a5.record.md) |
+| 2026-09-02 | claude/full-repo-audit-27fccs | Audit only: new docs/audit/full-repository-audit-2026-09-02.md (25 finder lanes + critic +… | Report landed on the branch for owner triage: High 3 (medication badge… | [9b30395d](branch-review-records/9b30395dd42eb0dfab500f76781cb924f883a67224bc623b94985a47d24f2e3a.record.md) |
 | 2026-09-02 | claude/instruction-tiering-n9vs14 | Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference fil… | No findings. Reorganisation only: all 662 non-blank AGENTS.md lines ve… | [9b97c2e6](branch-review-records/9b97c2e689cead2aabfd99148f22120ca4d7f1b907be8e06dc595b279216be69.record.md) |
 | 2026-09-02 | claude/gate-audit-ujhkqb | prlanded | merged clean, content diff empty against branch tip | [9f7fd1f9](branch-review-records/9f7fd1f9419de5446570947eaf97adbf74e22ae0543039142417e79ed7c2e928.record.md) |
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | mockup retirement policy and sweep | Reviewed by two fresh agents before push; both found real defects and… | [b34f56e0](branch-review-records/b34f56e00cf20e8f76a4e7564cdb71ae5fd3c9cf97973c49f9b5541448f99a56.record.md) |
+| 2026-09-02 | claude/care-plan-next (PR #2528) | Run PR sweep: review threads + main sync | Fixed 1 of 3 Codex P2 threads: added the in-file SUPERSEDED banner to… | [f5b42005](branch-review-records/f5b420054f6ed5cd54dfce9d748677965f53cac6f3f73dc725e603370eede38b.record.md) |
 | 2026-09-01 | PR-2504 | Resolve Codex P1: corpus-health table access | Verified the authenticated role lacks table SELECT; the administrator-… | [5d80826b](branch-review-records/5d80826bf56625f7a05594bf5c46f05a421a883a038ace94c07ca265528f1dba.record.md) |
 | 2026-09-01 | PR-2507 | Run PR sweep: enforce Favourites phone tap-target minimum | Replaced the blacklist-only target guard with a positive 48px-or-row-w… | [8b140d28](branch-review-records/8b140d281375ce001e5f712e3c697b4828186a605e096bb86342f16f0452610a.record.md) |
 | 2026-09-01 | codex/smart-local-modes-20260901 (PR #2508) | PR #2508 native Smart catalogue matching | Fixed P1 Compare result-order regression; no additional P0-P3 findings… | [9d028419](branch-review-records/9d02841985e0414aa379b2fbbb0f47077e456cf6454d23e55e46487dc4dd2e8a.record.md) |

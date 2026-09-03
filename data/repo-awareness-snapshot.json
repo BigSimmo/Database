@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "d0744a3aa5883290bc339434e845ce37a185fa75",
-    "committed_at": "2026-09-02T20:46:18+00:00"
+    "sha": "db6b2edb0a89fbcc116540889b810256e2ec5ef6",
+    "committed_at": "2026-09-02T21:22:22+00:00"
   },
   "routes": {
     "modes": [
@@ -2831,6 +2831,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/drift-measurement-2026-09-02.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/FIX-GUIDE.md",
         "section": "design-system",
         "catalogued": true
@@ -3407,6 +3412,16 @@
       },
       {
         "path": "docs/samd-classification-medication-considerations.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/scripts-index.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/scripts-index.md",
         "section": "root",
         "catalogued": true
       },
@@ -4437,9 +4452,9 @@
       }
     ],
     "counts": {
-      "documents": 587,
-      "catalogued": 115,
-      "uncatalogued": 472,
+      "documents": 590,
+      "catalogued": 117,
+      "uncatalogued": 473,
       "sections": 21
     }
   },

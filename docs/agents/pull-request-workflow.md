@@ -118,8 +118,22 @@ review sessions on someone else's PR still function normally.
 
 ## Automated review coverage (owner decision, 2026-08-22)
 
-CodeRabbit's included allowance is capped and review is intermittent (`#CCZ4HB`). The decision and root-cause analysis are documented in `docs/decisions/ccz4hb-review-coverage.md`.
+**The decision (2026-08-22, owner):** leave the CodeRabbit spending cap as it is and accept that
+automated review from that bot is intermittent. Option (c) of three — not a gate, not a cap
+raise. Recorded closed as `#CCZ4HB`, analysis in `docs/decisions/ccz4hb-review-coverage.md`.
 
+**Correction 2026-09-02 — the premise of that decision no longer holds.** CodeRabbit is not
+reviewing this repository _at all_, and not for budget reasons. Measured across PRs #2522 and
+#2542: it reports _"This repository does not receive automatic reviews because it has fewer than
+10 stars"_ (the repo has 0; `Plan: Team`). That is a categorical eligibility gate, so the cap is
+irrelevant to it and "intermittent" understates the position. The Codex connector does work and
+is currently the only automated reviewer; Cursor Bugbot is the tool actually reporting a spend
+limit. Read the 2026-09-02 correction at the top of the decision doc before acting on the
+analysis beneath it, which diagnoses the wrong constraint. **The owner may want to revisit the
+decision on the corrected facts; until then it stands.**
+
+- Do not treat a missing CodeRabbit review as a budget symptom, and do not undraft a PR to obtain
+  one — both gates apply and undrafting escalates CI to the full heavy set for nothing.
 - Draft PRs are skipped by CodeRabbit outright; undrafting mid-CI cancels the in-flight run.
 - **Do not weaken, skip, or relax any required check to compensate.** Required gates carry the deterministic safety net and must stay strict.
 - Clinical-risk and RAG-surface diffs still require their PR-body preflight sections in full (`scripts/pr-policy.mjs`).
@@ -151,3 +165,47 @@ Bundle only when every item being combined is:
 Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still gets the smallest correct gate run against it before joining the PR.
 
 <!-- END:pull-request-workflow -->
+
+## Ledger PRs: keep them off the snapshot, and what the governance gate really catches
+
+**An inbox-only ledger PR must not touch the snapshot.** `npm run issues:add|update|queue|done`
+writes one immutable request under `docs/outstanding-issues-inbox/` and nothing else — that is
+what makes those PRs merge-safe against each other. Only `npm run issues:reconcile`, the
+deliberately serialized operation, edits `docs/outstanding-issues.md` and regenerates
+`data/outstanding-issues-snapshot.json` (it does so itself; see `ledger-inbox.mjs`). Running
+`npm run snapshot:issues` on a feature branch re-creates by hand the shared-file conflict the
+inbox design exists to avoid.
+
+**The committed snapshot's `pending` list must be empty** (#2530). The generator defaults to
+that; `prebuild --with-pending` fills it for the built image, and a local `npm run build` can
+therefore leave a dirtied tree that is easy to commit by accident.
+`check:outstanding-issues-snapshot` now fails on a non-empty `pending` as the backstop.
+
+**Ledger PRs no longer trip the clinical-governance gate.** They did until #2530, which added
+`nonClinicalGeneratedDataPaths` to `scripts/pr-policy.mjs`, exempting
+`data/outstanding-issues-snapshot.json` and `data/repo-awareness-snapshot.json` by **exact path**
+from the `data/` clinical-risk rule. Everything else under `data/` is still clinical-risk, which
+is the direction that carve-out must never widen. So do not expect the Preflight on a ledger PR,
+and do not add one reflexively — #2530's own reasoning is that ticking clinical boxes on changes
+with no clinical output erodes the gate.
+
+**When a PR genuinely is clinical-risk, the checklist is matched literally.**
+`governanceItemSatisfied` compares with exact string equality
+(`checkedEntries.some((entry) => entry === item)`), so a checked line must reproduce the wording
+in `.github/pull_request_template.md` and nothing else. Appending a reason to the line —
+`- [x] <item> — because ...` — silently fails to match, and the gate rejects a body that looks
+complete. Copy the seven lines verbatim and put the reasoning in a paragraph beneath them.
+
+**Check any PR body offline rather than learning this from CI.** `evaluatePullRequestPolicy` is
+exported for it, and is the same function the workflow calls:
+
+```bash
+node -e "import('./scripts/pr-policy.mjs').then(m=>{
+  const body=require('fs').readFileSync('/tmp/body.md','utf8');
+  console.log(m.evaluatePullRequestPolicy({title:'...', body, files:['path/one','path/two']}));
+})"
+```
+
+Expect `ok: true` with empty `errors` before pushing. Note separately that marking a PR ready for
+review escalates CI to the full heavy set — build and all browser shards — even for a diff with no
+executable file in it, and that it buys no CodeRabbit review (see the correction above).
