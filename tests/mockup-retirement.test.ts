@@ -324,6 +324,51 @@ describe("deletion audit", () => {
     expect(result.violations.join()).toContain("developer-gated prefix /mockups/ward-flow");
   });
 
+  /*
+   * The owner register for Tier B, driven through the real audit rather than its parser.
+   *
+   * ⚠️ THE THIRD CASE IS A HOLE THAT SHIPPED. Writing a FILE path into the Route column cleared
+   * Tier B for that one file, and the symmetry guard could not see it: that guard probes
+   * `route + "/page.tsx"`, so for `…/widget.tsx` it looked for `…/widget.tsx/page.tsx`, which
+   * cannot exist, and stayed silent. A pass whose own counter-check was disabled by
+   * construction. Found by an adversarial run, not by reading the code.
+   */
+  const ownerRegister = (route: string) =>
+    `${index}\n## Retired developer-gated routes (owner decisions)\n\n` +
+    `| Retired | Route | Approved by | Superseded by | Evidence |\n` +
+    `| --- | --- | --- | --- | --- |\n` +
+    `| 2026-09-03 | \`${route}\` | Owner | \`/mockups/x\` | Reason. |\n`;
+
+  it("clears a gated route the owner has recorded", () => {
+    const result = runAudit(
+      [`${MOCKUP_ROUTE_ROOT}/development/foo/page.tsx`],
+      [],
+      {},
+      ownerRegister("/mockups/development/foo"),
+    );
+    expect(result.violations.join()).not.toContain("developer-gated prefix");
+  });
+
+  it("does not clear a non-route file on a sibling route’s record", () => {
+    const result = runAudit(
+      [`${MOCKUP_ROUTE_ROOT}/development/foo/widget.tsx`],
+      [],
+      {},
+      ownerRegister("/mockups/development/foo"),
+    );
+    expect(result.violations.join()).toContain("developer-gated prefix");
+  });
+
+  it("⚠️ refuses a FILE path in the Route column, which used to grant an unwatchable pass", () => {
+    const result = runAudit(
+      [`${MOCKUP_ROUTE_ROOT}/development/foo/widget.tsx`],
+      [],
+      {},
+      ownerRegister("/mockups/development/foo/widget.tsx"),
+    );
+    expect(result.violations.join()).toContain("is not a route path");
+  });
+
   it("refuses a route deleted without a written record", () => {
     const result = runAudit([`${MOCKUP_ROUTE_ROOT}/unrecorded/page.tsx`], [], {});
     expect(result.violations.join()).toContain("not recorded under");
