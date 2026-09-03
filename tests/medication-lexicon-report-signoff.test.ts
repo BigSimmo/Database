@@ -16,8 +16,8 @@ import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import type { LexiconTerm } from "@/lib/medication-interaction-lexicon";
 import { catalogueMappingsHash, parseSignOff, signOffStatusLine } from "../scripts/build-medication-lexicon-report";
 
-const term = (id: string, surfaces: string[], denySlugs: string[] = []): LexiconTerm =>
-  ({ id, kind: "catalogue", surfaces, select: { slugs: [], denySlugs } }) as unknown as LexiconTerm;
+const term = (id: string, surfaces: string[], denySlugs: string[] = [], sourceDenySlugs: string[] = []): LexiconTerm =>
+  ({ id, kind: "catalogue", surfaces, select: { slugs: [], denySlugs }, sourceDenySlugs }) as unknown as LexiconTerm;
 
 describe("catalogueMappingsHash", () => {
   const terms = [term("acei", ["ACE inhibitors"]), term("statins", ["statins"])];
@@ -46,6 +46,15 @@ describe("catalogueMappingsHash", () => {
     const rephrased = [term("acei", ["ACE inhibitors", "ACEi"]), terms[1]!];
     expect(catalogueMappingsHash(denied, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
     expect(catalogueMappingsHash(rephrased, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
+  });
+
+  it("changes when a source-side exclusion changes, even though it resolves no differently", () => {
+    // build-medication-interaction-index.ts applies `sourceDenySlugs` to suppress
+    // otherwise-generated alert rows without narrowing what the term resolves to —
+    // the statin and fibrate exclusions are the live examples this guards. A
+    // sign-off recorded before such an edit must not read as current afterward.
+    const withSourceExclusion = [term("acei", ["ACE inhibitors"], [], ["perindopril"]), terms[1]!];
+    expect(catalogueMappingsHash(withSourceExclusion, expansions)).not.toBe(catalogueMappingsHash(terms, expansions));
   });
 
   it("hashes the live lexicon to a stable 64-character digest", () => {
