@@ -1,7 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
+import {
+  AnswerEvidencePreview,
+  visiblePreviewSourceLimit,
+} from "@/components/clinical-dashboard/answer-evidence-preview";
 import { AnswerProgress } from "@/components/clinical-dashboard/answer-status";
 import { incrementalEvidencePreviewRenderingEnabled } from "@/lib/client-env";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
@@ -30,7 +33,44 @@ function evidencePreview(sourceCount = 4): VerifiedEvidencePreviewUnit {
   };
 }
 
+/** One card lands per `--duration-moderate`; see `useProgressiveReveal` in answer-status.tsx. */
+const revealIntervalMs = 200;
+
+function renderProgressWithPreview(preview: VerifiedEvidencePreviewUnit) {
+  return render(
+    <AnswerProgress
+      events={[{ stage: "generating", message: "Drafting.", receivedAt: 0 }]}
+      startedAt={0}
+      active
+      onStop={() => {}}
+      evidencePreview={preview}
+    />,
+  );
+}
+
+function advanceReveal(cards: number) {
+  act(() => {
+    vi.advanceTimersByTime(revealIntervalMs * cards);
+  });
+}
+
+/** Past the last card the rail can draw, so assertions read the settled state. */
+function settleReveal() {
+  advanceReveal(visiblePreviewSourceLimit + 1);
+}
+
 describe("incremental answer evidence preview", () => {
+  // The reveal is timer-driven, so every render in this file needs a clock it controls.
+  // Real timers would make the card count depend on how long the assertion took to run.
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    document.documentElement.removeAttribute("data-motion");
+  });
+
   // Inverted 2026-08-27 when Phase 1 was enabled by default. The rail is the wait's most
   // useful content and every unit reaching the browser has already passed the stream
   // contract's structural validation, so an unset variable renders it. Only the literal
@@ -117,18 +157,54 @@ describe("incremental answer evidence preview", () => {
   // draws six, so the line has to read the rail's cap and not the unit's length — "8
   // sources found" above six cards is the one thing this surface promises never to do.
   it("counts only the sources the reader can see, not every source in the unit", () => {
-    render(
-      <AnswerProgress
-        events={[{ stage: "generating", message: "Drafting.", receivedAt: 0 }]}
-        startedAt={0}
-        active
-        onStop={() => {}}
-        evidencePreview={evidencePreview(8)}
-      />,
-    );
+    renderProgressWithPreview(evidencePreview(8));
+    settleReveal();
 
     const cards = screen.getAllByTestId("answer-evidence-preview-source");
     expect(cards).toHaveLength(6);
+    expect(screen.getByTestId("answer-progress-line")).toHaveTextContent("6 sources found · writing the answer…");
+  });
+
+  // The wait's one copy rule: no number appears that the reader cannot reconcile with
+  // something on screen. The cards are revealed one at a time, so the count has to move with
+  // them — a line reading "6 sources found" above two cards is the same broken promise as
+  // reading the unit's length above the rail's cap.
+  it("reveals the cards one at a time with the count tracking what is on screen", () => {
+    renderProgressWithPreview(evidencePreview(8));
+
+    const countedSources = () => {
+      const match = /(\d+) sources? found/.exec(screen.getByTestId("answer-progress-line").textContent ?? "");
+      return match ? Number(match[1]) : 0;
+    };
+
+    // The first card is standing the instant the unit arrives — the preview exists to shorten
+    // time to first useful content, so nothing is held back for a rung to tidy the animation.
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(1);
+    expect(countedSources()).toBe(1);
+
+    advanceReveal(1);
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(2);
+    expect(countedSources()).toBe(2);
+
+    advanceReveal(3);
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(5);
+    expect(countedSources()).toBe(5);
+
+    // And it stops at the rail's cap rather than walking on toward the unit's eight.
+    settleReveal();
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(6);
+    expect(countedSources()).toBe(6);
+  });
+
+  // The hard-won rule on this surface: suppressing motion must never withhold content.
+  // Reduce Motion once left a dead panel on a physical iPhone mid-generation, which is why
+  // the reveal fails toward showing everything rather than showing nothing.
+  it("shows every card immediately when motion is suppressed", () => {
+    document.documentElement.setAttribute("data-motion", "reduced");
+
+    renderProgressWithPreview(evidencePreview(8));
+
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(6);
     expect(screen.getByTestId("answer-progress-line")).toHaveTextContent("6 sources found · writing the answer…");
   });
 });

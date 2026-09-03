@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { History, Square } from "lucide-react";
 
 import {
@@ -22,6 +22,7 @@ import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { prefersReducedMotion } from "@/lib/scroll-behavior";
 import {
   answerLoading,
   sharedHomeEmptyState,
@@ -231,6 +232,72 @@ function useSlowNotice(active: boolean, startedAt: number | null) {
   return active && startedAt !== null && slowRun === startedAt;
 }
 
+/** One card per rung. `--duration-moderate` is an existing duration token (200ms) rather than
+ *  a new one — `globals.css` says in as many words not to invent a rung — and six cards
+ *  therefore land over about 1.2s. That is long enough that each is separately noticeable and
+ *  short enough to be standing well before generation ends, which is the window the rail has
+ *  to be readable in. */
+const evidenceRevealIntervalMs = 200;
+
+/** The motion preference as a subscription rather than a snapshot, so the in-app Reduce motion
+ *  toggle takes effect on the wait already on screen. `use-app-preferences.ts` mirrors that
+ *  toggle onto `<html data-motion>`, and the OS request arrives through the media query;
+ *  `prefersReducedMotion()` already reads both, this only watches them for changes. */
+function subscribeToMotionPreference(onChange: () => void) {
+  const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  media?.addEventListener("change", onChange);
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion"] });
+  return () => {
+    media?.removeEventListener("change", onChange);
+    observer.disconnect();
+  };
+}
+
+/**
+ * How many source cards are on screen right now.
+ *
+ * The sources all arrive in one stream event, so this is a reveal, not live discovery — see
+ * the note on `AnswerEvidencePreview`. It lives here rather than in the rail because the
+ * status line prints this same number, and the wait's one copy rule is that no number appears
+ * that the reader cannot reconcile with something on screen. One owner, one count.
+ *
+ * Keyed by preview identity, in the same shape `useSlowNotice` uses for the run: a retry or a
+ * new question hands over a different unit, the count reads as zero again on identity alone,
+ * and no reset is written into an effect body. Nothing here calls setState synchronously
+ * during an effect — the only writes come from the interval callback.
+ *
+ * Motion suppressed reveals everything immediately, with no timer in the path at all. That is
+ * the hard-won rule on this surface: Reduce Motion once left a dead panel on a physical iPhone
+ * mid-generation, and a JS reveal could withhold content in a way a CSS delay never could.
+ */
+function useProgressiveReveal(total: number, preview: VerifiedEvidencePreviewUnit | null) {
+  const reducedMotion = useSyncExternalStore(subscribeToMotionPreference, prefersReducedMotion, () => false);
+  const [revealed, setRevealed] = useState<{ unit: VerifiedEvidencePreviewUnit; count: number } | null>(null);
+
+  useEffect(() => {
+    if (reducedMotion || !preview || total <= 0) return undefined;
+    // Starts at one because the first card is already drawn below; the interval only has the
+    // rest to bring in.
+    let shown = 1;
+    const timer = window.setInterval(() => {
+      shown += 1;
+      setRevealed({ unit: preview, count: shown });
+      if (shown >= total) window.clearInterval(timer);
+    }, evidenceRevealIntervalMs);
+    return () => window.clearInterval(timer);
+  }, [preview, total, reducedMotion]);
+
+  if (reducedMotion) return total;
+  if (!preview || total <= 0) return 0;
+  // The first card is on screen the instant the unit arrives. This preview exists to shorten
+  // time to first useful content, and holding the whole rail back for a rung to make the
+  // animation tidier would spend exactly what it was built to buy. Identity, not a stale
+  // count, decides the rest: a new question's unit reads as one card again rather than
+  // inheriting the previous rail's number.
+  return Math.min(revealed?.unit === preview ? revealed.count : 1, total);
+}
+
 /**
  * Single-line progress for the non-answer (library/document) search modes, the
  * flat sibling of AnswerProgress.
@@ -318,7 +385,11 @@ export function AnswerProgress({
   // sources while the rail draws six, and a line reading "8 sources found" above six cards
   // is a number the reader cannot reconcile with anything on screen.
   const previewSourceCount = Math.min(evidencePreview?.sources.length ?? 0, visiblePreviewSourceLimit);
-  const previewMessage = latest ? answerProgressPreviewMessage(previewSourceCount, latest.stage) : null;
+  // The cards are revealed one at a time, so the line counts what is currently standing
+  // beneath it rather than what the unit carries. Before the first card lands there is no
+  // count to print and the line falls back to the stage clause.
+  const revealedSourceCount = useProgressiveReveal(previewSourceCount, evidencePreview);
+  const previewMessage = latest ? answerProgressPreviewMessage(revealedSourceCount, latest.stage) : null;
   const currentMessage = previewMessage ?? (latest ? answerProgressDisplayMessage(latest) : "Reading your question…");
   const details = events
     .map((event) => ({ ...event, displayMessage: answerProgressDisplayMessage(event) }))
@@ -354,7 +425,9 @@ export function AnswerProgress({
 
           <AnswerProseSkeleton />
 
-          {evidencePreview ? <AnswerEvidencePreview preview={evidencePreview} /> : null}
+          {evidencePreview ? (
+            <AnswerEvidencePreview preview={evidencePreview} revealedCount={revealedSourceCount} />
+          ) : null}
         </>
       )}
 
