@@ -73,6 +73,7 @@
     "test:e2e:care-plan-mockup": "node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-care-plan-mockup.spec.ts",
     "test:e2e:caring-contact-mockup": "node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-caring-contact-mockup.spec.ts",
     "test:e2e:caring-contacts-activation": "node scripts/run-playwright.mjs --project=chromium-caring-contacts-seeded tests/ui-caring-contacts-activation.spec.ts",
+    "test:e2e:caring-contacts-populated": "node scripts/run-playwright.mjs --project=chromium-caring-contacts-seeded tests/ui-caring-contacts-populated.spec.ts",
     "test:e2e:advisory": "node scripts/run-playwright.mjs --project=chromium --project=chromium-mockups --grep \"@quarantine|@mockup\" --pass-with-no-tests",
     "test:e2e:chromium": "node scripts/run-playwright.mjs --project=chromium --project=chromium-mockups",
     "test:e2e:visual": "node scripts/run-playwright.mjs --config=playwright.visual.config.ts",

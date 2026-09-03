@@ -15,15 +15,15 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 590
+- Records: 591
 - Distinct ref cells: 373
-- Distinct reviewed heads: 573
+- Distinct reviewed heads: 574
 - Date range: `2026-08-12` to `2026-09-03`
 
 Records per date, newest first:
 
 - `2026-09-03` — 1 record
-- `2026-09-02` — 14 records
+- `2026-09-02` — 15 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
 - `2026-08-30` — 3 records
@@ -65,6 +65,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-09-02 | claude/instruction-tiering-n9vs14 | Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference fil… | No findings. Reorganisation only: all 662 non-blank AGENTS.md lines ve… | [9b97c2e6](branch-review-records/9b97c2e689cead2aabfd99148f22120ca4d7f1b907be8e06dc595b279216be69.record.md) |
 | 2026-09-02 | claude/gate-audit-ujhkqb | prlanded | merged clean, content diff empty against branch tip | [9f7fd1f9](branch-review-records/9f7fd1f9419de5446570947eaf97adbf74e22ae0543039142417e79ed7c2e928.record.md) |
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | mockup retirement policy and sweep | Reviewed by two fresh agents before push; both found real defects and… | [b34f56e0](branch-review-records/b34f56e00cf20e8f76a4e7564cdb71ae5fd3c9cf97973c49f9b5541448f99a56.record.md) |
+| 2026-09-02 | claude/mockup-retirement-xw0vmn | prlanded | MERGED as #2543 squash 374a5603; content diff against branch tip 4877a… | [d3807849](branch-review-records/d38078490b7139c61eb2906b444fe58962bed612bb6463ba09dddf1e78f05294.record.md) |
 | 2026-09-02 | claude/care-plan-next (PR #2528) | Run PR sweep: review threads + main sync | Fixed 1 of 3 Codex P2 threads: added the in-file SUPERSEDED banner to… | [f5b42005](branch-review-records/f5b420054f6ed5cd54dfce9d748677965f53cac6f3f73dc725e603370eede38b.record.md) |
 | 2026-09-01 | PR-2504 | Resolve Codex P1: corpus-health table access | Verified the authenticated role lacks table SELECT; the administrator-… | [5d80826b](branch-review-records/5d80826bf56625f7a05594bf5c46f05a421a883a038ace94c07ca265528f1dba.record.md) |
 | 2026-09-01 | PR-2507 | Run PR sweep: enforce Favourites phone tap-target minimum | Replaced the blacklist-only target guard with a positive 48px-or-row-w… | [8b140d28](branch-review-records/8b140d281375ce001e5f712e3c697b4828186a605e096bb86342f16f0452610a.record.md) |
