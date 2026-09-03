@@ -15,6 +15,7 @@ import {
   PARALLEL_REFERRAL_CAP,
   type Decline,
   type Movement,
+  type MovementId,
   type TransportJob,
 } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
@@ -23,7 +24,7 @@ import { allUnits, NOW_ANCHOR } from "../src/components/ward-management/ward-sit
 function transportJob(overrides: Partial<TransportJob> = {}): TransportJob {
   return {
     id: "TR-TEST",
-    provider: "St John WA",
+    provider: "Patient transport service",
     escortRequired: true,
     ...overrides,
   };
@@ -93,15 +94,15 @@ describe("buildActionInbox", () => {
    */
   it("emits a legal-timing item for EVERY past-due movement, not just the first", () => {
     const first = movementFrom({
-      id: "TEST-legal-one",
+      id: "WF-TEST-legal-one",
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 20 },
     });
     const second = movementFrom({
-      id: "TEST-legal-two",
+      id: "WF-TEST-legal-two",
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 90 },
     });
     const notDue = movementFrom({
-      id: "TEST-legal-not-due",
+      id: "WF-TEST-legal-not-due",
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR + 500 },
     });
 
@@ -112,7 +113,7 @@ describe("buildActionInbox", () => {
 
     // Both past-due movements, and only those two. `.slice(0, 1)` or a `.find()` yields one id
     // and fails; a filter that ignored `clockState` would also emit the not-due one and fail.
-    expect(items).toEqual(["legal-TEST-legal-one", "legal-TEST-legal-two"]);
+    expect(items).toEqual(["legal-WF-TEST-legal-one", "legal-WF-TEST-legal-two"]);
   });
 
   // Regression proof for the 2026-08-23 correction: WF-303 is the real fixture Form 1A that an
@@ -155,16 +156,16 @@ describe("buildActionInbox", () => {
   // involved here at all — this category counts declines.
   it("emits a declines item for EVERY capped movement, not just the first", () => {
     const decline = (unitId: string): Decline => ({ unitId, at: NOW_ANCHOR - 60, reason: DECLINE_REASONS[0] });
-    const capped = (id: string): Movement =>
+    const capped = (id: MovementId): Movement =>
       movementFrom({ id, declines: [decline("unit-a"), decline("unit-b"), decline("unit-c")] });
-    const underCap = movementFrom({ id: "TEST-declines-under", declines: [decline("unit-a")] });
+    const underCap = movementFrom({ id: "WF-TEST-declines-under", declines: [decline("unit-a")] });
 
-    expect(capped("TEST-declines-one").declines.length, "fixture assumption: three declines meets the cap").toBe(
+    expect(capped("WF-TEST-declines-one").declines.length, "fixture assumption: three declines meets the cap").toBe(
       PARALLEL_REFERRAL_CAP,
     );
 
     const items = buildActionInbox(
-      [capped("TEST-declines-one"), capped("TEST-declines-two"), underCap],
+      [capped("WF-TEST-declines-one"), capped("WF-TEST-declines-two"), underCap],
       NOW_ANCHOR,
       allUnits(),
     )
@@ -172,7 +173,7 @@ describe("buildActionInbox", () => {
       .map((item) => item.id)
       .sort();
 
-    expect(items).toEqual(["declines-TEST-declines-one", "declines-TEST-declines-two"]);
+    expect(items).toEqual(["declines-WF-TEST-declines-one", "declines-WF-TEST-declines-two"]);
   });
 
   // Fix wave 2, finding 3 — checked for the same shape as the declines category above. Two
@@ -204,14 +205,14 @@ describe("buildActionInbox", () => {
   // The drawer's toggle count and the drawer's own rendered rows must agree (Task 8 ruling 3).
   // This is the model-side half of that guarantee: the total item count really is the sum of
   // every category's own real count, never a number computed independently of the rows below it.
-  it("lists expired bed holds so a lapsed reservation cannot disappear silently", () => {
+  it("lists expired bed pulls so a lapsed reservation cannot disappear silently", () => {
     const expired = wardMovements.find((movement) => movement.id === "WF-004")!;
-    expect(expired.bedHeldUntil).toBeLessThan(NOW_ANCHOR);
+    expect(expired.pullExpiresAt).toBeLessThan(NOW_ANCHOR);
 
     expect(buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())).toContainEqual(
       expect.objectContaining({
-        id: "bed-hold-WF-004",
-        title: "Bed hold expired",
+        id: "bed-pull-WF-004",
+        title: "Bed pull expired",
         movementId: "WF-004",
       }),
     );
@@ -231,7 +232,7 @@ describe("buildActionInbox", () => {
     ).length;
     const expiredHoldCount = wardMovements.filter(
       (movement) =>
-        movement.stage === "bed_held" && movement.bedHeldUntil !== undefined && movement.bedHeldUntil < NOW_ANCHOR,
+        movement.stage === "pulled" && movement.pullExpiresAt !== undefined && movement.pullExpiresAt < NOW_ANCHOR,
     ).length;
 
     expect(buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())).toHaveLength(

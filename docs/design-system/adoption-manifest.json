@@ -652,7 +652,8 @@
         "tests/medication-interaction-surfaces.dom.test.tsx",
         "tests/privacy-ui.test.ts",
         "tests/ui-forms-section-nav.spec.ts",
-        "tests/ui-v2-components.dom.test.tsx"
+        "tests/ui-v2-components.dom.test.tsx",
+        "tests/ward-governance-thin-sample.test.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1187,6 +1188,7 @@
         "src/components/calculators/calculator-sheet.tsx",
         "src/components/calculators/clinical-console.tsx",
         "src/components/calculators/directory-grid.tsx",
+        "src/components/calculators/guided-flow.tsx",
         "src/components/calculators/search-detail.tsx",
         "src/components/clinical-dashboard/favourites-hub.tsx",
         "src/components/specifiers/specifier-reference-page.tsx",
@@ -1200,6 +1202,7 @@
         "src/components/calculators/calculator-sheet.tsx",
         "src/components/calculators/clinical-console.tsx",
         "src/components/calculators/directory-grid.tsx",
+        "src/components/calculators/guided-flow.tsx",
         "src/components/calculators/search-detail.tsx",
         "src/components/clinical-dashboard/favourites-hub.tsx",
         "src/components/specifiers/specifier-reference-page.tsx",
@@ -1216,7 +1219,8 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/dose-line.dom.test.tsx",
-        "tests/ui-v2-answer-safety.dom.test.tsx"
+        "tests/ui-v2-answer-safety.dom.test.tsx",
+        "tests/ward-flow-seam.test.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -2160,7 +2164,7 @@
         "preview": ".design-sync/previews/ToastRegion.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-contract-utils.test.ts"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -2429,6 +2433,7 @@
         "src/app/(search-app)/sources/method/page.tsx",
         "src/app/(search-app)/sources/page.tsx",
         "src/app/(search-app)/sources/publishers/page.tsx",
+        "src/app/(search-app)/sources/search/page.tsx",
         "src/app/(search-app)/sources/topics/page.tsx"
       ],
       "routeRoots": true,
@@ -2748,6 +2753,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/sources/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["SearchPage"]
         },
         {
           "file": "src/app/(search-app)/sources/topics/page.tsx",
@@ -4007,6 +4022,7 @@
       "src/app/(search-app)/sources/method/page.tsx",
       "src/app/(search-app)/sources/page.tsx",
       "src/app/(search-app)/sources/publishers/page.tsx",
+      "src/app/(search-app)/sources/search/page.tsx",
       "src/app/(search-app)/sources/topics/page.tsx",
       "src/app/(search-app)/specifiers/[slug]/page.tsx",
       "src/app/(search-app)/specifiers/builder/page.tsx",
@@ -4090,6 +4106,7 @@
       "src/app/(search-app)/sources/method/page.tsx",
       "src/app/(search-app)/sources/page.tsx",
       "src/app/(search-app)/sources/publishers/page.tsx",
+      "src/app/(search-app)/sources/search/page.tsx",
       "src/app/(search-app)/sources/topics/page.tsx",
       "src/app/(search-app)/specifiers/[slug]/page.tsx",
       "src/app/(search-app)/specifiers/builder/page.tsx",
@@ -4127,7 +4144,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 88,
+    "inheritedCkbV2RootCount": 89,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4136,8 +4153,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 39,
-    "rootCount": 89,
-    "productionRouteCount": 81,
-    "nextUiEntryCount": 142
+    "rootCount": 90,
+    "productionRouteCount": 82,
+    "nextUiEntryCount": 143
   }
 }

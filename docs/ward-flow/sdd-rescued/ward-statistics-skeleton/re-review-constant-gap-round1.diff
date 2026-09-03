@@ -1,0 +1,201 @@
+SCOPED: constant-gap fix round 1 only (2 files) within commit 65cefd122
+
+ .../statistics/statistics-screen.tsx               | 39 ++++++++++++----
+ tests/ward-statistics.dom.test.tsx                 | 53 ++++++++++++++++++++--
+ 2 files changed, 80 insertions(+), 12 deletions(-)
+
+diff --git a/src/components/ward-management/statistics/statistics-screen.tsx b/src/components/ward-management/statistics/statistics-screen.tsx
+index 07e983d06..12629e38d 100644
+--- a/src/components/ward-management/statistics/statistics-screen.tsx
++++ b/src/components/ward-management/statistics/statistics-screen.tsx
+@@ -275,45 +275,66 @@ export function StatisticsScreen({
+                  * gap on this page names its cause and says whose change would fix it; this was
+                  * the only figure that did not, and it is the figure most likely to be quoted,
+                  * because it is the only one that renders a confident-looking headline number.
+                  *
+                  * ⚠️ **CONDITIONAL ON THE TWO ENDS BEING EQUAL, and that is the whole point.** An
+                  * unconditional sentence would pass every test in the world this fixture happens
+                  * to be in today and would become a lie the moment somebody gives the instants
+                  * real variety — sitting there being false with nothing to catch it. Written this
+                  * way it disappears on its own, which is the same self-invalidating property the
+                  * referral-to-bed paragraph already has.
+                  *
+                  * The null checks are not decoration: this branch cannot reach here with a null
+                  * end (a non-null average implies at least one measured gap), but `null === null`
+                  * is true, so an equality test alone would render this against an empty
+                  * population if the guard above ever changed shape.
++                 *
++                 * ⚠️ **`measuredCount > 1` IS PART OF THE CONDITION, NOT AN OPTIMISATION.** With
++                 * exactly one measured admission the two ends meet TRIVIALLY — one gap is its own
++                 * shortest and its own longest — and there is no constancy to report at all. The
++                 * paragraph below talks about every measured gap agreeing with every other; said
++                 * over a population of one that is not a hedge that reads oddly, it is a claim
++                 * about agreement where there is nothing to agree with. The seeded world cannot
++                 * reach this (it carries hundreds), but this screen is generic and its callers
++                 * are not, so the case is real.
++                 *
++                 * ⚠️ **AND THE COPY CLAIMS ONLY WHAT THE CONDITION ENTAILS.** An earlier draft
++                 * stated as settled fact that the fixture derives one instant from the other by a
++                 * fixed offset. That is true of today's seed — and the page cannot know it. All
++                 * this branch observes is that the ends coincide; independently generated gaps
++                 * that happened to agree would satisfy it identically. Asserting the mechanism
++                 * from the symptom would have been the very defect this paragraph exists to close,
++                 * moved out of a number and into a cause. So the offset is offered below as the
++                 * explanation the shape points at, explicitly not as a finding — while still
++                 * saying plainly that the figure must not be read as a measurement of a service.
+                  */}
+-                {arrivals.shortestMinutes !== null &&
++                {arrivals.measuredCount > 1 &&
++                arrivals.shortestMinutes !== null &&
+                 arrivals.longestMinutes !== null &&
+                 arrivals.shortestMinutes === arrivals.longestMinutes ? (
+                   <p className={styles.figureNote} data-testid="ward-statistics-arrival-constant-gap">
+                     <strong>
+-                      The two ends meet, which means this is not a measurement of how long beds take to fill: it is a
+-                      single interval, written into the records by the fixture and read back out of all of them.
++                      Every measured gap here is the same length, so this average is describing no variation at all: it
++                      is one value repeated, not a measurement of how long beds take to fill.
+                     </strong>{" "}
+-                    Where the admissions fixture derives one of the two instants from the other by a fixed offset, every
+-                    gap it can produce is that offset — so the average, the shortest and the longest are one number
+-                    shown three times, and there is no spread behind them to be wide or narrow. Nothing on this page can
+-                    give it one. The fix is on the admissions side, where the instants are written, and it is a change
+-                    to the fixture rather than to this page; the moment somebody writes the two instants independently,
+-                    the two ends part and this paragraph disappears on its own.
++                    What this page can see is that the two ends coincide, never why they do. The likeliest reason is a
++                    fixture that derives one of the two instants from the other by a fixed offset, because a real
++                    service does not hand back the same gap for everybody — but that is an explanation this shape points
++                    at rather than a finding the page has established. Either way nothing here can widen the figure: if
++                    these gaps are meant to differ, they have to be written that way on the admissions side, which is a
++                    change to the fixture rather than to this page, and the moment they do differ the two ends part and
++                    this paragraph disappears on its own.
+                   </p>
+                 ) : null}
+               </>
+             )}
+ 
+             <p className={styles.figureNote} data-testid="ward-statistics-arrival-population">
+               Historical, not a picture of tonight:{" "}
+               <span data-testid="ward-statistics-arrival-ended-count">{arrivals.endedCount}</span> of the measured
+               admissions have since ended, and their completed gap still counts. A further{" "}
+               <span data-testid="ward-statistics-arrival-awaiting-count">{arrivals.awaitingArrivalCount}</span>{" "}
+               {arrivals.awaitingArrivalCount === 1 ? "person has" : "people have"} a bed given away and have not
+               arrived; their gap is still running, so it is not yet a measured fact and contributes nothing above.
+             </p>
+ 
+             {/*
+diff --git a/tests/ward-statistics.dom.test.tsx b/tests/ward-statistics.dom.test.tsx
+index 9407b674d..49c1290f2 100644
+--- a/tests/ward-statistics.dom.test.tsx
++++ b/tests/ward-statistics.dom.test.tsx
+@@ -367,60 +367,107 @@ describe("a constant gap names its cause, and only while it is constant", () =>
+         // the shape a fixed offset between the two instants produces, and the shape this sentence
+         // exists to explain.
+         admission({ id: "AD-A", pulledAt: 0, arrivedAt: 120 }),
+         admission({ id: "AD-B", pulledAt: 500, arrivedAt: 620 }),
+       ],
+       referrals: [],
+       bedReleases: [],
+     });
+ 
+     // The world the sentence describes: an average with the two ends sitting on top of it.
+     expect(screen.getByTestId("ward-statistics-arrival-average").textContent).toBe("2h 00m");
+     expect(screen.getByTestId("ward-statistics-arrival-shortest").textContent).toBe("2h 00m");
+     expect(screen.getByTestId("ward-statistics-arrival-longest").textContent).toBe("2h 00m");
+ 
+     const text = screen.getByTestId("ward-statistics-arrival-constant-gap").textContent ?? "";
+-    // The claim the page was missing: this is not a measurement of the service.
++    // What the condition ACTUALLY entails, and the warning it earns: identical gaps, therefore no
++    // variation, therefore not a measurement of the service.
++    expect(text).toContain("Every measured gap here is the same length");
+     expect(text).toContain("not a measurement of how long beds take to fill");
+-    // The mechanism, named rather than gestured at.
++    // The mechanism, named rather than gestured at...
+     expect(text).toContain("derives one of the two instants from the other by a fixed offset");
++    // ...but offered as an explanation rather than asserted as a finding, which is the half that
++    // keeps this paragraph honest. The guard is an observed EQUALITY of two numbers; independently
++    // generated gaps that happened to coincide would satisfy it identically, so the page cannot
++    // know the offset is there. Asserting it from the symptom would be this page's own defect
++    // class — a claim it cannot verify — moved out of a number and into a cause.
++    expect(text).toContain("What this page can see is that the two ends coincide, never why they do");
++    expect(text).toContain("an explanation this shape points at rather than a finding");
+     // And whose change would fix it — the property every other gap on this page already has.
+-    expect(text).toContain("The fix is on the admissions side");
++    expect(text).toContain("written that way on the admissions side");
+     expect(text).toContain("change to the fixture rather than to this page");
+     // It must never name the seeded value or the population size: both are seed facts that move,
+     // and a sentence carrying them would age into a wrong figure on the page that is believed
+     // hardest. Any digit at all in this paragraph is that defect.
+     expect(text).not.toMatch(/[0-9]/);
+   });
+ 
+   it("says nothing of the kind once the gaps actually differ", () => {
+     renderScreen({
+       admissions: [
+         // 0 -> 120 is two hours, 0 -> 360 is six. A real spread, so the sentence would be false.
+         admission({ id: "AD-A", pulledAt: 0, arrivedAt: 120 }),
+         admission({ id: "AD-B", pulledAt: 0, arrivedAt: 360 }),
+       ],
+       referrals: [],
+       bedReleases: [],
+     });
+ 
+     // The figure still renders in full — this is not an empty state, and the ends now differ...
+     expect(screen.getByTestId("ward-statistics-arrival-shortest").textContent).toBe("2h 00m");
+     expect(screen.getByTestId("ward-statistics-arrival-longest").textContent).toBe("6h 00m");
+     // ...so the constant-gap explanation must be gone from the page entirely, not merely reworded.
+     expect(screen.queryByTestId("ward-statistics-arrival-constant-gap")).toBeNull();
+   });
++
++  /**
++   * ⚠️ **ONE MEASURED ADMISSION MEETS THE EQUALITY AND MEANS NOTHING BY IT.** A single gap is its
++   * own shortest and its own longest, so `shortestMinutes === longestMinutes` holds trivially —
++   * and there is no constancy to report, because there is nothing for the one gap to agree with.
++   * A paragraph saying every measured gap is the same length would be talking about agreement
++   * across a population of one.
++   *
++   * This is why the guard is `measuredCount > 1` AND the equality rather than the equality alone,
++   * and it is the case the two tests above cannot reach: both build two-record fixtures, so both
++   * stay green against a guard that dropped the count entirely. The seeded world carries hundreds
++   * and can never produce this, which is precisely the reason it needs a test — the screen is
++   * generic, its callers are not, and nothing in the live world would ever show the mistake.
++   */
++  it("says nothing when a single admission makes the two ends meet trivially", () => {
++    renderScreen({
++      admissions: [
++        // One record with both instants; 0 -> 120 is two hours. Its shortest and its longest are
++        // necessarily the same number, and that fact carries no information at all.
++        admission({ id: "AD-A", pulledAt: 0, arrivedAt: 120 }),
++        // A second admission that is NOT measured — no arrival yet — so it cannot rescue the
++        // population size. Present so this fixture cannot pass by having only one record on the
++        // page: the guard must count MEASURED gaps, not admissions.
++        admission({ id: "AD-B", state: "pulled", pulledAt: 60, arrivedAt: null }),
++      ],
++      referrals: [],
++      bedReleases: [],
++    });
++
++    // The figure renders, the population is one, and the ends do coincide...
++    expect(screen.getByTestId("ward-statistics-arrival-average").textContent).toBe("2h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-measured-count").textContent).toBe("1");
++    expect(screen.getByTestId("ward-statistics-arrival-shortest").textContent).toBe("2h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-longest").textContent).toBe("2h 00m");
++    // ...and the paragraph must still stay away, because coincidence of one value with itself is
++    // not the constancy it describes.
++    expect(screen.queryByTestId("ward-statistics-arrival-constant-gap")).toBeNull();
++  });
+ });
+ 
+ describe("the two empty states say WHY, mechanically", () => {
+   it("names the field and the reason bed readiness cannot be timed", () => {
+     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
+ 
+     const text = screen.getByTestId("ward-statistics-readiness-timing-absent").textContent ?? "";
+     expect(text).toContain("BedRelease.preparing");
+     expect(text).toContain("boolean");
+     // The point that stops somebody filling the gap with data entry: there is no state to time.
+     expect(text).toContain("no timed state to measure");
+     expect(text).toContain("change to the bed model");
+     // "Not yet collected" is the wording this test exists to forbid.
+     expect(text).not.toContain("not yet collected");
+   });
