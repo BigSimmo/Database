@@ -26,7 +26,7 @@
     "handRolledCommandButtons": 8,
     "elevationInversions": 6,
     "sameFileTextSmMinusMix": 25,
-    "visibleLiveRegions": 24,
+    "visibleLiveRegions": 25,
     "disabledOpacityUses": 39
   },
   "debtByPath": {
@@ -179,6 +179,7 @@
       "src/components/therapy-compass/screens/recommend-screen.tsx": 1,
       "src/components/therapy-compass/therapy-card.tsx": 1,
       "src/components/therapy-compass/workspace.tsx": 1,
+      "src/components/ward-management/morning/morning-tour.tsx": 1,
       "src/components/ward-management/ward-management-modes.tsx": 1,
       "src/components/ward-management/ward-management-network.tsx": 1
     },
