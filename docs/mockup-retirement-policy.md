@@ -47,11 +47,11 @@ implementation modules that is ~199 files and ~45,000 lines — and 82 of those 
 
 ## Tiers — decided by evidence of a consumer, never by path
 
-| Tier                                | What it is                                                                                                                                         | Retirable?                                                      |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **A — Design scratch**              | A design study whose only consumer is its own mockup route                                                                                         | Yes, on the evidence bar below                                  |
-| **B — Developer-gated application** | The four prototypes above and their implementation modules                                                                                         | **Never under this policy.** Retiring one is a product decision |
-| **C — Fixture / infrastructure**    | Test fixtures, compatibility redirects, the shared `/mockups` shell, boundary-test subjects, and modules whose real consumers are scripts or tests | **Never alone** — only alongside its consumer                   |
+| Tier                                | What it is                                                                                                                                         | Retirable?                                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **A — Design scratch**              | A design study whose only consumer is its own mockup route                                                                                         | Yes, on the evidence bar below                    |
+| **B — Developer-gated application** | The four prototypes above and their implementation modules                                                                                         | **Only on a recorded owner decision** — see below |
+| **C — Fixture / infrastructure**    | Test fixtures, compatibility redirects, the shared `/mockups` shell, boundary-test subjects, and modules whose real consumers are scripts or tests | **Never alone** — only alongside its consumer     |
 
 Tier B membership is read at runtime from `DEVELOPER_GATED_PATH_PREFIXES` in
 `src/lib/developer-area/headers.ts`, never restated here, so the check follows that list the
@@ -94,7 +94,17 @@ resting state — not a backlog item, and not an invitation to guess.
 - **Tier A with no recorded winner** — the repository owner decides, and records that decision
   in `mockups/README.md` in a separate commit _before_ any deletion. An AI session may propose
   and must never pick.
-- **Tier B** — a product decision, outside this policy.
+- **Tier B** — a product decision, and the owner's alone. It is recorded in the
+  `## Retired developer-gated routes (owner decisions)` table in `mockups/README.md`, which the
+  check reads: a gated deletion absent from that table fails, exactly as before, and a route
+  recorded there that still exists on disk fails too. Every column is required, because a row
+  that names a route and nothing else records no decision. An AI session may propose and must
+  never write a row on its own account.
+
+  This route exists because "never" and "fails the build" together meant a gated screen could not
+  be retired however the product changed — the refusal was not a question being asked. It is
+  deliberately the most demanding record in this policy, not the least.
+
 - **Tier C** — only alongside its consumer.
 
 ## Where a retired mockup goes

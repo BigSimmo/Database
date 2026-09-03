@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "kind": "ward-flow-transition-receipt",
+  "id": "recovery-bundle",
+  "outcome": "passed",
+  "sourceSha": "0000000000000000000000000000000000000000",
+  "acceptanceCriterion": "Replace this with the exact recovery gate being decided.",
+  "falsifier": "Replace this with the observation that would make the gate fail.",
+  "decisiveEvidence": "Replace this with the local path, hash and recovery result that decided the gate.",
+  "gateEvidence": {
+    "bundlePath": "docs/ward-flow/control/evidence/bundles/<content-addressed-bundle>",
+    "bundleSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "bundleRef": "refs/heads/<recovery-ref>",
+    "independentBundlePath": "C:/absolute/path/outside-the-repository/<content-addressed-bundle>",
+    "restoreCheckout": "C:/absolute/path/to/an-independent-restore-checkout",
+    "restoreHead": "0000000000000000000000000000000000000000",
+    "requiredObjects": ["0000000000000000000000000000000000000000", "1111111111111111111111111111111111111111"],
+    "bundleHashVerified": true,
+    "requiredObjectsVerified": true,
+    "restoreResult": "passed"
+  }
+}

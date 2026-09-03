@@ -6,8 +6,8 @@
   --ward-canvas: var(--surface);
   --ward-chrome: var(--surface-chrome);
   --ward-subtle: var(--surface-subtle);
-  --ward-border: var(--border);
-  --ward-border-strong: var(--border-strong);
+  --ward-border: var(--neutral-500);
+  --ward-border-strong: var(--text-muted);
   --ward-text: var(--text);
   --ward-heading: var(--text-heading);
   --ward-muted: var(--text-muted);
@@ -1285,5 +1285,52 @@
 @media (max-width: 68rem) {
   .networkLayout {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- print ------------------------------------------------------------- *
+ *
+ * THE HEIGHT CAP, released for paper. `.modeShell` is `height: 100dvh; overflow: hidden` — correct
+ * for an app shell whose regions scroll independently, and fatal on paper: the printed document is
+ * exactly one viewport tall and everything past it is CLIPPED rather than paginated. Measured on
+ * the network diagram, whose restored unit nodes exposed it: 16 of the 23 wards printed and the
+ * remaining 7 fell off the bottom of page 1, with page 2 arriving completely blank — no legend, no
+ * WACHS units, and nothing on either sheet to say a reader was holding an incomplete picture. That
+ * is the same class of failure as a missing ward node, and it hides behind the same silence.
+ *
+ * Scrolling boxes have no meaning on paper. This is the substitution the global print reset in
+ * `globals.css` already makes for `main`, `section` and `article`, applied to the two grid boxes
+ * that carry a height here so the workspace paginates instead of being cropped. It is deliberately
+ * the only thing this block does: which content prints, and how it reads, stays each mode's own
+ * decision — see the print blocks in `ward-management-network.module.css` and
+ * `coordinator/coordinator.module.css`.
+ */
+@media print {
+  .modeShell,
+  .modeContent {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
+ *
+ * The border aliases above deliberately SEVER the chain to `--border`. Measured against
+ * `--surface`, the background every one of these screens paints, `--border` sits at 1.21:1 in
+ * light mode and 1.42:1 in dark — far below the 3:1 a boundary needs, so the dividers were very
+ * nearly invisible. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and
+ * 8.21:1.
+ *
+ * ⚠️ But severing that chain would ALSO cost a high-contrast user the system border colour, which
+ * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
+ * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
+ * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ */
+@media (forced-colors: active) {
+  .modeShell {
+    --ward-border: var(--border);
+    --ward-border-strong: var(--border-strong);
   }
 }

@@ -372,6 +372,89 @@ describe("deletion audit", () => {
     expect(result.violations.join()).toContain("a surviving module");
   });
 
+  /**
+   * The two-defect fix on 2026-09-02/03 (moduleSpecifiersFor's route specifier, and
+   * referencePattern/relativeSpecifierResolvesTo's bare-tail matching) must narrow the gate's
+   * false-positive rate without narrowing what it actually catches. Each case below is one of
+   * the controls that fix was required to prove, run through the real auditDeletions pipeline
+   * rather than against the unit functions directly.
+   */
+  describe("bare-tail and deep-route controls (regression guard for the 2026-09 specifier fix)", () => {
+    it("still catches a deleted module a surviving file really imports by a relative path", () => {
+      const result = runAudit(
+        ["src/components/retired-route/widget.tsx", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/retired-route/sibling.tsx"],
+        { "src/components/retired-route/sibling.tsx": 'import { Widget } from "./widget";' },
+      );
+      expect(result.violations.join()).toContain("a surviving module");
+    });
+
+    it("still catches a deep deleted route that is still linked, by its exact route — not the still-live root", () => {
+      const result = runAudit(
+        [`${MOCKUP_ROUTE_ROOT}/retired-route/nested/deep/page.tsx`],
+        ["src/components/still-links-deep-route.tsx", "src/components/links-only-the-root.tsx"],
+        {
+          "src/components/still-links-deep-route.tsx": 'const href = "/mockups/retired-route/nested/deep";',
+          "src/components/links-only-the-root.tsx": 'const href = "/mockups/retired-route";',
+        },
+      );
+      const joined = result.violations.join();
+      expect(joined).toContain('still referenced as "/mockups/retired-route/nested/deep"');
+      expect(joined).toContain("still-links-deep-route.tsx");
+      expect(joined).not.toContain("links-only-the-root.tsx");
+    });
+
+    it("still catches a CSS module retirement reached only through composes", () => {
+      const result = runAudit(
+        ["src/components/retired-route/shell.module.css", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/retired-route/consumer.module.css"],
+        { "src/components/retired-route/consumer.module.css": 'composes: base from "./shell.module.css";' },
+      );
+      expect(result.violations.join()).toContain("a surviving module");
+    });
+
+    it("still catches a dynamic import() of a retired module", () => {
+      const result = runAudit(
+        ["src/components/retired-route/panel.tsx", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/retired-route/loader.tsx"],
+        { "src/components/retired-route/loader.tsx": 'const Panel = dynamic(() => import("./panel"));' },
+      );
+      expect(result.violations.join()).toContain("a surviving module");
+    });
+
+    /**
+     * The false-positive direction. Before the fix, a bare state-value string like `"loading"`
+     * matched the same way a real `"./loading"` import did — anchored on the opening quote
+     * alone — and produced 54 false violations against one retired file on this branch.
+     */
+    it("does NOT flag an ordinary string literal that merely shares a bare tail's name", () => {
+      const result = runAudit(
+        [`${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`, "src/components/retired-route-mockups.tsx"],
+        ["src/components/status-values.tsx"],
+        { "src/components/status-values.tsx": 'const status = "retired-route-mockups";' },
+      );
+      expect(result.violations).toHaveLength(0);
+    });
+
+    /**
+     * The subtler false positive Defect 1 alone cannot fix: many files can share one bare
+     * basename (this repo has ~24 route-level `loading.tsx` files). A relative import of a
+     * DIFFERENT same-named file must not be mistaken for a reference to the deleted one —
+     * only `relativeSpecifierResolvesTo`'s directory-aware resolution tells them apart.
+     */
+    it("does NOT flag a relative import that resolves to a different same-named surviving file", () => {
+      const result = runAudit(
+        ["src/components/family-a/widget.tsx", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/family-b/widget.tsx", "src/components/family-b/consumer.tsx"],
+        {
+          "src/components/family-b/widget.tsx": "export const Widget = () => null;",
+          "src/components/family-b/consumer.tsx": 'import { Widget } from "./widget";',
+        },
+      );
+      expect(result.violations).toHaveLength(0);
+    });
+  });
+
   it("fails closed when a surviving file cannot be read", () => {
     const runGit = (args: string[]) => {
       if (args[0] === "diff") return "src/components/retired-route-mockups.tsx";

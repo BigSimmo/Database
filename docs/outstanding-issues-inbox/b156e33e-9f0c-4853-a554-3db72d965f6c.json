@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b156e33e-9f0c-4853-a554-3db72d965f6c",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ten CSS custom properties referenced with no fallback and never declared render as nothing on a clinical board",
+    "detail": "tests/design-token-contract.test.ts fails. board.module.css and ward-management.module.css reference --clinical-border-subtle, --clinical-text-muted, --clinical-border, --clinical-surface, --clinical-text and --ward-surface with no fallback and no declaration. An undeclared custom property with no fallback does not error - it renders as nothing, so a clinician sees a missing border or invisible text while every test stays green. Reproduced at adcd8bcb5: 90 tests RAN, 3 failed, real exit 1. Ownership went unclaimed repeatedly across five chats.",
+    "source": "Ward Builder Three, reproduced not relayed, at adcd8bcb5",
+    "issueUlid": "01M1G4NPRJ0ZTPX9XGXRBXN1JZ"
+  }
+}
