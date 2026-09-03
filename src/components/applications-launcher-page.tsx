@@ -680,7 +680,7 @@ function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean;
           <Link
             href={app.href}
             className={cn(
-              "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]",
+              "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]",
               focusRing,
             )}
           >

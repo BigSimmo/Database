@@ -154,10 +154,10 @@ describe("tracked sitemap", () => {
     expect(data.redirects).toContainEqual({
       route: "/dictionary/sources",
       file: "src/app/(search-app)/dictionary/sources/page.tsx",
-      target: "/sources?usedBy=dictionary",
+      target: "/sources/search?usedBy=dictionary",
     });
     expect(rendered).toContain(
-      "`/dictionary/sources` - Query-preserving compatibility redirect to `/sources?usedBy=dictionary`",
+      "`/dictionary/sources` - Query-preserving compatibility redirect to `/sources/search?usedBy=dictionary`",
     );
   });
 
