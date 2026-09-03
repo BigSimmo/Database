@@ -1,0 +1,15 @@
+{
+  "$comment": "Ratchet ceilings for two token-system drift metrics measured in docs/design-system/drift-measurement-2026-09-02.md. Both metrics may only go DOWN. `npm run check:design-drift-ratchet` fails the moment either current count exceeds its ceiling. `npm run check:design-drift-ratchet -- --update` refreshes a ceiling to the current measured count, but only ever lowers or matches it — it refuses to raise a ceiling. Raising one on purpose requires `--update --allow-increase`, which prints the old and new ceiling so the diff is visible in review; do this only with a stated reason (a newly-legitimate dynamic style, or a component whose adoption regressed) recorded in the commit message.",
+  "inlineStyles": {
+    "ceiling": 232,
+    "description": "Count of style={{ }} JSX attributes under tracked src/**/*.{ts,tsx}, excluding lines that are inside a comment (trimmed line starts with // or *).",
+    "measuredAt": "2026-09-02T07:40:18.000Z",
+    "baselineSource": "686ce37cf480145b359d5d4438e649a69b8fbd10"
+  },
+  "unimportedRegisteredComponents": {
+    "ceiling": 16,
+    "description": "docs/design-system/adoption-manifest.json summary.registeredComponentCount minus summary.productImportedComponentCount — registered components with zero productImportFiles.",
+    "measuredAt": "2026-09-02T07:40:18.000Z",
+    "baselineSource": "686ce37cf480145b359d5d4438e649a69b8fbd10"
+  }
+}
