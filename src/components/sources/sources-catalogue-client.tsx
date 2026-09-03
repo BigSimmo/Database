@@ -26,6 +26,7 @@ import type {
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
 import { filterAndSortSourceCatalogue, parseSourceCatalogueFilters } from "@/lib/sources/catalogue-view";
+import { sourceAttentionFlags } from "@/lib/sources/source-status-presentation";
 import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation";
 
 /**
@@ -90,25 +91,8 @@ function uniqueSorted(values: readonly string[]) {
   return [...new Set(values)].sort(compareText);
 }
 
-/**
- * The states worth interrupting a scan for.
- *
- * Raw catalogue warnings (`ambiguous_identity`, `metadata_conflict`) are review
- * bookkeeping and stay off the card. What a clinician needs to see before
- * opening a source is whether it has aged out or been replaced.
- */
-function attentionFlags(entry: ClinicalSourceCatalogueEntry) {
-  const flags: { label: string; tone: "warning" | "danger" }[] = [];
-  if (entry.documentStatus === "outdated") flags.push({ label: "Outdated", tone: "danger" });
-  else if (entry.documentStatus === "review_due") flags.push({ label: "Review due", tone: "warning" });
-  if (entry.supersededBy.length) flags.push({ label: "Superseded", tone: "danger" });
-  if (entry.lifecycleStatus === "excluded") flags.push({ label: "Excluded", tone: "danger" });
-  else if (entry.lifecycleStatus === "inactive") flags.push({ label: "Inactive", tone: "warning" });
-  return flags;
-}
-
 function SourceTile({ entry }: { entry: ClinicalSourceCatalogueEntry }) {
-  const flags = attentionFlags(entry);
+  const flags = sourceAttentionFlags(entry);
   const usageGroups = groupSourceUsagesByMode(entry.usedBy);
   const usageSummary = usageGroups.length
     ? `Used in ${usageGroups.map((group) => group.modeLabel).join(", ")}`
@@ -181,7 +165,13 @@ const chipGroups = [
   format: (value: string) => string;
 }>;
 
-export function SourcesCatalogueClient({ entries }: { entries: readonly ClinicalSourceCatalogueEntry[] }) {
+export function SourcesCatalogueClient({
+  entries,
+  hostedDocuments,
+}: {
+  entries: readonly ClinicalSourceCatalogueEntry[];
+  hostedDocuments: "available" | "unavailable";
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -377,6 +367,18 @@ export function SourcesCatalogueClient({ entries }: { entries: readonly Clinical
             summary={{ count: visibleEntries.length, noun: visibleEntries.length === 1 ? "source" : "sources" }}
             chromeResetKey={filters.q}
           />
+          {/* One quiet line, not the bordered banner this replaced. The count
+              above it is wrong while the hosted-document loader is unreachable,
+              and a count a reader cannot tell is partial is worse than no count. */}
+          {hostedDocuments === "unavailable" ? (
+            <p
+              role="note"
+              data-testid="sources-partial-catalogue-note"
+              className="pt-2 text-2xs font-semibold text-[color:var(--warning-text,var(--text-muted))]"
+            >
+              Uploaded document sources cannot be reached, so this list and its count are incomplete.
+            </p>
+          ) : null}
         </>
       }
     >

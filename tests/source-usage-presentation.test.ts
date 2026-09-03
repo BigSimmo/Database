@@ -22,8 +22,15 @@ describe("sourceUsageHref", () => {
     expect(sourceUsageHref(usage({ modeId: "documents", recordId: "doc_123" }))).toBe("/documents/doc_123");
   });
 
-  it("sends a dictionary comparison to the comparison route rather than a term that does not exist", () => {
-    expect(sourceUsageHref(usage({ recordId: "mania--hypomania", field: "comparison" }))).toBe("/dictionary/compare");
+  it("sends a dictionary comparison to the pair it cites, not an empty comparison picker", () => {
+    expect(sourceUsageHref(usage({ recordId: "mania--hypomania", field: "comparison" }))).toBe(
+      "/dictionary/compare?a=mania&b=hypomania",
+    );
+  });
+
+  it("still resolves a comparison whose recorded pair is incomplete", () => {
+    expect(sourceUsageHref(usage({ recordId: "mania", field: "comparison" }))).toBe("/dictionary/compare?a=mania");
+    expect(sourceUsageHref(usage({ recordId: "", field: "comparison" }))).toBe("/dictionary/compare");
   });
 
   it("falls back to the mode's own search for records whose id is not a route", () => {

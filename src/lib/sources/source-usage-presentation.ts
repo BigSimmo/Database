@@ -66,8 +66,18 @@ export type SourceUsageGroup = {
 /** Where the reader goes to see this usage in context. Never null — a mode search always resolves. */
 export function sourceUsageHref(usage: SourceUsage): string {
   // A dictionary comparison's record id is the pair ("mania--hypomania"), which
-  // is not a term slug. The comparison route is the page that actually shows it.
-  if (usage.modeId === "dictionary" && usage.field === "comparison") return "/dictionary/compare";
+  // is not a term slug. `/dictionary/compare` selects its two entries from `a`
+  // and `b`, so the bare route would open an empty picker rather than the
+  // comparison that cites the source. The pair is split back out here rather
+  // than routed through `dictionaryCompareHref`, whose slug validation would
+  // pull the whole dictionary dataset into the catalogue's client bundle.
+  if (usage.modeId === "dictionary" && usage.field === "comparison") {
+    const [first, second] = usage.recordId.split("--");
+    const params = new URLSearchParams();
+    if (first) params.set("a", first);
+    if (second) params.set("b", second);
+    return `/dictionary/compare${params.size ? `?${params.toString()}` : ""}`;
+  }
 
   const prefix = recordRoutePrefixes[usage.modeId];
   if (prefix && usage.recordId) return `${prefix}/${usage.recordId}`;

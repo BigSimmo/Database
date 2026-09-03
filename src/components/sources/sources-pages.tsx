@@ -14,6 +14,7 @@ import {
 } from "@/lib/sources/catalogue-types";
 import { deriveSourceCatalogueFacets } from "@/lib/sources/catalogue-view";
 import { loadSourceCatalogue } from "@/lib/sources/load-source-catalogue";
+import { sourceAttentionFlags, sourceProvenanceNotes } from "@/lib/sources/source-status-presentation";
 import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation";
 
 const bandLabels: Record<SourceQualityBand, string> = {
@@ -58,7 +59,10 @@ function PageName({ children }: { children: string }) {
 
 export async function SourcesCataloguePage(): Promise<ReactNode> {
   const catalogue = await loadSourceCatalogue();
-  return <SourcesCatalogueClient entries={catalogue.entries} />;
+  // `hostedDocuments` travels with the entries: when the document lookup is
+  // unavailable the catalogue is repository-only, and the page has to be able
+  // to say so rather than presenting a partial list as the whole registry.
+  return <SourcesCatalogueClient entries={catalogue.entries} hostedDocuments={catalogue.hostedDocuments} />;
 }
 
 export async function SourcesTopicsPage(): Promise<ReactNode> {
@@ -299,17 +303,6 @@ function CanonicalLocation({ entry }: { entry: ClinicalSourceCatalogueEntry }) {
   return <span>Not provided</span>;
 }
 
-/** The states that change what a reader does with the source, not the review bookkeeping. */
-function detailFlags(entry: ClinicalSourceCatalogueEntry) {
-  const flags: { label: string; tone: "warning" | "danger" }[] = [];
-  if (entry.documentStatus === "outdated") flags.push({ label: "Outdated", tone: "danger" });
-  else if (entry.documentStatus === "review_due") flags.push({ label: "Review due", tone: "warning" });
-  if (entry.supersededBy.length) flags.push({ label: "Superseded", tone: "danger" });
-  if (entry.lifecycleStatus === "excluded") flags.push({ label: "Excluded", tone: "danger" });
-  else if (entry.lifecycleStatus === "inactive") flags.push({ label: "Inactive", tone: "warning" });
-  return flags;
-}
-
 export async function SourceDetailPage({ sourceId }: { sourceId: string }): Promise<ReactNode> {
   const { entries } = await loadSourceCatalogue();
   const entry = entries.find((candidate) => candidate.id === sourceId);
@@ -317,7 +310,8 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
 
   const usageGroups = groupSourceUsagesByMode(entry.usedBy);
   const recordTotal = usageGroups.reduce((total, group) => total + group.recordCount, 0);
-  const flags = detailFlags(entry);
+  const flags = sourceAttentionFlags(entry);
+  const provenanceNotes = sourceProvenanceNotes(entry);
 
   // Only the fields that carry a value. A grid of "Unknown" tiles reads as data
   // when it is the absence of data, and it pushes the usages below the fold.
@@ -353,6 +347,25 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
             </Chip>
           ))}
         </div>
+
+        {/* A band letter says a source is questionable; it does not say why. When
+            identity, location, completeness or clinical validation is the reason,
+            the reason is what a clinician needs before relying on the source. */}
+        {provenanceNotes.length ? (
+          <section
+            aria-labelledby="source-review-heading"
+            className="grid gap-1.5 rounded-2xl border border-[color:var(--warning-border,var(--border))] bg-[color:var(--surface-subtle)] p-4"
+          >
+            <h2 id="source-review-heading" className="text-sm font-extrabold text-[color:var(--text-heading)]">
+              Needs review before you rely on this
+            </h2>
+            <ul className="grid gap-1 text-sm text-[color:var(--text-muted)]">
+              {provenanceNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="grid gap-3" aria-labelledby="source-usage-heading">
           <div className="flex flex-wrap items-baseline justify-between gap-2">

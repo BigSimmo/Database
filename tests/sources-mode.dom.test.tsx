@@ -127,7 +127,7 @@ afterEach(cleanup);
 
 describe("Sources catalogue", () => {
   it("leads with the sources themselves, each carrying its band and where it is used", () => {
-    render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
 
     // No page title block, no count tiles, no panel of selects before the results.
     expect(screen.getByRole("heading", { level: 1, name: "Source catalogue" })).toBeInTheDocument();
@@ -141,16 +141,27 @@ describe("Sources catalogue", () => {
   });
 
   it("keeps governance codes off the card and shows only states that change a decision", () => {
-    render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
 
     // `verification_unknown` is review bookkeeping; `review_due` is not.
     expect(screen.queryByText(/verification unknown/i)).not.toBeInTheDocument();
     expect(screen.getByText("Review due")).toBeVisible();
+    expect(screen.queryByTestId("sources-partial-catalogue-note")).not.toBeInTheDocument();
+  });
+
+  it("says the list is incomplete when the hosted-document loader cannot be reached", () => {
+    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="unavailable" />);
+
+    // The count is wrong in this state, so the reader has to be told before
+    // reading it as the whole registry.
+    expect(screen.getByTestId("sources-partial-catalogue-note")).toHaveTextContent(
+      "Uploaded document sources cannot be reached, so this list and its count are incomplete.",
+    );
   });
 
   it("reads application usage from the URL and narrows the visible sources", () => {
     currentSearchParams = new URLSearchParams("usedBy=dictionary");
-    const view = render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    const view = render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
 
     expect(screen.getByRole("status")).toHaveTextContent("1 source");
     expect(screen.getByText("Zulu Australian guideline")).toBeVisible();
@@ -159,7 +170,7 @@ describe("Sources catalogue", () => {
 
     view.unmount();
     currentSearchParams = new URLSearchParams("band=D&publisher=Legacy+Publisher");
-    render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
     expect(screen.getByRole("status")).toHaveTextContent("1 source");
     expect(screen.getByText("Alpha review source")).toBeVisible();
   });
@@ -168,7 +179,7 @@ describe("Sources catalogue", () => {
     currentSearchParams = new URLSearchParams(
       "band=A&band=D&usedBy=dictionary&usedBy=factsheets&publisher=Legacy+Publisher",
     );
-    render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
 
     for (const name of [
       "Remove Quality band: A · Preferred filter",
@@ -189,7 +200,7 @@ describe("Sources catalogue", () => {
 
   it("removes a comma-delimited filter value while preserving its siblings", () => {
     currentSearchParams = new URLSearchParams("band=A%2CD&usedBy=dictionary");
-    render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Quality band: D · Review required filter" }));
 
@@ -197,20 +208,20 @@ describe("Sources catalogue", () => {
   });
 
   it("sorts by quality by default, honours an ordering deep link, and clears filters while keeping the query", () => {
-    const quality = render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    const quality = render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
     const qualityTitles = screen.getAllByRole("link", { name: /view source details/i });
     expect(qualityTitles[0]).toHaveAccessibleName(/Zulu Australian guideline/);
 
     quality.unmount();
     currentSearchParams = new URLSearchParams("sort=title");
-    const title = render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    const title = render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
     expect(screen.getAllByRole("link", { name: /view source details/i })[0]).toHaveAccessibleName(
       /Alpha review source/,
     );
 
     title.unmount();
     currentSearchParams = new URLSearchParams("q=ranzcp&band=A&publisher=Legacy+Publisher");
-    render(<SourcesCatalogueClient entries={fixtureEntries} />);
+    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
     expect(screen.getByRole("status")).toHaveTextContent("0 sources");
     fireEvent.click(screen.getAllByRole("button", { name: /clear all filters|clear filters/i })[0]);
     expect(routerReplace).toHaveBeenLastCalledWith("/sources/search?q=ranzcp", { scroll: false });
@@ -336,6 +347,18 @@ describe("Sources derived pages", () => {
     expect(screen.queryByText(/Aliases/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Supersedes/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Publisher code|Content mode|Validation/)).not.toBeInTheDocument();
+    // A clean source says nothing about review.
+    expect(screen.queryByRole("region", { name: /needs review/i })).not.toBeInTheDocument();
+  });
+
+  it("says what is wrong with a questionable source rather than leaving the band to imply it", async () => {
+    render(await SourceDetailPage({ sourceId: "src_d" }));
+
+    const review = screen.getByRole("region", { name: "Needs review before you rely on this" });
+    expect(within(review).getByText("Whether this source has been verified is unknown")).toBeVisible();
+    expect(within(review).getByText("Marked as not yet clinically verified")).toBeVisible();
+    // The stored codes stay out of reader-facing text.
+    expect(review.textContent).not.toMatch(/verification_unknown|ambiguous_identity/);
   });
 });
 
