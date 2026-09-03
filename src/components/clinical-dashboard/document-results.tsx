@@ -61,7 +61,7 @@ function RelatedDocumentCard({
           </p>
           <Link
             href={relatedDocumentHref(document)}
-            className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-sm font-semibold leading-6 text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+            className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-sm font-semibold leading-6 text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <span className="line-clamp-2">{title}</span>
           </Link>
