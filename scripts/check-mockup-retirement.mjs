@@ -79,7 +79,13 @@ export function isRetirableRoutePath(route) {
   return !SOURCE_FILE_EXTENSION.test(last);
 }
 
-const SOURCE_FILE_EXTENSION = /.(tsx?|mjs|cjs|jsx?|css|json|md)$/iu;
+// ⚠️ THE DOT IS ESCAPED, AND IT WAS NOT. An unescaped `.` matches ANY character, so this rejected
+// every route whose last segment merely ENDS in an extension-like suffix — `/mockups/caring-
+// contacts/reports` (the `.` taking `r`, then `ts`), and `charts` likewise. That is a FALSE
+// REFUSAL: it would have blocked a legitimate owner-approved retirement, which is the opposite of
+// the defect this predicate was added to fix. Found in review, not by my own six cases, because
+// every case I wrote was either an obvious file or an obvious route and none ended in `ts`.
+const SOURCE_FILE_EXTENSION = /\.(tsx?|mjs|cjs|jsx?|css|json|md)$/iu;
 export const MOCKUP_INDEX_FILE = "mockups/README.md";
 export const RETIRED_SECTION_HEADING = "## Retired mockups";
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   auditDeletions,
+  isRetirableRoutePath,
   auditIndex,
   deletedMockupFiles,
   deletedRouteSlugs,
@@ -292,6 +293,36 @@ describe("deletion scope", () => {
   it("stays out of the way of a diff that retires no mockup", () => {
     expect(deletedMockupFiles("base", { runGit: runGit("src/lib/unrelated.ts\n") })).toEqual([]);
   });
+});
+
+describe("Route-column shape", () => {
+  /*
+   * ⚠️ THE FIRST VERSION OF THIS PREDICATE REFUSED LEGITIMATE ROUTES, and my own six cases
+   * missed it because every one of them was either an obvious file or an obvious route. The
+   * separator was written unescaped, so `.` matched ANY character and the alternation then
+   * matched the tail: `/mockups/caring-contacts/reports` was read as a file (the dot taking
+   * `r`, then `ts`), and so was `charts`. A FALSE REFUSAL — the opposite of the hole this
+   * predicate exists to close, and it would have blocked an owner-approved retirement.
+   *
+   * So the cases below are chosen for the boundary rather than the middle: routes whose last
+   * segment merely ENDS in an extension-like suffix must stay retirable, and a segment that IS
+   * an extension with no dot must stay retirable too.
+   */
+  const cases: Array<[string, boolean]> = [
+    ["/mockups/caring-contacts/reports", true],
+    ["/mockups/ward-flow/charts", true],
+    ["/mockups/x/mjs", true],
+    ["/mockups/example-gated/panel/[id]", true],
+    ["/mockups/x/widget.tsx", false],
+    ["/mockups/x/a.json", false],
+    ["/mockups/x/s.module.css", false],
+    ["/src/components/x", false],
+  ];
+  for (const [route, retirable] of cases) {
+    it(`${retirable ? "accepts" : "refuses"} ${route}`, () => {
+      expect(isRetirableRoutePath(route)).toBe(retirable);
+    });
+  }
 });
 
 describe("deletion audit", () => {
