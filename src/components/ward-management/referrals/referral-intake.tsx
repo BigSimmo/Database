@@ -127,6 +127,7 @@ export const UNANSWERED_OPTION_LABEL = "Choose one";
 
 /** The id `aria-describedby` on Send points at while Send is unavailable. */
 const UNAVAILABLE_REASON_ID = "ward-referral-intake-unavailable-reason";
+const REFUSED_COMBINATION_ID = "ward-referral-intake-refused-combination";
 
 /**
  * The person search's real route, read off `WARD_NAV` rather than hand-typed here — the same
@@ -436,6 +437,18 @@ function unansweredFieldNames(draft: ReferralDraft): string[] {
  * moved one layer down where nobody looks: `false` means "impose no legal-status constraint",
  * which is a definite clinical answer nobody gave.
  */
+/**
+ * The one destination pair the intake form refuses.
+ *
+ * Exported because the refusal has to be stated on screen as well as enforced, and a second
+ * inline copy of the condition is how the two drift apart — the button would stay unavailable
+ * while the note explaining why had stopped appearing, which reads as a broken form rather
+ * than as a rule.
+ */
+export function wardAndCommunityBothChosen(kinds: readonly ReferralDestinationKind[]): boolean {
+  return kinds.includes("psychiatric_ward") && kinds.includes("community_team");
+}
+
 function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
   const {
     ageBand,
@@ -467,6 +480,14 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
   // stopped here as well so the form never sends an event it already knows will be refused, in the
   // same shape every other unanswered question is stopped.
   if (destinationKinds.length === 0) return undefined;
+  // The owner's ruling, recorded in `ward-referral-visibility.ts` beside the visibility table
+  // it explains: `{ward, community}` "is to be refused at the intake form". That module was
+  // written expecting this refusal to exist — it reasons about what the product can still
+  // CREATE once the refusal lands, and until now nothing refused it, so the form could create
+  // the one shape the board treats as legacy-only. `{ED, community}` is deliberately NOT
+  // refused: same ruling, opposite answer, because a community team asked to pick someone up
+  // does not compete with a bed.
+  if (wardAndCommunityBothChosen(destinationKinds)) return undefined;
   if (source === UNANSWERED_VALUE || urgency === UNANSWERED_VALUE || originSiteCode === UNANSWERED_VALUE) {
     return undefined;
   }
@@ -730,6 +751,10 @@ export function ReferralIntakeForm() {
   // rather than tracked in a second piece of state that could disagree with it.
   const outstanding = unansweredFieldNames(draft);
   const answered = answeredDraft(draft);
+  // Shown whenever the pair is chosen, not only once every other question has an answer: the
+  // clinician needs to know the combination is the problem while they are still on the picker,
+  // not after they have filled in the rest of the form for a referral that can never send.
+  const refusedCombination = wardAndCommunityBothChosen(draft.destinationKinds);
 
   /**
    * The bed criteria, or `null` while any of the three questions that make them up is unanswered.
@@ -1368,13 +1393,27 @@ export function ReferralIntakeForm() {
             className={styles.submit}
             data-testid="ward-referral-intake-submit"
             aria-disabled={answered ? undefined : "true"}
-            aria-describedby={answered ? undefined : UNAVAILABLE_REASON_ID}
+            aria-describedby={
+              answered ? undefined : refusedCombination ? REFUSED_COMBINATION_ID : UNAVAILABLE_REASON_ID
+            }
             onClick={ignoreUnavailableActivation}
           >
             Send referral
           </button>
 
-          {answered ? null : (
+          {refusedCombination ? (
+            <p
+              className={styles.unavailableReason}
+              id={REFUSED_COMBINATION_ID}
+              data-testid="ward-referral-intake-refused-combination"
+              role="alert"
+            >
+              A psychiatric bed and a community team cannot be asked for on the same referral. Send them as two
+              referrals.
+            </p>
+          ) : null}
+
+          {answered || refusedCombination ? null : (
             <p
               className={styles.unavailableReason}
               id={UNAVAILABLE_REASON_ID}

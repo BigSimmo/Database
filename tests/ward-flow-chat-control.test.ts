@@ -1164,7 +1164,13 @@ describe("Ward Flow compact chat control", () => {
     const bundlePath = path.join(external, "ward-flow.bundle");
     gitText(root, ["bundle", "create", bundlePath, "refs/heads/main"]);
     const restoreCheckout = path.join(external, "restore");
-    gitText(external, ["clone", bundlePath, restoreCheckout]);
+    // ⚠️ `--branch main` IS LOAD-BEARING AND ITS ABSENCE ONLY SHOWS ON SOMEBODY ELSE’S MACHINE.
+    // The bundle carries `refs/heads/main` and no HEAD, so `clone` falls back to the CLONING
+    // machine’s `init.defaultBranch`. On a checkout where that is `master` the clone lands with
+    // an unborn HEAD and the gate dies on `git rev-parse --verify HEAD^{commit}` with
+    // `fatal: Needed a single revision` — which reads as a broken recovery gate rather than as a
+    // git default. Green here and red in CI, which is how it was found.
+    gitText(external, ["clone", "--branch", "main", bundlePath, restoreCheckout]);
     const gate = {
       independentBundlePath: bundlePath,
       restoreCheckout,

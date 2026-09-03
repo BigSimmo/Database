@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "9c3502a114dec7b38b83357011d53bf906d8001d",
-    "committed_at": "2026-09-03T08:18:32+08:00"
+    "sha": "23299b0c4ae42ad8cd4da40f6b390fd58a5006d5",
+    "committed_at": "2026-09-03T17:44:32+08:00"
   },
   "routes": {
     "modes": [
@@ -1090,6 +1090,11 @@
         "area": "product"
       },
       {
+        "path": "/sources/search",
+        "file": "src/app/(search-app)/sources/search/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
         "area": "product"
@@ -1189,7 +1194,7 @@
       {
         "path": "/dictionary/sources",
         "file": "src/app/(search-app)/dictionary/sources/page.tsx",
-        "target": "/sources?usedBy=dictionary"
+        "target": "/sources/search?usedBy=dictionary"
       },
       {
         "path": "/differentials",
@@ -1501,8 +1506,8 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 212,
-      "product_pages": 67,
+      "pages": 213,
+      "product_pages": 68,
       "mockup_pages": 145,
       "redirects": 18,
       "api": 60
@@ -2972,6 +2977,11 @@
       },
       {
         "path": "docs/design-system/sweep-fix-tap-floors.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-visible-live-regions.md",
         "section": "design-system",
         "catalogued": false
       },
@@ -4796,6 +4806,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/control/evidence/bundles/README.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/control/message-log-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5730,9 +5745,9 @@
       }
     ],
     "counts": {
-      "documents": 830,
+      "documents": 832,
       "catalogued": 115,
-      "uncatalogued": 715,
+      "uncatalogued": 717,
       "sections": 22
     }
   },
@@ -19424,6 +19439,14 @@
         "scope": "PR #1668 unblock",
         "outcome": "late-synced main after CI green on f04a96c3; merge-tree clean (GitHub DIRTY was stale); js-yaml 4.3.1 + nanoid 3.3.18 preserved; no unresolved threads; CI re-run after push",
         "checks": "pre-late-sync: PR required pass on f04a96c3; Production UI skipped; post-sync pending"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/sources-mode-dropdown-home-mzw4f5",
+        "head": "a7bfa29769b453f15ba869df65be0116b53245bf",
+        "scope": "PR #2567 Sources mode home, existing review feedback, CI, and integration with main",
+        "outcome": "No new P0-P2 findings. The existing filter-only deep-link concern was already fixed and its thread resolved. Integrated origin/main and regenerated the repo-awareness snapshot to resolve the sole merge conflict.",
+        "checks": "Hosted CI on a7bfa29769b453f15ba869df65be0116b53245bf: success; 9 focused source-mode test files / 181 tests: pass; repo-awareness snapshot check: pass; git diff --check: pass."
       },
       {
         "date": "2026-08-07",

@@ -150,9 +150,9 @@ export function ResultCard({
           data-therapy-result-evidence
           className="-mx-4 grid grid-cols-1 gap-px overflow-hidden border-y border-[color:var(--border)] bg-[color:var(--border)] sm:mx-0 sm:grid-cols-3 sm:rounded-lg sm:border"
         >
-          <CardCell icon={Target} eyebrow="WHY MATCHED" tone="accent" text={whyMatched} />
-          <CardCell icon={TriangleAlert} eyebrow="AVOID / MODIFY" tone="warning" text={avoidModify} />
-          <CardCell icon={Clock} eyebrow="BEST FIT" tone="muted" text={bestFit} />
+          <CardCell icon={Target} eyebrow="Why matched" tone="accent" text={whyMatched} />
+          <CardCell icon={TriangleAlert} eyebrow="Avoid / modify" tone="warning" text={avoidModify} />
+          <CardCell icon={Clock} eyebrow="Best fit" tone="muted" text={bestFit} />
         </div>
       </div>
       {notice ? (

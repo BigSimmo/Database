@@ -261,13 +261,123 @@ function readTemplateLiteral(source: string, start: number): { body: string; end
 }
 
 /** Every rooted path written as a quoted string or template literal. */
-function hrefsIn(source: string): string[] {
+/**
+ * ⚠️ HREFS ASSEMBLED FROM CONSTANTS, WHICH THIS SCAN COULD NOT SEE AND THEREFORE CALLED ORPHANS.
+ *
+ * `patientRoute()` returns `` `${CARING_CONTACTS_ROUTES.patients}/${encodeURIComponent(id)}` ``,
+ * and `CARING_CONTACTS_ROUTES.patients` is itself `` `${CARING_CONTACTS_BASE}/patients` ``. So the
+ * string `/caring-contacts/patients/` exists NOWHERE in the source, while three real
+ * `<Link href={patientRoute(...)}>` controls point at the route. The scan reported two reachable
+ * routes as unreachable, and the tempting fix — adding them to the exception map — would have
+ * recorded a falsehood about the codebase in the one place meant to hold the truth about it.
+ *
+ * This resolves a bounded set of path constants so a composed href becomes visible: string
+ * constants, and object properties whose value is a string or a template over another constant.
+ * Iterated to a fixpoint (capped), because the real case is two levels deep.
+ *
+ * ⚠️ It is deliberately NOT a general evaluator. Anything it cannot resolve stays unresolved and
+ * the route stays unmatched, which fails loudly — the safe direction.
+ */
+function pathConstants(files: readonly { stripped: string }[]): ReadonlyMap<string, string> {
+  const map = new Map<string, string>();
+  // One regex per quote style rather than one with a backreference: simpler to read, and it keeps
+  // every character class free of the escapes that a generator can mangle.
+  const declarations = [
+    /(?:export\s+)?const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"/g,
+    /(?:export\s+)?const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*'([^']*)'/g,
+    /(?:export\s+)?const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*`([^`]*)`/g,
+  ];
+  const memberPairs = [
+    /([A-Za-z_][A-Za-z0-9_]*)\s*:\s*"([^"]*)"/g,
+    /([A-Za-z_][A-Za-z0-9_]*)\s*:\s*'([^']*)'/g,
+    /([A-Za-z_][A-Za-z0-9_]*)\s*:\s*`([^`]*)`/g,
+  ];
+  const memberAlias = /([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*,/g;
+  // ⚠️ NOT `[^}]*`: an interpolation such as `${CARING_CONTACTS_BASE}` contains a closing brace,
+  // so that class truncates the object at its first composed member — which is exactly the
+  // member this resolver exists to read. Match lazily to a brace at the start of a line.
+  const objects = new RegExp("(?:export\\s+)?const\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*\\{([^]*?)\\n}", "g");
+  for (const file of files) {
+    for (const pattern of declarations) {
+      for (const m of file.stripped.matchAll(pattern)) map.set(m[1], m[2]);
+    }
+    for (const o of file.stripped.matchAll(objects)) {
+      for (const pattern of memberPairs) {
+        for (const mem of o[2].matchAll(pattern)) map.set(`${o[1]}.${mem[1]}`, mem[2]);
+      }
+      for (const mem of o[2].matchAll(memberAlias)) {
+        if (!map.has(`${o[1]}.${mem[1]}`)) map.set(`${o[1]}.${mem[1]}`, "${" + mem[2] + "}");
+      }
+    }
+  }
+  // Two levels deep is the real case; the cap stops a self-referential pair spinning.
+  const reference = /\$\{([A-Za-z_][A-Za-z0-9_.]*)\}/g;
+  for (let pass = 0; pass < 4; pass += 1) {
+    for (const [key, value] of map) {
+      const next = value.replace(reference, (whole, name: string) => map.get(name) ?? whole);
+      if (next !== value) map.set(key, next);
+    }
+  }
+  return map;
+}
+
+/**
+ * ⚠️ A ROUTE BUILDER'S OWN DEFINITION MUST NOT VOUCH FOR ITS ROUTE, and the first version of this
+ * fix let it. `pathwayRoute()` returns `` `${CARING_CONTACTS_ROUTES.templates}/${id}` ``, so once
+ * constants resolved, the routes module contained a string of the right shape — and the route
+ * counted as referenced even with EVERY real `<Link>` to it deleted. Proved by mutation: removing
+ * the only inbound link left this file green.
+ *
+ * So route modules are excluded from the href scan, exactly as fixtures and mockups are and for the
+ * same reason — a vocabulary is not navigation — and a builder instead vouches for its route only
+ * where it is CALLED. That is a two-part chain: the builder resolves to the route's shape, and some
+ * other file invokes it.
+ */
+const ROUTE_MODULE = /-routes\.ts$/;
+
+function routeBuilders(
+  files: readonly { rel: string; stripped: string }[],
+  constants: ReadonlyMap<string, string>,
+): ReadonlyMap<string, string> {
+  const builders = new Map<string, string>();
+  const declaration = /function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*:\s*string\s*\{\s*return\s+`([^`]*)`/g;
+  for (const file of files) {
+    if (!ROUTE_MODULE.test(file.rel)) continue;
+    for (const m of file.stripped.matchAll(declaration)) {
+      const body = expandLeadingConstant(m[2], constants);
+      if (body.startsWith("/")) builders.set(m[1], body);
+    }
+  }
+  return builders;
+}
+
+/** Paths a file vouches for by CALLING a route builder, rather than by writing the path itself. */
+function builtHrefsIn(source: string, builders: ReadonlyMap<string, string>): string[] {
+  const found: string[] = [];
+  for (const [name, body] of builders) {
+    if (new RegExp(String.raw`\b${name}\s*\(`).test(source)) found.push(body);
+  }
+  return found;
+}
+
+const NO_CONSTANTS: ReadonlyMap<string, string> = new Map();
+
+/** Expands a single leading `${CONSTANT}` when it is known, so composed hrefs join the scan. */
+function expandLeadingConstant(body: string, constants: ReadonlyMap<string, string>): string {
+  const match = new RegExp("^\\$\\{([A-Za-z_][A-Za-z0-9_.]*)\\}").exec(body);
+  if (match === null) return body;
+  const resolved = constants.get(match[1]);
+  return resolved === undefined ? body : resolved + body.slice(match[0].length);
+}
+
+function hrefsIn(source: string, constants: ReadonlyMap<string, string> = NO_CONSTANTS): string[] {
   const found: string[] = [];
   for (let i = 0; i < source.length; i += 1) {
     if (source[i] !== "`") continue;
     const literal = readTemplateLiteral(source, i);
     if (literal === null) continue;
-    if (literal.body.startsWith("/")) found.push(literal.body);
+    const body = expandLeadingConstant(literal.body, constants);
+    if (body.startsWith("/")) found.push(body);
     i = literal.end;
   }
   for (const pattern of [/"(\/[^"\n]*)"/g, /'(\/[^'\n]*)'/g]) {
@@ -293,6 +403,9 @@ const scannedFiles = walk(SRC_DIR)
     stripped: stripComments(readFileSync(file, "utf8")),
     raw: readFileSync(file, "utf8"),
   }));
+
+const PATH_CONSTANTS = pathConstants(scannedFiles);
+const ROUTE_BUILDERS = routeBuilders(scannedFiles, PATH_CONSTANTS);
 
 const dynamicRoutes = collectDynamicRoutes();
 
@@ -349,7 +462,18 @@ function orphansUnder(useStripped: boolean): string[] {
   return dynamicRoutes.filter(
     (route) =>
       !scannedFiles.some((file) =>
-        hrefsIn(useStripped ? file.stripped : file.raw).some((href) => vouches(href, route)),
+        (ROUTE_MODULE.test(file.rel)
+          ? // ⚠️ A ROUTE MODULE VOUCHES FOR NOTHING AT ALL. It defines the vocabulary and
+            // navigates nowhere. Two rounds of mutation were needed to get this right: first
+            // its template literal vouched for the route, and when that was excluded its own
+            // `export function pathwayRoute(` still matched the builder-CALL check one level
+            // up. Both times the route stayed "referenced" with every real link deleted.
+            []
+          : [
+              ...hrefsIn(useStripped ? file.stripped : file.raw, PATH_CONSTANTS),
+              ...builtHrefsIn(useStripped ? file.stripped : file.raw, ROUTE_BUILDERS),
+            ]
+        ).some((href) => vouches(href, route)),
       ),
   );
 }
@@ -408,6 +532,14 @@ describe("production dynamic route reachability", () => {
     // Written out in full rather than counted. A seventeenth production dynamic route arriving here
     // should cost somebody a decision about how its instances are reached, not a number.
     expect([...dynamicRoutes].sort()).toEqual([
+      // ⚠️ THREE ARRIVED FROM `main` IN THE 2026-09-03 MERGE, and the two caring-contacts routes
+      // are the reason this file gained a constant resolver. `patientRoute()` builds
+      // `${CARING_CONTACTS_ROUTES.patients}/${id}`, so the literal path exists nowhere in the
+      // source while three real `<Link>` controls point at it. The scan called them orphans;
+      // adding them to the exception map would have recorded a falsehood about the codebase in
+      // the one place meant to hold the truth about it.
+      "/caring-contacts/patients/[patientId]",
+      "/caring-contacts/templates/[pathwayId]",
       "/dictionary/[slug]",
       "/dictionary/topics/[slug]",
       "/differentials/diagnoses/[slug]",
@@ -420,6 +552,7 @@ describe("production dynamic route reachability", () => {
       "/formulation/[slug]",
       "/medications/[slug]",
       "/services/[slug]",
+      "/sources/[sourceId]",
       "/specifiers/[slug]",
       "/therapy-compass/[slug]",
       "/therapy-compass/[slug]/brief",
@@ -440,7 +573,7 @@ describe("production dynamic route reachability", () => {
 
     // Extraction must be producing a corpus. Without this, an hrefsIn that matched nothing would
     // leave this test green while every route below reported unmatched for the wrong reason.
-    const extracted = scannedFiles.reduce((total, file) => total + hrefsIn(file.stripped).length, 0);
+    const extracted = scannedFiles.reduce((total, file) => total + hrefsIn(file.stripped, PATH_CONSTANTS).length, 0);
     expect(extracted, "href extraction produced almost nothing - the scan is broken, not the app").toBeGreaterThan(200);
 
     // ⚠️ A FLOOR DETECTS AN EMPTY SCAN. IT CANNOT DETECT A DIMINISHED ONE, AND DIMINISHMENT IS THE

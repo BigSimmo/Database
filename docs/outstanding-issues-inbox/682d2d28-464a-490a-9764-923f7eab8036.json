@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "682d2d28-464a-490a-9764-923f7eab8036",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "The mode pill sends every mode to the shared home, including the four that own a real home of their own",
+    "detail": "Owner ruling on whether selecting a mode that owns a functional home should navigate to that home rather than /?mode=<id>. Why: changeMode in global-search-shell.tsx always builds appModeSelectionHref, so picking Sources, Medication, Favourites or Documents lands on the generic shared home, not the surface that mode actually owns; only Tools is special-cased to push its canonical href. Consistent across modes, which is why it was deliberately left unchanged when /sources gained a mode home on 2026-09-02, but it means that home is reachable only by direct link, the mode nav or the Tools launcher. Context: overlaps open PR #2556, a full decision brief on whether the mode concept should survive at all - if that brief is actioned this row is subsumed and should be closed rather than worked. Confidence: high on the mechanism (read at global-search-shell.tsx:717-764), low that this is the right change to make before the brief is decided. Owner: product.",
+    "source": "session 2026-09-02, Sources mode-home PR (claude/sources-mode-dropdown-home-mzw4f5); overlaps PR #2556",
+    "issueUlid": "01M1H3GZP2ZKR5YKG5S5WZ49K7"
+  }
+}

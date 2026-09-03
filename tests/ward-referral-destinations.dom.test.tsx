@@ -101,6 +101,16 @@ function optionFor(kind: (typeof REFERRAL_DESTINATION_KINDS)[number], overrides 
   return found as DestinationOption;
 }
 
+/**
+ * The destinations that can still travel on ONE referral.
+ *
+ * Deliberately NOT `REFERRAL_DESTINATION_KINDS` any more: `{ward, community}` is refused at
+ * intake on the owner’s ruling, so a test that ticks every kind would be asserting that the
+ * form sends a combination it must refuse. Written out rather than derived, so that adding a
+ * fourth kind makes somebody decide whether it may travel with the others.
+ */
+const SENDABLE_TOGETHER = ["emergency_department", "community_team"] as const;
+
 describe("Referral destinations — the option list itself", () => {
   it("offers exactly one option per destination kind, and never more than the parallel cap", () => {
     const options = optionsFor();
@@ -333,7 +343,17 @@ describe("Referral destinations — on the screen", () => {
     answerEverythingButTheDestination();
 
     const before = Number(screen.getByTestId("referral-count").textContent);
-    for (const kind of REFERRAL_DESTINATION_KINDS) fireEvent.click(destinationCheckbox(kind));
+    /*
+     * 2026-09-03: this ticked ALL THREE kinds until the intake refusal for `{ward, community}`
+     * landed, and it is now the two that can still be sent together.
+     *
+     * ⚠️ **THIS TEST WENT RED A THIRD TIME, AND THE RED WAS AGAIN CORRECT** — the pair it was
+     * ticking is the one shape the board treats as legacy-only, and the form could create it.
+     * The tempting repair was to keep all three and assert the refusal here instead, which
+     * would have quietly turned the one test that proves MULTIPLE destinations send together
+     * into a test that proves nothing sends at all. The refusal has its own test below.
+     */
+    for (const kind of SENDABLE_TOGETHER) fireEvent.click(destinationCheckbox(kind));
     /*
      * 2026-08-30: choosing the emergency department now raises a question of its own — WHICH
      * department — and Send waits on it exactly as it waits on the ten unconditional ones.
@@ -374,13 +394,104 @@ describe("Referral destinations — on the screen", () => {
     expect(Number(screen.getByTestId("referral-count").textContent), "no referral was created").toBe(before + 1);
 
     const sent = (screen.getByTestId("newest-destinations").textContent ?? "").split(",");
-    expect(sent).toHaveLength(REFERRAL_DESTINATION_KINDS.length);
+    expect(sent).toHaveLength(SENDABLE_TOGETHER.length);
     expect(sent.length).toBeLessThanOrEqual(PARALLEL_REFERRAL_CAP);
     // Refused rather than de-duplicated by the reducer, so the screen must never be able to
     // produce a repeat in the first place: one checkbox per kind is what makes that structural.
     expect(new Set(sent).size).toBe(sent.length);
     expect(screen.getByTestId("ward-referral-intake-confirmation")).toBeInTheDocument();
     expect(screen.queryByTestId("ward-referral-intake-rejection")).not.toBeInTheDocument();
+  });
+
+  /*
+   * The owner's ruling, recorded in `ward-referral-visibility.ts` beside the visibility table
+   * that reasons about what the product can still CREATE once this refusal exists. Until it
+   * did, the form could raise the one combination downstream logic treats as legacy-only.
+   */
+  it("⚠️ refuses a psychiatric bed and a community team on ONE referral, and says why", () => {
+    renderForm();
+    answerEverythingButTheDestination();
+
+    const before = Number(screen.getByTestId("referral-count").textContent);
+    fireEvent.click(destinationCheckbox("psychiatric_ward"));
+    fireEvent.click(destinationCheckbox("community_team"));
+    fireEvent.change(screen.getByTestId("ward-referral-intake-teamName"), {
+      target: { value: communityTeamOptions()[0] },
+    });
+
+    // Stated, not merely inert. A dead Send with no reason reads as a broken form, and the
+    // repository's wiring conventions require the reason to be reachable by a screen reader
+    // rather than implied by a greyed control.
+    const note = screen.getByTestId("ward-referral-intake-refused-combination");
+    expect(note).toBeInTheDocument();
+    const submit = screen.getByTestId("ward-referral-intake-submit");
+    expect(submit).toHaveAttribute("aria-disabled", "true");
+    expect(submit.getAttribute("aria-describedby")).toBe(note.getAttribute("id"));
+
+    fireEvent.click(submit);
+    expect(
+      Number(screen.getByTestId("referral-count").textContent),
+      "the form raised the combination it refuses — the note appeared and the referral went anyway",
+    ).toBe(before);
+  });
+
+  it("still allows an emergency department and a community team together — the pair the ruling KEEPS", () => {
+    renderForm();
+    answerEverythingButTheDestination();
+
+    fireEvent.click(destinationCheckbox("emergency_department"));
+    fireEvent.click(destinationCheckbox("community_team"));
+    fireEvent.change(screen.getByTestId("ward-referral-intake-edId"), {
+      target: { value: allEmergencyDepartments()[0].id },
+    });
+    fireEvent.change(screen.getByTestId("ward-referral-intake-teamName"), {
+      target: { value: communityTeamOptions()[0] },
+    });
+
+    // The false direction. A refusal written as `length > 1`, or as any pair containing a
+    // community team, would pass the test above and break this one — which is the whole
+    // reason both exist.
+    expect(
+      screen.queryByTestId("ward-referral-intake-refused-combination"),
+      "the refusal caught {ED, community}, which the same ruling deliberately keeps",
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("ward-referral-intake-submit")).not.toHaveAttribute("aria-disabled");
+  });
+
+  /*
+   * ⚠️ FOUND BY ADVERSARIAL REVIEW, AND IT IS THE TEST THAT CLOSES THE FAMILY.
+   *
+   * `kinds.includes("psychiatric_ward") && kinds.length > 1` passes every other test in this
+   * file — it refuses {ward, community}, allows {ED, community}, and allows {ward} alone — and
+   * is still wrong: it refuses a bed request that ALSO asks an emergency department to see the
+   * patient, which is the ordinary parallel referral `PARALLEL_REFERRAL_CAP` exists to permit.
+   * The clinician would have been told to send two referrals for a legitimate pair.
+   *
+   * No test here ever ticked those two together: the send tests are ward alone, ED+community,
+   * ward+community, and community alone. The ward+ED pairing appeared only in a catchment
+   * assertion, which never reaches the gate. Every over-broad formulation that survives the
+   * other three fails this one.
+   */
+  it("⚠️ still allows a bed AND an emergency department — the pair an over-broad refusal breaks", () => {
+    renderForm();
+    answerEverythingButTheDestination();
+
+    const before = Number(screen.getByTestId("referral-count").textContent);
+    fireEvent.click(destinationCheckbox("psychiatric_ward"));
+    fireEvent.click(destinationCheckbox("emergency_department"));
+    fireEvent.change(screen.getByTestId("ward-referral-intake-edId"), {
+      target: { value: allEmergencyDepartments()[0].id },
+    });
+
+    expect(
+      screen.queryByTestId("ward-referral-intake-refused-combination"),
+      "the refusal caught a bed plus an emergency department, which is an ordinary parallel referral",
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("ward-referral-intake-submit"));
+    expect(Number(screen.getByTestId("referral-count").textContent), "the pair was refused rather than sent").toBe(
+      before + 1,
+    );
   });
 
   it("greys an option the catchment table cannot place, and still lets a clinician choose it", () => {

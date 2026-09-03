@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,9 +14,6 @@ import {
   main,
   splitByFindability,
 } from "../scripts/check-dependency-drift.mjs";
-
-const SCRIPT = fileURLToPath(new URL("../scripts/check-dependency-drift.mjs", import.meta.url));
-const REPOSITORY_ROOT = dirname(dirname(SCRIPT));
 
 const fixtureRoots: string[] = [];
 
@@ -201,65 +199,122 @@ describe("splitByFindability", () => {
 });
 
 /**
- * Regression fixture pointed at the real repository, not a synthetic tree.
+ * Regression fixture pointed at a REAL git repository this test builds and tears down —
+ * never the live checkout, and never `origin/main` as it happens to sit on the machine
+ * running the test.
  *
- * The synthetic fixtures above prove the LOGIC (closure, resolution, controls, the
- * findable/invisible split). This block proves the logic is pointed at something real:
- * it runs the tool against `origin/main` for four surfaces measured directly on
- * 2026-09-02, one of which — `worker` — is the whole reason this tool exists. Fourteen
- * files pull in 155, and the overwhelming majority of what changes underneath it shares
- * no name with "worker" at all. A version of this script that reported 0 invisible files
- * for `worker` would be silently wrong, and nothing else in this repository would notice.
+ * The previous version of this fixture ran `main()` against `REPOSITORY_ROOT` with
+ * `--against origin/main`, i.e. the actual repository and the actual remote ref. That
+ * measures something true only at the instant it is captured: merging the integration
+ * branch forward changed the worker "invisible" count from 4 to 2 with no change to the
+ * script at all — only the ref moved — and it has also been observed as 0 on another
+ * checkout. A fixture that asserts a property of a target it does not control is not
+ * testing the tool; it is testing whatever the remote happened to look like today.
  *
- * Seed counts are pinned exactly: they depend only on how many .ts/.tsx files currently
- * live under each surface, which is stable unless someone adds or removes files there —
- * and if they do, updating this number is the correct maintenance cost, not a fixture to
- * relax. The changed/findable/invisible counts are NOT pinned exactly, because `origin/main`
- * moves out from under this branch over time; instead this asserts the structural property
- * that actually matters — worker's invisible share stays large — so the fixture keeps
- * catching the failure mode it was built for instead of going stale and green.
+ * So this block owns BOTH sides of the comparison. `buildWorkerAnalogueFixture()` creates
+ * a throwaway git repository (mkdtempSync + real `git init`/`commit`, exactly the pattern
+ * tests/adopt-visual-baselines.test.ts and tests/bundle-budget.test.ts already use) with:
+ *   - a `worker/` directory of exactly 3 files — entirely owned by this fixture, so unlike
+ *     a directory in the live repository this count can never drift out from under the
+ *     test (see the module doc's "second trap": hardcoding a LIVE count is the bug this
+ *     rewrite exists to remove, not a fix for it).
+ *   - a fork commit (HEAD) whose worker/index.ts imports 15 "pipeline stage" files under
+ *     src/lib/pipeline — none of them named "worker" — so the closure reaches well beyond
+ *     the seed, the way the real `worker` surface does.
+ *   - an `upstream` commit, built on top of the fork commit and pointed to by a bare
+ *     `refs/remotes/origin/main` ref (no `git remote` registered — git resolves a
+ *     remote-tracking ref by name alone), which edits 11 of those 15 stage files plus the
+ *     one worker-named file. That is the real, controlled analogue of "origin/main moved
+ *     underneath this branch": diffing the fork commit against it names exactly those 12
+ *     files, 11 of which no name search for "worker" would ever find.
+ *
+ * The working tree is left checked out at the fork commit (matching HEAD) because
+ * computeClosure() reads the filesystem directly — it has no idea what git thinks HEAD is.
  */
-describe("regression fixture — real surfaces against origin/main", () => {
-  const SURFACES: Array<{ surface: string; expectedSeed: number }> = [
-    { surface: "src/components/ward-management", expectedSeed: 85 },
-    { surface: "src/lib/rag", expectedSeed: 36 },
-    { surface: "src/components/caring-contacts", expectedSeed: 34 },
-    { surface: "worker", expectedSeed: 14 },
-  ];
+describe("regression fixture — hermetic git fixture, not the live repository", () => {
+  const WORKER_ANALOGUE_SEED_BASENAMES = ["index.ts", "queue.ts", "util.ts"]; // exactly 3, fixture-owned
+  const WORKER_ANALOGUE_LIB_FILES = Array.from(
+    { length: 15 },
+    (_, index) => `src/lib/pipeline/stage-${String(index + 1).padStart(2, "0")}.ts`,
+  );
+  const WORKER_ANALOGUE_DRIFTED_LIB_FILES = WORKER_ANALOGUE_LIB_FILES.slice(0, 11); // > 10 — see "invisible share stays large" below
+  const stageExportName = (file: string) => `stage${/stage-(\d+)/.exec(file)![1]}`;
 
-  function runAgainstRealRepo(surface: string) {
+  function gitExec(root: string, args: string[]) {
+    return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  }
+
+  function commitAll(root: string, message: string) {
+    gitExec(root, ["add", "-A"]);
+    gitExec(root, ["commit", "-q", "-m", message, "--no-gpg-sign"]);
+    return gitExec(root, ["rev-parse", "HEAD"]);
+  }
+
+  function buildWorkerAnalogueFixture() {
+    const root = createFixtureRoot();
+    gitExec(root, ["init", "-q"]);
+    gitExec(root, ["config", "user.email", "fixture@example.invalid"]);
+    gitExec(root, ["config", "user.name", "Fixture"]);
+
+    write(root, "worker/queue.ts", 'export const queue = "queue.ts";\n');
+    write(root, "worker/util.ts", 'export const util = "util.ts";\n');
+    for (const file of WORKER_ANALOGUE_LIB_FILES) {
+      write(root, file, `export const ${stageExportName(file)} = ${/stage-(\d+)/.exec(file)![1]};\n`);
+    }
+    write(
+      root,
+      "worker/index.ts",
+      WORKER_ANALOGUE_LIB_FILES.map(
+        (file) => `import { ${stageExportName(file)} } from "../${file.replace(/\.ts$/, "")}";\n`,
+      ).join("") + `export const pipeline = [${WORKER_ANALOGUE_LIB_FILES.map(stageExportName).join(", ")}];\n`,
+    );
+
+    const forkSha = commitAll(root, "fork point");
+
+    gitExec(root, ["checkout", "-q", "-b", "upstream"]);
+    for (const file of WORKER_ANALOGUE_DRIFTED_LIB_FILES) {
+      const existing = readFileSync(join(root, ...file.split("/")), "utf8");
+      write(root, file, `${existing}// drifted upstream\n`);
+    }
+    write(root, "worker/queue.ts", 'export const queue = "queue.ts";\n// drifted upstream\n');
+    const upstreamSha = commitAll(root, "upstream drift");
+
+    // A bare remote-tracking ref, not a registered remote — this is what makes
+    // `--against origin/main` resolvable without `git fetch` or network access.
+    gitExec(root, ["update-ref", "refs/remotes/origin/main", upstreamSha]);
+    gitExec(root, ["checkout", "-q", "-"]); // back to the fork commit — matches the seed/closure read from disk
+
+    return { root, forkSha, upstreamSha };
+  }
+
+  function runAgainstFixture(root: string, surface: string, against: string) {
     const stdoutLines: string[] = [];
     const stderrLines: string[] = [];
-    const exitCode = main(["--surface", surface, "--against", "origin/main"], {
-      root: REPOSITORY_ROOT,
+    const exitCode = main(["--surface", surface, "--against", against], {
+      root,
       stdout: (line: string) => stdoutLines.push(line),
       stderr: (line: string) => stderrLines.push(line),
     });
     return { exitCode, stdout: stdoutLines.join("\n"), stderr: stderrLines.join("\n") };
   }
 
-  it.each(SURFACES)("$surface: seed count matches the measured baseline", ({ surface, expectedSeed }) => {
-    const { exitCode, stdout, stderr } = runAgainstRealRepo(surface);
-    expect(stderr, `control(s) tripped for ${surface}: ${stderr}`).toBe("");
-    expect(exitCode, `expected a clean report for ${surface}`).toBe(0);
+  it("worker: seed and closure counts match this fixture's own inventory", () => {
+    const { root } = buildWorkerAnalogueFixture();
+    const { exitCode, stdout, stderr } = runAgainstFixture(root, "worker", "origin/main");
+    expect(stderr, `control(s) tripped: ${stderr}`).toBe("");
+    expect(exitCode).toBe(0);
 
     const seedMatch = /seed: (\d+) · closure: (\d+) · ratio: ([\d.]+)x/.exec(stdout);
     expect(seedMatch, `could not find the seed/closure line in stdout:\n${stdout}`).not.toBeNull();
     const [, seedCount, closureCount] = seedMatch as RegExpExecArray;
 
-    if (Number(seedCount) !== expectedSeed) {
-      console.warn(
-        `[dependency-drift regression] ${surface}: measured seed ${seedCount} differs from the ` +
-          `2026-09-02 baseline of ${expectedSeed}. This can be legitimate drift (files added or removed ` +
-          `under the surface) — update the baseline in this test to match reality, do not change the script.`,
-      );
-    }
-    expect(Number(seedCount)).toBe(expectedSeed);
-    expect(Number(closureCount)).toBeGreaterThanOrEqual(expectedSeed);
+    expect(Number(seedCount)).toBe(WORKER_ANALOGUE_SEED_BASENAMES.length);
+    expect(Number(closureCount)).toBe(WORKER_ANALOGUE_SEED_BASENAMES.length + WORKER_ANALOGUE_LIB_FILES.length);
   });
 
   it("worker: the invisible share stays large — this is the case the tool exists for", () => {
-    const { exitCode, stdout, stderr } = runAgainstRealRepo("worker");
+    const { root } = buildWorkerAnalogueFixture();
+    const { exitCode, stdout, stderr } = runAgainstFixture(root, "worker", "origin/main");
     expect(stderr).toBe("");
     expect(exitCode).toBe(0);
 
@@ -272,8 +327,104 @@ describe("regression fixture — real surfaces against origin/main", () => {
     const [, changed, findable, invisible] = changedMatch as RegExpExecArray;
 
     expect(Number(findable) + Number(invisible)).toBe(Number(changed));
+    expect(Number(changed)).toBe(WORKER_ANALOGUE_DRIFTED_LIB_FILES.length + 1); // +1 for worker/queue.ts
+    expect(Number(findable)).toBe(1);
     // A script that reports 0 invisible for worker is broken and nobody would know.
     expect(Number(invisible)).toBeGreaterThan(10);
+    expect(Number(invisible)).toBe(WORKER_ANALOGUE_DRIFTED_LIB_FILES.length);
     expect(Number(ratio)).toBeGreaterThan(5);
+  });
+
+  it("CATCHER — refuses cleanly instead of fabricating a report when the compared ref does not exist", () => {
+    const { root } = buildWorkerAnalogueFixture();
+    gitExec(root, ["update-ref", "-d", "refs/remotes/origin/main"]); // construct: no origin/main ref at all
+    const { exitCode, stdout, stderr } = runAgainstFixture(root, "worker", "origin/main");
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("REFUSE — git setup failed");
+    expect(stdout).toBe("");
+  });
+
+  it("CATCHER — reports zero drift, not stale numbers, when origin/main equals HEAD", () => {
+    const { root, forkSha } = buildWorkerAnalogueFixture();
+    // construct: origin/main pointed at the exact commit HEAD is on — no drift has happened
+    gitExec(root, ["update-ref", "refs/remotes/origin/main", forkSha]);
+    const { exitCode, stdout, stderr } = runAgainstFixture(root, "worker", "origin/main");
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+
+    const changedMatch = /changed dependencies\): (\d+) — (\d+) findable, (\d+) INVISIBLE/.exec(stdout);
+    expect(changedMatch, `could not find the changed-dependencies line in stdout:\n${stdout}`).not.toBeNull();
+    const [, changed, findable, invisible] = changedMatch as RegExpExecArray;
+
+    expect(Number(changed)).toBe(0);
+    expect(Number(findable)).toBe(0);
+    expect(Number(invisible)).toBe(0);
+  });
+});
+
+/**
+ * ⚠️ **THE COVERAGE THE HERMETIC FIXTURE GAVE UP, RESTORED WITHOUT THE DEFECT THAT SANK IT.**
+ *
+ * This block replaces four assertions deleted alongside the hermetic rewrite. Those ran the tool
+ * over four real surfaces and pinned a SEED COUNT for each — 85, 36, 34, 14. One was already
+ * failing (`expected 56 to be 34`), and the test's own `console.warn` told the reader to update
+ * the baseline "to match reality". ⚠️ **A test whose documented maintenance procedure is
+ * "change the expected value when it changes" is not asserting a property; it is reporting that a
+ * folder grew.** Removing them was right. Losing every check against a real repository shape was
+ * not.
+ *
+ * So this asserts only things that CANNOT DRIFT: no counts, no ratios, no thresholds. Add a
+ * hundred files to any of these surfaces and nothing here needs editing.
+ *
+ * ⚠️ **AND IT TOUCHES NO GIT REF, NO REMOTE AND NO NETWORK — deliberately, and it is why it calls
+ * `computeClosure` rather than `main`.** `main` requires `--against <git-ref>` (it throws
+ * "--surface and --against are both required"), so any smoke test built on it would reintroduce
+ * exactly the moving-target dependency the rewrite removed. `computeClosure` walks the working
+ * tree and nothing else. The ref-handling paths are covered hermetically by the two CATCHER tests
+ * above, where the ref's state is owned by the fixture instead of the world.
+ *
+ * ⚠️ **THE FAILURE MODE THIS IS BUILT AGAINST: a smoke test that passes when the tool is dead.**
+ * "It ran" is satisfied by a script that finds nothing. So the first assertion is that the surface
+ * was actually walked, and it is mutation-proven — a tool returning an empty seed reddens it by
+ * name.
+ */
+describe("smoke — the tool still works against real repository shapes", () => {
+  // Derived here rather than at module scope: every other block in this file is hermetic and must
+  // not acquire a dependency on where it is checked out. `tests/<file>` -> repository root.
+  const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+
+  const REAL_SURFACES = ["src/components/ward-management", "src/lib/rag", "src/components/caring-contacts", "worker"];
+
+  it.each(REAL_SURFACES)("%s: is walked, resolves cleanly, and its seed is inside its closure", (surface) => {
+    const result = computeClosure({
+      surfaceAbsoluteDir: join(REPOSITORY_ROOT, ...surface.split("/")),
+      root: REPOSITORY_ROOT,
+    });
+
+    // (1) The tool found something. ⚠️ Without this, every assertion below is vacuously true for a
+    // tool that returns nothing at all — which is the state a broken walk actually produces.
+    expect(
+      result.seedFiles.length,
+      `${surface}: the walk returned an EMPTY seed. Either the surface moved, or the tool stopped ` +
+        `finding files — and a tool that finds nothing satisfies every other check in this block.`,
+    ).toBeGreaterThan(0);
+
+    // (2) Every local import inside the closure resolved against a real repository shape. This is
+    // the property the deleted tests were reaching for and never actually asserted: the script's
+    // own CONTROL A fails the run on an unresolved specifier, so a non-empty list here means the
+    // tool would refuse on this repository today.
+    expect(
+      result.unresolved,
+      `${surface}: local specifiers the tool could not resolve — it would REFUSE on this ` +
+        `repository. First few: ${result.unresolved
+          .slice(0, 3)
+          .map((entry) => `${entry.file} -> ${entry.specifier}`)
+          .join(", ")}`,
+    ).toEqual([]);
+
+    // (3) The closure is a superset of the seed, by construction. An invariant, not a measurement:
+    // it holds at any size, and breaks if the closure ever stops including what it started from.
+    const missing = result.seedFiles.filter((file) => !result.closure.has(file));
+    expect(missing, `${surface}: seed files missing from their own closure`).toEqual([]);
   });
 });
