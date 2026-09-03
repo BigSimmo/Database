@@ -342,17 +342,17 @@ Search match examples:
 
 Answer badges should clarify grounding and evidence strength.
 
-| Evidence state                                     | Tone    |
-| -------------------------------------------------- | ------- |
-| Direct source-backed support                       | Success |
-| Strong source                                      | Success |
-| Partial support                                    | Warning |
-| Nearby only                                        | Warning |
-| No direct support where direct support is required | Danger  |
-| Source current                                     | Success |
-| Source review due                                  | Warning |
-| Source outdated                                    | Danger  |
-| Page/source metadata                               | Neutral |
+| Evidence state                                     | Tone     |
+| -------------------------------------------------- | -------- |
+| Direct source-backed support                       | Success  |
+| Strong source                                      | Success  |
+| Partial support                                    | Warning  |
+| Nearby only                                        | Warning  |
+| No direct support where direct support is required | Danger   |
+| Source current                                     | No badge |
+| Source review due                                  | Warning  |
+| Source outdated                                    | Danger   |
+| Page/source metadata                               | Neutral  |
 
 Do not use badges to decorate answer prose. Use them at the answer header, source rows, evidence panels, and compact provenance areas.
 
@@ -369,12 +369,29 @@ Document labels classify the document. UI badges render only selected labels or 
 | Manual override            | Info                                     |
 | Needs review               | Warning                                  |
 | Ambiguous site             | Warning                                  |
-| Current source             | Success                                  |
+| Current source             | No badge (see the note below)            |
 | Review due                 | Warning                                  |
 | Outdated source            | Danger                                   |
 | Processing/indexing        | Info                                     |
 | Failed ingestion           | Danger                                   |
 | Indexed/completed          | Success                                  |
+
+**A source that is simply current gets no badge.** Two reasons, and the second is the one
+that keeps getting undone:
+
+1. Green endorses. A freshness signal only records when a source was last looked at; nothing
+   in the pipeline verifies that its content is still correct. Success tone reads as that
+   stronger claim, and re-toning it down to neutral or info does not fix the second problem.
+2. An always-on chip is not free. Clusters render with a `limit` and drop the overflow into a
+   plain, non-interactive `+N` chip, so a badge for the unremarkable case does not add a row —
+   it evicts a badge that carries information. Measured on the medication identity cluster
+   (limit 5, 330 snapshot records): a "Source checked …" chip whose text was identical for 327
+   of them displaced the Poisons Schedule on 122 records and the TGA/OFF indication tag on 77.
+
+Badge the deficiencies instead — review due, source date unknown, no sources recorded,
+superseded — and render a healthy record's last-checked date as text where its sources are
+listed. `src/lib/medication-badges.ts` and `tests/medication-identity-badge-cluster.dom.test.tsx`
+hold the worked example.
 
 Limit visible tags. Use show-more behaviour for document tag clouds.
 
