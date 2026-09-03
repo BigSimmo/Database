@@ -150,7 +150,7 @@ export function CaringContactShellFrame({
 
   const navigationItemClass = (selected: boolean) =>
     cn(
-      "group flex min-h-tap min-w-0 items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium transition-colors lg:justify-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
+      "group flex min-h-tap min-w-0 items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
       selected
         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--rule-accent)]"
         : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -168,11 +168,11 @@ export function CaringContactShellFrame({
         production workspace shell already uses, so the two surfaces now agree.
       */}
       <aside className="sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-chrome)] md:flex md:w-20 lg:w-64">
-        <div className="flex min-h-[var(--header-h)] items-center justify-center gap-3 border-b border-[color:var(--border)] px-4 lg:justify-start lg:px-5">
+        <div className="flex min-h-[var(--header-h)] items-center justify-center gap-3 border-b border-[color:var(--border)] px-4 lg:px-5">
           <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]">
             <HeartHandshake aria-hidden="true" className="size-icon-lg" />
           </span>
-          <div className="sr-only min-w-0 lg:not-sr-only">
+          <div className="sr-only min-w-0 lg:not-sr-only lg:flex-1">
             <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
               Caring Contacts
             </p>
@@ -185,7 +185,7 @@ export function CaringContactShellFrame({
             <Link
               href={`${CARING_CONTACT_MOCKUP_ROUTES.newPlan}?stage=agreement`}
               aria-label="Start new caring-contact referral"
-              className="flex min-h-tap w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[color:var(--command)] px-0 text-[color:var(--command-contrast)] lg:px-4 shadow-[var(--e1)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-tap w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[color:var(--command)] px-0 text-[color:var(--command-contrast)] lg:px-5 shadow-[var(--e1)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <Plus aria-hidden="true" className="size-icon-md shrink-0" />
               <span className="truncate sr-only lg:not-sr-only">New referral</span>
@@ -196,7 +196,7 @@ export function CaringContactShellFrame({
               icon={Plus}
               onClick={onStartReferral}
               aria-label="Start new caring-contact referral"
-              className="w-full px-0 lg:px-4"
+              className="w-full px-0 lg:px-5"
             >
               <span className="truncate sr-only lg:not-sr-only">New referral</span>
             </Button>
@@ -218,7 +218,7 @@ export function CaringContactShellFrame({
                 className={navigationItemClass(selected)}
               >
                 <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
-                <span className="truncate sr-only lg:not-sr-only">{label}</span>
+                <span className="truncate sr-only lg:not-sr-only lg:flex-1">{label}</span>
               </Link>
             ) : (
               <button
@@ -231,7 +231,7 @@ export function CaringContactShellFrame({
                 className={navigationItemClass(selected)}
               >
                 <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
-                <span className="truncate sr-only lg:not-sr-only">{label}</span>
+                <span className="truncate sr-only lg:not-sr-only lg:flex-1">{label}</span>
               </button>
             );
           })}
@@ -242,28 +242,28 @@ export function CaringContactShellFrame({
             <Link
               href={CARING_CONTACT_MOCKUP_ROUTES.guidance}
               aria-label="Help and guidance"
-              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:justify-start"
+              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <CircleHelp aria-hidden="true" className="size-icon-lg shrink-0" />
-              <span className="truncate sr-only lg:not-sr-only">Help and guidance</span>
+              <span className="truncate sr-only lg:not-sr-only lg:flex-1">Help and guidance</span>
             </Link>
           ) : (
             <button
               type="button"
               onClick={() => selectDestination("Guidance")}
-              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:justify-start"
+              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <CircleHelp aria-hidden="true" className="size-icon-lg shrink-0" />
-              <span className="truncate sr-only lg:not-sr-only">Help and guidance</span>
+              <span className="truncate sr-only lg:not-sr-only lg:flex-1">Help and guidance</span>
             </button>
           )}
           <button
             type="button"
             onClick={() => setAnnouncement("Settings are outside this synthetic prototype")}
-            className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:justify-start"
+            className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Settings aria-hidden="true" className="size-icon-lg shrink-0" />
-            <span className="truncate sr-only lg:not-sr-only">Settings</span>
+            <span className="truncate sr-only lg:not-sr-only lg:flex-1">Settings</span>
           </button>
           {/*
             The signed-in coordinator, which until now could never appear: this card was `hidden`
@@ -344,12 +344,22 @@ export function CaringContactShellFrame({
         </header>
 
         {/*
-          The phone reserve is derived from the dock below rather than guessed at. `pb-24` was a
-          flat 96px against a dock that is `min-h-[var(--space-10)]` (64px) PLUS
-          `pb-[var(--safe-area-bottom)]` — so on a handset with a 34px home-indicator inset the dock
-          is 98px tall and the last 2px of every page sat underneath it.
+          The phone reserve stays a PLAIN utility, and that is a constraint rather than a preference.
+
+          `globals.css` excludes this tree from Tailwind's scan with an `@source not` rule covering
+          any component path containing "mockup", so an arbitrary utility written only inside a
+          mockup component is never emitted — the class lands on the element and no rule ever matches it.
+          Verified against the built sheet: `min-h-[var(--space-10)]` on the dock below has no rule
+          at all (which is why the dock measures 41px rather than 64px), while `pb-24` does
+          (`padding-bottom:calc(var(--spacing) * 24)`), because production code generates it.
+
+          A derived `pb-[calc(var(--space-10)+var(--safe-area-bottom)+2rem)]` here therefore computed
+          to 0px, not the 96px it reads as, and the phone dock covered the end of every long page —
+          `ui-caring-contact-mockup.spec.ts` caught it at 390px on both the activation journey and
+          the 24-overlay sweep. The production workspace shell may derive its reserve, and does; this
+          prototype may not.
         */}
-        <main className="min-w-0 px-4 pb-[calc(var(--space-10)+var(--safe-area-bottom)+2rem)] pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
+        <main className="min-w-0 px-4 pb-24 pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
             <div className="mb-6 flex min-w-0 flex-col gap-4 border-b border-[color:var(--border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
