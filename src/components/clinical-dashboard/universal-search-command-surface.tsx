@@ -610,7 +610,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Open">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <HitIcon className="h-4 w-4" />
+                  <HitIcon aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">
@@ -821,7 +821,7 @@ export function UniversalSearchCommandSurface({
               render: (active: boolean) => (
                 <OptionShell active={active} hint="Open">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                    <GroupIcon className="h-4 w-4" />
+                    <GroupIcon aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{item.title}</span>
@@ -906,7 +906,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Run">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <action.icon className="h-4 w-4" />
+                  <action.icon aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="truncate text-sm font-semibold text-[color:var(--text)]">{action.label}</span>
                 <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">

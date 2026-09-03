@@ -107,7 +107,7 @@ describe("Recommend screen", () => {
     expect(within(cards[0] as HTMLElement).getByText("Best match")).toBeInTheDocument();
     const featuredOpen = cards[0]?.querySelector('[aria-label="Open record"]');
     expect(featuredOpen).toHaveClass("bg-[color:var(--command)]");
-    expect(screen.getAllByText("WHY MATCHED").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Why matched").length).toBeGreaterThan(0);
     expect(screen.queryByText("Strong match")).not.toBeInTheDocument();
     expect(screen.queryByText("QUICK CONSTRAINTS")).not.toBeInTheDocument();
   });

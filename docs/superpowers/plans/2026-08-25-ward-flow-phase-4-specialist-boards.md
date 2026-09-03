@@ -51,6 +51,16 @@ Copied verbatim from spec §1. Every task's requirements implicitly include this
 - **Do not run Playwright, `npm run lint`, or a build** — the controller runs those gates.
 - One commit per task. **Do not push.**
 
+> **This constraint has a known cost, recorded 2026-08-30 (process audit P2-15) rather than
+> rewritten, because this plan is a record of what Phase 4 was actually told.** Deferring all
+> browser proof to the controller let a browser regression survive three whole tasks in Phase 3
+> — nobody looked at a screen until the sweep, by which point three tasks had been built on it.
+> **The revised practice for any NEW phase: cheap checks per slice, browser proof at the first
+> rendered integration rather than at the end, and one broad gate per wave.** The reason for the
+> original constraint is still good — the heavy gates serialise across every worktree on the
+> machine, so an implementer running Playwright blocks everyone. Cheap per-slice checks and one
+> early screenshot do not.
+
 ## File Structure
 
 | File                                                                             | Responsibility                                                                                  | New?    |

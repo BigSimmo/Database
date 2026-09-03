@@ -236,6 +236,21 @@ Their shared component folder `favourites-page-mockups/` went with them on 2026-
 retirement — a named written successor **and** a confirmed import search — is the precedent the
 policy's evidence bar is drawn from.
 
+## Retired developer-gated routes (owner decisions)
+
+Tier B of [`docs/mockup-retirement-policy.md`](../docs/mockup-retirement-policy.md) refuses every
+deletion under a developer-gated prefix, because that subtree is live in production behind
+`DeveloperAreaGate` and removing a screen from it is a product decision rather than cleanup. That
+refusal is unconditional and stays that way. This table is where a decision the owner **has** made
+is written down, and `npm run check:mockups` clears Tier B for a route only when it appears here
+with every column filled in. A route recorded here that still exists on disk fails the gate, for
+the same reason the retirement table above is symmetrical: a record kept after a restore would sit
+permanently pre-authorising a deletion nobody has looked at again.
+
+| Retired    | Route                                     | Approved by      | Superseded by                           | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ----------------------------------------- | ---------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-03 | `/mockups/ward-flow/patients/[patientId]` | Repository owner | `/mockups/ward-flow/people/[patientId]` | The address was misnamed: it looked a **movement** up by id while calling it a patient, and its inbound links passed movement ids through a variable called `patient`. Split into `/people/[patientId]` for the person and `/movements/[movementId]` for the movement, so both names now match what they show. A redirect was considered and rejected — the ids that reached the old address were movement ids, so forwarding them into the person screen would show the wrong record. |
+
 ## Design tokens
 
 Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clinical-accent`, `--success`) from [`docs/redesign/02-design-direction.md`](../docs/redesign/02-design-direction.md). Older design-exploration mockups were removed in July 2026 so stale palettes do not mislead future design review.

@@ -43,6 +43,31 @@ const TEXT_SOFT_CONSUMER = new RegExp(
 export const LEGACY_TAP_CLASS = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`, "g");
 const LEGACY_TAP_CLASS_TEST = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`);
 
+/**
+ * Whole-file text backstop for `disabledOpacityUses` (COMPONENTS.md §9.33),
+ * the same shape as `LEGACY_TAP_CLASS` above and for the same reason: it must
+ * see every occurrence the AST class-root pass can miss (unresolved
+ * identifiers, odd expression shapes), so a regression there fails closed
+ * instead of silently shrinking the ratchet. Any run of variant prefixes is
+ * admitted before the `disabled:` one, so `sm:disabled:opacity-40` still
+ * counts — but the token boundary means the prefix group can only consume
+ * whole `variant:` segments, so it can never eat past the `-` in
+ * `aria-disabled:opacity-<n>` and land on a bare `disabled:` match: the
+ * greedy prefix run either swallows all of `aria-disabled:` as one segment
+ * (leaving `opacity-<n>`, which does not match) or matches zero segments
+ * (leaving `aria-disabled:...`, which does not start with `disabled:`
+ * either). `aria-disabled:opacity-<n>` is a different, not-yet-covered
+ * surface and must stay invisible to this ratchet. The opacity value itself
+ * accepts a bare number, a Tailwind v4 arbitrary value (`opacity-[0.4]`), or
+ * the v4 CSS-variable shorthand (`opacity-(--my-opacity)`) — a digit-only
+ * pattern let exactly those two forms bypass `controlDisabled` invisibly.
+ */
+const DISABLED_OPACITY_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*disabled:opacity-(?:\d+|\[[^\]]+\]|\([^)]+\))`;
+export const DISABLED_OPACITY_CLASS = new RegExp(
+  `(?:^|[\\s\"'\\x60])${DISABLED_OPACITY_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`,
+  "g",
+);
+
 export const RAW_COLOR_EXEMPTIONS = [
   // Both files are the theme-token layer itself — the one place raw colour values
   // are *defined* rather than consumed. `ckb-v2-tokens.css` is the opt-in `.ckb-v2`
@@ -280,7 +305,20 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
  * widening to those is a separate question with its own false-positive surface,
  * and no interactive control in `src` currently carries one.
  */
-const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea"]);
+/**
+ * `Link` (from `next/link`) is admitted alongside the native tags. It is the
+ * single most common interactive component-tag pattern in this codebase —
+ * document-search-results.tsx's service-title `<Link>` carried a sub-floor
+ * `sm:min-h-7` invisibly past this gate before this addition, exactly the
+ * kind of miss TOKENS.md §2 exists to catch. Deliberately narrow: this does
+ * NOT resolve arbitrary component identifiers or a `className` passed down
+ * from a caller (`docs/design-system/sweep-fix-tap-floors-round-2.md` §9 —
+ * that is its own piece of work with its own false-positive surface), so a
+ * wrapper component that only forwards `className` to its own `<Link>` (for
+ * example `DiagnosisTermChip`) is still invisible to this walker unless the
+ * violation sits directly on a literal class fragment inside this file.
+ */
+const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea", "Link"]);
 const MAX_CLASS_ALTERNATIVES = 128;
 
 function combineClassAlternatives(left, right) {
@@ -561,6 +599,24 @@ export function findInteractiveTapFloorDeclarationsInSource(relativePath, source
   return findings;
 }
 
+/**
+ * COMPONENTS.md §9.33 — `controlBase` (via `controlDisabled` in
+ * `src/components/primitive-recipes/recipes.ts`) owns the disabled-state
+ * encoding: token-based colour, cursor and shadow, deliberately with NO
+ * opacity dimming (a disabled primary must not simply read as an available
+ * control at 50% strength — see the comment above `controlDisabled` itself).
+ * A hand-rolled `disabled:opacity-<n>` is a component re-inventing that
+ * encoding instead of composing the shared recipe. Scoped to the NATIVE
+ * `disabled:` variant only — `aria-disabled:opacity-<n>` is a different,
+ * not-yet-covered surface, and `variants.includes("disabled")` already
+ * excludes it: `aria-disabled` is one whole variant string, not a `disabled`
+ * variant with an `aria-` prefix run together, so it never matches here.
+ *
+ * Ratcheted (DEBT), not hard-zero: COMPONENTS.md §9.33's own migration plan
+ * (PR 3) is the paydown, which this gate deliberately does not execute — it
+ * only stops the count from growing past its pinned baseline.
+ */
+const DISABLED_OPACITY_UTILITY = /^opacity-(?:\d+|\[[^\]]+\]|\([^)]+\))$/;
 const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 // The status-colour family declared in `globals.css` (`--success`/`--warning`/
@@ -1435,6 +1491,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     colourOnlyStatusIndicators: [],
     darkColorOverrides: [],
     densityOverrides: [],
+    disabledOpacityUses: [],
     edgeOwnershipConflicts: [],
     hardcodedMotionClasses: [],
     imageInversions: [],
@@ -1577,6 +1634,9 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (variants.includes("dark") && isColorUtility(base)) {
       result.darkColorOverrides.push(`${relativePath}:${line} (${token})`);
     }
+    if (variants.includes("disabled") && DISABLED_OPACITY_UTILITY.test(base)) {
+      result.disabledOpacityUses.push(`${relativePath}:${line} (${token})`);
+    }
   }
 
   result.edgeOwnershipConflicts = [...new Set(result.edgeOwnershipConflicts)];
@@ -1596,6 +1656,10 @@ export function findColourOnlyStatusIndicatorsInSource(relativePath, sourceText)
 
 export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).edgeOwnershipConflicts;
+}
+
+export function findDisabledOpacityUsesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).disabledOpacityUses;
 }
 
 const COMMAND_FILL = "bg-[color:var(--command)]";
@@ -1731,6 +1795,110 @@ export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
       if (hay.includes(COMMAND_FILL) && !/\bprimaryControl\b/.test(hay)) {
         const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
         findings.push(`${relativePath}:${line}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
+/**
+ * SPEC.md §9.2 — "Live regions are never visible content." Any JSX element
+ * carrying an explicit `aria-live` attribute (other than a literal, always-off
+ * `aria-live="off"`, which never announces) whose resolved class list does not
+ * include `sr-only` is visible content wearing a live region. The compliant
+ * shape is a visible, non-live node plus a separate `sr-only` announcer twin —
+ * see `DocumentSearchHome`'s footer in `document-search-results.tsx` for the
+ * adopted pattern.
+ *
+ * One narrow, principled exception: `aria-relevant="additions …"` marks a
+ * container whose live behaviour is "announce children as they are inserted"
+ * (the toast-region shape in `ui/toast.tsx`, where the visible toast cards
+ * ARE the announcement) — architecturally different from a single visible
+ * node whose own text mutates in place, which is the failure mode this rule
+ * exists to catch. `role="status"` / `role="alert"` is not, on its own, a
+ * reason to exempt a node that also carries `aria-live`: `LoadingPanel`'s
+ * spinner variant originally carried both on a visible node, and having
+ * `role="status"` did not save it from being a violation — the role already
+ * implies the live semantics the explicit attribute duplicated, which is why
+ * the fix removed the attribute rather than adding `sr-only`.
+ *
+ * Scope, stated plainly so it cannot be misread as broader than it is: this
+ * scanner only inspects elements that carry an explicit `aria-live`
+ * attribute. A visible `role="status"`/`role="alert"` node with NO
+ * `aria-live` at all (the shape `LoadingPanel`'s spinner variant has today,
+ * after the fix above) is outside this function's scope, not exempted by
+ * it — the two are different guarantees. Widening the scanner to also flag
+ * bare `role="status"`/`role="alert"` would require triaging every such role
+ * in `src/**` for whether it is already a compliant static-content pattern,
+ * which this change does not attempt.
+ *
+ * `sr-only` is checked per resolved className *alternative*
+ * (`jsxClassAlternatives`), not against one combined blob of source text. A
+ * node whose className is `notice ? "visible classes" : "sr-only"` is a real
+ * violation the moment `notice` is truthy — the only time the node has
+ * anything to announce — even though the string "sr-only" appears somewhere
+ * in the attribute's source text. Only a node whose EVERY resolved
+ * alternative is sr-only is genuinely never visible.
+ */
+export function findVisibleLiveRegionsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function attributeStringValue(attribute) {
+    const initializer = attribute?.initializer;
+    if (!initializer) return null;
+    if (ts.isStringLiteral(initializer)) return initializer.text;
+    if (ts.isJsxExpression(initializer) && initializer.expression && ts.isStringLiteralLike(initializer.expression)) {
+      return initializer.expression.text;
+    }
+    return null;
+  }
+
+  function visit(node) {
+    const opening = jsxOpening(node);
+    if (opening && opening === node) {
+      const attributes = opening.attributes.properties;
+      const liveAttribute = attributes.find(
+        (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "aria-live",
+      );
+      if (liveAttribute && ts.isJsxAttribute(liveAttribute)) {
+        // A statically-known "off" literal never announces, so it is not live
+        // content. A dynamic value (e.g. `faulted ? "off" : "polite"`) can
+        // still resolve to a real live setting at runtime, so it stays in
+        // scope — matching how the rest of this file treats unresolved
+        // expressions as in-scope rather than silently exempt.
+        const literalValue = attributeStringValue(liveAttribute);
+        const isAlwaysOff = literalValue === "off";
+        const relevantAttribute = attributes.find(
+          (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "aria-relevant",
+        );
+        const relevantValue =
+          relevantAttribute && ts.isJsxAttribute(relevantAttribute)
+            ? (attributeStringValue(relevantAttribute) ?? "")
+            : "";
+        const isAdditionsContainer = /\badditions\b/.test(relevantValue);
+        const classAttribute = attributes.find(
+          (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+        );
+        const classAlternatives =
+          classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassAlternatives(classAttribute) : [];
+        // Every possible resolved value must be sr-only for the node to be
+        // genuinely never-visible; an unresolvable className (e.g. a bare
+        // identifier) falls back to the combined-text heuristic so a truly
+        // opaque expression stays in scope rather than silently exempt.
+        const isSrOnly =
+          classAlternatives.length > 0
+            ? classAlternatives.every((alternative) => /\bsr-only\b/.test(alternative))
+            : /\bsr-only\b/.test(jsxClassNameText(opening, source));
+        if (!isAlwaysOff && !isSrOnly && !isAdditionsContainer) {
+          const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+          findings.push(`${relativePath}:${line}`);
+        }
       }
     }
     ts.forEachChild(node, visit);

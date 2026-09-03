@@ -2,12 +2,21 @@
   position: relative;
   min-height: 100dvh;
   overflow: hidden;
+  /* No named ladder rung covers the 0-40 in-page band (src/app/globals.css's
+     z-index ladder starts at --z-raised: 10, next at --z-chrome: 60). These
+     are local, honestly-scoped custom properties (the same pattern
+     src/components/ward-management/** already uses for this exact band) --
+     not a `var(--z-sidebar-*, N)` wrapper around a shared-sounding token
+     that was never defined in globals.css. */
+  --sidebar-z-backdrop: 20;
+  --sidebar-z-rail: 30;
+  --sidebar-z-flyout: 50;
 }
 
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: var(--z-sidebar-backdrop, 20);
+  z-index: var(--sidebar-z-backdrop);
   display: block;
   background: var(--overlay-backdrop);
 }
@@ -15,7 +24,7 @@
 .rail {
   position: fixed;
   inset: 0 auto 0 0;
-  z-index: var(--z-sidebar-rail, 30);
+  z-index: var(--sidebar-z-rail);
   width: min(22rem, 100vw);
   height: 100dvh;
   pointer-events: none;
@@ -142,7 +151,13 @@
 
 .railFlyout {
   position: absolute;
-  z-index: var(--z-sidebar-flyout, 50);
+  /* 50 sits between the in-page band (<=40) and --z-chrome (60) with no
+     matching rung; kept as the value it always resolved to rather than
+     rounded to a token, since rounding to --z-chrome would tie this flyout's
+     stacking to app chrome (master search header, mode menus) -- a real
+     behaviour change this sweep did not review. --sidebar-z-flyout is
+     defined on .shell above and inherits down to this descendant. */
+  z-index: var(--sidebar-z-flyout);
   bottom: 0;
   left: calc(100% + 0.75rem);
   width: 17rem;
@@ -296,7 +311,7 @@
 
   .railAction::after {
     position: absolute;
-    z-index: var(--z-sidebar-tooltip, 60);
+    z-index: var(--z-chrome);
     top: 50%;
     left: calc(100% + 0.75rem);
     padding: var(--radius-sm) var(--sidebar-tooltip-pad-x, 0.5rem);
