@@ -3,8 +3,8 @@
   --net-canvas: var(--surface);
   --net-subtle: var(--surface-subtle);
   --net-chrome: var(--surface-chrome);
-  --net-border: var(--border);
-  --net-border-strong: var(--border-strong);
+  --net-border: var(--neutral-500);
+  --net-border-strong: var(--text-muted);
   --net-text: var(--text);
   --net-heading: var(--text-heading);
   --net-muted: var(--text-muted);
@@ -52,17 +52,44 @@
   box-shadow: var(--e0);
 }
 
+/* A real <button> since 2026-08-30. `text-align: left` and the reset of the browser's own button
+ * chrome keep the cell looking exactly as it did while it was an inert <span> — the change a
+ * coordinator should notice is that it now RESPONDS, not that it now looks like a control. */
 .pipelineStage {
   display: grid;
   min-width: 0;
   gap: var(--net-space-2);
+  border: 0;
   border-left: 0.0625rem solid var(--net-border);
+  border-radius: var(--radius-sm);
+  background: none;
   padding-left: var(--net-space-12);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .pipelineStage:first-child {
   border-left: 0;
   padding-left: 0;
+}
+
+.pipelineStage:hover {
+  background: var(--net-subtle);
+}
+
+/* The pressed state is carried by a real border and a weight change, not by colour alone —
+ * forced-colors and greyscale both have to be able to show which cell is filtering. */
+.pipelineStage[aria-pressed="true"] {
+  outline: 0.125rem solid var(--net-blue);
+  outline-offset: 0.125rem;
+  background: var(--net-blue-soft);
+}
+
+.pipelineStage[aria-pressed="true"] .pipelineLabel {
+  color: var(--net-text);
+  font-weight: 700;
 }
 
 .pipelineLabel {
@@ -75,6 +102,33 @@
   color: var(--net-heading);
   font-size: var(--text-lg);
   line-height: var(--net-leading-compact);
+}
+
+/*
+ * Everyone who has left the pathway. Set apart from the waiting cells on purpose: those cells sum
+ * to the queue's own count and this one holds the remainder, so the heavier rule is carrying the
+ * meaning rather than decorating it. The figure is muted because it is NOT part of the queue, and
+ * the split beneath it is what lets a reader reconcile the strip with the queue without doing
+ * arithmetic that could come out wrong.
+ */
+.pipelineLeftPathway {
+  display: grid;
+  min-width: 0;
+  gap: var(--net-space-2);
+  border-left: 0.125rem solid var(--net-border-strong);
+  padding-left: var(--net-space-12);
+}
+
+.pipelineLeftPathway strong {
+  color: var(--net-muted);
+  font-size: var(--text-lg);
+  line-height: var(--net-leading-compact);
+}
+
+.pipelineSplit {
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-tight);
 }
 
 .networkGrid {
@@ -142,6 +196,38 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--net-space-8);
+}
+
+/*
+ * The queue is narrowed — said in words, because the header count deliberately does NOT move.
+ * Tinted rather than plain so it cannot be skimmed past: a coordinator who does not register that
+ * a filter is on will read the rows as the whole waiting list.
+ */
+.queueFilterNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--net-space-8);
+  border: 0.0625rem solid var(--net-blue-border);
+  border-radius: var(--radius-sm);
+  background: var(--net-blue-soft);
+  padding: var(--net-space-6) var(--net-space-8);
+  color: var(--net-text);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-tight);
+}
+
+.queueFilterClear {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  padding: 0;
+  color: var(--net-blue);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .panelHeader h2 {
@@ -430,7 +516,7 @@
 }
 
 .bedChip[data-state="confirmed"],
-.bedChip[data-state="predicted"] {
+.bedChip[data-state="expected"] {
   border-style: dashed;
   border-color: var(--net-blue);
   color: var(--net-blue);
@@ -531,7 +617,7 @@
 }
 
 .legendSwatch[data-state="confirmed"],
-.legendSwatch[data-state="predicted"] {
+.legendSwatch[data-state="expected"] {
   border-style: dashed;
   border-color: var(--net-blue);
 }
@@ -761,5 +847,450 @@
   .serviceCard[aria-pressed="true"]:not(:focus-visible),
   .queueRow[aria-pressed="true"] {
     border: 0.125rem solid Highlight;
+  }
+}
+
+/* --- referral placement (Task 7) ---------------------------------------- */
+
+/* The left column carries two queues — movements and referrals — rather than one. Both panels
+   keep their own scroll (`.queuePanel` already sets `overflow-y: auto`), so a long referral queue
+   never pushes the movement queue off the column. */
+.queueColumn {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--net-space-10);
+}
+
+/* `0 1 auto`, never `1 1 0`. Equal halves would force the referral panel to the movement queue's
+   height: the seed holds two queued referrals against a long movement list, so half the column
+   would be blank, and at the narrower widths where the column is short both panels would resolve
+   to the taller one's height. Each panel takes the height its own content needs and shrinks only
+   when the column runs out. */
+.queueColumn > .queuePanel {
+  min-height: 0;
+  flex: 0 1 auto;
+}
+
+/* One unit node's verdict for the selected referral. Every node carries one, so this is never a
+   badge that marks out a shortlist — the tone distinguishes accepts from does-not-accept, and the
+   words are `matchReason`'s own. No comparative wording, and no ordering follows from it. */
+.placementVerdict {
+  border-radius: var(--radius-xs);
+  padding: var(--net-space-2) var(--net-space-4);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  line-height: var(--net-leading-tight);
+}
+
+.placementVerdict[data-accepts="true"] {
+  background: var(--net-good-soft);
+  color: var(--net-good);
+}
+
+.placementVerdict[data-accepts="false"] {
+  background: var(--net-subtle);
+  color: var(--net-muted);
+}
+
+.placementNote {
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-body);
+}
+
+/* --- band arrangement (Task 8) ------------------------------------------ */
+
+/*
+ * Phase 8, Task 8 (spec D11, step 3). With a referral selected the canvas stops being a
+ * three-column constellation and becomes a single stack of travel-band groups, so the hub column
+ * and the two service columns are not laid out here at all — the markup does not render them.
+ *
+ * This is a picture of invented bands and NOT a map: nothing is positioned, nothing is scaled, and
+ * no shape resembles anywhere. Do not add one. `align-content: start` because a short arrangement
+ * belongs at the top of the canvas rather than floating in the middle of it, which is what the
+ * constellation's `align-items: center` does for a picture with a centre.
+ */
+.canvas[data-layout="bands"] {
+  align-content: start;
+  align-items: start;
+  gap: var(--net-space-8);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bandArrangement {
+  z-index: var(--net-z-node);
+  display: grid;
+  gap: var(--net-space-8);
+}
+
+/* What the picture is and what it is not, and the fact that it is less than this screen was meant
+   to have. Quiet supporting text, never a warning banner: it states a limit of the data, not a
+   problem with this patient or this network. */
+.bandLimitation,
+.syntheticNotice {
+  margin: 0;
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-body);
+}
+
+/* A band group never folds. The owner ruled that out on 2026-08-29: the decision that permitted a
+   fold was taken about the bed list, where folding only shortens a scroll, and on a picture a folded
+   group makes wards disappear. So the disclosure rules that lived here — the marker reset, the drawn
+   triangle, its `[open]` rotation and the summary's focus ring — are gone with the `<details>` they
+   served, rather than left behind to match nothing. What survives is a group that always shows its
+   heading, both counts and its nodes, including when it holds none. */
+.bandGroup {
+  border: 0.0625rem solid var(--net-border);
+  border-radius: var(--radius-md);
+  background: var(--net-canvas);
+}
+
+/* A heading bar, not a control: nothing here is tappable, so this deliberately carries no tap-target
+   minimum, no pointer cursor and no focus ring. The unit nodes inside the group are the controls, and
+   `.serviceCard` keeps the 48px minimum for them. */
+.bandHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--net-space-8);
+  padding: var(--net-space-6) var(--net-space-10);
+}
+
+.bandLabel {
+  color: var(--net-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--net-leading-tight);
+}
+
+/* Two present facts, styled as quiet supporting text — never as a badge or a score, which would read
+   as this screen's own judgement of a band rather than a count of what is in it. */
+.bandCounts {
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  line-height: var(--net-leading-tight);
+}
+
+/* The unit nodes in a band, in the order the band handed them over. No comparator here and none
+   anywhere above it: `auto-fill` lays them out, it does not order them. */
+.bandCards {
+  display: grid;
+  gap: var(--net-space-6);
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  padding: 0 var(--net-space-10) var(--net-space-10);
+}
+
+.bandEmpty {
+  margin: 0;
+  padding: 0 var(--net-space-10) var(--net-space-10);
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-body);
+}
+
+/* --- print ------------------------------------------------------------- *
+ *
+ * WHY THIS BLOCK EXISTS. Every unit on this diagram is a `<button>` (`ServiceCard`), and the
+ * transitional `header, nav, button { display: none !important }` reset in `globals.css` therefore
+ * deleted ALL of them from every printed copy: the canvas frame, the hub and the legend printed,
+ * with nothing inside. A unit missing from the whole-network overview reads as "no such bed
+ * exists" — the exact failure the derived right-hand column was written to prevent, arriving this
+ * time through print CSS instead of through layout.
+ *
+ * That reset's own comment says not to extend its element list, and `globals.css` already sets the
+ * precedent for the fix (`[data-synthetic-marker-host]`, `.privacy-page`): restore the one thing
+ * the reset wrongly caught, scoped to the stylesheet that owns it, and write down why. A unit node
+ * is CONTENT — a labelled box of figures. `<button>` is only how a reader opens one on screen.
+ *
+ * A PRINTED DIAGRAM IS NOT A SCREENSHOT OF A SCREEN. Four deliberate differences, each with its
+ * own rule below:
+ *
+ *   1. NO AFFORDANCES. Elevation, the accent routed border and the accent selection outline all
+ *      say "press me", which is noise on paper. Flattened to plain bordered boxes.
+ *   2. INK, NOT THEME COLOUR. A coordinator printing from a dark-themed screen would otherwise
+ *      get pale text on white paper — invisible. Everything inside the canvas prints
+ *      `color: inherit` over a transparent background, so it inherits the global print reset's
+ *      black-on-white in BOTH themes, and nothing depends on a fill the printer may strip.
+ *   3. WORDS, NOT FILLS, FOR THE BED STATES. On screen the five chips are numbers told apart by
+ *      colour alone. Stripped of colour that is "2 3 0 1 0" — unreadable. Each chip prints its own
+ *      label in front of its figure, on the same standard `board.module.css` sets for the blocked
+ *      and held tiles: a pattern or a word carries the fact, never a fill.
+ *   4. NO CONNECTORS — see `.connectorLayer` below. This one removes something, and the reason is
+ *      that it cannot be trusted on paper.
+ */
+@media print {
+  /* 1. The nodes themselves, restored. `.serviceCard` (0,1,0) outranks the reset's `button`
+     (0,0,1), so this wins without needing to touch the global list. */
+  .serviceCard {
+    display: grid !important;
+    border-color: currentColor;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    /* A ward split down the middle by a page break is a ward whose figures are on two sheets. */
+    break-inside: avoid;
+  }
+
+  /*
+   * The SAME reset, the same mistake, one level up: each service cluster's heading — the health
+   * service's name and its unit count — is a `<header>`, and the band arrangement's heading is
+   * too. Without them the restored nodes print as 23 boxes in two columns with nothing saying
+   * which service any of them belongs to, and grouping by service is the whole shape of this
+   * picture. Found by looking at the paper, which is the only place either heading was missing.
+   */
+  .clusterHeader,
+  .bandHeader {
+    display: flex !important;
+    break-after: avoid;
+  }
+
+  /*
+   * 2. Ink. Every colour inside the canvas is a theme token, and half of them invert with the
+   * theme — so a print taken from a dark screen would put near-white text on white paper. Both
+   * themes collapse to the same black-on-transparent here. Nothing is lost by it: every state on
+   * this diagram is already carried by a word or a border style, because forced-colors and screen
+   * readers demanded that long before print did.
+   */
+  .canvas,
+  .bandArrangement,
+  .legend {
+    /*
+     * The ink root. `color: inherit` alone was NOT enough and the paper proved it: the global
+     * print reset makes `body` black, but `.modeShell` (the workspace shell, another module)
+     * re-asserts `color: var(--text)` in between, so a dark-themed print inherited near-white
+     * `rgb(244, 246, 248)` text — measured, not assumed. `CanvasText` is the initial value of
+     * `color` and resolves against the element's own colour scheme, so pinning the scheme to
+     * light here yields black in BOTH themes without this file naming a colour of its own.
+     */
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  /* The legend is inked with the canvas it describes, and for the reason this file already gives
+     about connector keys: a key whose colour is not on the picture sends a reader hunting for one.
+     Its swatches keep their solid-versus-dashed shapes, which is the distinction that still holds
+     in ink — the two forward-looking states from the three physical ones. */
+  .canvas *,
+  .bandArrangement *,
+  .legend * {
+    background: transparent !important;
+    color: inherit !important;
+  }
+
+  /* Borders and outlines follow the ink rather than the palette, so they survive as thin black
+     rules instead of a pale tint. Border STYLE is untouched — dashed stays dashed, which is what
+     tells the two forward-looking chips apart from the three physical ones. */
+  .canvas *,
+  .bandArrangement *,
+  .legend * {
+    border-color: currentColor !important;
+    outline-color: currentColor !important;
+  }
+
+  /* 3. Each chip says what it counts. `attr(data-label)` reads the label straight off the DOM —
+     `bedStateCopy` in `ward-management-network.tsx` is the one place those five words are
+     written, so this cannot drift into printing "Ready" for a chip the app calls something else.
+     The chip stops being a fixed square and sizes to its own text. */
+  .bedChip {
+    display: inline-flex;
+    min-width: 0;
+    height: auto;
+    align-items: baseline;
+    gap: var(--net-space-2);
+    padding: 0 var(--net-space-4);
+  }
+
+  .bedChip::before {
+    content: attr(data-label);
+    font-weight: 400;
+  }
+
+  /*
+   * 4. The connector overlay does not print, and this is a correctness decision rather than a
+   * tidiness one. Every connector coordinate is measured in JavaScript from the LIVE SCREEN
+   * layout (`measure()` reads `getBoundingClientRect()` on the canvas, the hub and each node) and
+   * is recomputed only by a `ResizeObserver` on the canvas and a window resize. A printed page is
+   * laid out separately and at a different width — the workspace rail and header are gone and the
+   * canvas is far narrower — and none of that re-runs `measure()`. So the lines a printer draws
+   * are the lines the SCREEN needed, laid over nodes that have since moved: a route line pointing
+   * at the wrong ward. On a bed-finding sheet that is worse than no line at all, and it is
+   * invisible to every test we have. Verified before this block existed: with the nodes hidden the
+   * printed route collapsed to a right-angled stub in the top-left corner of the paper, pointing
+   * at nothing.
+   *
+   * Nothing is lost that is not carried in words: each node prints its own `.placementVerdict`
+   * with `matchReason`'s own wording, which is exactly why that text exists (review Important 5 —
+   * routed state used to be conveyed only by an outline colour plus an `aria-hidden` connector).
+   */
+  .connectorLayer {
+    display: none !important;
+  }
+
+  /* The legend describes the canvas, and two of its keys describe lines that are no longer on it.
+     Same rule this file already applies when the band arrangement drops the connectors: "a legend
+     key for a line that is not on the canvas invites a reader to look for one." */
+  .legendItem:has(.legendRoute),
+  .legendItem:has(.legendDemand) {
+    display: none !important;
+  }
+
+  /*
+   * SELECTION prints as weight, never as a highlight, and never as a word.
+   *
+   * The accent outline is a screen affordance: it may be stripped with the backgrounds, and where
+   * it survives it reads as a recommendation. It is not one — `aria-pressed` here means only "this
+   * is the node the reader had open", the toggle that fills the detail panel beside the diagram,
+   * and that panel prints and names the unit anyway. The facts that ARE decisions (the placement
+   * verdict, the accepted/referred destinations on the coordinator's diagram) are already words on
+   * the node. So the selected node keeps a heavier edge — enough to find it again against the
+   * screen it was printed from — and takes no colour and no label that a reader could mistake for
+   * a bed this system has chosen.
+   */
+  .serviceCard[aria-pressed="true"]:not(:focus-visible) {
+    border-width: 0.125rem;
+    outline: none;
+  }
+
+  /* The routed border is the same accent as the selection outline and means something different
+     again; flattened to ink above, it would be indistinguishable from an ordinary node. Left as
+     the ordinary border it now is: routing is carried by the verdict text on the node. */
+  .serviceCard[data-routed="true"] {
+    box-shadow: none;
+  }
+
+  /*
+   * The canvas geometry, rebuilt for paper — which is only safe BECAUSE the connectors above are
+   * gone. On screen the three tracks (`1fr | 12.5rem | 1fr`) exist so the hub sits physically
+   * between the two columns the lines run to; with no lines to align, that middle track is a
+   * 12.5rem hole down the centre of an A4 page, and it squeezed the left column so hard that
+   * "Graylands Adult Secure" printed over three lines beside a right column five times its width.
+   *
+   * So on paper the hub becomes a caption spanning the top — it is still the picture's subject
+   * line, carrying the open-movement count — and the two service columns take half the page each.
+   * Nothing here changes the screen, and nothing on screen is measured against it any more.
+   */
+  .canvas {
+    min-height: 0;
+    align-items: start;
+    gap: var(--net-space-10);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .hub {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+
+  .column[data-side="left"] {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .column[data-side="right"] {
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  .networkPage {
+    min-height: 0;
+  }
+
+  /* A service's units stay together where the paper allows it; the heading never prints as the
+     last thing on a sheet with its wards overleaf (`break-after: avoid`, above). */
+  .cluster {
+    break-inside: avoid;
+  }
+
+  /* ----------------------------------------------------------------------
+   * THE REFERRAL MATCH PANEL — the shortlist and its comparison table.
+   *
+   * Unlike the diagram, none of this was missing from the paper: it printed, and it printed
+   * badly. Two faults, both of the same family the diagram had.
+   *
+   * FAULT ONE — it kept theme colour while the diagram beside it went to ink, so one printed
+   * sheet carried two visual languages for the same facts: the same bed chips rendered black on
+   * the diagram and green/amber/red in the table two inches below.
+   *
+   * FAULT TWO — printed from a dark-themed screen the panel was faint, and worst exactly where it
+   * mattered. `.compareTable td strong` is `--net-heading`, which in dark is near-white: the
+   * ELIGIBILITY verdict — the single cell a coordinator reads this table for — was the palest
+   * thing on the page. The subject line naming who the shortlist is for was barely darker.
+   *
+   * Same treatment as the canvas, for the same reasons, so the sheet reads as one document.
+   * ---------------------------------------------------------------------- */
+  .shortlistPanel {
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  .shortlistPanel * {
+    background: transparent !important;
+    color: inherit !important;
+    border-color: currentColor !important;
+  }
+
+  /* Nothing is lost with the tone colours: every toned cell already carries its own words
+     ("Different health service", "Exact match", "Not yet booked"), and each keeps the bold weight
+     that separated it from the untoned cells. The eligibility verdict is a word too. */
+
+  /* A horizontally scrolling box has no meaning on paper — it clips the columns past the fold
+     instead of scrolling them. Same substitution the global reset makes for `main`/`section`. */
+  .tableScroll {
+    overflow-x: visible;
+  }
+
+  /*
+   * The urgency badge, which is the one thing here that colour alone WAS carrying. It is an
+   * 18px square holding a bare digit, tinted by tier; inked, "1" beside "Adult · Open ward ·
+   * East Metro service" is indistinguishable from a rank or a column number. So on paper the
+   * square becomes ordinary text and the digit is replaced by the badge's own
+   * `data-label` — `urgencyTierLabel`'s "Tier 1 · most urgent", the same wording the
+   * coordinator's priority queue prints, rather than words invented here.
+   *
+   * Guarded on `[data-label]`: if that attribute is ever dropped, the digit prints as it does
+   * today instead of the badge silently vanishing into a zero font size.
+   */
+  .tier {
+    display: inline;
+    width: auto;
+    height: auto;
+  }
+
+  .tier[data-label] {
+    font-size: 0;
+  }
+
+  .tier[data-label]::after {
+    content: attr(data-label);
+    font-size: var(--text-3xs);
+    font-weight: 700;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
+ *
+ * The border aliases above deliberately SEVER the chain to `--border`. Measured against
+ * `--surface`, the background every one of these screens paints, `--border` sits at 1.21:1 in
+ * light mode and 1.42:1 in dark — far below the 3:1 a boundary needs, so the dividers were very
+ * nearly invisible. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and
+ * 8.21:1.
+ *
+ * ⚠️ But severing that chain would ALSO cost a high-contrast user the system border colour, which
+ * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
+ * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
+ * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ */
+@media (forced-colors: active) {
+  .networkPage {
+    --net-border: var(--border);
+    --net-border-strong: var(--border-strong);
   }
 }

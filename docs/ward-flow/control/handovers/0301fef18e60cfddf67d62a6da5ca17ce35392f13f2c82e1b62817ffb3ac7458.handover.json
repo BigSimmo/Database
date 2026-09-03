@@ -1,0 +1,130 @@
+{
+  "content": {
+    "completedWork": [
+      {
+        "summary": "e6b7afb91 - the six-reason urgency change landed on the integration branch. src/components/ward-management/ward-change-reasons.ts and tests/ward-change-reasons.test.ts now hash to 39d842c4a896b844c84ad2e01bd9b8ba75a83af704d3672717e790294e7ad4b7 and 7653616acac3b2ee375f3369552ed14c48a3bfc366ae4e8bc55755c247357f40, identical to the preserved copies and to the live originals."
+      },
+      {
+        "summary": "016b37812 - the 895-source current-truth inventory, frozen at source SHA 6a8778b6f9ab4087931b22655073799f19999341, inventory sha256 5c5d53d2847c909614e723e06baab38a075d530581d19fe332f8148171ef6fb0."
+      },
+      {
+        "summary": "e1199a53e - the disposition manifest classifying all 895 sources with zero unclassified, sha256 33c9ce7fae3bd4fa08f91dc2aa5d50c19ef12dca47b7188a4b8b5644ef0cc552. 151 canonical, 735 superseded, 6 historical, 3 parked. validateCurrentTruthManifest accepts it."
+      }
+    ],
+    "decisions": [
+      {
+        "summary": "Transferred the urgency change from the committed preservation copies rather than from the live worktree, so the bytes that landed are the same bytes that were independently hash-verified, and the source checkout was never read at commit time."
+      },
+      {
+        "summary": "Ran the entire Vitest ward suite discovered by glob (118 files) rather than the focused reason test. The recovery record states the last full run against this edit had one failure and was never re-run after the correction, so a focused pass would have re-created exactly the gap that record warns about."
+      },
+      {
+        "summary": "Classified the three live checkouts as parked rather than historical in the current-truth manifest, because each still holds live work: the only copy of the urgency change, 139 untracked files the recovery order forbids cleaning, and the community WIP built on a reversed association rule."
+      }
+    ],
+    "evidence": [
+      {
+        "decisiveEvidence": "npx vitest run tests/ward-*.test.ts tests/ward-*.test.tsx - 'Test Files 118 passed (118) / Tests 1586 passed (1586)'.",
+        "outcome": "passed"
+      },
+      {
+        "decisiveEvidence": "validateCurrentTruthManifest against the generated inventory - 'MANIFEST VALIDATES against the generated inventory', 895 entries, unclassifiedSources 0.",
+        "outcome": "passed"
+      },
+      {
+        "decisiveEvidence": "sha256sum of both landed files equals both the preservation copies and the live originals in D:/Worktrees/Database/pr-2390-fix, and both differed from the pre-transfer integration copies.",
+        "outcome": "passed"
+      },
+      {
+        "decisiveEvidence": "buildExpectedSourceInventory reports 895 sources after the ENOBUFS fix at 9fa7456a9; before it, committing the six chat envelopes made the current-truth receipt impossible to build.",
+        "outcome": "passed"
+      }
+    ],
+    "nextAction": "Recreate Ward Lead leasing tests/ in addition to src/components/ward-management, then give the community_team referral arm an explicit team identifier so the owner's association ruling becomes expressible.",
+    "pendingWork": [
+      {
+        "summary": "The successor Lead must lease tests/ as well as src/components/ward-management. The next product task - giving the community_team referral arm an explicit team identifier - changes model types that existing referral tests read, and those tests are outside the current lease."
+      },
+      {
+        "summary": "R5 and R6 remain: no recovery bundle exists at the frozen source SHA, and no transition receipt of any kind is committed. transitionEvidence is still [] and Builder is still correctly gated."
+      },
+      {
+        "summary": "The community hub cannot be built correctly yet. ReferralDestination's community_team arm carries no fields at all, so team association can only be guessed from home region, which the owner reversed. COMMUNITY_TEAMS is Record<HomeRegion, string>, so the only team vocabulary that exists is itself region-keyed."
+      }
+    ],
+    "questions": [
+      {
+        "summary": "Community team identity granularity is the owner's to settle: the ten placeholder teams are one per HomeRegion, so introducing a team identifier keyed on anything else means inventing a vocabulary he has not ruled on. Region may seed a default at referral time, but it must not decide membership afterwards."
+      },
+      {
+        "summary": "Ward Verifier's verdict on R1 and R3 has not arrived. Nothing above should be treated as independently verified until it does; every check reported here is the Lead's own."
+      }
+    ],
+    "risks": [
+      {
+        "summary": "The 6 ui-ward-*.spec.ts Playwright journeys were not run; they need a running server. No browser-level evidence exists for the urgency change."
+      },
+      {
+        "summary": "Generation 1 of this role produced no handover. Its lease was archived by the owner before certification, so its record survives only as commit messages. That is why every commit in this session carries its reasoning in full."
+      },
+      {
+        "summary": "The current-truth inventory is valid only at source SHA 6a8778b6f. It also reads live checkouts and the Claude log root, so if any source checkout is touched it will no longer regenerate identically."
+      }
+    ],
+    "subagentDispatches": [],
+    "summary": "R2 is complete: the six urgency reasons now exist in a commit for the first time. This handover exists to retire a lease whose owned paths exclude tests/, which blocks the next product task; the successor must lease tests/ as well. Ward Verifier holds an open criterion against frozen target 89d7f99ec covering R1 and R3 and has not yet reported."
+  },
+  "contentAudit": {
+    "decisionsCaptured": true,
+    "evidenceCaptured": true,
+    "noUniqueChatContentRemaining": true,
+    "questionsCaptured": true,
+    "uncommittedWorkCaptured": true,
+    "workCaptured": true
+  },
+  "createdAt": "2026-08-31T07:49:25.569Z",
+  "instanceId": "ward-lead-20260831-claude-b",
+  "integration": {
+    "commit": "e6b7afb91d7ba598306c9d5e28577a9e70fb441f",
+    "durableCheckpoint": null,
+    "status": "integrated",
+    "targetBranch": "codex/task-ward-flow-live-state-20260831"
+  },
+  "kind": "ward-flow-chat-handover",
+  "leaseSha256": "6c77a8dcb2fa98c1d907e9f04b0120cf1d8ac9644b3c799e7d0c8080f096d2fc",
+  "previousHandover": null,
+  "privacyAudit": {
+    "noPatientData": true,
+    "noSecrets": true,
+    "syntheticOnly": true
+  },
+  "reason": "normal-handoff",
+  "role": "lead",
+  "roleGeneration": 1,
+  "schemaVersion": 1,
+  "sessionLabel": "Ward Lead",
+  "source": {
+    "branch": "codex/task-ward-flow-live-state-20260831",
+    "head": "e6b7afb91d7ba598306c9d5e28577a9e70fb441f",
+    "status": [],
+    "worktree": "C:/Users/joshs/.codex/worktrees/ward-flow-live-state-20260831/Database"
+  },
+  "task": {
+    "assignmentPath": null,
+    "baseSha": "e1199a53eb95616d0d0d11b3825318e98b61610f",
+    "completionCommit": "e6b7afb91d7ba598306c9d5e28577a9e70fb441f",
+    "id": "WF-LEAD-R2",
+    "objective": "Close the dirty urgency integration line: transfer the six-reason urgency change from its byte-verified preservation copies onto the integration branch by named path, prove it with the whole Ward suite rather than a focused test, and commit it.",
+    "ownedPaths": [
+      "docs/ward-flow",
+      "scripts/ward-flow",
+      "tests/ward-flow-chat-control.test.ts",
+      ".gitignore",
+      ".gitattributes",
+      "src/components/ward-management",
+      "tests/ward-change-reasons.test.ts"
+    ],
+    "status": "complete",
+    "verificationTarget": null
+  }
+}

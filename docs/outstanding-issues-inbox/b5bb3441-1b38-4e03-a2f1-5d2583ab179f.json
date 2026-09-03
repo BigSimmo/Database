@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b5bb3441-1b38-4e03-a2f1-5d2583ab179f",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "ledger-inbox.mjs add silently ignores --dry-run and writes a real queue entry",
+    "context": "Running `node scripts/ledger-inbox.mjs add --pri P2 --type task --summary \"test\" --dry-run` exits 0 and prints \"Queued add request at docs/outstanding-issues-inbox/<uuid>.json\". It writes the file. The flag is accepted without complaint and has no effect on this subcommand, so an operator probing the CLI's contract — the documented way to learn it, since `add` with no arguments only prints which fields are missing — creates a real request containing whatever placeholder text they used. This entry occupies the file that probe created, because the protection hook refuses to delete it.",
+    "next": "Either honour --dry-run on `add` (print the payload, write nothing) or reject the flag as unknown so it fails loudly. A silently-ignored flag is worse than an unsupported one: it reports success for work it did not do. Check whether `done`, `update`, `queue` and `cancel` accept it the same way.",
+    "issueUlid": "01M1G4M9N6AGBNBVMAZYZR01X8"
+  }
+}
