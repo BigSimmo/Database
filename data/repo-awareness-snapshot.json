@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "f04d1a897bf922a195bc5a818a11d9d46425cfc3",
-    "committed_at": "2026-09-02T20:27:35+00:00"
+    "sha": "51e508b7f0b8fa237e61791f78a411697b4f154b",
+    "committed_at": "2026-09-02T22:48:53+00:00"
   },
   "routes": {
     "modes": [
@@ -2901,6 +2901,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/design-system/sweep-fix-visible-live-regions.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/TOKENS.md",
         "section": "design-system",
         "catalogued": true
@@ -4442,9 +4447,9 @@
       }
     ],
     "counts": {
-      "documents": 588,
+      "documents": 589,
       "catalogued": 115,
-      "uncatalogued": 473,
+      "uncatalogued": 474,
       "sections": 21
     }
   },
