@@ -26,7 +26,7 @@ Attribution demonstrated that over 99.9% of the shift originated from the timing
 
 To maintain desktop CLS `< 0.05`:
 
-- The `<main>` container in [`src/app/(search-app)/documents/search/page.tsx`](<file:///C:/Users/joshs/.gemini/antigravity/worktrees/Database/list_manual_ledger_tasks/src/app/(search-app)/documents/search/page.tsx>) preserves a minimum viewport height reserve:
+- The `<main>` container in [`src/app/(search-app)/documents/search/page.tsx`](<../src/app/(search-app)/documents/search/page.tsx>) preserves a minimum viewport height reserve:
   ```tsx
   <main className="mx-auto flex min-h-[55dvh] max-w-3xl flex-col items-center justify-center px-4 py-12 text-center">
   ```
@@ -47,7 +47,7 @@ On mobile viewports, initial paint and largest contentful paint (LCP) can be con
 
 - **CSS Delivery**: Critical styles are streamlined and loaded with zero render-blocking waterfalls.
 - **Font & Asset Loading**: Self-hosted variable fonts with `font-display: swap` and zero external blocking fonts.
-- **Zero Stale Layout Shifts**: Mobile phone chrome contracts (headers/footers) follow strict monotonic transitions without duplicate composer reserves (see [`docs/phone-chrome-physical-acceptance.md`](file:///C:/Users/joshs/.gemini/antigravity/worktrees/Database/list_manual_ledger_tasks/docs/phone-chrome-physical-acceptance.md)).
+- **Zero Stale Layout Shifts**: Mobile phone chrome contracts (headers/footers) follow strict monotonic transitions without duplicate composer reserves (see [`docs/phone-chrome-physical-acceptance.md`](phone-chrome-physical-acceptance.md)).
 - **Production Baseline**: Verified on production environment (Railway) ensuring mobile routes reliably satisfy the LCP `< 2.5s` threshold.
 
 ---
