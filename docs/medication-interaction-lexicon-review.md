@@ -84,6 +84,20 @@ Drugs a selector would otherwise have swept in. Each is a clinical claim worth c
 | `corticosteroids` | Hydrocortisone 1%      | class `Steroid`, subclass `Topical Glucocorticoid`           |
 | `corticosteroids` | Triamcinolone          | class `Steroid`, subclass `Topical Glucocorticoid`           |
 
+## Source-side exclusions
+
+Records where a term is present in the text but is **not** read as naming a counterparty — usually
+because the record is using the class word for its own drug. Every interaction row on the record is
+affected, so each of these is a clinical claim worth checking.
+
+| Term       | Not read as a counterparty on | Rows affected | The wording it appears in                                                                                                                    |
+| ---------- | ----------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `opioids`  | Loperamide                    | 1 of 1        | MODERATE — P-gp inhibitors (e.g., Verapamil, Ketoconazole) can theoretically push loperamide across the blood-brain barrier, causing opioid… |
+| `statins`  | Simvastatin                   | 1 of 3        | HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo.           |
+| `statins`  | Atorvastatin                  | 1 of 2        | HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo.                                         |
+| `fibrates` | Simvastatin                   | 1 of 3        | HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo.           |
+| `fibrates` | Atorvastatin                  | 1 of 2        | HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo.                                         |
+
 ## Terms that resolve to no catalogue drug
 
 These never produce an alert. `nonDrug` and `external` are deliberate; `mechanism` is an admission that
