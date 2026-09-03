@@ -1145,7 +1145,6 @@ function GlobalStandaloneSearchShellBody({
                 ) : pendingModeNavigation ? (
                   <div
                     aria-busy="true"
-                    aria-live="polite"
                     data-testid="mode-navigation-loading"
                     className="sm:flex sm:min-h-0 sm:flex-1 sm:flex-col"
                   >

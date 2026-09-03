@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DictionarySourcesRedirect from "@/app/(search-app)/dictionary/sources/page";
+import { SourcesHomeClient } from "@/app/(search-app)/sources/sources-home-client";
 import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
 import {
   SourceDetailPage,
@@ -11,18 +12,20 @@ import {
   SourcesPublishersPage,
   SourcesTopicsPage,
 } from "@/components/sources/sources-pages";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { SOURCE_RATING_WEIGHTS, type ClinicalSourceCatalogueEntry } from "@/lib/sources/catalogue-types";
 
 const loadCatalogueMock = vi.hoisted(() => vi.fn());
 const routerReplace = vi.hoisted(() => vi.fn());
+const routerPush = vi.hoisted(() => vi.fn());
 const redirectMock = vi.hoisted(() => vi.fn());
 let currentSearchParams = new URLSearchParams();
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/sources/load-source-catalogue", () => ({ loadSourceCatalogue: loadCatalogueMock }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/sources",
-  useRouter: () => ({ replace: routerReplace }),
+  usePathname: () => "/sources/search",
+  useRouter: () => ({ replace: routerReplace, push: routerPush }),
   useSearchParams: () => currentSearchParams,
   redirect: redirectMock,
   notFound: vi.fn(),
@@ -145,7 +148,7 @@ describe("Sources catalogue", () => {
     expect(screen.queryByText("Alpha review source")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Filter by quality band"), { target: { value: "D" } });
-    expect(routerReplace).toHaveBeenLastCalledWith("/sources?usedBy=dictionary&band=D", { scroll: false });
+    expect(routerReplace).toHaveBeenLastCalledWith("/sources/search?usedBy=dictionary&band=D", { scroll: false });
 
     view.unmount();
     currentSearchParams = new URLSearchParams("band=D&publisher=Legacy+Publisher");
@@ -169,7 +172,7 @@ describe("Sources catalogue", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove quality band: D · Review required" }));
     expect(routerReplace).toHaveBeenLastCalledWith(
-      "/sources?band=A&usedBy=dictionary&usedBy=factsheets&publisher=Legacy+Publisher",
+      "/sources/search?band=A&usedBy=dictionary&usedBy=factsheets&publisher=Legacy+Publisher",
       { scroll: false },
     );
   });
@@ -180,7 +183,7 @@ describe("Sources catalogue", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove quality band: D · Review required" }));
 
-    expect(routerReplace).toHaveBeenLastCalledWith("/sources?band=A&usedBy=dictionary", { scroll: false });
+    expect(routerReplace).toHaveBeenLastCalledWith("/sources/search?band=A&usedBy=dictionary", { scroll: false });
   });
 
   it("sorts by quality or title and offers a wired reset for empty filters", () => {
@@ -200,7 +203,7 @@ describe("Sources catalogue", () => {
     expect(screen.getByRole("status")).toHaveTextContent("0 sources");
     expect(screen.getByRole("heading", { name: "No sources match these filters" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
-    expect(routerReplace).toHaveBeenCalledWith("/sources", { scroll: false });
+    expect(routerReplace).toHaveBeenCalledWith("/sources/search", { scroll: false });
   });
 });
 
@@ -208,7 +211,10 @@ describe("Sources derived pages", () => {
   it("links topic and publisher groups back to filtered catalogue results", async () => {
     const topics = render(await SourcesTopicsPage());
     expect(screen.getByRole("heading", { level: 1, name: "Topics" })).toBeVisible();
-    expect(screen.getByRole("link", { name: /governance/i })).toHaveAttribute("href", "/sources?topic=governance");
+    expect(screen.getByRole("link", { name: /governance/i })).toHaveAttribute(
+      "href",
+      "/sources/search?topic=governance",
+    );
 
     topics.unmount();
     render(await SourcesPublishersPage());
@@ -219,7 +225,7 @@ describe("Sources derived pages", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Legacy Publisher" })).toBeVisible();
     expect(screen.getByRole("link", { name: /view ranzcp sources/i })).toHaveAttribute(
       "href",
-      "/sources?publisher=RANZCP&jurisdiction=australian_national",
+      "/sources/search?publisher=RANZCP&jurisdiction=australian_national",
     );
   });
 
@@ -240,8 +246,8 @@ describe("Sources derived pages", () => {
 
     const links = screen.getAllByRole("link", { name: /view ranzcp sources/i });
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
-      "/sources?publisher=RANZCP&jurisdiction=australian_national",
-      "/sources?publisher=RANZCP&jurisdiction=international",
+      "/sources/search?publisher=RANZCP&jurisdiction=australian_national",
+      "/sources/search?publisher=RANZCP&jurisdiction=international",
     ]);
     expect(links).toHaveLength(2);
   });
@@ -309,6 +315,46 @@ describe("Dictionary Sources compatibility redirect", () => {
     await DictionarySourcesRedirect({
       searchParams: Promise.resolve({ q: "RANZCP", band: ["A", "D"], usedBy: "factsheets" }),
     });
-    expect(redirectMock).toHaveBeenCalledWith("/sources?q=RANZCP&band=A&band=D&usedBy=dictionary");
+    expect(redirectMock).toHaveBeenCalledWith("/sources/search?q=RANZCP&band=A&band=D&usedBy=dictionary");
+  });
+});
+
+/*
+ * `/sources` was registered as a standalone mode home and given a hero composer
+ * placement, but rendered the catalogue — which mounts no composer slot, so the
+ * shell portalled its search field at a host that did not exist. These cases pin
+ * the home that closes that gap: the slot has to be present, and the four
+ * catalogue surfaces have to stay reachable from it now that the bare path no
+ * longer lists them itself.
+ */
+describe("Sources home", () => {
+  it("renders the shared mode-home hero copy for Sources", () => {
+    render(<SourcesHomeClient />);
+
+    const home = screen.getByTestId("sources-home");
+    expect(within(home).getByRole("heading", { name: "Sources" })).toBeTruthy();
+    expect(within(home).getByText("Clinical source catalogue.")).toBeTruthy();
+  });
+
+  it("mounts the hero composer slot the shell portals into", () => {
+    const { container } = render(<SourcesHomeClient />);
+
+    expect(container.querySelector(`#${modeHomeDesktopComposerSlotId}`)).not.toBeNull();
+  });
+
+  it("links every catalogue surface, with the filterable catalogue on its own route", () => {
+    render(<SourcesHomeClient />);
+
+    const hrefs = ["catalogue", "topics", "publishers", "method"].map((item) =>
+      screen.getByTestId(`sources-home-${item}`).getAttribute("href"),
+    );
+    expect(hrefs).toEqual(["/sources/search", "/sources/topics", "/sources/publishers", "/sources/method"]);
+  });
+
+  it("runs a suggested search against the catalogue rather than the home", () => {
+    render(<SourcesHomeClient />);
+
+    fireEvent.click(screen.getByRole("button", { name: "RANZCP" }));
+    expect(routerPush).toHaveBeenCalledWith("/sources/search?q=RANZCP&run=1");
   });
 });

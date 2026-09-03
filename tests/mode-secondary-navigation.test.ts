@@ -47,7 +47,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "therapy-compass": "/therapy-compass",
   factsheets: "/factsheets",
   dictionary: "/dictionary",
-  sources: "/sources",
+  sources: "/sources/search",
 };
 
 /**
@@ -148,7 +148,7 @@ describe("mode secondary navigation registry", () => {
         hasSubmittedSearch: false,
       }),
     ).toBe(false);
-    for (const pathname of ["/sources", "/sources/topics", "/sources/publishers", "/sources/method"]) {
+    for (const pathname of ["/sources/search", "/sources/topics", "/sources/publishers", "/sources/method"]) {
       expect(isModeSecondaryNavigationRoute({ modeId: "sources", pathname, hasSubmittedSearch: false })).toBe(true);
     }
     expect(
@@ -361,7 +361,7 @@ describe("mode secondary navigation registry", () => {
     ).toBe("/therapy-compass/compare?q=trauma&run=1&ids=cbt%2Cact&topic=Anxiety&density=dense");
 
     for (const [itemId, href] of [
-      ["catalogue", "/sources"],
+      ["catalogue", "/sources/search"],
       ["topics", "/sources/topics"],
       ["publishers", "/sources/publishers"],
     ] as const) {
@@ -450,7 +450,7 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/topics/assessment-and-measurement")).toBe(
       "topics",
     );
-    expect(activeModeSecondaryNavigationId("sources", "/sources")).toBe("catalogue");
+    expect(activeModeSecondaryNavigationId("sources", "/sources/search")).toBe("catalogue");
     expect(activeModeSecondaryNavigationId("sources", "/sources/topics")).toBe("topics");
     expect(activeModeSecondaryNavigationId("sources", "/sources/publishers")).toBe("publishers");
     expect(activeModeSecondaryNavigationId("sources", "/sources/method")).toBe("method");

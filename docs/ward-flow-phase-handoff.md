@@ -28,6 +28,16 @@ Phase boundaries are in §18 of the spec.
 
 One 736-line `synthetic-fixtures.ts` became five focused modules plus a derivations module:
 
+> ℹ️ **CORRECTION — 23 units, 50 movements and 9 bed releases, not 22, 48 and 6.** Measured
+> 2026-09-01: pinned by `tests/ward-flow-provider.dom.test.tsx` (`toHaveTextContent("23")` for
+> units, `toHaveTextContent("50")` for movements, with a comment there noting "48 -> 50 on
+> 2026-08-30: WF-019 and WF-020"), and `bedReleases` in
+> `src/components/ward-management/ward-movements.ts` holds ids `WR-001` through `WR-009` (9
+> entries). This applies to the `ward-sites.ts` and `ward-movements.ts` rows in the table below —
+> a table row cannot carry a banner directly without breaking the table's markdown, so this note is
+> placed immediately above the whole table instead. Those rows are stale; this is a correction of
+> fact, not a reversed decision.
+
 | Module                | Holds                                                                                                                                                                             |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ward-clock.ts`       | `Instant` (minutes since midnight), `minutesUntil`, `clockState`, `formatRemaining` (countdown), `formatElapsed` (elapsed). The **only** module permitted to read the wall clock. |

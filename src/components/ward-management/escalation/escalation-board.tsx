@@ -1,6 +1,6 @@
 "use client";
 
-import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { formatInstantWithDay, type Instant } from "@/components/ward-management/ward-clock";
 import {
   elapsedLabel,
   escalationBoard,
@@ -83,7 +83,9 @@ export function EscalatedSection({ board, now }: { board: EscalationBoard; now: 
                 <tr key={entry.movement.id}>
                   <td>{entry.movement.id}</td>
                   <td>
-                    {entry.movement.escalation ? formatInstant(entry.movement.escalation.at) : "No time recorded"}
+                    {entry.movement.escalation
+                      ? formatInstantWithDay(entry.movement.escalation.at, now)
+                      : "No time recorded"}
                   </td>
                   <td>{triedUnitsLabel(entry.triedUnits)}</td>
                   <td>{entry.movement.escalation?.contact ?? "No contact recorded"}</td>

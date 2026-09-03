@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "mode": "steady-state",
+  "activeRoles": ["lead", "builder", "verifier"],
+  "soleIntegrationRole": "lead",
+  "integrationBranch": "codex/task-ward-flow-live-state-20260831",
+  "integrationBase": "5db2f02fc6f0d04eed3425bc74b0adad438b7ea7",
+  "activationSnapshot": "34ddfb8d9fe1baac7c07286469476e927e5a87b3",
+  "sourceSnapshot": "docs/ward-flow/live-state.json",
+  "builderActivationGate": {
+    "instruction": "Activate only after the three committed, content-addressed transition receipts validate.",
+    "requiredEvidence": ["recovery-bundle", "current-truth", "control-plane"]
+  },
+  "transitionEvidence": [
+    {
+      "id": "recovery-bundle",
+      "path": "docs/ward-flow/control/evidence/receipts/recovery-bundle-4f2c114d3387b5ce5041e963cbfaa67d1a65cf7405b9a8c952584b753b6a3cf7.json",
+      "sha256": "4f2c114d3387b5ce5041e963cbfaa67d1a65cf7405b9a8c952584b753b6a3cf7"
+    },
+    {
+      "id": "current-truth",
+      "path": "docs/ward-flow/control/evidence/receipts/current-truth-12592584702d7ace615347bbbf17eeaad30140cb02f6aea731b3c60914d7b3dd.json",
+      "sha256": "12592584702d7ace615347bbbf17eeaad30140cb02f6aea731b3c60914d7b3dd"
+    },
+    {
+      "id": "control-plane",
+      "path": "docs/ward-flow/control/evidence/receipts/control-plane-4519b4d6f3d071b2fe5d7b226504910fb1fd62c4f3436f576ab52172d59f9996.json",
+      "sha256": "4519b4d6f3d071b2fe5d7b226504910fb1fd62c4f3436f576ab52172d59f9996"
+    }
+  ],
+  "updatedAt": "2026-08-31T19:57:00+08:00"
+}
