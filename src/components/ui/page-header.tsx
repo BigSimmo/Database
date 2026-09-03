@@ -73,7 +73,9 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
                   className="inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 >
                   {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate" title={item.label}>
+                    {item.label}
+                  </span>
                 </ContextualBackLink>
               ) : item.href ? (
                 <Link
@@ -81,16 +83,21 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
                   className="inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 >
                   {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate" title={item.label}>
+                    {item.label}
+                  </span>
                 </Link>
               ) : (
                 <>
                   {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
                   {/* The label is this element's own text, not a nested span:
-                      `aria-current` has to sit on the node the reader lands on. */}
+                      `aria-current` has to sit on the node the reader lands on.
+                      `title` gives the truncated current crumb (SPEC.md §11's
+                      "no other full-name path" case) a recovery path. */}
                   <span
                     aria-current={last ? "page" : undefined}
                     className="truncate px-1.5 font-semibold text-[color:var(--text)]"
+                    title={item.label}
                   >
                     {item.label}
                   </span>

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "a7bfa29769b453f15ba869df65be0116b53245bf",
-    "committed_at": "2026-09-02T22:39:13Z"
+    "sha": "1ae2b9ee7df0211ee8a0d7843bf2ca1ee817cb20",
+    "committed_at": "2026-09-03T08:43:01+08:00"
   },
   "routes": {
     "modes": [
@@ -2906,6 +2906,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/design-system/sweep-fix-visible-live-regions.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/TOKENS.md",
         "section": "design-system",
         "catalogued": true
@@ -4447,9 +4452,9 @@
       }
     ],
     "counts": {
-      "documents": 588,
+      "documents": 589,
       "catalogued": 115,
-      "uncatalogued": 473,
+      "uncatalogued": 474,
       "sections": 21
     }
   },
@@ -18141,6 +18146,14 @@
         "scope": "PR #1668 unblock",
         "outcome": "late-synced main after CI green on f04a96c3; merge-tree clean (GitHub DIRTY was stale); js-yaml 4.3.1 + nanoid 3.3.18 preserved; no unresolved threads; CI re-run after push",
         "checks": "pre-late-sync: PR required pass on f04a96c3; Production UI skipped; post-sync pending"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/sources-mode-dropdown-home-mzw4f5",
+        "head": "a7bfa29769b453f15ba869df65be0116b53245bf",
+        "scope": "PR #2567 Sources mode home, existing review feedback, CI, and integration with main",
+        "outcome": "No new P0-P2 findings. The existing filter-only deep-link concern was already fixed and its thread resolved. Integrated origin/main and regenerated the repo-awareness snapshot to resolve the sole merge conflict.",
+        "checks": "Hosted CI on a7bfa29769b453f15ba869df65be0116b53245bf: success; 9 focused source-mode test files / 181 tests: pass; repo-awareness snapshot check: pass; git diff --check: pass."
       },
       {
         "date": "2026-08-07",

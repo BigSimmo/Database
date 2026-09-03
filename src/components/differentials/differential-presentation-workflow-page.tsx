@@ -202,7 +202,7 @@ function DesktopComparisonTable({
         <Link
           href={editSelectionHref}
           data-testid="differential-presentation-edit-selection-desktop"
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface)]"
+          className="inline-flex min-h-tap items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface)]"
         >
           Edit selection
           <ChevronRight className="h-4 w-4" aria-hidden />
@@ -317,7 +317,14 @@ function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkfl
                       label={segment.text}
                       slug={segment.slug}
                       tone="danger"
-                      className="min-h-6 px-2 text-2xs font-bold xl:min-h-7 xl:text-xs"
+                      // compact-meta (40px), not min-h-tap: sibling in this same
+                      // safety-snapshot tag row (line ~305) is a fixed 24-28px
+                      // non-interactive hinge-label chip, so a tap-sized primary
+                      // here would visibly mismatch the row it belongs to.
+                      // TOKENS.md §2's compact-meta role list ("filter chips") is
+                      // the closest documented fit for a small reference chip in
+                      // a dense tag row (TOKENS.md requires this comment).
+                      className="min-h-compact-meta px-2 text-2xs font-bold xl:text-xs"
                     />
                   ))}
                 </Fragment>
@@ -428,7 +435,7 @@ function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow 
       </ul>
       <Link
         href="/differentials/diagnoses/delirium"
-        className="mt-3 inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
+        className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
       >
         View handoff template
         <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -484,7 +491,7 @@ function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWor
       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">Last updated: {status.lastUpdated}</p>
       <Link
         href="/differentials/diagnoses/delirium"
-        className="mt-3 inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
+        className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
       >
         View details
         <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -584,7 +591,7 @@ function MobileComparison({
         <Link
           href={editSelectionHref}
           data-testid="differential-presentation-edit-selection-mobile"
-          className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface)]"
+          className="inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface)]"
         >
           Edit
           <ChevronRight className="h-4 w-4" aria-hidden />
