@@ -25,7 +25,7 @@ const FIRST_MOVEMENT = wardMovements[0]!;
 // Same call the app itself makes for the "top candidate" the decision panel falls back to when
 // nothing has been referred yet, computed here only to build a real, valid dispatch payload —
 // not to assert against production's own output. `allUnits()` is the fixture's own pristine
-// seed, which this suite never mutates (no CONFIRM_CAPACITY/HOLD_BED/PATIENT_ARRIVED dispatch
+// seed, which this suite never mutates (no CONFIRM_CAPACITY/PULL_PATIENT/PATIENT_ARRIVED dispatch
 // runs before this is computed), so it is identical to the provider's live `units` here.
 const TOP_CANDIDATE_ID = eligibleCandidatesAmong(FIRST_MOVEMENT, allUnits(), NOW_ANCHOR, 1)[0]!.unit.id;
 

@@ -146,6 +146,7 @@
         "src/app/(search-app)/sources/method/page.tsx",
         "src/app/(search-app)/sources/page.tsx",
         "src/app/(search-app)/sources/publishers/page.tsx",
+        "src/app/(search-app)/sources/search/page.tsx",
         "src/app/(search-app)/sources/topics/page.tsx"
       ],
       "routeRoots": true,

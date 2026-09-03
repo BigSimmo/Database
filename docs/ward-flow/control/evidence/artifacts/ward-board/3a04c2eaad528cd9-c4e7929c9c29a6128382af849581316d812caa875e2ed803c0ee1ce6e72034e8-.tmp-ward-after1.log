@@ -1,0 +1,24 @@
+GLOBBED_FROM_DISK_FILE_COUNT=76
+--- attempt 1 at 2026-08-29T23:50:54+08:00 ---
+file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/scripts/test-run-lock.mjs:505
+      throw new Error(message);
+            ^
+
+Error: Database focused-test capacity is full (current owner PID 17492, worktree D:\Worktrees\Database\pr-2390-fix, started 2026-08-29T15:49:38.278Z): playwright tests/ui-ward-referrals.spec.ts --project=chromium-mockups
+    at acquireHeavyRunLock (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/scripts/test-run-lock.mjs:505:13)
+    at file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/scripts/run-vitest.mjs:56:14
+
+Node.js v24.19.0
+--- refused (exit 1), sleeping ---
+--- attempt 2 at 2026-08-29T23:51:55+08:00 ---
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+
+ Test Files  76 passed (76)
+      Tests  1113 passed (1113)
+   Start at  23:52:17
+   Duration  41.69s (transform 3.30s, setup 5.34s, import 10.76s, tests 34.81s, environment 21.99s)
+
+EXIT_CODE=0

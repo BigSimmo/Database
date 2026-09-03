@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "01bc19e1-689e-4fc7-9b8e-401f52267219",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Audit double casts by target type, not by operator: as unknown as onto a domain model defeats every shape check",
+    "detail": "as unknown as suppresses excess-property AND missing-property checking, so an object literal asserted through it can carry fields the type does not have and omit fields it requires, with tsc clean and every test green. Searching by the operator is useless: it appears 228 times across tests/ (counted at 268fcd6a8, control run both ways) and almost all are legitimate, since a Request or IntersectionObserver cannot be hand-built. The dangerous subset is a double cast whose TARGET is a repo-defined domain model. One live instance found at tests/ward-release-band-day-boundary.test.ts:34, hiding 3 phantom and 6 absent required fields. Filter comment lines: such casts appear in mutation notes precisely because they are the strongest suppressor.",
+    "source": "Ward Builder One closing sweep 2026-09-02",
+    "issueUlid": "01M1G4PY33AQXXD8X42AQGM7M3"
+  }
+}

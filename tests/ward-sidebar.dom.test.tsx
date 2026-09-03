@@ -78,9 +78,15 @@ describe("Ward Flow phone drawer", () => {
     for (const item of WARD_NAV) {
       expect(drawerHrefs, `${item.label} is missing from the drawer`).toContain(item.href);
     }
-    // The two entries that name one arbitrary synthetic instance rather than a section of the app
-    // say so in words here. The icon rail can only say it in an aria-label nobody reads.
-    expect(within(drawer).getAllByText("example")).toHaveLength(2);
+    // The entries that name one arbitrary synthetic instance rather than a section of the app say
+    // so in words here. The icon rail can only say it in an aria-label nobody reads.
+    //
+    // THREE at the fold, not two: the ward board (`board/[unitId]`) joined `ward/[unitId]` and
+    // `ed/[edId]` as a dynamic route the rail can only ever link one concrete instance of. Moved
+    // after confirming the third is the board's rail entry and belongs — not to reach green. The
+    // hrefs themselves are pinned as a set in tests/ward-nav.test.ts, which is where a fourth
+    // arriving by accident would be caught by name rather than by arithmetic.
+    expect(within(drawer).getAllByText("example")).toHaveLength(3);
     // The one legitimate way out of the sandbox.
     expect(within(drawer).getByRole("link", { name: "Back to the developer hub" })).toHaveAttribute(
       "href",
