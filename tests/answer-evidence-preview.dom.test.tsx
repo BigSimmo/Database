@@ -237,12 +237,15 @@ describe("incremental answer evidence preview", () => {
 
   // A reader can change the preference while an answer is generating. Suppressing motion fills
   // the rail; re-enabling it must not then take those cards back and re-accrue them.
-  it("never takes back a card when the motion preference changes mid-wait", () => {
+  it("never takes back a card when the motion preference changes mid-wait", async () => {
     document.documentElement.setAttribute("data-motion", "reduced");
     renderProgressWithPreview(evidencePreview(8));
     expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(6);
 
-    act(() => {
+    // `await`, because the preference is watched with a MutationObserver and its callback is a
+    // microtask. A synchronous act() would let this assertion pass without the component ever
+    // having re-rendered under the new preference — the test would prove nothing.
+    await act(async () => {
       document.documentElement.setAttribute("data-motion", "full");
     });
 
