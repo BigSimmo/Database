@@ -22,7 +22,7 @@ import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
-import { prefersReducedMotion } from "@/lib/scroll-behavior";
+import { motionIsSuppressed } from "@/lib/scroll-behavior";
 import {
   answerLoading,
   sharedHomeEmptyState,
@@ -242,7 +242,7 @@ const evidenceRevealIntervalMs = 200;
 /** The motion preference as a subscription rather than a snapshot, so the in-app Reduce motion
  *  toggle takes effect on the wait already on screen. `use-app-preferences.ts` mirrors that
  *  toggle onto `<html data-motion>`, and the OS request arrives through the media query;
- *  `prefersReducedMotion()` already reads both, this only watches them for changes. */
+ *  `motionIsSuppressed()` reads both, this only watches them for changes. */
 function subscribeToMotionPreference(onChange: () => void) {
   const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   media?.addEventListener("change", onChange);
@@ -263,39 +263,46 @@ function subscribeToMotionPreference(onChange: () => void) {
  * that the reader cannot reconcile with something on screen. One owner, one count.
  *
  * Keyed by preview identity, in the same shape `useSlowNotice` uses for the run: a retry or a
- * new question hands over a different unit, the count reads as zero again on identity alone,
- * and no reset is written into an effect body. Nothing here calls setState synchronously
- * during an effect — the only writes come from the interval callback.
+ * new question hands over a different unit and the count starts again. The reset is a
+ * render-phase adjustment, not a write inside an effect — nothing here calls setState
+ * synchronously during an effect, where it would cascade renders.
+ *
+ * **The count for one unit never goes backwards.** Motion is a live subscription, so a reader
+ * can change the preference mid-generation; if suppressing motion filled the rail and then
+ * re-enabling it restarted the count, six cards a reader was already reading would vanish and
+ * re-accrue. The count only ever rises, so a preference change can complete the rail early but
+ * can never take back a card.
  *
  * Motion suppressed reveals everything immediately, with no timer in the path at all. That is
  * the hard-won rule on this surface: Reduce Motion once left a dead panel on a physical iPhone
  * mid-generation, and a JS reveal could withhold content in a way a CSS delay never could.
  */
 function useProgressiveReveal(total: number, preview: VerifiedEvidencePreviewUnit | null) {
-  const reducedMotion = useSyncExternalStore(subscribeToMotionPreference, prefersReducedMotion, () => false);
+  // `motionIsSuppressed`, not `prefersReducedMotion`: this gates a JS animation, and the CSS
+  // animations around it honour an explicit in-app "Full" over an OS reduce request. Reading
+  // the weaker form here would freeze this rail alone while the rest of the interface animates.
+  const suppressed = useSyncExternalStore(subscribeToMotionPreference, motionIsSuppressed, () => false);
   const [revealed, setRevealed] = useState<{ unit: VerifiedEvidencePreviewUnit; count: number } | null>(null);
 
-  useEffect(() => {
-    if (reducedMotion || !preview || total <= 0) return undefined;
-    // Starts at one because the first card is already drawn below; the interval only has the
-    // rest to bring in.
-    let shown = 1;
-    const timer = window.setInterval(() => {
-      shown += 1;
-      setRevealed({ unit: preview, count: shown });
-      if (shown >= total) window.clearInterval(timer);
-    }, evidenceRevealIntervalMs);
-    return () => window.clearInterval(timer);
-  }, [preview, total, reducedMotion]);
-
-  if (reducedMotion) return total;
-  if (!preview || total <= 0) return 0;
+  const cap = preview && total > 0 ? total : 0;
+  const stored = revealed?.unit === preview ? revealed.count : 0;
   // The first card is on screen the instant the unit arrives. This preview exists to shorten
   // time to first useful content, and holding the whole rail back for a rung to make the
-  // animation tidier would spend exactly what it was built to buy. Identity, not a stale
-  // count, decides the rest: a new question's unit reads as one card again rather than
-  // inheriting the previous rail's number.
-  return Math.min(revealed?.unit === preview ? revealed.count : 1, total);
+  // animation tidier would spend exactly what it was built to buy.
+  const floor = cap === 0 ? 0 : suppressed ? cap : Math.min(1, cap);
+  const count = Math.max(stored, floor);
+  if (preview && count !== stored) setRevealed({ unit: preview, count });
+
+  useEffect(() => {
+    if (suppressed || !preview || count >= cap) return undefined;
+    // One card per rung, as a chain of timeouts keyed on the current count rather than a
+    // self-clearing interval: it terminates on its own when the rail is full, and the state
+    // write is the only thing the callback does.
+    const timer = window.setTimeout(() => setRevealed({ unit: preview, count: count + 1 }), evidenceRevealIntervalMs);
+    return () => window.clearTimeout(timer);
+  }, [preview, cap, count, suppressed]);
+
+  return count;
 }
 
 /**

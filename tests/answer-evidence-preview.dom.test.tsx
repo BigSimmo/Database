@@ -48,10 +48,15 @@ function renderProgressWithPreview(preview: VerifiedEvidencePreviewUnit) {
   );
 }
 
+/** Each card is a separate timeout, scheduled only once the previous card has rendered, so the
+ *  clock has to be advanced one rung at a time. Advancing the whole span in a single act block
+ *  lands exactly one card — the next timeout does not exist yet. */
 function advanceReveal(cards: number) {
-  act(() => {
-    vi.advanceTimersByTime(revealIntervalMs * cards);
-  });
+  for (let card = 0; card < cards; card += 1) {
+    act(() => {
+      vi.advanceTimersByTime(revealIntervalMs);
+    });
+  }
 }
 
 /** Past the last card the rail can draw, so assertions read the settled state. */
@@ -206,5 +211,46 @@ describe("incremental answer evidence preview", () => {
 
     expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(6);
     expect(screen.getByTestId("answer-progress-line")).toHaveTextContent("6 sources found · writing the answer…");
+  });
+
+  // The app's Motion preference has three states, and an explicit in-app choice wins over the
+  // OS request in BOTH directions — that is what the CSS does
+  // (`html:not([data-motion="full"])`), so a JS-gated animation reading the weaker two-state
+  // form would freeze this rail alone while the rest of the interface animates.
+  it("honours an explicit Full choice over an OS reduce-motion request", () => {
+    window.matchMedia = ((query: string) =>
+      ({
+        matches: query.includes("prefers-reduced-motion"),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    document.documentElement.setAttribute("data-motion", "full");
+
+    renderProgressWithPreview(evidencePreview(8));
+
+    // Paced, not dumped: the reader asked for motion and the OS request does not override it.
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(1);
+    advanceReveal(2);
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(3);
+  });
+
+  // A reader can change the preference while an answer is generating. Suppressing motion fills
+  // the rail; re-enabling it must not then take those cards back and re-accrue them.
+  it("never takes back a card when the motion preference changes mid-wait", () => {
+    document.documentElement.setAttribute("data-motion", "reduced");
+    renderProgressWithPreview(evidencePreview(8));
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(6);
+
+    act(() => {
+      document.documentElement.setAttribute("data-motion", "full");
+    });
+
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(6);
+    expect(screen.getByTestId("answer-progress-line")).toHaveTextContent("6 sources found");
+
+    // And it stays put rather than restarting on the next rung.
+    advanceReveal(2);
+    expect(screen.getAllByTestId("answer-evidence-preview-source")).toHaveLength(6);
   });
 });
