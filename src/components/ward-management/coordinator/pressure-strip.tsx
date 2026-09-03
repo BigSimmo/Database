@@ -11,12 +11,16 @@ type PressureStripProps = {
   selectedEdId: string | undefined;
   onSelectEd: (edId: string | undefined) => void;
   /**
-   * Injectable for tests only — mirrors `edPressure`'s own `(now, movements)` injection point.
-   * Production call sites never pass this, so `edPressure` falls back to the real fixture; a
-   * dedicated dom test passes `[]` to exercise a department with nobody waiting without having
-   * to wait for the live fixture to grow one (Task 4 review Important 5).
+   * REQUIRED, not injectable-for-tests. It was optional, and the one screen that renders this in
+   * production did not pass it — so the strip silently read the seed fixture while the referral
+   * queue beside it read live state. An optional argument whose absence produces a plausible
+   * answer is the same defect as `edPressure`'s old default, one level up.
+   *
+   * Tests still pass `[]` here to exercise a department with nobody waiting, rather than waiting
+   * for the live fixture to grow one (Task 4 review Important 5). That was always the honest use
+   * of this parameter; what it can no longer do is stand in for a production caller's silence.
    */
-  movements?: Movement[];
+  movements: Movement[];
 };
 
 /**
@@ -29,7 +33,7 @@ type PressureStripProps = {
  * reaches a screen reader and a hover without ever displaying a plausible-but-wrong guess.
  */
 export function PressureStrip({ now, selectedEdId, onSelectEd, movements }: PressureStripProps) {
-  const pressure = movements === undefined ? edPressure(now) : edPressure(now, movements);
+  const pressure = edPressure(now, movements);
 
   return (
     <section className={styles.pressureStrip} aria-label="Emergency department pressure">

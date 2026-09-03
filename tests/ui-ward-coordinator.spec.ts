@@ -230,7 +230,18 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
       .evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-tier"))));
     expect(rowCount).toBeGreaterThan(0);
     expect(tiers).toHaveLength(rowCount);
-    expect(tiers).toEqual([...tiers].sort((a, b) => a - b));
+
+    // Commit bc7cb70fb (owner, 2026-08-30): a flagged-urgent patient outranks every tier, so the
+    // full rendered list is no longer tier-ascending — WF-018 (tier 3, flagged) legitimately
+    // leads unflagged tier-1 patients who have waited hours. The tier ladder still holds among
+    // the UNFLAGGED, narrowed the same way that commit narrowed "every tier 1 above every tier
+    // 2" in tests/ward-priority.test.ts.
+    const unflaggedRows = rows.filter({ hasNot: page.locator('[data-testid^="ward-queue-flag-"]') });
+    const unflaggedTiers = await unflaggedRows
+      .locator("[data-tier]")
+      .evaluateAll((nodes) => nodes.map((node) => Number(node.getAttribute("data-tier"))));
+    expect(unflaggedTiers.length, "the fixture must still hold unflagged rows to order").toBeGreaterThan(1);
+    expect(unflaggedTiers).toEqual([...unflaggedTiers].sort((a, b) => a - b));
 
     // Within a tier, the operational score must be non-increasing — the queue's core claim
     // (Task 5 review Important 2). This reads the property off `data-score`, not a hard-coded
@@ -364,11 +375,17 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     // Connector paths are drawn by a client layout effect — this is the hydration signal.
     await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
 
-    // Every one of the 22 fixture units renders as its own node regardless of selection — a unit
+    // Every one of the 23 fixture units renders as its own node regardless of selection — a unit
     // whose service-group lookup silently fails must not just vanish from the count (review
     // Minor 6; `flow-diagram.tsx` renders an explicit "Unresolved health service" anomaly card
     // for exactly that case rather than dropping the unit).
-    await expect(diagram.locator('[data-testid^="ward-diagram-unit-"]')).toHaveCount(22);
+    //
+    // 23, not the 22 this assertion carried from PR #2289: Phase 7 Task 1 (`5401a7121`) added the
+    // youth unit at Bentley on the product owner's own instruction, and this count is deliberately
+    // exact rather than a floor, so it goes red when the fixture grows. It did — caught by Task 7,
+    // whose dispatch had wrongly asserted the branch was green because only the Vitest ward suite
+    // had been re-run. `tests/ui-ward-roles.spec.ts` repeats the same figure in prose.
+    await expect(diagram.locator('[data-testid^="ward-diagram-unit-"]')).toHaveCount(23);
 
     // Demand connectors (department → hub) exist regardless of selection, always eight. No
     // movement is selected yet, so there must be zero route connectors — proving the two kinds
@@ -719,7 +736,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     // a `.slice()`.
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
     const wf017Gates = shortlist.locator('[data-testid^="ward-gate-"]');
-    await expect(wf017Gates).toHaveCount(8);
+    await expect(wf017Gates).toHaveCount(10);
     for (const gate of await wf017Gates.all()) {
       const pass = await gate.getAttribute("data-pass");
       await expect(gate).toContainText(pass === "true" ? "Met" : "Not met");
@@ -736,7 +753,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     // Selected by id, not by row position, so it does not matter which row it currently ranks.
     await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
     const wf009Gates = shortlist.locator('[data-testid^="ward-gate-"]');
-    await expect(wf009Gates).toHaveCount(8);
+    await expect(wf009Gates).toHaveCount(10);
     for (const gate of await wf009Gates.all()) {
       const pass = await gate.getAttribute("data-pass");
       await expect(gate).toContainText(pass === "true" ? "Met" : "Not met");
@@ -780,7 +797,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
    * Whole-branch review Critical 2, carried into Task 5. `ShortlistPanel` defaults `activeUnit`
    * to `shortlist[0]` so the gate list is never empty, but Refer and Override now act only on
    * `referTargets` — the real, explicit multi-select state a candidate-row click drives — never
-   * on that default. On WF-004 (stage `bed_held`, accepted destination BTY Adult Secure) the
+   * on that default. On WF-004 (stage `pulled`, accepted destination BTY Adult Secure) the
    * default is RPH Adult Secure; a default that Refer could act on would be an auto-allocation
    * with one tap of consent, which is the single thing this phase claims it never does.
    *
@@ -811,7 +828,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
 
     // The default candidate's gates are shown (orientation is fine)...
-    await expect(shortlist.locator('[data-testid^="ward-gate-"]')).toHaveCount(8);
+    await expect(shortlist.locator('[data-testid^="ward-gate-"]')).toHaveCount(10);
     // ...but nothing on screen claims a human pressed anything.
     await expect(shortlist.locator('[data-testid^="ward-shortlist-candidate-"][aria-pressed="true"]')).toHaveCount(0);
 
@@ -889,7 +906,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     const passFlags = await shortlist
       .locator('[data-testid^="ward-gate-"]')
       .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-pass")));
-    expect(passFlags).toHaveLength(8);
+    expect(passFlags).toHaveLength(10);
     const lastFalseIndex = passFlags.lastIndexOf("false");
     const firstTrueIndex = passFlags.indexOf("true");
     expect(
@@ -953,7 +970,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     const diagram = page.getByRole("region", { name: "Statewide flow" });
     await diagram.locator('[data-testid="ward-diagram-unit-bty-adult-secure"]').click();
     const btyGates = shortlist.locator('[data-testid^="ward-gate-"]');
-    await expect(btyGates).toHaveCount(8);
+    await expect(btyGates).toHaveCount(10);
     await expect(shortlist.locator('[data-testid^="ward-gate-"][data-pass="false"]')).toHaveCount(0);
   });
 
@@ -995,8 +1012,12 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
 
     // A real reason produces a real, human-attributed record, visible on screen.
-    const reasonText = "Duty psychiatrist directs placement despite the prior decline; bed confirmed by phone.";
-    await reasonField.fill(reasonText);
+    // OD-3 made this a fixed picker: a coordinator chooses a reason rather than typing one, so a
+    // free-text sentence is exactly the value the picker exists to make impossible. Selecting the
+    // established option instead, patterned on the escalation-contact conversion below in this file.
+    // The value must be a real member of OVERRIDE_REASONS, because it is asserted back on screen.
+    const reasonText = "Clinical urgency outweighs the mismatch";
+    await reasonField.selectOption(reasonText);
     await submitButton.click();
     await expect(shortlist).toContainText("Overridden by a human coordinator");
     await expect(shortlist).toContainText(reasonText);
@@ -1044,7 +1065,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
 
   /**
    * Task 5 fix round 1, Finding 1. `REFER_TO_UNITS` only accepts a movement at
-   * `placement_requested` or `destination_review`; WF-004 sits at `bed_held` — still open, still
+   * `placement_requested` or `destination_review`; WF-004 sits at `pulled` — still open, still
    * offering an eligible-shaped candidate on its shortlist — so Refer must never be reachable
    * there, and must never claim success even under a forced activation. `force` is the stronger
    * proof than merely checking `aria-disabled`: it proves the handler itself is inert, not only
@@ -1056,7 +1077,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     await gotoCoordinator(page);
 
     const wf004 = requireMovement("WF-004");
-    expect(wf004.stage, "fixture assumption: WF-004 sits in a non-referable stage").toBe("bed_held");
+    expect(wf004.stage, "fixture assumption: WF-004 sits in a non-referable stage").toBe("pulled");
     const wf004Default = eligibleCandidatesAmong(wf004, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
     expect(
       wf004Default,
@@ -1072,7 +1093,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     const refer = shortlist.getByRole("button", { name: /Refer/ });
     await expect(refer).toHaveAttribute("aria-disabled", "true");
     // The stated reason names the movement's own real stage, never a generic string.
-    await expect(refer).toHaveAttribute("title", /bed held/i);
+    await expect(refer).toHaveAttribute("title", /bed pulled/i);
 
     await refer.click({ force: true });
     await expect(shortlist).not.toContainText("Parallel referral");
@@ -1111,14 +1132,16 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     const overrideToggle = shortlist.getByTestId("ward-shortlist-override-toggle");
     await expect(overrideToggle).not.toHaveAttribute("aria-disabled", "true");
     await overrideToggle.click();
-    await shortlist.getByLabel(/Reason for overriding/).fill("Testing a genuine reducer refusal.");
+    // OD-3: a fixed picker, not free text. This override is REFUSED by the reducer, so the reason
+    // is never rendered and any real option serves — but it must still be a real one.
+    await shortlist.getByLabel(/Reason for overriding/).selectOption("The bed information is known to be out of date");
     await shortlist.getByRole("button", { name: "Record override" }).click();
 
     // The override never claims success — it was refused, and nothing here may say otherwise.
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
 
     // Whole-branch review I4: the refusal is now visible on the COLLAPSED trigger, before the
-    // drawer is ever opened — the exact gap the review's own Proof 2 found (a refused HOLD_BED
+    // drawer is ever opened — the exact gap the review's own Proof 2 found (a refused PULL_PATIENT
     // was invisible until the drawer was explicitly clicked open, and the badge never moved).
     await expect(refusalBadge).toHaveText("1 refused");
 

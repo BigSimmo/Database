@@ -14,7 +14,7 @@ import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { formRecords } from "../src/lib/forms";
-import { deriveGovernanceFromSections } from "../src/lib/medication-records";
+import { publicMedicationGovernance } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { searchMedicationCatalog } from "../src/lib/medication-query";
 import { medicationToSearchResult, type MedicationRecord } from "../src/lib/medications";
@@ -359,14 +359,10 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
         await route.fulfill({ status: 404, json: { error: `No medication found for "${slug}".` } });
         return;
       }
-      const governance = deriveGovernanceFromSections(record);
       await route.fulfill({
         json: {
           record,
-          governance: {
-            sourceStatus: governance.source_status,
-            validationStatus: governance.validation_status,
-          },
+          governance: publicMedicationGovernance(record),
           demoMode: true,
         },
       });
@@ -1845,6 +1841,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+    // Sources reached the desktop menu (built from `appModeDefinitions`) but not
+    // this one, which renders `phoneModeGroups` and drops any mode no group names.
+    // `tests/phone-mode-groups.test.ts` guards the constant; this is the rendered proof.
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Sources\b/ })).toBeAttached();
     await expect(modeOptions.first()).toBeInViewport();
     await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
     await expect(modeOptions.first()).toContainText("Source-backed clinical answer");

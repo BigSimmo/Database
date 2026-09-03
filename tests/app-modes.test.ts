@@ -212,7 +212,7 @@ describe("app mode search contract", () => {
       resultHeading: "Sources",
       nextStep: "Filter by quality, location, publisher, topic, or usage",
     });
-    expect(appModeHomeHref("sources", { query: "RANZCP", run: true })).toBe("/sources?q=RANZCP&run=1");
+    expect(appModeHomeHref("sources", { query: "RANZCP", run: true })).toBe("/sources/search?q=RANZCP&run=1");
   });
 
   it("keeps source-library shortcut searches in their active mode family", () => {
@@ -438,7 +438,7 @@ describe("app mode search contract", () => {
       formulation: "/formulation/search?q=clozapine&run=1",
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       calculators: "/calculators/search?q=clozapine&run=1",
-      sources: "/sources?q=clozapine&run=1",
+      sources: "/sources/search?q=clozapine&run=1",
       // Same route, submitted branch: these still own a home of their own.
       favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
