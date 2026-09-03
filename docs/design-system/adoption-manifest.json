@@ -401,6 +401,8 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/sources/sources-catalogue-client.tsx",
+        "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx",
@@ -409,6 +411,8 @@
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/sources/sources-catalogue-client.tsx",
+        "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx",
