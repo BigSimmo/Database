@@ -88,6 +88,46 @@ export function WardRoleSwitcher() {
     .map((unitId) => units.find((unit) => unit.id === unitId))
     .filter((unit): unit is NonNullable<typeof unit> => unit !== undefined);
 
+  /*
+   * ⚠️ THE TRIGGER SAYS WHAT IS BEHIND IT, BUT ONLY WHEN SOMETHING IS. Owner ruling 2026-09-03,
+   * "resolve this" — the route from a referral to the receiving ward existed and was unfindable.
+   *
+   * The label used to describe the CONTROL rather than what is currently in it, so a coordinator
+   * who had just referred a patient to two wards had no way to know those two wards were behind it.
+   * ⚠️ It was never an accessibility gap — `aria-label` and `title` were both already present —
+   * which is why the fix is different from the one that shape of defect usually gets.
+   *
+   * ⚠️ AND THE TRIGGER IS ALWAYS RENDERED AND ALWAYS THE SAME SIZE. Only the words and the count
+   * change. A control that appears only when it has something to offer reads, at every other
+   * moment, as a control that is simply missing — which is exactly what the shortlist taught this
+   * project. The menu's own "No ward implied" empty state is untouched and still does its job.
+   *
+   * ⚠️ **"CHANGE VIEW", NOT "SWITCH ROLE" — OWNER RULING, 2026-09-03. NO LONGER A PLACEHOLDER.**
+   * Two alternatives were put to him and both were rejected, for reasons worth keeping because they
+   * are reasons about clinical safety rather than about wording:
+   *
+   *   · *Name the current role on every screen* — rejected because it would assert "Coordinator" on
+   *     28 screens that have no role at all. A control that states a clinical role the user may not
+   *     hold is worse than one that states nothing.
+   *   · *Name the role only on the four screens that have one* — rejected here rather than by him,
+   *     and this is the part a later reader needs: **this component has no idea which screen it is
+   *     on.** It takes no route prop and calls no `usePathname`. Telling would mean giving it a new
+   *     input, which is not the "costs nothing" the ruling allowed for — and a label carrying a role
+   *     on four screens and not on twenty-eight is a button that changes shape as you move.
+   *
+   * So "Change view" everywhere. It is true on all 32 screens, and it describes what the control
+   * actually does rather than what the person using it is.
+   *
+   * The referred-ward count SURVIVES this ruling, deliberately: it comes from the separate "resolve
+   * this" ruling above and answers a different question — not *who am I* but *what is behind this
+   * control right now*. The owner's ruling replaced the role wording, not the signpost.
+   */
+  const referredWardCount = wardCandidates.length;
+  const switcherLabel =
+    referredWardCount > 0
+      ? `Change view — ${referredWardCount} ${referredWardCount === 1 ? "ward" : "wards"} this patient was referred to`
+      : "Change view";
+
   // ED is never ambiguous — a movement carries exactly one `originEdId` — so this is always a
   // direct link once a patient is selected, never a picker.
   const edCandidate = focusMovement ? edById(focusMovement.originEdId) : undefined;
@@ -105,14 +145,22 @@ export function WardRoleSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls="ward-role-switcher-menu"
-        aria-label="Switch role"
-        title="Switch role"
+        aria-label={switcherLabel}
+        title={switcherLabel}
+        data-referred-ward-count={referredWardCount}
         onClick={() => setOpen((value) => !value)}
       >
         <ArrowLeftRight aria-hidden="true" />
+        {referredWardCount > 0 ? (
+          /* aria-hidden: the accessible name above already carries this count in words. Announcing
+             the bare digit as well would read the same fact twice, in the worse of the two forms. */
+          <span className={styles.triggerCount} aria-hidden="true" data-testid="ward-role-switcher-ward-count">
+            {referredWardCount}
+          </span>
+        ) : null}
       </button>
       {open ? (
-        <div id="ward-role-switcher-menu" className={styles.menu} role="menu" aria-label="Switch role">
+        <div id="ward-role-switcher-menu" className={styles.menu} role="menu" aria-label="Change view">
           <Link href={COORDINATOR_HREF} role="menuitem" className={styles.menuItem} onClick={close}>
             <span className={styles.menuItemLabel}>Coordinator</span>
             <span className={styles.menuItemDetail}>Statewide — no ward or department</span>

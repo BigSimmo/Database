@@ -8,12 +8,15 @@ import type { Movement, MovementStage, Unit } from "@/components/ward-management
 import {
   destinationUnit,
   elapsedLabel,
-  searchMovements,
+  searchPatients,
+  type PatientSearchResult,
   stageCopy,
   type MovementSearchQuery,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { findPatients, patientDisplayName, type Patient } from "@/components/ward-management/ward-patients";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
+import { WARD_ADD_PERSON_HREF } from "@/components/ward-management/ward-nav";
 import { allEmergencyDepartments, edById } from "@/components/ward-management/ward-sites";
 
 import styles from "./search.module.css";
@@ -36,7 +39,8 @@ import styles from "./search.module.css";
  * derivation with no clock read (see its own doc comment in `ward-derivations.ts`) — this page
  * calls it fresh on every render against the LIVE `movements`/`units` from `useWardFlow()`, so a
  * movement that closes or changes stage while a coordinator is searching drops out or updates
- * immediately, exactly like the escalation board (never frozen, unlike the shift handover).
+ * immediately, exactly like the escalation board and the shift handover. (The handover froze at
+ * mount until owner decision OD-4, 2026-08-30; every board now reads live.)
  *
  * The department select's options are the fixed, synthetic emergency-department reference list
  * (`allEmergencyDepartments()`) — a static catalogue of real departments, not live capacity, so
@@ -47,7 +51,11 @@ import styles from "./search.module.css";
  * never a bare empty table with no explanation.
  */
 export function PatientSearchPage() {
-  const { movements, units, now } = useWardFlow();
+  // Both sides of the merge, and neither replaces the other: the board line taught this screen to
+  // search REFERRALS as well as movements, and this line taught it to search PEOPLE. A referral is
+  // somebody awaiting a decision, a movement is somebody whose decision was made, and a patient is
+  // the person all of that happens to.
+  const { movements, referrals, units, now, patients } = useWardFlow();
   const [text, setText] = useState("");
   const [stage, setStage] = useState<MovementStage | "">("");
   const [edId, setEdId] = useState("");
@@ -61,7 +69,21 @@ export function PatientSearchPage() {
     [text, stage, edId],
   );
 
-  const results = useMemo(() => searchMovements(movements, units, query), [movements, units, query]);
+  const results = useMemo(
+    () => searchPatients(movements, referrals, units, query),
+    [movements, referrals, units, query],
+  );
+
+  /**
+   * PEOPLE, not movements — and this is the half the old search structurally could not do.
+   *
+   * `searchMovements` applies `isOpen` first and unconditionally, so it can only ever find somebody
+   * mid-journey. A patient who has been referred but not moved, one who has arrived on a ward, and
+   * one who has just been added and has nothing attached at all are all invisible to it — and the
+   * last of those is the case the owner's flow turns on: "search a patient, and if nobody comes up,
+   * ADD them." You cannot know nobody came up if the search can only see people already in transit.
+   */
+  const people = useMemo(() => findPatients(patients, text), [patients, text]);
 
   return (
     <div className={styles.screen} data-testid="ward-patient-search">
@@ -69,16 +91,24 @@ export function PatientSearchPage() {
       <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-patient-search-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
+          {/* PLACEHOLDER WORDING — owner has not chosen this. Only the enumeration clause changed
+              here (the box now also finds a person by name or record number); the "not a medical
+              device" sentence, the "never assesses risk, acuity or treatment" clause and the
+              closed/arrived caveat are safety language and are carried over verbatim. */}
           <p>
-            This search is <strong>not a medical device</strong>. It looks up open movements already in this synthetic
-            system by id, department, destination, stage and owner — it never assesses a patient&apos;s risk, acuity or
-            treatment, and a movement that has already left the system (closed or arrived) never appears here.
+            This search is <strong>not a medical device</strong>. It looks up people already known to this synthetic
+            system by name or record number, and open movements by id, department, destination, stage and owner — it
+            never assesses a patient&apos;s risk, acuity or treatment, and a movement that has already left the system
+            (closed or arrived) never appears here.
           </p>
         </div>
 
         <header className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Patient search</h1>
-          <p className={styles.pageSubtitle}>Find an open movement by id, department, destination, stage or owner.</p>
+          {/* PLACEHOLDER WORDING — owner has not chosen this. */}
+          <p className={styles.pageSubtitle}>
+            Find a person by name or record number, or an open movement by id, department, destination, stage or owner.
+          </p>
         </header>
 
         <form className={styles.filters} onSubmit={(event) => event.preventDefault()}>
@@ -89,7 +119,8 @@ export function PatientSearchPage() {
               type="text"
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder="Movement id, destination, owner…"
+              // PLACEHOLDER WORDING — owner has not chosen this.
+              placeholder="Name, record number, or movement id…"
             />
           </label>
           <label className={styles.field} htmlFor="ward-patient-search-stage">
@@ -120,19 +151,139 @@ export function PatientSearchPage() {
           </label>
         </form>
 
+        <PeopleSection people={people} query={text} />
+
         <ResultsSection results={results} units={units} now={now} />
       </main>
     </div>
   );
 }
 
-export function ResultsSection({ results, units, now }: { results: Movement[]; units: Unit[]; now: number }) {
+/**
+ * The people the search found, listed before the movements because a person is the subject and a
+ * movement is something that happened to them.
+ *
+ * Deliberately shows a patient with NOTHING attached. An entry here is not evidence of a referral,
+ * a bed or a journey — it says this person is known to the system, which is exactly the question
+ * being asked before somebody decides to add them.
+ */
+export function PeopleSection({ people, query }: { people: Patient[]; query: string }) {
+  const searched = query.trim().length > 0;
+  /**
+   * Carries what the clinician already typed into `AddPatientForm`, so agreeing "add this person"
+   * from this empty state does not throw the search away and force a retype.
+   *
+   * THE JUDGEMENT CALL: this search box holds ONE string, and the add-patient form has TWO name
+   * fields (`givenName`, `familyName`). Splitting the string on a space is not safe — "Mary Anne"
+   * and "van der Berg" both break a naive split, and a wrong split lands wrong words in a clinical
+   * identity record, which is worse than an empty field a clinician notices and fills in
+   * themselves. So the whole string lands in `givenName` alone (see `initialDraft` in
+   * `add-patient.tsx`) and `familyName` is left blank rather than guessed.
+   *
+   * This assumes the typed string was a name. `findPatients` also matches on `umrn` (a partial
+   * record number can land here too, since 2026-09-02's fix to that function), and a record number
+   * prefilled into "Given name" would be wrong in a different way — but distinguishing the two
+   * cases would itself be a guess, which is exactly what this decision is trying to avoid making.
+   */
+  const addPersonHref = `${WARD_ADD_PERSON_HREF}?name=${encodeURIComponent(query.trim())}`;
+  return (
+    <section className={styles.section} data-testid="ward-patient-search-people">
+      <h2 className={styles.resultsHeading}>{people.length === 1 ? "1 person" : `${people.length} people`}</h2>
+      {!searched ? (
+        <p className={styles.emptyNote} data-testid="ward-patient-search-people-idle">
+          Search by record number or name to find a person. Related spellings are found too — searching
+          &ldquo;hallow&rdquo; finds both Halloway and Hallowin.
+        </p>
+      ) : people.length === 0 ? (
+        <p className={styles.emptyNote} data-testid="ward-patient-search-people-empty">
+          Nobody of that name or record number is known to this system. If the person in front of you is real, they need
+          adding before they can be referred.{" "}
+          <Link
+            className={styles.emptyNoteLink}
+            href={addPersonHref}
+            data-testid="ward-patient-search-people-empty-add"
+          >
+            Add this person
+          </Link>
+        </p>
+      ) : (
+        <ul className={styles.peopleList} data-testid="ward-patient-search-people-list">
+          {/*
+            Each person opens their own screen. Until 2026-08-30 these were bare `<li>`s: a search
+            result you could click and nothing happened, silently — the third instance of that shape
+            found in this prototype in one day. They had nowhere to point, because a person had no
+            screen and `/patients/[patientId]` was a MOVEMENT workspace wearing a patient's name —
+            since moved to `/mockups/ward-flow/movements/[movementId]`.
+          */}
+          {people.map((patient) => (
+            <li key={patient.id} data-testid={`ward-patient-search-person-${patient.id}`}>
+              <Link className={styles.personLink} href={`/mockups/ward-flow/people/${patient.id}`}>
+                <strong>{patientDisplayName(patient)}</strong> · {patient.umrn} · born {patient.dateOfBirth}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function ResultsSection({
+  results,
+  units,
+  now,
+}: {
+  results: PatientSearchResult[];
+  units: Unit[];
+  now: number;
+}) {
+  /*
+   * Split rather than rendered as one list, because the two records genuinely have different
+   * columns: a movement has a stage, a department, a destination and a time since arrival; a
+   * referral has none of those, because nobody has accepted it — which is the whole reason it is
+   * still a referral. Forcing both into the movement table would put four empty cells on every
+   * referral row, and an empty cell reads as missing data rather than as inapplicable.
+   */
+  const referralResults = results.filter((result) => result.kind === "referral");
+  const movementResults = results.filter((result) => result.kind === "movement");
+
   return (
     <section className={styles.section} data-testid="ward-patient-search-results">
       <h2 className={styles.resultsHeading}>{results.length === 1 ? "1 match" : `${results.length} matches`}</h2>
+      {/*
+       * REFERRALS FIRST, and it is not cosmetic ordering. A referral is somebody still waiting for
+       * a decision; a movement is somebody whose decision has been made. The person an ED
+       * psychiatrist can still act on goes at the top.
+       *
+       * Each row says in words that nobody has accepted them yet, because "referral" alone does not
+       * carry that to a reader who has just typed a name into a search box and is scanning for
+       * where their patient is.
+       */}
+      {referralResults.length > 0 && (
+        <ul className={styles.referralList} data-testid="ward-patient-search-referrals">
+          {referralResults.map(({ referral }) => (
+            <li
+              key={referral.id}
+              className={styles.referralRow}
+              data-testid={`ward-patient-search-referral-${referral.id}`}
+            >
+              <span className={styles.referralId}>{referral.id}</span>
+              <span className={styles.referralNote}>
+                Referral from {referral.originSiteCode} · {referral.ageBand} · {referral.homeRegion} — waiting for a
+                decision, no bed accepted yet.
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {results.length === 0 ? (
         <p className={styles.emptyNote} data-testid="ward-patient-search-empty">
-          No matches — no open movement fits the current search.
+          No matches — no open movement or waiting referral fits the current search.
+        </p>
+      ) : movementResults.length === 0 ? (
+        <p className={styles.emptyNote} data-testid="ward-patient-search-no-movements">
+          No open movement fits the current search. The waiting referrals above have not been accepted anywhere yet.
         </p>
       ) : (
         <div className={styles.tableScroll}>
@@ -150,7 +301,7 @@ export function ResultsSection({ results, units, now }: { results: Movement[]; u
               </tr>
             </thead>
             <tbody>
-              {results.map((movement) => (
+              {movementResults.map(({ movement }) => (
                 <ResultRow key={movement.id} movement={movement} units={units} now={now} />
               ))}
             </tbody>
@@ -171,7 +322,7 @@ function ResultRow({ movement, units, now }: { movement: Movement; units: Unit[]
       <td>{destination?.name ?? "No destination chosen"}</td>
       <td>{elapsedLabel(movement, now)}</td>
       <td>
-        <Link className={styles.resultLink} href={`/mockups/ward-flow/patients/${movement.id}`}>
+        <Link className={styles.resultLink} href={`/mockups/ward-flow/movements/${movement.id}`}>
           Open
         </Link>
       </td>

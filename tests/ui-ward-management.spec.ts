@@ -124,7 +124,10 @@ test.describe("@mockup Ward Flow command view", () => {
     // Pipeline counts are derived from the movement records, so they must total the queue.
     await expect(network.getByRole("region", { name: "Movement pipeline" })).toContainText("Placement requested");
 
-    // WF-001 is first in the queue; its eligible shortlist is RPH, SCGH and FSH Adult Secure/Open.
+    // WF-001 is first in the queue; its eligible shortlist is RPH Adult Secure, SCGH Adult Open
+    // and ARM Adult Open. FSH Adult Secure is no longer in it: WF-001 is a Female Adult movement
+    // and FSH Adult Secure is Male only, so the sex_designation gate added in 6cc80c774 excludes
+    // it and ARM Adult Open (next in unit order) takes the freed slot.
     const shortlist = network.getByRole("complementary", { name: "Explainable shortlist" });
     await expect(shortlist).toContainText("WF-001");
     await expect(shortlist.getByRole("columnheader", { name: /RPH Adult Secure/ })).toBeVisible();
@@ -137,10 +140,13 @@ test.describe("@mockup Ward Flow command view", () => {
     await expect(shortlist.getByRole("row", { name: /Transport state/ })).not.toContainText("Not yet requested");
     await expect(shortlist).toContainText("No automatic allocation");
 
-    // Shortlisted services are marked as routed on the canvas; Armadale is not in WF-001's
-    // eligible top three.
+    // Shortlisted services are marked as routed on the canvas. Armadale IS in WF-001's eligible
+    // top three and FSH Adult Secure is NOT: FSH Adult Secure is a Male-only ward, WF-001 is a
+    // Female patient, and the sex_designation eligibility gate (6cc80c774) correctly excludes it
+    // — this assertion is proving a clinical-safety gate works, not tolerating a broken one.
     await expect(network.getByTestId("ward-network-card-rph-adult-secure")).toHaveAttribute("data-routed", "true");
-    await expect(network.getByTestId("ward-network-card-arm-adult-open")).not.toHaveAttribute("data-routed", "true");
+    await expect(network.getByTestId("ward-network-card-arm-adult-open")).toHaveAttribute("data-routed", "true");
+    await expect(network.getByTestId("ward-network-card-fsh-adult-secure")).not.toHaveAttribute("data-routed", "true");
 
     // Kununurra is one of the services with no available beds.
     await expect(network.getByTestId("ward-network-card-kun-adult-open")).toContainText("Kununurra");
@@ -153,7 +159,15 @@ test.describe("@mockup Ward Flow command view", () => {
     // This row compares health services against the *origin* ED, not the patient's catchment
     // (catchment is where a patient lives, not where they presented) — named for what it
     // actually measures rather than implying a judgement the model cannot make yet.
-    await expect(shortlist.getByRole("row", { name: /Same health service as origin/ })).toContainText("Escalation");
+    //
+    // Phase 8 Task 6 renamed the cells from "Best"/"Escalation" to "Same health service"/
+    // "Different health service", because "Best" read as the system's opinion about which bed
+    // this person should have. "Different health service" is asserted rather than "Same health
+    // service" deliberately: the row header already contains the words "Same health service", so
+    // asserting those would pass against the header alone and prove nothing about any cell.
+    await expect(shortlist.getByRole("row", { name: /Same health service as origin/ })).toContainText(
+      "Different health service",
+    );
 
     // A service card opens its own detail block.
     await network.getByTestId("ward-network-card-fre-older-adult").click();

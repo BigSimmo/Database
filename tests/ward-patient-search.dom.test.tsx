@@ -1,3 +1,4 @@
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -43,6 +44,9 @@ function renderSearch() {
 
 const { movements } = seedWardFlowState();
 const openCount = movements.filter(isOpen).length;
+/** The waiting referrals the search now also covers — see the heading assertion below for why the
+ *  heading counts these and the table does not. */
+const queuedReferrals = seedWardFlowState().referrals.filter((referral) => referralState(referral) === "queued");
 
 describe("PatientSearchPage", () => {
   it("renders the root, the three labelled fields, and the results section", () => {
@@ -53,6 +57,20 @@ describe("PatientSearchPage", () => {
     expect(screen.getByLabelText("Stage")).toBeInTheDocument();
     expect(screen.getByLabelText("Department")).toBeInTheDocument();
     expect(screen.getByTestId("ward-patient-search-results")).toBeInTheDocument();
+  });
+
+  // THE DEFECT this guards against: the page is titled "Patient search" but, before this fix, its
+  // own subtitle and placeholder described only a movement lookup ("Find an open movement by id,
+  // department, destination, stage or owner." / "Movement id, destination, owner…") even though the
+  // same box also finds a PERSON by name or record number (see the "search finds PEOPLE" suite
+  // below — that capability already worked). A working feature that describes itself as something
+  // else is indistinguishable, to a reader, from a missing one. This test pins that the on-screen
+  // copy names the person-finding half of what the box does, not just the movement half.
+  it("tells the reader the search finds a person, not only a movement", () => {
+    renderSearch();
+
+    expect(screen.getByText(/Find a person by name or record number/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", expect.stringMatching(/name/i));
   });
 
   // This page owns its own single search field, a stage select and a department select — never a
@@ -69,10 +87,25 @@ describe("PatientSearchPage", () => {
     const rows = within(screen.getByTestId("ward-patient-search-results")).getAllByRole("row");
     // One header row plus one row per open movement.
     expect(rows.length - 1).toBe(openCount);
-    expect(screen.getByRole("heading", { name: `${openCount} matches` })).toBeInTheDocument();
+
+    /*
+     * The heading counts BOTH records and the table counts one, and that is deliberate rather than
+     * an inconsistency to reconcile. As of 2026-08-30 the search covers waiting referrals as well
+     * as open movements — a person referred and not yet accepted has no movement at all, and the
+     * owner's requirement is that they show up. The table above is movement-shaped (stage,
+     * department, destination, time since arrival) and referrals have none of those, so they are
+     * listed separately; the heading is the count of everything found.
+     *
+     * Stated as a sum with both halves named rather than re-baselined to whatever the page now
+     * prints. A number copied out of a failing test is a screenshot of the current behaviour, and
+     * it agrees with a defect exactly as readily as with a fix.
+     */
+    const queuedReferralCount = queuedReferrals.length;
+    expect(queuedReferralCount, "no queued referral seeded — this assertion would prove nothing").toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: `${openCount + queuedReferralCount} matches` })).toBeInTheDocument();
   });
 
-  it("narrows to the matching movement when searching by id, and links to its patient page", () => {
+  it("narrows to the matching movement when searching by id, and links to its movement page", () => {
     renderSearch();
 
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "wf-003" } });
@@ -82,7 +115,7 @@ describe("PatientSearchPage", () => {
     expect(screen.getByRole("heading", { name: "1 match" })).toBeInTheDocument();
 
     const link = within(results).getByRole("link", { name: "Open" });
-    expect(link).toHaveAttribute("href", "/mockups/ward-flow/patients/WF-003");
+    expect(link).toHaveAttribute("href", "/mockups/ward-flow/movements/WF-003");
   });
 
   it('renders the explicit "No matches" note — never a bare empty table — for a query nothing fits', () => {
@@ -111,12 +144,12 @@ describe("PatientSearchPage", () => {
   it("narrows by the stage select alone", () => {
     renderSearch();
 
-    fireEvent.change(screen.getByLabelText("Stage"), { target: { value: "bed_held" } });
+    fireEvent.change(screen.getByLabelText("Stage"), { target: { value: "pulled" } });
 
-    // Measured (tests/ward-patient-search.test.ts): exactly seven OPEN movements are "bed_held".
+    // Measured (tests/ward-patient-search.test.ts): exactly seven OPEN movements are "pulled".
     expect(screen.getByRole("heading", { name: "7 matches" })).toBeInTheDocument();
     const results = screen.getByTestId("ward-patient-search-results");
-    expect(within(results).getAllByText("Bed held").length).toBe(7);
+    expect(within(results).getAllByText("Bed pulled").length).toBe(7);
   });
 
   it("narrows by the department select alone", () => {
@@ -139,5 +172,78 @@ describe("PatientSearchPage", () => {
     const after = screen.getByTestId("ward-patient-search-results").textContent ?? "";
 
     expect(after).not.toBe(before);
+  });
+});
+
+describe("search finds PEOPLE, including ones the movement search structurally cannot", () => {
+  /*
+   * WHY THIS IS A DIFFERENT CLAIM FROM THE TESTS ABOVE. `searchMovements` applies `isOpen` first and
+   * unconditionally, so it can only ever return somebody mid-journey. A patient who has been
+   * referred but not moved, one who has arrived on a ward, and one who has just been added and has
+   * nothing attached at all are all invisible to it.
+   *
+   * The last is the case the owner's flow turns on: "search a patient, and if nobody comes up, ADD
+   * them." You cannot know that nobody came up if the search can only see people already in transit
+   * — it would report "no match" for somebody sitting in the system, and the clinician would add a
+   * duplicate.
+   */
+  it("finds a person by record number even though they have no movement at all", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "UM100001" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(
+      within(people).getByText(/Halloway/),
+      "a seeded patient with no open movement must still be findable. If this fails, search is still " +
+        "looking at journeys rather than people, and 'if nobody comes up, add them' cannot be trusted.",
+    ).toBeInTheDocument();
+  });
+
+  // FIX 2: before this fix, `findPatients` matched `umrn` with `===`, so a bare, partial record
+  // number found nobody even though the identical partial NAME already worked two tests up. A
+  // clinician remembers the digits, not the "UM" prefix — searching just the digits must find the
+  // same person the full record number does.
+  it("finds the same person by a bare, partial record number — no 'UM' prefix, no full match", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "100001" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(within(people).getByText(/Halloway/)).toBeInTheDocument();
+  });
+
+  it("finds related spellings, not just exact ones", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "hallow" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(within(people).getByText(/Talia Halloway/)).toBeInTheDocument();
+    expect(
+      within(people).getByText(/Marcus Hallowin/),
+      "the near-miss pair is seeded for exactly this. A search that returned only the exact spelling " +
+        "would look correct on this fixture and hide the person a clinician was actually looking for.",
+    ).toBeInTheDocument();
+  });
+
+  it("says plainly that nobody is known, rather than showing an empty list", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzzznobody" } });
+
+    expect(
+      screen.getByTestId("ward-patient-search-people-empty"),
+      "an empty result must SAY nobody is known and what that means. A blank space reads as a page " +
+        "that has not loaded, and the decision resting on it is whether to add a person.",
+    ).toHaveTextContent("need adding before they can be referred");
+  });
+
+  it("prompts rather than listing everybody before anything is typed", () => {
+    // A search that returned every patient on an empty query would make the "nobody came up" signal
+    // meaningless — and would put the whole synthetic patient list on screen unasked.
+    renderSearch();
+    expect(screen.getByTestId("ward-patient-search-people-idle")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-patient-search-people-list")).toBeNull();
   });
 });
