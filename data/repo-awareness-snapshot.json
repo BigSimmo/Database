@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "23299b0c4ae42ad8cd4da40f6b390fd58a5006d5",
-    "committed_at": "2026-09-03T17:44:32+08:00"
+    "sha": "dfa863e570eb3f9edc3b0b3ba8ae6a32f00d2c4d",
+    "committed_at": "2026-09-02T21:08:18+00:00"
   },
   "routes": {
     "modes": [
@@ -10079,6 +10079,14 @@
         "scope": "PR #2384 Ward Flow Phase 5 docs and sidebar changed scope",
         "outcome": "Post-merge review: original head tree matches squash merge; two review threads fixed and resolved; nonblocking Advisory UI exposed exact-minute countdown test flake fixed in follow-up. CodeRabbit breakpoint-token nitpick dispositioned: the selector must remain coupled to the Ward sidebar's shared literal 64rem contract.",
         "checks": "Hosted PR required aggregate passed; 94/96 advisory UI tests passed with one skipped and one exact-minute assertion failure; local focused rerun initially blocked by coordinator EPERM while queued behind an active exclusive Playwright lease."
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/mockup-retirement-xw0vmn",
+        "head": "374a5603a86cf5c6e851163fcb96549cbe4f1141",
+        "scope": "prlanded",
+        "outcome": "MERGED as #2543 squash 374a5603; content diff against branch tip 4877a2e4 empty, no orphaned commits. Policy + check:mockups gate + seven mockup retirements (1403 added, 4330 deleted, 34 files). Three Codex P2 findings fixed and threads resolved; adversarial review withdrew two candidates.",
+        "checks": "PR required success; Static PR, Safety, Unit coverage, Build, Production UI 1-3 + critical, Advisory UI, Lighthouse, Container, Caring Contacts DB, Semgrep, Gitleaks, PR policy, PR mergeability all success on 4877a2e4. Local: verify:pr-local 31 gates, failed (none); check:mockups all three modes; check:gate-manifest 40/37. check:dead-code-candidate REFUSES (64/201 bare-name collisions) — reported, not tuned. No provider-backed gate run."
       },
       {
         "date": "2026-08-13",
@@ -24145,6 +24153,14 @@
         "checks": "verify:cheap pass (exit 0); npm run test 20/20 on use-hide-on-scroll.test.ts; Playwright chromium 9/9 scroll-hide smoke tests; Playwright chromium 1/1 target test. No provider-backed checks."
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/full-repo-audit-27fccs",
+        "head": "dfa863e570eb3f9edc3b0b3ba8ae6a32f00d2c4d",
+        "scope": "prlanded",
+        "outcome": "PR #2573 (full repository audit 2026-09-02) squash-merged to main as dfa863e57 by the owner with auto-merge; branch tip 43638a9ed content diff against the squash commit is empty, so every commit landed and nothing was orphaned by the auto-merge race. Audit report, docs/README.md bullet, regenerated repo-awareness snapshot, eleven documentation corrections and the branch review record are all on main.",
+        "checks": "git diff --stat dfa863e57 43638a9ed empty; CI run 33682232558 on head 43638a9ed: Static PR checks, Build, Safety and config checks, Unit coverage, Caring Contacts database, Production UI critical and shards, PR policy, PR mergeability, Semgrep, Gitleaks all success; Codex review completed with no findings; three earlier runs (15146, 15148, 15157) were cancelled by ready-for-review and update-branch re-triggers, not failures."
+      },
+      {
         "date": "2026-07-30",
         "ref": "PR-1484",
         "head": "dfb23bb48a16a4da5fd54a34205d8df9796ecc66",
@@ -26647,6 +26663,14 @@
         "scope": "User-requested merge conflict resolution",
         "outcome": "Before: CONFLICTING/DIRTY vs main (behind after #1138 search-interactive-perf). After: merged origin/main with ort auto-merge (no conflict markers; ledger + search-perf files landed cleanly); pushed ff31b941. GitHub now MERGEABLE (BLOCKED only on branch-protection/CI).",
         "checks": "merge origin/main only; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/ci-test-automation-ndzfou",
+        "head": "ff37de6d39dad9a14dc3aa500fecc1ae45a3d4ef",
+        "scope": "prlanded",
+        "outcome": "merged and verified: squash content identical to branch tip 51bcddba, nothing orphaned",
+        "checks": "prlanded content diff empty (git diff --stat ff37de6d 51bcddba); full CI green on 544bf61d and 51bcddba including the PR required aggregate"
       },
       {
         "date": "2026-08-15",
