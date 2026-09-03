@@ -46,7 +46,8 @@ function keyframes(name: string) {
 
 /** The character range of the `@layer components { … }` block, so a rule can be shown to sit
  *  outside it. Layered rules lose to unlayered ones in the cascade regardless of specificity,
- *  which is the whole reason the rail's override is declared where it is. */
+ *  which is what keeps the shared cascade rule authoritative over the rail's own component
+ *  styles. */
 function componentsLayerRange() {
   const start = globalsCss.indexOf("@layer components {");
   expect(start, "@layer components is missing").toBeGreaterThanOrEqual(0);
@@ -122,35 +123,45 @@ describe("answer progress indicator CSS", () => {
     expect(answerStatusSource).toContain("answer-progress-dot grid");
   });
 
-  it("paces the arriving source rail apart from the shared cascade rung", () => {
-    // The rail's cards must arrive one at a time, not as one block. `.stagger-item`
-    // ships 35ms, which is right for the prose skeleton bars directly above the rail
-    // and for search result grids; six cards at that interval is 175ms and reads as a
-    // single movement. The override is pinned here so a later edit to the shared rung
-    // cannot silently re-collapse the rail into one beat.
-    const railRule = globalsCss.match(/\.answer-sources-arriving \.stagger-item\s*{([^}]*)}/);
-    expect(railRule, "the rail's stagger override is missing").not.toBeNull();
-    expect(railRule?.[1]).toContain("var(--stagger-cascade-wide)");
+  it("paces the arriving source rail by mount timing, and never twice over", () => {
+    // The rail's cards must arrive one at a time, not as one block. That used to be a
+    // `--stagger-cascade-wide` animation-delay override here, because every card mounted at
+    // once and only a delay could separate them; six cards then landed inside 450ms, which is
+    // over before a reader looking at an otherwise still screen registers it. The pacing now
+    // lives in `useProgressiveReveal`, which mounts one card per rung.
+    //
+    // What this pins is that the two mechanisms cannot compound. A delay override plus mount
+    // pacing would put the last card at twice the intended distance, which is the defect that
+    // reintroducing the old rule would cause.
+    expect(globalsCss).not.toContain(".answer-sources-arriving .stagger-item");
+    expect(answerStatusSource).toContain("useProgressiveReveal");
 
-    // Both rungs are tokens, so the pacing is nameable and the design-system contract's
-    // hardcoded-duration ratchet stays satisfied. The wide rung must actually be wider —
-    // pointing it at the same value would leave the rule in place and the defect back.
-    const rung = (name: string) => Number(globalsCss.match(new RegExp(`--${name}:\\s*(\\d+)ms`))?.[1]);
-    expect(rung("stagger-cascade")).toBeGreaterThan(0);
-    expect(rung("stagger-cascade-wide")).toBeGreaterThan(rung("stagger-cascade"));
+    // The reveal interval is a named duration token, not an invented rung — globals.css says
+    // in as many words not to invent one — so the pacing stays nameable and the design-system
+    // contract's hardcoded-duration ratchet stays satisfied.
+    const revealInterval = Number(answerStatusSource.match(/evidenceRevealIntervalMs = (\d+)/)?.[1]);
+    expect(revealInterval, "the reveal interval must be declared as a number").toBeGreaterThan(0);
+    expect(Number(globalsCss.match(/--duration-moderate:\s*(\d+)ms/)?.[1])).toBe(revealInterval);
 
-    // Declared UNLAYERED. `.answer-sources-arriving` itself lives in @layer components,
-    // and a layered override loses to the unlayered `.stagger-item` rule whatever its
-    // specificity — the rail would silently keep the 35ms rung.
-    const railIndex = globalsCss.indexOf(".answer-sources-arriving .stagger-item");
-    expect(railIndex).toBeGreaterThan(0);
-    expect(componentsLayerRange().contains(railIndex), "the override must not sit in @layer components").toBe(false);
+    // Each card still animates on mount through the shared rule, so a revealed card eases in
+    // rather than snapping.
+    const staggerIndex = globalsCss.indexOf("\n.stagger-item {");
+    expect(staggerIndex, "the shared cascade rule is missing").toBeGreaterThan(0);
+    const staggerRule = globalsCss.match(/\n\.stagger-item\s*{([^}]*)}/);
+    expect(staggerRule?.[1]).toContain("cascade-fade-up");
 
-    // And the reduced-motion resets must still come after it, so a suppressed rail
-    // shows every card at once rather than holding six invisible cards for 450ms.
-    expect(globalsCss.lastIndexOf('html[data-motion="reduced"] .stagger-item')).toBeGreaterThan(
-      globalsCss.indexOf(".answer-sources-arriving .stagger-item"),
-    );
+    // Declared UNLAYERED. `.answer-sources-arriving` lives in @layer components, and a layered
+    // rule loses to an unlayered one whatever its specificity — moving the cascade into a
+    // layer would let the rail's own component styles silently take the entrance away.
+    expect(componentsLayerRange().contains(staggerIndex), "the cascade must not sit in @layer components").toBe(false);
+
+    // And the reduced-motion resets must still be present, so a suppressed rail shows every
+    // card at once. The hook independently returns the full count when motion is suppressed —
+    // a JS reveal could withhold content in a way a CSS delay never could — but the CSS half
+    // of that guarantee is pinned here.
+    expect(globalsCss).toContain('html[data-motion="reduced"] .stagger-item');
+    expect(globalsCss).toContain('html:not([data-motion="full"]) .stagger-item');
+    expect(answerStatusSource).toContain("prefersReducedMotion");
   });
 
   it("keeps the retired ECG trace and its animation deleted", () => {
