@@ -1,12 +1,13 @@
+import { MINUTES_PER_DAY, splitDuration } from "@/components/ward-management/ward-clock";
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import type { WardFlowState } from "../src/components/ward-management/ward-flow-reducer";
 import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import type { MovementStage } from "../src/components/ward-management/ward-model";
-import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
-import { eligibleCandidatesAmong } from "../src/components/ward-management/ward-derivations";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
+import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+import { eligibleCandidatesAmong, isOpen } from "../src/components/ward-management/ward-derivations";
 
 const NOW = NOW_ANCHOR;
 const MOVEMENT_ID = "WF-001";
@@ -31,21 +32,35 @@ const WITHDRAWN_UNIT_ID = "arm-adult-open";
  * raise before the movement has even been referred anywhere — and it gives the privacy
  * invariant a real, walk-caused rejection to inspect instead of an empty `state.rejections`.
  */
+/**
+ * The walk, hoisted so its step INDICES can be derived by name rather than counted by hand.
+ *
+ * ⚠️ They were hand-counted until 2026-08-31, and inserting one step — `BOOK_TRANSPORT`, when
+ * `HANDOVER_READY` stopped fabricating a transport job — silently shifted every index after it
+ * and failed the bed-accounting test with a number, not a reason. **A positional index into a
+ * list somebody else edits is a stale pointer waiting to happen.** `stepAfter` reads the list.
+ */
+const WALK_EVENTS = [
+  { type: "ACCEPT_IN_PRINCIPLE", role: "coordinator", unitId: DECLINED_UNIT_ID },
+  { type: "REFER_TO_UNITS", role: "coordinator", unitIds: [DECLINED_UNIT_ID, WITHDRAWN_UNIT_ID, ACCEPTED_UNIT_ID] },
+  { type: "DECLINE", role: "ward", unitId: DECLINED_UNIT_ID, reason: "no_bed" },
+  { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: ACCEPTED_UNIT_ID },
+  { type: "PULL_PATIENT", role: "ward", unitId: ACCEPTED_UNIT_ID },
+  // Booking is a step of its own since 2026-08-31: `HANDOVER_READY` used to fabricate the
+  // transport job and answer the escort question by deriving it from legal status. It no
+  // longer invents either, so a walk that reaches handover without booking is refused.
+  { type: "BOOK_TRANSPORT", role: "ed", provider: "Ambulance service", escortRequired: true },
+  { type: "HANDOVER_READY", role: "ed" },
+  { type: "TRANSPORT_ACCEPTED", role: "officer" },
+  { type: "TRANSPORT_EN_ROUTE", role: "officer" },
+  { type: "PATIENT_COLLECTED", role: "officer" },
+  { type: "PATIENT_ARRIVED", role: "officer" },
+] as const;
+
 function walk(): WardFlowState[] {
   let state = seedWardFlowState();
   const seen: WardFlowState[] = [state];
-  const events = [
-    { type: "ACCEPT_IN_PRINCIPLE", role: "coordinator", unitId: DECLINED_UNIT_ID },
-    { type: "REFER_TO_UNITS", role: "coordinator", unitIds: [DECLINED_UNIT_ID, WITHDRAWN_UNIT_ID, ACCEPTED_UNIT_ID] },
-    { type: "DECLINE", role: "ward", unitId: DECLINED_UNIT_ID, reason: "no_bed" },
-    { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: ACCEPTED_UNIT_ID },
-    { type: "HOLD_BED", role: "ward", unitId: ACCEPTED_UNIT_ID },
-    { type: "HANDOVER_READY", role: "ed" },
-    { type: "TRANSPORT_ACCEPTED", role: "officer" },
-    { type: "TRANSPORT_EN_ROUTE", role: "officer" },
-    { type: "PATIENT_COLLECTED", role: "officer" },
-    { type: "PATIENT_ARRIVED", role: "officer" },
-  ] as const;
+  const events = WALK_EVENTS;
   for (const event of events) {
     state = wardFlowReducer(state, { ...event, now: NOW, movementId: MOVEMENT_ID } as never);
     seen.push(state);
@@ -58,13 +73,42 @@ function walk(): WardFlowState[] {
  * Named here once so the bed-accounting test below can read the exact unit before and after
  * each bed-moving step without recomputing the offsets inline.
  */
-const AFTER_REFER_TO_UNITS = 2;
-const BEFORE_HOLD_BED = 4; // = AFTER_ACCEPT_IN_PRINCIPLE
-const AFTER_HOLD_BED = 5;
-const BEFORE_PATIENT_ARRIVED = 9; // = AFTER_PATIENT_COLLECTED
-const AFTER_PATIENT_ARRIVED = 10;
+function stepAfter(type: string): number {
+  const index = WALK_EVENTS.findIndex((event) => event.type === type);
+  // A miss would return 0 — the SEED state — and every assertion below would read the fixture
+  // before anything happened while looking like it read a step. Loud rather than plausible.
+  if (index < 0) throw new Error(`walk() has no ${type} step; the index below would read the seed`);
+  return index + 1;
+}
+
+/** The state BEFORE a step: `seen[i]` precedes `events[i]`, so this is the same index. */
+function stepBefore(type: string): number {
+  return stepAfter(type) - 1;
+}
+
+const AFTER_REFER_TO_UNITS = stepAfter("REFER_TO_UNITS");
+// ⚠️ Named against the step they bracket, NOT against whatever happens to precede it. The first
+// version of this derived BEFORE_PULL_PATIENT as `stepAfter("ACCEPT_IN_PRINCIPLE")` — and `findIndex`
+// returns the FIRST match, which is the coordinator's acceptance of the declined unit, four steps
+// early. The suite still passed, because nothing between the two touches the accepted unit's
+// allocatable count: the assertion could not tell the two indices apart. Bracketing the step by
+// name removes the question rather than answering it, and the pin below fails if they ever drift.
+const BEFORE_PULL_PATIENT = stepBefore("PULL_PATIENT");
+const AFTER_PULL_PATIENT = stepAfter("PULL_PATIENT");
+const BEFORE_PATIENT_ARRIVED = stepBefore("PATIENT_ARRIVED");
+const AFTER_PATIENT_ARRIVED = stepAfter("PATIENT_ARRIVED");
 
 describe("invariants across every reachable state", () => {
+  it("⚠️ BRACKETS EACH STEP, or the bed arithmetic below measures the wrong two states", () => {
+    // The guard for the derivation itself. A before/after pair that is not adjacent is reading two
+    // states with something else in between, and the arithmetic then attributes that something
+    // else's effect to the step under test — silently, because the numbers still look plausible.
+    expect(AFTER_PULL_PATIENT - BEFORE_PULL_PATIENT).toBe(1);
+    expect(AFTER_PATIENT_ARRIVED - BEFORE_PATIENT_ARRIVED).toBe(1);
+    expect(WALK_EVENTS[BEFORE_PULL_PATIENT]!.type).toBe("PULL_PATIENT");
+    expect(WALK_EVENTS[BEFORE_PATIENT_ARRIVED]!.type).toBe("PATIENT_ARRIVED");
+  });
+
   it("never lets a movement hold more than the parallel cap", () => {
     for (const state of walk()) {
       for (const movement of state.movements) {
@@ -82,11 +126,11 @@ describe("invariants across every reachable state", () => {
     const states = walk();
     const unitIn = (state: WardFlowState) => state.units.find((unit) => unit.id === ACCEPTED_UNIT_ID)!;
 
-    const beforeHold = unitIn(states[BEFORE_HOLD_BED]);
-    const afterHold = unitIn(states[AFTER_HOLD_BED]);
-    expect(beforeHold.allocatable.value).toBe(3);
-    expect(afterHold.allocatable.value).toBe(2);
-    expect(afterHold.empty.value).toBe(beforeHold.empty.value); // HOLD_BED must not touch `empty`
+    const beforePull = unitIn(states[BEFORE_PULL_PATIENT]);
+    const afterPull = unitIn(states[AFTER_PULL_PATIENT]);
+    expect(beforePull.allocatable.value).toBe(3);
+    expect(afterPull.allocatable.value).toBe(2);
+    expect(afterPull.empty.value).toBe(beforePull.empty.value); // PULL_PATIENT must not touch `empty`
 
     const beforeArrival = unitIn(states[BEFORE_PATIENT_ARRIVED]);
     const afterArrival = unitIn(states[AFTER_PATIENT_ARRIVED]);
@@ -139,7 +183,12 @@ describe("invariants across every reachable state", () => {
 
     const withdrawn = target.withdrawnReferrals.find((entry) => entry.unitId === WITHDRAWN_UNIT_ID);
     expect(withdrawn).toBeDefined();
-    expect(withdrawn?.reason).toBe("withdrawn — placed at FRE Adult Open");
+    // 🔴 This line USED to read `.toBe("withdrawn — placed at FRE Adult Open")`, and that is the
+    // uncomfortable part: a test was holding the FD-23 leak in place as the expected value. It
+    // pinned the string precisely and never asked what the string said. See
+    // `tests/ward-withdrawal-reason-privacy.test.ts` — the reason is now a code, it names no unit,
+    // and it does not claim the patient has moved.
+    expect(withdrawn?.reason).toBe("another_unit_accepted");
 
     // The declined unit ends its referral through `declines`, never through `withdrawnReferrals`
     // — the two mechanisms record different things and must not blur together.
@@ -229,12 +278,12 @@ describe("invariants across every reachable state", () => {
  *
  * | Branch                | Produces stage         | Also writes (same update)                          |
  * |------------------------|------------------------|-----------------------------------------------------|
- * | `RAISE_REFERRAL`       | `placement_requested`  | `referredUnitIds: []`, `declines: []`, `withdrawnReferrals: []` (new movement — no `acceptedUnitId`/`transport`/`bedHeldUntil`) |
+ * | `RAISE_REFERRAL`       | `placement_requested`  | `referredUnitIds: []`, `declines: []`, `withdrawnReferrals: []` (new movement — no `acceptedUnitId`/`transport`/`pullExpiresAt`) |
  * | `REFER_TO_UNITS`       | `destination_review`   | `referredUnitIds: event.unitIds`                     |
  * | `ACCEPT_IN_PRINCIPLE`  | `accepted_awaiting_bed`| `acceptedUnitId: event.unitId`, `referredUnitIds: []`, `withdrawnReferrals: [...]` |
- * | `HOLD_BED`             | `bed_held`             | `bedHeldUntil: event.now + 60` (requires the movement already at `accepted_awaiting_bed` with `acceptedUnitId === event.unitId`) |
+ * | `PULL_PATIENT`             | `pulled`             | `pullExpiresAt: event.now + 60` (requires the movement already at `accepted_awaiting_bed` with `acceptedUnitId === event.unitId`) |
  * | `DECLINE`              | `destination_review`   | `referredUnitIds`: filtered, `declines: [...]`       |
- * | `HANDOVER_READY`       | `handover_ready`       | `transport: {...}` (requires stage already `bed_held`, so `acceptedUnitId`/`bedHeldUntil` carry over unchanged) |
+ * | `HANDOVER_READY`       | `handover_ready`       | `transport: {...}` (requires stage already `pulled`, so `acceptedUnitId`/`pullExpiresAt` carry over unchanged) |
  * | `PATIENT_COLLECTED`    | `moving`               | `transport.collectedAt: event.now` (requires `transport.enRouteAt` already set) |
  * | `PATIENT_ARRIVED`      | `arrived`              | `transport.arrivedAt: event.now`, `closure: {...}` (requires `acceptedUnitId` and `transport.collectedAt` already set) |
  *
@@ -245,22 +294,22 @@ describe("invariants across every reachable state", () => {
  * Chaining that table's preconditions gives the transitive implications the direct table alone
  * cannot: `ACCEPT_IN_PRINCIPLE` is the only branch that ever writes `acceptedUnitId`, and no
  * branch ever clears it, so every stage reachable only after `accepted_awaiting_bed` —
- * `accepted_awaiting_bed`, `bed_held`, `handover_ready`, `moving`, `arrived` — requires it.
+ * `accepted_awaiting_bed`, `pulled`, `handover_ready`, `moving`, `arrived` — requires it.
  * Symmetrically, `ACCEPT_IN_PRINCIPLE` rejects outright when `acceptedUnitId` is already set and
  * always advances the stage away from `destination_review` in that same update, so a movement
  * still at `placement_requested` or `destination_review` can never carry one. `HANDOVER_READY`
- * is the only branch that ever writes `transport`, and its own precondition is stage `bed_held`
+ * is the only branch that ever writes `transport`, and its own precondition is stage `pulled`
  * — which itself requires having already passed through `accepted_awaiting_bed` — so
  * `handover_ready` without `transport` is unreachable, and doubly so without `acceptedUnitId`.
  * This is exactly the R64 defect: the direct table alone (only `HANDOVER_READY`'s own row) would
  * have caught the missing `transport`, but not the missing `acceptedUnitId`, which only the
  * chained precondition surfaces.
  *
- * `bedHeldUntil` does not extend the same way past `bed_held`: fixture authoring convention (both
+ * `pullExpiresAt` does not extend the same way past `pulled`: fixture authoring convention (both
  * hand-authored and generated) drops it once a movement moves on to `handover_ready` or later —
  * a hold that has already resulted in a handover is no longer "held" in the sense the field
- * describes — so the invariant below is scoped to `bed_held` itself, matching the pre-existing,
- * previously-unproven fact that no `bed_held` record lacks it. The same is true of `transport` at
+ * describes — so the invariant below is scoped to `pulled` itself, matching the pre-existing,
+ * previously-unproven fact that no `pulled` record lacks it. The same is true of `transport` at
  * `arrived`: the two current `arrived` records both close through a path that never had a
  * transport job at all, a state the existing test below deliberately keeps proving as legitimate
  * (a real `arrived` record with a transport job still must carry `arrivedAt`).
@@ -395,12 +444,12 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // Transitive table entry: `ACCEPT_IN_PRINCIPLE` is the only branch that ever writes
     // `acceptedUnitId`, and no branch ever clears it, so every stage reachable only after
     // `accepted_awaiting_bed` requires one. `ward-model.test.ts` already proves this for
-    // `accepted_awaiting_bed`/`bed_held`; this closes the same invariant for the three stages
+    // `accepted_awaiting_bed`/`pulled`; this closes the same invariant for the three stages
     // that test does not reach, including "handover_ready" — the second half of the R64 defect
     // (four of the five broken records had no `acceptedUnitId` at all, not just no transport).
     const requiresAcceptedUnit: MovementStage[] = [
       "accepted_awaiting_bed",
-      "bed_held",
+      "pulled",
       "handover_ready",
       "moving",
       "arrived",
@@ -416,23 +465,23 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
         ).toBeDefined();
       }
     }
-    // 6 accepted_awaiting_bed + 7 bed_held + 2 handover_ready + 6 moving + 6 arrived = 27 today.
+    // 6 accepted_awaiting_bed + 7 pulled + 2 handover_ready + 6 moving + 6 arrived = 27 today.
     expect(matched).toBe(27);
   });
 
-  it("never leaves a 'bed_held' movement without the bed hold its stage implies", () => {
-    // Direct table entry: `HOLD_BED` is the only branch that produces stage "bed_held", and it
-    // always writes `bedHeldUntil` in that same update. Unlike `acceptedUnitId`, fixture
-    // authoring convention does not carry `bedHeldUntil` forward past "bed_held" (a hold that
-    // already resulted in a handover is no longer "held"), so this is scoped to "bed_held" only.
+  it("never leaves a 'pulled' movement without the bed hold its stage implies", () => {
+    // Direct table entry: `PULL_PATIENT` is the only branch that produces stage "pulled", and it
+    // always writes `pullExpiresAt` in that same update. Unlike `acceptedUnitId`, fixture
+    // authoring convention does not carry `pullExpiresAt` forward past "pulled" (a hold that
+    // already resulted in a handover is no longer "held"), so this is scoped to "pulled" only.
     let matched = 0;
     for (const movement of wardMovements) {
-      if (movement.stage === "bed_held") {
+      if (movement.stage === "pulled") {
         matched += 1;
         expect(
-          movement.bedHeldUntil,
-          `${movement.id} is stage "bed_held" but has no bedHeldUntil — HOLD_BED is the only ` +
-            `reducer transition that produces "bed_held" and it always sets an expiry`,
+          movement.pullExpiresAt,
+          `${movement.id} is stage "pulled" but has no pullExpiresAt — PULL_PATIENT is the only ` +
+            `reducer transition that produces "pulled" and it always sets an expiry`,
         ).toBeDefined();
       }
     }
@@ -496,7 +545,10 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // 12 records are stage "placement_requested" today (WF-001, WF-012, WF-018, WF-301, WF-305,
     // WF-308, WF-312, WF-315, WF-319, WF-322, WF-326, WF-329) — measured directly against the real
     // fixture, not assumed.
-    expect(matched).toBe(12);
+    // 12 -> 14 on 2026-08-30. Both new long waits are `placement_requested` with no referral,
+    // decline or withdrawal, which is what a patient nobody has yet referred anywhere looks like -
+    // so they belong in this count and the coherence rule holds for both.
+    expect(matched, "the number of clean placement_requested movements changed").toBe(14);
   });
 
   it("never lets a movement carry a live referral outside the 'destination_review' stage REFER_TO_UNITS put it in", () => {
@@ -547,5 +599,53 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // 1 record carries a withdrawn referral today (WF-006, accepted at rgh-adult-secure) —
     // measured directly against the real fixture.
     expect(matched).toBe(1);
+  });
+});
+
+describe("the fixture can demonstrate a wait longer than a day", () => {
+  /*
+   * WHY THIS EXISTS. `splitDuration` renders a day or more as "1d 6h" and `formatInstantWithDay`
+   * says "yesterday" - and until 2026-08-30 no seeded record could produce either, because
+   * `routineMovements` caps `openedAt` at `60 + ((index * 37) % 900)` minutes and every hand-seeded
+   * movement waited hours. A capability nothing exercises is indistinguishable from one that does
+   * not work, and the whole suite stays green either way. That is not hypothetical here: the
+   * out-of-area screen rendered stays as "5041h 30m" for as long as it did precisely because no
+   * assertion was ever about the format.
+   *
+   * So this asserts the DATA can reach the code path, which is a different claim from the code path
+   * being correct - `tests/ward-clock.test.ts` makes that one.
+   */
+  it("holds open movements that have waited more than a day, and says so in days", () => {
+    const longWaits = wardMovements
+      .filter(isOpen)
+      .map((movement) => ({ id: movement.id, minutes: NOW_ANCHOR - movement.openedAt }))
+      .filter((entry) => entry.minutes > MINUTES_PER_DAY);
+
+    expect(
+      longWaits.map((entry) => entry.id).sort(),
+      "the fixture no longer contains a wait longer than a day, so nothing on any screen can " +
+        "demonstrate the day-scale clock. Adding the capability without data that reaches it is how " +
+        "a feature everyone believes in ships broken: every test stays green because none of them " +
+        "can produce the case.",
+    ).toEqual(["WF-019", "WF-020"]);
+
+    for (const entry of longWaits) {
+      expect(
+        splitDuration(entry.minutes),
+        `${entry.id} waits ${entry.minutes} minutes and must render in days, not in hours`,
+      ).toMatch(/^\d+d( \d+h)?$/);
+    }
+  });
+
+  it("keeps one of them just over the boundary, where an hours-only formatter would look right", () => {
+    // WF-020 waits 29 hours. A formatter that truncated to hours would render "29h 00m", which is
+    // correct arithmetic and unreadable - and would look entirely plausible to a reviewer. The
+    // boundary case is the one that catches a half-fix; a three-day wait would not.
+    const wf020 = wardMovements.find((movement) => movement.id === "WF-020");
+    expect(wf020, "WF-020 is the boundary case this file names; it must exist").toBeDefined();
+    const minutes = NOW_ANCHOR - (wf020?.openedAt ?? NOW_ANCHOR);
+    expect(minutes).toBeGreaterThan(MINUTES_PER_DAY);
+    expect(minutes).toBeLessThan(2 * MINUTES_PER_DAY);
+    expect(splitDuration(minutes)).toBe("1d 5h");
   });
 });

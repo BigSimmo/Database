@@ -51,7 +51,7 @@ export function ExceptionDrawer({ items, rejections, open, onToggle, onSelectMov
           {items.length}
         </span>
         {/* Whole-branch review I4: the count above is `items.length` — the action inbox only —
-            so a refused transition (HOLD_BED on a ward with zero allocatable beds, in the
+            so a refused transition (PULL_PATIENT on a ward with zero allocatable beds, in the
             review's own Proof 2) was invisible on a closed drawer: nothing about the collapsed
             trigger changed when a refusal was filed. Spec §7.4 calls the refusals surface
             PERSISTENT, "not a toast that vanishes" — a badge that only appears once the count is

@@ -11,11 +11,11 @@ import styles from "./ward-demo-controls.module.css";
 
 /**
  * Whole-branch review I3. Spec §2 decision 5 ("Does the clock move? Yes, with a jump-forward
- * control") and §5 ("+15 min, +1 hour … so a held bed can be watched expiring in seconds rather
+ * control") and §5 ("+15 min, +1 hour … so a pulled bed can be watched expiring in seconds rather
  * than in an hour") are settled product decisions. `ADVANCE_CLOCK` and `RESET_SCENARIO` were
  * implemented and tested in the reducer from Task 3 onward but dispatched only from test-harness
  * buttons (`tests/ward-flow-clock-consistency.dom.test.tsx`'s `ClockAdvancer`) — no product
- * surface ever raised either event, so `bedHeldUntil` (always `now + 60`) could never actually be
+ * surface ever raised either event, so `pullExpiresAt` (always `now + 60`) could never actually be
  * watched expiring, the one thing §5 says the control exists to demonstrate.
  *
  * Mounted once in `ClinicalRail` (`ward-management-navigation.tsx`, next to `WardRoleSwitcher`),
