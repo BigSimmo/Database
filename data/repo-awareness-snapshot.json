@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "db6b2edb0a89fbcc116540889b810256e2ec5ef6",
-    "committed_at": "2026-09-02T21:22:22+00:00"
+    "sha": "caea7e0db08f2715e0d9393ea74b0697609d5d1c",
+    "committed_at": "2026-09-03T08:07:42+08:00"
   },
   "routes": {
     "modes": [
@@ -1015,6 +1015,11 @@
         "area": "product"
       },
       {
+        "path": "/sources/search",
+        "file": "src/app/(search-app)/sources/search/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/sources/topics",
         "file": "src/app/(search-app)/sources/topics/page.tsx",
         "area": "product"
@@ -1114,7 +1119,7 @@
       {
         "path": "/dictionary/sources",
         "file": "src/app/(search-app)/dictionary/sources/page.tsx",
-        "target": "/sources?usedBy=dictionary"
+        "target": "/sources/search?usedBy=dictionary"
       },
       {
         "path": "/differentials",
@@ -1426,8 +1431,8 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 197,
-      "product_pages": 67,
+      "pages": 198,
+      "product_pages": 68,
       "mockup_pages": 130,
       "redirects": 18,
       "api": 60
@@ -2901,6 +2906,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/design-system/sweep-fix-visible-live-regions.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/TOKENS.md",
         "section": "design-system",
         "catalogued": true
@@ -3412,16 +3422,6 @@
       },
       {
         "path": "docs/samd-classification-medication-considerations.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/scripts-index.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/scripts-index.md",
         "section": "root",
         "catalogued": true
       },
@@ -4452,9 +4452,9 @@
       }
     ],
     "counts": {
-      "documents": 590,
-      "catalogued": 117,
-      "uncatalogued": 473,
+      "documents": 589,
+      "catalogued": 115,
+      "uncatalogued": 474,
       "sections": 21
     }
   },
@@ -18146,6 +18146,14 @@
         "scope": "PR #1668 unblock",
         "outcome": "late-synced main after CI green on f04a96c3; merge-tree clean (GitHub DIRTY was stale); js-yaml 4.3.1 + nanoid 3.3.18 preserved; no unresolved threads; CI re-run after push",
         "checks": "pre-late-sync: PR required pass on f04a96c3; Production UI skipped; post-sync pending"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/sources-mode-dropdown-home-mzw4f5",
+        "head": "a7bfa29769b453f15ba869df65be0116b53245bf",
+        "scope": "PR #2567 Sources mode home, existing review feedback, CI, and integration with main",
+        "outcome": "No new P0-P2 findings. The existing filter-only deep-link concern was already fixed and its thread resolved. Integrated origin/main and regenerated the repo-awareness snapshot to resolve the sole merge conflict.",
+        "checks": "Hosted CI on a7bfa29769b453f15ba869df65be0116b53245bf: success; 9 focused source-mode test files / 181 tests: pass; repo-awareness snapshot check: pass; git diff --check: pass."
       },
       {
         "date": "2026-08-07",
