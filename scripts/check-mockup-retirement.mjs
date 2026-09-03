@@ -64,6 +64,28 @@ export const ROUTE_ENTRY_SUFFIX = "/page.tsx";
  * Set-literal shape alone would discount a real route allowlist in any other file.
  */
 export const UNRESOLVABLE_LINK_REGISTRY = "scripts/check-docs-links.mjs";
+
+/**
+ * Whether a Route-column cell names a retirable ROUTE rather than something else.
+ *
+ * Two conditions, and the second is the one that was missing: it must live under `/mockups/`,
+ * and its last segment must not be a source FILE. The extensions here are deliberately the same
+ * set the survivor scan reads, because those are exactly the paths somebody holding a deletion
+ * diff has in hand and might paste into the wrong column.
+ */
+export function isRetirableRoutePath(route) {
+  if (typeof route !== "string" || !route.startsWith("/mockups/")) return false;
+  const last = route.split("/").pop() ?? "";
+  return !SOURCE_FILE_EXTENSION.test(last);
+}
+
+// ⚠️ THE DOT IS ESCAPED, AND IT WAS NOT. An unescaped `.` matches ANY character, so this rejected
+// every route whose last segment merely ENDS in an extension-like suffix — `/mockups/caring-
+// contacts/reports` (the `.` taking `r`, then `ts`), and `charts` likewise. That is a FALSE
+// REFUSAL: it would have blocked a legitimate owner-approved retirement, which is the opposite of
+// the defect this predicate was added to fix. Found in review, not by my own six cases, because
+// every case I wrote was either an obvious file or an obvious route and none ended in `ts`.
+const SOURCE_FILE_EXTENSION = /\.(tsx?|mjs|cjs|jsx?|css|json|md)$/iu;
 export const MOCKUP_INDEX_FILE = "mockups/README.md";
 export const RETIRED_SECTION_HEADING = "## Retired mockups";
 
@@ -583,10 +605,24 @@ export function auditDeletions(
   }
 
   for (const route of approved) {
-    const file = route.startsWith("/mockups/")
-      ? `${MOCKUP_ROUTE_ROOT}/${route.slice("/mockups/".length)}${ROUTE_ENTRY_SUFFIX}`
-      : null;
-    if (file && fileSystem.existsSync(resolve(root, ...file.split("/")))) {
+    // ⚠️ THE ROUTE COLUMN MUST CONTAIN A ROUTE, AND NOTHING USED TO CHECK THAT. Writing a FILE
+    // path there cleared Tier B for that one file, and the symmetry check below could not see it:
+    // it probes `route + "/page.tsx"`, so for `…/widget.tsx` it looked for
+    // `…/widget.tsx/page.tsx`, which cannot exist, and stayed silent. A pass with its own
+    // counter-check disabled by construction. Same family as the single-hyphen row: the tier's
+    // protection is that a row must MEAN something, and nothing checked that this cell meant what
+    // its column says.
+    //
+    // Fails closed rather than ignoring the row, so the silence becomes a question. A row that
+    // records the wrong KIND of thing is a mistake worth a message, not a line to skip quietly.
+    if (!isRetirableRoutePath(route)) {
+      violations.push(
+        `${route} is recorded under "${OWNER_DECISION_SECTION_HEADING}" in ${MOCKUP_INDEX_FILE} but is not a route path — that column records routes, and a file path there would clear this tier for one file with the "recorded but still live" check unable to fire`,
+      );
+      continue;
+    }
+    const file = `${MOCKUP_ROUTE_ROOT}/${route.slice("/mockups/".length)}${ROUTE_ENTRY_SUFFIX}`;
+    if (fileSystem.existsSync(resolve(root, ...file.split("/")))) {
       violations.push(
         `${route} is recorded under "${OWNER_DECISION_SECTION_HEADING}" in ${MOCKUP_INDEX_FILE} but ${file} still exists — a retirement record for a live route pre-authorises a deletion nobody has decided on`,
       );
