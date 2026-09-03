@@ -11,26 +11,36 @@ import { trimSourceForClient } from "@/lib/answer-client-payload";
 import { env } from "@/lib/env";
 import { hasDangerSourceGovernanceWarning, sourceGovernanceWarnings } from "@/lib/source-governance";
 import type { VerifiedEvidencePreviewUnit, VerifiedUnit } from "@/lib/answer-stream-contract";
-import type { EvidenceRelevance, SearchResult, SourceGovernanceWarning } from "@/lib/types";
+import type { EvidenceRelevance, SearchResult } from "@/lib/types";
 
 export type { VerifiedUnit };
 
 const evidencePreviewMaxSources = 12;
 
-/** Danger-level warnings split into the two kinds the preview must treat differently.
+/** Is this one source danger-level on its own account?
  *
- * A danger warning that names a `document_id` is attributable: that document is outdated or
- * poorly extracted, and excluding it removes the hazard exactly. A danger warning with no
- * document is an answer-level verdict — today only `WEAK_EVIDENCE`, raised when the retrieved
- * evidence does not back the question at all — and no per-document exclusion can answer it,
- * so it suppresses the whole preview.
+ * Asked one source at a time, and deliberately so. `sourceGovernanceWarnings` ends with
+ * `.slice(0, limit ?? 8)` — a cap for a warnings BANNER, where eight lines is already more
+ * than a reader will take in. Passing the whole candidate set and reading the danger entries
+ * back out of that list would make the cap a gate: with nine or more danger warnings (five
+ * documents that are both outdated and poorly extracted is enough, at two warnings each) the
+ * ones past the eighth are dropped, their documents never reach the exclusion set, and they
+ * are disclosed as preview cards. Worse, `sourceStatusShortLabel` keys only on
+ * `document_status`, so a document escaping the cap on `extraction_quality` alone would be
+ * badged "Current" on its card.
+ *
+ * One source per call cannot hit the cap — a single result yields at most a handful of
+ * warnings — and it still runs the canonical helper rather than reimplementing its rules.
  */
-function partitionDangerWarnings(warnings: readonly SourceGovernanceWarning[]) {
-  const danger = warnings.filter((warning) => warning.severity === "danger");
-  return {
-    hasAnswerLevelDanger: danger.some((warning) => !warning.document_id),
-    dangerDocumentIds: new Set(danger.map((warning) => warning.document_id).filter((id): id is string => Boolean(id))),
-  };
+function isDangerLevelSource(source: SearchResult) {
+  return hasDangerSourceGovernanceWarning(sourceGovernanceWarnings({ results: [source] }));
+}
+
+/** The answer-level verdict, asked with no sources at all so only the relevance-derived
+ *  warning can be raised. `WEAK_EVIDENCE` says the retrieved evidence does not back the
+ *  question — not a property of any one document, so no subset of the rail is safe to show. */
+function hasAnswerLevelDanger(relevance: EvidenceRelevance | null) {
+  return hasDangerSourceGovernanceWarning(sourceGovernanceWarnings({ results: [], relevance }));
 }
 
 /**
@@ -58,16 +68,11 @@ export function buildEvidencePreviewUnit(args: {
   relevance?: EvidenceRelevance | null;
 }): VerifiedEvidencePreviewUnit | null {
   if (!args.results.length) return null;
-  const warnings = sourceGovernanceWarnings({
-    results: args.results,
-    relevance: args.relevance ?? null,
-  });
-  if (!hasDangerSourceGovernanceWarning(warnings)) {
-    return buildUnit(args.results);
-  }
+  if (hasAnswerLevelDanger(args.relevance ?? null)) return null;
 
-  const { hasAnswerLevelDanger, dangerDocumentIds } = partitionDangerWarnings(warnings);
-  if (hasAnswerLevelDanger) return null;
+  // Governance is a property of the document, so every chunk of a flagged document goes with
+  // it. A clean-looking second chunk of a badly extracted PDF is the same PDF.
+  const dangerDocumentIds = new Set(args.results.filter(isDangerLevelSource).map((result) => result.document_id));
   return buildUnit(args.results.filter((result) => !dangerDocumentIds.has(result.document_id)));
 }
 
