@@ -453,8 +453,8 @@ export function signOffStatusLine(signOff: { date: string; hash: string }, curre
       `\`${currentHash}\`)`;
   return (
     `**Status: reviewed ${signOff.date} — NOT current.** ${reason}. This sheet therefore cannot say which of ` +
-    "the terms below that sign-off still covers: re-check every term the change touched and re-record the " +
-    "sign-off with the current mappings hash. A sign-off covers the mappings as they stood on its own date only."
+    "the terms below remain covered by that sign-off: re-check every term the change touched and re-record " +
+    "the sign-off with the current mappings hash. A sign-off covers the mappings as they stood on its own date only."
   );
 }
 
