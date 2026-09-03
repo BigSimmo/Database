@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "systemId": "ward-flow-compact-multichat",
+  "maxPersistentChats": 3,
+  "modes": {
+    "recovery": ["lead", "verifier"],
+    "steady-state": ["lead", "builder", "verifier"]
+  },
+  "truthContract": {
+    "chatMemoryIsAuthority": false,
+    "messagesTransferCustody": false,
+    "durableRecordsAreRequired": true,
+    "humanClinicalDecisionsRemainHuman": true
+  },
+  "subagentModelPolicy": {
+    "modelAliases": {
+      "judgment": "opus",
+      "mechanical": "sonnet"
+    },
+    "default": "explicit-classification-required",
+    "opusRequiredWhen": [
+      "clinical, legal, privacy or patient-facing judgement is involved",
+      "the subagent is the final unchecked reviewer or must assess correctness",
+      "the task changes test strength or mutation coverage, specifications, plans, briefs or decision records",
+      "the failure is unknown or the implementation needs an unbriefed design decision"
+    ],
+    "sonnetAllowedOnlyWhen": [
+      "the task is mechanical and fully specified",
+      "a named gate, test, type error, build failure or visible screen will catch a wrong result",
+      "the brief names exact files, symbols, ordered steps and the decisive check",
+      "a parent or Opus reviewer will inspect the resulting diff or evidence"
+    ],
+    "sonnetExtractionException": "Read-only list, count and locate tasks may use Sonnet when the brief names exact sources and output and a parent inspects the evidence; assessment remains Opus.",
+    "adaptiveRules": {
+      "firstOfShape": "opus",
+      "thirdAttemptAfterTwoSonnetReviewRejections": "opus"
+    },
+    "sonnetStopRule": "If you reach a decision this brief does not cover, stop and hand it back.",
+    "reviewRule": "Prefer a Sonnet draft followed by Opus review when mechanical work still feeds a judgement-bearing result.",
+    "dispatchSummaryRequirement": "State the model tier and routing reason in every dispatch summary."
+  },
+  "roles": [
+    {
+      "id": "lead",
+      "title": "Ward Lead",
+      "purpose": "Primary builder and sole integration authority.",
+      "productWrites": "integration-worktree-only",
+      "integrationAuthority": "sole",
+      "independentVerification": false,
+      "persistentChatModel": "opus",
+      "maxActiveTasks": 1,
+      "allowedSubagents": "read-only extraction and review, plus exact-path implementation children inside the current task lease",
+      "must": [
+        "Read current state from durable Ward Flow records before allocating work.",
+        "Hold the single atomic Ward Lead lease for this role generation.",
+        "Give every Builder task an immutable base, exact owned paths, acceptance condition, falsifier and focused check.",
+        "Integrate only reviewed commits and record their disposition.",
+        "Inspect every implementation subagent diff against its exact path lease before accepting it.",
+        "Record owner rulings exactly and distinguish direct statements from relays and inference."
+      ],
+      "mustNot": [
+        "Use chat memory as the project database.",
+        "Create a second Ward Lead while the current lease is active.",
+        "Invent clinical or product decisions.",
+        "Declare Builder work integrated before checking the target ref.",
+        "Count its own implementation check as independent verification."
+      ]
+    },
+    {
+      "id": "builder",
+      "title": "Ward Builder",
+      "purpose": "One bounded feature task on an isolated branch and worktree.",
+      "productWrites": "assigned-paths-on-isolated-branch",
+      "integrationAuthority": "none",
+      "independentVerification": false,
+      "persistentChatModel": "assignment-dependent",
+      "maxActiveTasks": 1,
+      "allowedSubagents": "read-only extraction and review, plus exact-path implementation children inside the current task lease",
+      "must": [
+        "Work from the assigned immutable base and within the assigned paths.",
+        "Hold the single atomic Ward Builder lease tied to the committed Lead-issued assignment.",
+        "Commit one coherent result and report the exact commit and evidence.",
+        "Inspect every implementation subagent diff against its exact path lease before accepting it.",
+        "Stop when the task acceptance condition is met or its blocker is durably recorded.",
+        "Return integration authority to Ward Lead."
+      ],
+      "mustNot": [
+        "Merge or land its own branch.",
+        "Self-assign paths or replace the committed assignment with chat instructions.",
+        "Change task scope or ownership without a new durable assignment.",
+        "Edit the integration worktree.",
+        "Claim that a focused check proves an unrun broader gate."
+      ]
+    },
+    {
+      "id": "verifier",
+      "title": "Ward Verifier",
+      "purpose": "Independent verification of a frozen commit.",
+      "productWrites": "forbidden",
+      "integrationAuthority": "none",
+      "independentVerification": true,
+      "persistentChatModel": "opus",
+      "maxActiveTasks": 1,
+      "allowedSubagents": "read-only evidence extraction only",
+      "must": [
+        "Verify an immutable commit SHA rather than a moving branch.",
+        "Hold the single atomic Ward Verifier lease for this role generation.",
+        "Record the environment, actions, observations, failures and decisive evidence.",
+        "Return failures to Ward Lead without repairing them.",
+        "Keep unrun checks explicitly unrun."
+      ],
+      "mustNot": [
+        "Modify product code.",
+        "Modify role policy, system state, prompts or another role's durable records.",
+        "Fix its own findings.",
+        "Verify a different SHA from the one named in the task.",
+        "Convert a partial or focused result into an all-clear."
+      ]
+    }
+  ]
+}

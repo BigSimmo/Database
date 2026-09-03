@@ -1,0 +1,88 @@
+# Review package: b2b7089f2..80790923a
+
+## Commits
+80790923a refactor(ward-flow): the transport form name was written twice
+
+## Files changed
+ src/components/ward-management/ward-movements.ts | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/src/components/ward-management/ward-movements.ts b/src/components/ward-management/ward-movements.ts
+index 1556f1ea1..be846ad79 100644
+--- a/src/components/ward-management/ward-movements.ts
++++ b/src/components/ward-management/ward-movements.ts
+@@ -3,20 +3,27 @@ import type {
+   BedRelease,
+   Cohort,
+   LeaveBed,
+   Movement,
+   MovementStage,
+   Referral,
+   Security,
+ } from "@/components/ward-management/ward-model";
+ import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
+ 
++/**
++ * The transport-form name seeded onto `TransportJob.formRequired` below. This is a single fact
++ * with one owner — the product owner may revise what this form is called — so it lives in one
++ * place and both seed writes reference it, rather than each carrying its own copy of the string.
++ */
++export const SEEDED_TRANSPORT_FORM_REQUIRED = "Form 1A";
++
+ /**
+  * Hand-authored movements covering the states volume alone cannot guarantee: three declines
+  * with nowhere eligible left, a status change mid-referral, a movement that never completed,
+  * every stage in the pathway at least once, and the older-adult and specialling pressure that
+  * is normal — not exceptional — on a busy metro night. (Earlier revisions of this fixture
+  * authored two Form 1A "legal-form breaches" here; the 2026-08-23 product-owner correction
+  * removed every `dueAt` from every Form 1A, so no legal-form breach exists in this fixture any
+  * longer — see `LegalForm`'s doc comment in `ward-model.ts`.)
+  */
+ const seededMovements: Movement[] = [
+@@ -142,21 +149,21 @@ const seededMovements: Movement[] = [
+     overrides: [],
+     stage: "handover_ready",
+     owner: "ED mental health team",
+     referredUnitIds: [],
+     acceptedUnitId: "fre-adult-open",
+     declines: [],
+     transport: {
+       id: "TR-1005",
+       provider: "Patient transport service",
+       escortRequired: true,
+-      formRequired: "Form 1A",
++      formRequired: SEEDED_TRANSPORT_FORM_REQUIRED,
+       acceptedAt: NOW_ANCHOR - 30,
+     },
+     blocker: "Transport escort confirming departure time",
+     withdrawnReferrals: [],
+     unwinds: [],
+     formedAt: NOW_ANCHOR - 330 - 150,
+   },
+   {
+     id: "WF-006",
+     originEdId: "rgh-ed",
+@@ -469,21 +476,21 @@ const seededMovements: Movement[] = [
+     overrides: [],
+     stage: "moving",
+     owner: "Flow coordinator",
+     referredUnitIds: [],
+     acceptedUnitId: "rph-adult-secure",
+     declines: [],
+     transport: {
+       id: "TR-1014",
+       provider: "Patient transport service",
+       escortRequired: true,
+-      formRequired: "Form 1A",
++      formRequired: SEEDED_TRANSPORT_FORM_REQUIRED,
+       acceptedAt: NOW_ANCHOR - 45,
+       enRouteAt: NOW_ANCHOR - 10,
+       // A short secure-escort hop (FSH to RPH Adult Secure): collected 6 minutes after going en
+       // route, so only 4 minutes into the drive to the destination at NOW_ANCHOR.
+       collectedAt: NOW_ANCHOR - 4,
+     },
+     blocker: "None — in transit",
+     withdrawnReferrals: [],
+     unwinds: [],
+   },

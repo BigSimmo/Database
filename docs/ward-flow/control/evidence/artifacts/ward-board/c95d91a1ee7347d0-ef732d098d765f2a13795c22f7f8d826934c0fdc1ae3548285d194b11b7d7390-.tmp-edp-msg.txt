@@ -1,0 +1,52 @@
+Both ED panels on the home page read live state, because a default was reading the seed
+
+`edPressure(now, movements = wardMovements)` carried a default pointing at the frozen
+seed module. A caller who simply forgot to pass live state got a plausible answer
+instead of an error, and BOTH home-page callers had forgotten: `FlowDiagram` called
+`edPressure(now)`, and `PressureStrip` declared its own `movements` OPTIONAL and was
+rendered by the coordinator screen without it. The argument is required now, and the
+compiler found every caller.
+
+THE DEFECT WAS WORSE THAN "DIVERGES AFTER SOMEBODY RAISES A REFERRAL", and I had it
+wrong that way round at first. The provider re-anchors the whole fixture to the hour
+the demonstration is opened — `shiftInstants(seedWardFlowState(), wallClockNow() -
+NOW_ANCHOR)`. The old code moved only one side of the subtraction: `now` was the
+re-anchored clock and the movements were the untouched seed, so every wait was
+inflated by exactly that offset. Wrong from the first paint, on every screen except a
+test that pins the clock.
+
+WHICH IS WHY NO TEST COULD SEE IT. Every test passes `movements` explicitly, and
+every DOM test pins `initialNow`, so the offset is zero and the shifted and unshifted
+fixtures are byte-identical. The suite exercised the parameter thoroughly and never
+once exercised its ABSENCE — the only condition under which the defect exists.
+
+The new assertion is therefore an INVARIANCE, not a value: shift the clock and the
+movements together by the same amount and the longest wait must not move. Its second
+half constructs the stale answer the old shape produced and asserts it differs, so the
+first half cannot pass by being vacuous.
+
+TWO COMMENTS WERE REPAIRED IN THE SAME ACT, and they are the more useful half of this.
+`ward-pressure.ts` said the default was "deliberately injectable"; `pressure-strip.tsx`
+called its prop a "test-only injection point" and stated that production never passes
+it. Both were true of the INTENT and false of the code — the strip's production caller
+was exactly the one omitting it. The injection point itself was never the problem and
+is kept, for the reason the old comment gives: without it every assertion here keys off
+one fixture where every department is busy, which is what let three false-positive
+tests through review. What was wrong was making it optional.
+
+The now-dead `wardMovements` import is removed rather than left. Leaving it is how the
+default comes back.
+
+Verified: tsc --noEmit exit 0; eslint exit 0 on all seven files; the affected test set
+discovered from disk, 8 handed in, 8 ran, 137 passed, exit 0; prettier --check clean.
+
+NOT RUN, and it is the gap worth knowing: `ui-ward-coordinator.spec.ts` and
+`ui-ward-roles.spec.ts` are Playwright and were not run — they need the app up and the
+machine-wide heavy lock. They are the only tests that see the re-anchored clock, so
+they are the only ones whose rendered ED figures this change moves. I read them rather
+than assuming: they assert the strip's ordering is non-increasing on
+`data-breaching`/`data-longest-minutes` and read `data-waiting` dynamically, so no
+literal is pinned and a uniform shift preserves every one of those relations. That is
+a reading, not a run.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

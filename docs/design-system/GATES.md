@@ -55,7 +55,7 @@ than CI, two of them by the second reader; review does not scale past two carefu
 | `sameFileTextSmMinusMix`          | 25                 | 25           |
 | `statusColouredNumerals`          | **0** (hard floor) | 0            |
 | `textSoftConsumers`               | **0** (hard floor) | 0            |
-| `visibleLiveRegions`              | 24                 | 22           |
+| `visibleLiveRegions`              | 25                 | 23           |
 
 28 metrics, 13 of them pinned at zero. A metric at zero is a hard floor:
 the check asserts `value <= baseline`, so any reintroduction fails. A non-zero pin is

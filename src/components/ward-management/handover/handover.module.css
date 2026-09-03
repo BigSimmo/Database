@@ -4,6 +4,7 @@
  * this file needs is declared here, never borrowed from another module's scope.
  */
 .screen {
+  --wf-border: var(--neutral-500);
   --ho-space-4: 0.25rem;
   --ho-space-6: 0.375rem;
   --ho-space-8: 0.5rem;
@@ -41,7 +42,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ho-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--ho-space-8) var(--ho-space-12);
 }
@@ -82,7 +83,7 @@
   font-weight: 700;
 }
 
-.frozenAt {
+.takenAt {
   margin: 0;
   flex: 1 1 auto;
   color: var(--text-muted);
@@ -106,7 +107,7 @@
 .section {
   display: grid;
   gap: var(--ho-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   padding: var(--ho-space-12) var(--ho-space-14);
@@ -134,7 +135,7 @@
 
 .table th,
 .table td {
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding: var(--ho-space-6) var(--ho-space-8);
   text-align: left;
   vertical-align: top;
@@ -156,6 +157,23 @@
   border-bottom: none;
 }
 
+/* Spec D9: one-line link back to the morning bed state, naming the question each page answers —
+ * same register as `morning.module.css`'s own `.crossLink`. */
+.crossLink {
+  margin: 0;
+  max-width: 68ch;
+  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  padding-top: var(--ho-space-16);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ho-leading-body);
+}
+
+.crossLink a {
+  color: var(--clinical-accent-strong);
+  font-weight: 600;
+}
+
 /*
  * Print: ink-on-paper, no rail, no chrome, no interactive control. The global print reset in
  * globals.css already hides every `header`/`nav`/`button` element (which drops the Print
@@ -164,8 +182,30 @@
  * blank strip down every printed page. Hidden explicitly here, scoped to this screen only.
  */
 @media print {
+  /*
+   * `.screen` and `.governanceBanner` carry their own explicit `background: var(--surface)` /
+   * `var(--surface-chrome)` for the on-screen dark theme (`ckb-v2-tokens.css`'s `.dark .ckb-v2`
+   * ramp resolves those to near-black — `#12161a` / `#0e1216`). The global print reset in
+   * globals.css only resets `html`/`body`'s own background, which does not cascade into an
+   * element's own explicit `background` declaration — so without this reset, printing the page
+   * while the app is in dark mode would paint the whole screen container and the governance
+   * banner as a dark band, not the white sheet the print reset promises everywhere else on this
+   * page.
+   */
+  /*
+   * `color-scheme` is inherited, and `.dark` (globals.css) sets `color-scheme: dark` on the
+   * root. System colours such as `CanvasText` below resolve against the *inherited*
+   * `color-scheme`, not against the active media type — so under print while the app is in
+   * dark mode, `CanvasText` resolves to white (dark-appearance ink) rather than black,
+   * printing white text on the white sheet the print reset forces. Pinning `color-scheme:
+   * light` here makes every `CanvasText` / `Canvas` reference under `.screen` resolve to the
+   * light (paper) appearance regardless of the on-screen theme, which is what a printed sheet
+   * needs. See `morning.module.css`'s own `@media print` block for the measured before/after.
+   */
   .screen {
     grid-template-columns: 1fr;
+    background: none;
+    color-scheme: light;
   }
 
   .screen > aside {
@@ -184,6 +224,7 @@
    */
   .governanceBanner {
     border-bottom: 0.0625rem solid CanvasText;
+    background: none;
   }
 
   .section {
@@ -196,6 +237,11 @@
   .table td {
     border-bottom-color: CanvasText;
   }
+
+  .crossLink {
+    border-top-color: CanvasText;
+    color: CanvasText;
+  }
 }
 
 /*
@@ -206,5 +252,20 @@
 @media (max-width: 40rem) {
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --wf-border: var(--border);
   }
 }

@@ -1,0 +1,906 @@
+# Review package: aa97b92a..e4a46590c
+
+## Commits
+e4a46590c wip(ward-flow): recovered fix-round-1 work from an agent that died before committing
+
+## Files changed
+ .../statistics/statistics-derivations.ts           |  72 ++++++++-
+ .../statistics/statistics-screen.tsx               | 101 +++++++++++--
+ .../statistics/statistics.module.css               |  22 +++
+ tests/ward-statistics-derivations.test.ts          |  77 ++++++++++
+ tests/ward-statistics.dom.test.tsx                 | 161 ++++++++++++++++++---
+ 5 files changed, 399 insertions(+), 34 deletions(-)
+
+## Diff
+diff --git a/src/components/ward-management/statistics/statistics-derivations.ts b/src/components/ward-management/statistics/statistics-derivations.ts
+index 29bfb987e..36be377f0 100644
+--- a/src/components/ward-management/statistics/statistics-derivations.ts
++++ b/src/components/ward-management/statistics/statistics-derivations.ts
+@@ -36,31 +36,54 @@ import type { BedRelease, Referral } from "@/components/ward-management/ward-mod
+  * of routing every read through one exhaustive switch is that the rename is one line here and a
+  * compile error everywhere it was missed — rather than a comparison that silently stops matching
+  * and quietly turns a count into a smaller, still-plausible one. A `case` for a member that no
+  * longer exists fails `tsc`; a stray `admission.state === "left"` in a component would not.
+  */
+ export type AdmissionStagePosition = "no-bed-yet" | "bed-given-not-arrived" | "in-the-bed" | "ended";
+ 
+ /**
+  * The single site where an `AdmissionState` value appears in this feature. Exhaustive over the
+  * union deliberately: a member added, removed or renamed must be decided here, by hand, once.
++ *
++ * ⚠️ **THE `default:` ARM IS NOT DEFENSIVE PADDING — IT IS THE ONLY THING THAT FAILS DURING A
++ * HALF-LANDED RENAME.** Without it this function returns `undefined` for an unrecognised member,
++ * and an adversarial check proved the whole suite stays green on exactly that: rename `"left"` to
++ * `"departed"` in `ADMISSION_STATES` and the seed, leave the stale `case "left"` here, and the
++ * member-driven test compares `undefined` against `EXPECTED["departed"]`, which is ALSO
++ * `undefined`. Twelve mutations, this one survived. The cost is not abstract — seeded departed
++ * admissions carry both instants, so they would stay in the average and stop counting as ended,
++ * and the page would render "0 of the measured admissions have since ended", inverting the one
++ * caveat that stops a historical figure being read as tonight's ward.
++ *
++ * `tsc` does catch it. **Vitest does not run `tsc`**, and the suite is what people run, so the
++ * type error alone is not enough: this arm makes the same mistake throw where the tests can see it.
+  */
+ export function admissionStagePosition(admission: Admission): AdmissionStagePosition {
+   switch (admission.state) {
+     case "waitlisted":
+       return "no-bed-yet";
+     case "pulled":
+       return "bed-given-not-arrived";
+     case "occupied":
+       return "in-the-bed";
+     case "left":
+       return "ended";
++    default: {
++      // `never` here is the compile-time half: a widened or renamed union stops being assignable
++      // and `tsc` fails on this line. The throw beneath it is the runtime half, for every reader
++      // who runs the suite rather than the typechecker.
++      const unhandled: never = admission.state;
++      throw new Error(
++        `admissionStagePosition: no stage position for admission state ${JSON.stringify(unhandled)} — ` +
++          `add its case here rather than letting the figure quietly change meaning.`,
++      );
++    }
+   }
+ }
+ 
+ /**
+  * How long it took between a ward giving a bed away and the person physically arriving in it.
+  *
+  * A CLINICIAN'S question, not a policy maker's: it is time a named person spent waiting somewhere
+  * else — usually an emergency department — while a bed already assigned to them stood empty.
+  */
+ export type PullToArrival = {
+@@ -87,67 +110,96 @@ export type PullToArrival = {
+    * different statistic from the one computed.
+    */
+   endedCount: number;
+   /**
+    * Beds given away where the person has not arrived yet. They contribute NOTHING to the average,
+    * on purpose: their gap is still running, so it is not yet a measured fact. Counted and shown
+    * rather than dropped silently, because a figure that quietly excludes the people currently
+    * waiting longest is the flattering half of the truth.
+    */
+   awaitingArrivalCount: number;
++  /**
++   * Admissions carrying BOTH instants where the arrival is EARLIER than the pull — a record that
++   * cannot be true, since a bed cannot be given away after the person is already in it. Excluded
++   * from every figure above and counted here instead. A count: `0` is a true answer.
++   *
++   * ⚠️ **THIS IS WHY THERE IS NO `Math.max(0, …)` IN THIS MODULE, and the difference from
++   * `averageEmptyBedMinutes` (`ward-statistics.ts`) is deliberate rather than an oversight.** That
++   * function measures the same two instants and clamps a negative gap to nought. Ward Lead ruled
++   * on 2026-09-01 that the clamp is the defect: it does not make a bad number safe, it makes it
++   * invisible, converting "this record cannot be true" into "this patient waited no time at all"
++   * — which is then averaged in as a real measurement of no wait, on the screen least likely to be
++   * re-checked. `ward-statistics.ts` is a top-level file owned by another branch and is being
++   * fixed there; it must not be edited from here.
++   */
++  incoherentCount: number;
+ };
+ 
+ /**
+  * `pulledAt` -> `arrivedAt`, and ONLY those two instants.
+  *
+  * ⚠️ Takes no `now`, and must never be given one. `pulledAt` -> `now` would keep growing after the
+  * person had already arrived, overstating the figure by however long ago they got there; that exact
+  * substitution is documented as a live trap in `ward-statistics.ts` and is impossible here because
+  * the clock is not in scope.
+  *
++ * ⚠️ **A NEGATIVE GAP IS EXCLUDED AND COUNTED, NEVER CLAMPED.** See `incoherentCount` above for the
++ * ruling and for the deliberate divergence from `averageEmptyBedMinutes`. An arrival before the
++ * pull is a record that cannot be true; `Math.max(0, …)` would fold it into the average as a
++ * genuine measurement of no wait at all, which is both wrong and undetectable.
++ *
+  * Non-finite instants are skipped rather than coerced — no answer, never a substituted one.
+  */
+ export function pullToArrival(admissions: Admission[]): PullToArrival {
+   const gaps: number[] = [];
+   let endedCount = 0;
+   let awaitingArrivalCount = 0;
++  let incoherentCount = 0;
+ 
+   for (const admission of admissions) {
+     if (admissionStagePosition(admission) === "bed-given-not-arrived") awaitingArrivalCount += 1;
+ 
+     const { pulledAt, arrivedAt } = admission;
+     if (pulledAt === null || arrivedAt === null) continue;
+     if (!Number.isFinite(pulledAt) || !Number.isFinite(arrivedAt)) continue;
+ 
+-    gaps.push(arrivedAt - pulledAt);
++    const gap = arrivedAt - pulledAt;
++    if (gap < 0) {
++      incoherentCount += 1;
++      continue;
++    }
++
++    gaps.push(gap);
+     if (admissionStagePosition(admission) === "ended") endedCount += 1;
+   }
+ 
+   if (gaps.length === 0) {
+     return {
+       measuredCount: 0,
+       averageMinutes: null,
+       shortestMinutes: null,
+       longestMinutes: null,
+       endedCount: 0,
+       awaitingArrivalCount,
++      incoherentCount,
+     };
+   }
+ 
+   const total = gaps.reduce((sum, gap) => sum + gap, 0);
+   return {
+     measuredCount: gaps.length,
+     averageMinutes: total / gaps.length,
+     shortestMinutes: Math.min(...gaps),
+     longestMinutes: Math.max(...gaps),
+     endedCount,
+     awaitingArrivalCount,
++    incoherentCount,
+   };
+ }
+ 
+ /**
+  * WHETHER THE JOIN FROM AN ADMISSION BACK TO THE REFERRAL IT CAME FROM CAN CARRY A DURATION.
+  *
+  * ⚠️ **THIS IS NOT A DURATION AND MUST NEVER BECOME ONE.** It measures the join, not the wait.
+  * Nothing here subtracts a referral instant from an admission instant, and nothing may be added
+  * that does, until the pairs below are established as the same person — which they currently are
+  * not, in a way this function exists to keep visible.
+@@ -215,21 +267,37 @@ export function referralToBedJoin(admissions: Admission[], referrals: Referral[]
+ 
+   return {
+     withReferralIdCount,
+     joinedCount,
+     chronologicallyCoherentCount,
+     referralsSearchedCount: referrals.length,
+   };
+ }
+ 
+ /**
+- * How many expected beds a ward has marked as BEING MADE READY right now.
++ * How many beds a ward has marked as BEING MADE READY right now.
+  *
+  * The whole of what the record holds about bed readiness, and the reason the screen can time
+  * nothing here: `BedRelease.preparing` is a boolean. Nothing marks when preparation began and
+  * nothing marks when it ended, so there is no elapsed time to measure — not a missing timestamp on
+  * a state that exists, but no timed state at all. A count: `0` truly means no bed is being
+  * prepared.
++ *
++ * ⚠️ **A PREPARING BED IS AN ALREADY-FREE BED, NEVER AN ANTICIPATED ONE, and no caller may describe
++ * it as "expected".** `expected` is a member of `BED_RELEASE_STATES` and means the discharge has
++ * not happened yet; `FLAG_BED_RELEASE` (`ward-flow-reducer.ts:1135`) writes `preparing: false` with
++ * the reason in terms — "A bed nobody has yet left is not being made ready. Preparation only ever
++ * begins after `RELEASE_BED`" — and the seed's only `preparing: true` record carries
++ * `state: "discharged"`. Calling a preparing bed an expected one inverts a capacity fact: it tells
++ * a coordinator the bed is not yet available when it already is.
++ *
++ * ⚠️ **NO STATE FILTER HERE, and that is a choice rather than an omission.** The invariant above is
++ * held by `FLAG_BED_RELEASE` and by convention — `SET_BED_PREPARATION` (`:1295`) carries a unit
++ * guard and a note-membership check but **no state guard**, so nothing stops a future caller
++ * setting `preparing` on an `"expected"` release. Filtering to `"discharged"` here would silently
++ * drop such a record from the count and hide that defect; the same reasoning that keeps the clamp
++ * out of `pullToArrival` keeps the filter out of this. The flag is the fact, and it is counted. If
++ * the invariant needs enforcing, it is enforced in the reducer, not concealed in a statistic.
+  */
+ export function bedsBeingPrepared(bedReleases: BedRelease[]): number {
+   return bedReleases.filter((release) => release.preparing).length;
+ }
+diff --git a/src/components/ward-management/statistics/statistics-screen.tsx b/src/components/ward-management/statistics/statistics-screen.tsx
+index 40a0bcf5a..6a95b1822 100644
+--- a/src/components/ward-management/statistics/statistics-screen.tsx
++++ b/src/components/ward-management/statistics/statistics-screen.tsx
+@@ -46,22 +46,29 @@ import styles from "./statistics.module.css";
+  * prototype.
+  *
+  * ⚠️ **ONE STATISTIC THE OWNER ASKED FOR IS DELIBERATELY ABSENT: declines per ward.** It is not
+  * omitted because it does not matter — it is the headline system question — and it is not omitted
+  * because the data is missing. It is omitted because the model holds declines in two different
+  * places that mean two different things, and only one of them can name a ward:
+  * `ReferralAddressing` records a decline against a destination KIND plus its bed criteria (`sex`,
+  * `secureBedNeeded`, `involuntaryBedNeeded`) and carries no unit at all, while `Movement.declines`
+  * records `{ unitId, at, reason }` for a patient already inside a department. Choosing between
+  * them decides what the published number MEANS, and that is the product owner's decision rather
+- * than an implementer's. It is handed back rather than guessed, and nothing on this page implies
+- * either that no ward declines or that declines cannot be counted.
++ * than an implementer's. It is handed back rather than guessed.
++ *
++ * ⚠️ **AND THE PAGE SAYS SO, which this comment alone did not.** Until 2026-09-01 the refusal was
++ * argued only here and there was simply nothing on screen where the owner's first-named statistic
++ * should be. That silence was the one asymmetry a reader could not detect: `Movement.declines` is
++ * seeded non-empty, so a coordinator who knows this prototype records declines and finds no decline
++ * figure cannot tell "withheld pending a ruling" from "not recorded" from "nobody declined". The
++ * `ward-statistics-declines` block below is that sentence. Saying it invents no number, which is
++ * exactly why it is safe to say and unsafe to leave out.
+  *
+  * The three optional props exist only so a test can render populations the seed cannot produce.
+  * They fall back to live state, following `CommunityScreen`'s own shape and its reasoning: a ROUTE
+  * must never pass any of them, because a route that did would pin this screen to a fixture and
+  * quietly override the live world.
+  */
+ export function StatisticsScreen({
+   admissions,
+   referrals,
+   bedReleases,
+@@ -120,43 +127,87 @@ export function StatisticsScreen({
+               The question a policy maker, a state government or a ward coordinator asks. These figures are about the
+               network and about wards. None of them is about a person.
+             </p>
+           </header>
+ 
+           <article className={styles.figure} data-testid="ward-statistics-bed-readiness">
+             <h3 className={styles.figureHeading}>Beds being made ready</h3>
+ 
+             <p className={styles.measuredCount} data-testid="ward-statistics-preparing-count">
+               <span className={styles.measuredValue}>{preparingCount}</span>{" "}
+-              {preparingCount === 1 ? "expected bed is" : "expected beds are"} currently marked as being made ready.
++              {preparingCount === 1 ? "bed is" : "beds are"} currently marked as being made ready.
+             </p>
++            {/*
++             * ⚠️ THE WORD "EXPECTED" WAS HERE UNTIL 2026-09-01 AND IT INVERTED A CAPACITY FACT.
++             * `expected` is a member of `BED_RELEASE_STATES` meaning the discharge has not happened
++             * yet, so "N expected beds are being made ready" told a coordinator the bed was NOT yet
++             * available when it already is — preparation only ever begins after `RELEASE_BED`. The
++             * count was right and the word was wrong, which is the same defect class as a wrong
++             * number and harder to catch: a wrong count invites a second look and confident prose
++             * does not. The wording now matches `ward-screen.tsx`'s own.
++             */}
+             <p className={styles.figureNote}>
+               A measured count, whatever its value. Nought here means no bed is currently marked as being prepared — it
+-              does not mean the count is unavailable.
++              does not mean the count is unavailable. These beds are already free: a bed is only made ready after
++              somebody has left it, so this is never a count of discharges still to come.
+             </p>
+ 
+             {/*
+              * EMPTY STATE 1, and it says why mechanically rather than saying "not yet collected".
+              */}
+             <p className={styles.absence} data-testid="ward-statistics-readiness-timing-absent">
+               <strong>
+                 How long a bed takes to go from being prepared to being open cannot be measured here, and the reason is
+                 not a missing timestamp.
+               </strong>{" "}
+               Bed readiness is recorded as <code className={styles.field}>BedRelease.preparing</code>, a boolean. It
+               says whether a bed is being made ready and nothing else: nothing marks the moment preparation started and
+               nothing marks the moment it finished. There is no timed state to measure, rather than a timed state whose
+               timings were never filled in — so no amount of data entry against today&apos;s model would produce this
+               figure. Measuring it needs the record to gain instants of its own, which is a change to the bed model, not
+               to this page.
+             </p>
+           </article>
++
++          {/*
++           * ⚠️ THE STATISTIC THE OWNER NAMED FIRST, AND THE REASON IT IS NOT HERE — ON THE PAGE,
++           * because a reader of the page will never open this file.
++           *
++           * Until 2026-09-01 the argument lived only in this component's doc comment and there was
++           * simply NOTHING on screen where the figure should be. That silence is the one asymmetry
++           * a reader cannot detect: `Movement.declines` IS seeded non-empty, so a coordinator who
++           * knows this prototype records declines and sees no decline figure cannot tell
++           * "withheld pending a ruling" from "not recorded" from "nobody declined". This page's
++           * whole safety property is that an absence explains itself; it did that twice and skipped
++           * it on the item that mattered most.
++           *
++           * Saying so invents no number, which is why it is safe to say and unsafe to omit.
++           */}
++          <article className={styles.figure} data-testid="ward-statistics-declines">
++            <h3 className={styles.figureHeading}>Declines per ward</h3>
++
++            <p className={styles.absence} data-testid="ward-statistics-declines-withheld">
++              <strong>
++                This figure is withheld pending an owner ruling. It is not that no ward declines, and not that declines
++                go unrecorded — both happen, and both are in the data right now.
++              </strong>{" "}
++              The model holds declines in two places that mean different things, and only one of them can name a ward. A
++              referral decline sits on <code className={styles.field}>ReferralAddressing</code>, which records the
++              destination&apos;s KIND and its bed criteria and carries no unit at all — so a referral decline can be
++              grouped by reason, but never attributed to a named ward. A movement decline sits on{" "}
++              <code className={styles.field}>Movement.declines</code>, which does name a unit, but describes a ward
++              refusing somebody who is already inside an emergency department, drawn from a different list of reasons.
++              Publishing one of them under this heading would quietly decide what &ldquo;declines per ward&rdquo; means,
++              and that is the owner&apos;s decision rather than an implementer&apos;s. Until it is taken, this page
++              shows no decline figure at all — deliberately, and never as a nought.
++            </p>
++          </article>
+         </section>
+ 
+         {/* ── Audience 2 ─────────────────────────────────────────────────────────────────── */}
+         <section className={styles.section} data-testid="ward-statistics-patients">
+           <header className={styles.sectionHeader}>
+             <h2 className={styles.sectionHeading}>What is happening to patients</h2>
+             <p className={styles.sectionAudience} data-testid="ward-statistics-patients-audience">
+               The question a clinician asks. These figures are about time a person spent waiting, not about how a ward
+               scored.
+             </p>
+@@ -192,37 +243,61 @@ export function StatisticsScreen({
+                   <span data-testid="ward-statistics-arrival-measured-count">{arrivals.measuredCount}</span>{" "}
+                   {arrivals.measuredCount === 1 ? "admission" : "admissions"} carrying both instants.
+                 </p>
+ 
+                 {/*
+                  * The range sits beside the average deliberately. These are synthetic instants and
+                  * a seeded population can carry the same gap for everybody — in which case the
+                  * shortest and the longest are the average, and a reader can see for themselves
+                  * that there is no spread. An average shown alone would look measured.
+                  */}
++                {/* Each end carries its OWN testid rather than sitting inside one sentence: an
++                    adversarial check swapped shortest and longest and nothing failed, because the
++                    assertion looked for both strings anywhere in the paragraph. The seeded world
++                    has no spread, so the swap would not show in the app either. */}
+                 <p className={styles.figureNote} data-testid="ward-statistics-arrival-range">
+-                  Shortest {arrivals.shortestMinutes === null ? "—" : splitDuration(arrivals.shortestMinutes)}, longest{" "}
+-                  {arrivals.longestMinutes === null ? "—" : splitDuration(arrivals.longestMinutes)}. The range is shown
+-                  beside the average on purpose: where the two ends meet, every measured gap is identical, and an
+-                  average alone would read as though it had spread behind it.
++                  Shortest{" "}
++                  <span data-testid="ward-statistics-arrival-shortest">
++                    {arrivals.shortestMinutes === null ? "—" : splitDuration(arrivals.shortestMinutes)}
++                  </span>
++                  , longest{" "}
++                  <span data-testid="ward-statistics-arrival-longest">
++                    {arrivals.longestMinutes === null ? "—" : splitDuration(arrivals.longestMinutes)}
++                  </span>
++                  . The range is shown beside the average on purpose: where the two ends meet, every measured gap is
++                  identical, and an average alone would read as though it had spread behind it.
+                 </p>
+               </>
+             )}
+ 
+             <p className={styles.figureNote} data-testid="ward-statistics-arrival-population">
+               Historical, not a picture of tonight:{" "}
+               <span data-testid="ward-statistics-arrival-ended-count">{arrivals.endedCount}</span> of the measured
+               admissions have since ended, and their completed gap still counts. A further{" "}
+               <span data-testid="ward-statistics-arrival-awaiting-count">{arrivals.awaitingArrivalCount}</span>{" "}
+               {arrivals.awaitingArrivalCount === 1 ? "person has" : "people have"} a bed given away and have not
+               arrived; their gap is still running, so it is not yet a measured fact and contributes nothing above.
+             </p>
++
++            {/*
++             * The excluded-and-counted half of the chronology guard, and it must be VISIBLE or the
++             * exclusion is as invisible as the clamp it replaces. Ward Lead's ruling, 2026-09-01:
++             * a clamp "does not make a bad number safe, it makes it invisible". Rendering the count
++             * rather than silently dropping the record is what keeps that true on the page.
++             */}
++            <p className={styles.measuredCount} data-testid="ward-statistics-arrival-incoherent">
++              <span className={styles.measuredValue}>{arrivals.incoherentCount}</span>{" "}
++              {arrivals.incoherentCount === 1 ? "admission records an arrival" : "admissions record an arrival"} EARLIER
++              than the bed was given away. That cannot be true, so{" "}
++              {arrivals.incoherentCount === 1 ? "it is" : "they are"} excluded from every figure above and counted here
++              instead — never folded in as a wait of no time at all.
++            </p>
+           </article>
+ 
+           <article className={styles.figure} data-testid="ward-statistics-referral-to-bed">
+             <h3 className={styles.figureHeading}>From a referral being raised to a bed being taken</h3>
+ 
+             {/*
+              * EMPTY STATE 2, and the reason it is worded as it is rather than as "the join resolves
+              * to nothing". It does not: some ids DO match, and every matching pair is an accident.
+              * That is a worse gap than an empty join and a much easier one to fill with a plausible
+              * number, so the sentence has to name it. The counts beneath are the measurement.
+@@ -236,22 +311,28 @@ export function StatisticsScreen({
+               populated, but the admissions fixture MINTS that id from its own ward tag, while the referrals at the
+               front door were numbered separately using the same hospital abbreviations. Where the two collide, the
+               person is recorded as having arrived in the bed weeks BEFORE anyone raised the referral — so a duration
+               taken from such a pair is large and negative, and squaring it away with an absolute value or a floor of
+               nought would turn an accident into a confident average. This page therefore computes no referral-to-bed
+               duration at all. The fix is on the admission side, where the id is written, and it is a change to the
+               fixture rather than to this page.
+             </p>
+ 
+             <p className={styles.measuredCount} data-testid="ward-statistics-join-count">
+-              <span className={styles.measuredValue}>{join.chronologicallyCoherentCount}</span> of{" "}
+-              <span data-testid="ward-statistics-join-matched-count">{join.joinedCount}</span> matched{" "}
++              {/* Its own testid so a test can assert EQUALITY rather than `toContain` on the whole
++                  sentence. An adversarial check found the old containment assertion passed by luck:
++                  the substituted value was `267`, which happens to contain no "0" — `260`, `100` or
++                  `30` would all have slipped through. */}
++              <span className={styles.measuredValue} data-testid="ward-statistics-join-coherent-count">
++                {join.chronologicallyCoherentCount}
++              </span>{" "}
++              of <span data-testid="ward-statistics-join-matched-count">{join.joinedCount}</span> matched{" "}
+               {join.joinedCount === 1 ? "pair" : "pairs"} could carry a duration at all — that is, the person arrived no
+               earlier than the referral was raised.
+             </p>
+             <p className={styles.measuredCount} data-testid="ward-statistics-join-population">
+               Matched from <span data-testid="ward-statistics-join-with-id-count">{join.withReferralIdCount}</span>{" "}
+               {join.withReferralIdCount === 1 ? "admission" : "admissions"} carrying a referral id, against{" "}
+               <span data-testid="ward-statistics-join-referrals-searched">{join.referralsSearchedCount}</span>{" "}
+               {join.referralsSearchedCount === 1 ? "referral" : "referrals"} on record.
+             </p>
+             <p className={styles.figureNote}>
+diff --git a/src/components/ward-management/statistics/statistics.module.css b/src/components/ward-management/statistics/statistics.module.css
+index 7dcc963b3..48a4b8e50 100644
+--- a/src/components/ward-management/statistics/statistics.module.css
++++ b/src/components/ward-management/statistics/statistics.module.css
+@@ -241,10 +241,32 @@
+ 
+ /* A field name from the model, quoted so a reader can go and look at the record the sentence is
+    about rather than taking the page's word for it. */
+ .field {
+   border-radius: var(--radius-xs);
+   background: var(--surface-inset);
+   padding: 0 var(--st-space-4);
+   font-family: var(--font-mono, monospace);
+   font-size: var(--text-3xs);
+ }
++
++/*
++ * The phone reserve, and it is the most consequential rule in this file.
++ *
++ * `ClinicalRail`'s phone bar is `position: fixed; top: 0; height: var(--spacing-ward-phone-bar)`
++ * (`ward-sidebar.module.css`), and that file states the contract in terms: "each shell reserves the
++ * `--spacing-ward-phone-bar` in its own phone media query." This module had NO media query at all
++ * until 2026-09-01, so below 40rem the top 3.5rem of the page sat underneath the fixed bar — and
++ * the top of this page is `.governanceBanner`, i.e. the sentence "These are not real figures."
++ *
++ * ⚠️ **The one disclaimer that must never be covered was the first thing hidden.** jsdom, `tsc` and
++ * eslint are all blind to it, so nothing in the suite could have caught it.
++ *
++ * The value is taken from the 17 of 18 ward modules that already reserve it rather than measured
++ * afresh here — a second figure for one fact is how the two drift apart the day the bar changes
++ * height.
++ */
++@media (max-width: 40rem) {
++  .screen {
++    padding-top: var(--spacing-ward-phone-bar);
++  }
++}
+diff --git a/tests/ward-statistics-derivations.test.ts b/tests/ward-statistics-derivations.test.ts
+index ab7ef1241..f574da3aa 100644
+--- a/tests/ward-statistics-derivations.test.ts
++++ b/tests/ward-statistics-derivations.test.ts
+@@ -102,20 +102,41 @@ describe("admissionStagePosition — the one place an AdmissionState VALUE is re
+   it("maps the departed state to 'ended' and nothing else", () => {
+     expect(admissionStagePosition(admission({ state: "left" }))).toBe("ended");
+     expect(admissionStagePosition(admission({ state: "occupied" }))).not.toBe("ended");
+   });
+ 
+   it("gives each state its own position, so no two states are ever counted as the same thing", () => {
+     const positions = ADMISSION_STATES.map((state) => admissionStagePosition(admission({ state })));
+     expect(positions.length).toBe(4);
+     expect(new Set(positions).size).toBe(4);
+   });
++
++  /**
++   * ⚠️ **THE GUARD FOR A HALF-LANDED RENAME, AND IT IS LIVE RATHER THAN HYPOTHETICAL.** Another
++   * session is renaming `"left"` to `"departed"` now. An adversarial check applied exactly that —
++   * rename the union member and the seed, leave the stale `case "left"` in place — and all 32
++   * tests passed, because the member-driven check above then compared `undefined` against
++   * `EXPECTED["departed"]`, which is also `undefined`.
++   *
++   * `tsc` sees that. **Vitest does not run `tsc`,** and the suite is what people run. So this test
++   * reaches the `default:` arm with a value the union does not hold and asserts it THROWS rather
++   * than returning `undefined` — the failure mode that made the survivor possible. The cast is the
++   * point of the test: it simulates the runtime a stale `switch` would actually meet.
++   */
++  it("throws rather than returning undefined for a state it does not handle", () => {
++    const renamed = { ...admission({}), state: "departed" as unknown as AdmissionState };
++
++    expect(() => admissionStagePosition(renamed)).toThrow(/no stage position for admission state/);
++    // And the message names the offending value, so the failure says WHICH member was missed
++    // rather than only that one was.
++    expect(() => admissionStagePosition(renamed)).toThrow(/departed/);
++  });
+ });
+ 
+ describe("pullToArrival", () => {
+   it("averages the two instants on the record, and nothing else", () => {
+     // 400 - 100 = 300, and 160 - 100 = 60. Mean of 300 and 60 is 180. Every number here is typed
+     // out; nothing is recomputed from the implementation.
+     const result = pullToArrival([
+       admission({ id: "AD-A", pulledAt: 100, arrivedAt: 400 }),
+       admission({ id: "AD-B", pulledAt: 100, arrivedAt: 160 }),
+     ]);
+@@ -161,20 +182,71 @@ describe("pullToArrival", () => {
+       admission({ id: "AD-B", state: "occupied", pulledAt: 0, arrivedAt: 400 }),
+     ]);
+ 
+     // 200 and 400 -> 300. The departed admission is IN the average; excluding it would shrink the
+     // ward's own history every time somebody left.
+     expect(result.measuredCount).toBe(2);
+     expect(result.averageMinutes).toBe(300);
+     expect(result.endedCount).toBe(1);
+   });
+ 
++  /**
++   * ⚠️ **THE CHRONOLOGY GUARD, AND THE RULE IT DIVERGES FROM ON PURPOSE.**
++   * `averageEmptyBedMinutes` (`ward-statistics.ts`) measures these same two instants and clamps a
++   * negative gap with `Math.max(0, …)`. Ward Lead ruled on 2026-09-01 that the clamp is the defect
++   * — it converts "this record cannot be true" into "this patient waited no time at all", and then
++   * averages that in as a real measurement. These two tests are what pin the difference: a clamped
++   * implementation would put a 0 into the average and report no incoherence, and both assertions
++   * below would go red.
++   */
++  it("excludes a negative gap from the average instead of clamping it to nought", () => {
++    const result = pullToArrival([
++      admission({ id: "AD-A", pulledAt: 0, arrivedAt: 240 }),
++      // Arrived four hours BEFORE the bed was given away. A clamp would make this a 0 and pull the
++      // average down to 120; excluding it leaves the one real measurement standing alone.
++      admission({ id: "AD-B", pulledAt: 500, arrivedAt: 260 }),
++    ]);
++
++    expect(result.measuredCount).toBe(1);
++    expect(result.averageMinutes).toBe(240);
++    expect(result.incoherentCount).toBe(1);
++    // And it must not creep into the extremes either.
++    expect(result.shortestMinutes).toBe(240);
++    expect(result.longestMinutes).toBe(240);
++  });
++
++  it("reports a real nought incoherent count when every record is coherent", () => {
++    const result = pullToArrival([admission({ id: "AD-A", pulledAt: 0, arrivedAt: 240 })]);
++
++    expect(result.incoherentCount).toBe(0);
++  });
++
++  it("counts an incoherent record even when it is the only one, leaving nothing to average", () => {
++    const result = pullToArrival([admission({ id: "AD-A", pulledAt: 500, arrivedAt: 260 })]);
++
++    // The two halves must not be confused: there is nothing to average (null, never nought) AND
++    // there is one record that cannot be true (a genuine count of one).
++    expect(result.averageMinutes).toBeNull();
++    expect(result.measuredCount).toBe(0);
++    expect(result.incoherentCount).toBe(1);
++  });
++
++  it("treats an exactly-simultaneous pull and arrival as coherent, not incoherent", () => {
++    // Zero is a real gap, not a negative one. The boundary is `< 0`, and a `<= 0` guard here would
++    // start discarding true records.
++    const result = pullToArrival([admission({ id: "AD-A", pulledAt: 300, arrivedAt: 300 })]);
++
++    expect(result.measuredCount).toBe(1);
++    expect(result.averageMinutes).toBe(0);
++    expect(result.incoherentCount).toBe(0);
++  });
++
+   it("skips a non-finite instant rather than coercing it to a number", () => {
+     const result = pullToArrival([
+       admission({ id: "AD-A", pulledAt: Number.NaN, arrivedAt: 400 }),
+       admission({ id: "AD-B", pulledAt: 100, arrivedAt: 220 }),
+     ]);
+ 
+     expect(result.measuredCount).toBe(1);
+     expect(result.averageMinutes).toBe(120);
+   });
+ 
+@@ -188,20 +260,25 @@ describe("pullToArrival", () => {
+     expect(result.measuredCount).toBeGreaterThan(0);
+ 
+     // 300 is read straight out of `ward-admissions-seed.ts` — `PULL_TO_ARRIVAL_MINUTES = 5 * 60`,
+     // applied to every seeded arrival — not observed from this function's own output. That the
+     // range collapses onto the average is the fixture telling the truth about itself: these are
+     // authored instants with no spread, which is exactly why the screen renders the range beside
+     // the average rather than the average alone.
+     expect(result.averageMinutes).toBe(300);
+     expect(result.shortestMinutes).toBe(300);
+     expect(result.longestMinutes).toBe(300);
++
++    // No seeded record is chronologically impossible, so the guard removes nothing from the figure
++    // above. Pinned so that a seed which later DID carry one could not shrink the average without
++    // this going red first.
++    expect(result.incoherentCount).toBe(0);
+   });
+ });
+ 
+ describe("referralToBedJoin", () => {
+   /** A referral built by hand so the only fields these tests depend on — `id` and `raisedAt` — are
+    *  literals typed out here rather than fixture values that could move underneath the assertion. */
+   function referral(id: string, raisedAt: number): Referral {
+     const [seeded] = seedWardFlowState().referrals;
+     // Structural rather than hand-built: a field added to `Referral` must not silently give this
+     // helper a stale shape, and only `id` and `raisedAt` are ever read by the function under test.
+diff --git a/tests/ward-statistics.dom.test.tsx b/tests/ward-statistics.dom.test.tsx
+index 7429d7831..a9ce0aae3 100644
+--- a/tests/ward-statistics.dom.test.tsx
++++ b/tests/ward-statistics.dom.test.tsx
+@@ -104,56 +104,119 @@ describe("the statistics screen — two audiences, kept apart", () => {
+     const system = screen.getByTestId("ward-statistics-system");
+     const patients = screen.getByTestId("ward-statistics-patients");
+ 
+     expect(within(system).getByRole("heading", { name: "How the system is performing" })).toBeTruthy();
+     expect(within(patients).getByRole("heading", { name: "What is happening to patients" })).toBeTruthy();
+ 
+     expect(screen.getByTestId("ward-statistics-system-audience").textContent).toContain("policy maker");
+     expect(screen.getByTestId("ward-statistics-patients-audience").textContent).toContain("clinician");
+   });
+ 
+-  it("keeps a patient figure out of the system section, so the two are not one list", () => {
++  /**
++   * ⚠️ **EVERY FIGURE IS PLACEMENT-ASSERTED, not just two of them.** An adversarial check moved
++   * `ward-statistics-referral-to-bed` wholesale into the system section and nothing failed, because
++   * only pull-to-arrival and bed-readiness carried placement assertions. Two-audience separation is
++   * the brief's own falsifier, so a figure with no placement assertion is a hole in the falsifier.
++   * The table below is exhaustive over the four figures on the page and the loop asserts BOTH
++   * directions for each — present in its own section, absent from the other.
++   */
++  it("puts every figure in its own audience's section, and in no other", () => {
+     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
+ 
+-    const system = screen.getByTestId("ward-statistics-system");
+-    const patients = screen.getByTestId("ward-statistics-patients");
+-
+-    // Pull-to-arrival is a patient question and bed readiness is a system one. Four equivalent
+-    // tiles in a row would put both in one container and this pair of assertions would fail.
+-    expect(within(patients).queryByTestId("ward-statistics-pull-to-arrival")).not.toBeNull();
+-    expect(within(system).queryByTestId("ward-statistics-pull-to-arrival")).toBeNull();
+-    expect(within(system).queryByTestId("ward-statistics-bed-readiness")).not.toBeNull();
+-    expect(within(patients).queryByTestId("ward-statistics-bed-readiness")).toBeNull();
++    const PLACEMENT: { figure: string; belongsIn: string; notIn: string }[] = [
++      { figure: "ward-statistics-bed-readiness", belongsIn: "system", notIn: "patients" },
++      { figure: "ward-statistics-declines", belongsIn: "system", notIn: "patients" },
++      { figure: "ward-statistics-pull-to-arrival", belongsIn: "patients", notIn: "system" },
++      { figure: "ward-statistics-referral-to-bed", belongsIn: "patients", notIn: "system" },
++    ];
++
++    // The vacuity guard: a table that had shrunk to nothing would make the loop assert nothing at
++    // all, which is exactly how the referral-to-bed hole came to exist in the first place.
++    expect(PLACEMENT.length).toBe(4);
++
++    for (const { figure, belongsIn, notIn } of PLACEMENT) {
++      const home = screen.getByTestId(`ward-statistics-${belongsIn}`);
++      const other = screen.getByTestId(`ward-statistics-${notIn}`);
++      expect(within(home).queryByTestId(figure)).not.toBeNull();
++      expect(within(other).queryByTestId(figure)).toBeNull();
++    }
+   });
+ 
+   it("says it is the coordinator's view and that nothing enforces it", () => {
+     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
+ 
+     const access = screen.getByTestId("ward-statistics-access").textContent ?? "";
+     expect(access).toContain("coordinator");
+     // The half that makes the claim safe rather than false.
+     expect(access).toContain("nothing in this prototype enforces that");
+     expect(access).toContain("no role check");
+   });
++
++  /**
++   * The banner nothing asserted until 2026-09-01, and the sentence that must survive every layout
++   * change: below 40rem it was sitting under the rail's fixed phone bar. jsdom cannot see that —
++   * the CSS reserve is the fix and it is untestable here — but the banner's PRESENCE and its words
++   * are testable, so at least a deletion or a rewording cannot pass silently.
++   */
++  it("says on itself that the figures are not real", () => {
++    renderScreen({ admissions: [], referrals: [], bedReleases: [] });
++
++    const banner = screen.getByTestId("ward-statistics-governance").textContent ?? "";
++    expect(banner).toContain("not real figures");
++    expect(banner).toContain("Synthetic prototype");
++  });
++});
++
++describe("the withheld statistic says so on the page", () => {
++  /**
++   * ⚠️ **THE ASYMMETRY THIS TEST EXISTS TO CLOSE.** `Movement.declines` is seeded non-empty, so a
++   * coordinator who knows this prototype records declines and finds no decline figure cannot tell
++   * "withheld pending a ruling" from "not recorded" from "nobody declined". A JSDoc block does not
++   * reach that reader. The block must be on the page, in the SYSTEM section (it is a system
++   * question), and it must name both records so the ruling is legible.
++   */
++  it("renders a withheld-declines block in the system section, naming both records", () => {
++    renderScreen({ admissions: [], referrals: [], bedReleases: [] });
++
++    const system = screen.getByTestId("ward-statistics-system");
++    expect(within(system).queryByTestId("ward-statistics-declines")).not.toBeNull();
++
++    const text = screen.getByTestId("ward-statistics-declines-withheld").textContent ?? "";
++    expect(text).toContain("withheld pending an owner ruling");
++    // Both records named, because the ruling is a choice between them.
++    expect(text).toContain("ReferralAddressing");
++    expect(text).toContain("Movement.declines");
++    // And the two readings it must explicitly rule out.
++    expect(text).toContain("not that no ward declines");
++    expect(text).toContain("not that declines go unrecorded");
++  });
+ });
+ 
+ describe("a count of nought is an answer, and never looks like a missing one", () => {
+   it("renders nought beds being prepared as a numeral, in the count element", () => {
+     renderScreen({
+       admissions: [],
+       referrals: [],
+       bedReleases: [bedRelease({ id: "BR-A", preparing: false })],
+     });
+ 
+     const count = screen.getByTestId("ward-statistics-preparing-count");
+     expect(count.textContent).toContain("0");
+-    expect(count.textContent).toContain("expected beds are");
++    expect(count.textContent).toContain("beds are currently marked as being made ready");
++    /*
++     * ⚠️ AND IT MUST NOT SAY "EXPECTED". `expected` is a member of `BED_RELEASE_STATES` meaning the
++     * discharge has NOT yet happened, so "0 expected beds are being made ready" told a coordinator
++     * the bed was not yet available when it already is — preparation only ever begins after
++     * `RELEASE_BED`. The count was right and the word inverted the capacity fact, which is why this
++     * assertion is about a word rather than a number.
++     */
++    expect(count.textContent).not.toContain("expected");
+     // The distinction made in the markup rather than only in the words: the measured count is its
+     // own element and is NOT the element that says a figure cannot be measured.
+     const absence = screen.getByTestId("ward-statistics-readiness-timing-absent");
+     expect(count).not.toBe(absence);
+     expect(absence.contains(count)).toBe(false);
+   });
+ 
+   it("renders a non-nought count in the same element, so nought is not a special rendering", () => {
+     renderScreen({
+       admissions: [],
+@@ -166,23 +229,31 @@ describe("a count of nought is an answer, and never looks like a missing one", (
+   });
+ 
+   it("never puts a numeral inside an unmeasurable-figure statement", () => {
+     renderScreen({
+       admissions: [],
+       referrals: [],
+       bedReleases: [bedRelease({ id: "BR-A", preparing: false })],
+     });
+ 
+     // If a "cannot be measured" paragraph ever renders a figure, a reader has no way left to tell
+-    // an absence from a nought. Both absence statements are checked, and both must be non-empty
+-    // so this cannot pass against a page that renders neither.
+-    for (const testId of ["ward-statistics-readiness-timing-absent", "ward-statistics-referral-join-absent"]) {
++    // an absence from a nought. All THREE absence statements are checked — including the withheld
++    // declines block, whose whole safety is that saying it publishes no figure — and each must be
++    // non-empty so this cannot pass against a page that renders none of them.
++    const absences = [
++      "ward-statistics-readiness-timing-absent",
++      "ward-statistics-referral-join-absent",
++      "ward-statistics-declines-withheld",
++    ];
++    expect(absences.length).toBe(3);
++
++    for (const testId of absences) {
+       const text = screen.getByTestId(testId).textContent ?? "";
+       expect(text.length).toBeGreaterThan(0);
+       expect(text).not.toMatch(/[0-9]/);
+     }
+   });
+ });
+ 
+ describe("pull to arrival — a real figure, computed from the record", () => {
+   it("renders the average of the two instants on the record", () => {
+     renderScreen({
+@@ -192,23 +263,51 @@ describe("pull to arrival — a real figure, computed from the record", () => {
+         admission({ id: "AD-A", pulledAt: 0, arrivedAt: 120 }),
+         admission({ id: "AD-B", pulledAt: 0, arrivedAt: 360 }),
+       ],
+       referrals: [],
+       bedReleases: [],
+     });
+ 
+     expect(screen.getByTestId("ward-statistics-arrival-average").textContent).toBe("4h 00m");
+     expect(screen.getByTestId("ward-statistics-arrival-measured-count").textContent).toBe("2");
+ 
+-    const range = screen.getByTestId("ward-statistics-arrival-range").textContent ?? "";
+-    expect(range).toContain("2h 00m");
+-    expect(range).toContain("6h 00m");
++    // Asserted per END, not as two substrings anywhere in the sentence. An adversarial check
++    // swapped shortest and longest and the old `toContain` pair passed both ways — and the seeded
++    // world has no spread, so the swap would not have shown in the app either.
++    expect(screen.getByTestId("ward-statistics-arrival-shortest").textContent).toBe("2h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-longest").textContent).toBe("6h 00m");
++  });
++
++  /**
++   * ⚠️ **THE EXCLUSION MUST BE VISIBLE OR IT IS NO BETTER THAN THE CLAMP IT REPLACES.** Ward Lead's
++   * ruling: a clamp "does not make a bad number safe, it makes it invisible". Silently dropping an
++   * incoherent record would be the same failure one step along — so the page counts it, and this
++   * test proves the count reaches the screen rather than only the derivation.
++   */
++  it("excludes an impossible record from the average and shows it as excluded", () => {
++    renderScreen({
++      admissions: [
++        admission({ id: "AD-A", pulledAt: 0, arrivedAt: 240 }),
++        // Arrived four hours before the bed was given away. A clamp would fold this in as a zero
++        // and drag the average to 2h 00m.
++        admission({ id: "AD-B", pulledAt: 500, arrivedAt: 260 }),
++      ],
++      referrals: [],
++      bedReleases: [],
++    });
++
++    expect(screen.getByTestId("ward-statistics-arrival-average").textContent).toBe("4h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-measured-count").textContent).toBe("1");
++
++    const incoherent = screen.getByTestId("ward-statistics-arrival-incoherent").textContent ?? "";
++    expect(incoherent).toContain("1");
++    expect(incoherent).toContain("EARLIER");
+   });
+ 
+   it("says there is nothing to average rather than showing nought minutes", () => {
+     renderScreen({
+       admissions: [admission({ id: "AD-A", state: "pulled", pulledAt: 30, arrivedAt: null })],
+       referrals: [],
+       bedReleases: [],
+     });
+ 
+     // An average of nothing is absent. A rendered "0m" here would claim everybody arrived the
+@@ -283,43 +382,61 @@ describe("the two empty states say WHY, mechanically", () => {
+     renderScreen({
+       admissions: [
+         admission({ id: "AD-A", referralId: "RF-GER1-01", arrivedAt: 900 }),
+         admission({ id: "AD-B", referralId: "RF-GER1-02", arrivedAt: 900 }),
+       ],
+       // No referral carries either id, so nothing matches and nothing can be measured.
+       referrals: [],
+       bedReleases: [],
+     });
+ 
+-    // Both numerals rendered, both true, and the nought is a measurement rather than a dash. If
+-    // somebody later makes the ids describe the same people these figures move and the paragraph
+-    // above them has to be rewritten, which is the whole reason they are on the page.
+-    expect(screen.getByTestId("ward-statistics-join-count").textContent).toContain("0");
++    // Equality on the figure's OWN element, never `toContain` on the sentence. An adversarial
++    // check found the old containment assertion passed by luck: the substituted value was `267`,
++    // which happens to contain no "0" — `260`, `100` or `30` would all have slipped through.
++    expect(screen.getByTestId("ward-statistics-join-coherent-count").textContent).toBe("0");
+     expect(screen.getByTestId("ward-statistics-join-matched-count").textContent).toBe("0");
+     expect(screen.getByTestId("ward-statistics-join-with-id-count").textContent).toBe("2");
+     expect(screen.getByTestId("ward-statistics-join-referrals-searched").textContent).toBe("0");
++
++    // The population sentence is a separate element and was asserted by nothing; a deletion of it
++    // would have left the coherent count with no denominator on the page and no test failing.
++    const population = screen.getByTestId("ward-statistics-join-population").textContent ?? "";
++    expect(population).toContain("2");
++    expect(population).toContain("carrying a referral id");
+   });
+ });
+ 
+ describe("the live world", () => {
+   it("renders against provider state with no overrides at all", () => {
+     // The route passes nothing, so this is the only rendering a user ever sees. A screen that only
+     // worked against hand-built fixtures would pass every test above and be blank in the app.
+     render(
+       <WardFlowProvider initialNow={NOW_ANCHOR}>
+         <StatisticsScreen />
+       </WardFlowProvider>,
+     );
+ 
+     expect(screen.getByTestId("ward-statistics-screen")).toBeTruthy();
+     // The seeded world has measurable arrivals, so the average branch — not the empty one — renders.
+     expect(screen.queryByTestId("ward-statistics-arrival-nothing-to-average")).toBeNull();
+     expect(screen.getByTestId("ward-statistics-arrival-average").textContent).toBe("5h 00m");
+ 
++    /*
++     * ⚠️ THE LIVE-WORLD ENDED COUNT, pinned to a non-zero literal, and it is the guard for the
++     * in-flight `"left"` -> `"departed"` rename. Every other test of this figure uses a hand-built
++     * two-record fixture whose `state: "left"` literal still hits a stale `case "left"`, so a
++     * half-landed rename left them all green while the page silently rendered "0 of the measured
++     * admissions have since ended" — inverting the caveat that stops a historical figure being
++     * read as tonight's ward. Only a seed-driven assertion sees that.
++     */
++    const endedCount = screen.getByTestId("ward-statistics-arrival-ended-count").textContent ?? "";
++    expect(Number(endedCount)).toBeGreaterThan(0);
++    expect(endedCount).toBe("5");
++
+     // The seeded world DOES match nine referral ids — and not one of the nine could carry a
+     // duration. Both halves are asserted, because asserting only the nought would pass just as
+     // well against a page that had found no matches at all, which is a different world and a
+     // different (easier) problem than the one the empty state describes.
+     expect(screen.getByTestId("ward-statistics-join-matched-count").textContent).toBe("9");
+-    expect(screen.getByTestId("ward-statistics-join-count").textContent).toContain("0");
++    expect(screen.getByTestId("ward-statistics-join-coherent-count").textContent).toBe("0");
+   });
+ });
