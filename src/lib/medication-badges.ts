@@ -94,6 +94,39 @@ export function sortBadgesByPriority(badges: MedicationBadge[]): MedicationBadge
   return [...badges].sort((a, b) => SEMANTIC_TONE_PRIORITY[b.tone] - SEMANTIC_TONE_PRIORITY[a.tone]);
 }
 
+/**
+ * The first strength in the text that is genuinely a strength PER DOSE UNIT.
+ *
+ * `(\d+)\s*mg` was none of the three things it needed to be. It dropped the
+ * decimal point, so varenicline "Tablets (0.5 mg, 1 mg)" badged as "5 mg" — a
+ * tenfold error on the record's most glanceable line, and the same shape as the
+ * "1.5 mg" bug `firstClinicalSentence` (medications.ts) was already fixed for.
+ * It also read two token shapes that are not unit strengths at all:
+ *
+ *   - a concentration ("5 mg/mL", "80 mg/2 mL") is per volume, so the number is
+ *     a strength only once a volume is chosen;
+ *   - a combination product ("2/0.5 mg", "500/125 mg") states two actives, and
+ *     neither number alone is the product's strength.
+ *
+ * Both are skipped rather than repaired. `sawStrength` reports that some strength
+ * token existed, so the caller can emit NO badge instead of a wrong one; the
+ * verbatim formulation text is still on the record below. Deliberately not a
+ * first-number fallback — see the generator comment in
+ * `scripts/build-medication-interaction-index.ts` for why bare first-token
+ * heuristics misfire on this corpus.
+ */
+function firstUnitStrengthMg(text: string): { mg: string | null; sawStrength: boolean } {
+  let sawStrength = false;
+  for (const match of text.matchAll(/(\d+(?:\.\d+)?)\s*mg\b/gi)) {
+    sawStrength = true;
+    const start = match.index ?? 0;
+    if (/\d\s*\/\s*$/.test(text.slice(0, start))) continue;
+    if (/^\s*\//.test(text.slice(start + match[0].length))) continue;
+    return { mg: match[1], sawStrength };
+  }
+  return { mg: null, sawStrength };
+}
+
 function formulationShortLabel(value: string): string | null {
   const cleaned = value
     .replace(/\*\*/g, "")
@@ -101,9 +134,8 @@ function formulationShortLabel(value: string): string | null {
     .trim();
   if (!cleaned) return null;
 
-  const mgMatch = cleaned.match(/(\d+)\s*mg/i);
-  if (mgMatch) {
-    const mg = mgMatch[1];
+  const { mg, sawStrength } = firstUnitStrengthMg(cleaned);
+  if (mg) {
     const isEc = /enteric/i.test(cleaned);
     const isTab = /tablet/i.test(cleaned);
     if (isEc && isTab) return `${mg} mg EC tablet`;
@@ -111,6 +143,9 @@ function formulationShortLabel(value: string): string | null {
     if (isEc) return `${mg} mg EC`;
     return `${mg} mg`;
   }
+  // A strength was stated but none of it is a per-unit strength. Say nothing
+  // rather than badge a concentration or half a combination as a tablet.
+  if (sawStrength) return null;
 
   const firstSentence = cleaned.split(".")[0]?.trim() ?? "";
   if (!firstSentence) return null;
