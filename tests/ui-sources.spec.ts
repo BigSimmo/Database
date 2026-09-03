@@ -67,6 +67,12 @@ test("@critical Sources catalogue filters and opens traceability", async ({ page
   await page.getByTestId("sources-filter-trigger-desktop").click();
   const sheet = page.getByTestId("sources-filter-sheet");
   await expect(sheet).toBeVisible();
+  // Sources hands the sheet four facet groups, which is past the density
+  // threshold in docs/filter-contract.md section 5, so every group without a
+  // selection starts collapsed. The band options exist only once it is opened.
+  const bandGroup = sheet.getByRole("button", { name: "Quality band", exact: true });
+  await bandGroup.click();
+  await expect(bandGroup).toHaveAttribute("aria-expanded", "true");
   await sheet.getByRole("button", { name: /D · Review required/ }).click();
   await expect(page).toHaveURL(/band=D/);
 
