@@ -84,7 +84,7 @@ export async function SourcesTopicsPage(): Promise<ReactNode> {
             >
               <Link
                 className="flex min-h-12 items-center justify-between gap-4 font-semibold text-[color:var(--primary)]"
-                href={`/sources?topic=${encodeURIComponent(topic.value)}`}
+                href={`/sources/search?topic=${encodeURIComponent(topic.value)}`}
               >
                 <span>{titleCase(topic.value)}</span>
                 <span className="text-sm text-[color:var(--text-muted)]">{topic.count}</span>
@@ -157,7 +157,7 @@ export async function SourcesPublishersPage(): Promise<ReactNode> {
                       </p>
                       <Link
                         className="mt-3 inline-flex min-h-12 items-center font-semibold text-[color:var(--primary)] underline-offset-4 hover:underline"
-                        href={`/sources?publisher=${encodeURIComponent(publisher.value)}&jurisdiction=${group.scope}`}
+                        href={`/sources/search?publisher=${encodeURIComponent(publisher.value)}&jurisdiction=${group.scope}`}
                       >
                         View {publisher.value} sources
                       </Link>

@@ -148,6 +148,90 @@ export function consolidatedModeHomeTargetForSearchParams(
 }
 
 /**
+ * Standalone mode homes that keep their results on a separate `<mode>/search`
+ * route.
+ *
+ * These are NOT consolidated: their bare path renders a real home of its own, so
+ * an unsubmitted visit must stay there rather than forward to `/?mode=<id>`. Only
+ * a *submitted* link forwards, because the home has no results to show it.
+ *
+ * `/sources` is the case this exists for. Its bare path served both the home and
+ * the catalogue, so `/sources?q=…&run=1` is a documented, externally linked URL
+ * (`docs/site-map.md`) that has to keep resolving to the catalogue now that the
+ * home has taken the bare path over.
+ */
+const standaloneModeSearchPaths = {
+  "/sources": "/sources/search",
+} as const satisfies Record<string, string>;
+
+const standaloneModeSearchPathsByMode = {
+  sources: "/sources/search",
+} as const satisfies Partial<Record<AppModeId, string>>;
+
+/**
+ * The results path for a standalone mode home that keeps one, or null.
+ *
+ * `app-modes.ts` reads this so `appModeHomeHref` resolves a submitted query to
+ * the same place the proxy forwards it. Deriving both from this module is what
+ * stops an href and its redirect disagreeing.
+ */
+export function standaloneModeSearchPath(modeId: AppModeId): string | null {
+  return Object.hasOwn(standaloneModeSearchPathsByMode, modeId)
+    ? standaloneModeSearchPathsByMode[modeId as keyof typeof standaloneModeSearchPathsByMode]
+    : null;
+}
+
+/**
+ * Where a submitted link to a standalone mode home forwards, or null when the
+ * request is unsubmitted and the home should render.
+ *
+ * `query` counts alongside `q` for the same reason as the consolidated paths: a
+ * legacy `?query=` deep link must read as submitted rather than landing on the
+ * home with its query silently dropped.
+ *
+ * A recognized catalogue filter key forwards on its own, without needing
+ * `run=1`. `run=1` exists to distinguish a still-being-typed `q` from a
+ * submitted one — a distinction that only makes sense for free text entered
+ * into a composer. `/sources?topic=governance` or `?usedBy=dictionary` were
+ * shareable catalogue links before the home/catalogue split (`#ZBAC9D`'s
+ * sibling review finding); there is no "draft" state for a filter chip, so
+ * requiring `run=1` for them only ever silently drops the filter on the home.
+ */
+const sourcesCatalogueFilterKeys = [
+  "band",
+  "jurisdiction",
+  "type",
+  "publisher",
+  "topic",
+  "lifecycle",
+  "status",
+  "validation",
+  "usedBy",
+  "sort",
+] as const;
+
+export function standaloneModeSubmittedSearchTarget(pathname: string, search: URLSearchParams): string | null {
+  if (!Object.hasOwn(standaloneModeSearchPaths, pathname)) return null;
+  const target = standaloneModeSearchPaths[pathname as keyof typeof standaloneModeSearchPaths];
+
+  const params = new URLSearchParams(search);
+  const query = (params.get("q")?.trim() || params.get("query")?.trim()) ?? "";
+  const submittedQuery = query.length > 0 && params.get("run") === "1";
+  const hasCatalogueFilter = sourcesCatalogueFilterKeys.some((key) => params.has(key));
+  if (!submittedQuery && !hasCatalogueFilter) return null;
+
+  return `${target}?${params.toString()}`;
+}
+
+/** The same decision as `standaloneModeSubmittedSearchTarget`, for a page's own `searchParams`. */
+export function standaloneModeSubmittedSearchTargetForSearchParams(
+  pathname: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string | null {
+  return standaloneModeSubmittedSearchTarget(pathname, urlSearchParamsFromRecord(searchParams));
+}
+
+/**
  * `<mode>/search` routes that have no browse view of their own.
  *
  * `/differentials/search`: its idle body was the retired tile home, so an
