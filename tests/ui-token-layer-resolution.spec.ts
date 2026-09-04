@@ -4,15 +4,18 @@ import { join } from "node:path";
 import { expect, test, type Browser } from "playwright/test";
 
 /**
- * Pins what every divergent token role RESOLVES TO, so a token-layer collapse can be
- * proved to change nothing.
+ * Pins what every doubly-declared token role RESOLVES TO, so a token-layer collapse can
+ * be proved to change nothing.
  *
  * Why this exists alongside the pixel baseline. `globals.css` and `ckb-v2-tokens.css`
- * both declare 54 role/mode combinations with different values; `.ckb-v2.ckb-v2` (0,2,0)
- * beats `:root` (0,1,0) on the same `<html>`, so the v2 value paints and the globals.css
- * one is dead. Collapsing the layers must keep every resolved value byte-identical.
+ * both declare ~220 role/mode combinations; `.ckb-v2.ckb-v2` (0,2,0) beats `:root`
+ * (0,1,0) on the same `<html>`, so the v2 value paints and the globals.css one is dead.
+ * Only ~54 of those pairs currently hold DIFFERENT values — the rest are dead too, they
+ * merely agree today, which is worse rather than better: editing one changes nothing and
+ * nothing says so. Collapsing the layers must keep every resolved value byte-identical,
+ * so this pin covers the whole overlap and not just the disagreeing part of it.
  *
- * A screenshot cannot discharge that. About ten of these roles never appear on the six
+ * A screenshot cannot discharge that. Many of these roles never appear on the six
  * baseline screens — `--e3`/`--e4` live on Ward Management, Dictionary and Tools,
  * `--overlay-backdrop` needs an open sheet, and `--clinical-chat-document` has no
  * consumer anywhere in `src/**`, so no picture of any screen can catch a mistake in it.
@@ -35,7 +38,6 @@ import { expect, test, type Browser } from "playwright/test";
 // `import.meta` is a syntax error at collection time and the file silently stops being a test.
 // This matches the idiom in `tests/ui-style-contract.spec.ts`.
 const PIN_PATH = join(process.cwd(), "docs", "design-system", "token-resolved-values.json");
-const DIVERGENCES_PATH = join(process.cwd(), "docs", "design-system", "token-layer-divergences.json");
 const UPDATE = process.env.UPDATE_TOKEN_RESOLUTION_PIN === "1";
 
 /**
@@ -67,19 +69,45 @@ function readPin(): Pin | null {
   }
 }
 
+type LayerPair = { compat: Map<string, string>; v2: Map<string, string> };
+
 /**
- * Roles come from the committed pin once it exists, NOT from the divergence report.
- * The report is derived from the two layers still disagreeing, so the collapse empties
- * it by construction — sourcing the list from it would silently shrink this proof to
- * nothing at the exact moment it matters. The divergence report seeds the very first
- * capture and is never consulted again.
+ * Every role BOTH layers declare, in any mode — the set whose globals.css declaration is
+ * dead because `.ckb-v2.ckb-v2` (0,2,0) outranks `:root` (0,1,0) on the same <html>.
+ *
+ * Deliberately wider than `token-layer-divergences.json`, which lists only the ~54
+ * combinations that currently DISAGREE. The remaining ~166 are overridden just as
+ * completely; they merely happen to carry the same value today, so editing one changes
+ * nothing and nothing says so. The collapse removes all of them, so the proof has to
+ * cover all of them.
+ *
+ * Parsed by the repo's own `readLayers()` rather than re-implemented here. A second
+ * parser with its own idea of which blocks belong to which mode is precisely how these
+ * two layers drifted apart unnoticed; there must be exactly one.
  */
-function rolesToCheck(pin: Pin | null): string[] {
-  if (pin) return pin.roles;
-  const report = JSON.parse(readFileSync(DIVERGENCES_PATH, "utf8")) as {
-    divergences: Record<string, Record<string, unknown>>;
+async function overlappingRoles(): Promise<string[]> {
+  const { readLayers } = (await import("../scripts/token-layer-divergences.mjs")) as {
+    readLayers: () => Record<string, LayerPair>;
   };
-  return [...new Set(Object.values(report.divergences).flatMap((mode) => Object.keys(mode)))].sort();
+  const overlap = new Set<string>();
+  for (const { compat, v2 } of Object.values(readLayers())) {
+    for (const name of compat.keys()) if (v2.has(name)) overlap.add(name);
+  }
+  return [...overlap].sort();
+}
+
+/**
+ * Roles come from the committed pin once it exists, NOT recomputed from the stylesheets.
+ * The overlap above empties by construction the moment the collapse lands — sourcing the
+ * list from it would silently shrink this proof to nothing at the exact moment it matters.
+ * The overlap seeds the very first capture, and afterwards is used only to detect roles
+ * the pin does not yet cover (see the coverage cross-check in the test itself).
+ */
+async function rolesToCheck(pin: Pin | null): Promise<string[]> {
+  // Regeneration always re-derives the list. Otherwise a widened overlap could never be
+  // adopted: the pin would keep seeding itself with its own (narrower) roles forever.
+  if (UPDATE || !pin) return await overlappingRoles();
+  return pin.roles;
 }
 
 async function resolveRoles(
@@ -135,24 +163,20 @@ test.describe("token layer resolution", () => {
     expect(baseURL, "baseURL must be configured").toBeTruthy();
 
     const pin = readPin();
-    const roles = rolesToCheck(pin);
+    const roles = await rolesToCheck(pin);
     expect(roles.length, "there must be roles to check").toBeGreaterThan(0);
 
     // The pin is authoritative for WHICH roles get checked (see `rolesToCheck` above), but
-    // that means a later token change that introduces a NEW cross-layer divergence would
-    // otherwise refresh `token-layer-divergences.json` while this spec stays green and never
-    // notices the new role. Cross-check coverage without letting the report drive the list.
-    if (pin) {
-      const report = JSON.parse(readFileSync(DIVERGENCES_PATH, "utf8")) as {
-        divergences: Record<string, Record<string, unknown>>;
-      };
-      const currentDivergentRoles = [
-        ...new Set(Object.values(report.divergences).flatMap((mode) => Object.keys(mode))),
-      ];
-      const uncovered = currentDivergentRoles.filter((role) => !pin.roles.includes(role));
+    // that means a token change adding a NEW declaration to globals.css for a role the v2
+    // layer already owns would go unnoticed: the new declaration is dead on arrival, and
+    // this spec would stay green having never looked at it. Cross-check coverage against
+    // the live overlap without letting the overlap drive the list.
+    if (pin && !UPDATE) {
+      const uncovered = (await overlappingRoles()).filter((role) => !pin.roles.includes(role));
       expect(
         uncovered,
-        `divergence report lists role(s) not covered by the pin — regenerate with ` +
+        `globals.css declares role(s) the v2 layer overrides that this pin does not cover — ` +
+          `a dead declaration nothing is measuring. Regenerate with ` +
           `UPDATE_TOKEN_RESOLUTION_PIN=1 after reviewing: ${uncovered.join(", ")}`,
       ).toEqual([]);
     }
@@ -165,9 +189,10 @@ test.describe("token layer resolution", () => {
     if (UPDATE) {
       const next: Pin = {
         $comment:
-          "Resolved value of every token role that diverges between globals.css and ckb-v2-tokens.css, " +
-          "captured per colour scheme and forced-colors state. The token-layer collapse must leave this " +
-          "file byte-identical. Regenerate only via UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
+          "Resolved value of every token role that ckb-v2-tokens.css overrides in globals.css — the whole " +
+          "overlap, not only the roles whose values differ. Captured per colour scheme and forced-colors " +
+          "state. The token-layer collapse must leave this file byte-identical. Regenerate only via " +
+          "UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
         generatedBy: "tests/ui-token-layer-resolution.spec.ts",
         capturedFrom: { route: "/", states: STATES.map((state) => state.id) },
         roles,
