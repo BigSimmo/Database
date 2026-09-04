@@ -158,7 +158,96 @@ const SEEDED_QUEUED = 4;
 // a row and the queued section did not. Updated deliberately here rather than found later —
 // `tests/ward-*` selects only the Vitest files, and these two constants are exactly the kind that
 // has already gone silently false in this file once, for a whole fixture change.
-const SEEDED_DECIDED = 7;
+//
+// NINE since 2026-09-04, not seven. `11c5d2029` (ruling R-2026-09-04-D, the front-door link) added
+// RF-012 and RF-013 as the authored ORIGINS of WF-002 and WF-009, taking the fixture from 11
+// referrals to 13; both are decided, so the decided section gained two rows and the queued section
+// gained none. The measured set is RF-006, RF-007, RF-002, RF-003, RF-004, RF-008, RF-012, RF-013,
+// RF-010 — nine, still under `RECENTLY_DECIDED_DISPLAY_LIMIT` (10), so the board shows all of them.
+//
+// ⚠️ **THE PIN WORKED AND IT IS NOT THE DEFECT — DO NOT "FIX" IT BY DERIVING THIS NUMBER.** When the
+// seed grew, this failed by name, before any journey step ran, saying exactly what had moved. That
+// is what the block below was built to do. Deriving the expectation from `referrals` with the same
+// selector the assertion calls would make it true by construction and absorb the next fixture change
+// in silence — the identical trap the `NETWORK_UNITS` comment refuses two constants down, and a
+// count that can never fail is what this file's own comment above calls the defect.
+//
+// The real failure here was that nothing RAN it: the six Playwright ward journeys sit outside every
+// required gate, so this stood red for five hours after `11c5d2029`. The repair for that is running
+// them, not weakening the pin.
+//
+// ⚠️ Counted from the function's own returned array in the failing run, not from the fixture text.
+//
+// ⚠️ **CORRECTION, 2026-09-04 — an earlier version of this comment claimed a structural count gives
+// TEN against the function's nine, and explained it as a queued referral holding a decided
+// destination beside a pending one. THAT WAS WRONG AND IS WITHDRAWN.** There is no such referral:
+// referrals holding a mix of queued and non-queued destinations number ZERO, independently measured
+// by a reviewer who could not reproduce my figure and said so.
+//
+// **What actually produced the ten: my structural count matched the string `decidedAt` inside a DOC
+// COMMENT.** RF-011's prose explains "`decidedAt` on each ED arm is the moment its movement opened";
+// both its destinations are `queued`. Strip comments first and the structural count is NINE, naming
+// the same nine ids the function returns. **The proxy and the property agree — the proxy was reading
+// the file's explanation of itself.**
+//
+// Two things worth keeping. The habit was still right: taking the number from the function's own
+// returned array is correct whatever a text scan says. And the failure is one I had already avoided
+// once the same night — an extraction of user-facing strings from a console component stripped
+// comments FIRST, precisely because that file quotes its own strings in prose. I knew the technique
+// and did not apply it here.
+const SEEDED_DECIDED = 9;
+
+/*
+ * 🔴 IT WENT STALE AGAIN, EXACTLY AS THE COMMENT ABOVE PREDICTED, AND NOTHING CAUGHT IT.
+ *
+ * `11c5d2029` ("feat(ward-flow): rulings C and D", 2026-09-04 04:02) added RF-012 and RF-013 — the
+ * front-door referrals authored as the origins of WF-002 and WF-009 — and did not touch this file.
+ * `git show --stat 11c5d2029 -- tests/ui-ward-referrals.spec.ts` is empty. This spec went red five
+ * hours later, on the first manual run anybody had given it, and every required gate stayed green
+ * throughout: the six `ui-ward-*` journeys execute only under `test:e2e:mockups` and CI's
+ * `continue-on-error` advisory lane, and this branch has never been pushed.
+ *
+ * So the previous comment's diagnosis was right — "a count written where nothing can fail is the
+ * defect, not the number" — and bumping the number a second time would repeat the mistake it names.
+ * The count is now CROSS-CHECKED against the seed below, so the next fixture change fails here with
+ * a message naming the new total instead of failing silently until somebody runs the browser suite.
+ *
+ * ⚠️ Deliberately NOT derived by calling the board's own `recentlyDecidedReferrals`: that is the
+ * function these assertions exist to test, and re-deriving the expected number from it would make
+ * them true by construction — the reason the original author hardcoded, and still correct. The
+ * predicate below is written here, over the raw seed, and shares nothing with the board.
+ */
+const decidedInTheSeed = referrals.filter((referral) =>
+  referral.destinations.some((destination) => destination.state !== "queued"),
+).length;
+if (decidedInTheSeed !== SEEDED_DECIDED) {
+  throw new Error(
+    `SEEDED_DECIDED is ${SEEDED_DECIDED} and the seed now holds ${decidedInTheSeed} decided referrals. ` +
+      `Update the constant AND re-read the two assertions that use it — the board text at the "Recently ` +
+      `decided" heading and the length check — because a fixture change is exactly what made this stale ` +
+      `twice before.`,
+  );
+}
+
+/*
+ * ⚠️ THE OTHER SIDE OF THIS MERGE ARGUED AGAINST DERIVING THE NUMBER AT ALL, AND ITS PRINCIPLE IS
+ * KEPT EVEN THOUGH ITS SIDE WAS NOT. Verbatim: "deriving the expectation from `referrals` with the
+ * same selector the assertion calls would make it true by construction and absorb the next fixture
+ * change in silence." **That is correct and it is why the cross-check above is written locally over
+ * the raw seed rather than by calling `recentlyDecidedReferrals`** — the assertion and the guard
+ * share no code, so the guard cannot make the assertion true.
+ *
+ * 🔴 ONE CLAIM FROM THAT SIDE DID NOT SURVIVE MEASUREMENT AND IS RECORDED SO NOBODY RE-DERIVES IT.
+ * It stated that a structural count gives TEN, because "one queued referral holds a decided
+ * destination alongside a pending one". Two independent measurements found no such referral: the
+ * predicate above returns 9, and a separate reviewer reported 9 under every structural definition
+ * it could construct, with zero referrals holding a mix. **If a predicate ever does give ten, this
+ * guard is wrong and the comment above it is the place to say so.**
+ *
+ * And its diagnosis of the real failure is the one worth keeping: the pin WORKED — it failed by
+ * name, before any journey step ran. What failed was that nothing ran it for five hours. The repair
+ * for that is running the journeys, not weakening the pin.
+ */
 
 /** Every unit in the network, and how many of them accept the referral raised above. Both are
  *  hardcoded rather than recomputed from `referralEligibility`: re-deriving the expected number
