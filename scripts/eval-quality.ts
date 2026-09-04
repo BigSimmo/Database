@@ -87,7 +87,11 @@ export type RagQualityResult = {
   routingReason?: string;
   /** Opening sentence of the answer — the span the text-shape gates inspect. */
   answerOpeningSentence?: string | null;
-  /** Full answer text, recorded only when a text-shape gate rejected it. */
+  /**
+   * Full answer text, recorded only when a text-shape gate rejected it. This is the
+   * pre-fallback candidate text the gate actually judged (RagAnswer.rejectedCandidateText),
+   * not the generic fallback text ultimately shown to the user.
+   */
   answerText?: string | null;
   timings?: {
     retrievalMs: number;
@@ -1304,8 +1308,18 @@ async function runRagQualityCases(args: {
       // why #NPQJKP sat red for eleven days. Record what the gate actually read: the opening
       // sentence always (it is what isLaunderedGuidanceWrapperAnswer inspects), and the full
       // text only for the cases a text-shape gate rejected, so reports stay small.
+      //
+      // The rejected candidate's text is not `answer.answer` by the time we get here — for a
+      // gate rejection, `finalizeRagAnswerQualityCore` has already replaced `answer.answer`
+      // with a generic evidence-gap response, and for a source-backed-review rejection, rag.ts
+      // has additionally replaced it again with a different generic fallback answer. Prefer
+      // `answer.rejectedCandidateText`, the pre-replacement text the gate actually judged
+      // (see RagAnswer.rejectedCandidateText); fall back to `answer.answer` only for the rare
+      // case a text-shape reason fired without that field being populated.
       answerOpeningSentence: openingSentenceOf(answer.answer),
-      answerText: textShapeGateRejected(answer.routingReason) ? (answer.answer ?? null) : undefined,
+      answerText: textShapeGateRejected(answer.routingReason)
+        ? (answer.rejectedCandidateText ?? answer.answer ?? null)
+        : undefined,
       timings,
       routeCeilingExceeded,
       executionType:

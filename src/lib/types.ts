@@ -1106,6 +1106,12 @@ export type RagAnswer = {
   // When non-empty the answer should be treated as needing source verification.
   unverifiedNumericTokens?: string[];
   faithfulnessWarning?: string;
+  // Debug-only: when a final quality gate rejects a candidate's answer prose and replaces
+  // `answer` with an evidence-gap response, this preserves the pre-replacement candidate text
+  // so eval tooling (scripts/eval-quality.ts) can show what was actually rejected instead of
+  // only the generic fallback text the user was shown. Never read by product/UI code and never
+  // influences routing, scoring, or the delivered answer.
+  rejectedCandidateText?: string;
 };
 
 export type ExtractedPage = {

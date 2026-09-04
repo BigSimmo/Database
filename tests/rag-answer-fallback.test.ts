@@ -1941,6 +1941,13 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toContain("material_source_governance_gap");
     expect(answer.routingReason).toContain("source_backed_review_fallback");
     expect(answer.routingReason).toContain("extractive_quality_gate:");
+    // The candidate text the quality gate actually judged and rejected on the first pass
+    // through this branch (route.mode === "extractive") survives in the debug-only field
+    // scripts/eval-quality.ts reads, even though `answer.answer` here is a second, unrelated
+    // fallback candidate built fresh by the review-fallback branch in rag.ts. See
+    // RagAnswer.rejectedCandidateText.
+    expect(answer.rejectedCandidateText).toBeTruthy();
+    expect(answer.rejectedCandidateText).not.toBe(answer.answer);
   });
 
   it("does not answer FBC withhold-threshold lookups from generic monitoring timing facts", async () => {

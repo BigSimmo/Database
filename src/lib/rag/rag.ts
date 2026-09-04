@@ -3116,6 +3116,11 @@ async function answerQuestionWithScopeUncoalesced(
         "ungrounded_extractive_answer";
       const reviewRouteReason = `${finalizedAnswer.routingReason ?? answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}; extractive_quality_gate:${extractiveQualityReason}`;
       const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+      // The candidate text the quality gate actually judged and rejected — captured before
+      // finalizeAnswer below builds a fresh fallback candidate from
+      // sourceBackedGenerationTimeoutAnswer() and overwrites `finalizedAnswer`. Debug-only; see
+      // RagAnswer.rejectedCandidateText.
+      const priorRejectedCandidateText = finalizedAnswer.rejectedCandidateText ?? finalizedAnswer.answer;
       finalizedAnswer = finalizeAnswer({
         ...answer,
         answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
@@ -3129,6 +3134,7 @@ async function answerQuestionWithScopeUncoalesced(
         smartApiPlan: reviewPlan,
         answerSections: [],
       });
+      finalizedAnswer.rejectedCandidateText ??= priorRejectedCandidateText;
     }
 
     if (args.logQuery !== false)
