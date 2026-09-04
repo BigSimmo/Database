@@ -20,11 +20,12 @@ const routerReplace = vi.hoisted(() => vi.fn());
 const routerPush = vi.hoisted(() => vi.fn());
 const redirectMock = vi.hoisted(() => vi.fn());
 let currentSearchParams = new URLSearchParams();
+let currentPathname = "/sources/search";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/sources/load-source-catalogue", () => ({ loadSourceCatalogue: loadCatalogueMock }));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/sources/search",
+  usePathname: () => currentPathname,
   useRouter: () => ({ replace: routerReplace, push: routerPush }),
   useSearchParams: () => currentSearchParams,
   redirect: redirectMock,
@@ -117,6 +118,7 @@ const fixtureEntries: ClinicalSourceCatalogueEntry[] = [
 
 beforeEach(() => {
   currentSearchParams = new URLSearchParams();
+  currentPathname = "/sources/search";
   routerReplace.mockReset();
   redirectMock.mockReset();
   loadCatalogueMock.mockReset();
@@ -135,8 +137,12 @@ describe("Sources catalogue", () => {
     expect(screen.queryByText(/Visible sources|Inactive or excluded/)).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("2 sources");
     expect(screen.getAllByText("A · Preferred")[0]).toBeVisible();
-    expect(screen.getByText("Used in Dictionary")).toBeVisible();
-    expect(screen.getByText("Used in Factsheets")).toBeVisible();
+    // The usage line now says how much of the app leans on the source, and the
+    // meta line carries its kind and its currency.
+    expect(screen.getByText(/Used in Dictionary · 1 record/)).toBeVisible();
+    expect(screen.getByText(/Used in Factsheets · 1 record/)).toBeVisible();
+    expect(screen.getByText(/RANZCP · Australia · Guideline/)).toBeVisible();
+    expect(screen.getAllByText(/reviewed Jan 2026/)[0]).toBeVisible();
     expect(screen.queryByText(/storage_path|owner_id|patient/i)).not.toBeInTheDocument();
   });
 
@@ -228,20 +234,100 @@ describe("Sources catalogue", () => {
   });
 });
 
-describe("Sources derived pages", () => {
-  it("links topic and publisher groups back to filtered catalogue results without a title block", async () => {
-    const topics = render(await SourcesTopicsPage());
+describe("Sources browse tabs", () => {
+  it("puts the catalogue's own results band on Topics, counting topics rather than sources", async () => {
+    currentPathname = "/sources/topics";
+    render(await SourcesTopicsPage());
+
     // The page keeps its name for the outline, but paints no header or breadcrumb.
     expect(screen.getByRole("heading", { level: 1, name: "Topics" })).toHaveClass("sr-only");
     expect(screen.queryByRole("navigation", { name: /breadcrumb/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /governance/i })).toHaveAttribute(
+    expect(screen.getByTestId("search-query-ribbon")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("2 topics");
+    expect(screen.getByTestId("sources-topic-filter-trigger-desktop")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Governance sources" })).toHaveAttribute(
       "href",
       "/sources/search?topic=governance",
     );
+  });
+
+  it("says what the sources under a topic are worth, not just how many there are", async () => {
+    currentPathname = "/sources/topics";
+    render(await SourcesTopicsPage());
+
+    const governance = screen.getByRole("link", { name: "View Governance sources" });
+    expect(within(governance).getByText(/1 preferred/)).toBeVisible();
+
+    // Band colour is never the only channel: the review-due entry states its
+    // attention in words beside the meter.
+    const assessment = screen.getByRole("link", { name: "View Assessment sources" });
+    expect(within(assessment).getByText(/1 needs review/)).toBeVisible();
+    expect(within(assessment).getByText(/1 needs attention/)).toBeVisible();
+  });
+
+  it("narrows the browse list by the composer query instead of ignoring it", async () => {
+    currentPathname = "/sources/topics";
+    currentSearchParams = new URLSearchParams("q=governance");
+    render(await SourcesTopicsPage());
+
+    expect(screen.getByRole("status")).toHaveTextContent("1 topic");
+    expect(screen.getByRole("link", { name: "View Governance sources" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "View Assessment sources" })).not.toBeInTheDocument();
+  });
+
+  it("offers a way out when a query or a filter empties the list", async () => {
+    currentPathname = "/sources/topics";
+    currentSearchParams = new URLSearchParams("q=electroconvulsive");
+    render(await SourcesTopicsPage());
+
+    expect(screen.getByRole("status")).toHaveTextContent("0 topics");
+    expect(screen.getByText(/No matches for .electroconvulsive./)).toBeVisible();
+    expect(screen.getByTestId("search-results-empty-clear-search")).toBeVisible();
+  });
+
+  it("shows an applied jurisdiction filter as a removable chip on its own route", async () => {
+    currentPathname = "/sources/topics";
+    currentSearchParams = new URLSearchParams("jurisdiction=international&band=D");
+    render(await SourcesTopicsPage());
+
+    expect(screen.getByRole("status")).toHaveTextContent("1 topic");
+    expect(screen.getByRole("button", { name: "Remove Jurisdiction: International filter" })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Quality band: D · Review required filter" }));
+    expect(routerReplace).toHaveBeenLastCalledWith("/sources/topics?jurisdiction=international", { scroll: false });
+  });
+
+  it("clears the query without silently discarding the filters beside it", async () => {
+    currentPathname = "/sources/topics";
+    currentSearchParams = new URLSearchParams("q=electroconvulsive&jurisdiction=international");
+    render(await SourcesTopicsPage());
+
+    // The empty state offers filter removal as its own control, so a
+    // "Clear search" that also wiped the jurisdiction would make one of the two
+    // controls a lie about what it does.
+    fireEvent.click(screen.getByTestId("search-results-empty-clear-search"));
+    expect(routerPush).toHaveBeenLastCalledWith("/sources/topics?jurisdiction=international");
+  });
+
+  it("tells both browse tabs that their counts are incomplete when documents cannot be reached", async () => {
+    currentPathname = "/sources/topics";
+    const topics = render(await SourcesTopicsPage());
+    expect(screen.getByTestId("sources-partial-catalogue-note")).toHaveTextContent(
+      "Uploaded document sources cannot be reached, so this list and its counts are incomplete.",
+    );
 
     topics.unmount();
+    currentPathname = "/sources/publishers";
     render(await SourcesPublishersPage());
+    expect(screen.getByTestId("sources-partial-catalogue-note")).toBeVisible();
+  });
+
+  it("keeps jurisdiction sections on Publishers and links each row to its filtered catalogue", async () => {
+    currentPathname = "/sources/publishers";
+    render(await SourcesPublishersPage());
+
     expect(screen.getByRole("heading", { level: 1, name: "Publishers" })).toHaveClass("sr-only");
+    expect(screen.getByRole("status")).toHaveTextContent("2 publishers");
     expect(screen.getByRole("heading", { level: 2, name: "Australian national" })).toBeVisible();
     expect(screen.getByRole("heading", { level: 2, name: "International" })).toBeVisible();
     expect(screen.getByRole("link", { name: "View RANZCP sources" })).toHaveAttribute(
@@ -251,6 +337,7 @@ describe("Sources derived pages", () => {
   });
 
   it("keeps publisher jurisdiction-group counts aligned with their catalogue links", async () => {
+    currentPathname = "/sources/publishers";
     loadCatalogueMock.mockResolvedValueOnce({
       entries: [
         fixtureEntries[0],
@@ -273,6 +360,28 @@ describe("Sources derived pages", () => {
     expect(links).toHaveLength(2);
   });
 
+  it("frames an unrecorded jurisdiction as a gap in the records rather than a place", async () => {
+    currentPathname = "/sources/publishers";
+    loadCatalogueMock.mockResolvedValueOnce({
+      entries: [
+        sourceEntry({
+          id: "src_unplaced",
+          title: "Unplaced reference",
+          publisher: "Beyond Blue",
+          geography: { scope: "unknown", label: "Unknown jurisdiction" },
+        }),
+      ],
+      hostedDocuments: "available",
+    });
+
+    render(await SourcesPublishersPage());
+
+    expect(screen.getByRole("heading", { level: 2, name: "Unknown jurisdiction" })).toBeVisible();
+    expect(screen.getByText(/The catalogue does not infer one/)).toBeVisible();
+  });
+});
+
+describe("Sources method and record", () => {
   it("publishes every weight, threshold and limitation on Method", () => {
     render(<SourcesMethodPage />);
     expect(screen.getByRole("heading", { level: 1, name: "Method" })).toHaveClass("sr-only");
@@ -349,6 +458,27 @@ describe("Sources derived pages", () => {
     expect(screen.queryByText(/Publisher code|Content mode|Validation/)).not.toBeInTheDocument();
     // A clean source says nothing about review.
     expect(screen.queryByRole("region", { name: /needs review/i })).not.toBeInTheDocument();
+  });
+
+  it("routes each quality band on Method to the sources carrying it", () => {
+    render(<SourcesMethodPage />);
+
+    expect(screen.getByRole("link", { name: "D · Review required" })).toHaveAttribute("href", "/sources/search?band=D");
+    // The definitions themselves stay prose; a link is not wrapped around one.
+    expect(screen.getByText(/D · Review required · below 50/)).toBeVisible();
+  });
+
+  it("turns the record's topics and publisher into routes back into the catalogue", async () => {
+    render(await SourceDetailPage({ sourceId: "src_a" }));
+
+    expect(screen.getByRole("link", { name: "Governance" })).toHaveAttribute(
+      "href",
+      "/sources/search?topic=governance",
+    );
+    expect(screen.getByRole("link", { name: "RANZCP" })).toHaveAttribute(
+      "href",
+      "/sources/search?publisher=RANZCP&jurisdiction=australian_national",
+    );
   });
 
   it("says what is wrong with a questionable source rather than leaving the band to imply it", async () => {
