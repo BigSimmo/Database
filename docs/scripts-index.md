@@ -105,7 +105,7 @@ Also catalogued (2026-09-04):
 - `check-design-drift-ratchet.mjs` (`check:design-drift-ratchet`) — ratchet guard for two design-token drift metrics (bypass-prone inline `style={{ }}` under `src/**`; design-system components with zero product importers).
 - `stamp-service-worker.mjs` (part of `build:internal`) — gives `public/sw.js` a different body on every build so the browser's byte comparison detects an update and fires `updatefound`/`activate`.
 
- use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
+use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
 
 ## Ingestion, indexing & reindex [live]
 

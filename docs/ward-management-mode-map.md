@@ -69,32 +69,32 @@ workspaces sit outside the eight views. Source of truth: `WARD_NAV` in
 (see `tests/ward-landmarks.test.ts`'s own note: "despite its name [it] looked a MOVEMENT up by
 id").
 
-| Route                                       | What it is                                                                                   | Source                                          |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `/mockups/ward-flow/ed/[edId]`               | Emergency department role screen (Phase 3); rail links the `peel-ed` example                    | `src/app/mockups/ward-flow/ed/[edId]`              |
-| `/mockups/ward-flow/ward/[unitId]`           | Ward role screen (Phase 3); rail links the `rph-adult-secure` example                           | `src/app/mockups/ward-flow/ward/[unitId]`          |
-| `/mockups/ward-flow/board/[unitId]`          | Ward board for one unit; rail links the `rph-adult-secure` example                              | `src/app/mockups/ward-flow/board/[unitId]`         |
-| `/mockups/ward-flow/transport/officer`       | Transport officer phone screen (Phase 3)                                                        | `src/app/mockups/ward-flow/transport/officer`      |
-| `/mockups/ward-flow/movements/[movementId]`  | Patient workspace for one movement (renamed from `/patients/[patientId]`)                       | `src/app/mockups/ward-flow/movements/[movementId]` |
-| `/mockups/ward-flow/people/[patientId]`      | A person's own screen, distinct from the movement workspace above                               | `src/app/mockups/ward-flow/people/[patientId]`     |
-| `/mockups/ward-flow/people/new`              | Add-patient form                                                                                 | `src/app/mockups/ward-flow/people/new`             |
-| `/mockups/ward-flow/handover`                | Shift handover board (Phase 4)                                                                   | `src/app/mockups/ward-flow/handover`               |
-| `/mockups/ward-flow/escalation`              | Escalation board (Phase 4)                                                                       | `src/app/mockups/ward-flow/escalation`             |
-| `/mockups/ward-flow/search`                  | Patient search board (Phase 4); the only Ward Flow surface with a search slot                    | `src/app/mockups/ward-flow/search`                 |
-| `/mockups/ward-flow/discharges`              | Discharges board (Phase 5)                                                                       | `src/app/mockups/ward-flow/discharges`             |
-| `/mockups/ward-flow/morning`                 | Morning bed state board                                                                          | `src/app/mockups/ward-flow/morning`                |
-| `/mockups/ward-flow/referrals`               | Referral board                                                                                    | `src/app/mockups/ward-flow/referrals`              |
-| `/mockups/ward-flow/referrals/new`           | New referral intake form                                                                          | `src/app/mockups/ward-flow/referrals/new`          |
-| `/mockups/ward-flow/out-of-area`             | Out-of-area board                                                                                 | `src/app/mockups/ward-flow/out-of-area`            |
-| `/mockups/ward-flow/wards`                   | All-wards index — the page that gives `ward/[unitId]` a way in                                   | `src/app/mockups/ward-flow/wards`                  |
-| `/mockups/ward-flow/community`               | All-community-teams index — the page that gives `community/[teamId]` a way in                    | `src/app/mockups/ward-flow/community`              |
-| `/mockups/ward-flow/community/[teamId]`      | Community team screen                                                                             | `src/app/mockups/ward-flow/community/[teamId]`     |
-| `/mockups/ward-flow/statistics`              | Statistics index                                                                                  | `src/app/mockups/ward-flow/statistics`             |
-| `/mockups/ward-flow/statistics/overview`     | Statistics overview                                                                               | `src/app/mockups/ward-flow/statistics/overview`    |
-| `/mockups/ward-flow/statistics/compare`      | Statistics comparison view                                                                        | `src/app/mockups/ward-flow/statistics/compare`     |
-| `/mockups/ward-flow/statistics/ward/[unitId]` | Ward statistics                                                                                  | `src/app/mockups/ward-flow/statistics/ward/[unitId]` |
-| `/mockups/ward-flow/statistics/ed/[edId]`    | Emergency department statistics                                                                   | `src/app/mockups/ward-flow/statistics/ed/[edId]`   |
-| `/mockups/ward-flow/constellation`           | Redirect-only stub to `/mockups/ward-flow/network` (Phase 2 retirement; see the note above)       | `src/app/mockups/ward-flow/constellation`          |
+| Route                                         | What it is                                                                                  | Source                                               |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `/mockups/ward-flow/ed/[edId]`                | Emergency department role screen (Phase 3); rail links the `peel-ed` example                | `src/app/mockups/ward-flow/ed/[edId]`                |
+| `/mockups/ward-flow/ward/[unitId]`            | Ward role screen (Phase 3); rail links the `rph-adult-secure` example                       | `src/app/mockups/ward-flow/ward/[unitId]`            |
+| `/mockups/ward-flow/board/[unitId]`           | Ward board for one unit; rail links the `rph-adult-secure` example                          | `src/app/mockups/ward-flow/board/[unitId]`           |
+| `/mockups/ward-flow/transport/officer`        | Transport officer phone screen (Phase 3)                                                    | `src/app/mockups/ward-flow/transport/officer`        |
+| `/mockups/ward-flow/movements/[movementId]`   | Patient workspace for one movement (renamed from `/patients/[patientId]`)                   | `src/app/mockups/ward-flow/movements/[movementId]`   |
+| `/mockups/ward-flow/people/[patientId]`       | A person's own screen, distinct from the movement workspace above                           | `src/app/mockups/ward-flow/people/[patientId]`       |
+| `/mockups/ward-flow/people/new`               | Add-patient form                                                                            | `src/app/mockups/ward-flow/people/new`               |
+| `/mockups/ward-flow/handover`                 | Shift handover board (Phase 4)                                                              | `src/app/mockups/ward-flow/handover`                 |
+| `/mockups/ward-flow/escalation`               | Escalation board (Phase 4)                                                                  | `src/app/mockups/ward-flow/escalation`               |
+| `/mockups/ward-flow/search`                   | Patient search board (Phase 4); the only Ward Flow surface with a search slot               | `src/app/mockups/ward-flow/search`                   |
+| `/mockups/ward-flow/discharges`               | Discharges board (Phase 5)                                                                  | `src/app/mockups/ward-flow/discharges`               |
+| `/mockups/ward-flow/morning`                  | Morning bed state board                                                                     | `src/app/mockups/ward-flow/morning`                  |
+| `/mockups/ward-flow/referrals`                | Referral board                                                                              | `src/app/mockups/ward-flow/referrals`                |
+| `/mockups/ward-flow/referrals/new`            | New referral intake form                                                                    | `src/app/mockups/ward-flow/referrals/new`            |
+| `/mockups/ward-flow/out-of-area`              | Out-of-area board                                                                           | `src/app/mockups/ward-flow/out-of-area`              |
+| `/mockups/ward-flow/wards`                    | All-wards index — the page that gives `ward/[unitId]` a way in                              | `src/app/mockups/ward-flow/wards`                    |
+| `/mockups/ward-flow/community`                | All-community-teams index — the page that gives `community/[teamId]` a way in               | `src/app/mockups/ward-flow/community`                |
+| `/mockups/ward-flow/community/[teamId]`       | Community team screen                                                                       | `src/app/mockups/ward-flow/community/[teamId]`       |
+| `/mockups/ward-flow/statistics`               | Statistics index                                                                            | `src/app/mockups/ward-flow/statistics`               |
+| `/mockups/ward-flow/statistics/overview`      | Statistics overview                                                                         | `src/app/mockups/ward-flow/statistics/overview`      |
+| `/mockups/ward-flow/statistics/compare`       | Statistics comparison view                                                                  | `src/app/mockups/ward-flow/statistics/compare`       |
+| `/mockups/ward-flow/statistics/ward/[unitId]` | Ward statistics                                                                             | `src/app/mockups/ward-flow/statistics/ward/[unitId]` |
+| `/mockups/ward-flow/statistics/ed/[edId]`     | Emergency department statistics                                                             | `src/app/mockups/ward-flow/statistics/ed/[edId]`     |
+| `/mockups/ward-flow/constellation`            | Redirect-only stub to `/mockups/ward-flow/network` (Phase 2 retirement; see the note above) | `src/app/mockups/ward-flow/constellation`            |
 
 **Navigation:** the left `ClinicalRail` carries both the global PsychSift application switcher
 and, below it, Ward Flow's own eight mode links (icon-only, each with its own accessible name) —
