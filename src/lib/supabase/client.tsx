@@ -6,6 +6,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { clearAccountScopedBrowserStorage } from "@/lib/account-scoped-browser-state";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
@@ -57,6 +58,11 @@ function clearAccountScopedBrowserState() {
   clearSignedUrlCache();
   // Patient physiology + medication list behind the prescribing alerts (audit M4).
   clearPatientProfile();
+  // On Call entries are the owner's own ward numbers, escalation contacts and
+  // personal lines (added on main while this branch was open). A shared ward
+  // computer switches accounts without ever signing out, so without this the
+  // previous user's private entries render for the next one.
+  clearOnCallEntryCache();
   // Component-owned stores this lib module may not import (tests/lib-layering):
   // the unscoped favourites pins / last-opened keys (audit L2) and the Caring
   // Contacts plan draft, a patient's name and mobile from stage 3 on (audit L6).
