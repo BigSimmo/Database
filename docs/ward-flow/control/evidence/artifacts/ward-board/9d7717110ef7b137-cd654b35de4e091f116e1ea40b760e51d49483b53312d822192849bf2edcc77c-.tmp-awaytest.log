@@ -1,0 +1,39 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-board-people-panel.dom.test.tsx (15 tests | 2 failed) 1605ms
+     × says so on the tile, and says the bed is still theirs in the same sentence 39ms
+     × changes NO bed figure — the ward is holding the bed 18ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-board-people-panel.dom.test.tsx > a person who is away at an emergency department > says so on the tile, and says the bed is still theirs in the same sentence
+TypeError: screen.getAllByTestId is not a function
+ ❯ tests/ward-board-people-panel.dom.test.tsx:415:26
+    413|     renderWardBoard(unitId);
+    414|
+    415|     const notes = screen.getAllByTestId("ward-board-person-away");
+       |                          ^
+    416|     const expected = awayAdmissions.filter((admission) => admission.un…
+    417|     expect(notes).toHaveLength(expected);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |jsdom| tests/ward-board-people-panel.dom.test.tsx > a person who is away at an emergency department > changes NO bed figure — the ward is holding the bed
+TypeError: screen.getAllByTestId is not a function
+ ❯ tests/ward-board-people-panel.dom.test.tsx:441:35
+    439|     renderWardBoard(unitId);
+    440|
+    441|     const occupantsDrawn = screen.getAllByTestId(/^ward-board-person-/…
+       |                                   ^
+    442|     expect(occupantsDrawn, "an away person stopped being drawn as an o…
+    443|     expect(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)
+   Start at  03:30:12
+   Duration  3.24s (transform 410ms, setup 203ms, import 544ms, tests 1.61s, environment 746ms)
+

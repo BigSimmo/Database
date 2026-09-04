@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "41a459bb-fda8-4804-b57d-4e4a4e12ce7f",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A double cast hides three phantom and six missing fields on a BedRelease fixture",
+    "issueUlid": "01M1G4P3J793Y88GFFYB8ZCMEG"
+  }
+}

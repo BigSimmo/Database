@@ -71,7 +71,7 @@ it returns.
 >
 > Work in this worktree, on the existing branch — do not create a new one, and do not push or open
 > a PR:
-> `C:/Users/joshs/.codex/worktrees/ward-management-design/Database` (branch
+> a local Codex worktree named `ward-management-design` (machine-local path omitted; branch
 > `codex/ward-management-design`)
 >
 > Read these three files first, in this order:

@@ -4,6 +4,7 @@
  * needs is declared here, never borrowed from another module's scope.
  */
 .screen {
+  --wf-border: var(--neutral-500);
   --es-space-4: 0.25rem;
   --es-space-6: 0.375rem;
   --es-space-8: 0.5rem;
@@ -40,7 +41,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--es-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   background: var(--surface-chrome);
   padding: var(--es-space-8) var(--es-space-12);
 }
@@ -89,7 +90,7 @@
 .section {
   display: grid;
   gap: var(--es-space-8);
-  border: 0.0625rem solid var(--border);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
   padding: var(--es-space-12) var(--es-space-14);
@@ -117,7 +118,7 @@
 
 .table th,
 .table td {
-  border-bottom: 0.0625rem solid var(--border);
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
   padding: var(--es-space-6) var(--es-space-8);
   text-align: left;
   vertical-align: top;
@@ -164,5 +165,20 @@
 @media (max-width: 40rem) {
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --wf-border: var(--border);
   }
 }

@@ -121,6 +121,39 @@ describe("authorized deep health probe diagnostics", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
+  it("omits slo for an unauthenticated deep probe even when includeSlo is not passed", async () => {
+    // `answer-slo`'s tenancy exemption (scripts/lib/tenancy-scan.mjs) states that this
+    // deliberate cross-tenant aggregate is reached "only from /api/health's deep probe behind
+    // HEALTH_DEEP_PROBE_SECRET". Until 2026-09-02 the SLO branch was gated on
+    // `health.ok && options.includeSlo !== false` with no `tokenAuthorized`, so it also ran for
+    // any caller passing `allowUnauthenticatedDeep`. The claim held only because the sole such
+    // caller (/api/health/ready) opts out with `includeSlo: false` — one flag at one caller,
+    // not a gate. This pins the gate itself, with the opt-out deliberately omitted.
+    mockEnv();
+    mockSupabase(true);
+    const answerSloSnapshot = vi.fn(async () => ({ windowMinutes: 60, answers: 12 }));
+    const spendSnapshot = vi.fn(async () => ({ totalUsd: 1 }));
+    vi.doMock("@/lib/observability/answer-slo", () => ({ answerSloSnapshot }));
+    vi.doMock("@/lib/observability/spend-metrics", () => ({ spendSnapshot }));
+    const { healthResponse } = await import("../src/lib/health-response");
+
+    const response = await healthResponse(new Request("http://localhost/api/health/ready"), {
+      forceDeep: true,
+      allowUnauthenticatedDeep: true,
+    });
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabase: "ok" });
+    expect(body.slo, "an unauthenticated deep probe must not receive the cross-tenant SLO aggregate").toBeUndefined();
+    expect(answerSloSnapshot).not.toHaveBeenCalled();
+    // The other operator-gated snapshots were already token-gated; assert they stay that way.
+    expect(body.spend).toBeUndefined();
+    expect(spendSnapshot).not.toHaveBeenCalled();
+    expect(body.cache).toBeUndefined();
+    expect(body.coalescing).toBeUndefined();
+  });
+
   it("suppresses opted-out snapshots for an authorized caller", async () => {
     mockEnv();
     mockSupabase(true);

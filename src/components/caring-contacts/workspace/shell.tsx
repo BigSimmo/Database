@@ -2,12 +2,14 @@ import { CalendarDays, FileText, HeartHandshake, LayoutDashboard, MoreHorizontal
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
+import { primaryControl, transitionSurface } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 import { WorkspaceOverlays } from "./overlays/workspace-overlays";
 import { CondensedServiceStopBar, ServiceStateBanner } from "./service-state-banner";
 import { WORKSPACE_HEADER_ID } from "./service-stop-bar-anchors";
+import { workspacePanelPadded } from "./surfaces";
 import { SyntheticMarker } from "./synthetic-marker";
 import { UnavailableDestination } from "./unavailable-destination";
 import type { WorkspaceWidthState } from "./width-state";
@@ -216,8 +218,22 @@ const railItemClass =
 const phoneItemClass =
   "flex min-h-tap w-full min-w-0 flex-col items-center justify-center gap-1 px-1 text-2xs font-medium text-[color:var(--text-muted)]";
 
-const morePanelItemClass =
-  "flex min-h-tap w-full min-w-0 items-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-left text-sm font-medium text-[color:var(--text-muted)]";
+/**
+ * The AVAILABLE appearance of a More-panel row, and it has to be that rather than a neutral one.
+ *
+ * `MorePanelDestination` hands this same class to a live `<Link>` and to an `UnavailableDestination`,
+ * so whatever it says is what BOTH look like. It used to say `--surface-subtle` with muted ink,
+ * which is roughly where the design system's `controlDisabled` lands an unavailable control -- so
+ * the seven unbuilt destinations were pixel-identical to the three real links, and the only signal
+ * a sighted person got was the click doing nothing. (Assistive tech was always told correctly:
+ * `aria-disabled`, an `sr-only` reason, and the panel's own legend.)
+ *
+ * Raising the available state to a raised surface with full-strength ink gives
+ * `controlDisabled` -- now appended inside `unavailable-destination.tsx` -- something to flatten
+ * FROM. `transitionSurface` rather than a bare `transition` because it carries
+ * `motion-reduce:transition-none` with it, matching `railItemClass` above.
+ */
+const morePanelItemClass = `flex min-h-tap w-full min-w-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-medium text-[color:var(--text)] shadow-[var(--e1)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] ${transitionSurface}`;
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -261,8 +277,13 @@ function MorePanelDestination({
  * | ------- | ----------- | ------------------------------------------------- |
  * | compact | below 768   | base — phone dock, no rail, one column            |
  * | rail    | 768-1023    | `md:` — icon rail, labels kept for screen readers |
- * | split   | 1024-1439   | `lg:` — labelled rail, More panel as a column     |
- * | wide    | 1440 and up | `min-[1440px]:` — the same split, wider measure   |
+ * | split   | 1024-1439   | `lg:` — labelled rail, one full-width content column |
+ * | wide    | 1440 and up | `min-[1440px]:` — the same, with a wider measure cap |
+ *
+ * The `split` and `wide` rows said "More panel as a column" and "the same split" until that grid
+ * was removed; content is now a single column at every width and the More panel is a section
+ * beneath it. Nothing about the four BOUNDARIES changed — they are still the frozen 768/1024/1440,
+ * and `width-state.ts` is still the only place they are written as numbers.
  *
  * `width-state.ts` holds the same boundaries as numbers for the overlay
  * modality decision; nothing here re-derives them.
@@ -348,22 +369,49 @@ export function CaringContactsShell({ title, description, serviceState, children
         */}
         <ServiceStateBanner state={serviceState} />
 
-        <main className="min-w-0 px-4 pb-28 pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
+        {/*
+          The bottom reserve is DERIVED from the dock rather than guessed at. The dock below is
+          `min-h-tap` plus a top border plus `pb-[var(--safe-area-bottom)]`, so the same two tokens
+          plus a clear 1.5rem is the clearance -- and it can no longer drift from the dock the way a
+          flat `pb-28` (112px against a 48px dock, 63px of dead space at every phone width) had.
+          `md:pb-8` still takes over once the dock is gone.
+        */}
+        <main className="min-w-0 px-4 pb-[calc(var(--spacing-tap)+var(--safe-area-bottom)+1.5rem)] pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
           <div className="mx-auto w-full max-w-6xl min-[1440px]:max-w-[90rem]">
-            <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-8">
-              <div className="min-w-0">
-                <div className="mb-6 flex flex-col gap-4 border-b border-[color:var(--border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
-                  <div className="min-w-0">
-                    <h1 className="text-balance text-hero font-semibold leading-display tracking-normal text-[color:var(--text-heading)]">
-                      {title}
-                    </h1>
-                    {description ? (
-                      <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
-                        {description}
-                      </p>
-                    ) : null}
-                  </div>
-                  {/*
+            {/*
+              The content column is FULL WIDTH at every viewport, and that is the fix rather than
+              the default it looks like.
+
+              Until this change the content sat in `lg:grid-cols-[minmax(0,1fr)_18rem]` beside a
+              permanent 18rem More panel, with `lg:gap-8`. Add the rail (`lg:w-64`, 256px) and this
+              `main`'s `lg:px-8` (64px) and the content column was `viewport - 640px` -- so crossing
+              768px to 1024px it SHRANK from 640px to 384px, a 40% loss at the moment the window got
+              wider. Every screen's own `lg:` rule then fired on the viewport at exactly the width
+              its container collapsed: the schedule's three sending windows became 117px columns
+              (~61px of content after their padding), the reports tiles 87px, the guidance prose
+              176px. The inversion was the defect, not any one `grid-cols` value.
+
+              A single column makes content width monotonic in viewport width (704px at 1024,
+              1120px at 1440) and restores the shape the approved prototype shell already had --
+              `mockups/caring-contact-shell-frame.tsx` renders `main > mx-auto max-w-6xl > children`
+              with no second track. The two-column grid was a production-only addition.
+
+              The More panel below is unchanged in content: Ruling 52 still renders the whole
+              destination set, unbuilt entries included.
+            */}
+            <div className="min-w-0">
+              <div className="mb-6 flex flex-col gap-4 border-b border-[color:var(--border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <h1 className="text-balance text-hero font-semibold leading-display tracking-normal text-[color:var(--text-heading)]">
+                    {title}
+                  </h1>
+                  {description ? (
+                    <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
+                      {description}
+                    </p>
+                  ) : null}
+                </div>
+                {/*
                     The workspace's primary control, and a real link since Phase 2B Task 7 built
                     the screen behind it.
 
@@ -378,54 +426,63 @@ export function CaringContactsShell({ title, description, serviceState, children
                     yet, so this control reaches the screen's own honest statement of what it needs
                     rather than a started sign-up. That statement is the screen, not an error.
                   */}
-                  <Link
-                    href={CARING_CONTACTS_ROUTES.newPlan}
-                    data-internal-link="true"
-                    className={`inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] ${focusRing}`}
-                  >
-                    <Plus aria-hidden="true" className="size-icon-md shrink-0" />
-                    <span data-testid="caring-contacts-primary-control" className="truncate">
-                      New plan
-                    </span>
-                  </Link>
-                </div>
-                {children}
-              </div>
-
-              <section
-                id={MORE_DESTINATIONS_ID}
-                aria-labelledby={`${MORE_DESTINATIONS_ID}-heading`}
-                className="mt-10 rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 lg:sticky lg:top-[calc(var(--header-h)+1rem)] lg:mt-0"
-              >
-                <h2
-                  id={`${MORE_DESTINATIONS_ID}-heading`}
-                  className="text-sm font-semibold text-[color:var(--text-heading)]"
+                <Link
+                  href={CARING_CONTACTS_ROUTES.newPlan}
+                  data-internal-link="true"
+                  className={`${primaryControl} shrink-0`}
                 >
-                  More destinations
-                </h2>
-                <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
-                  What each destination holds. The ones with a screen behind them are links; the rest state what they
-                  will hold once they are built.
-                </p>
-                <ul className="mt-3 flex flex-col gap-2">
-                  {/*
+                  <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+                  <span data-testid="caring-contacts-primary-control" className="truncate">
+                    New plan
+                  </span>
+                </Link>
+              </div>
+              {children}
+            </div>
+
+            <section
+              id={MORE_DESTINATIONS_ID}
+              aria-labelledby={`${MORE_DESTINATIONS_ID}-heading`}
+              className={`${workspacePanelPadded} mt-10`}
+            >
+              <h2
+                id={`${MORE_DESTINATIONS_ID}-heading`}
+                className="text-sm font-semibold text-[color:var(--text-heading)]"
+              >
+                More destinations
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                What each destination holds. The ones with a screen behind them are links; the rest state what they will
+                hold once they are built.
+              </p>
+              {/*
+                  A grid, not a stack, now that this panel spans the content column instead of
+                  sitting in an 18rem sidebar: eleven 48px rows in one column is a 528px tail under
+                  every screen. Three-up brings it to four rows on a desktop and it stays a single
+                  column on a phone, which is the width the stacked form was right for.
+
+                  `md:hidden` stays on the overflow row rather than on the control inside it. A
+                  hidden GRID item is removed from flow exactly as a hidden flex item was, so the
+                  gap still closes behind it.
+                */}
+              <ul className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {/*
                     The primary destinations the phone bar could not carry, shown only below 768px
                     because the rail carries them at every width above it. `md:hidden` on the row
                     rather than on the control, so the list gap closes with it.
                   */}
-                  {PHONE_OVERFLOW_DESTINATIONS.map(({ id, label, href, reason }) => (
-                    <li key={`overflow-${id}`} className="min-w-0 md:hidden">
-                      <MorePanelDestination id={`more-overflow-${id}`} label={label} href={href} reason={reason} />
-                    </li>
-                  ))}
-                  {MORE_DESTINATIONS.map(({ id, label, href, reason }) => (
-                    <li key={id} className="min-w-0">
-                      <MorePanelDestination id={`more-${id}`} label={label} href={href} reason={reason} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </div>
+                {PHONE_OVERFLOW_DESTINATIONS.map(({ id, label, href, reason }) => (
+                  <li key={`overflow-${id}`} className="min-w-0 md:hidden">
+                    <MorePanelDestination id={`more-overflow-${id}`} label={label} href={href} reason={reason} />
+                  </li>
+                ))}
+                {MORE_DESTINATIONS.map(({ id, label, href, reason }) => (
+                  <li key={id} className="min-w-0">
+                    <MorePanelDestination id={`more-${id}`} label={label} href={href} reason={reason} />
+                  </li>
+                ))}
+              </ul>
+            </section>
           </div>
         </main>
       </div>

@@ -99,10 +99,11 @@ describe("caring-contacts domain isolation", () => {
  * They live here, in an offline source-scanning file the default `npm run test` collects, for a
  * reason found the hard way in review round 1. The first of them was originally written in
  * `caring-contacts-postgres-repository.test.ts`, which `vitest.config.mts` lists in
- * `caringContactsDbTestFiles` and excludes from the `node` project outright -- and no workflow under
- * `.github/workflows/` runs the database suite at all. So the guard was real, correct, and could
- * fire only when a human happened to have a Postgres container up. Neither property needs a
- * database: both are a file read and a regular expression.
+ * `caringContactsDbTestFiles` and excludes from the offline `node` project outright. CI does run the
+ * database suite now, in its own `caring-contacts-db` job against a Postgres service container, but
+ * a guard living there still fires only where a database is configured -- never in the default
+ * offline run. So the guard was real, correct, and reachable in one place too few. Neither property
+ * needs a database: both are a file read and a regular expression.
  *
  * Both carry a positive control. A scan whose pattern stops matching after a rename goes GREEN, not
  * red, so a scan without one is a check that cannot fail -- which is the same defect in a different
@@ -148,8 +149,9 @@ describe("caring-contacts properties that only a source scan can hold", () => {
 
   it("never fetches the first-contact reason for a list read", () => {
     // `first_contact_reason` is free text a clinician wrote about one patient. It is deliberately
-    // absent from `PLAN_COLUMNS` -- the list `readPlanRecord` and `listPlans` select -- so rendering
-    // a caseload never pulls it into the process at all.
+    // absent from `PLAN_COLUMNS` -- the list `readPlanRecord` and `selectPlanForUpdate` select -- so
+    // rendering a caseload never pulls it into the process at all. (`listPlans` selects the narrower
+    // `PLAN_LIST_COLUMNS`, guarded separately below.)
     //
     // Nothing observable through the repository can hold that. `toPlanRecord` maps field by field,
     // so adding the column to `PLAN_COLUMNS` fetches a clinical note for every plan in the team and
@@ -252,6 +254,43 @@ describe("caring-contacts properties that only a source scan can hold", () => {
     expect(declaration?.[1]).toContain("patient_name");
 
     expect(declaration?.[1]).not.toContain("preferred_name");
+  });
+
+  it("never fetches any patient column for a list read (#RZVMPD)", () => {
+    // The same argument as the two scans above, applied to the columns those two took as GIVEN.
+    // `first_contact_reason` and `preferred_name` were kept out of the list read because they are
+    // patient content -- while the list read went on selecting the patient's name, mobile number
+    // and identifier list for the whole caseload on every render, and `toPlanRecord` discarded all
+    // three. The narrowing was in the mapping, which releases nothing but fetches everything; it
+    // is now in the query.
+    //
+    // Nothing observable through the repository can hold this, for exactly the reason the other
+    // two scans exist: widening `PLAN_LIST_COLUMNS` back out changes no behaviour and leaves every
+    // behavioural test green. Only a scan of the query text can fail.
+    const source = postgresStore();
+    const listDeclaration = /const PLAN_LIST_COLUMNS = `([\s\S]*?)`;/.exec(source);
+
+    // Positive control: the constant was found and really is a plan column list. `state` is chosen
+    // deliberately -- it must survive any future narrowing, unlike the patient columns asserted
+    // absent below, so this control cannot be satisfied by an empty or truncated match.
+    expect(listDeclaration).not.toBeNull();
+    expect(listDeclaration?.[1]).toContain("state");
+    expect(listDeclaration?.[1]).toContain("discharge_at");
+
+    for (const column of [
+      "patient_name",
+      "patient_mobile_number",
+      "patient_identifiers",
+      "first_contact_reason",
+      "preferred_name",
+    ]) {
+      expect(listDeclaration?.[1]).not.toContain(column);
+    }
+
+    // And the list read really does use it. Without this the constant could be narrowed correctly
+    // and never wired up, which is the failure mode that reads as a fix.
+    expect(source).toMatch(/select \$\{PLAN_LIST_COLUMNS\} from caring_contacts\.plans order by id/);
+    expect(source).not.toMatch(/select \$\{PLAN_COLUMNS\} from caring_contacts\.plans order by id/);
   });
 
   it("never derives the preferred name from the stored patient name", () => {

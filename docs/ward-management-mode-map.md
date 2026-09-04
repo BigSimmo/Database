@@ -1,5 +1,7 @@
 # Ward Flow mode map
 
+> **Status (2026-09-02):** superseded. The role screens this document says are unbuilt now exist as the developer-gated sandbox under `/mockups/ward-flow` (17 routes; see `docs/codebase-index.md` § Ward Flow). Kept as the pre-sandbox design record.
+
 **Superseded:** the nine-mode strip this document describes is superseded by the role-first
 structure (flow coordinator, ED, ward, transport officer, specialist boards) set out in
 [`docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`](./superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md).
