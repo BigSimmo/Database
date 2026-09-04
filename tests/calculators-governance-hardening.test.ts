@@ -1,9 +1,15 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { allCalculatorFixtures, calculators, calculatorEvidence } from "@/components/calculators/calculator-fixtures";
+import {
+  allCalculatorFixtures,
+  calculators,
+  calculatorEvidence,
+  type CalculatorItem,
+} from "@/components/calculators/calculator-fixtures";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 
 const REPO_ROOT = process.cwd();
@@ -21,7 +27,34 @@ type GovernanceFixture = {
   id: string;
   responseAnchorSetId?: string;
   rights?: RightsRecord;
+  items: CalculatorItem[];
 };
+
+/**
+ * `responseAnchorSetId` is supposed to pin the exact set of response options (and their point
+ * values) a calculator's items expose — the thing an operator relies on when they read "this
+ * instrument's anchors are unchanged" off the ID alone. A regex that only checks the ID's shape
+ * cannot tell a real anchor set from an arbitrary string, and cannot notice when an option label
+ * or point value is edited while the ID string is left untouched.
+ *
+ * So the ID is bound to content: it must equal a SHA-256 fingerprint derived from every item's
+ * kind, options (label + points, in order) or checkbox point value, in item order. Change a
+ * label, a point value, add/remove/reorder an option or an item, and the fingerprint — and so the
+ * required `responseAnchorSetId` — changes with it. `slice(0, 16)` keeps the ID short while still
+ * astronomically collision-resistant for a fixture set this size.
+ */
+function computeResponseAnchorFingerprint(items: CalculatorItem[]): string {
+  const canonical = items
+    .map((item) => {
+      if (item.kind === "checkbox") {
+        return `${item.id}:checkbox:${item.points ?? 0}`;
+      }
+      const options = (item.options ?? []).map((option) => `${option.label}=${option.points}`).join("|");
+      return `${item.id}:options:${options}`;
+    })
+    .join(";");
+  return `rax-${createHash("sha256").update(canonical, "utf8").digest("hex").slice(0, 16)}`;
+}
 
 type GovernanceSource = {
   id: string;
@@ -48,6 +81,13 @@ describe("calculator governance hardening", () => {
   it("pins an exact response-anchor set for every calculator fixture", () => {
     for (const calc of allCalculatorFixtures as GovernanceFixture[]) {
       expect(calc.responseAnchorSetId, `${calc.id} responseAnchorSetId`).toMatch(/^[a-z0-9][a-z0-9._:-]+$/);
+      // Syntax alone can't catch a modified instrument: an arbitrary but well-formed ID would
+      // still pass the regex above. Bind the ID to the fixture's actual response anchors (option
+      // labels + point values) so editing an anchor without updating the pinned ID goes red.
+      expect(
+        calc.responseAnchorSetId,
+        `${calc.id} responseAnchorSetId must match a fingerprint of its response anchors — an option label or point value changed without updating the pinned ID`,
+      ).toBe(computeResponseAnchorFingerprint(calc.items));
     }
   });
 
