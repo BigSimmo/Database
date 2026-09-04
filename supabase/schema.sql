@@ -7428,6 +7428,13 @@ begin
         and j.locked_at is not null
         and j.locked_at >= now() - make_interval(mins => 45)
       )
+      -- A `pending` row is not only a stuck one: an atomic reindex queues its new job while
+      -- the OLD generation's artifacts (and so gate_passed) are still live, so a fresh,
+      -- legitimate reindex can sit in `pending` for the instant before a worker claims it.
+      -- The processing-lease guard above does not cover that window at all. created_at is
+      -- set once at insert and never touched again, so it is a safe freshness signal here;
+      -- same 45-minute window as the lease guards, so a stale pending row is still
+      -- recoverable and a just-queued one is never taken. Found in review on PR #2548.
       and not (
         j.status = 'pending'
         and j.created_at >= now() - make_interval(mins => 45)
@@ -7455,6 +7462,9 @@ begin
         and j.locked_at is not null
         and j.locked_at >= now() - make_interval(mins => 45)
       )
+      -- Same freshness gap as completed_open_jobs above, on the not-gate_passed side: a
+      -- pending row queued moments ago should not be relabelled 'strict_gate_deferred'
+      -- out from under whatever queued it.
       and not (
         j.status = 'pending'
         and j.created_at >= now() - make_interval(mins => 45)
