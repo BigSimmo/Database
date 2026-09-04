@@ -4400,7 +4400,16 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await appModeButton.click();
     await expect(appModeMenu).toBeVisible();
-    await appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ }).focus();
+    // Opening the menu focuses the search box on the next animation frame. Without
+    // waiting for that to land, a .focus() call here can be overtaken by it, and the
+    // Tab below then fires from the search box - which legitimately moves focus onto
+    // the first option, inside the menu wrapper, so the menu stays open and this test
+    // fails 10s later with no clue why. Settle the autofocus, then prove the option
+    // really holds focus before pressing the key whose behaviour depends on it.
+    await expect(modeSearch).toBeFocused();
+    const reopenedAnswerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
+    await reopenedAnswerMode.focus();
+    await expect(reopenedAnswerMode).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(appModeMenu).toBeHidden();
   });
