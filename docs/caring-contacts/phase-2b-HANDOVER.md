@@ -1,5 +1,18 @@
 # Caring Contacts Phase 2B — handover
 
+> **PHASE 2B HAS LANDED ON `main`. Verified 2026-09-02:** the whole of Phase 2B was squash-merged as
+> `17df388e8` — "feat(caring-contacts): Phase 2B workspace, plan lifecycle, team roster and database
+> (#2451)", 2026-08-29 — and none of the four feature branches named below exists on `origin` any
+> more (`git branch -r` lists no `caring-contacts-demo-seed`, `-schedule`, `-plan-detail` or
+> `-message-name`). **Everything below the banner is historical.** The merge checklist has been
+> executed, the owed gates were run on the merged tree (build record Rulings [149]–[150]), Tasks 20
+> and 21 were accepted afterwards ([151]–[152]), Group 4 was un-deferred by the owner and built
+> ([155]), and the close-out is [160]. **Do not merge, fetch or provision anything this file
+> names.** Work from a fresh worktree off `origin/main`; the build record is the ledger, and the
+> master progress ledger (`PROGRESS-LEDGER.md`) is the current index. The "Owner decisions owed" and
+> "Repo-level findings" sections are still worth reading — check each against
+> `docs/outstanding-issues.md` before re-filing.
+
 **Written 2026-08-26 by the controller of the subagent-driven build.** Read this before anything else.
 `phase-2b-build-record.md` is the full ledger and every ruling is in it; this file is the map.
 

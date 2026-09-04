@@ -59,7 +59,8 @@ export type ApiRateLimitBucket =
   | "answer_feedback"
   | "registry"
   | "document_admin"
-  | "ingestion_admin";
+  | "ingestion_admin"
+  | "on_call";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -96,6 +97,9 @@ const apiRateLimitDefaults = {
   // Authenticated owner ingestion/eval admin tooling (ingestion-quality dashboard, eval-case capture).
   // Generous for interactive/polling admin use, bounded against an abusive/compromised client.
   ingestion_admin: { limit: 60, windowSeconds: 60 },
+  // On Call entry reads/writes: an owner's private hospital contact/orientation notes.
+  // Generous for interactive single-owner admin use, bounded against an abusive/compromised client.
+  on_call: { limit: 60, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
