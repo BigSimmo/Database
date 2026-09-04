@@ -32,6 +32,7 @@ const MODE_HOME_SOURCES = [
   "src/components/specifiers/specifiers-home-page.tsx",
   "src/components/clinical-dashboard/differentials-home.tsx",
   "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
+  "src/app/(search-app)/sources/sources-home-client.tsx",
 ] as const;
 
 /**

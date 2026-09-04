@@ -1,0 +1,58 @@
+The network diagram's referral clock can stop, and says which clock it is showing
+
+`referralWaitLabel` was `formatElapsed(minutesUntil(now, raisedAt))` — a clock with no
+stop condition. It counts from the referral forever, including long after the person has
+been triaged and is sitting in a department. Both render sites now read `referralClocks`,
+which stops the referral clock at triage and reports which of the two it returned.
+
+I NEARLY COMMITTED A FALSE CLAIM ABOUT THIS, AND THE CORRECTION IS THE USEFUL PART.
+
+Measuring the fixture found `RF-003` reading "4h 55m waiting" against a true referral wait
+of 25 minutes — nearly twelvefold, and I wrote that up as a live defect on this screen.
+It is not. `RF-003` is `accepted`, and `referralQueueOrder` filters to `queued`, so this
+screen never shows it. Every referral the network queue does show was triaged BEFORE the
+mental-health referral was raised, so the old label was correct for all of them.
+
+So on this surface the defect is LATENT, not live: the wrong function was wired in, and
+the fixture happens to hold no queued referral that exposes it. `RF-001` is queued and not
+yet in a department — triaging it during a demonstration makes it visible immediately.
+
+The measurement was real and the inference from it was wrong. I had a number and assumed
+it reached the screen; the queue filter is one function call away and I had not looked.
+
+THAT CHANGED THE TESTS, not just the wording. There is no seeded state on this screen where
+the old and new labels differ, so a test comparing them would pass on the broken code. The
+guards therefore assert ADOPTION: every queue row must carry one of the two clock terms
+("since referral" or "referral to triage") and must not carry the other. The old label
+produced a bare "4h 40m waiting" with no term at all, so that fails on every row under the
+old code regardless of whether any number was wrong — which is the assertion that would
+have caught this.
+
+Two more, both about a value that reads as its own opposite:
+
+  - `inDepartment` is `number | undefined`, and undefined means NOT THERE, never 0.
+    "0m in department" reads as "just got there" and would sort them as the newest arrival
+    while they are somewhere else.
+  - No row may say "arriv". The field is `triagedAt`; a patient arrives, waits, and is
+    triaged some time later, and on a busy night that gap is not small. Ward Referrals
+    caught Ward Core writing "arrival" three times beside a field named triage, which is
+    how a wrong word reaches a screen.
+
+Both canaries name their own vacuity, and one names the remedy rather than the symptom:
+if the seed stops containing a queued referral with no triage time, restore one rather
+than delete the test.
+
+Wording comes from `REFERRAL_CLOCK_TERMS` and never from this file — a second spelling of
+one field is this project's most expensive defect class, and I have now seen it produce
+two separate defects tonight.
+
+NO MUTATION EVIDENCE IS CLAIMED HERE, deliberately. Ward Referrals reports that a mutation
+whose anchor matches more than one site is REFUSED by the harness while the test run then
+passes for no reason at all — a non-run that reads exactly like a pass. My earlier
+mutations tonight were each confirmed applied by grepping the file afterwards, but I have
+not re-audited them under that finding, so I am not restating them as proof here.
+
+Verified: tsc exit 0; eslint clean; prettier clean; the network set discovered from disk,
+12 files handed in, 12 ran, 166 passed, exit 0.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

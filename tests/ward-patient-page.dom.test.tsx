@@ -70,7 +70,7 @@ describe("ward patient page — declines, changes, and escalation", () => {
   it("lists each decline's unit, fixed reason label, and time — never a raw snake_case reason code", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardPatientWorkspace patientId="WF-009" />
+        <WardPatientWorkspace movementId="WF-009" />
       </WardFlowProvider>,
     );
 
@@ -89,7 +89,7 @@ describe("ward patient page — declines, changes, and escalation", () => {
     ).toBeInTheDocument();
     expect(
       within(declines).getByText(
-        (_, node) => node?.textContent === `${unitById("bty-adult-secure")?.name} · Bed held for earlier referral`,
+        (_, node) => node?.textContent === `${unitById("bty-adult-secure")?.name} · Bed pulled for earlier referral`,
       ),
     ).toBeInTheDocument();
     expect(
@@ -107,7 +107,7 @@ describe("ward patient page — declines, changes, and escalation", () => {
     const rawCodes = [
       "no_bed",
       "acuity_mix",
-      "bed_held_for_earlier_referral",
+      "bed_pulled_for_earlier_referral",
       "specialling_unavailable",
       "capability_mismatch",
     ];
@@ -119,7 +119,7 @@ describe("ward patient page — declines, changes, and escalation", () => {
   it("shows the escalation record — when, units tried, and contact", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardPatientWorkspace patientId="WF-009" />
+        <WardPatientWorkspace movementId="WF-009" />
       </WardFlowProvider>,
     );
 
@@ -133,7 +133,7 @@ describe("ward patient page — declines, changes, and escalation", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <DispatchUrgencyChangeOnWF010 />
-        <WardPatientWorkspace patientId="WF-010" />
+        <WardPatientWorkspace movementId="WF-010" />
       </WardFlowProvider>,
     );
 
@@ -167,7 +167,7 @@ describe("ward patient page — declines, changes, and escalation", () => {
   it("renders an explicit absence line in all three sections for a movement with none of these — not a hidden section", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardPatientWorkspace patientId="WF-001" />
+        <WardPatientWorkspace movementId="WF-001" />
       </WardFlowProvider>,
     );
 

@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+
+import { eligibility } from "@/components/ward-management/ward-eligibility";
+import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
+
+/**
+ * ENGINE GATE HARNESS — the before/after proof for the owner's ruling of 2026-09-02:
+ * "the engine should refuse, screen checks are not enough" and "refuse unless a reason is recorded".
+ *
+ * ⚠️ THIS IS A TRANSIENT PROBE, NOT A PERMANENT TEST. tests/ belongs to Ward Lead; it writes the
+ * committed guard. This exists so the flip can be SHOWN, and so WARD VERIFIER CAN RE-RUN IT WITHOUT
+ * RECONSTRUCTING ANYTHING — which is the point of it verifying rather than reading my report.
+ *
+ * ⚠️ THE TRAP THIS HARNESS EXISTS TO AVOID. Re-running the original WF-009 walk produces a rejection
+ * even BEFORE the fix — from the SPECIALLING-CAPACITY check, not from eligibility. A red is not
+ * attribution. So this harness never uses a pair whose failing gates include `specialling`; it picks
+ * a pair whose ONLY failing gate is `cohort`, so an eligibility refusal is the only thing that can
+ * produce a red.
+ */
+const NOW = 10 * 60 + 42;
+const VALID_OVERRIDE = "Clinical urgency outweighs the mismatch";
+
+type Pair = { m: string; u: string; gates: string[] };
+
+function isolatedPairs(seed: ReturnType<typeof seedWardFlowState>): Pair[] {
+  const out: Pair[] = [];
+  for (const mv of seed.movements) {
+    for (const unit of seed.units) {
+      const v = eligibility(mv, unit, NOW);
+      if (v.eligible) continue;
+      const failed = v.gates.filter((g) => !g.pass).map((g) => g.gate);
+      if (failed.length === 0) continue;
+      if (failed.includes("specialling")) continue; // the confounding rule — excluded by design
+      if (!failed.includes("cohort")) continue; // keep it to one legible, clinical reason
+      out.push({ m: mv.id, u: unit.id, gates: failed });
+    }
+  }
+  return out;
+}
+
+function walk(pick: Pair, overrideReason?: string) {
+  let state = seedWardFlowState();
+  const start = state.rejections.length;
+  const steps: { step: string; added: string[]; stage?: string }[] = [];
+  const run = (step: string, ev: Record<string, unknown>) => {
+    const b = state.rejections.length;
+    state = wardFlowReducer(state, ev as Parameters<typeof wardFlowReducer>[1]);
+    steps.push({
+      step,
+      added: state.rejections.slice(b).map((r) => r.reason),
+      stage: state.movements.find((x) => x.id === pick.m)?.stage,
+    });
+  };
+  const ovr = overrideReason === undefined ? {} : { overrideReason };
+  run("REFER_TO_UNITS", { type: "REFER_TO_UNITS", role: "coordinator", now: NOW, movementId: pick.m, unitIds: [pick.u], ...ovr });
+  run("ACCEPT_IN_PRINCIPLE", { type: "ACCEPT_IN_PRINCIPLE", role: "ward", now: NOW, movementId: pick.m, unitId: pick.u, ...ovr });
+  run("PULL_PATIENT", { type: "PULL_PATIENT", role: "ward", now: NOW, movementId: pick.m, unitId: pick.u, ...ovr });
+  const mv = state.movements.find((x) => x.id === pick.m);
+  return { steps, finalStage: mv?.stage, admissionId: mv?.admissionId, total: state.rejections.length - start };
+}
+
+describe("engine gate harness", () => {
+  it("reports the walk with and without a recorded override reason", () => {
+    const seed = seedWardFlowState();
+    const pairs = isolatedPairs(seed);
+    const log: string[] = [];
+
+    log.push(`isolated pairs (cohort fails, specialling NOT involved): ${pairs.length}`);
+    expect(pairs.length, "no isolated pair — the harness cannot attribute a refusal").toBeGreaterThan(0);
+
+    const pick = pairs[0];
+    log.push(`pair: movement ${pick.m} -> unit ${pick.u} · failing gates: ${pick.gates.join(", ")}`);
+
+    // CONTROL: the gate itself must refuse this pair, or a red downstream proves nothing.
+    const mv = seed.movements.find((x) => x.id === pick.m)!;
+    const un = seed.units.find((x) => x.id === pick.u)!;
+    log.push(`CONTROL eligibility() -> eligible=${eligibility(mv, un, NOW).eligible} (must be false)`);
+
+    const bare = walk(pick);
+    log.push(`--- NO override reason ---`);
+    bare.steps.forEach((s) => {
+      log.push(`  ${s.step}: ${s.added.length} rejection(s) · stage ${s.stage}`);
+      s.added.forEach((r) => log.push(`      ${r}`));
+    });
+    log.push(`  final stage ${bare.finalStage} · admissionId ${bare.admissionId ?? "none"} · total ${bare.total}`);
+
+    const withOverride = walk(pick, VALID_OVERRIDE);
+    log.push(`--- WITH a valid override reason ---`);
+    withOverride.steps.forEach((s) => {
+      log.push(`  ${s.step}: ${s.added.length} rejection(s) · stage ${s.stage}`);
+      s.added.forEach((r) => log.push(`      ${r}`));
+    });
+    log.push(`  final stage ${withOverride.finalStage} · admissionId ${withOverride.admissionId ?? "none"} · total ${withOverride.total}`);
+
+    console.log("\n===HARNESS===\n" + log.join("\n") + "\n===END===");
+
+    // WAS `expect(true).toBe(true)`. Ward Verifier ran this harness and named the defect: in a
+    // project whose subject is checks that cannot fail, the probe for the flip was itself a check
+    // that could not fail. Everything about the actual subject was console.log, asserted by a
+    // tautology - so "the harness passed" was a sentence that meant nothing, and it is exactly the
+    // sentence that gets relayed onward and believed. Its two lines, taken as given:
+    expect(bare.admissionId, "no reason recorded - must NOT admit").toBeUndefined();
+    expect(withOverride.admissionId, "valid reason recorded - MUST admit").toBeDefined();
+  });
+});

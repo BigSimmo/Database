@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
+import Link from "next/link";
 
-import { formatInstant, splitDuration } from "@/components/ward-management/ward-clock";
+import { splitDuration, formatSheetMoment } from "@/components/ward-management/ward-clock";
 import {
-  destinationUnit,
   elapsedLabel,
   handoverSnapshot,
   stageCopy,
@@ -17,38 +17,38 @@ import { edById } from "@/components/ward-management/ward-sites";
 
 import styles from "./handover.module.css";
 
-/** What this page freezes at open: the snapshot itself, plus the `units` array it was built
- * against — `inTransit` entries carry no `unit` of their own (see `HandoverSnapshot`'s own doc
- * comment in `ward-derivations.ts`), so resolving their destination later still needs a frozen
- * `units` reference, never the live one `useWardFlow()` keeps returning on every render. */
-type FrozenHandover = { snapshot: HandoverSnapshot; units: Unit[] };
-
 /**
  * Task 4 (spec item 1): the shift handover — four fixed sections, in this exact
  * product-owner-approved order, on their own page.
  *
- * THE FREEZE MUST BE REAL. `handoverSnapshot` is a pure derivation — called again on a later
- * `now` it would happily compute a different answer — so what makes this a *handover* rather
- * than just another live view is that `useWardFlow()` is read once, and the `useState`
- * initialiser below closes over that single read to build the frozen snapshot. A `useState`
- * initialiser runs exactly once, on the first render, and never again on any later re-render —
- * that is the whole mechanism. Nothing else in this component calls `handoverSnapshot` again,
- * and no section below reads `now` from `useWardFlow()` — only `frozen.snapshot.frozenAt`,
- * which cannot change for the lifetime of this mount. A handover that silently changed while a
- * coordinator was reading it would be worse than no handover at all.
+ * THIS PAGE READS LIVE (owner decision OD-4, 2026-08-30). It froze its figures at mount until
+ * that day, and the reversal has a reason worth keeping, because reversing a protection needs one.
+ *
+ * **What the freeze was protecting was real:** people in a handover must be discussing the same
+ * numbers, and a screen that changed under them mid-sentence would be worse than no handover.
+ * **What retired it is that paper already holds still.** Printing is what produces the stable
+ * artefact, and it does so honestly, with a time on it — while a frozen screen beside a live
+ * printed sheet is two numbers for one thing in one room, which is the failure this programme has
+ * refused everywhere else. The owner's words when he asked for it: "There is no point of a stale
+ * handover."
+ *
+ * So the snapshot is recomputed on every render from the live clock, `snapshot.takenAt` moves with
+ * it, and the header states the moment in full — date as well as time — because a printed sheet
+ * outlives the day it was taken on and a bare clock face on paper cannot say which day it means.
+ *
+ * This completes the pattern begun by WB-DB-11, which dropped the morning page's frozen view
+ * earlier the same day. Both screens now behave the same way, which was the point.
  *
  * Every section renders an explicit "None" line when it has nothing to show — never a hidden
  * or skipped section. An absence is a fact worth handing over too.
  */
 export function HandoverPage() {
-  const { movements, units, now } = useWardFlow();
+  const { movements, units, now, dayZero } = useWardFlow();
 
-  const [frozen] = useState<FrozenHandover>(() => ({
-    snapshot: handoverSnapshot(movements, units, now),
-    units,
-  }));
-
-  const { snapshot } = frozen;
+  // Live. `useMemo` is a render-cost saving only — it recomputes whenever the clock or the data
+  // moves, which is exactly what a `useState` initialiser refused to do and is why the freeze was
+  // built out of one. Do not reintroduce a mount-only read here without reopening OD-4.
+  const snapshot = useMemo(() => handoverSnapshot(movements, units, now), [movements, units, now]);
 
   return (
     <div className={styles.screen} data-testid="ward-handover-page">
@@ -57,16 +57,16 @@ export function HandoverPage() {
         <div className={styles.governanceBanner} data-testid="ward-handover-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This handover is <strong>not a medical device</strong>. It is a point-in-time operational summary, frozen
-            the moment it was opened — it never assesses a patient&apos;s risk, acuity or treatment, and it never
-            updates itself while you are reading it.
+            This handover is <strong>not a medical device</strong>. It is an operational summary that reads live and
+            never assesses a patient&apos;s risk, acuity or treatment. It changes as the ward changes, so print it if
+            you need a copy that holds still — the printed sheet carries the moment it was taken.
           </p>
         </div>
 
         <header className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Shift handover</h1>
-          <p className={styles.frozenAt} data-testid="ward-handover-frozen-at">
-            Frozen at {formatInstant(snapshot.frozenAt)}
+          <p className={styles.takenAt} data-testid="ward-handover-taken-at">
+            Taken at {formatSheetMoment(snapshot.takenAt, dayZero)}
           </p>
           <button type="button" className={styles.printButton} onClick={() => window.print()}>
             Print
@@ -74,9 +74,14 @@ export function HandoverPage() {
         </header>
 
         <LongestWaitsSection snapshot={snapshot} />
-        <HeldBedsSection snapshot={snapshot} />
-        <InTransitSection snapshot={snapshot} units={frozen.units} />
+        <PulledBedsSection snapshot={snapshot} />
+        <InTransitSection snapshot={snapshot} units={units} />
         <PlacementGoneWrongSection snapshot={snapshot} />
+
+        <p className={styles.crossLink}>
+          This handover answers &quot;what do I need to hand over this shift?&quot; For &quot;what can I fill right now,
+          across the network?&quot;, see the <Link href="/mockups/ward-flow/morning">morning bed state</Link>.
+        </p>
       </main>
     </div>
   );
@@ -107,7 +112,7 @@ export function LongestWaitsSection({ snapshot }: { snapshot: HandoverSnapshot }
               <tr key={entry.movement.id}>
                 <td>{index + 1}</td>
                 <td>{entry.movement.id}</td>
-                <td>{elapsedLabel(entry.movement, snapshot.frozenAt)}</td>
+                <td>{elapsedLabel(entry.movement, snapshot.takenAt)}</td>
                 <td>{stageCopy[entry.movement.stage].label}</td>
                 <td>{departmentLabel(entry.movement)}</td>
                 <td>{entry.unit?.name ?? "No destination chosen"}</td>
@@ -120,13 +125,13 @@ export function LongestWaitsSection({ snapshot }: { snapshot: HandoverSnapshot }
   );
 }
 
-export function HeldBedsSection({ snapshot }: { snapshot: HandoverSnapshot }) {
+export function PulledBedsSection({ snapshot }: { snapshot: HandoverSnapshot }) {
   return (
-    <section className={styles.section} data-testid="ward-handover-held-beds">
-      <h2 className={styles.sectionHeading}>Beds held</h2>
-      {snapshot.heldBeds.length === 0 ? (
-        <p className={styles.emptyNote} data-testid="ward-handover-held-beds-empty">
-          None — no bed is currently held.
+    <section className={styles.section} data-testid="ward-handover-pulled-beds">
+      <h2 className={styles.sectionHeading}>Beds pulled</h2>
+      {snapshot.pulledBeds.length === 0 ? (
+        <p className={styles.emptyNote} data-testid="ward-handover-pulled-beds-empty">
+          None — no bed is currently pulled.
         </p>
       ) : (
         <table className={styles.table}>
@@ -134,15 +139,15 @@ export function HeldBedsSection({ snapshot }: { snapshot: HandoverSnapshot }) {
             <tr>
               <th scope="col">Movement</th>
               <th scope="col">Unit</th>
-              <th scope="col">Hold</th>
+              <th scope="col">Pull</th>
             </tr>
           </thead>
           <tbody>
-            {snapshot.heldBeds.map((entry) => (
+            {snapshot.pulledBeds.map((entry) => (
               <tr key={entry.movement.id}>
                 <td>{entry.movement.id}</td>
                 <td>{entry.unit?.name ?? "No unit recorded"}</td>
-                <td>{holdLabel(entry.movement, entry.expired, snapshot.frozenAt)}</td>
+                <td>{pullLabel(entry.movement, entry.expired, snapshot.takenAt)}</td>
               </tr>
             ))}
           </tbody>
@@ -171,11 +176,36 @@ export function InTransitSection({ snapshot, units }: { snapshot: HandoverSnapsh
           </thead>
           <tbody>
             {snapshot.inTransit.map((entry) => {
-              const unit = destinationUnit(entry.movement, units);
+              /*
+               * ACCEPTED-ONLY, never `destinationUnit`. That helper is
+               * `acceptedUnitId ?? referredUnitIds[0]`, so on a movement with an open referral and
+               * no acceptance it names the FIRST WARD ASKED as though it were the destination —
+               * the same defect already repaired on the movement workspace, where the masthead
+               * read "Bound for FSH Older Adult" beside "No ward has accepted this patient".
+               *
+               * The three states are kept apart rather than collapsed into one fallback: a ward
+               * has accepted, or wards have been asked and none has answered, or nobody has been
+               * asked. The middle one is the one the old fallback erased, and it is the one a
+               * coordinator acts on differently — chase an answer, versus start asking.
+               */
+              const unit = entry.movement.acceptedUnitId
+                ? units.find((candidate) => candidate.id === entry.movement.acceptedUnitId)
+                : undefined;
+              // Named here too, for the same reason as `patient-search.tsx`'s own column: a status
+              // without the wards is honest and unhelpful, and this table is read at handover where
+              // "who has been asked" is the next question anybody has.
+              const askedNames = entry.movement.referredUnitIds
+                .map((id) => units.find((candidate) => candidate.id === id)?.name)
+                .filter((name): name is string => name !== undefined);
+              const destinationCell = unit
+                ? unit.name
+                : entry.movement.referredUnitIds.length > 0
+                  ? `${entry.movement.referredUnitIds.length} ward${entry.movement.referredUnitIds.length === 1 ? "" : "s"} asked, none has accepted${askedNames.length > 0 ? ` — ${askedNames.join(", ")}` : ""}`
+                  : "No destination unit recorded";
               return (
                 <tr key={entry.movement.id}>
                   <td>{entry.movement.id}</td>
-                  <td>{unit?.name ?? "No destination unit recorded"}</td>
+                  <td>{destinationCell}</td>
                   <td>{entry.leg ?? "No transport leg recorded"}</td>
                 </tr>
               );
@@ -208,7 +238,7 @@ export function PlacementGoneWrongSection({ snapshot }: { snapshot: HandoverSnap
             {snapshot.placementGoneWrong.map((entry) => (
               <tr key={entry.movement.id}>
                 <td>{entry.movement.id}</td>
-                <td>{elapsedLabel(entry.movement, snapshot.frozenAt)}</td>
+                <td>{elapsedLabel(entry.movement, snapshot.takenAt)}</td>
                 <td>{goneWrongLabel(entry.movement, entry.kind)}</td>
               </tr>
             ))}
@@ -229,13 +259,13 @@ function departmentLabel(movement: Movement) {
 }
 
 /** "Expired" or "Expires in …" per spec — never `formatRemaining`'s "overdue"/"left" wording,
- * which this page must not use: a held bed lapsing is an operational fact, not a countdown
+ * which this page must not use: a pulled bed lapsing is an operational fact, not a countdown
  * against a deadline this prototype is entitled to name. */
-function holdLabel(movement: Movement, expired: boolean, frozenAt: number) {
-  const bedHeldUntil = movement.bedHeldUntil;
-  if (bedHeldUntil === undefined) return "No hold time recorded";
+function pullLabel(movement: Movement, expired: boolean, takenAt: number) {
+  const pullExpiresAt = movement.pullExpiresAt;
+  if (pullExpiresAt === undefined) return "No pull time recorded";
   if (expired) return "Expired";
-  return `Expires in ${splitDuration(bedHeldUntil - frozenAt)}`;
+  return `Expires in ${splitDuration(pullExpiresAt - takenAt)}`;
 }
 
 /** Names exactly what the record holds — a recorded escalation, or a decline from every unit

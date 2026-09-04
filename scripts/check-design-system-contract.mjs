@@ -7,6 +7,7 @@ import {
   RAW_COLOR_EXEMPTIONS,
   analyzeClassContractsInSource,
   analyzeCssContractsInSource,
+  DISABLED_OPACITY_CLASS,
   findDebtPathRegressions,
   findErrorStateCountPropsInSource,
   findElevationInversionsInSource,
@@ -17,6 +18,7 @@ import {
   findSameFileTextSmMinusMix,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
+  findVisibleLiveRegionsInSource,
   LEGACY_TAP_CLASS,
   hasLegacyTapClass,
   jsxClassText,
@@ -146,6 +148,8 @@ const metrics = {
   handRolledCommandButtons: 0,
   elevationInversions: 0,
   sameFileTextSmMinusMix: 0,
+  visibleLiveRegions: 0,
+  disabledOpacityUses: 0,
 };
 const debtByPath = Object.fromEntries(Object.keys(metrics).map((metric) => [metric, {}]));
 const recordDebt = (metric, relativePath, count) => {
@@ -200,6 +204,7 @@ for (const file of files) {
     findElevationInversionsInSource(file.relativePath, source).length,
   );
   recordDebt("sameFileTextSmMinusMix", file.relativePath, findSameFileTextSmMinusMix(file.relativePath, source).length);
+  recordDebt("visibleLiveRegions", file.relativePath, findVisibleLiveRegionsInSource(file.relativePath, source).length);
   const fileTextSoftConsumers = findTextSoftConsumersInSource(file.relativePath, source);
   recordDebt("textSoftConsumers", file.relativePath, fileTextSoftConsumers.length);
   textSoftConsumerFindings.push(...fileTextSoftConsumers);
@@ -237,6 +242,12 @@ for (const file of files) {
   imageInversionFindings.push(...classAnalysis.imageInversions);
   recordDebt("legacyPaletteUtilities", file.relativePath, classAnalysis.legacyPaletteUtilities.length);
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
+  recordDebt("disabledOpacityUses", file.relativePath, classAnalysis.disabledOpacityUses.length);
+  const textDisabledOpacity = countMatches(classTextSource, DISABLED_OPACITY_CLASS);
+  assert(
+    classAnalysis.disabledOpacityUses.length >= textDisabledOpacity,
+    `${file.relativePath} has ${textDisabledOpacity} disabled:opacity text match(es) but the AST class-root pass only saw ${classAnalysis.disabledOpacityUses.length}`,
+  );
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
   recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
   recordDebt("rawPaddingLiterals", file.relativePath, classAnalysis.rawPaddingLiterals.length);
@@ -522,6 +533,9 @@ console.log(
   `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}; arbitrary tracking ${metrics.arbitraryTracking}.`,
 );
 console.log(
+  `Disabled-state boundary (COMPONENTS.md §9.33): native disabled:opacity uses bypassing controlDisabled ${metrics.disabledOpacityUses}.`,
+);
+console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
 );
 console.log(
@@ -530,6 +544,7 @@ console.log(
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Error-state boundary: count-bearing title/body props ${metrics.errorStateCountProps}.`);
 console.log(`Failed-state boundary: count-bearing result nodes ${metrics.failedStateResultCounts}.`);
+console.log(`Accessibility ratchet: visible nodes carrying aria-live (SPEC §9.2) ${metrics.visibleLiveRegions}.`);
 console.log(
   `Type-scale density mix (warn/ratchet, not a hard zero): same-file text-sm + text-sm-minus ${metrics.sameFileTextSmMinusMix}.`,
 );

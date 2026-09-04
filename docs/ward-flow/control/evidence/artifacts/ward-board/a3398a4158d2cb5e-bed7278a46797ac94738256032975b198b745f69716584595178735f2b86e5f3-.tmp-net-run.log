@@ -1,0 +1,11 @@
+Handed in: 11 file(s). Running…
+JSON report written to C:/Users/joshs/AppData/Local/Temp/ward-tests-Iobt40/report.json
+
+  files handed in : 11
+  files that ran  : 11
+  tests collected : 164
+  passed          : 163
+  failed          : 0
+  vitest exit     : 0
+
+OK — all 11 handed-in file(s) ran, 163 test(s) passed.
