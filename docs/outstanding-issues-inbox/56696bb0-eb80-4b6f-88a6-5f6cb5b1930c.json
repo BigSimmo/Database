@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "56696bb0-eb80-4b6f-88a6-5f6cb5b1930c",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "vitest --reporter=basic does not exist and dies at startup reporting zero failures",
+    "detail": "Running any vitest invocation with --reporter=basic in this repo fails with 'Error: Failed to load custom Reporter from basic'. Zero tests run, zero failures are reported, and the run is indistinguishable from a clean pass unless the output is read rather than the exit code. Two chats hit this on 2026-09-02 and one would have reported three failing tests as fixed. Consider either a wrapper that rejects unknown reporter names, or a line in docs/testing.md. Observed at fb17db7b1.",
+    "source": "Ward Builder One closing sweep 2026-09-02",
+    "issueUlid": "01M1G4PXCMXFZX47SC941FWZPM"
+  }
+}

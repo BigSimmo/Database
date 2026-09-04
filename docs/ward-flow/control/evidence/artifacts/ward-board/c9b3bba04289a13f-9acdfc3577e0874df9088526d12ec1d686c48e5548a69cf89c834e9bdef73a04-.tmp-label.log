@@ -1,0 +1,11 @@
+Handed in: 3 file(s). Running…
+JSON report written to C:/Users/joshs/AppData/Local/Temp/ward-tests-9wlYoQ/report.json
+
+  files handed in : 3
+  files that ran  : 3
+  tests collected : 25
+  passed          : 24
+  failed          : 1
+  vitest exit     : 1
+
+FAILED: 1 test(s) failed.

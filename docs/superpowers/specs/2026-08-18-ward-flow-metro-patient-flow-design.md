@@ -184,15 +184,30 @@ fact is what removes the phone-around, and hiding it would recreate the problem.
 requested_, owned by that department, carrying its location, legal status and deadline, cohort,
 security need, sex and any specialling requirement.
 
+> ⚠️ **SUPERSEDED — nothing is locked out; a decline does not lock a ward out, and out-of-catchment
+> options are greyed rather than removed.** Owner ruling 2026-08-30 (FD-24), recorded in
+> `docs/ward-flow-owner-rulings-2026-09-01.md` ("latest decision wins"). The passage below is kept
+> as the record of what was decided earlier; it is NOT current and must not be built from.
+
 **Shortlisting.** The coordinator picks it up. The system **filters before it ranks**. Hard gates
 first: authorisation where the destination would be an involuntary admission, cohort, security,
 sex mix, specialling capacity, and any unit that has already declined. Only survivors are ranked
 and shown, each with its reasons and what nearly excluded it. Stage becomes _destination review_,
 owned by the coordinator.
 
+> ⚠️ **SUPERSEDED — a ward is told NOTHING about co-addressees, not their identities and not that
+> they exist.** Owner ruling 2026-08-30 (FD-23 and FD-31), recorded in
+> `docs/ward-flow-owner-rulings-2026-09-01.md` ("latest decision wins"). The passage below is kept
+> as the record of what was decided earlier; it is NOT current and must not be built from.
+
 **Parallel referrals are supported**, capped at three at a time. Every unit receiving one is told
 it is a parallel referral. When one accepts, the others are withdrawn automatically with a
 reason. Concealing parallel referrals from wards is how trust between services breaks.
+
+> ⚠️ **SUPERSEDED — nothing is locked out; a decline does not lock a ward out, and out-of-catchment
+> options are greyed rather than removed.** Owner ruling 2026-08-30 (FD-24), recorded in
+> `docs/ward-flow-owner-rulings-2026-09-01.md` ("latest decision wins"). The passage below is kept
+> as the record of what was decided earlier; it is NOT current and must not be built from.
 
 **Acceptance.** A ward accepting in principle moves it to _accepted, awaiting bed_, owned by the
 ward. Naming a bed moves it to _bed held_ with an expiry running. Declining returns it to

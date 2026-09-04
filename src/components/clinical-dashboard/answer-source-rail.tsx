@@ -134,10 +134,15 @@ export function AnswerSourceRail({
             id={rowListId}
             role="list"
             aria-label="Cited documents"
-            className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            // `snap-proximity`, not `snap-mandatory`. A card left half-scrolled reads as clipped
+            // rather than as scrollable — the second card ends mid-word, which looks like a
+            // layout fault instead of an invitation. Snapping settles each card to the left edge
+            // so a rest position is always a whole card. Proximity rather than mandatory because
+            // mandatory fights momentum scrolling on iOS and can strand a reader between cards.
+            className="flex snap-x snap-proximity gap-1.5 overflow-x-auto overscroll-x-contain pb-1 pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {sources.map((source, index) => (
-              <div key={`${source.id}:${index}`} role="listitem" className="flex-none">
+              <div key={`${source.id}:${index}`} role="listitem" className="flex-none snap-start">
                 <AnswerSourceCard
                   source={source}
                   index={index}

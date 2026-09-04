@@ -155,15 +155,30 @@ export function isCatalogueMedicationSlug(slug: string): boolean {
   return Object.hasOwn(INDEX.names, slug);
 }
 
+/**
+ * Severity token → badge/verdict tone.
+ *
+ * `success` is the tone the verdict band prints as "No alert found", so it
+ * belongs to "checked, nothing found" and to nothing else. It used to be shared
+ * with the four documented-but-not-alerting severities, which composed a
+ * catalogued interaction straight into the all-clear: a patient on mesalazine
+ * and digoxin got a green shield headed "NO ALERT FOUND" with "1 interaction"
+ * printed underneath and the row's own wording — "Decreases absorption of
+ * Digoxin" — inside a success-toned notice below that.
+ *
+ * They map to `info` instead: documented, stated, and visibly not an alert
+ * level. `unknown` stays `neutral` — missing analysis is not a negative finding,
+ * which is the invariant in this module's header.
+ */
 export const SEVERITY_TONE: Record<InteractionSeverity, SemanticTone> = {
   critical: "danger",
   high: "danger",
   moderate: "warning",
   caution: "warning",
-  low: "success",
-  none: "success",
-  safe: "success",
-  beneficial: "success",
+  low: "info",
+  none: "info",
+  safe: "info",
+  beneficial: "info",
   unknown: "neutral",
 };
 
@@ -365,7 +380,13 @@ export function composeMedicationVerdict(input: {
       )
     : "success";
 
-  if (incomplete && tone === "success") tone = "neutral";
+  // "Could not finish the check" outranks both "nothing found" (`success`) and
+  // "documented, no alert level" (`info`): the reader needs the manual-review
+  // headline, not a green or an informational one, whenever an engine left
+  // something unassessed. `info` is included because the documented severities
+  // moved onto it; before that they arrived here as `success` and were caught by
+  // this same line.
+  if (incomplete && (tone === "success" || tone === "info")) tone = "neutral";
 
   return {
     tone,
