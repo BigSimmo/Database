@@ -119,7 +119,9 @@ and are excluded from the printable card. A one-tap "still correct" action stamp
 | `/api/on-call/entries/[id]`        | DELETE | Delete                                          |
 | `/api/on-call/entries/[id]/verify` | POST   | Stamp `last_verified_at = now()`                |
 
-Every route resolves the owner from the validated session, never from the request body.
+Reads resolve the caller through `publicAccessContext` (the helper that already handles the
+anonymous case for the registry routes); writes require an authenticated user. Either way the
+owner comes from the validated session, never from the request body.
 Signed out, in production, GET returns an empty set with a `signedOut` marker and the writes
 return 401 — no fixtures, no sample entries. Demo mode (no Supabase configured) serves an
 obviously synthetic, non-clinical fixture set so the offline demo still shows a working mode.
@@ -130,10 +132,12 @@ obviously synthetic, non-clinical fixture set so the offline demo still shows a 
 the page already holds. A single owner's hub is small enough that this is both correct and
 instant — and because it needs no network, search keeps working offline.
 
-**Offline.** On a successful fetch, the entry set is written to browser storage. When the
-network fails, the page renders the cached copy behind an explicit banner naming the date it
-was saved. The cache is cleared on sign-out, so personal numbers do not outlive the session
-on a shared machine.
+**Offline.** On a successful fetch, the entry set is written to browser storage through the
+existing `createBrowserStore` helper (`src/lib/client-store-factory.ts`), following
+`saved-registry-storage.ts` as the precedent rather than introducing a new storage mechanism.
+When the network fails, the page renders the cached copy behind an explicit banner naming the
+date it was saved. The cache is cleared on sign-out, so personal numbers do not outlive the
+session on a shared machine.
 
 **Printable card.** `/on-call/card` renders a print-styled single page of the contacts
 flagged `include_on_card`, excluding anything flagged personal and anything stale.
