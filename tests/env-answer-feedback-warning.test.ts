@@ -46,7 +46,7 @@ describe("warnAnswerFeedbackDisabled", () => {
   it("stays silent when the secret is configured", async () => {
     const { warnAnswerFeedbackDisabled } = await loadEnv({
       NODE_ENV: "development",
-      RAG_QUERY_HASH_SECRET: "0123456789abcdef0123",
+      RAG_QUERY_HASH_SECRET: "test-query-hash-secret-at-least-16-chars",
     });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 

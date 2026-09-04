@@ -148,7 +148,7 @@ describe("instrumentation boot guard", () => {
     const register = await loadRegister({
       NEXT_RUNTIME: "nodejs",
       NODE_ENV: "development",
-      RAG_QUERY_HASH_SECRET: "0123456789abcdef0123",
+      RAG_QUERY_HASH_SECRET: "test-query-hash-secret-at-least-16-chars",
     });
     await expect(register()).resolves.toBeUndefined();
     expect(warn).not.toHaveBeenCalled();
