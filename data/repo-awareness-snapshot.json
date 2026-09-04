@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "599c60d81e7c96556fc4a6ceebbd8db01d027271",
-    "committed_at": "2026-09-04T12:19:47+00:00"
+    "sha": "030033b87c2c333787e899a52785f4138ed9644a",
+    "committed_at": "2026-09-04T13:01:23+00:00"
   },
   "routes": {
     "modes": [
@@ -33,7 +33,7 @@
       {
         "id": "documents",
         "label": "Documents",
-        "home": "/documents",
+        "home": "/?mode=documents",
         "dev_only": false
       },
       {
@@ -226,11 +226,6 @@
         "area": "product"
       },
       {
-        "path": "/documents",
-        "file": "src/app/(search-app)/documents/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/documents/[id]",
         "file": "src/app/(search-app)/documents/[id]/page.tsx",
         "area": "product"
@@ -313,11 +308,6 @@
       {
         "path": "/formulation/search",
         "file": "src/app/(search-app)/formulation/search/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/medications",
-        "file": "src/app/(search-app)/medications/page.tsx",
         "area": "product"
       },
       {
@@ -1248,6 +1238,11 @@
         "target": "/?mode=differentials"
       },
       {
+        "path": "/documents",
+        "file": "src/app/(search-app)/documents/page.tsx",
+        "target": "/?mode=documents"
+      },
+      {
         "path": "/documents/source",
         "file": "src/app/(search-app)/documents/source/page.tsx",
         "target": "/documents/[id]"
@@ -1276,6 +1271,11 @@
         "path": "/formulation",
         "file": "src/app/(search-app)/formulation/page.tsx",
         "target": "/?mode=formulation"
+      },
+      {
+        "path": "/medications",
+        "file": "src/app/(search-app)/medications/page.tsx",
+        "target": "/?mode=prescribing"
       },
       {
         "path": "/mockups/favourites-hub",
@@ -1569,10 +1569,10 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 221,
-      "product_pages": 76,
+      "pages": 219,
+      "product_pages": 74,
       "mockup_pages": 145,
-      "redirects": 19,
+      "redirects": 21,
       "api": 63
     }
   },
@@ -2844,6 +2844,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/codebase-index.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/codebase-index.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/codex-cloud.md",
         "section": "root",
         "catalogued": true
@@ -3597,6 +3607,16 @@
         "path": "docs/services-mode-governance.md",
         "section": "root",
         "catalogued": false
+      },
+      {
+        "path": "docs/site-map.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/site-map.md",
+        "section": "root",
+        "catalogued": true
       },
       {
         "path": "docs/site-map.md",
@@ -5923,8 +5943,8 @@
       }
     ],
     "counts": {
-      "documents": 855,
-      "catalogued": 115,
+      "documents": 859,
+      "catalogued": 119,
       "uncatalogued": 740,
       "sections": 22
     }

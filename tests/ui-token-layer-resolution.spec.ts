@@ -4,15 +4,18 @@ import { join } from "node:path";
 import { expect, test, type Browser } from "playwright/test";
 
 /**
- * Pins what every divergent token role RESOLVES TO, so a token-layer collapse can be
- * proved to change nothing.
+ * Pins what every doubly-declared token role RESOLVES TO, so a token-layer collapse can
+ * be proved to change nothing.
  *
  * Why this exists alongside the pixel baseline. `globals.css` and `ckb-v2-tokens.css`
- * both declare 54 role/mode combinations with different values; `.ckb-v2.ckb-v2` (0,2,0)
- * beats `:root` (0,1,0) on the same `<html>`, so the v2 value paints and the globals.css
- * one is dead. Collapsing the layers must keep every resolved value byte-identical.
+ * both declare ~220 role/mode combinations; `.ckb-v2.ckb-v2` (0,2,0) beats `:root`
+ * (0,1,0) on the same `<html>`, so the v2 value paints and the globals.css one is dead.
+ * Only ~54 of those pairs currently hold DIFFERENT values — the rest are dead too, they
+ * merely agree today, which is worse rather than better: editing one changes nothing and
+ * nothing says so. Collapsing the layers must keep every resolved value byte-identical,
+ * so this pin covers the whole overlap and not just the disagreeing part of it.
  *
- * A screenshot cannot discharge that. About ten of these roles never appear on the six
+ * A screenshot cannot discharge that. Many of these roles never appear on the six
  * baseline screens — `--e3`/`--e4` live on Ward Management, Dictionary and Tools,
  * `--overlay-backdrop` needs an open sheet, and `--clinical-chat-document` has no
  * consumer anywhere in `src/**`, so no picture of any screen can catch a mistake in it.
@@ -21,11 +24,15 @@ import { expect, test, type Browser } from "playwright/test";
  * What is pinned, and why only this. `getPropertyValue` on a custom property returns the
  * value AFTER `var()` substitution (`--text: var(--neutral-900)` reads back as the
  * resolved `#1b2533`), so one string per role captures the whole resolution chain. It is
- * also a plain token stream rather than a rasterised or numerically-resolved colour, so
- * it does not move with the Chromium build. Painted `rgb()` values deliberately are NOT
- * pinned: `color-mix()` rounding and forced-colors system keywords are build-dependent
- * (this container's Chromium resolves `GrayText` to `rgb(96, 0, 0)`), which would make
- * the pin fail on a browser bump for a reason unrelated to the tokens.
+ * a token stream rather than a rasterised colour, so it is stable across Chromium builds.
+ * Painted `rgb()` values deliberately are NOT pinned: `color-mix()` rounding and
+ * forced-colors system keywords are build-dependent (this container's Chromium resolves
+ * `GrayText` to `rgb(96, 0, 0)`), which would make the pin fail on a browser bump for a
+ * reason unrelated to the tokens.
+ *
+ * Stable across Chromium BUILDS is not stable across ENGINES, and this spec is matched by
+ * `productionSpecPattern`, so it is offered to firefox, webkit and the two mobile projects
+ * as well. See the `test.skip` below for why it takes only Chromium.
  *
  * Regenerate with `UPDATE_TOKEN_RESOLUTION_PIN=1`. Do that ONLY to record a deliberate,
  * reviewed change — regenerating to clear a failure is how this stops proving anything.
@@ -35,7 +42,6 @@ import { expect, test, type Browser } from "playwright/test";
 // `import.meta` is a syntax error at collection time and the file silently stops being a test.
 // This matches the idiom in `tests/ui-style-contract.spec.ts`.
 const PIN_PATH = join(process.cwd(), "docs", "design-system", "token-resolved-values.json");
-const DIVERGENCES_PATH = join(process.cwd(), "docs", "design-system", "token-layer-divergences.json");
 const UPDATE = process.env.UPDATE_TOKEN_RESOLUTION_PIN === "1";
 
 /**
@@ -67,19 +73,45 @@ function readPin(): Pin | null {
   }
 }
 
+type LayerPair = { compat: Map<string, string>; v2: Map<string, string> };
+
 /**
- * Roles come from the committed pin once it exists, NOT from the divergence report.
- * The report is derived from the two layers still disagreeing, so the collapse empties
- * it by construction — sourcing the list from it would silently shrink this proof to
- * nothing at the exact moment it matters. The divergence report seeds the very first
- * capture and is never consulted again.
+ * Every role BOTH layers declare, in any mode — the set whose globals.css declaration is
+ * dead because `.ckb-v2.ckb-v2` (0,2,0) outranks `:root` (0,1,0) on the same <html>.
+ *
+ * Deliberately wider than `token-layer-divergences.json`, which lists only the ~54
+ * combinations that currently DISAGREE. The remaining ~166 are overridden just as
+ * completely; they merely happen to carry the same value today, so editing one changes
+ * nothing and nothing says so. The collapse removes all of them, so the proof has to
+ * cover all of them.
+ *
+ * Parsed by the repo's own `readLayers()` rather than re-implemented here. A second
+ * parser with its own idea of which blocks belong to which mode is precisely how these
+ * two layers drifted apart unnoticed; there must be exactly one.
  */
-function rolesToCheck(pin: Pin | null): string[] {
-  if (pin) return pin.roles;
-  const report = JSON.parse(readFileSync(DIVERGENCES_PATH, "utf8")) as {
-    divergences: Record<string, Record<string, unknown>>;
+async function overlappingRoles(): Promise<string[]> {
+  const { readLayers } = (await import("../scripts/token-layer-divergences.mjs")) as {
+    readLayers: () => Record<string, LayerPair>;
   };
-  return [...new Set(Object.values(report.divergences).flatMap((mode) => Object.keys(mode)))].sort();
+  const overlap = new Set<string>();
+  for (const { compat, v2 } of Object.values(readLayers())) {
+    for (const name of compat.keys()) if (v2.has(name)) overlap.add(name);
+  }
+  return [...overlap].sort();
+}
+
+/**
+ * Roles come from the committed pin once it exists, NOT recomputed from the stylesheets.
+ * The overlap above empties by construction the moment the collapse lands — sourcing the
+ * list from it would silently shrink this proof to nothing at the exact moment it matters.
+ * The overlap seeds the very first capture, and afterwards is used only to detect roles
+ * the pin does not yet cover (see the coverage cross-check in the test itself).
+ */
+async function rolesToCheck(pin: Pin | null): Promise<string[]> {
+  // Regeneration always re-derives the list. Otherwise a widened overlap could never be
+  // adopted: the pin would keep seeding itself with its own (narrower) roles forever.
+  if (UPDATE || !pin) return await overlappingRoles();
+  return pin.roles;
 }
 
 async function resolveRoles(
@@ -130,29 +162,48 @@ async function resolveRoles(
 }
 
 test.describe("token layer resolution", () => {
+  /**
+   * Chromium only, for two independent reasons — neither of them convenience.
+   *
+   * 1. Half the captured states need forced-colors emulation, which is Chromium-only in
+   *    Playwright (this repo says so in a dozen places, e.g.
+   *    `tests/ui-caring-contacts-workspace.spec.ts:484`). On another engine the
+   *    `forced-colors` states would silently capture ordinary values and could never
+   *    match a pin taken under forced colours.
+   * 2. Engines serialise a substituted custom property differently. Chromium rewrites
+   *    `rgb(13 40 71 / 4%)` to `#0d28470a` and `cubic-bezier(0.4, 0, 0.2, 1)` to
+   *    `cubic-bezier(.4,0,.2,1)`; other engines keep their own spacing and colour
+   *    notation. Ten pinned roles carry such values, so one pin cannot describe all five
+   *    projects, and normalising whitespace alone would not be enough — the colour
+   *    notation differs too.
+   *
+   * Nothing is lost. This proves how the CASCADE resolves, which is spec-defined rather
+   * than engine-defined; per-engine pins would record serialisation trivia, not tokens.
+   */
+  test.skip(
+    ({ browserName }) => browserName !== "chromium",
+    "token serialisation and forced-colors emulation are Chromium-specific",
+  );
+
   test("every divergent role resolves to its pinned value", async ({ browser, baseURL }) => {
     test.slow();
     expect(baseURL, "baseURL must be configured").toBeTruthy();
 
     const pin = readPin();
-    const roles = rolesToCheck(pin);
+    const roles = await rolesToCheck(pin);
     expect(roles.length, "there must be roles to check").toBeGreaterThan(0);
 
     // The pin is authoritative for WHICH roles get checked (see `rolesToCheck` above), but
-    // that means a later token change that introduces a NEW cross-layer divergence would
-    // otherwise refresh `token-layer-divergences.json` while this spec stays green and never
-    // notices the new role. Cross-check coverage without letting the report drive the list.
-    if (pin) {
-      const report = JSON.parse(readFileSync(DIVERGENCES_PATH, "utf8")) as {
-        divergences: Record<string, Record<string, unknown>>;
-      };
-      const currentDivergentRoles = [
-        ...new Set(Object.values(report.divergences).flatMap((mode) => Object.keys(mode))),
-      ];
-      const uncovered = currentDivergentRoles.filter((role) => !pin.roles.includes(role));
+    // that means a token change adding a NEW declaration to globals.css for a role the v2
+    // layer already owns would go unnoticed: the new declaration is dead on arrival, and
+    // this spec would stay green having never looked at it. Cross-check coverage against
+    // the live overlap without letting the overlap drive the list.
+    if (pin && !UPDATE) {
+      const uncovered = (await overlappingRoles()).filter((role) => !pin.roles.includes(role));
       expect(
         uncovered,
-        `divergence report lists role(s) not covered by the pin — regenerate with ` +
+        `globals.css declares role(s) the v2 layer overrides that this pin does not cover — ` +
+          `a dead declaration nothing is measuring. Regenerate with ` +
           `UPDATE_TOKEN_RESOLUTION_PIN=1 after reviewing: ${uncovered.join(", ")}`,
       ).toEqual([]);
     }
@@ -165,9 +216,10 @@ test.describe("token layer resolution", () => {
     if (UPDATE) {
       const next: Pin = {
         $comment:
-          "Resolved value of every token role that diverges between globals.css and ckb-v2-tokens.css, " +
-          "captured per colour scheme and forced-colors state. The token-layer collapse must leave this " +
-          "file byte-identical. Regenerate only via UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
+          "Resolved value of every token role that ckb-v2-tokens.css overrides in globals.css — the whole " +
+          "overlap, not only the roles whose values differ. Captured per colour scheme and forced-colors " +
+          "state. The token-layer collapse must leave this file byte-identical. Regenerate only via " +
+          "UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
         generatedBy: "tests/ui-token-layer-resolution.spec.ts",
         capturedFrom: { route: "/", states: STATES.map((state) => state.id) },
         roles,

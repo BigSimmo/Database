@@ -303,9 +303,12 @@ export const appModeDefinitions = [
     id: "prescribing",
     label: "Medication",
     description: "Medication dosing, safety, and monitoring checks",
-    // Medication owns a real home at /medications (previously a 307 alias for
-    // /?mode=prescribing, which is now the shared home). A submitted search still
-    // resolves to /?mode=prescribing&q=…&run=1, which stays dashboard-owned.
+    // Like most other modes, /medications is a redirect: unsubmitted, it forwards
+    // to the shared home at /?mode=prescribing; a submitted search resolves to
+    // /?mode=prescribing&q=…&run=1, which stays dashboard-owned. It is deliberately
+    // NOT in consolidatedModeHomePaths (@/lib/consolidated-mode-home-redirect) —
+    // there is no /medications/search route, so its own bespoke redirect in
+    // medications/page.tsx (mirrored in src/proxy.ts) handles both branches instead.
     href: "/medications",
     search: {
       // Deliberately kind:"documents" (unlike forms): prescribing intentionally searches the
