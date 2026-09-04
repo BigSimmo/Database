@@ -71,20 +71,21 @@ function accountProfileLabel(identity: SidebarIdentity) {
 
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
-  // Owner decision 2026-08-27: the sidebar opens the shared "Clinical Documents"
-  // home, not the `/documents` workspace. `/documents` paints a second, older
-  // landing page — same subtitle, different title, plus three rows that only open
-  // drawers — and arriving there from the sidebar read as landing on the wrong
-  // screen. `/documents` keeps its route and its inbound link from the Tools
-  // directory (`tools-catalog.ts`); only this entry moves.
+  // Owner decision 2026-08-27, extended: the sidebar has pointed straight at the
+  // shared "Clinical Documents" home since before `/documents` itself redirected.
+  // `/documents` now also redirects (it joined the consolidated modes), so this
+  // entry is no longer saving a hop over its own route — it is consistent with
+  // every other pinned entry below. `/documents` keeps its route and its inbound
+  // link from the Tools directory (`tools-catalog.ts`).
   { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
   // Every consolidated mode links to the one shared home; their bare paths are now
   // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`
   // would spend a round trip arriving at the same place.
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/?mode=services" },
-  // Medication owns a real home at /medications; it is not a consolidated-mode
-  // redirect onto /?mode=prescribing (the shared empty home).
-  { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/medications" },
+  // Medication also redirects now (via its own bespoke proxy fast-path, not the
+  // shared consolidatedModeHomePaths map — see `src/proxy.ts`), so this entry
+  // points straight at the shared home too, matching Documents/Services above.
+  { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/?mode=prescribing" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/?mode=factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
   { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },
