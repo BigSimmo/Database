@@ -557,6 +557,7 @@ function movement(overrides: Partial<Movement>): Movement {
     blocker: "No blocker",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     ...overrides,
   };
 }

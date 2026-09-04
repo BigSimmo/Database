@@ -10,13 +10,23 @@ import type {
   ReferralDestinationKind,
 } from "../src/components/ward-management/ward-model";
 import {
+  communityScopedReferral,
+  communityScopedReferrals,
   coordinatorScopedReferral,
   coordinatorScopedReferrals,
   coordinatorWorklistReferrals,
   coordinatorWorksReferral,
+  edScopedReferral,
+  edScopedReferrals,
   referralDestinationDirection,
   wardScopedReferral,
   wardScopedReferrals,
+  type CommunityScopedAddressing,
+  type CommunityScopedReferral,
+  type CoordinatorScopedReferral,
+  type EdScopedAddressing,
+  type EdScopedDestinationSummary,
+  type EdScopedReferral,
   type WardScopedAddressing,
   type WardScopedReferral,
 } from "../src/components/ward-management/ward-referral-visibility";
@@ -262,6 +272,37 @@ const CANCELLED_ELSEWHERE_MARKERS: readonly (string | number)[] = [
   allEmergencyDepartments()[0].id,
 ];
 
+/**
+ * Facts that belong to a destination OTHER than the COMMUNITY TEAM's, in `multiDestinationReferral()`.
+ *
+ * **Owner ruling, 2026-09-04: a community team may not see that the same patient was referred
+ * anywhere else — the same restriction as a ward.** His reasoning is the ward reasoning: so a team
+ * does not spend its time on a patient being placed elsewhere, and information never sent cannot
+ * leak later. If any of these is reachable from a community-scoped projection, the team can see
+ * where else this patient has been referred — by name, by state, by decider, by time.
+ *
+ * ⚠️ **THIS IS A SEPARATE LIST FROM `ELSEWHERE_MARKERS`, AND IT HAS TO BE, BECAUSE "ELSEWHERE"
+ * MEANS SOMETHING DIFFERENT FROM EACH SEAT.** `"accepted"`, `"community_team"`, `"Flow coordinator"`
+ * and `ELSEWHERE_DECIDED_AT` are all leaks TO A WARD in this fixture and are all the COMMUNITY
+ * TEAM'S OWN facts — it is the arm that accepted. Reusing the ward's list here would assert the
+ * community projection must hide its own answer, which is the opposite of the rule. The markers
+ * below are the ward arm's and the emergency department's, measured against the fixture by the
+ * positive control before any absence is claimed.
+ *
+ * `"cancelled"` is deliberately absent for the reason recorded on `ELSEWHERE_MARKERS`: the reducer
+ * change implementing owner ruling 2 removes this fixture's route to it.
+ */
+const COMMUNITY_ELSEWHERE_MARKERS: readonly (string | number)[] = [
+  "psychiatric_ward",
+  "emergency_department",
+  "declined",
+  "no_suitable_bed",
+  "Ward manager",
+  WARD_DECIDED_AT,
+  allEmergencyDepartments()[0].id,
+  "bed",
+];
+
 type Sweep = {
   /** Every key name found, at any depth. */
   keys: string[];
@@ -369,6 +410,273 @@ const ALLOWED_WARD_DESTINATION_FIELDS = ["kind", "sex", "secureBedNeeded", "invo
  */
 const WARD_PROJECTION_OBJECT_PATHS = ["", "addressing", "addressing.destination"];
 
+/**
+ * The community twin of `assertFixtureHasOthers`, and a DELIBERATE DUPLICATE rather than a shared
+ * `assertFixtureHasOthers(referral, ownKind)`.
+ *
+ * A single helper parameterised by kind is one edit away from being the place a community-facing
+ * change quietly reaches ward behaviour, and `ward-referral-visibility.ts`'s own header names that
+ * shape as the FD-23 exemption arriving by the front door. Twelve duplicated lines that cannot be
+ * mis-parameterised beat one clever helper that can.
+ */
+function assertFixtureHasNonCommunityOthers(referral: Referral): ReferralAddressing[] {
+  expect(
+    referral.destinations.length,
+    "the 2026-09-04 ruling is a rule about hiding the OTHER destinations from a community team. A " +
+      "fixture with one destination has none, so every leak assertion below would pass for the wrong reason.",
+  ).toBeGreaterThan(1);
+  const others = referral.destinations.filter((addressing) => addressing.destination.kind !== "community_team");
+  expect(others.length, "the fixture holds no non-community destination to hide").toBeGreaterThan(0);
+  return others;
+}
+
+/** The permitted fields on a community-scoped projection — LEVEL 1. Written out rather than reused
+ *  from `ALLOWED_WARD_PROJECTION_FIELDS`: the two lists agree today and a shared constant would
+ *  make widening one silently widen the other. */
+const ALLOWED_COMMUNITY_PROJECTION_FIELDS = [
+  "id",
+  "ageBand",
+  "homeRegion",
+  "source",
+  "raisedAt",
+  "urgency",
+  "originSiteCode",
+  "transportNeeded",
+  // Singular, and that is the whole rule in one key name: a community team sees the one addressing
+  // that is its own. `destinations` — the plural the full `Referral` carries — must never appear here.
+  "addressing",
+].sort();
+
+/**
+ * The permitted fields on the community team's own addressing — LEVEL 2. Where the decision lives.
+ *
+ * ⚠️ **SHORTER THAN THE WARD'S BY ONE, AND THAT IS NOT AN OVERSIGHT.** `acceptedUnitId` is on the
+ * ward addressing and not here, because `ReferralAddressing` says it is "Only ever set on a
+ * `psychiatric_ward` addressing — the other three are answered by a person or a team, and have no
+ * unit to name." A key nothing can ever write renders as a legitimate empty state and invites the
+ * next author to find something to put in it. Adding it here is a decision, not a tidy-up.
+ */
+const ALLOWED_COMMUNITY_ADDRESSING_FIELDS = ["destination", "state", "decidedAt", "decidedBy", "declineReason"].sort();
+
+/** The permitted fields on the community arm itself — LEVEL 3. The team that was asked, and
+ *  nothing else. */
+const ALLOWED_COMMUNITY_DESTINATION_FIELDS = ["kind", "teamName"].sort();
+
+/**
+ * The three object nodes a community-scoped projection is made of, and there are no others.
+ *
+ * This is the assertion that makes the three allowlists above TOTAL — the same job
+ * `WARD_PROJECTION_OBJECT_PATHS` does, held separately so a fourth nested object appearing on one
+ * projection cannot be waved through by the other's list.
+ */
+const COMMUNITY_PROJECTION_OBJECT_PATHS = ["", "addressing", "addressing.destination"];
+
+/**
+ * Facts that belong to a destination OTHER than the EMERGENCY DEPARTMENT's, in
+ * `multiDestinationReferral()`, **AND THAT THE 2026-09-04 ED RULING DOES NOT HAND OVER**.
+ *
+ * ⚠️ **THIS LIST IS SHORTER THAN THE OTHER TWO SEATS' BY EXACTLY WHAT THE RULING GRANTS, AND THAT IS
+ * THE RULING RATHER THAN A WEAKENED GUARD.** Owner ruling R-2026-09-04-B — *"Yes can see."* — means
+ * `"psychiatric_ward"`, `"community_team"`, `"declined"` and `"accepted"` ARE permitted here: they
+ * are the kinds and states of the other arms, which is precisely what an ED may now see. Forbidding
+ * them would pin the reverse of the ruling. What stays forbidden is everything the ruling does not
+ * reach — another arm's decline reason, its decider, its decision time, its bed criteria, and the
+ * name of the team that was asked.
+ *
+ * ⚠️ **`ELSEWHERE_DECIDED_AT` IS DELIBERATELY ABSENT AND IT IS THE TRAP ON THIS SEAT.** In this
+ * fixture the community arm accepts, which cancels the still-queued ED arm and stamps the SAME
+ * instant onto it (`ACCEPT_REFERRAL` writes `decidedAt: event.now` on every arm it cancels). So
+ * `ELSEWHERE_DECIDED_AT` is the emergency department's OWN `decidedAt`, legitimately carried, and
+ * listing it would assert the projection must hide the department's own answer. The positive control
+ * below is what would catch that, and it is the same control the community seat needed.
+ */
+const ED_ELSEWHERE_MARKERS: readonly (string | number)[] = [
+  // The ward arm's bed criteria — what was asked OF that destination, not that it was asked.
+  "Female",
+  // The ward's own decline reason, its own decider, its own decision time.
+  "no_suitable_bed",
+  "Ward manager",
+  WARD_DECIDED_AT,
+  // Which community team was asked, and the role that answered for it.
+  "Inner City Clinic",
+  "Flow coordinator",
+];
+
+/**
+ * The ED twin of `assertFixtureHasOthers`, and a DELIBERATE DUPLICATE for the reason
+ * `assertFixtureHasNonCommunityOthers` is one: a single helper parameterised by kind is one edit away
+ * from being the place an ED-facing change quietly reaches ward behaviour.
+ */
+function assertFixtureHasNonEdOthers(referral: Referral): ReferralAddressing[] {
+  expect(
+    referral.destinations.length,
+    "the ED ruling grants the destination LIST. A fixture with one destination has no others, so " +
+      "both the grant and the limits on it would be untestable here.",
+  ).toBeGreaterThan(1);
+  const others = referral.destinations.filter((addressing) => addressing.destination.kind !== "emergency_department");
+  expect(others.length, "the fixture holds no non-ED destination").toBeGreaterThan(0);
+  return others;
+}
+
+/** The permitted fields on an ED-scoped projection — LEVEL 1. Written out rather than reused from
+ *  either other seat's list: they no longer even agree, and a shared constant would make widening one
+ *  silently widen the others. */
+const ALLOWED_ED_PROJECTION_FIELDS = [
+  "id",
+  "ageBand",
+  "homeRegion",
+  "source",
+  "raisedAt",
+  "urgency",
+  "originSiteCode",
+  "transportNeeded",
+  // Singular — this department's own arm, in full.
+  "addressing",
+  // ⚠️ THE PLURAL, AND ONLY THIS SEAT AND THE COORDINATOR'S HAVE IT. Owner ruling R-2026-09-04-B.
+  // Its CONTENTS are guarded — unlike the coordinator's — by
+  // `ALLOWED_ED_DESTINATION_SUMMARY_FIELDS` below, because "may see the destinations" is not "may
+  // see everything".
+  "destinations",
+].sort();
+
+/**
+ * The permitted fields on the department's own addressing — LEVEL 2. Where its own decision lives.
+ *
+ * The same five as the community seat's, and shorter than the ward's by `acceptedUnitId` for the
+ * same recorded reason: `ReferralAddressing` says that field is "Only ever set on a
+ * `psychiatric_ward` addressing", and a key nothing can ever write renders as a legitimate empty
+ * state and invites the next author to find something to put in it.
+ */
+const ALLOWED_ED_ADDRESSING_FIELDS = ["destination", "state", "decidedAt", "decidedBy", "declineReason"].sort();
+
+/** The permitted fields on the department's own arm — LEVEL 3. Which department, and why it was
+ *  asked. `purpose` is load-bearing rather than decorative: `FD-18` — a ward→ED medical notification
+ *  and ED psychiatry's own review request differ only in this field. */
+const ALLOWED_ED_DESTINATION_FIELDS = ["kind", "edId", "purpose"].sort();
+
+/**
+ * ⚠️ **THE PERMITTED FIELDS ON ONE ENTRY OF THE DESTINATION LIST — AND THIS IS WHERE THE 2026-09-04
+ * ED RULING IS ACTUALLY SPENT.**
+ *
+ * The ruling grants **which destinations were asked and the state of those arms**. Two fields. Every
+ * other field of a `ReferralAddressing` — `declineReason`, `decidedBy`, `decidedAt`,
+ * `acceptedUnitId`, `acceptOverrideReason` — and every arm-specific criterion — a ward's `sex`,
+ * `secureBedNeeded`, `involuntaryBedNeeded`, a community team's `teamName` — is left off, because the
+ * ruling does not reach it and an unobvious inclusion is excluded rather than added quietly.
+ *
+ * ⚠️ **THE COORDINATOR SEAT HANDS `ReferralAddressing[]` OVER WHOLE AND ITS CONTENTS ARE
+ * DELIBERATELY UNGUARDED. THIS LIST IS THE DIFFERENCE BETWEEN THE TWO SEATS**, and it is the whole of
+ * it. Delete this list, or widen it to the arms, and the ED seat becomes the coordinator's under
+ * another name — with every gate still green, because the root allowlist would still pass.
+ */
+const ALLOWED_ED_DESTINATION_SUMMARY_FIELDS = ["kind", "state"].sort();
+
+/**
+ * The object nodes an ED-scoped projection is made of, for a referral with `destinationCount` arms.
+ *
+ * The totality half, and computed rather than written out because this seat's shape depends on how
+ * many destinations the referral has — the one place the four projections genuinely differ in shape.
+ * Without it a fifth nested object introduced later would sit below every allowlist and be checked by
+ * none of them.
+ */
+function edProjectionObjectPaths(destinationCount: number): string[] {
+  return [
+    "",
+    "addressing",
+    "addressing.destination",
+    "destinations",
+    ...Array.from({ length: destinationCount }, (_unused, index) => `destinations[${index}]`),
+  ];
+}
+
+/**
+ * ⚠️ **THE PERMITTED FIELDS AT THE ROOT OF A COORDINATOR-SCOPED PROJECTION — AND THIS IS A
+ * STRUCTURAL GUARD, NOT A VISIBILITY RULING.**
+ *
+ * **What it asserts is only this: the object `coordinatorScopedReferral` returns carries exactly
+ * the field set `CoordinatorScopedReferral` declares — no more.** It does not say a coordinator may
+ * not see any particular fact. If the owner rules that the coordinator projection should grow,
+ * the type grows and this list grows with it, in one deliberate edit somebody makes on purpose.
+ * That is the whole property: **widening this seat becomes VISIBLE rather than silent.**
+ *
+ * ⚠️ **IT IS HERE BECAUSE THE MODULE'S OWN CLAIM THAT `tsc` HOLDS THIS WAS MEASURED FALSE —
+ * 2026-09-04.** The header of `ward-referral-visibility.ts` said the coordinator field set was
+ * enforced by `tsc` rather than by this suite, and that is true only for a field REMOVED. Adding
+ * `...referral` to the root of `coordinatorScopedReferral` — so the projection silently gained
+ * `patientId`, `suburb` and `triagedAt` — left **all 116 tests in this file passing and
+ * `npx tsc -p tsconfig.typecheck.json --noEmit` at exit 0**. TypeScript's excess-property check does
+ * not reach properties arriving through a spread, so an object literal assigned to a declared type
+ * accepts extra ones in this position. **The claim was load-bearing: a reviewer reads it and stops
+ * looking**, which is what happened until somebody ran the mutation. The module header is corrected
+ * to say exactly what `tsc` does and does not catch; this list is what actually holds the addition
+ * half.
+ *
+ * ⚠️ **THIS IS NOT THE SAME VERDICT THE `suburb` GUARD AT THE FOOT OF THIS FILE DECLINES TO BUY.**
+ * That block reasons that a field's absence is not a decision and refuses to forbid the coordinator
+ * one NAMED field nobody has ruled on. This says nothing about any named field: it requires the
+ * object and its own declaration to agree. A ruling that widens the declaration satisfies it
+ * automatically. The two are compatible, and neither may be deleted as a copy of the other.
+ *
+ * ⚠️ **`destinations` IS ON THIS LIST AND ITS CONTENTS ARE DELIBERATELY UNGUARDED.** The coordinator
+ * seat differs from the other two by design — `destinations: referral.destinations` hands the arms
+ * over whole because a coordinator sees everything. This guard is about the ROOT and about the other
+ * things copied by name; it must never grow an assertion forbidding what an arm carries.
+ */
+const ALLOWED_COORDINATOR_PROJECTION_FIELDS = [
+  "id",
+  "ageBand",
+  "homeRegion",
+  "source",
+  "raisedAt",
+  "urgency",
+  "originSiteCode",
+  "transportNeeded",
+  // Optional on the type, so only present once a coordinator has looked for a local bed.
+  "localBedSought",
+  // The plural, and the coordinator is the only seat that has it. Its CONTENTS are not guarded.
+  "destinations",
+  // Derived by `referralState` at projection time, never stored on a `Referral`.
+  "state",
+].sort();
+
+/**
+ * The permitted fields on `localBedSought` — the one other object this projection copies BY NAME.
+ *
+ * ⚠️ **WRITTEN AS THE MODEL DECLARES IT TODAY, AND IT IS THE MODEL'S OBJECT BY REFERENCE.**
+ * `localBedSought: referral.localBedSought` hands over whatever `Referral.localBedSought` holds, and
+ * `tsc` cannot object: a wider object is assignable to a narrower declared shape, so a field added
+ * to the model's `localBedSought` would arrive on the coordinator projection with nothing red. This
+ * list is what goes red instead — the same "widening is a deliberate edit" property the root list
+ * holds, one level down. It is NOT an instruction to deep-copy the field: whether this seat should
+ * carry a wider `localBedSought` is a decision, and this only makes it one somebody takes.
+ *
+ * `destinations` has no equivalent list on purpose — see the note on the root allowlist.
+ */
+const ALLOWED_COORDINATOR_LOCAL_BED_SOUGHT_FIELDS = ["at", "by"].sort();
+
+/**
+ * The object nodes a coordinator-scoped projection is made of ONCE THE ARMS ARE SET ASIDE.
+ *
+ * The totality half, and the counterpart of `WARD_PROJECTION_OBJECT_PATHS`: without it a new nested
+ * object could arrive at the root and sit below every allowlist. `destinations` is excluded before
+ * the sweep rather than listed here, because its depth is unbounded and its contents are the one
+ * thing this seat is meant to carry whole.
+ */
+const COORDINATOR_PROJECTION_OBJECT_PATHS_WITHOUT_ARMS = ["", "localBedSought"];
+
+/**
+ * Every object node a coordinator projection reaches with the arms set aside — the same `sweep`, on
+ * the same live objects, with exactly one key removed.
+ *
+ * The copy is a new container; every value inside it is still the projection's own object, so a
+ * nested shape arriving anywhere but under `destinations` is still found at its real path.
+ */
+function sweepCoordinatorWithoutArms(projection: CoordinatorScopedReferral): Sweep {
+  const withoutArms: Record<string, unknown> = { ...projection };
+  delete withoutArms.destinations;
+  return sweep(withoutArms);
+}
+
 describe("FD-23 — a ward cannot see where else a patient has been referred", () => {
   describe("the fixture, and whether it can test the rule at all", () => {
     it("really carries more than one destination, with the ward's own state differing from the referral's", () => {
@@ -409,6 +717,41 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
           `${JSON.stringify(marker)} is not present in the full referral, so the leak sweep below ` +
             "cannot fail on it. The marker list has gone stale — fix the list, not the sweep.",
         ).toBe(true);
+      }
+    });
+
+    it("positive control (community seat) — every COMMUNITY_ELSEWHERE_MARKERS marker really is present in the full referral", () => {
+      const referral = multiDestinationReferral();
+      const full = sweep(referral);
+      const reachable = new Set<string | number | boolean>(full.primitives);
+      for (const marker of COMMUNITY_ELSEWHERE_MARKERS) {
+        expect(
+          reachable.has(marker),
+          `${JSON.stringify(marker)} is not present in the full referral, so the community leak sweep ` +
+            "below cannot fail on it. The marker list has gone stale — fix the list, not the sweep.",
+        ).toBe(true);
+      }
+    });
+
+    it("positive control (community seat) — no marker is one of the COMMUNITY TEAM'S OWN facts", () => {
+      /*
+       * The second half of non-vacuity, and the half the ward markers never needed. "Elsewhere"
+       * means something different from each seat: this fixture's community arm is the one that
+       * ACCEPTED, so `"accepted"`, `"community_team"`, `"Flow coordinator"` and `ELSEWHERE_DECIDED_AT`
+       * are leaks to a ward and are this team's own answer. A marker that was secretly the team's own
+       * fact would make the absence sweep below assert the projection must hide the team's own
+       * decision — the opposite of the ruling — and it would fail loudly rather than vacuously, which
+       * is exactly why it is worth catching here with a sentence naming the cause.
+       */
+      const referral = multiDestinationReferral();
+      const own = referral.destinations.find((addressing) => addressing.destination.kind === "community_team")!;
+      const ownFacts = new Set<unknown>(sweep(own).primitives);
+      for (const marker of COMMUNITY_ELSEWHERE_MARKERS) {
+        expect(
+          ownFacts.has(marker),
+          `${JSON.stringify(marker)} belongs to the community team's OWN addressing, so forbidding it ` +
+            "asserts the reverse of the 2026-09-04 ruling — a team may see its own answer.",
+        ).toBe(false);
       }
     });
 
@@ -617,12 +960,860 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
       expect(projection.addressing.destination.kind).toBe("psychiatric_ward");
     });
 
+    it("⚠️ THE BY-NAME COPY IS LOAD-BEARING BELOW THE TOP LEVEL — a field the model gains later does not reach the projection", () => {
+      /*
+       * ⚠️ **MEASURED BEFORE THIS TEST WAS WRITTEN, AND IT WAS GREEN — 2026-09-04.** Replacing the
+       * addressing and arm copies inside `wardScopedReferral` with `{ ...ward }` /
+       * `{ ...ward.destination }`, leaving the top level copied by name, left ALL 115 tests in this
+       * file passing. Every fixture's ward arm happens to carry exactly the fields the projection
+       * lists, so at level 2 and level 3 a spread and a by-name copy produced identical objects.
+       * **The module's stated reason for copying by name — that a spread "would silently carry a
+       * field added to `ReferralAddressing` later, which is precisely how a projection quietly
+       * becomes the full record again" — had nothing holding it below the root.** A spread at the
+       * ROOT does go red, loudly; it was only the nested levels that were unheld.
+       *
+       * This is the ward twin of the community guard below, built the same way rather than a second
+       * pattern. The gap was INHERITED by the community projection rather than introduced by it: the
+       * community seat was closed first (`66b10a439`), which recorded this seat as still open and
+       * left it deliberately, because widening a ward guard is a change to a live clinical surface.
+       * This closes it.
+       *
+       * The input is hand-built, because no reducer path produces a ward arm carrying these fields —
+       * **but every assertion is over the output of the REAL projection**, never over a shape this
+       * test wrote. That is the whole reason the hole was invisible: a test whose input cannot
+       * contain a surprising field can never detect one being let through.
+       *
+       * `acceptOverrideReason` is a real `ReferralAddressing` field this projection deliberately
+       * omits (the acceptance gates it records are bed gates, and the projection does not carry
+       * them); `escalationContact` stands in for the field the model's ward arm gains next.
+       * `acceptedUnitId` is NOT on the leak list — unlike the community twin, the ward projection
+       * legitimately carries it — which is what makes it usable as the positive control below.
+       */
+      const armWithFutureFields: ReferralAddressing = {
+        destination: Object.assign(
+          { kind: "psychiatric_ward", sex: "Female", secureBedNeeded: false, involuntaryBedNeeded: false } as const,
+          // Not on the model's ward arm TODAY. A spread is what would carry tomorrow's.
+          { escalationContact: "on-call registrar" },
+        ),
+        state: "declined",
+        decidedAt: WARD_DECIDED_AT,
+        decidedBy: "Ward manager",
+        declineReason: "no_suitable_bed",
+        // PERMITTED on this projection, and read back out by positive control 2 below.
+        acceptedUnitId: "rph-adult-secure",
+        // A real field of `ReferralAddressing`, deliberately off `WardScopedAddressing`.
+        acceptOverrideReason: "Clinical urgency outweighs the mismatch",
+      };
+      const referral: Referral = {
+        id: "RF-LOCAL-WARD-FUTURE-FIELDS",
+        destinations: [armWithFutureFields],
+        ageBand: "Adult",
+        homeRegion: "Perth Metropolitan",
+        suburb: { kind: "named", name: "Armadale" },
+        source: "community",
+        raisedAt: RAISED_AT,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+      };
+
+      // POSITIVE CONTROL 1 — the fields must be on the source arm, or the absences below prove
+      // nothing at all.
+      const leakable = ["acceptOverrideReason", "escalationContact"];
+      const onSource = new Set(sweep(armWithFutureFields).keys);
+      for (const field of leakable) {
+        expect(
+          onSource.has(field),
+          `${field} is not on the source addressing, so the projection could not have carried it and ` +
+            "this guard is vacuous. If the field was renamed, rename it here rather than deleting the check.",
+        ).toBe(true);
+      }
+
+      const projection = wardScopedReferral(referral)!;
+      expect(projection, "the referral has a ward arm, so a ward view must exist").toBeDefined();
+      const carried = sweep(projection).keys;
+
+      /*
+       * POSITIVE CONTROL 2 — the sweep really is reading this projection, at every depth the
+       * absences below are claimed for. An assertion that finds nothing is indistinguishable from a
+       * scan that looked nowhere, so the fields that are LEGITIMATELY there are asserted present
+       * first: `acceptedUnitId`, `decidedBy` and `declineReason` sit at level 2 beside the omitted
+       * `acceptOverrideReason`, and `sex` sits at level 3 beside the omitted `escalationContact`.
+       */
+      for (const permitted of ["acceptedUnitId", "decidedBy", "declineReason", "sex"]) {
+        expect(
+          carried.includes(permitted),
+          `the sweep did not find "${permitted}", which this projection legitimately carries at the ` +
+            "same depth as the fields checked below. It is not reading the projection, so every " +
+            "absence here would pass for the wrong reason.",
+        ).toBe(true);
+      }
+
+      for (const field of leakable) {
+        expect(
+          carried.includes(field),
+          `the ward projection carries "${field}", which the by-name copy exists to keep out. A ` +
+            "spread was substituted for a field-by-field copy, and every field the model gains from " +
+            "now on reaches a ward screen without anybody deciding it should. FD-23 — a ward may not " +
+            "see where else a patient has been referred.",
+        ).toBe(false);
+      }
+      // And the field sets are still exactly the allowed ones on this input too.
+      expect(Object.keys(projection).sort()).toEqual(ALLOWED_WARD_PROJECTION_FIELDS);
+      expect(Object.keys(projection.addressing.destination).sort()).toEqual(ALLOWED_WARD_DESTINATION_FIELDS);
+      for (const key of Object.keys(projection.addressing)) {
+        expect(ALLOWED_WARD_ADDRESSING_FIELDS, `the ward addressing carries "${key}"`).toContain(key);
+      }
+    });
+
     it("holds every referral in the shipped seed to the same field sets", () => {
       const projections = wardScopedReferrals(seededReferrals);
       expect(projections.length).toBeGreaterThan(0);
       for (const projection of projections) {
         expect(Object.keys(projection).sort()).toEqual(ALLOWED_WARD_PROJECTION_FIELDS);
         expect(sweep(projection).objectPaths.sort()).toEqual([...WARD_PROJECTION_OBJECT_PATHS].sort());
+      }
+    });
+  });
+
+  /**
+   * ⚠️ **OWNER RULING, 2026-09-04 — A COMMUNITY TEAM MAY NOT SEE THAT THE SAME PATIENT WAS REFERRED
+   * ANYWHERE ELSE. THE SAME RESTRICTION AS A WARD.**
+   *
+   * His reasoning is the ward reasoning in his own words: so a team does not spend its time on a
+   * patient being placed elsewhere; and information never sent cannot leak later. A community team
+   * becomes a first-class role with its own page, alongside ED, coordinator and the wards.
+   *
+   * ⚠️ **WHY THIS BLOCK EXISTS AT ALL, WHICH IS THE HAZARD RATHER THAN THE RULE.** `"community"` was
+   * already a member of `WardFlowRole` and already records decisions, there was no community-scoped
+   * projection, and the FD-23 guard (`tests/ward-referral-screen-boundary.test.ts`) does not contain
+   * the word "community" anywhere. By that guard's own words — *"a module both roles reach is shared
+   * infrastructure by construction"* — a community screen built today was already exempt from it.
+   * **The alarm was disconnected before the leak.**
+   *
+   * **Every assertion below derives its keys by calling the real projection on a reducer-built
+   * fixture.** A pin built from a hand-shaped object cannot disagree with the code; the one
+   * hand-built literal here is the `Required<>` canonical, whose job is to be checked by `tsc`
+   * rather than to stand in for the projection's output.
+   */
+  describe("the community-scoped projection — the 2026-09-04 ruling, held the same way", () => {
+    it("is not empty, and has exactly the permitted field set at level 1", () => {
+      const projection = communityScopedReferral(multiDestinationReferral());
+      expect(projection).toBeDefined();
+      expect(Object.keys(projection!).length).toBeGreaterThan(0);
+      expect(Object.keys(projection!).sort()).toEqual(ALLOWED_COMMUNITY_PROJECTION_FIELDS);
+    });
+
+    it("has exactly the permitted field set at level 2 (the addressing) and level 3 (the arm)", () => {
+      const projection = communityScopedReferral(multiDestinationReferral())!;
+      // Subset, not equality, at level 2: the optional decision fields are only present once a
+      // decision exists. The exhaustive half is the `Required<>` literal below.
+      for (const key of Object.keys(projection.addressing)) {
+        expect(ALLOWED_COMMUNITY_ADDRESSING_FIELDS, `the community addressing carries "${key}"`).toContain(key);
+      }
+      expect(Object.keys(projection.addressing.destination).sort()).toEqual(ALLOWED_COMMUNITY_DESTINATION_FIELDS);
+    });
+
+    it("a fully-populated projection (every optional field set) has exactly the allowed field set at every level", () => {
+      // TYPE-CHECKED half: `Required<>` forces every field the type has, so a field added to the
+      // projection and left off this literal stops compiling. Vitest does not typecheck, which is
+      // why the runtime halves above and below exist alongside it.
+      const addressing: Required<CommunityScopedAddressing> = {
+        destination: { kind: "community_team", teamName: "Inner City Clinic" },
+        state: "declined",
+        decidedAt: WARD_DECIDED_AT,
+        decidedBy: "Community service",
+        declineReason: "no_suitable_bed",
+      };
+      const canonical: Required<CommunityScopedReferral> = {
+        id: "REF-CANON-COMMUNITY",
+        ageBand: "Adult",
+        homeRegion: "Perth Metropolitan",
+        source: "community",
+        raisedAt: RAISED_AT,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+        addressing,
+      };
+      expect(Object.keys(canonical).sort()).toEqual(ALLOWED_COMMUNITY_PROJECTION_FIELDS);
+      expect(Object.keys(canonical.addressing).sort()).toEqual(ALLOWED_COMMUNITY_ADDRESSING_FIELDS);
+      expect(Object.keys(canonical.addressing.destination).sort()).toEqual(ALLOWED_COMMUNITY_DESTINATION_FIELDS);
+    });
+
+    it("is made of exactly three object nodes, so no level exists that no allowlist covers", () => {
+      const projection = communityScopedReferral(multiDestinationReferral())!;
+      expect(sweep(projection).objectPaths.sort()).toEqual([...COMMUNITY_PROJECTION_OBJECT_PATHS].sort());
+    });
+
+    it("carries no key, at any depth, that its own level's allowlist does not permit", () => {
+      const projection = communityScopedReferral(multiDestinationReferral())!;
+      const permitted = new Set([
+        ...ALLOWED_COMMUNITY_PROJECTION_FIELDS,
+        ...ALLOWED_COMMUNITY_ADDRESSING_FIELDS,
+        ...ALLOWED_COMMUNITY_DESTINATION_FIELDS,
+      ]);
+      const found = sweep(projection).keys;
+      expect(found.length).toBeGreaterThan(ALLOWED_COMMUNITY_PROJECTION_FIELDS.length);
+      for (const key of found) {
+        expect(permitted.has(key), `the community projection carries a key no allowlist permits: "${key}"`).toBe(true);
+      }
+    });
+
+    it("reaches no other destination's referral data, at any depth", () => {
+      const referral = multiDestinationReferral();
+      assertFixtureHasNonCommunityOthers(referral);
+      const projection = communityScopedReferral(referral)!;
+      const found = sweep(projection);
+      expect(found.primitives.length, "the sweep visited nothing — it is not reading the projection").toBeGreaterThan(
+        5,
+      );
+      const reachable = new Set<string | number | boolean>(found.primitives);
+      for (const marker of COMMUNITY_ELSEWHERE_MARKERS) {
+        expect(
+          reachable.has(marker),
+          `a community-scoped projection reaches ${JSON.stringify(marker)}, which belongs to a ` +
+            "destination that is not this team's. Owner, 2026-09-04: a community team cannot see where " +
+            "else a patient has been referred.",
+        ).toBe(false);
+      }
+    });
+
+    it("carries no count of the other destinations — 'referred to 3 places' is itself a leak", () => {
+      const referral = multiDestinationReferral();
+      assertFixtureHasNonCommunityOthers(referral);
+      const projection = communityScopedReferral(referral)!;
+      const found = sweep(projection);
+      expect(
+        found.primitives.includes(referral.destinations.length),
+        `the projection holds the number ${referral.destinations.length}, which is exactly how many ` +
+          "places this patient was referred to. A count names nobody and still tells a team the " +
+          "patient is being worked elsewhere.",
+      ).toBe(false);
+      for (const key of found.keys) {
+        expect(key, "a key that could only hold a fact about the other destinations").not.toMatch(
+          /destinations|others|elsewhere|count|total/i,
+        );
+      }
+    });
+
+    it("carries the team's OWN decision — its state, its decider, its time — because that is not a leak", () => {
+      const projection = communityScopedReferral(multiDestinationReferral())!;
+      expect(projection.addressing.state).toBe("accepted");
+      expect(projection.addressing.decidedAt).toBe(ELSEWHERE_DECIDED_AT);
+      expect(projection.addressing.decidedBy).toBe("Flow coordinator");
+      expect(projection.addressing.destination.kind).toBe("community_team");
+      expect(projection.addressing.destination.teamName).toBe("Inner City Clinic");
+    });
+
+    it("carries no flag, role or scope field that could widen it, and the plural is genuinely absent", () => {
+      const projection = communityScopedReferral(multiDestinationReferral())!;
+      for (const key of sweep(projection).keys) {
+        expect(key, "a switch on the projection is how two views become one view with a flag").not.toMatch(
+          /role|scope|coordinator|reveal|full|redact|hidden|visib/i,
+        );
+      }
+      // And the fields that separate it from the coordinator's view are genuinely absent, not merely
+      // undefined. `destinations` does not exist on the TYPE, which is the part a later edit in a
+      // community component cannot get around.
+      expect(Object.keys(projection)).not.toContain("destinations");
+      expect(Object.keys(projection)).not.toContain("state");
+      expect(Object.keys(projection)).not.toContain("localBedSought");
+      expect(Object.keys(projection)).not.toContain("suburb");
+    });
+
+    it("⚠️ THE BY-NAME COPY IS LOAD-BEARING BELOW THE TOP LEVEL — a field the model gains later does not reach the projection", () => {
+      /*
+       * ⚠️ **MEASURED, AND IT WAS GREEN BEFORE THIS TEST EXISTED — 2026-09-04.** Replacing the
+       * addressing and arm copies with `{ ...community }` / `{ ...community.destination }`, leaving
+       * the top level copied by name, left ALL 114 tests passing. Every fixture's community arm
+       * happens to carry exactly the fields the projection copies, so at level 2 and level 3 a
+       * spread and a by-name copy produced byte-identical objects. **The module's stated reason for
+       * copying by name — that a spread "would silently carry a field added to `ReferralAddressing`
+       * later" — had nothing holding it below the root.** (A spread at the ROOT does go red, loudly,
+       * on seven tests including one naming `patientId`. It is only the nested levels that were
+       * unheld.)
+       *
+       * ⚠️ **THE SAME PROBE ON `wardScopedReferral` WAS ALSO GREEN, so this is an INHERITED gap, not
+       * one the community projection introduced.** It was closed here for the community seat first
+       * and left standing for the ward seat deliberately: widening a ward guard is a change to
+       * somebody else's live surface, and it was reported rather than made quietly. **The ward seat
+       * is now closed too, 2026-09-04** — the twin of this test sits in the ward-scoped block above,
+       * and the probe that was green there is red on it. Both seats are held; neither is a copy of
+       * the other, for the reason this file gives everywhere else.
+       *
+       * The input is hand-built, because no reducer path produces a community arm carrying these
+       * fields — but **the assertion is over the output of the real projection**, never over a shape
+       * this test wrote. `acceptedUnitId` and `acceptOverrideReason` are real `ReferralAddressing`
+       * fields this projection deliberately omits; `escalationContact` stands in for the field the
+       * model's community arm gains next.
+       */
+      const armWithFutureFields: ReferralAddressing = {
+        destination: Object.assign(
+          { kind: "community_team", teamName: "Inner City Clinic" } as const,
+          // Not on the model's community arm TODAY. A spread is what would carry tomorrow's.
+          { escalationContact: "on-call registrar" },
+        ),
+        state: "declined",
+        decidedAt: WARD_DECIDED_AT,
+        decidedBy: "Community service",
+        declineReason: "no_suitable_bed",
+        // Both real fields of `ReferralAddressing`, both deliberately off `CommunityScopedAddressing`.
+        acceptedUnitId: "rph-adult-secure",
+        acceptOverrideReason: "Clinical urgency outweighs the mismatch",
+      };
+      const referral: Referral = {
+        id: "RF-LOCAL-COMMUNITY-FUTURE-FIELDS",
+        destinations: [armWithFutureFields],
+        ageBand: "Adult",
+        homeRegion: "Perth Metropolitan",
+        suburb: { kind: "named", name: "Armadale" },
+        source: "community",
+        raisedAt: RAISED_AT,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+      };
+
+      // POSITIVE CONTROL — the fields must be on the source arm, or the absences below prove nothing.
+      const leakable = ["acceptedUnitId", "acceptOverrideReason", "escalationContact"];
+      const onSource = new Set(sweep(armWithFutureFields).keys);
+      for (const field of leakable) {
+        expect(
+          onSource.has(field),
+          `${field} is not on the source addressing, so the projection could not have carried it and ` +
+            "this guard is vacuous. If the field was renamed, rename it here rather than deleting the check.",
+        ).toBe(true);
+      }
+
+      const projection = communityScopedReferral(referral)!;
+      expect(projection, "the referral has a community arm, so a community view must exist").toBeDefined();
+      const carried = sweep(projection).keys;
+      for (const field of leakable) {
+        expect(
+          carried.includes(field),
+          `the community projection carries "${field}", which the by-name copy exists to keep out. A ` +
+            "spread was substituted for a field-by-field copy, and every field the model gains from " +
+            "now on reaches a community screen without anybody deciding it should.",
+        ).toBe(false);
+      }
+      // And the field sets are still exactly the allowed ones on this input too.
+      expect(Object.keys(projection).sort()).toEqual(ALLOWED_COMMUNITY_PROJECTION_FIELDS);
+      expect(Object.keys(projection.addressing.destination).sort()).toEqual(ALLOWED_COMMUNITY_DESTINATION_FIELDS);
+      for (const key of Object.keys(projection.addressing)) {
+        expect(ALLOWED_COMMUNITY_ADDRESSING_FIELDS, `the community addressing carries "${key}"`).toContain(key);
+      }
+    });
+
+    it("is a THIRD type, not the ward projection under another name — neither reaches the other", () => {
+      /*
+       * ⚠️ **THE ONE PROPERTY A FIELD-SET ALLOWLIST CANNOT STATE.** Both projections could pass
+       * every allowlist above while `communityScopedReferral` was implemented by calling
+       * `wardScopedReferral` and renaming keys — and a shared converter is the FD-23 exemption
+       * arriving by the front door, because a module both roles reach is shared infrastructure by
+       * construction. This asserts the observable consequence instead: on a referral addressed to
+       * one and not the other, each projection is defined exactly when its OWN arm is present.
+       */
+      const communityOnly = wardFlowReducer(seedWardFlowState(), {
+        type: "RECEIVE_REFERRAL",
+        role: "community",
+        now: RAISED_AT,
+        ageBand: "Adult",
+        destinations: [{ kind: "community_team", teamName: "Inner City Clinic" }],
+        homeRegion: "Perth Metropolitan",
+        suburb: { kind: "named", name: "Armadale" },
+        source: "community",
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+      });
+      expect(communityOnly.rejections, "the reducer refused the community-only referral").toEqual([]);
+      const referral = communityOnly.referrals.at(-1)!;
+      expect(communityScopedReferral(referral), "the community arm is present, so its projection exists").toBeDefined();
+      expect(
+        wardScopedReferral(referral),
+        "no ward arm, so a ward view must not exist — if it does, one projection is being built from the other",
+      ).toBeUndefined();
+
+      // And the mirror image, on the seed's ward-only RF-001.
+      const wardOnly = seededReferrals.find((candidate) => candidate.id === "RF-001")!;
+      expect(wardScopedReferral(wardOnly)).toBeDefined();
+      expect(
+        communityScopedReferral(wardOnly),
+        "RF-001 has no community arm, so a community view must not exist",
+      ).toBeUndefined();
+    });
+
+    it("holds every community-addressed referral in the shipped seed to the same field sets", () => {
+      const projections = communityScopedReferrals(seededReferrals);
+      expect(
+        projections.length,
+        "no seeded referral is addressed to a community team, so this guard proved nothing. RF-010 " +
+          "is the seed's community-only referral — find out what happened to it.",
+      ).toBeGreaterThan(0);
+      for (const projection of projections) {
+        expect(Object.keys(projection).sort()).toEqual(ALLOWED_COMMUNITY_PROJECTION_FIELDS);
+        expect(sweep(projection).objectPaths.sort()).toEqual([...COMMUNITY_PROJECTION_OBJECT_PATHS].sort());
+      }
+    });
+  });
+
+  /**
+   * ⚠️ **OWNER RULING R-2026-09-04-B — AN EMERGENCY DEPARTMENT *MAY* SEE OTHER REFERRAL
+   * DESTINATIONS.** Asked whether an ED may see that a patient was also referred to a ward, the owner
+   * answered *"Yes can see."* (`docs/ward-flow/owner-rulings-2026-09-04.md`.)
+   *
+   * **So this block is the only one in this file whose job is partly to prove a DISCLOSURE happens.**
+   * The ward and community blocks above assert absence; here the destination list must be PRESENT,
+   * because a projection that quietly failed to carry it would be re-imposing a restriction the owner
+   * lifted, and every absence-shaped guard in this file would stay green while it did.
+   *
+   * ⚠️ **AND THE LIMIT IS THE HALF THAT NEEDS GUARDING, BECAUSE IT IS THE HALF NOBODY WILL
+   * REMEMBER.** "May see the destinations" is not "may see everything": the ruling itself says so, in
+   * terms. `EdScopedDestinationSummary` carries a kind and a state; the coordinator seat hands
+   * `ReferralAddressing[]` over whole with its contents deliberately unguarded, and the distance
+   * between those two is exactly `ALLOWED_ED_DESTINATION_SUMMARY_FIELDS`. Widen that list to the arms
+   * and the ED seat becomes the coordinator seat under another name, with the root allowlist still
+   * green.
+   *
+   * **Every assertion below derives its keys by calling the real projection.** The two hand-built
+   * inputs exist because no reducer path produces the shapes they hold; the assertions are still over
+   * what the projection returned, never over a shape this test wrote.
+   */
+  describe("the ED-scoped projection — owner ruling R-2026-09-04-B, the grant and its limit", () => {
+    it("positive control (ED seat) — every ED_ELSEWHERE_MARKERS marker really is present in the full referral", () => {
+      const referral = multiDestinationReferral();
+      const full = sweep(referral);
+      const reachable = new Set<string | number | boolean>(full.primitives);
+      for (const marker of ED_ELSEWHERE_MARKERS) {
+        expect(
+          reachable.has(marker),
+          `${JSON.stringify(marker)} is not present in the full referral, so the ED leak sweep below ` +
+            "cannot fail on it. The marker list has gone stale — fix the list, not the sweep.",
+        ).toBe(true);
+      }
+    });
+
+    it("positive control (ED seat) — no marker is one of the DEPARTMENT'S OWN facts", () => {
+      /*
+       * The trap this seat sets that the ward seat does not. In this fixture the community arm
+       * accepts, which cancels the still-queued ED arm and stamps `ELSEWHERE_DECIDED_AT` onto it —
+       * so that instant is the department's OWN `decidedAt`. A marker list carrying it would assert
+       * the projection must hide the department's own answer, which is the reverse of the ruling.
+       */
+      const referral = multiDestinationReferral();
+      const own = referral.destinations.find((addressing) => addressing.destination.kind === "emergency_department")!;
+      const ownFacts = new Set<unknown>(sweep(own).primitives);
+      for (const marker of ED_ELSEWHERE_MARKERS) {
+        expect(
+          ownFacts.has(marker),
+          `${JSON.stringify(marker)} belongs to the emergency department's OWN addressing, so ` +
+            "forbidding it asserts the reverse of R-2026-09-04-B — a department may see its own answer.",
+        ).toBe(false);
+      }
+    });
+
+    it("⚠️ THE RULING ITSELF — the destination list IS carried, with every arm's kind and state", () => {
+      /*
+       * ⚠️ **THE ONE ASSERTION IN THIS FILE THAT FAILS IF A RESTRICTION IS ADDED RATHER THAN
+       * REMOVED.** Every other guard here goes red when something leaks. This one goes red when the
+       * ED seat stops disclosing what the owner ruled it may disclose — a projection built by
+       * copying the community one and forgetting the plural passes every absence guard in this file
+       * and violates the ruling completely.
+       */
+      const referral = multiDestinationReferral();
+      assertFixtureHasNonEdOthers(referral);
+      const projection = edScopedReferral(referral)!;
+      expect(projection, "the referral has an ED arm, so an ED view must exist").toBeDefined();
+      expect(
+        projection.destinations.length,
+        "the ED projection carries fewer destinations than the referral has. Owner ruling " +
+          "R-2026-09-04-B: an emergency department MAY see the other destinations.",
+      ).toBe(referral.destinations.length);
+      expect(projection.destinations.map((entry) => entry.kind).sort()).toEqual([
+        "community_team",
+        "emergency_department",
+        "psychiatric_ward",
+      ]);
+      // And the STATE of those arms, which the ruling names explicitly — read off the referral
+      // rather than written out, so a fixture reshape cannot leave this asserting yesterday's states.
+      const statesByKind = new Map(
+        referral.destinations.map((addressing) => [addressing.destination.kind, addressing.state]),
+      );
+      for (const entry of projection.destinations) {
+        expect(entry.state, `the ED projection reports the wrong state for the ${entry.kind} arm`).toBe(
+          statesByKind.get(entry.kind),
+        );
+      }
+      // Non-vacuity: the arms must not all be in the same state, or "carries the state" would be
+      // satisfied by a constant.
+      expect(new Set(projection.destinations.map((entry) => entry.state)).size).toBeGreaterThan(1);
+    });
+
+    it("is not empty, and has exactly the permitted field set at level 1", () => {
+      const projection = edScopedReferral(multiDestinationReferral());
+      expect(projection).toBeDefined();
+      expect(Object.keys(projection!).length).toBeGreaterThan(0);
+      expect(Object.keys(projection!).sort()).toEqual(ALLOWED_ED_PROJECTION_FIELDS);
+    });
+
+    it("has exactly the permitted field set at level 2 (its own addressing), level 3 (its own arm) and in every destination summary", () => {
+      const projection = edScopedReferral(multiDestinationReferral())!;
+      // Subset, not equality, at level 2: the optional decision fields are only present once a
+      // decision exists. The exhaustive half is the `Required<>` literal below.
+      for (const key of Object.keys(projection.addressing)) {
+        expect(ALLOWED_ED_ADDRESSING_FIELDS, `the ED addressing carries "${key}"`).toContain(key);
+      }
+      expect(Object.keys(projection.addressing.destination).sort()).toEqual(ALLOWED_ED_DESTINATION_FIELDS);
+      expect(projection.destinations.length, "no destination summary to check").toBeGreaterThan(1);
+      for (const entry of projection.destinations) {
+        expect(
+          Object.keys(entry).sort(),
+          `a destination summary carries ${JSON.stringify(Object.keys(entry).sort())}. The ruling ` +
+            "grants which destinations were asked and the state of those arms — two fields. Every " +
+            "other field of a `ReferralAddressing` is a further disclosure nobody ruled on.",
+        ).toEqual(ALLOWED_ED_DESTINATION_SUMMARY_FIELDS);
+      }
+    });
+
+    it("a fully-populated projection (every optional field set) has exactly the allowed field set at every level", () => {
+      // TYPE-CHECKED half, the twin of the other three canonicals: `Required<>` forces every field
+      // the type has, so a field added to the projection and left off this literal stops compiling.
+      // Vitest does not typecheck, which is why the runtime halves above and below exist alongside it.
+      const addressing: Required<EdScopedAddressing> = {
+        destination: { kind: "emergency_department", edId: allEmergencyDepartments()[0].id, purpose: "bed" },
+        state: "declined",
+        decidedAt: WARD_DECIDED_AT,
+        decidedBy: "ED psychiatry",
+        declineReason: "no_suitable_bed",
+      };
+      const summary: Required<EdScopedDestinationSummary> = { kind: "psychiatric_ward", state: "queued" };
+      const canonical: Required<EdScopedReferral> = {
+        id: "REF-CANON-ED",
+        ageBand: "Adult",
+        homeRegion: "Perth Metropolitan",
+        source: "community",
+        raisedAt: RAISED_AT,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+        addressing,
+        destinations: [summary],
+      };
+      expect(Object.keys(canonical).sort()).toEqual(ALLOWED_ED_PROJECTION_FIELDS);
+      expect(Object.keys(canonical.addressing).sort()).toEqual(ALLOWED_ED_ADDRESSING_FIELDS);
+      expect(Object.keys(canonical.addressing.destination).sort()).toEqual(ALLOWED_ED_DESTINATION_FIELDS);
+      expect(Object.keys(canonical.destinations[0]).sort()).toEqual(ALLOWED_ED_DESTINATION_SUMMARY_FIELDS);
+    });
+
+    it("is made of exactly the object nodes its allowlists cover, and no level exists that none of them covers", () => {
+      const referral = multiDestinationReferral();
+      const projection = edScopedReferral(referral)!;
+      expect(sweep(projection).objectPaths.sort()).toEqual(
+        edProjectionObjectPaths(referral.destinations.length).sort(),
+      );
+    });
+
+    it("carries no key, at any depth, that its own level's allowlist does not permit", () => {
+      const projection = edScopedReferral(multiDestinationReferral())!;
+      const permitted = new Set([
+        ...ALLOWED_ED_PROJECTION_FIELDS,
+        ...ALLOWED_ED_ADDRESSING_FIELDS,
+        ...ALLOWED_ED_DESTINATION_FIELDS,
+        ...ALLOWED_ED_DESTINATION_SUMMARY_FIELDS,
+      ]);
+      const found = sweep(projection).keys;
+      expect(found.length).toBeGreaterThan(ALLOWED_ED_PROJECTION_FIELDS.length);
+      for (const key of found) {
+        expect(permitted.has(key), `the ED projection carries a key no allowlist permits: "${key}"`).toBe(true);
+      }
+    });
+
+    it("reaches nothing about another destination beyond its kind and its state", () => {
+      const referral = multiDestinationReferral();
+      assertFixtureHasNonEdOthers(referral);
+      const projection = edScopedReferral(referral)!;
+      const found = sweep(projection);
+      expect(found.primitives.length, "the sweep visited nothing — it is not reading the projection").toBeGreaterThan(
+        5,
+      );
+      const reachable = new Set<string | number | boolean>(found.primitives);
+      for (const marker of ED_ELSEWHERE_MARKERS) {
+        expect(
+          reachable.has(marker),
+          `an ED-scoped projection reaches ${JSON.stringify(marker)}, which belongs to a destination ` +
+            "that is not this department's and is not its kind or its state. Owner ruling " +
+            "R-2026-09-04-B grants the destination LIST — it does not grant another arm's reason, " +
+            "decider, decision time, bed criteria or team name.",
+        ).toBe(false);
+      }
+    });
+
+    it("carries the department's OWN decision — its state, its department, its purpose — because that is not a leak", () => {
+      const referral = multiDestinationReferral();
+      const projection = edScopedReferral(referral)!;
+      const own = referral.destinations.find((addressing) => addressing.destination.kind === "emergency_department")!;
+      expect(projection.addressing.state).toBe(own.state);
+      expect(projection.addressing.destination.kind).toBe("emergency_department");
+      expect(projection.addressing.destination.edId).toBe(allEmergencyDepartments()[0].id);
+      expect(projection.addressing.destination.purpose).toBe("bed");
+      expect(projection.addressing.decidedAt).toBe(own.decidedAt);
+    });
+
+    it("carries no flag, role or scope field that could widen it", () => {
+      const projection = edScopedReferral(multiDestinationReferral())!;
+      for (const key of sweep(projection).keys) {
+        expect(key, "a switch on the projection is how two views become one view with a flag").not.toMatch(
+          /role|scope|coordinator|reveal|full|redact|hidden|visib/i,
+        );
+      }
+      // The fields that still separate this seat from the coordinator's are genuinely absent, not
+      // merely undefined. `destinations` is deliberately NOT on this list — the ruling grants it.
+      expect(Object.keys(projection)).not.toContain("state");
+      expect(Object.keys(projection)).not.toContain("localBedSought");
+      expect(Object.keys(projection)).not.toContain("suburb");
+      expect(Object.keys(projection)).not.toContain("patientId");
+      expect(Object.keys(projection)).not.toContain("triagedAt");
+    });
+
+    it("⚠️ THE BY-NAME COPY IS LOAD-BEARING BELOW THE TOP LEVEL — a field the model gains later reaches neither the arm nor a summary", () => {
+      /*
+       * ⚠️ **BUILT THIS WAY FROM THE START, BECAUSE THE SAME PROBE WAS GREEN ON TWO SEATS EARLIER
+       * TONIGHT.** Replacing the nested copies in `wardScopedReferral` and `communityScopedReferral`
+       * with spreads left every test in this file passing (`f99fc4315`, `66b10a439`): every fixture's
+       * arm happened to carry exactly the fields those projections list, so a spread and a by-name
+       * copy produced identical objects, and the module's stated reason for copying by name had
+       * nothing holding it below the root. Only a hand-built input carrying an omitted field caught
+       * it. This seat gets that input on the day it is written rather than two days later.
+       *
+       * ⚠️ **AND IT HAS A THIRD LEVEL THE OTHER SEATS DO NOT — the destination summaries.** A spread
+       * there is the worst mutation available on this projection: `{ ...addressing, kind }` hands
+       * every arm's decline reason, decider, decision time and accepting unit to a department, which
+       * is the coordinator seat's answer pasted into a seat the owner did not give it to.
+       *
+       * The input is hand-built because no reducer path produces these fields — **but every assertion
+       * is over the output of the REAL projection**, never over a shape this test wrote.
+       * `acceptedUnitId` and `acceptOverrideReason` are real `ReferralAddressing` fields this
+       * projection omits at every level; `escalationContact` stands in for the field the model's arms
+       * gain next.
+       */
+      const edArmWithFutureFields: ReferralAddressing = {
+        destination: Object.assign(
+          { kind: "emergency_department", edId: allEmergencyDepartments()[0].id, purpose: "bed" } as const,
+          // Not on the model's ED arm TODAY. A spread is what would carry tomorrow's.
+          { escalationContact: "on-call registrar" },
+        ),
+        state: "declined",
+        decidedAt: WARD_DECIDED_AT,
+        decidedBy: "ED psychiatry",
+        declineReason: "no_suitable_bed",
+        // Both real fields of `ReferralAddressing`, both deliberately off `EdScopedAddressing`.
+        acceptedUnitId: "rph-adult-secure",
+        acceptOverrideReason: "Clinical urgency outweighs the mismatch",
+      };
+      const wardArmWithDecision: ReferralAddressing = {
+        destination: Object.assign(
+          { kind: "psychiatric_ward", sex: "Female", secureBedNeeded: false, involuntaryBedNeeded: false } as const,
+          { escalationContact: "ward on-call" },
+        ),
+        state: "accepted",
+        decidedAt: ELSEWHERE_DECIDED_AT,
+        decidedBy: "Ward manager",
+        acceptedUnitId: "rph-adult-secure",
+        acceptOverrideReason: "Clinical urgency outweighs the mismatch",
+      };
+      const referral: Referral = {
+        id: "RF-LOCAL-ED-FUTURE-FIELDS",
+        destinations: [edArmWithFutureFields, wardArmWithDecision],
+        /*
+         * ⚠️ **THE FOUR ROOT FIELDS BELOW ARE HERE BECAUSE A MEASURED MUTATION NEEDED THEM.** Adding
+         * an OPTIONAL root field to this projection by name — `triagedAt`, the one an ED screen most
+         * plausibly wants — was caught by exactly ONE test in this file, the seeded sweep, and only
+         * because the SEED happens to carry `triagedAt`. The reducer-built fixture does not set it,
+         * so every level-1 assertion over that fixture stayed green. A field the seed also lacked
+         * would have been caught by nothing at runtime at all. Setting the four here means the exact
+         * root key-set assertion at the foot of this test bites on any root field added by name or by
+         * spread, whether or not a fixture elsewhere happens to hold it.
+         */
+        patientId: "PT-0001",
+        triagedAt: RAISED_AT - 30,
+        medicalClearance: { cleared: true, at: RAISED_AT - 20 },
+        ageBand: "Adult",
+        homeRegion: "Perth Metropolitan",
+        suburb: { kind: "named", name: "Armadale" },
+        source: "community",
+        raisedAt: RAISED_AT,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+        localBedSought: { at: RAISED_AT + 5, by: "Flow coordinator" },
+      };
+
+      // POSITIVE CONTROL 0 — the root fields this projection leaves out must be ON the source
+      // referral, or the exact root key-set assertion below could not bite on them.
+      const undeclaredRootFields = ["patientId", "suburb", "triagedAt", "medicalClearance", "localBedSought"];
+      const onReferral = new Set(Object.keys(referral));
+      for (const field of undeclaredRootFields) {
+        expect(
+          onReferral.has(field),
+          `${field} is not on the source referral, so the root half of this guard is vacuous. If the ` +
+            "field was renamed on `Referral`, rename it here rather than deleting the check.",
+        ).toBe(true);
+      }
+
+      // POSITIVE CONTROL 1 — the fields must be on the source arms, or the absences below prove
+      // nothing at all and this guard is vacuous.
+      const leakable = ["acceptedUnitId", "acceptOverrideReason", "escalationContact"];
+      const onOwnArm = new Set(sweep(edArmWithFutureFields).keys);
+      const onOtherArm = new Set(sweep(wardArmWithDecision).keys);
+      for (const field of leakable) {
+        expect(
+          onOwnArm.has(field),
+          `${field} is not on the source ED addressing, so the projection could not have carried it ` +
+            "and this guard is vacuous. If the field was renamed, rename it here rather than deleting the check.",
+        ).toBe(true);
+        expect(
+          onOtherArm.has(field),
+          `${field} is not on the source WARD addressing, so a spread in the destination-summary map ` +
+            "could not have carried it and that half of this guard is vacuous.",
+        ).toBe(true);
+      }
+      // And the fields a summary spread would carry from the other arm, which are NOT on the leak
+      // list above because two of them are legitimate at the ED's own addressing level.
+      for (const field of ["declineReason", "decidedBy", "decidedAt", "sex"]) {
+        expect(
+          onOwnArm.has(field) || onOtherArm.has(field),
+          `${field} is on neither source arm, so a summary spread could not have carried it.`,
+        ).toBe(true);
+      }
+
+      const projection = edScopedReferral(referral)!;
+      expect(projection, "the referral has an ED arm, so an ED view must exist").toBeDefined();
+      const carried = sweep(projection).keys;
+
+      /*
+       * POSITIVE CONTROL 2 — the sweep really is reading this projection, at every depth the
+       * absences below are claimed for. `decidedBy` and `declineReason` sit at level 2 beside the
+       * omitted `acceptOverrideReason`; `purpose` sits at level 3 beside the omitted
+       * `escalationContact`; `state` is what every summary carries.
+       */
+      for (const permitted of ["decidedBy", "declineReason", "purpose", "state"]) {
+        expect(
+          carried.includes(permitted),
+          `the sweep did not find "${permitted}", which this projection legitimately carries at the ` +
+            "same depth as the fields checked below. It is not reading the projection, so every " +
+            "absence here would pass for the wrong reason.",
+        ).toBe(true);
+      }
+
+      for (const field of leakable) {
+        expect(
+          carried.includes(field),
+          `the ED projection carries "${field}" somewhere, which the by-name copy exists to keep out. ` +
+            "A spread was substituted for a field-by-field copy, and every field the model gains from " +
+            "now on reaches an ED screen without anybody deciding it should.",
+        ).toBe(false);
+      }
+
+      // ⚠️ THE SUMMARY LEVEL, ASSERTED BY EXACT KEY SET rather than by absent markers. A spread here
+      // carries fields whose NAMES are legitimate one level up, so a name-based sweep cannot see it.
+      expect(projection.destinations.length).toBe(referral.destinations.length);
+      for (const entry of projection.destinations) {
+        expect(
+          Object.keys(entry).sort(),
+          "a destination summary carries more than a kind and a state. The ED seat's whole difference " +
+            "from the coordinator's is that its arms are summarised rather than handed over.",
+        ).toEqual(ALLOWED_ED_DESTINATION_SUMMARY_FIELDS);
+      }
+      const inSummaries = new Set<string | number | boolean>(sweep(projection.destinations).primitives);
+      for (const value of ["no_suitable_bed", "Ward manager", "Female", "rph-adult-secure"]) {
+        expect(
+          inSummaries.has(value),
+          `a destination summary reaches ${JSON.stringify(value)}, which is another arm's own fact ` +
+            "rather than its kind or its state.",
+        ).toBe(false);
+      }
+
+      // And the field sets are still exactly the allowed ones on this input too. The root equality is
+      // the assertion that catches a root field added BY NAME as well as one arriving by spread —
+      // see POSITIVE CONTROL 0 above on the mutation that showed it was needed.
+      expect(
+        Object.keys(projection).sort(),
+        "the ED projection's root does not match its own declared field set. Whether an emergency " +
+          "department may see a further fact is the owner's decision — widen `EdScopedReferral` and " +
+          "`ALLOWED_ED_PROJECTION_FIELDS` together, on purpose.",
+      ).toEqual(ALLOWED_ED_PROJECTION_FIELDS);
+      expect(Object.keys(projection.addressing.destination).sort()).toEqual(ALLOWED_ED_DESTINATION_FIELDS);
+      for (const key of Object.keys(projection.addressing)) {
+        expect(ALLOWED_ED_ADDRESSING_FIELDS, `the ED addressing carries "${key}"`).toContain(key);
+      }
+    });
+
+    it("is a FOURTH type, not one of the other three under another name — each is defined exactly when its OWN arm is present", () => {
+      /*
+       * ⚠️ **THE ONE PROPERTY A FIELD-SET ALLOWLIST CANNOT STATE**, and it matters more for this seat
+       * than for the community one: the ED projection and the coordinator projection now agree about
+       * the ONE key that used to tell every restricted seat from the unrestricted one. `destinations`
+       * is on both. If `edScopedReferral` were ever implemented by calling `coordinatorScopedReferral`
+       * and dropping keys, a converter would exist between two seats with different rulings — the
+       * FD-23 exemption arriving by the front door.
+       */
+      const edOnly = seededReferrals.find((candidate) => candidate.id === "RF-009");
+      expect(
+        edOnly,
+        "RF-009 — the seed's ED-only referral — is gone. Do not hand-build a replacement; find out what happened to it.",
+      ).toBeDefined();
+      expect(edOnly!.destinations.map((addressing) => addressing.destination.kind)).toEqual(["emergency_department"]);
+      expect(edScopedReferral(edOnly!), "RF-009 has an ED arm, so its projection exists").toBeDefined();
+      expect(
+        wardScopedReferral(edOnly!),
+        "RF-009 has no ward arm, so a ward view must not exist — if it does, one projection is being built from another",
+      ).toBeUndefined();
+      expect(communityScopedReferral(edOnly!), "RF-009 has no community arm, so a community view must not exist").toBe(
+        undefined,
+      );
+
+      // And the mirror image, on the seed's ward-only RF-001.
+      const wardOnly = seededReferrals.find((candidate) => candidate.id === "RF-001")!;
+      expect(wardOnly, "RF-001 — the seed's ward-only referral — is gone").toBeDefined();
+      expect(wardScopedReferral(wardOnly)).toBeDefined();
+      expect(edScopedReferral(wardOnly), "RF-001 has no ED arm, so an ED view must not exist").toBeUndefined();
+    });
+
+    it("holds every ED-addressed referral in the shipped seed to the same field sets", () => {
+      const projections = edScopedReferrals(seededReferrals);
+      expect(
+        projections.length,
+        "no seeded referral is addressed to an emergency department, so this guard proved nothing. " +
+          "RF-009 is the seed's ED-only referral and RF-011 carries an ED arm beside a ward one — " +
+          "find out what happened to them.",
+      ).toBeGreaterThan(0);
+
+      const withEdArm = seededReferrals.filter((referral) =>
+        referral.destinations.some((addressing) => addressing.destination.kind === "emergency_department"),
+      );
+      expect(projections.length, "the plural function lost or duplicated an ED-addressed referral").toBe(
+        withEdArm.length,
+      );
+
+      // POSITIVE CONTROL — at least one seeded ED referral must sit beside another destination, or
+      // the destination-summary half of these field sets is never exercised against real data.
+      expect(
+        withEdArm.filter((referral) => referral.destinations.length > 1).length,
+        "no seeded ED-addressed referral has a second destination, so the summary list is a " +
+          "one-entry list everywhere and the ruling is untested against shipped data.",
+      ).toBeGreaterThan(0);
+
+      for (const referral of withEdArm) {
+        const projection = edScopedReferral(referral)!;
+        expect(Object.keys(projection).sort()).toEqual(ALLOWED_ED_PROJECTION_FIELDS);
+        expect(sweep(projection).objectPaths.sort()).toEqual(
+          edProjectionObjectPaths(referral.destinations.length).sort(),
+        );
+        expect(Object.keys(projection.addressing.destination).sort()).toEqual(ALLOWED_ED_DESTINATION_FIELDS);
+        for (const entry of projection.destinations) {
+          expect(Object.keys(entry).sort()).toEqual(ALLOWED_ED_DESTINATION_SUMMARY_FIELDS);
+        }
       }
     });
   });
@@ -650,6 +1841,193 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
       // And the one field that separates them is genuinely absent, not merely undefined.
       expect(Object.keys(projection)).not.toContain("destinations");
       expect(Object.keys(projection)).not.toContain("state");
+    });
+
+    it("carries at its ROOT only fields its own declared set names — on a reducer-built referral", () => {
+      /*
+       * The cheapest half of the structural guard, over a fixture the live system produces. The
+       * reducer always writes `suburb`, so this alone already bites on a root spread; the hand-built
+       * case below adds the optional model fields no reducer path sets.
+       */
+      const projection = coordinatorScopedReferral(multiDestinationReferral());
+      const rootKeys = Object.keys(projection);
+      expect(rootKeys.length, "the sweep read nothing — it is not looking at the projection").toBeGreaterThan(5);
+      for (const key of rootKeys) {
+        expect(
+          ALLOWED_COORDINATOR_PROJECTION_FIELDS.includes(key),
+          `the coordinator projection carries "${key}" at its root, which its own declared field set ` +
+            "does not name. A spread was substituted for a field-by-field copy, so every field " +
+            "`Referral` holds now — and every one it gains later — reaches this projection without " +
+            "anybody deciding it should. Whether a coordinator MAY see it is a separate question and " +
+            "is the owner's: widen `CoordinatorScopedReferral` and this list together, on purpose.",
+        ).toBe(true);
+      }
+      // Subset above, exhaustive below: every non-optional field really is there, so the check
+      // cannot pass by the projection being empty or truncated.
+      for (const required of ALLOWED_COORDINATOR_PROJECTION_FIELDS.filter((key) => key !== "localBedSought")) {
+        expect(rootKeys, `the coordinator projection has lost "${required}"`).toContain(required);
+      }
+    });
+
+    it("⚠️ THE BY-NAME COPY AT THE ROOT IS LOAD-BEARING — a field the model already has does not reach it", () => {
+      /*
+       * ⚠️ **MEASURED BEFORE THIS TEST WAS WRITTEN, AND IT WAS GREEN — 2026-09-04.** Adding
+       * `...referral` to the root of `coordinatorScopedReferral`, leaving every by-name line in
+       * place below it, left **all 116 tests in this file passing and `tsc` at exit 0**, while the
+       * projection silently gained `patientId`, `suburb` and `triagedAt`. The module's header said
+       * in terms that `tsc` held this field set. It holds the REMOVAL half only — a spread-ADDED
+       * property is not excess-property-checked — and the header now says so.
+       *
+       * ⚠️ **THIS IS A STRUCTURAL ASSERTION AND NOT A RULING ABOUT WHAT A COORDINATOR MAY SEE.**
+       * FD-23's answer for this seat is "everything", and nothing here narrows it. What it forbids
+       * is the projection and its own declaration disagreeing — so that growing this seat is an
+       * edit a person makes and a reviewer sees, not something a spread does on their behalf.
+       *
+       * The input is hand-built, because no reducer path writes `patientId` or `medicalClearance` —
+       * **but every assertion is over the output of the REAL projection**, never over a shape this
+       * test wrote. That is exactly why the hole was invisible: a test whose input cannot contain a
+       * surprising field can never detect one being let through.
+       */
+      const referral: Referral = {
+        id: "RF-LOCAL-COORDINATOR-ROOT-FIELDS",
+        destinations: [
+          {
+            destination: {
+              kind: "psychiatric_ward",
+              sex: "Female",
+              secureBedNeeded: false,
+              involuntaryBedNeeded: false,
+            },
+            state: "queued",
+          },
+        ],
+        // Every one of the four below is a real `Referral` field this projection does not declare.
+        patientId: "PT-0001",
+        suburb: { kind: "named", name: "Armadale" },
+        triagedAt: RAISED_AT - 30,
+        medicalClearance: { cleared: true, at: RAISED_AT - 20 },
+        ageBand: "Adult",
+        homeRegion: "Perth Metropolitan",
+        source: "community",
+        raisedAt: RAISED_AT,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+        // Declared on the projection, and the positive control for the sweep below.
+        localBedSought: { at: RAISED_AT + 5, by: "Flow coordinator" },
+      };
+
+      // POSITIVE CONTROL 1 — the fields must be on the source referral, or the absences below prove
+      // nothing at all and this guard is vacuous.
+      const leakable = ["patientId", "suburb", "triagedAt", "medicalClearance"];
+      const onSource = new Set(Object.keys(referral));
+      for (const field of leakable) {
+        expect(
+          onSource.has(field),
+          `${field} is not on the source referral, so the projection could not have carried it and ` +
+            "this guard proves nothing. If the field was renamed on `Referral`, rename it here rather " +
+            "than deleting the check.",
+        ).toBe(true);
+      }
+
+      const projection = coordinatorScopedReferral(referral);
+      const rootKeys = Object.keys(projection);
+
+      /*
+       * POSITIVE CONTROL 2 — the assertion really is reading this projection. An absence check that
+       * found nothing is indistinguishable from one that looked nowhere, so the fields that are
+       * LEGITIMATELY here are asserted present first. `localBedSought` matters most: it is optional,
+       * it sits at the root beside the omitted four, and it is set on this input on purpose.
+       */
+      for (const permitted of ["localBedSought", "destinations", "state", "originSiteCode"]) {
+        expect(
+          rootKeys.includes(permitted),
+          `the check did not find "${permitted}", which this projection legitimately carries at the ` +
+            "same level as the fields checked below. It is not reading the projection, so every " +
+            "absence here would pass for the wrong reason.",
+        ).toBe(true);
+      }
+
+      for (const field of leakable) {
+        expect(
+          rootKeys.includes(field),
+          `the coordinator projection carries "${field}", which its declared field set does not name. ` +
+            "The by-name copy at the root exists to keep it out, and a spread was substituted for it. " +
+            "This is not a ruling that a coordinator may not see this field — it is that widening this " +
+            "seat must be a deliberate edit to `CoordinatorScopedReferral` and its allowlist, not a " +
+            "side effect nobody reviewed.",
+        ).toBe(false);
+      }
+
+      // The whole field set on this input too, and the one other object copied by name.
+      expect(rootKeys.sort()).toEqual(ALLOWED_COORDINATOR_PROJECTION_FIELDS);
+      expect(Object.keys(projection.localBedSought!).sort()).toEqual(ALLOWED_COORDINATOR_LOCAL_BED_SOUGHT_FIELDS);
+      // And no nested object exists anywhere but under the arms, which are deliberately unguarded.
+      expect(sweepCoordinatorWithoutArms(projection).objectPaths.sort()).toEqual(
+        [...COORDINATOR_PROJECTION_OBJECT_PATHS_WITHOUT_ARMS].sort(),
+      );
+    });
+
+    it("a fully-populated projection (every optional field set) has exactly the allowed root field set", () => {
+      // TYPE-CHECKED half, the twin of the ward and community canonicals: `Required<>` forces every
+      // field the type has, so a field added to `CoordinatorScopedReferral` and left off this
+      // literal stops compiling. It is what makes the allowlist EXHAUSTIVE rather than a subset —
+      // the runtime halves above cannot tell a missing permitted field from an absent optional one.
+      const canonical: Required<CoordinatorScopedReferral> = {
+        id: "REF-CANON-COORDINATOR",
+        ageBand: "Adult",
+        homeRegion: "Perth Metropolitan",
+        source: "community",
+        raisedAt: RAISED_AT,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+        localBedSought: { at: RAISED_AT + 5, by: "Flow coordinator" },
+        destinations: [
+          {
+            destination: {
+              kind: "psychiatric_ward",
+              sex: "Female",
+              secureBedNeeded: false,
+              involuntaryBedNeeded: false,
+            },
+            state: "queued",
+          },
+        ],
+        state: "queued",
+      };
+      expect(Object.keys(canonical).sort()).toEqual(ALLOWED_COORDINATOR_PROJECTION_FIELDS);
+      expect(Object.keys(canonical.localBedSought).sort()).toEqual(ALLOWED_COORDINATOR_LOCAL_BED_SOUGHT_FIELDS);
+    });
+
+    it("holds every referral in the shipped seed to the same root field set", () => {
+      const projections = coordinatorScopedReferrals(seededReferrals);
+      expect(projections.length, "no seeded referral, so this guard would check nothing").toBeGreaterThan(0);
+
+      // POSITIVE CONTROL — the seed must really carry a field this projection does not declare, or
+      // the sweep over it could not bite. `suburb` is on every seeded referral and `triagedAt` on
+      // most; if both ever leave the seed, this guard has stopped proving anything.
+      const carryingUndeclared = seededReferrals.filter((referral) => "suburb" in referral || "triagedAt" in referral);
+      expect(
+        carryingUndeclared.length,
+        "no seeded referral carries a field the coordinator projection leaves out, so nothing could " +
+          "have leaked and this guard is vacuous.",
+      ).toBeGreaterThan(0);
+
+      for (const projection of projections) {
+        for (const key of Object.keys(projection)) {
+          expect(
+            ALLOWED_COORDINATOR_PROJECTION_FIELDS.includes(key),
+            `a seeded referral's coordinator projection carries "${key}" at its root, which its own ` +
+              "declared field set does not name.",
+          ).toBe(true);
+        }
+        expect(sweepCoordinatorWithoutArms(projection).objectPaths.sort()).toEqual(
+          [...COORDINATOR_PROJECTION_OBJECT_PATHS_WITHOUT_ARMS]
+            .sort()
+            .filter((path) => path === "" || projection.localBedSought !== undefined),
+        );
+      }
     });
   });
 });

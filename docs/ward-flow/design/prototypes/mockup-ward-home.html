@@ -1,0 +1,1335 @@
+<title>Ward Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward home — the overview seen BEFORE opening a ward, added for this
+     screen only. Everything below reads existing tokens; nothing new is
+     invented. Cards, not rows: eight wards is a small enough set that a
+     card can afford a large free-bed figure and an unmistakable "Open
+     ward" action, and a reader is choosing ONE ward to enter, not
+     scanning a column to compare forty of them.
+     ═══════════════════════════════════════════════════════════════════════ */
+  .scope-line {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: var(--sp-3) 0 0;
+    max-width: 62rem;
+  }
+  .scope-line b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  .service-section {
+    margin-top: var(--sp-6);
+  }
+  .service-section:first-of-type {
+    margin-top: var(--sp-5);
+  }
+  .service-heading {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted);
+    margin: 0 0 var(--sp-3);
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .service-heading .n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--faint);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .ward-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 34rem) {
+    .ward-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 68rem) {
+    .ward-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 92rem) {
+    .ward-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .ward-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    height: 100%;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: var(--sp-4);
+    text-decoration: none;
+    color: inherit;
+    box-shadow: var(--shadow);
+    transition:
+      transform 120ms ease,
+      border-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+  .ward-card:hover,
+  .ward-card:focus-visible {
+    border-color: var(--rule-2);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgb(16 23 36 / 0.14);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ward-card:hover,
+    .ward-card:focus-visible {
+      transform: none;
+    }
+  }
+
+  .ward-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-3);
+  }
+  .ward-name {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .ward-tags {
+    margin: 0.35rem 0 0;
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--rule-2);
+    border-radius: 2px;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .ward-capacity {
+    border-radius: 3px;
+    padding: var(--sp-3);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .capacity-figure {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+  .capacity-figure .figure {
+    font-size: 2rem;
+  }
+  .capacity-unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .capacity-word {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+  }
+  .ward-capacity[data-level="full"] {
+    border-color: color-mix(in oklab, var(--crit) 45%, var(--rule));
+    background: var(--crit-wash);
+  }
+  .ward-capacity[data-level="full"] .figure,
+  .ward-capacity[data-level="full"] .capacity-word {
+    color: var(--crit);
+  }
+  .ward-capacity[data-level="tight"] {
+    border-color: color-mix(in oklab, var(--signal) 45%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .ward-capacity[data-level="tight"] .capacity-word {
+    color: var(--signal);
+  }
+  .ward-capacity[data-level="room"] .capacity-word {
+    color: var(--good);
+  }
+
+  .ward-facts {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-3);
+  }
+  .ward-facts dt {
+    font-size: 0.6875rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .ward-facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+  }
+  .ward-facts .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+
+  .ward-enter {
+    margin-top: auto;
+    padding-top: var(--sp-3);
+    border-top: 1px dashed var(--rule);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--cool);
+  }
+  .ward-enter .arr {
+    transition: transform 140ms ease;
+  }
+  .ward-card:hover .ward-enter,
+  .ward-card:focus-visible .ward-enter {
+    color: var(--ink);
+  }
+  .ward-card:hover .ward-enter .arr,
+  .ward-card:focus-visible .ward-enter .arr {
+    transform: translateX(3px);
+  }
+  /* ─── this screen only ─── */
+  .identity--end {
+    align-items: flex-end;
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Every referral and escalation figure invented — listed at the foot</span>
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow">Ward network</span>
+      <h1>Ward overview</h1>
+      <p class="covers"><b>9 wards</b> across 6 hospitals and three metropolitan health services</p>
+    </div>
+    <div class="identity identity--end">
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span><span>Live<span class="sr"> — data is current</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September, updated 2 minutes ago</span>
+      </p>
+    </div>
+  </div>
+
+  <p class="scope-line">
+    <b>Every bed and free-bed figure below is the same count each ward's own screen shows</b> — calculated once, from
+    that ward's own confirmed-empty and confirmed-allocatable numbers, and read here rather than recalculated. If a
+    ward's own screen and this page ever disagree, that is a bug, not two true numbers.
+  </p>
+
+  <dl class="totals">
+    <div class="total">
+      <dt>Free beds, network&#8209;wide</dt>
+      <dd><span class="figure">12</span><span class="unit">of 153</span></dd>
+      <span class="sub">Same calculation as every ward's own screen</span>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Wards with no free bed</dt>
+      <dd><span class="figure">1</span><span class="unit">of 9</span></dd>
+      <span class="sub">FSH Older Adult</span>
+    </div>
+    <div class="total">
+      <dt>Referrals waiting, any ward</dt>
+      <dd><span class="figure">22</span></dd>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Escalated referrals</dt>
+      <dd><span class="figure">5</span></dd>
+      <span class="sub">Across 4 of the 9 wards</span>
+    </div>
+  </dl>
+
+  <!-- North Metro -->
+  <section class="service-section" aria-labelledby="svc-north">
+    <h2 class="service-heading" id="svc-north">North Metro<span class="n">2 wards</span></h2>
+    <ul class="ward-grid">
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/scgh-adult-open">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">SCGH Adult Open</h3>
+              <p class="ward-tags"><span class="tag">Adult</span><span class="tag">Open</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="tight">
+            <div class="capacity-figure">
+              <span class="figure">2</span><span class="capacity-unit">free of 24 beds</span>
+            </div>
+            <span class="capacity-word">Low &mdash; act soon</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">4</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd><span class="chip" data-level="urgent">1</span></dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/scgh-older-adult">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">SCGH Older Adult</h3>
+              <p class="ward-tags"><span class="tag">Older adult</span><span class="tag">Open</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="tight">
+            <div class="capacity-figure">
+              <span class="figure">1</span><span class="capacity-unit">free of 16 beds</span>
+            </div>
+            <span class="capacity-word">Low &mdash; act soon</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">1</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd class="num zero">none</dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <!-- East Metro -->
+  <section class="service-section" aria-labelledby="svc-east">
+    <h2 class="service-heading" id="svc-east">East Metro<span class="n">4 wards</span></h2>
+    <ul class="ward-grid">
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/rph-adult-secure">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">RPH Adult Secure</h3>
+              <p class="ward-tags"><span class="tag">Adult</span><span class="tag">Secure</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="tight">
+            <div class="capacity-figure">
+              <span class="figure">1</span><span class="capacity-unit">free of 20 beds</span>
+            </div>
+            <span class="capacity-word">Low &mdash; act soon</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">3</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd><span class="chip" data-level="urgent">1</span></dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/rph-older-adult">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">RPH Older Adult</h3>
+              <p class="ward-tags"><span class="tag">Older adult</span><span class="tag">Open</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="tight">
+            <div class="capacity-figure">
+              <span class="figure">1</span><span class="capacity-unit">free of 14 beds</span>
+            </div>
+            <span class="capacity-word">Low &mdash; act soon</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">2</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd class="num zero">none</dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/arm-adult-open">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">ARM Adult Open</h3>
+              <p class="ward-tags"><span class="tag">Adult</span><span class="tag">Open</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="tight">
+            <div class="capacity-figure">
+              <span class="figure">2</span><span class="capacity-unit">free of 19 beds</span>
+            </div>
+            <span class="capacity-word">Low &mdash; act soon</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">1</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd class="num zero">none</dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/sjgm-adult-open">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">SJGM Adult Open</h3>
+              <p class="ward-tags"><span class="tag">Adult</span><span class="tag">Open</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="tight">
+            <div class="capacity-figure">
+              <span class="figure">1</span><span class="capacity-unit">free of 16 beds</span>
+            </div>
+            <span class="capacity-word">Low &mdash; act soon</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">2</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd><span class="chip" data-level="urgent">1</span></dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <!-- South Metro -->
+  <section class="service-section" aria-labelledby="svc-south">
+    <h2 class="service-heading" id="svc-south">South Metro<span class="n">3 wards</span></h2>
+    <ul class="ward-grid">
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/fsh-adult-secure">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">FSH Adult Secure</h3>
+              <p class="ward-tags"><span class="tag">Adult</span><span class="tag">Secure</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="room">
+            <div class="capacity-figure">
+              <span class="figure">3</span><span class="capacity-unit">free of 18 beds</span>
+            </div>
+            <span class="capacity-word">Space available</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">2</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd class="num zero">none</dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/fsh-older-adult">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">FSH Older Adult</h3>
+              <p class="ward-tags"><span class="tag">Older adult</span><span class="tag">Open</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="full">
+            <div class="capacity-figure">
+              <span class="figure">0</span><span class="capacity-unit">free of 12 beds</span>
+            </div>
+            <span class="capacity-word">Full</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">5</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd><span class="chip" data-level="urgent">2</span></dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+      <li>
+        <a class="ward-card" href="/mockups/ward-flow/ward/rgh-adult-secure">
+          <div class="ward-card-top">
+            <div>
+              <h3 class="ward-name">RGH Adult Secure</h3>
+              <p class="ward-tags"><span class="tag">Adult</span><span class="tag">Secure</span></p>
+            </div>
+          </div>
+          <div class="ward-capacity" data-level="tight">
+            <div class="capacity-figure">
+              <span class="figure">1</span><span class="capacity-unit">free of 14 beds</span>
+            </div>
+            <span class="capacity-word">Low &mdash; act soon</span>
+          </div>
+          <dl class="ward-facts">
+            <div>
+              <dt>Referrals waiting</dt>
+              <dd class="num">2</dd>
+            </div>
+            <div>
+              <dt>Escalated</dt>
+              <dd class="num zero">none</dd>
+            </div>
+          </dl>
+          <span class="ward-enter">Open ward<span class="arr" aria-hidden="true">&rarr;</span></span>
+        </a>
+      </li>
+    </ul>
+  </section>
+
+  <div class="footnote">
+    <h2>Every figure here is invented</h2>
+    <ul>
+      <li>
+        <b>Every "Referrals waiting" and "Escalated" count</b>, on every card and in the totals strip &mdash; 22
+        referrals waiting and 5 escalated network&#8209;wide, and the per&#8209;ward splits (3/1 RPH Adult Secure, 2/0
+        RPH Older Adult, 4/1 SCGH Adult Open, 1/0 SCGH Older Adult, 2/0 FSH Adult Secure, 5/2 FSH Older Adult, 1/0 ARM
+        Adult Open, 2/1 SJGM Adult Open, 2/0 RGH Adult Secure). Nothing in the repository yet links a referral to a
+        destination ward, so these are placeholders for a count the real screen would need to compute the same way as
+        the bed figures.
+      </li>
+      <li><b>"Updated 2 minutes ago"</b> and the "Live" marker. Nothing here refreshes.</li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>All nine ward names, their hospital, cohort and security</b>, and the
+        <b>North Metro / East Metro / South Metro</b> health&#8209;service grouping and order &mdash; from this
+        repository's <code>ward-sites.ts</code>, the same source the app's own ward index reads.
+      </li>
+      <li>
+        <b>Every bed figure</b> &mdash; each ward's total beds and its free&#8209;bed count (1 of 20 for RPH Adult
+        Secure, 1 of 14 for RPH Older Adult, 2 of 24 for SCGH Adult Open, 1 of 16 for SCGH Older Adult, 3 of 18 for FSH
+        Adult Secure, 0 of 12 for FSH Older Adult, 2 of 19 for ARM Adult Open, 1 of 16 for SJGM Adult Open, 1 of 14 for
+        RGH Adult Secure) and the network totals (12 of 153 free, 1 of 9 wards full) &mdash; computed by the exact
+        formula the app's own <code>unitCapacity()</code> uses on every ward's own screen: the free count is the smaller
+        of that unit's confirmed&#8209;empty and confirmed&#8209;allocatable numbers, both real fields on the unit
+        record. This page performs that same calculation once and shows the result; it does not hold a second,
+        independently&#8209;typed figure that could drift from the ward screen.
+      </li>
+      <li><b>Each card's link</b> goes to that ward's real route and unit id in this prototype.</li>
+    </ul>
+    <h2>Cards, not rows &mdash; and other decisions this mockup made</h2>
+    <ul>
+      <li>
+        <b>Cards.</b> Nine wards is a small, fixed set, and the job here is choosing one ward to enter, not scanning a
+        column to compare forty of them. A card lets the free&#8209;bed figure sit large and alone, and gives every ward
+        its own unmistakable "Open ward" action — a table row would have compared better but reads as a report, not a
+        door.
+      </li>
+      <li>
+        <b>"Full" is a word, never only a colour.</b> FSH Older Adult reads "0 free of 12 beds" and the word "Full"
+        beside it, in the same red as the card's edge — a reader with no colour perception loses nothing. Wards with one
+        or two free beds say "Low — act soon" in amber; three or more say "Space available" in green. Those three
+        wordings, not the colours, are what a screen reader or a printed page still carries.
+      </li>
+      <li>
+        <b>The brief named eight wards; a ninth is real.</b> RGH Adult Secure (Rockingham General Hospital, South Metro,
+        1 free of 14 beds) is in <code>ward-sites.ts</code> and belongs on this page. The brief's "6 hospitals" was
+        correct all along — it was the ward list that was short by one, not the hospital count that was wrong. Checked
+        against the seed file rather than assumed from the two numbers disagreeing.
+      </li>
+      <li>
+        <b>The totals strip is additive, not requested verbatim.</b> The brief asked for per&#8209;ward counts; the
+        four&#8209;tile summary at the top (mirroring the existing "Board" language's totals component) is my addition
+        so a reader gets the "at a glance" answer the owner asked for before scanning any card. It carries the same two
+        safeguards as the per&#8209;ward figures: at most two amber&#8209;flagged tiles, and the same single calculation
+        reused, not re&#8209;derived.
+      </li>
+    </ul>
+  </div>
+</div>

@@ -1,0 +1,1170 @@
+<title>Transport</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Transport screen — additions beyond the copied block above.
+     Two stage colours the canonical page never needed: "en route" (a job
+     now moving, distinct from merely "accepted") and "cancelled" (a
+     terminal state that is neither good nor urgent, so it gets a
+     struck-through neutral treatment rather than red or green). The escort
+     badge is a fact about who may collect the patient, not a wait judgement,
+     so it stays a calm informational colour rather than a warning colour.
+     The numbered steps list supports the "how to book transport" panel.
+     ═══════════════════════════════════════════════════════════════════════ */
+  .chip[data-level="enroute"] {
+    color: var(--cool);
+    border-color: color-mix(in oklab, var(--cool) 45%, transparent);
+  }
+  .chip[data-level="cancelled"] {
+    color: var(--faint);
+    border-color: var(--rule-2);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+  }
+
+  .row .provider {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .escort-flag {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+    color: var(--cool);
+    border: 1px solid color-mix(in oklab, var(--cool) 45%, transparent);
+  }
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .steps li {
+    display: flex;
+    gap: var(--sp-3);
+    align-items: flex-start;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .steps li::before {
+    counter-increment: step;
+    content: counter(step);
+    flex: none;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--rule-2);
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .provider-list {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .provider-list li {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ink-2);
+  }
+  /* ─── this screen only ─── */
+  .identity--end {
+    align-items: flex-end;
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Every figure invented — listed at the foot</span>
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow">Coordinator</span>
+      <h1>Transport</h1>
+      <p class="covers"><b>9 jobs</b> moving patients between emergency departments, wards and home right now</p>
+    </div>
+    <div class="identity identity--end">
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span><span>Live<span class="sr"> — data is current</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September, updated 2 minutes ago</span>
+      </p>
+    </div>
+  </div>
+
+  <dl class="totals">
+    <div class="total">
+      <dt>Jobs waiting for pickup or moving now</dt>
+      <dd><span class="figure">9</span></dd>
+      <div class="volume" aria-hidden="true">
+        <span style="height: 44%"></span><span style="height: 58%"></span><span style="height: 39%"></span
+        ><span style="height: 66%"></span><span style="height: 52%"></span><span style="height: 80%"></span
+        ><span style="height: 100%" data-peak="true"></span>
+      </div>
+      <span class="caption">Last 7 days</span>
+    </div>
+    <div class="total">
+      <dt>Waiting on a provider to accept</dt>
+      <dd><span class="figure">3</span></dd>
+      <span class="sub">Requested, nobody has responded yet</span>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Longest wait for pickup</dt>
+      <dd>
+        <span class="figure">1</span><span class="unit">d</span><span class="figure">6</span><span class="unit">h</span>
+      </dd>
+      <span class="sub">TR-014 &middot; Metro Patient Transport, not yet accepted</span>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Escort required, still waiting</dt>
+      <dd><span class="figure">4</span></dd>
+      <span class="sub">Changes who is allowed to collect these patients</span>
+    </div>
+    <div class="total">
+      <dt>Finished today</dt>
+      <dd><span class="figure">13</span></dd>
+      <span class="sub">11 arrived, 2 cancelled</span>
+    </div>
+  </dl>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="th-active">
+      <header>
+        <h2 class="panel-title" id="th-active">Waiting for pickup or moving now &mdash; longest wait first</h2>
+        <span class="n">9 jobs</span>
+      </header>
+      <p class="blurb">
+        Every transport job that is not yet finished, worst wait at the top. The provider is named on each row &mdash;
+        that is who to ring.
+      </p>
+      <ul class="rows">
+        <li data-level="urgent">
+          <a class="row" href="#">
+            <span class="id">TR-014</span>
+            <span class="path"
+              >FSH Adult Secure<span class="arrow" aria-hidden="true">&rarr;</span>RPH Adult Secure</span
+            >
+            <span class="wait">1d 6h</span>
+            <span class="chip" data-level="routine">Requested</span>
+            <span class="meta"
+              ><span class="provider">Metro Patient Transport</span><span class="escort-flag">Escort required</span
+              ><span>No provider has responded in over a day. This patient is on an involuntary order.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="stalled">
+          <a class="row" href="#">
+            <span class="id">TR-018</span>
+            <span class="path"
+              >Armadale Health Service ARM Adult Open<span class="arrow" aria-hidden="true">&rarr;</span>Royal Perth
+              Hospital ED</span
+            >
+            <span class="wait">5h</span>
+            <span class="chip" data-level="routine">Requested</span>
+            <span class="meta"
+              ><span class="provider">Regional Ambulance</span
+              ><span>Still waiting for a provider to accept after 5 hours.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-021</span>
+            <span class="path"
+              >St John of God Midland Public Hospital SJGM Adult Open<span class="arrow" aria-hidden="true">&rarr;</span
+              >Home</span
+            >
+            <span class="wait">3h</span>
+            <span class="chip" data-level="accepted">Accepted</span>
+            <span class="meta"
+              ><span class="provider">Community Transport Service</span
+              ><span>Accepted 40 minutes ago. Collection expected this afternoon.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-009</span>
+            <span class="path"
+              >Rockingham General Hospital ED<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span
+            >
+            <span class="wait">2h</span>
+            <span class="chip" data-level="enroute">En route</span>
+            <span class="meta"
+              ><span class="provider">Regional Ambulance</span><span class="escort-flag">Escort required</span
+              ><span>Collected 25 minutes ago, on the way to Fiona Stanley Hospital.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-027</span>
+            <span class="path"
+              >RPH Adult Secure<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span
+            >
+            <span class="wait">1h</span>
+            <span class="chip" data-level="accepted">Accepted</span>
+            <span class="meta"
+              ><span class="provider">Secure Transfer Service</span><span class="escort-flag">Escort required</span
+              ><span>Accepted 15 minutes ago.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-032</span>
+            <span class="path"
+              >RPH Older Adult<span class="arrow" aria-hidden="true">&rarr;</span>Armadale Health Service ARM Adult
+              Open</span
+            >
+            <span class="wait">45m</span>
+            <span class="chip" data-level="accepted">Collected</span>
+            <span class="meta"
+              ><span class="provider">Metro Patient Transport</span
+              ><span>Collected 10 minutes ago, expected within the hour.</span></span
+            >
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel" aria-labelledby="th-done">
+      <header>
+        <h2 class="panel-title" id="th-done">Finished today &mdash; most recent first</h2>
+        <span class="n">4 shown</span>
+      </header>
+      <p class="blurb">
+        Jobs that have arrived or been cancelled. The wait figure is how long the job took, door to door, or how long it
+        sat before it was cancelled.
+      </p>
+      <ul class="rows">
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-005</span>
+            <span class="path">SCGH Adult Open<span class="arrow" aria-hidden="true">&rarr;</span>SJGM Adult Open</span>
+            <span class="wait">4h</span>
+            <span class="chip" data-level="accepted">Arrived</span>
+            <span class="meta"
+              ><span class="provider">Metro Patient Transport</span><span>Arrived today, 11:40.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-047</span>
+            <span class="path"
+              >SCGH Older Adult<span class="arrow" aria-hidden="true">&rarr;</span>RPH Older Adult</span
+            >
+            <span class="wait">2h</span>
+            <span class="chip" data-level="accepted">Arrived</span>
+            <span class="meta"
+              ><span class="provider">Metro Patient Transport</span><span>Arrived today, 09:15.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-041</span>
+            <span class="path">FSH Older Adult<span class="arrow" aria-hidden="true">&rarr;</span>Home</span>
+            <span class="wait">1d 2h</span>
+            <span class="chip" data-level="cancelled">Cancelled</span>
+            <span class="meta"
+              ><span class="provider">Community Transport Service</span
+              ><span>Cancelled yesterday, 16:10 &mdash; family arranged their own transport.</span></span
+            >
+          </a>
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#">
+            <span class="id">TR-012</span>
+            <span class="path"
+              >Rockingham General Hospital ED<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span
+            >
+            <span class="wait">6h</span>
+            <span class="chip" data-level="cancelled">Cancelled</span>
+            <span class="meta"
+              ><span class="provider">Regional Ambulance</span
+              ><span>Cancelled Monday &mdash; the bed offer was withdrawn before transport was booked.</span></span
+            >
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <aside class="rail" aria-label="Booking, attention and providers">
+      <section class="panel" aria-labelledby="th-book">
+        <header><h2 class="panel-title" id="th-book">How to book transport</h2></header>
+        <p class="blurb">The short path from a patient needing to move to a job appearing on this page.</p>
+        <ol class="steps">
+          <li>Open the patient's record and choose "Request transport" from the actions menu.</li>
+          <li>
+            Choose the origin and destination from the ward, emergency department or home list &mdash; never free text.
+          </li>
+          <li>
+            Mark "Escort required" if the patient is on an involuntary order or is otherwise a risk during transport.
+          </li>
+          <li>Submit. The request goes to the provider rostered for that route and appears here as "Requested".</li>
+        </ol>
+      </section>
+      <section class="panel" aria-labelledby="th-att">
+        <header>
+          <h2 class="panel-title" id="th-att">Needs a decision</h2>
+          <span class="n">3</span>
+        </header>
+        <ul class="attention">
+          <li>
+            <span class="who">TR-014 &middot; Metro Patient Transport</span>Waiting over a day with no response, and
+            this patient needs an escort. Ring the provider directly.
+          </li>
+          <li>
+            <span class="who">TR-018 &middot; Regional Ambulance</span>Requested 5 hours ago and still not accepted.
+          </li>
+          <li>
+            <span class="who">4 jobs</span>Now waiting for pickup require an escort. Confirm who is rostered before any
+            of them are collected.
+          </li>
+        </ul>
+      </section>
+      <section class="panel" aria-labelledby="th-go">
+        <header><h2 class="panel-title" id="th-go">Go to</h2></header>
+        <ul class="links">
+          <li>
+            <a href="#">Request transport<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+          <li>
+            <a href="#">Referral board<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+          <li>
+            <a href="#">All wards<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+          <li>
+            <a href="#">Statistics<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+          <li>
+            <a href="#">Patient search<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+        </ul>
+      </section>
+      <section class="panel" aria-labelledby="th-providers">
+        <header><h2 class="panel-title" id="th-providers">Providers on this list</h2></header>
+        <ul class="provider-list">
+          <li>Metro Patient Transport</li>
+          <li>Regional Ambulance</li>
+          <li>Community Transport Service</li>
+          <li>Secure Transfer Service</li>
+        </ul>
+        <p class="absent">
+          <b>No phone number is held for any transport provider.</b> The model records a provider's name only, not its
+          contact details &mdash; so this page cannot yet offer the one thing you would most want to click. Ring the
+          switchboard of the sending or receiving ward instead.
+        </p>
+      </section>
+    </aside>
+  </div>
+
+  <div class="footnote">
+    <h2>Every figure here is invented</h2>
+    <ul>
+      <li>
+        <b>All totals:</b> 9 jobs waiting or moving, 3 waiting on a provider, the 1d 6h longest wait, 4 escort-required
+        jobs still waiting, 13 finished today, and the 7-day volume bars.
+      </li>
+      <li>
+        <b>Every job:</b> TR-005, TR-009, TR-012, TR-014, TR-018, TR-021, TR-027, TR-032, TR-041 and TR-047 &mdash;
+        movement IDs, stages, wait times, timestamps, escort flags and cancellation reasons are all invented.
+      </li>
+      <li>
+        <b>Every provider name</b> &mdash; Metro Patient Transport, Regional Ambulance, Community Transport Service,
+        Secure Transfer Service &mdash; is a generic, deliberately synthetic name, not a real Western Australian
+        operator.
+      </li>
+      <li><b>"Updated 2 minutes ago"</b> and the "Live" marker. Nothing here refreshes.</li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>Every hospital, ward and emergency department named</b> &mdash; Royal Perth Hospital (RPH Adult Secure, RPH
+        Older Adult), Sir Charles Gairdner Hospital (SCGH Adult Open, SCGH Older Adult), Fiona Stanley Hospital (FSH
+        Adult Secure, FSH Older Adult), Armadale Health Service (ARM Adult Open), St John of God Midland Public Hospital
+        (SJGM Adult Open) and Rockingham General Hospital &mdash; comes from this repository's ward model. No ward or
+        hospital here is invented.
+      </li>
+      <li>
+        <b>The missing phone number is real.</b> The model does not store contact details for a transport provider, and
+        the panel says so rather than inventing a number somebody might ring.
+      </li>
+      <li>
+        <b>The escort-required flag is a real field on every transport job in the model.</b> The screen this mockup
+        replaces never showed it. It is shown on every row where it is set.
+      </li>
+    </ul>
+    <h2>What changed and why</h2>
+    <ul>
+      <li>
+        <b>Sorted worst-wait-first,</b> not by movement ID, because the question this page answers is "who has been
+        waiting too long", not "show me everything in order".
+      </li>
+      <li>
+        <b>The provider is bold on every row</b> because it is who you contact when a job is stuck. The two panels split
+        active jobs from finished ones so a long list of history never buries what still needs a decision.
+      </li>
+      <li>
+        <b>The two counts that used to be buried mid-sentence in a banner</b> are now the "Jobs waiting for pickup or
+        moving now" and "Finished today" tiles, each a real figure rather than a clause in a sentence.
+      </li>
+      <li>
+        <b>This page does not attempt to prove any provider is slow.</b> That comparison belongs on Statistics; this
+        page only ever shows what is happening right now.
+      </li>
+    </ul>
+  </div>
+</div>

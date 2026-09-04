@@ -1,0 +1,91 @@
+/* src/components/ward-management/ward-shell.module.css
+ *
+ * The ground the Board's panels float on (`.shell`, consumed by `WardGround`), and the one
+ * header region (`.header`/`.place`, consumed by `WardShellHeader`) — two components, one
+ * stylesheet, per the 2026-09-04 ruling that split `ward-shell.tsx`: `WardGround` mounts in
+ * `src/app/mockups/ward-flow/layout.tsx` (the only thing that is an ancestor of every route's
+ * `<main>`) and `WardShellHeader` mounts in `ClinicalRail` (`ward-management-navigation.tsx`),
+ * and neither could reach its own mount point while bundled with the other's job.
+ *
+ * ⚠️ THIS IS THE ONLY WARD FLOW STYLESHEET THAT PAINTS --ward-ground.
+ * tests/ward-shell.dom.test.tsx pins that as a sorted list, not a count: a second painter means
+ * two elements are both claiming to be what is behind the panels, and a count survives that
+ * exact failure (delete here, add elsewhere — the count stays at one). Before this file existed,
+ * --ward-ground was declared once (ward-tokens.module.css) and consumed nowhere — a missing
+ * background is not an error, it just quietly reverts the whole "panels float on a ground"
+ * direction back to white-on-white. See docs/superpowers/plans/2026-09-04-ward-flow-navigation-
+ * shell.md, Task 1.
+ */
+.shell {
+  composes: wardTokens from "./ward-tokens.module.css";
+  min-height: 100%;
+  background: var(--ward-ground);
+}
+
+/*
+ * 🔴 WITHOUT THIS BLOCK, PRINTING ANY WARD ROUTE IN DARK MODE PRODUCES A NEAR-BLACK PAGE.
+ *
+ * The chain, checked link by link 2026-09-04: `WardGround` (ward-shell.tsx) wraps every route's
+ * output in `.shell`; `.shell` paints `--ward-ground`, which is `var(--surface-inset)`, which is
+ * `#0a0c0e` in dark (ckb-v2-tokens.css:333). The app's print reset in globals.css sets a white
+ * background on `html, body` ONLY — and a div's own explicit `background` does not inherit that
+ * reset. So the ground survives onto paper.
+ *
+ * ⚠️ THIS EXACT DEFECT WAS FOUND AND FIXED ONCE ALREADY, ONE LEVEL DOWN. `referrals.module.css`
+ * carries five print blocks and a comment describing the same failure on its own three screens --
+ * "nearly the whole page as pale grey text on white paper" -- and keeps an explicit background
+ * specifically so its print block has something to reset. Painting the ground centrally, which was
+ * the right move for the design, reintroduced that defect for EVERY ward route at once, including
+ * the ~30 with no print block of their own to save them. A fix that moves a property up a level
+ * inherits the responsibilities that property carried down there.
+ *
+ * ⚠️ AND IT SURVIVED A FULL VISUAL QA ROUND, because a print regression is invisible until
+ * somebody prints. Handover and morning sheets are the ward surfaces most likely to be printed and
+ * are exactly the ones a black page would ruin.
+ *
+ * `transparent`, not a white value: globals.css already paints `html, body` white for print, so
+ * this defers to the one authority rather than becoming a second one that can disagree with it.
+ * A literal white here would also be a raw colour outside the token layer.
+ *
+ * ⚠️ NOT VERIFIED ON PAPER. This is a read of the cascade, not an observation of a printout;
+ * falsifiable in a minute with the app running in dark mode and a print preview.
+ */
+@media print {
+  .shell {
+    background: transparent;
+  }
+
+  /*
+   * `.place` declares its own colour, so it cannot inherit a fix from `.shell` or from whichever
+   * screen hosts `WardShellHeader` — a colour declared on an element itself cannot be overridden
+   * by any ancestor rule. `.header` is `.place`'s only ancestor in this file (see ward-shell.tsx),
+   * so `.header, .header *` reaches it. `!important` is required, not decorative: `.header *` has
+   * specificity (0,1,0), which a compound descendant selector in the hosting screen can equal or
+   * beat.
+   */
+  .header,
+  .header * {
+    color: CanvasText !important;
+  }
+}
+
+/* The header region: only where a route has one, the place as a non-heading label. See
+ * ward-shell.tsx's doc comment and Decision 1 of the navigation-shell plan for why this is
+ * never an <h1> or any other heading level. Carries no role switcher — `ClinicalRail` already
+ * renders `WardRoleSwitcher` in the rail (see `WardShellHeader`'s own doc comment for why that
+ * clause of Decision 1 is superseded). Rendered as ordinary in-flow content everywhere (Decision
+ * 3, amended 2026-09-04): no `position: fixed`/`sticky` rule belongs on this class or `.place`. */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+
+.place {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-ui);
+}

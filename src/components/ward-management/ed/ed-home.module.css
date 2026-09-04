@@ -1,0 +1,122 @@
+/* src/components/ward-management/ed/ed-home.module.css
+ *
+ * The coordinator's all-departments view (approved design:
+ * docs/ward-flow/design/prototypes/mockup-ed-home.html). Composes the shared token layer and the
+ * shared Board primitives — no local `--ward-*` reinvention, unlike the pre-Board `ed.module.css`
+ * this sits beside.
+ *
+ * ⚠️ NO RULE HERE MAY PAINT A BACKGROUND ON `.screen`. `WardGround` (`ward-shell.module.css`) is
+ * the one stylesheet that paints `--ward-ground`, mounted once at the layout. A `background:
+ * var(--surface)` on this root — the pattern the older `ed.module.css` uses — would paint white
+ * over that ground and make every panel here read as floating on white again.
+ */
+.screen {
+  composes: wardTokens from "../ward-tokens.module.css";
+  max-width: 96rem;
+  margin: 0 auto;
+  padding: var(--ward-space-16) var(--ward-space-16) var(--ward-space-32);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-16);
+}
+@media (min-width: 48rem) {
+  .screen {
+    padding: var(--ward-space-24) var(--ward-space-24) var(--ward-space-32);
+  }
+}
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ward-space-16);
+}
+
+.eyebrow {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ward-muted);
+}
+
+.title {
+  margin: var(--ward-space-4) 0 0;
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--ward-heading);
+  text-wrap: balance;
+}
+
+.covers {
+  margin: var(--ward-space-4) 0 0;
+  font-size: var(--text-sm);
+  color: var(--ward-muted);
+}
+.covers b {
+  color: var(--ward-text);
+  font-weight: 600;
+}
+
+/* The model-limit note: a plain bordered callout, not a WardPanel — it carries one paragraph,
+ * never a titled section a screen reader would list among the page's regions. */
+.modelLimit {
+  margin: 0;
+  padding: var(--ward-space-12) var(--ward-space-16);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  background: var(--ward-subtle);
+  font-size: var(--text-sm);
+  color: var(--ward-text);
+  line-height: var(--ward-leading-prose);
+}
+.modelLimit b {
+  font-weight: 600;
+}
+
+/* States the population once, directly under the totals strip, so a reader never has to infer
+ * what the five tiles above counted. See ed-home-derivations.ts's own note on why this matters:
+ * the ED hub counts a different population (referrals) and the two can disagree. */
+.populationNote {
+  composes: hint from "../ward-shared.module.css";
+}
+
+/* The one dominant card. Escalation is carried by the urgent WardChip in its eyebrow (WardPanel
+ * itself exposes no border-colour hook to extend) rather than by overriding the shared panel
+ * border — see this file's own report for why. */
+.heroBody {
+  composes: hero from "../ward-shared.module.css";
+  padding-block: 0;
+}
+.heroLede {
+  margin: 0;
+  max-width: 54rem;
+  font-size: var(--text-sm);
+  color: var(--ward-text);
+  line-height: var(--ward-leading-prose);
+}
+.heroFiguresGrid {
+  composes: heroFigures from "../ward-shared.module.css";
+  margin-top: var(--ward-space-16);
+}
+.heroOpen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ward-space-8);
+  align-self: flex-start;
+  margin-top: var(--ward-space-16);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  min-height: 48px;
+  border: 1px solid var(--ward-danger);
+  border-radius: var(--radius-sm);
+  background: var(--ward-canvas);
+  color: var(--ward-danger);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.heroOpen:hover {
+  background: var(--ward-danger-soft);
+}
