@@ -12,9 +12,9 @@ import { getMedicationRecord } from "@/lib/medication-snapshot";
 import { ensureMedicationsSeeded } from "@/lib/medication-seed";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import {
-  deriveGovernanceFromSections,
+  publicMedicationGovernance,
   normalizeMedicationSlug,
-  rowGovernance,
+  rowGovernanceForRecord,
   rowToMedicationRecord,
   type MedicationRecordRow,
 } from "@/lib/medication-records";
@@ -41,13 +41,9 @@ function notFoundResponse(slug: string) {
 function publicMedicationDetailPayload(slug: string) {
   const record = getMedicationRecord(slug);
   if (!record) return null;
-  const governance = deriveGovernanceFromSections(record);
   return {
     record,
-    governance: {
-      sourceStatus: governance.source_status,
-      validationStatus: governance.validation_status,
-    },
+    governance: publicMedicationGovernance(record),
   };
 }
 
@@ -128,9 +124,12 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     }
     if (!row) return notFoundResponse(normalizedSlug);
 
+    // Derive governance from the record just parsed rather than re-parsing the row's
+    // `sections` behind `rowGovernance`; same answer, one Zod pass instead of two.
+    const record = rowToMedicationRecord(row);
     return medicationResponse({
-      record: rowToMedicationRecord(row),
-      governance: rowGovernance(row),
+      record,
+      governance: rowGovernanceForRecord(row, record),
     });
   } catch (error) {
     if (error instanceof AuthenticationError) {

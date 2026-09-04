@@ -15,14 +15,15 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 584
-- Distinct ref cells: 367
-- Distinct reviewed heads: 567
-- Date range: `2026-08-12` to `2026-09-02`
+- Records: 603
+- Distinct ref cells: 383
+- Distinct reviewed heads: 586
+- Date range: `2026-08-12` to `2026-09-03`
 
 Records per date, newest first:
 
-- `2026-09-02` — 9 records
+- `2026-09-03` — 11 records
+- `2026-09-02` — 17 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
 - `2026-08-30` — 3 records
@@ -50,13 +51,32 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-03 | claude/audit-fix-p1 (PR #2580) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state blocked, 1 unresolved review thread (codex M22… | [05d026fe](branch-review-records/05d026fe646f677e39436ddceb09504fcdedcda3d1b0c75c914fc4bde2fb3b01.record.md) |
+| 2026-09-03 | claude/token-layer-collapse-itskb0 (PR #2577) | Run PR sweep: merge origin/main drift + Codex review threads | before: mergeable_state dirty (real conflict in playwright.config.ts s… | [20984d0f](branch-review-records/20984d0ff09095aeac675096ff3a1fd0610bb26a73bf25fdfa355b3d1fe64535.record.md) |
+| 2026-09-03 | claude/sources-mode-dropdown-home-mzw4f5 | PR #2567 Sources mode home, existing review feedback, CI, and integration with main | No new P0-P2 findings. The existing filter-only deep-link concern was… | [25566cb7](branch-review-records/25566cb7e5e57014296d21781f8af26d7a472066909492e9ffe41f3259714fef.record.md) |
+| 2026-09-03 | claude/reindex-reaper (PR #2552) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state dirty (real conflict), required checks green (… | [30e9cccd](branch-review-records/30e9cccd4ae4dfa63170a060ecb9d7639d2a1b5c2fe19fb316b542001e97d6bd.record.md) |
+| 2026-09-03 | claude/caring-contacts-design-audit-fcay0l (PR #2574) | Run PR sweep: CI fix + threads + drift | Merged origin/main into a mergeable_state:dirty branch; real conflicts… | [3216b5b6](branch-review-records/3216b5b60045549148cb203d89f34b2ffba65f6bfc13ad6395020745026f8256.record.md) |
+| 2026-09-03 | claude/drift-semantics (PR #2550) | Run PR sweep: CI fix + threads + drift | before: mergeable_state dirty (real conflict in docs/scripts-index.md… | [99d1b86f](branch-review-records/99d1b86f90cbeb9c11b5b0464d22cb32864d02976d59bfb5123d99fab054b993.record.md) |
+| 2026-09-03 | claude/prlanded-2573-ledger (PR #2576) | Run PR sweep: drift repair | PR was mergeable_state: dirty (real conflict confined to data/repo-awa… | [b90d2a17](branch-review-records/b90d2a17931ab915b1dec2704861066aa391f3d7092c97fcfa906aef2106c1a6.record.md) |
+| 2026-09-03 | claude/token-layer-collapse-itskb0 (PR #2577) | Run PR sweep: CI fix + threads + drift | Before: PR required failing (Unit coverage + Production UI (3) red), b… | [bf249c98](branch-review-records/bf249c989a4f4b805bae7156c55640bf94ee51503f9a81c935cc51f04bd36879.record.md) |
+| 2026-09-03 | claude/psychsift-active-sources-design-pyt2p9 | prlanded | PR #2584 squash-merged as 02a6316; content diff against branch tip 213… | [c81bc98a](branch-review-records/c81bc98a051d67f0622d109a6a3ce6e68b80b63bac0d9395001df6ed25b49fdd.record.md) |
+| 2026-09-03 | claude/snapshot-conflicts-3w455k (PR #2575) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state behind main (stale snapshot said blocked), 0 C… | [e6295edf](branch-review-records/e6295edf2c91cc2ae6a82f1b256ed2358dd3db62918db93e7c2893a968f82729.record.md) |
+| 2026-09-03 | claude/answer-loading-sources-animation-4obfpq | answer-preview source governance, evidence rail | P1 governance display-cap defect fixed with a mutation-proven test; P2… | [ed1a74a8](branch-review-records/ed1a74a8381f97381f870e96a503c8ee36f825732c97de9c954dc90885fde588.record.md) |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih-4 | PR #2535 (#PAMATF): model.ts planSendingHold relocation and load-time invariant, both repo… | MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r… | [0cee2b10](branch-review-records/0cee2b10b5e10b575263b1af0df0d87c555460e6e15dc052cfd1162d8fa2c265.record.md) |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih | PR #2532 (#59JT7W + #RZVMPD, squashed to main): src/lib/caring-contacts/message-policy.ts,… | MERGED to main 2026-09-02. Closing-message refusal routed through the… | [0f22b88a](branch-review-records/0f22b88a41a63454cdb1b0ac291233906c397a7cbfca1539a0b1c020e99234df.record.md) |
 | 2026-09-02 | codex/smart-local-modes-20260901 | smart local modes integration | Fixed calculator identity matches inside natural-language queries; no… | [23084cec](branch-review-records/23084cec05666473530d8878ab4246ada0dbdb860c28584da348ade298ccf63c.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | prlanded | Merged and verified. Two-dot content diff between the squash commit an… | [23e5e883](branch-review-records/23e5e883d9bcff4f4082898eb6b5e2d5b08596a4b9f2945b2768d2149852bbf8.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | caring-contacts prohibited-language scan | Reviewed by the clinical-governance-reviewer subagent before the push;… | [2672ead5](branch-review-records/2672ead51d97f295e2cf156914c4c940ac17eba55d569f189224986f2e9797ce.record.md) |
+| 2026-09-02 | claude/ci-test-automation-ndzfou | prlanded | merged and verified: squash content identical to branch tip 51bcddba,… | [33cfd0aa](branch-review-records/33cfd0aa42a175b98553e7648ea843ee37e2213fd0a0961f7d55b33cefe7bb8d.record.md) |
 | 2026-09-02 | claude/caring-contacts-vocabulary-tmnc89 | caring-contacts plural job-title exemption | Second clinical-governance review on this branch, covering commit 33e1… | [3f5afc46](branch-review-records/3f5afc461d6cd9444e4720b112fa5b424610487e28999e732d87d342fa4a492b.record.md) |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih-2 | PR #2533 (#RZVMPD): db/postgres-repository.ts PLAN_LIST_COLUMNS, schedule-view.ts doc comm… | MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r… | [4618bc97](branch-review-records/4618bc97849416bcc9b687e3669942b3bd9aa3c69fe34563d1eb0a56e23a55a5.record.md) |
+| 2026-09-02 | claude/full-repo-audit-27fccs | prlanded | PR #2573 (full repository audit 2026-09-02) squash-merged to main as d… | [66e9499d](branch-review-records/66e9499daef376720ef257c2f88b26185f707fd0956f7e85321c2641cfb4d642.record.md) |
+| 2026-09-02 | claude/caring-contacts-rules-r7r2ih-3 | PR #2534 (#J7PZQP + #PAMATF, squashed to main): episode.ts, model.ts, repository.ts, sched… | MERGED to main 2026-09-02. Episode carries patientDetailClearedAt inst… | [85a37952](branch-review-records/85a379521e2bae9498d29f1f34eeacfbe6c224a8ee48ecf893be298b318e96a5.record.md) |
+| 2026-09-02 | claude/full-repo-audit-27fccs | Audit only: new docs/audit/full-repository-audit-2026-09-02.md (25 finder lanes + critic +… | Report landed on the branch for owner triage: High 3 (medication badge… | [9b30395d](branch-review-records/9b30395dd42eb0dfab500f76781cb924f883a67224bc623b94985a47d24f2e3a.record.md) |
 | 2026-09-02 | claude/instruction-tiering-n9vs14 | Instruction tiering: AGENTS.md/CLAUDE.md always-loaded core plus docs/agents reference fil… | No findings. Reorganisation only: all 662 non-blank AGENTS.md lines ve… | [9b97c2e6](branch-review-records/9b97c2e689cead2aabfd99148f22120ca4d7f1b907be8e06dc595b279216be69.record.md) |
 | 2026-09-02 | claude/gate-audit-ujhkqb | prlanded | merged clean, content diff empty against branch tip | [9f7fd1f9](branch-review-records/9f7fd1f9419de5446570947eaf97adbf74e22ae0543039142417e79ed7c2e928.record.md) |
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | mockup retirement policy and sweep | Reviewed by two fresh agents before push; both found real defects and… | [b34f56e0](branch-review-records/b34f56e00cf20e8f76a4e7564cdb71ae5fd3c9cf97973c49f9b5541448f99a56.record.md) |
+| 2026-09-02 | claude/mockup-retirement-xw0vmn | prlanded | MERGED as #2543 squash 374a5603; content diff against branch tip 4877a… | [d3807849](branch-review-records/d38078490b7139c61eb2906b444fe58962bed612bb6463ba09dddf1e78f05294.record.md) |
 | 2026-09-02 | claude/enrichment-staging | clinical governance | changes requested: 2xP1 (drift-manifest stale => tests/drift-detection… | [ebd99269](branch-review-records/ebd992696b935640a5c8e9462c1741a00a0c7497f04384ec810c415b29d80be2.record.md) |
 | 2026-09-02 | claude/care-plan-next (PR #2528) | Run PR sweep: review threads + main sync | Fixed 1 of 3 Codex P2 threads: added the in-file SUPERSEDED banner to… | [f5b42005](branch-review-records/f5b420054f6ed5cd54dfce9d748677965f53cac6f3f73dc725e603370eede38b.record.md) |
 | 2026-09-01 | PR-2504 | Resolve Codex P1: corpus-health table access | Verified the authenticated role lacks table SELECT; the administrator-… | [5d80826b](branch-review-records/5d80826bf56625f7a05594bf5c46f05a421a883a038ace94c07ca265528f1dba.record.md) |

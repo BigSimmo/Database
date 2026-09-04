@@ -191,14 +191,83 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(buildEvidencePreviewUnit({ results: [outdated] })).toBeNull();
   });
 
-  it("suppresses a preview when another potential final source fails governance", () => {
+  it("excludes the danger-level document and still shows the clean sources beside it", () => {
+    // The behaviour this replaces suppressed the whole rail whenever any retrieved passage
+    // failed governance, which on a real corpus meant one badly-OCR'd chunk hid every good
+    // source in the answer. Excluding the flagged document is strictly safer per card: it can
+    // no longer appear in the preview at all, where the old wide check only delayed it until
+    // the answer's own rail.
     const safe = makeSource();
     const outdated = makeSource({
       id: "chunk-outdated",
+      document_id: "doc-outdated",
       source_metadata: { document_status: "outdated" } as SearchResult["source_metadata"],
     });
 
-    expect(buildEvidencePreviewUnit({ results: [safe], governanceResults: [safe, outdated] })).toBeNull();
+    const unit = buildEvidencePreviewUnit({ results: [safe, outdated] });
+    expect(unit).not.toBeNull();
+    expect(unit!.sources.map((source) => source.document_id)).toEqual(["doc-1"]);
+    // Counts what survived, never the wider set: the contract requires
+    // selectedContextCount >= sources.length, and a count including the excluded document
+    // would describe evidence the preview is deliberately not showing.
+    expect(unit!.selectedContextCount).toBe(1);
+  });
+
+  it("excludes every chunk of a danger-level document, not only the flagged chunk", () => {
+    const safe = makeSource();
+    const poorFirst = makeSource({
+      id: "chunk-poor-1",
+      document_id: "doc-poor",
+      source_metadata: { extraction_quality: "poor" } as SearchResult["source_metadata"],
+    });
+    // Same document, no flag of its own — governance is a property of the document, so this
+    // chunk must go with it rather than standing in as a clean card for the same PDF.
+    const poorSecond = makeSource({ id: "chunk-poor-2", document_id: "doc-poor" });
+
+    const unit = buildEvidencePreviewUnit({ results: [safe, poorFirst, poorSecond] });
+    expect(unit).not.toBeNull();
+    expect(unit!.sources.map((source) => source.id)).toEqual(["chunk-1"]);
+  });
+
+  it("excludes danger-level documents past the warnings display cap", () => {
+    // `sourceGovernanceWarnings` ends with `.slice(0, limit ?? 8)`, a cap sized for a warnings
+    // banner. An earlier cut of this filter read its exclusion set out of that capped list, so
+    // the ninth danger warning onwards was silently dropped and its document was disclosed as
+    // a preview card. Five documents that are both outdated and poorly extracted produce ten
+    // danger warnings, which is enough to push the last one out.
+    const flagged = Array.from({ length: 5 }, (_unused, index) =>
+      makeSource({
+        id: `chunk-flagged-${index}`,
+        document_id: `doc-flagged-${index}`,
+        source_metadata: {
+          document_status: "outdated",
+          extraction_quality: "poor",
+        } as SearchResult["source_metadata"],
+      }),
+    );
+    // Poor extraction only, so `document_status` stays "current" — the card badge reads only
+    // that field, so a document escaping the cap this way would be shown labelled "Current".
+    const badlyExtracted = makeSource({
+      id: "chunk-poor-ocr",
+      document_id: "doc-poor-ocr",
+      source_metadata: { document_status: "current", extraction_quality: "poor" } as SearchResult["source_metadata"],
+    });
+    const safe = makeSource();
+
+    const unit = buildEvidencePreviewUnit({ results: [...flagged, badlyExtracted, safe] });
+    expect(unit).not.toBeNull();
+    expect(unit!.sources.map((source) => source.document_id)).toEqual(["doc-1"]);
+  });
+
+  it("suppresses the whole preview when the danger verdict is answer-level, not per document", () => {
+    // `WEAK_EVIDENCE` from relevance.verdict === "none" says the retrieved evidence does not
+    // back the question at all. That is not a property of any one document, so no subset of
+    // the rail is safe to show and the all-or-nothing path must survive.
+    const unit = buildEvidencePreviewUnit({
+      results: [makeSource(), makeSource({ id: "chunk-2", document_id: "doc-2" })],
+      relevance: { isSourceBacked: false, verdict: "none" } as never,
+    });
+    expect(unit).toBeNull();
   });
 
   it("emits zero units for empty retrieval", () => {

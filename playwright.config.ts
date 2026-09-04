@@ -23,19 +23,25 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // `tests/playwright-project-isolation.test.ts` asserts every such file on disk is
 // matched here.
 const productionSpecPattern =
-  /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/;
+  /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/;
 const mockupSpecPattern =
-  /.*ui-(answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-management|ward-coordinator|ward-roles|ward-discharges)\.spec\.ts/;
+  /.*ui-(answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-management|ward-coordinator|ward-roles|ward-discharges|ward-morning|ward-referrals)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
-// The ONE production journey that needs a populated Caring Contacts store, and therefore the one
-// that runs against `run-playwright.mjs`'s SECOND server (`CARING_CONTACTS_DEMO_SEED=on`) rather
-// than the primary one. It is deliberately absent from `productionSpecPattern` above: that matcher
-// names `caring-contacts-workspace` explicitly, so `ui-caring-contacts-activation` cannot leak into
-// the projects pointed at the unseeded server — where its referral would not exist and the wizard
-// would render the same "not visible" notice the workspace spec already pins. Keep it that way;
+// The production specs that need a POPULATED Caring Contacts store, and therefore run against
+// `run-playwright.mjs`'s SECOND server (`CARING_CONTACTS_DEMO_SEED=on`) rather than the primary
+// one. Both are deliberately absent from `productionSpecPattern` above: that matcher names
+// `caring-contacts-workspace` explicitly, so neither can leak into the projects pointed at the
+// unseeded server — where the activation journey's referral would not exist and the populated
+// sweep would measure the empty screens the workspace spec already pins. Keep it that way;
 // `tests/playwright-project-isolation.test.ts` fails if it drifts either direction.
-const seededSpecPattern = /.*ui-caring-contacts-activation\.spec\.ts/;
+//
+//  - `-activation` drives the wizard end to end and WRITES (it creates one plan), which is why it
+//    is `mode: "serial"` in its own file.
+//  - `-populated` sweeps every screen at every reviewed width with records on it, and writes
+//    nothing at all — so the two share this server without interfering. That file's head comment
+//    records why a populated sweep had to exist separately from the empty-store one.
+const seededSpecPattern = /.*ui-caring-contacts-(activation|populated)\.spec\.ts/;
 
 // Published by `scripts/run-playwright.mjs` when it starts the seeded server. Falling back to the
 // primary `baseURL` would silently point the journey at the EMPTY store, so the spec itself refuses
@@ -45,7 +51,7 @@ const seededBaseURL = process.env.PLAYWRIGHT_SEEDED_BASE_URL;
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-activation|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges)|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-activation|caring-contacts-populated|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-show-all|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges|morning|referrals)|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently

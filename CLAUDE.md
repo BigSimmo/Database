@@ -75,7 +75,7 @@ Production never silently falls back — missing config fails loudly.
 
 ## Repository layout and the two main flows
 
-The `src/` tree, the 15 app modes, and the two flows that matter — answer (read path) and
+The `src/` tree, the 16 app modes, and the two flows that matter — answer (read path) and
 ingestion (write path) — are mapped in
 [`docs/codebase-index.md`](docs/codebase-index.md), under "Orientation summary" and the detailed
 sections that follow it. Start there for any real task.
@@ -95,7 +95,7 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 | Gate                                      | What it is                                                                                                                                                                                   |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                     |
-| `npm run verify:cheap`                    | The broad local gate: 37 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
+| `npm run verify:cheap`                    | The broad local gate: 38 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
 | `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection. |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                    |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                      |

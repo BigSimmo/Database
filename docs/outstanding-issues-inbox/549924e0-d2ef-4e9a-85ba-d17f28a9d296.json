@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "549924e0-d2ef-4e9a-85ba-d17f28a9d296",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ward Flow test fixture asserts a shape nobody checks: as unknown as BedRelease hides 9 discrepancies",
+    "detail": "tests/ward-release-band-day-boundary.test.ts:34 builds a BedRelease with 'as unknown as', which suppresses every check. BedRelease requires 11 fields; the fixture supplies 8. Six required are absent (waitingOn, blocker, blockedBy, preparing, preparationNote, confirmedBy) and three are phantom (blocked, blockReason, basis). blocker is absent while blockReason is phantom, so a plausible-looking name stands where the real field should be, and blocker is what the blocked-discharges breakdown counts. Verified independently by three chats at master 268fcd6a8.",
+    "source": "Ward Builder Three closing sweep, measured at adcd8bcb5",
+    "issueUlid": "01M1G4N0RPFE8BFA94VR8ZNC3P"
+  }
+}

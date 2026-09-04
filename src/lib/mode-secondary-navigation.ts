@@ -100,7 +100,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "sources", label: "Sources", href: "/dictionary/sources" },
   ],
   sources: [
-    { id: "catalogue", label: "Catalogue", href: "/sources" },
+    { id: "catalogue", label: "Catalogue", href: "/sources/search" },
     { id: "topics", label: "Topics", href: "/sources/topics" },
     { id: "publishers", label: "Publishers", href: "/sources/publishers" },
     { id: "method", label: "Method", href: "/sources/method" },
@@ -224,7 +224,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     return null;
   }
   if (modeId === "sources") {
-    if (pathname === "/sources") return "catalogue";
+    if (pathname === "/sources/search") return "catalogue";
     if (pathname === "/sources/topics") return "topics";
     if (pathname === "/sources/publishers") return "publishers";
     if (pathname === "/sources/method") return "method";
@@ -286,7 +286,7 @@ export function isModeSecondaryNavigationRoute(params: {
     );
   }
   if (modeId === "sources") {
-    return ["/sources", "/sources/topics", "/sources/publishers", "/sources/method"].includes(pathname);
+    return ["/sources/search", "/sources/topics", "/sources/publishers", "/sources/method"].includes(pathname);
   }
   return false;
 }

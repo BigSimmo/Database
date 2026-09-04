@@ -3505,7 +3505,6 @@ ${qualityRetryInstruction}`
     ...buildEvidencePreviewProgress({
       normalResults: modelContextResults,
       fallbackResults: generationFallbackResults,
-      governanceResults: answerInputResults,
       relevance,
     }),
   });
