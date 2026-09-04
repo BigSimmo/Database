@@ -158,6 +158,65 @@ describe("AccessibleTable (jsdom)", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
+  // Audit H3: a metadata header that is not a bare metadata word ("Source: 3",
+  // "Page 2") survives column removal and is then blanked by the cell cleaner.
+  // Dropping only the header shifted every later body cell one column left, so a
+  // clinician read a dose under the wrong heading and the last value vanished.
+  it("drops a metadata column that cleans to empty without shifting clinical body cells", () => {
+    render(
+      <AccessibleTable
+        caption="Maximum daily dose"
+        clinicalOnly
+        columns={["Drug", "Source: 3", "Max dose"]}
+        rows={[
+          ["Lithium", "RANZCP", "1200 mg"],
+          ["Sodium valproate", "RANZCP", "2000 mg"],
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent?.trim())).toEqual(["Drug", "Max dose"]);
+
+    const bodyRows = screen.getAllByRole("row").slice(1);
+    const firstRowCells = within(bodyRows[0]).getAllByRole("cell");
+    expect(firstRowCells).toHaveLength(2);
+    expect(firstRowCells[0]).toHaveTextContent("Lithium");
+    expect(firstRowCells[1]).toHaveTextContent("1200 mg");
+
+    const secondRowCells = within(bodyRows[1]).getAllByRole("cell");
+    expect(secondRowCells[1]).toHaveTextContent("2000 mg");
+
+    // The dropped column's body values must not reappear under a clinical heading.
+    expect(screen.queryByText("RANZCP")).not.toBeInTheDocument();
+  });
+
+  // Audit L19: the in-cell scrub removed "p. 14" but left its brackets behind,
+  // so a clinician read "(...)"-shaped debris in a clinical cell.
+  it("removes an in-cell page pointer together with its brackets", () => {
+    render(
+      <AccessibleTable
+        caption="Lithium monitoring"
+        clinicalOnly
+        columns={["Parameter", "Target"]}
+        rows={[
+          ["Serum lithium level", "0.6 mmol/L (p. 14)"],
+          ["Renal function", "Six-monthly [source 3]"],
+        ]}
+      />,
+    );
+
+    const bodyRows = screen.getAllByRole("row").slice(1);
+    const firstRowCells = within(bodyRows[0]).getAllByRole("cell");
+    expect(firstRowCells[1]).toHaveTextContent("0.6 mmol/L");
+    expect(firstRowCells[1].textContent).not.toContain("(");
+    expect(firstRowCells[1].textContent).not.toContain(")");
+
+    const secondRowCells = within(bodyRows[1]).getAllByRole("cell");
+    expect(secondRowCells[1]).toHaveTextContent("Six-monthly");
+    expect(secondRowCells[1].textContent).not.toContain("[");
+    expect(secondRowCells[1].textContent).not.toContain("]");
+  });
+
   // COMPONENTS §0.4 AccessibleTable row — ledger #263.
   it("keeps the full header string reachable when the dense preview ellipsises it", () => {
     render(
