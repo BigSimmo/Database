@@ -13,7 +13,11 @@ import { issueContextPackAdmissionReceipt, restoreCachedContextPackAdmission } f
 import { selectModelContextEvidence } from "@/lib/rag/rag-context-selection";
 import { buildEvidencePreviewUnit } from "@/lib/answer-preview";
 import { parseAnswerJson } from "@/lib/rag/rag";
-import { retainRelatedDocumentsForResults } from "@/lib/retrieval-selection";
+import {
+  applySelectedEvidenceArtifacts,
+  buildSelectedEvidenceArtifacts,
+  retainRelatedDocumentsForResults,
+} from "@/lib/retrieval-selection";
 import { buildPackedRagSourceBlock, estimatePackedRagSourceBlockTokens } from "@/lib/rag/rag-source-block";
 import type { CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
@@ -22,6 +26,7 @@ import type {
   ClinicalClaimRole,
   ClinicalSourceRole,
   RagQueryPlan,
+  RagAnswer,
   SearchResult,
   SourcePolicyConflict,
   SourceCorpusScope,
@@ -1155,6 +1160,113 @@ describe("claim-oriented context packing", () => {
     expect(related.map((document) => document.document_id)).toEqual(["doc-admitted"]);
     expect(fusion.text).not.toContain("unique omitted claim");
     expect(packed.served.coverageSelections[0]?.orderedEvidence.map((result) => result.id)).toEqual(["admitted"]);
+  });
+
+  it("rebuilds same-document related metadata from only retained chunks", () => {
+    const removed = evidence("related-removed", "Removed higher-ranked context.", {
+      document_id: "related-document",
+      page_number: 9,
+      similarity: 0.99,
+      hybrid_score: 0.99,
+      images: [
+        {
+          id: "removed-clinical-image",
+          page_number: 9,
+          storage_path: "removed-clinical-image.png",
+          caption: "Removed clinical table",
+          image_type: "clinical_table",
+          searchable: true,
+          clinical_relevance_score: 1,
+        },
+      ],
+    });
+    const retained = evidence("related-retained", "Retained lower-ranked context.", {
+      document_id: "related-document",
+      page_number: 3,
+      similarity: 0.61,
+      hybrid_score: 0.61,
+    });
+    const rebuilt = retainRelatedDocumentsForResults(
+      [
+        {
+          document_id: "related-document",
+          title: removed.title,
+          file_name: removed.file_name,
+          labels: [
+            {
+              id: "retained-label-id",
+              document_id: "related-document",
+              label: "retained-label",
+              label_type: "topic",
+              confidence: 0.9,
+              source: "manual",
+            },
+          ],
+          summary: "Document-level summary.",
+          best_pages: [9, 3],
+          best_chunk_ids: [removed.id, retained.id],
+          image_count: 1,
+          table_count: 2,
+          cover_image_id: "cover-image",
+          match_reason: "Matched 2 indexed passages",
+          score: 0.99,
+        },
+      ],
+      [retained],
+    );
+
+    expect(rebuilt).toEqual([
+      expect.objectContaining({
+        document_id: "related-document",
+        labels: [
+          {
+            id: "retained-label-id",
+            document_id: "related-document",
+            label: "retained-label",
+            label_type: "topic",
+            confidence: 0.9,
+            source: "manual",
+          },
+        ],
+        summary: "Document-level summary.",
+        best_pages: [3],
+        best_chunk_ids: [retained.id],
+        image_count: 0,
+        table_count: 2,
+        cover_image_id: "cover-image",
+        match_reason: "Matched 1 indexed passage",
+        score: 0.61,
+      }),
+    ]);
+    expect(JSON.stringify(rebuilt)).not.toMatch(/related-removed|removed-clinical-image|0\.99/);
+  });
+
+  it("preserves an authoritative null best-source recommendation while rebuilding route artifacts", () => {
+    const survivor = evidence("best-source-survivor", "Retained current clinical guidance.", {
+      similarity: 0.98,
+      hybrid_score: 0.98,
+    });
+    const artifacts = buildSelectedEvidenceArtifacts("What guidance applies?", [survivor]);
+    expect(artifacts.bestSource).not.toBeNull();
+    const answer: RagAnswer = {
+      answer: "Use the retained guidance.",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [survivor],
+      bestSource: null,
+    };
+
+    applySelectedEvidenceArtifacts({
+      answer,
+      query: "What guidance applies?",
+      results: [survivor],
+      relatedDocuments: [],
+      artifacts,
+    });
+
+    expect(answer.bestSource).toBeNull();
+    expect(answer.smartPanel?.bestSource).toBeNull();
   });
 
   it("loads and deduplicates legacy adjacent context for both served and retry selections", async () => {

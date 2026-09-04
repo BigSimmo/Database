@@ -2509,6 +2509,29 @@ describe("RAG structured-output fallback", () => {
       similarity: 0.95,
       hybrid_score: 0.95,
       text_rank: 0.8,
+      memory_score: 0.99,
+      memory_cards: [
+        {
+          id: "agitation-removed-memory-sentinel",
+          document_id: "agitation-pre-plan-retention-sentinel-document",
+          owner_id: null,
+          card_type: "workflow",
+          title: "AGITATION_REMOVED_MEMORY_SENTINEL",
+          content: "AGITATION_REMOVED_MEMORY_SENTINEL_CONTENT",
+          normalized_terms: ["agitation"],
+          page_number: 3,
+          source_chunk_ids: ["agitation-pre-plan-retention-sentinel"],
+          source_image_ids: [],
+          confidence: 0.99,
+        },
+      ],
+      indexing_quality: {
+        document_id: "agitation-pre-plan-retention-sentinel-document",
+        quality_score: 0.3,
+        extraction_quality: "partial",
+        metrics: { missing_embeddings: 7, section_count: 99 },
+        issues: ["AGITATION_REMOVED_INDEX_SENTINEL"],
+      },
     });
     const query = "What agitaton and arousl dosing guidance applies to psychiatric inpatients?";
     const routeWideLogs: Array<{ source_chunk_ids?: string[]; metadata?: Record<string, unknown> }> = [];
@@ -2554,9 +2577,20 @@ describe("RAG structured-output fallback", () => {
       "smart_api_source_selection",
       "answer_rank_top_score",
       "answer_ranked_source_count",
+      "answer_rank_strategy",
+      "answer_rank_query_class",
+      "cross_document_synthesis",
+      "cross_document_reason",
       "cross_document_count",
       "cross_document_selected_count",
       "cross_document_selected_source_count",
+      "cross_document_fusion_bullets",
+      "cross_document_fusion_source_chunk_ids",
+      "memory_card_count",
+      "memory_top_score",
+      "indexing_version",
+      "indexing_extraction_quality",
+      "indexing_stale",
       "score_explanation_count",
       "top_cited_score_explanations",
       "evidence_summary",
@@ -2568,6 +2602,14 @@ describe("RAG structured-output fallback", () => {
     expect(Object.fromEntries(loggedEvidenceKeys.map((key) => [key, routeWideLogs[0]?.metadata?.[key]]))).toEqual(
       Object.fromEntries(loggedEvidenceKeys.map((key) => [key, deliveredOnlyLogs[0]?.metadata?.[key]])),
     );
+    expect(routeWideLogs[0]?.metadata).toMatchObject({
+      cross_document_reason: "single_document",
+      cross_document_fusion_source_chunk_ids: [],
+      memory_card_count: 0,
+      memory_top_score: 0,
+      indexing_extraction_quality: "good",
+      indexing_stale: false,
+    });
     expect(JSON.stringify({ answer, log: routeWideLogs[0] })).not.toMatch(
       /AGITATION_PRE_PLAN_RETENTION_SENTINEL|agitation-pre-plan-retention-sentinel/,
     );
@@ -4724,13 +4766,51 @@ describe("RAG structured-output fallback", () => {
       similarity: 0.2,
       hybrid_score: 0.2,
       text_rank: 0.01,
+      memory_score: 0.99,
+      memory_cards: [
+        {
+          id: "post-generation-memory-sentinel",
+          document_id: "post-generation-packed-not-served-document",
+          owner_id: null,
+          card_type: "workflow",
+          title: "POST_GENERATION_MEMORY_SENTINEL",
+          content: "POST_GENERATION_MEMORY_SENTINEL_CONTENT",
+          normalized_terms: ["administration"],
+          page_number: 1,
+          source_chunk_ids: ["post-generation-packed-not-served-sentinel"],
+          source_image_ids: [],
+          confidence: 0.99,
+        },
+      ],
+      indexing_quality: {
+        document_id: "post-generation-packed-not-served-document",
+        quality_score: 0.2,
+        extraction_quality: "partial",
+        metrics: { missing_embeddings: 8, section_count: 88 },
+        issues: ["POST_GENERATION_INDEX_SENTINEL"],
+      },
     });
-
+    const routeWideLogs: Array<{ source_chunk_ids?: string[]; metadata?: Record<string, unknown> }> = [];
+    const deliveredOnlyLogs: Array<{ source_chunk_ids?: string[]; metadata?: Record<string, unknown> }> = [];
     const answer = await answerFromTextSources(
       "What is the maximum recommended quetiapine dose?",
       [served, packedButNotServed],
       new Error("OpenAI generation incomplete: max_output_tokens"),
-      { forceGenerationFallbackResultIds: [served.id], forceGenerationRoute: true },
+      {
+        forceGenerationFallbackResultIds: [served.id],
+        forceGenerationRoute: true,
+        captureLoggedRow: (row) => routeWideLogs.push(row),
+      },
+    );
+    await answerFromTextSources(
+      "What is the maximum recommended quetiapine dose?",
+      [served],
+      new Error("OpenAI generation incomplete: max_output_tokens"),
+      {
+        forceGenerationFallbackResultIds: [served.id],
+        forceGenerationRoute: true,
+        captureLoggedRow: (row) => deliveredOnlyLogs.push(row),
+      },
     );
 
     expect(answer.routingReason).toContain("post_generation_claim_quality_gate");
@@ -4740,6 +4820,40 @@ describe("RAG structured-output fallback", () => {
     expect(JSON.stringify(answer.smartApiPlan)).not.toMatch(
       /POST_GENERATION_PACKED_NOT_SERVED|post-generation-packed-not-served/,
     );
+    expect(routeWideLogs).toHaveLength(1);
+    expect(deliveredOnlyLogs).toHaveLength(1);
+    const answerScopedKeys = [
+      "answer_rank_top_score",
+      "answer_ranked_source_count",
+      "answer_rank_strategy",
+      "answer_rank_query_class",
+      "cross_document_synthesis",
+      "cross_document_reason",
+      "cross_document_count",
+      "cross_document_selected_count",
+      "cross_document_selected_source_count",
+      "cross_document_fusion_bullets",
+      "cross_document_fusion_source_chunk_ids",
+      "memory_card_count",
+      "memory_top_score",
+      "indexing_version",
+      "indexing_extraction_quality",
+      "indexing_stale",
+      "score_explanation_count",
+      "top_cited_score_explanations",
+    ];
+    expect(Object.fromEntries(answerScopedKeys.map((key) => [key, routeWideLogs[0]?.metadata?.[key]]))).toEqual(
+      Object.fromEntries(answerScopedKeys.map((key) => [key, deliveredOnlyLogs[0]?.metadata?.[key]])),
+    );
+    expect(routeWideLogs[0]?.metadata).toMatchObject({
+      cross_document_reason: "single_document",
+      cross_document_fusion_source_chunk_ids: [],
+      memory_card_count: 0,
+      memory_top_score: 0,
+      indexing_extraction_quality: "good",
+      indexing_stale: true,
+    });
+    expect(JSON.stringify(routeWideLogs[0])).not.toMatch(/POST_GENERATION_(?:MEMORY|INDEX)_SENTINEL/);
   });
 
   it("prefers the safe single-chunk fallback candidate that carries the asked-for dose figure", async () => {

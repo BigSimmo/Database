@@ -19,6 +19,7 @@ import {
   selectBestSourceRecommendation,
 } from "@/lib/evidence";
 import { buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { buildAnswerScoreExplanations, buildIndexingQuality, collectMemoryCards } from "@/lib/rag/rag-answer-support";
 import { selectModelContextEvidence } from "@/lib/rag/rag-context-selection";
 import type {
@@ -75,13 +76,42 @@ export function buildSelectedEvidenceArtifacts(query: string, results: SearchRes
 }
 
 export function retainRelatedDocumentsForResults(documents: RelatedDocument[], results: SearchResult[]) {
-  const chunkIds = new Set(results.map((result) => result.id));
-  const documentIds = new Set(results.map((result) => result.document_id));
-  return documents.flatMap((document) => {
-    if (!documentIds.has(document.document_id)) return [];
-    const bestChunkIds = document.best_chunk_ids.filter((id) => chunkIds.has(id));
-    return bestChunkIds.length ? [{ ...document, best_chunk_ids: bestChunkIds }] : [];
-  });
+  const documentsById = new Map(documents.map((document) => [document.document_id, document]));
+  const retainedByDocument = new Map<string, SearchResult[]>();
+  for (const result of results) {
+    const document = documentsById.get(result.document_id);
+    if (!document?.best_chunk_ids.includes(result.id)) continue;
+    retainedByDocument.set(result.document_id, [...(retainedByDocument.get(result.document_id) ?? []), result]);
+  }
+  return documents
+    .flatMap((document) => {
+      const retained = retainedByDocument.get(document.document_id) ?? [];
+      if (!retained.length) return [];
+      const bestPages = Array.from(
+        new Set(retained.flatMap((result) => (result.page_number ? [result.page_number] : []))),
+      ).slice(0, 5);
+      const bestChunkIds = Array.from(new Set(retained.map((result) => result.id))).slice(0, 5);
+      const score = Math.max(...retained.map((result) => result.hybrid_score ?? result.similarity));
+      const matchReason = /^Matched \d+ indexed passages?$/.test(document.match_reason)
+        ? `Matched ${bestChunkIds.length} indexed passage${bestChunkIds.length === 1 ? "" : "s"}`
+        : document.match_reason;
+      return [
+        {
+          ...document,
+          title: retained[0]!.title,
+          file_name: retained[0]!.file_name,
+          best_pages: bestPages,
+          best_chunk_ids: bestChunkIds,
+          image_count: retained.reduce(
+            (count, result) => count + (result.images?.filter(isClinicalImageEvidence).length ?? 0),
+            0,
+          ),
+          match_reason: matchReason,
+          score,
+        },
+      ];
+    })
+    .sort((a, b) => b.score - a.score);
 }
 
 export function applySelectedEvidenceArtifacts(args: {
@@ -99,7 +129,10 @@ export function applySelectedEvidenceArtifacts(args: {
   answer.sourceCoverage = artifacts.sourceCoverage;
   answer.conflictsOrGaps = answer.conflictsOrGaps?.length ? answer.conflictsOrGaps : artifacts.conflictsOrGaps;
   answer.visualEvidence = artifacts.visualEvidence;
-  answer.bestSource = selectBestSourceRecommendation(results, answer.quoteCards) ?? artifacts.bestSource;
+  answer.bestSource =
+    answer.bestSource === null
+      ? null
+      : (selectBestSourceRecommendation(results, answer.quoteCards) ?? artifacts.bestSource);
   answer.relatedDocuments = relatedDocuments;
   answer.smartPanel = {
     ...artifacts.smartPanel,

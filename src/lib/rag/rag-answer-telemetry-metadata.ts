@@ -1,6 +1,9 @@
 import { env } from "@/lib/env";
 import { rankAnswerEvidence } from "@/lib/answer-ranking";
-import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
+import { buildCrossDocumentFusionBrief, buildCrossDocumentSynthesisPlan } from "@/lib/cross-document-synthesis";
+import { buildAnswerScoreExplanations, buildIndexingQuality, collectMemoryCards } from "@/lib/rag/rag-answer-support";
+import { memoryCardChunkScore } from "@/lib/rag/rag-candidate-sources";
+import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 type AnswerLatencyTimings = NonNullable<RagAnswer["latencyTimings"]>;
 
@@ -49,15 +52,63 @@ export function answerLatencyMetadata(
   };
 }
 
-/** Persist answer-scoped ranking counts from the evidence that survived final retention. */
-export function answerEvidenceSelectionMetadata(query: string, queryClass: RagQueryClass, sources: SearchResult[]) {
+/** Persist answer-scoped evidence metadata from the exact sources that survived final retention. */
+export function answerScopedEvidenceMetadata(
+  query: string,
+  queryClass: RagQueryClass,
+  answer: Pick<RagAnswer, "sources" | "indexingVersion">,
+) {
+  const sources = answer.sources;
   const ranking = rankAnswerEvidence(query, sources, queryClass);
-  const documentCount = new Set(sources.map((source) => source.document_id)).size;
+  const crossDocumentPlan = buildCrossDocumentSynthesisPlan(query, sources, queryClass);
+  const fusionBrief = crossDocumentPlan.enabled
+    ? buildCrossDocumentFusionBrief(query, crossDocumentPlan.results)
+    : null;
+  const memoryCards = collectMemoryCards(sources);
+  const indexingQuality = buildIndexingQuality(sources, memoryCards);
+  const scoreExplanations = buildAnswerScoreExplanations(sources);
   return {
     answer_rank_top_score: ranking.topScore,
     answer_ranked_source_count: ranking.rankedSourceCount,
-    cross_document_count: documentCount,
-    cross_document_selected_count: documentCount,
-    cross_document_selected_source_count: sources.length,
+    answer_rank_strategy: ranking.strategy,
+    answer_rank_query_class: ranking.queryClass,
+    cross_document_synthesis: crossDocumentPlan.enabled,
+    cross_document_reason: crossDocumentPlan.reason,
+    cross_document_count: crossDocumentPlan.documentCount,
+    cross_document_selected_count: crossDocumentPlan.selectedDocumentCount,
+    cross_document_selected_source_count: crossDocumentPlan.selectedSourceCount,
+    cross_document_fusion_bullets: fusionBrief?.bulletCount ?? 0,
+    cross_document_fusion_source_chunk_ids: fusionBrief?.sourceChunkIds ?? [],
+    memory_card_count: memoryCards.length,
+    memory_top_score: Number(
+      Math.max(
+        0,
+        ...sources.map((source) => source.memory_score ?? 0),
+        ...memoryCards.map(memoryCardChunkScore),
+      ).toFixed(4),
+    ),
+    indexing_version: answer.indexingVersion ?? indexingQuality.indexingVersion ?? null,
+    indexing_extraction_quality: indexingQuality.extractionQuality,
+    indexing_stale: indexingQuality.stale,
+    score_explanation_count: scoreExplanations.length,
+    top_cited_score_explanations: scoreExplanations.slice(0, 8).map((entry) => ({
+      chunk_id: entry.chunk_id,
+      document_id: entry.document_id,
+      final_score: entry.finalScore,
+      vector_score: entry.score_explanation?.vectorScore ?? null,
+      text_rank: entry.score_explanation?.textRank ?? null,
+      weighted_hybrid_score: entry.score_explanation?.weightedHybridScore ?? null,
+      rrf_score: entry.score_explanation?.rrfScore ?? null,
+      memory_boost: entry.score_explanation?.memoryBoost ?? null,
+      title_boost: entry.score_explanation?.titleBoost ?? null,
+      metadata_boost: entry.score_explanation?.metadataBoost ?? null,
+      lexical_coverage_score: entry.score_explanation?.lexicalCoverageScore ?? null,
+      metadata_match_score: entry.score_explanation?.metadataMatchScore ?? null,
+      section_title_match_boost: entry.score_explanation?.sectionTitleMatchBoost ?? null,
+      freshness_recency_boost: entry.score_explanation?.freshnessRecencyBoost ?? null,
+      clinical_signal_boost: entry.score_explanation?.clinicalSignalBoost ?? null,
+      penalty: entry.score_explanation?.penalty ?? null,
+      final_rank: entry.score_explanation?.finalRank ?? null,
+    })),
   };
 }

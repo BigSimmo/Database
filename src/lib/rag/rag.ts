@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
-import { answerEvidenceSelectionMetadata, answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
+import { answerLatencyMetadata, answerScopedEvidenceMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -1313,32 +1313,6 @@ async function logRagQuery(row: RagQueryInsert) {
   void insertRagQuery(row).catch(() => undefined);
 }
 
-/** Score explanation log metadata. */
-function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["scoreExplanations"]>) {
-  return {
-    score_explanation_count: scoreExplanations.length,
-    top_cited_score_explanations: scoreExplanations.slice(0, 8).map((entry) => ({
-      chunk_id: entry.chunk_id,
-      document_id: entry.document_id,
-      final_score: entry.finalScore,
-      vector_score: entry.score_explanation?.vectorScore ?? null,
-      text_rank: entry.score_explanation?.textRank ?? null,
-      weighted_hybrid_score: entry.score_explanation?.weightedHybridScore ?? null,
-      rrf_score: entry.score_explanation?.rrfScore ?? null,
-      memory_boost: entry.score_explanation?.memoryBoost ?? null,
-      title_boost: entry.score_explanation?.titleBoost ?? null,
-      metadata_boost: entry.score_explanation?.metadataBoost ?? null,
-      lexical_coverage_score: entry.score_explanation?.lexicalCoverageScore ?? null,
-      metadata_match_score: entry.score_explanation?.metadataMatchScore ?? null,
-      section_title_match_boost: entry.score_explanation?.sectionTitleMatchBoost ?? null,
-      freshness_recency_boost: entry.score_explanation?.freshnessRecencyBoost ?? null,
-      clinical_signal_boost: entry.score_explanation?.clinicalSignalBoost ?? null,
-      penalty: entry.score_explanation?.penalty ?? null,
-      final_rank: entry.score_explanation?.finalRank ?? null,
-    })),
-  };
-}
-
 /** Decide text fast path. */
 export function decideTextFastPath(
   query: string,
@@ -2636,22 +2610,6 @@ async function answerQuestionWithScopeUncoalesced(
     : routeSelection;
   const answerInputResults = packedRouteSelection.results;
   let coverageSelections: CoverageEvidenceSelection[] = packedRouteSelection.coverageSelections;
-  const crossDocumentFusionBrief = crossDocumentPlan.enabled
-    ? buildCrossDocumentFusionBrief(answerFocusQuery, answerInputResults)
-    : null;
-  const answerRankMetadata = {
-    answer_rank_top_score: answerRanking.topScore,
-    answer_ranked_source_count: answerRanking.rankedSourceCount,
-    answer_rank_strategy: answerRanking.strategy,
-    answer_rank_query_class: answerRanking.queryClass,
-    cross_document_synthesis: crossDocumentPlan.enabled,
-    cross_document_reason: crossDocumentPlan.reason,
-    cross_document_count: crossDocumentPlan.documentCount,
-    cross_document_selected_count: crossDocumentPlan.selectedDocumentCount,
-    cross_document_selected_source_count: crossDocumentPlan.selectedSourceCount,
-    cross_document_fusion_bullets: crossDocumentFusionBrief?.bulletCount ?? 0,
-    cross_document_fusion_source_chunk_ids: crossDocumentFusionBrief?.sourceChunkIds ?? [],
-  };
   const searchLatencyMs = Date.now() - searchStartedAt;
   const {
     relevance,
@@ -2667,20 +2625,6 @@ async function answerQuestionWithScopeUncoalesced(
     indexingQuality,
     scoreExplanations: answerScoreExplanations,
   } = buildSelectedEvidenceArtifacts(answerFocusQuery, answerInputResults);
-  const memoryLogMetadata = {
-    memory_card_count: memoryCardsUsed.length,
-    memory_top_score: Number(
-      Math.max(
-        0,
-        ...results.map((result) => result.memory_score ?? 0),
-        ...memoryCardsUsed.map(memoryCardChunkScore),
-      ).toFixed(4),
-    ),
-    indexing_version: ragDeepMemoryVersion,
-    indexing_extraction_quality: indexingQuality.extractionQuality,
-    indexing_stale: indexingQuality.stale,
-  };
-  const scoreLogMetadata = scoreExplanationLogMetadata(answerScoreExplanations);
   const emptyPanel = buildSmartPanel(answerFocusQuery, []);
   const relatedDocumentsPromise = buildRelatedDocumentsSafe({
     query: answerFocusQuery,
@@ -2962,9 +2906,6 @@ async function answerQuestionWithScopeUncoalesced(
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(smartApiPlan),
-          ...answerRankMetadata,
-          ...memoryLogMetadata,
-          ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: 0,
           quote_count: finalizedAnswer.quoteCards?.length ?? 0,
@@ -2986,6 +2927,7 @@ async function answerQuestionWithScopeUncoalesced(
           evidence_summary: finalizedAnswer.evidenceSummary,
           source_coverage: finalizedAnswer.sourceCoverage,
           ...retrievalLogMetadata(finalizedAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
+          ...answerScopedEvidenceMetadata(answerFocusQuery, queryClass, finalizedAnswer),
           related_document_count: relatedDocuments.length,
         },
       });
@@ -3166,16 +3108,13 @@ async function answerQuestionWithScopeUncoalesced(
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(finalizedAnswer.smartApiPlan ?? extractiveSmartApiPlan),
-          ...answerRankMetadata,
-          ...answerEvidenceSelectionMetadata(answerFocusQuery, queryClass, finalizedAnswer.sources),
-          ...memoryLogMetadata,
-          ...scoreExplanationLogMetadata(finalizedAnswer.scoreExplanations ?? []),
           ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: finalizedAnswer.citations.length,
           quote_count: finalizedAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: finalizedAnswer.visualEvidence?.length ?? 0,
           related_document_count: finalizedAnswer.relatedDocuments?.length ?? 0,
           ...retrievalLogMetadata(finalizedAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
+          ...answerScopedEvidenceMetadata(answerFocusQuery, queryClass, finalizedAnswer),
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
@@ -3880,9 +3819,6 @@ ${qualityRetryInstruction}`
           strong_model: env.OPENAI_STRONG_ANSWER_MODEL,
           retrieved_candidate_count: results.length,
           ...(answer.smartApiPlan ? smartApiLogMetadata(answer.smartApiPlan) : {}),
-          ...answerRankMetadata,
-          ...memoryLogMetadata,
-          ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: answer.citations.length,
           quote_count: answer.quoteCards?.length ?? 0,
@@ -3910,6 +3846,7 @@ ${qualityRetryInstruction}`
           evidence_summary: answer.evidenceSummary,
           source_coverage: answer.sourceCoverage,
           ...retrievalLogMetadata(answer.retrievalDiagnostics ?? retrievalDiagnostics),
+          ...answerScopedEvidenceMetadata(answerFocusQuery, queryClass, answer),
         },
       });
 
@@ -4232,9 +4169,6 @@ ${qualityRetryInstruction}`
           strong_model: env.OPENAI_STRONG_ANSWER_MODEL,
           retrieved_candidate_count: results.length,
           ...(fallbackAnswer.smartApiPlan ? smartApiLogMetadata(fallbackAnswer.smartApiPlan) : {}),
-          ...answerRankMetadata,
-          ...memoryLogMetadata,
-          ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
           source_authority_candidate_count: candidateSummary.candidateCount,
           source_authority_selected_count: servedSummary.selectedCount,
@@ -4246,6 +4180,7 @@ ${qualityRetryInstruction}`
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
           ...retrievalLogMetadata(fallbackAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
+          ...answerScopedEvidenceMetadata(answerFocusQuery, queryClass, fallbackAnswer),
           related_document_count: fallbackAnswer.relatedDocuments?.length ?? 0,
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
