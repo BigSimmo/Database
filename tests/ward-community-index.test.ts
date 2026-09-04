@@ -5,6 +5,15 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+// ⚠️ COMMENT-BLINDNESS CHECKED 2026-09-04 (see tests/ward-guard-comment-blindness.test.ts). Every
+// link/heading/text assertion in this file reads `renderToStaticMarkup` output, never raw source —
+// a JSX comment can never reach that string, so there is no comment-defeat surface here. Proved:
+// planting a decoy `{/* <a href="…/decoy-team-id" data-testid="community-index-link"> */}` beside
+// the real `<Link>` in `community-index.tsx` left every assertion in this file unchanged. The one
+// `readFileSync` in this file (the closing describe block) reads `community-index.tsx`'s own doc
+// comment ON PURPOSE — that is the subject under test, not a guard being fooled by one — and is
+// left untouched per that exception.
+
 /**
  * THE COMMUNITY TEAM INDEX, MEASURED FROM WHAT IT ACTUALLY RENDERS.
  *

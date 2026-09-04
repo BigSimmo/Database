@@ -8,7 +8,6 @@ import { capacityBreakdown } from "@/components/ward-management/ward-bed-availab
 import { eligibility, wardAddressing } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
-  destinationUnit,
   eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
@@ -163,7 +162,20 @@ function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidat
   // Only the movement's actual recorded destination may show a real transport state — the
   // other two candidates are computed shortlist entries the movement was never referred to,
   // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
-  const recordedDestinationId = destinationUnit(patient, units)?.id;
+  /*
+   * ACCEPTED-ONLY, not `destinationUnit`. This id decides which candidate is allowed to display
+   * the movement's REAL transport state; every other candidate shows "Not yet booked". Because
+   * `destinationUnit` is `acceptedUnitId ?? referredUnitIds[0]`, a movement with an outstanding
+   * referral and no acceptance handed its transport job to the FIRST WARD ASKED — a ward with no
+   * claim on it at all, displayed beside that ward's name as though the vehicle were coming there.
+   *
+   * The rule cannot lose anything by narrowing: a transport job only exists on a movement at stage
+   * `pulled` or beyond, and `PULL_PATIENT` requires an `acceptedUnitId`. So a movement with a
+   * transport job ALWAYS has an accepted unit, and the fallback could only ever fire on a movement
+   * whose transport was `undefined` — where it labelled the wrong ward "Not yet requested" rather
+   * than leaving it as a plain candidate.
+   */
+  const recordedDestinationId = patient.acceptedUnitId;
   return eligibleCandidatesAmong(patient, units, now, 3).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
