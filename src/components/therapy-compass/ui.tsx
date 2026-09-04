@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ShieldCheck, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
+import { missingValuePhrase } from "@/components/ui/missing-value";
 import { cn, EmptyState as SharedEmptyState, LoadingPanel } from "@/components/ui-primitives";
 
 import { reviewStatusMeta } from "./data/select";
@@ -155,7 +156,7 @@ export function EmptyState({
 // ---- small building blocks ---------------------------------------------
 
 export function Eyebrow({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
-  return <span className={cn("text-2xs font-bold tracking-eyebrow", TONE_TEXT[tone])}>{children}</span>;
+  return <span className={cn("text-2xs font-bold uppercase tracking-eyebrow", TONE_TEXT[tone])}>{children}</span>;
 }
 
 /**
@@ -185,7 +186,14 @@ export function Meter({ value, label }: { value: number | null; label: string })
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-2xs text-[color:var(--text-muted)]">{label}</span>
-        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{value == null ? "—" : `${v}%`}</span>
+        {/* A record whose completeness the generator could not produce: the metric exists, this
+            record does not carry a figure for it, so `Unknown` — never `Not recorded`, which would
+            assert an omission from the record itself. The dash read as 0% beside a meter whose
+            track is empty in exactly that case (SPEC §11). Rendered at the row's own `text-2xs`
+            via the primitive's string form; `MissingValue`'s smallest density is `text-xs`. */}
+        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">
+          {value == null ? missingValuePhrase("unknown") : `${v}%`}
+        </span>
       </div>
       <span
         role={value == null ? undefined : "meter"}

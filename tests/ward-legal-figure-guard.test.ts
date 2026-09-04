@@ -1,15 +1,18 @@
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
+  BED_PREPARATION_NOTES,
   BED_RELEASE_BLOCKERS,
   CANCEL_TRANSPORT_REASONS,
   LEGAL_STATUS_CHANGE_REASONS,
-  RELEASE_HOLD_REASONS,
+  RELEASE_PULL_REASONS,
   URGENCY_CHANGE_REASONS,
 } from "../src/components/ward-management/ward-change-reasons";
+import { LEAVING_DESTINATIONS } from "@/components/ward-management/ward-admissions";
 import { EVENT_ROLE, type WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import {
   seedWardFlowState,
@@ -18,14 +21,19 @@ import {
 } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import {
-  BED_RELEASE_CONFIDENCE_LEVELS,
+  BED_RELEASE_WAITING_ON,
   DECLINE_REASONS,
+  MOVEMENT_STAGES,
+  REFERRAL_DECLINE_REASONS,
+  STEP_BACK_REASONS,
+  TRANSPORT_PROVIDERS,
   type LegalForm,
   type LegalStatus,
 } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { WARD_SCENARIOS } from "../src/components/ward-management/ward-scenarios";
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+import { literalsIn } from "./helpers/ast-string-literals";
 
 /**
  * Guard against a fourth fabrication of a Mental Health Act duration in this prototype.
@@ -232,6 +240,16 @@ const MODEL_CONSTANT_PROVENANCE: Record<string, string> = {
   // courtesy limit between services — explicitly NOT a clinical or statutory quantity, and it
   // measures a count of units, not a duration.
   PARALLEL_REFERRAL_CAP: "product owner's spec, docs/ward-flow-context.md — count of units, not a duration",
+
+  // The runtime mirror of the `urgency: 1 | 2 | 3` union that already existed on both `Movement`
+  // and `Referral` before this constant was written; fix round C points both fields at
+  // `UrgencyLevel` so widening the array widens the fields. The three tiers are the product
+  // owner's own, and `operationalScore`'s doc comment (`ward-priority.ts`) records his
+  // 2026-08-24 instruction that priority is urgency and waiting time alone. These are TIER
+  // LABELS — three ordered categories a clinician picks between — and neither a duration nor a
+  // quantity of anything: nothing in this codebase does arithmetic on them beyond comparing two
+  // tiers to order a queue, and no minute, hour, day or bed count is derived from them.
+  URGENCY_LEVELS: "product owner's own tiers, recorded at ward-priority.ts 2026-08-24 — tier labels, not a duration",
 };
 
 /**
@@ -381,6 +399,45 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
 ];
 
 /**
+ * Task 3 (Phase 7, "The front door"): one always-valid candidate is enough to prove the branch is
+ * reached — one candidate list, named so it can be emptied by a single mutation for Step 4's own
+ * "traversal assertion names the event that stopped being reached" proof.
+ *
+ * Fix round B (review finding I2): `RECEIVE_REFERRAL` used to guard on role alone; it now also
+ * membership-checks `ageBand`, `source` and `homeRegion`, validates `urgency`, and resolves
+ * `originSiteCode` against the real site list (`ward-flow-reducer.ts`). Every field below must
+ * stay valid against those checks for this candidate to keep being accepted — `homeRegion` was
+ * added here for exactly that reason when the field was added to `Referral`. The three ward-arm
+ * fields now sit under `destinations[0]` and are validated through it; the event takes a LIST
+ * since FD-21, so this candidate addresses exactly one destination.
+ */
+const RECEIVE_REFERRAL_CANDIDATE = {
+  ageBand: "Adult" as const,
+  // 2026-08-30, destination union: `sex`, `secureBedNeeded` and `involuntaryBedNeeded` sat flat
+  // here until they moved onto the ward arm of `ReferralDestination`. A STRUCTURAL change only —
+  // the same three values, the same always-valid candidate, and no figure, timeframe or threshold
+  // anywhere near it. This file is touched as little as possible on purpose; the edit was forced
+  // by the event type it constructs, not chosen.
+  destinations: [
+    {
+      kind: "psychiatric_ward" as const,
+      sex: "Female" as const,
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
+  ],
+  homeRegion: "Perth Metropolitan" as const,
+  // A real suburb from the catchment table, because the front door resolves it rather than
+  // measuring its length. No figure, timeframe or threshold — this file stays touched as
+  // little as possible and the edit is forced by the event type, not chosen.
+  suburb: { kind: "named", name: "Armadale" } as const,
+  source: "community" as const,
+  urgency: 2 as const,
+  originSiteCode: "SCGH",
+  transportNeeded: false,
+};
+
+/**
  * Candidate events of one type, generated against the CURRENT state rather than hard-coded, so a
  * fixture change cannot silently make the traversal untestable. Every candidate carries the role
  * the role table requires — a wrong role is refused before the reducer body runs, and a refused
@@ -424,6 +481,13 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
             })),
         ),
       );
+    // Referral-scoped, so it is driven from referral ids rather than movement ids. Both boolean
+    // answers are generated: a sweep that only ever recorded `cleared: true` would leave the
+    // "not cleared" path untraversed while reporting the event as covered.
+    case "RECORD_MEDICAL_CLEARANCE":
+      return state.referrals.flatMap((referral) =>
+        [true, false].map((cleared) => ({ type, role, now, referralId: referral.id, cleared })),
+      );
     case "RECORD_EXAMINATION":
       return movementIds.flatMap((movementId) =>
         (["inpatient_order", "community_order", "revoked"] as const).map((outcome) => ({
@@ -437,7 +501,7 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
     case "REFER_TO_UNITS":
       return pairs.map(({ movementId, unitId }) => ({ type, role, now, movementId, unitIds: [unitId] }));
     case "ACCEPT_IN_PRINCIPLE":
-    case "HOLD_BED":
+    case "PULL_PATIENT":
       return pairs.map(({ movementId, unitId }) => ({ type, role, now, movementId, unitId }));
     case "DECLINE":
       return pairs.map(({ movementId, unitId }) => ({
@@ -502,36 +566,68 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       // Both scenarios, like RAISE_REFERRAL's real domain values above — not one hard-coded
       // choice that would leave the other half of `WARD_SCENARIOS` untested.
       return WARD_SCENARIOS.map((scenario) => ({ type, role, now, scenario }));
-    case "RELEASE_HOLD":
+    case "RELEASE_PULL":
       // One candidate per reason, same precedent as CHANGE_URGENCY/CHANGE_LEGAL_STATUS above —
       // `role` is the first permitted role (coordinator), so `actingUnitId` is never needed here.
       return movementIds.flatMap((movementId) =>
-        RELEASE_HOLD_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+        RELEASE_PULL_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
+    case "BOOK_TRANSPORT":
+      // One candidate per provider crossed with BOTH escort answers, the same "one candidate per
+      // real domain value" precedent the reason-keyed events below set. Both booleans, because
+      // `escortRequired` is the field this event exists to make somebody answer and a sweep that
+      // only ever sent `true` would leave the other branch unentered.
+      return movementIds.flatMap((movementId) =>
+        TRANSPORT_PROVIDERS.flatMap((provider) =>
+          [true, false].map((escortRequired) => ({ type, role, now, movementId, provider, escortRequired })),
+        ),
       );
     case "CANCEL_TRANSPORT":
       return movementIds.flatMap((movementId) =>
         CANCEL_TRANSPORT_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
       );
+    // Task 5 (ward-flow movement step-track plan, 2026-09-04). Neither event ever touches
+    // `movement.legalForm` — see the reducer's own two cases, whose entire side effect is
+    // `stage`/`stageChanges`/`unwinds` (STEP_BACK_STAGE) or those plus `acceptedUnitId`/
+    // `acceptedAt` (WITHDRAW_ACCEPTANCE) — so this sweep exercises them for the same reason it
+    // exercises every other event: to prove the absence, not to assume it.
+    case "STEP_BACK_STAGE":
+      // One candidate per target stage — the same "one candidate per real domain value"
+      // precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS above set, crossed with movement ids so the
+      // sweep can find whichever movement is actually at a stage `to` sits strictly before.
+      // `reason` is fixed to the first STEP_BACK_REASON, matching that same precedent: the field
+      // this sweep needs varied is `to`, not the reason.
+      return movementIds.flatMap((movementId) =>
+        MOVEMENT_STAGES.map((to) => ({ type, role, now, movementId, to, reason: STEP_BACK_REASONS[0] })),
+      );
+    case "WITHDRAW_ACCEPTANCE":
+      // One candidate per reason, same precedent as RELEASE_PULL/CANCEL_TRANSPORT above.
+      return movementIds.flatMap((movementId) =>
+        STEP_BACK_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
     case "FLAG_BED_RELEASE":
       // `actingUnitId` mirrors `unitId`, same reasoning as CONFIRM_CAPACITY above. One candidate
-      // per confidence level crossed with every blocker — the same "one candidate per real
+      // per waiting-on value crossed with every blocker — the same "one candidate per real
       // domain value" precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS/SET_SCENARIO set, so a branch
-      // keyed on either dimension is entered rather than assumed reachable.
+      // keyed on either dimension is entered rather than assumed reachable. The Q1 axis change
+      // (2026-08-28) widened this dimension from two confidence levels to five waiting-on values,
+      // so the sweep now covers strictly more of the vocabulary that reaches a screen.
       return unitIds.flatMap((unitId) =>
-        BED_RELEASE_CONFIDENCE_LEVELS.flatMap((confidence) =>
+        BED_RELEASE_WAITING_ON.flatMap((waitingOn) =>
           BED_RELEASE_BLOCKERS.map((blocker) => ({
             type,
             role,
             now,
             unitId,
             actingUnitId: unitId,
-            confidence,
+            waitingOn,
             expectedAt: now + 60,
             blocker,
           })),
         ),
       );
     case "CONFIRM_BED_RELEASE":
+    case "CLEAR_BED_RELEASE_BLOCK":
       // `actingUnitId` must mirror the RELEASE's own unit, not merely any unit id — the reducer
       // compares against `release.unitId`, same claim-not-proof discipline FLAG_BED_RELEASE's own
       // doc comment sets out. One candidate per release already in `state.bedReleases`, generated
@@ -544,6 +640,39 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         releaseId: release.id,
         actingUnitId: release.unitId,
       }));
+    case "REVERT_BED_RELEASE":
+      // Bed-model rework (2026-08-28). One candidate per release crossed with every waiting-on
+      // value — the same "one candidate per real domain value" precedent every list-valued event
+      // above follows, so a branch keyed on the chosen value cannot go unentered.
+      return state.bedReleases.flatMap((release) =>
+        BED_RELEASE_WAITING_ON.map((waitingOn) => ({
+          type,
+          role,
+          now,
+          releaseId: release.id,
+          actingUnitId: release.unitId,
+          waitingOn,
+        })),
+      );
+    case "SET_BED_PREPARATION":
+      // One candidate per release crossed with BOTH `preparing` values AND every permitted note
+      // (plus `undefined`, which is "being made ready, reason not stated"). The note dimension is
+      // new: `BED_PREPARATION_NOTES` was empty pending the product owner's list, so there was no
+      // permitted value to sweep, and the comment here said this case would gain the cross-product
+      // the day the array was filled. It was filled on 2026-08-28 and this is that cross-product.
+      return state.bedReleases.flatMap((release) =>
+        [true, false].flatMap((preparing) =>
+          [undefined, ...BED_PREPARATION_NOTES].map((note) => ({
+            type,
+            role,
+            now,
+            releaseId: release.id,
+            actingUnitId: release.unitId,
+            preparing,
+            note,
+          })),
+        ),
+      );
     case "BLOCK_BED_RELEASE":
       // One candidate per release crossed with every blocker — the same "one candidate per real
       // domain value" precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS/SET_SCENARIO/FLAG_BED_RELEASE
@@ -591,10 +720,139 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         leaveBedId: leaveBed.id,
         actingUnitId: leaveBed.unitId,
       }));
+    case "WITHDRAW_REFERRAL":
+      // One candidate per movement, unconditioned. The reducer's own guards decide which are
+      // refused — a movement that has closed, one already accepted, one holding no live referral —
+      // and a generator that pre-filtered to only the acceptable ones would sweep the happy path
+      // alone, which is the half least likely to smuggle a legal figure onto a record.
+      return movementIds.map((movementId) => ({ type, role, now, movementId }));
+    case "RECORD_LEAVING":
+      // One candidate per admission already in `state.admissions`, crossed with EVERY leaving
+      // destination. Crossed rather than sampled for the same reason `RECORD_LEAVE_BED` crosses
+      // both `usable` values: the destination is a real domain value the reducer stores verbatim,
+      // and exactly one of the five does not count as a statewide release — so a sweep that tried
+      // only one destination would leave that asymmetry untested.
+      //
+      // `actingUnitId` mirrors the admission's own unit, the same discipline `END_LEAVE_BED` uses,
+      // because a mismatched acting unit is refused before the reducer body runs and a refused
+      // event proves nothing about what the body does.
+      return state.admissions.flatMap((admission) =>
+        LEAVING_DESTINATIONS.map((destination) => ({
+          type,
+          role,
+          now,
+          admissionId: admission.id,
+          actingUnitId: admission.unitId,
+          leavingDestination: destination.id,
+        })),
+      );
+    case "RECORD_TRANSPORT_NEED":
+      // Both boolean answers per movement, on `RECORD_MEDICAL_CLEARANCE`'s own reasoning above: a
+      // sweep that only ever recorded `needed: true` would leave the "not needed" path untraversed
+      // while reporting the event as covered.
+      return movementIds.flatMap((movementId) =>
+        [true, false].map((needed) => ({ type, role, now, movementId, needed })),
+      );
+    case "RECORD_NO_REFERRAL":
+      // One candidate per movement; the whole payload is a movement id. The reducer writes a fixed
+      // reason and the event's own instant, so there is no caller-supplied value to cross against.
+      return movementIds.map((movementId) => ({ type, role, now, movementId }));
+    case "FLAG_MOVEMENT_URGENT":
+    case "CLEAR_MOVEMENT_URGENT_FLAG":
+      // One candidate per movement. Neither event carries a chosen domain value — the whole payload
+      // is a movement id, because the flag deliberately records no reason, author or instant — so
+      // there is nothing to cross against.
+      return movementIds.map((movementId) => ({ type, role, now, movementId }));
+    case "CLEAR_MOVEMENT_BLOCKER":
+      // One candidate per movement; the whole payload is a movement id. The reducer writes one
+      // fixed sentinel, so there is no caller-supplied value to cross against.
+      return movementIds.map((movementId) => ({ type, role, now, movementId }));
+    case "RECORD_MOVEMENT_BLOCKER":
+      // One candidate per movement, carrying a deliberately dull sentence. `Movement.blocker` is
+      // free prose with no vocabulary to cross against (owner ruling, 2026-09-01), so there is no
+      // "one candidate per real domain value" crossing to do here — and the value is chosen to
+      // carry no duration, quantity or statutory figure, because this sweep exists to prove none
+      // reaches a legal form and a candidate that smuggled one in would be testing the test.
+      return movementIds.map((movementId) => ({ type, role, now, movementId, blocker: "Awaiting a bed" }));
+    case "RECORD_AWAY_AT_EMERGENCY_DEPARTMENT":
+    case "RECORD_RETURNED_FROM_EMERGENCY_DEPARTMENT":
+      // One candidate per admission already in `state.admissions`, `actingUnitId` mirroring the
+      // admission's own unit — the same discipline `RECORD_LEAVING` above uses, and for the same
+      // reason: a mismatched acting unit is refused before the reducer body runs, and a refused
+      // event proves nothing about what the body does. Not crossed with anything, because neither
+      // event carries a chosen domain value: their whole payload is an admission and the unit the
+      // caller claims to be.
+      return state.admissions.map((admission) => ({
+        type,
+        role,
+        now,
+        admissionId: admission.id,
+        actingUnitId: admission.unitId,
+      }));
     case "REQUEST_CAPACITY_REFRESH":
       // Coordinator-scoped (spec D12): one candidate per unit, no `actingUnitId` field exists on
       // this event at all.
       return unitIds.map((unitId) => ({ type, role, now, unitId }));
+    case "RECEIVE_REFERRAL":
+      return [{ type, role, now, ...RECEIVE_REFERRAL_CANDIDATE }];
+    case "ADD_PATIENT":
+      // Adding a patient links to nothing — no movement, no referral, no unit — which is exactly
+      // why this candidate is a bare literal rather than a crossing of existing state. A patient
+      // exists before any of those, and a candidate that needed one of them would be testing a
+      // different event from the one the owner's flow describes.
+      return [
+        {
+          type,
+          role,
+          now,
+          umrn: "UM900001",
+          givenName: "Sweep",
+          familyName: "Candidate",
+          dateOfBirth: "1980-01-01",
+        },
+      ];
+    case "ACCEPT_REFERRAL":
+      // Every QUEUED referral crossed with every unit — the reducer's own `referralEligibility`
+      // gate decides which pairing is actually accepted, so this offers every legitimate
+      // candidate rather than guessing which one currently matches (allocatable counts and sex
+      // mix shift as the sweep runs other event types).
+      return state.referrals
+        .filter((referral) => referralState(referral) === "queued")
+        .flatMap((referral) =>
+          unitIds.map((unitId) => ({
+            type,
+            role,
+            now,
+            referralId: referral.id,
+            destinationKind: "psychiatric_ward" as const,
+            unitId,
+          })),
+        );
+    case "DECLINE_REFERRAL":
+      // Every queued referral crossed with every real decline reason, same "offer every
+      // legitimate candidate" reasoning as ACCEPT_REFERRAL above.
+      return state.referrals
+        .filter((referral) => referralState(referral) === "queued")
+        .flatMap((referral) =>
+          REFERRAL_DECLINE_REASONS.map((reason) => ({
+            type,
+            role,
+            now,
+            referralId: referral.id,
+            destinationKind: "psychiatric_ward" as const,
+            reason,
+          })),
+        );
+    // Phase 8 Task 2. Generated against the CURRENT state for the same reason every list above
+    // is: the sweep applies other event types as it goes, so which referrals are still queued
+    // shifts underneath this. It offers every legitimate candidate and lets the reducer's own
+    // guards decide, exactly as ACCEPT_REFERRAL and DECLINE_REFERRAL do — and it is a single
+    // named list, so emptying it is the one-line mutation that proves the traversal assertion
+    // names the unreached event. (Task 2R removed `REFERRAL_ARRIVED`, which had the same shape.)
+    case "RECORD_LOCAL_BED_SOUGHT":
+      return state.referrals
+        .filter((referral) => referralState(referral) === "queued" && referral.localBedSought === undefined)
+        .map((referral) => ({ type, role, now, referralId: referral.id }));
   }
 }
 
@@ -603,7 +861,7 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
   "RECORD_EXAMINATION",
   "REFER_TO_UNITS",
   "ACCEPT_IN_PRINCIPLE",
-  "HOLD_BED",
+  "PULL_PATIENT",
   "DECLINE",
   "HANDOVER_READY",
   "TRANSPORT_ACCEPTED",
@@ -613,8 +871,21 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
   "RECORD_ESCALATION",
   "CHANGE_URGENCY",
   "CHANGE_LEGAL_STATUS",
-  "RELEASE_HOLD",
+  "RELEASE_PULL",
   "CANCEL_TRANSPORT",
+  "RECORD_MOVEMENT_BLOCKER",
+  "CLEAR_MOVEMENT_BLOCKER",
+  "FLAG_MOVEMENT_URGENT",
+  "CLEAR_MOVEMENT_URGENT_FLAG",
+  // Task 5 (2026-09-04). Both carry `movementId` and act on one named movement, same as
+  // RELEASE_PULL/CANCEL_TRANSPORT above — and, like those two, STEP_BACK_STAGE is excluded from
+  // the round-robin sweep (see that `continue` and its comment) and exercised in the dedicated
+  // per-code block instead. WITHDRAW_ACCEPTANCE stays in the round-robin — its precondition
+  // (`accepted_awaiting_bed`) and effect (reverts to exactly `destination_review`) are as narrow
+  // and bounded as RELEASE_PULL's own, so it does not derail the sweep the way STEP_BACK_STAGE's
+  // near-universal precondition does, and is accepted there naturally.
+  "STEP_BACK_STAGE",
+  "WITHDRAW_ACCEPTANCE",
 ]);
 
 /**
@@ -630,8 +901,8 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
  * movement carrying that code, in the seeded state. That catches an entry the reducer plainly
  * accepts, but it does NOT establish structural impossibility: an event refused for that
  * movement's STAGE rather than its form code passes the check too. Measured directly — adding a
- * bogus `1A: HOLD_BED` entry left the guard green at 7 passed, because WF-001 sits at
- * `placement_requested` and HOLD_BED requires `accepted_awaiting_bed`.
+ * bogus `1A: PULL_PATIENT` entry left the guard green at 7 passed, because WF-001 sits at
+ * `placement_requested` and PULL_PATIENT requires `accepted_awaiting_bed`.
  *
  * So the single entry below is justified by READING the reducer, not by this check:
  * `RECORD_EXAMINATION` opens with `if (movement.legalForm?.code !== "1A") return reject(...)`,
@@ -657,11 +928,11 @@ function targetMovementId(event: WardFlowEvent): string | undefined {
 }
 
 /**
- * Fix round 1 (2026-08-25). `RELEASE_HOLD` only ever succeeds at stage `bed_held`, and once the
+ * Fix round 1 (2026-08-25). `RELEASE_PULL` only ever succeeds at stage `pulled`, and once the
  * round-robin sweep above lets `HANDOVER_READY` (or a transport-progression event) fire first, a
- * movement is past `bed_held` for good — the only way back is `RELEASE_HOLD` itself, the very
+ * movement is past `pulled` for good — the only way back is `RELEASE_PULL` itself, the very
  * event under test. That is a limitation of the SWEEP's fixed cyclic ordering, not of the domain:
- * a movement of any legal-form code can genuinely sit at `bed_held` with a live transport job, the
+ * a movement of any legal-form code can genuinely sit at `pulled` with a live transport job, the
  * same as a Form 1A can (see `WF-016`/`WF-005`, the pre-seeded fixture movements that let 1A pass
  * without needing this helper at all). Excusing the gap via `STRUCTURALLY_IMPOSSIBLE_FOR_CODE`
  * would therefore be a FALSE claim about the domain — exactly what that list's own doc comment
@@ -694,7 +965,7 @@ function buildHeldMovementFor(code: string, now: number): { state: WardFlowState
   );
   const movement = raised.movements.at(-1)!;
 
-  // Neither REFER_TO_UNITS, ACCEPT_IN_PRINCIPLE nor HOLD_BED gate on cohort, security or sex —
+  // Neither REFER_TO_UNITS, ACCEPT_IN_PRINCIPLE nor PULL_PATIENT gate on cohort, security or sex —
   // that eligibility scoring lives in the protected `ward-eligibility.ts`, a UI-facing concern the
   // reducer itself never consults — so any unit with spare allocatable capacity is a genuine,
   // reachable destination for this construction, not a fabricated shortcut.
@@ -726,13 +997,13 @@ function buildHeldMovementFor(code: string, now: number): { state: WardFlowState
   ).toEqual([]);
 
   const held = wardFlowReducer(acceptedInPrinciple, {
-    type: "HOLD_BED",
-    role: EVENT_ROLE.HOLD_BED[0],
+    type: "PULL_PATIENT",
+    role: EVENT_ROLE.PULL_PATIENT[0],
     now,
     movementId: movement.id,
     unitId: unit!.id,
   });
-  expect(held.rejections, `HOLD_BED for Form ${code} was refused: ${held.rejections.at(-1)?.reason}`).toEqual([]);
+  expect(held.rejections, `PULL_PATIENT for Form ${code} was refused: ${held.rejections.at(-1)?.reason}`).toEqual([]);
 
   return { state: held, movementId: movement.id };
 }
@@ -774,7 +1045,7 @@ function applyFirstAccepted(
 
 /**
  * Drives the reducer repeatedly against movements carrying `code`. Sweeping rather than following
- * a hand-written script means the clinical pathway's ordering (HOLD_BED must precede
+ * a hand-written script means the clinical pathway's ordering (PULL_PATIENT must precede
  * HANDOVER_READY, which must precede TRANSPORT_ACCEPTED) is discovered rather than assumed, so a
  * reordering of the pathway cannot silently drop a branch from coverage.
  *
@@ -805,6 +1076,22 @@ function driveEveryEventAgainst(
       // seedWardFlowState() replaces `state.movements` wholesale either way. Both are exercised on
       // their own below, where the invariant is checked against the resulting state directly.
       if (type === "RESET_SCENARIO" || type === "SET_SCENARIO") continue;
+      // Task 5 (ward-flow movement step-track plan, 2026-09-04). STEP_BACK_STAGE's candidate
+      // generator (above) crosses every movement id with every `MOVEMENT_STAGES` target, and
+      // `applyFirstAccepted` takes the FIRST the reducer accepts — which, for a movement anywhere
+      // past `placement_requested`, is a candidate targeting `placement_requested` itself
+      // (`MOVEMENT_STAGES[0]`, tried first). Left in this round-robin, it resets whichever
+      // code-matching movement it finds all the way back almost every round it is due, starving
+      // the very forward-progression events this sweep exists to reach (TRANSPORT_ACCEPTED and
+      // later, for a Form 3B, measured directly while writing this fix) — the SAME "the round-robin
+      // sweep can never reliably produce this precondition" limitation `RELEASE_PULL`,
+      // `CANCEL_TRANSPORT` and `HANDOVER_READY` already have (see `buildHeldMovementFor`'s own
+      // doc comment), only far more disruptive: those three each require one narrow, late-stage
+      // precondition; this one matches almost any movement at almost any stage. Not in
+      // `MOVEMENT_TARGETED_EVENTS`, so nothing requires it to be counted here — and this file's
+      // own guarantee (neither of Task 5's two events ever touches `movement.legalForm`, see the
+      // reducer's own cases) does not depend on exercising it inside THIS traversal to hold.
+      if (type === "STEP_BACK_STAGE") continue;
       const result = applyFirstAccepted(type, state, now, code);
       if (!result) continue;
       accepted.add(type);
@@ -960,7 +1247,7 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
       expect(carrying.length, `the sweep never held a Form ${code}`).toBeGreaterThan(0);
     }
 
-    // RELEASE_HOLD / CANCEL_TRANSPORT, exercised explicitly per code (fix round 1, 2026-08-25) —
+    // RELEASE_PULL / CANCEL_TRANSPORT, exercised explicitly per code (fix round 1, 2026-08-25) —
     // see `buildHeldMovementFor`'s own doc comment for why the round-robin sweep above can never
     // reach these two for a code without a pre-seeded fixture movement, and why that is a
     // traversal limitation rather than grounds for a `STRUCTURALLY_IMPOSSIBLE_FOR_CODE` entry.
@@ -971,21 +1258,59 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
 
       const forRelease = buildHeldMovementFor(code, NOW_ANCHOR);
       const released = wardFlowReducer(forRelease.state, {
-        type: "RELEASE_HOLD",
-        role: EVENT_ROLE.RELEASE_HOLD[0],
+        type: "RELEASE_PULL",
+        role: EVENT_ROLE.RELEASE_PULL[0],
         now: NOW_ANCHOR,
         movementId: forRelease.movementId,
-        reason: "hold_made_in_error",
+        reason: "pull_made_in_error",
       });
       expect(
         released.rejections,
-        `RELEASE_HOLD for Form ${code} was refused: ${released.rejections.at(-1)?.reason}`,
+        `RELEASE_PULL for Form ${code} was refused: ${released.rejections.at(-1)?.reason}`,
       ).toEqual([]);
-      accepted.add("RELEASE_HOLD");
-      offenders.push(...offendingFormsIn(released, `RELEASE_HOLD(${code})`));
+      accepted.add("RELEASE_PULL");
+      offenders.push(...offendingFormsIn(released, `RELEASE_PULL(${code})`));
+
+      // STEP_BACK_STAGE, exercised explicitly per code for the same reason RELEASE_PULL is right
+      // above — see the round-robin's own `continue` for STEP_BACK_STAGE and its comment for why
+      // that sweep can never reach it usefully. `buildHeldMovementFor` gives a movement at
+      // `pulled`, so stepping back to `destination_review` is a genuine backward transition,
+      // proving what this whole file exists to prove: this event, too, never touches
+      // `movement.legalForm`.
+      const forStepBack = buildHeldMovementFor(code, NOW_ANCHOR);
+      const steppedBack = wardFlowReducer(forStepBack.state, {
+        type: "STEP_BACK_STAGE",
+        role: EVENT_ROLE.STEP_BACK_STAGE[0],
+        now: NOW_ANCHOR,
+        movementId: forStepBack.movementId,
+        to: "destination_review",
+        reason: STEP_BACK_REASONS[0],
+      });
+      expect(
+        steppedBack.rejections,
+        `STEP_BACK_STAGE for Form ${code} was refused: ${steppedBack.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      accepted.add("STEP_BACK_STAGE");
+      offenders.push(...offendingFormsIn(steppedBack, `STEP_BACK_STAGE(${code})`));
 
       const forCancel = buildHeldMovementFor(code, NOW_ANCHOR);
-      const readyForHandover = wardFlowReducer(forCancel.state, {
+      // Booking is its own step since 2026-08-31: HANDOVER_READY no longer fabricates a transport
+      // job, nor answers the escort question by deriving it from legal status. This file is touched
+      // as little as possible, and the edit is forced by the event sequence rather than chosen — no
+      // figure, timeframe or threshold is involved.
+      const booked = wardFlowReducer(forCancel.state, {
+        type: "BOOK_TRANSPORT",
+        role: EVENT_ROLE.BOOK_TRANSPORT[0],
+        now: NOW_ANCHOR,
+        movementId: forCancel.movementId,
+        provider: TRANSPORT_PROVIDERS[0],
+        escortRequired: true,
+      });
+      expect(
+        booked.rejections,
+        `BOOK_TRANSPORT for Form ${code} was refused: ${booked.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      const readyForHandover = wardFlowReducer(booked, {
         type: "HANDOVER_READY",
         role: EVENT_ROLE.HANDOVER_READY[0],
         now: NOW_ANCHOR,
@@ -995,6 +1320,13 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
         readyForHandover.rejections,
         `HANDOVER_READY for Form ${code} was refused: ${readyForHandover.rejections.at(-1)?.reason}`,
       ).toEqual([]);
+      // HANDOVER_READY joined RELEASE_PULL and CANCEL_TRANSPORT in this block on 2026-08-31, when it
+      // stopped fabricating a transport job and began REQUIRING one. It now needs a movement already
+      // carrying a booking, which the round-robin sweep above cannot reliably produce — the same
+      // traversal limitation those two have, not grounds for a STRUCTURALLY_IMPOSSIBLE entry, and
+      // the reason it must be recorded here or "Non-vacuity 3" reports it as never accepted.
+      accepted.add("HANDOVER_READY");
+      accepted.add("BOOK_TRANSPORT");
       const cancelled = wardFlowReducer(readyForHandover, {
         type: "CANCEL_TRANSPORT",
         role: EVENT_ROLE.CANCEL_TRANSPORT[0],
@@ -1105,19 +1437,19 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
       movements: [
         {
           ...seeded.movements[0],
-          id: "PROBE-4A",
+          id: "WF-PROBE-4A",
           legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 10 },
         },
         {
           ...seeded.movements[0],
-          id: "PROBE-9Z",
+          id: "WF-PROBE-9Z",
           legalForm: { code: "9Z", kind: "transport", dueAt: NOW_ANCHOR - 10 },
         },
       ],
     };
     const flagged = offendingFormsIn(withForms, "probe");
     expect(flagged).toHaveLength(1);
-    expect(flagged[0]).toContain("PROBE-9Z");
+    expect(flagged[0]).toContain("WF-PROBE-9Z");
   });
 
   it("records provenance for every exported declaration in the model files that writes a number down", () => {
@@ -1332,31 +1664,6 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
    */
   it("renders absence as 'no deadline recorded', never as a claim about the Act", () => {
     const renderers = [`${WARD_DIR}/ward-management-console.tsx`, `${WARD_DIR}/coordinator/shortlist-panel.tsx`];
-
-    const literalsIn = (path: string): string[] => {
-      const source = ts.createSourceFile(
-        path,
-        readFileSync(path, "utf8"),
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TSX,
-      );
-      const literals: string[] = [];
-      const visit = (node: ts.Node): void => {
-        if (
-          ts.isStringLiteral(node) ||
-          ts.isNoSubstitutionTemplateLiteral(node) ||
-          ts.isTemplateHead(node) ||
-          ts.isTemplateMiddle(node) ||
-          ts.isTemplateTail(node)
-        ) {
-          literals.push(node.text);
-        }
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-      return literals;
-    };
 
     for (const path of renderers) {
       const literals = literalsIn(path);

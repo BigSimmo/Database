@@ -31,7 +31,7 @@ describe("Therapy review regression contracts", () => {
       );
     }
     expect(saveNotice).toContain('role="status"');
-    expect(saveNotice).toContain(': "sr-only"');
+    expect(saveNotice).toContain('className="sr-only"');
     expect(workspace).toContain('<InformationPageShell testId="therapy-information-loading">');
     expect(workspace.indexOf("if (b.error)")).toBeLessThan(
       workspace.indexOf("if (b.loading && b.therapies.length === 0)"),

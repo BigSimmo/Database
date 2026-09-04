@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, rmdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmdirSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { childProcessExitCode, childProcessFailureSummary } from "./child-process-result.mjs";
 import { assertPlaywrightBrowsersReady } from "./playwright-browser-preflight.mjs";
 import { removePathSync } from "./retryable-fs.mjs";
@@ -318,6 +319,42 @@ process.once("SIGTERM", () => {
 });
 process.once("exit", cleanup);
 
+// This isolated run's tsconfig.json (below) cannot simply inherit the root
+// tsconfig.json's `exclude` — see the comment on `include`/`exclude` at its call
+// site for why the whole include/exclude pair must be redeclared rather than left
+// unset. But redeclaring `exclude` as a second hand-typed copy of the root's list
+// is exactly the shape that has gone stale before: two near-identical lists where
+// only one gets a fix. Derive it from the root config instead, so there is only
+// one list to maintain — this reads the root config through TypeScript's own
+// JSONC-tolerant parser (tsconfig.json allows comments; a plain JSON.parse would
+// break on them) and prefixes each root-relative entry with the `../../` this
+// isolated run root needs, then appends only the entries genuinely specific to
+// this isolated build (currently just `.next/**`, justified above).
+function deriveIsolatedRunExclude(rootProjectRoot, isolatedRunExtraEntries) {
+  const rootTsconfigPath = path.join(rootProjectRoot, "tsconfig.json");
+  const { config, error } = ts.readConfigFile(rootTsconfigPath, (file) => readFileSync(file, "utf8"));
+  if (error) {
+    throw new Error(
+      `Could not parse ${rootTsconfigPath} while deriving the isolated Playwright run's tsconfig exclude list: ${ts.flattenDiagnosticMessageText(error.messageText, "\n")}`,
+    );
+  }
+  const rootExclude = config?.exclude;
+  if (!Array.isArray(rootExclude) || rootExclude.length === 0) {
+    throw new Error(
+      `${rootTsconfigPath} has no non-empty "exclude" array; the isolated Playwright run's tsconfig cannot derive one from it.`,
+    );
+  }
+  const derivedEntries = rootExclude.map((entry) => {
+    if (typeof entry !== "string" || entry.length === 0 || entry.startsWith("/") || entry.startsWith(".")) {
+      throw new Error(
+        `${rootTsconfigPath} "exclude" entry ${JSON.stringify(entry)} is not a plain root-relative pattern; the isolated Playwright run's tsconfig cannot safely rewrite it to "../../".`,
+      );
+    }
+    return `../../${entry}`;
+  });
+  return [...derivedEntries, ...isolatedRunExtraEntries];
+}
+
 try {
   const port = await findFreePort(stableProjectPort(projectRoot));
   const baseUrl = `http://localhost:${port}`;
@@ -345,6 +382,10 @@ try {
         // build`) into this run's typecheck. Excluding the repo-root .next/ and
         // pointing at this run's own dist/types + dist/dev/types keeps the
         // isolated build's typecheck scoped to itself (outstanding-issues #210).
+        // `include` stays hand-declared for that reason. `exclude` does not: it is
+        // derived from the root tsconfig.json's own "exclude" (deriveIsolatedRunExclude,
+        // above) plus this isolated build's own `.next/**` entry, so the two configs
+        // cannot silently diverge on the entries they share.
         include: [
           "../../next-env.d.ts",
           "../../**/*.ts",
@@ -353,14 +394,7 @@ try {
           "dist/types/**/*.ts",
           "dist/dev/types/**/*.ts",
         ],
-        exclude: [
-          "../../node_modules",
-          "../../scratch/**",
-          "../../supabase/functions/**",
-          "../../worktrees/**",
-          "../../scripts/archive/**",
-          "../../.next/**",
-        ],
+        exclude: deriveIsolatedRunExclude(projectRoot, ["../../.next/**"]),
       },
       null,
       2,

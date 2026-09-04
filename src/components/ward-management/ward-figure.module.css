@@ -1,0 +1,88 @@
+/* src/components/ward-management/ward-figure.module.css
+ * The Board figure tile: one number, worded, in a row that never lets more than two shout. */
+.figureStrip {
+  composes: wardTokens from "./ward-tokens.module.css";
+  display: grid;
+  gap: var(--ward-space-12);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 52rem) {
+  .figureStrip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 76rem) {
+  .figureStrip {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+.figure {
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  background: var(--ward-subtle);
+  padding: var(--ward-space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-8);
+}
+.figureLabel {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-copy);
+}
+.figureBody {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--ward-space-4);
+}
+.figureValue {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--ward-leading-compact);
+}
+.figureUnit {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--ward-muted);
+}
+.figureSub {
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-copy);
+}
+.figure[data-flagged="true"] {
+  border-color: var(--ward-warning);
+  background: var(--ward-warning-soft);
+}
+.figure[data-flagged="true"] .figureValue {
+  color: var(--ward-warning);
+}
+
+/*
+ * `.figureLabel`, `.figureUnit`, `.figureSub` and the flagged-state override on `.figureValue`
+ * each declare their own colour, so the print reset carried by whichever screen hosts a
+ * WardFigure cannot reach them — a colour declared on an element itself cannot be overridden by
+ * any ancestor rule. `.figure` is this file's per-tile root and every other class it declares
+ * sits inside it (ward-figure.tsx), so `.figure, .figure *` reaches all of them. `!important` is
+ * required, not decorative: `.figure *` has specificity (0,1,0), which a compound descendant
+ * selector in the hosting screen can equal or beat.
+ *
+ * ⚠️ `background-color`, NOT `background`. `.figure` and its `[data-flagged="true"]` variant also
+ * declare a themed background (`--ward-subtle`, `--ward-warning-soft`) that survives print in
+ * dark mode exactly as the text colour did — measured in Chromium: a themed tile still reads its
+ * DARK background under `emulateMedia({ media: "print", colorScheme: "dark" })`, so forcing text
+ * to `CanvasText` without also resetting the background prints black text on a dark tile, which
+ * is WORSE than doing neither. The `background` shorthand would additionally reset
+ * `background-image` to `none`; the long-form `background-color` leaves it alone.
+ */
+@media print {
+  .figure,
+  .figure * {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+}

@@ -7,6 +7,7 @@ import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
+import { missingValuePhrase } from "@/components/ui/missing-value";
 import { Tabs } from "@/components/ui/tabs";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cn } from "@/components/ui-primitives";
@@ -216,15 +217,24 @@ export function BriefScreen() {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
-                    <MetaCell eyebrow="GOAL" text={t.bestUsedFor || t.indications || "—"} />
-                    <MetaCell eyebrow="FIRST STEP" text={steps[0] || summarise(durationText, 1) || "—"} />
+                    {/* Neither field of either pair is populated on this record, so the phrase
+                        describes the record rather than one field of it. `MetaCell.text` is a
+                        string, hence the primitive's string form (SPEC §11). */}
                     <MetaCell
-                      eyebrow="CAUTIONS"
+                      eyebrow="Goal"
+                      text={t.bestUsedFor || t.indications || missingValuePhrase("not_recorded")}
+                    />
+                    <MetaCell
+                      eyebrow="First step"
+                      text={steps[0] || summarise(durationText, 1) || missingValuePhrase("not_recorded")}
+                    />
+                    <MetaCell
+                      eyebrow="Cautions"
                       tone="warning"
                       text={summarise(t.contraindicationsOrCautions, 1) || "Review cautions before use."}
                     />
                     <MetaCell
-                      eyebrow="SOURCE"
+                      eyebrow="Source"
                       text={t.reviewStatus === "reviewed" ? "Reviewed record" : "Review required"}
                     />
                   </div>
@@ -274,8 +284,8 @@ export function BriefScreen() {
 
                     {t.clinicianScripts.length ? (
                       <div className="mt-5 pt-4 border-t border-[color:var(--border)]">
-                        <div className="text-xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-2.5">
-                          CLINICIAN SCRIPT
+                        <div className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] mb-2.5">
+                          Clinician script
                         </div>
                         {t.clinicianScripts.slice(0, 2).map((c, i) => (
                           <div key={i} className="mb-3">
@@ -356,7 +366,7 @@ function MetaCell({ eyebrow, text, tone }: { eyebrow: string; text: string; tone
     <div
       className={`rounded-lg p-3 ${tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : "bg-[color:var(--surface-inset)]"}`}
     >
-      <div className="text-2xs font-bold tracking-eyebrow">{eyebrow}</div>
+      <div className="text-2xs font-bold uppercase tracking-eyebrow">{eyebrow}</div>
       <p>{text}</p>
     </div>
   );
