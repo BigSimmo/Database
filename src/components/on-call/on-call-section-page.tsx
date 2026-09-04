@@ -7,14 +7,18 @@ import { useAccountData } from "@/components/account-data-provider";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
+import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
+import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
 import {
   ON_CALL_SECTION_ICONS,
   ON_CALL_SECTION_TITLES,
   OnCallNavHeader,
 } from "@/components/on-call/on-call-nav-header";
+import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn } from "@/components/ui-primitives";
-import { type OnCallSection } from "@/lib/on-call/entry-model";
+import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
+import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 
 /**
  * Generic, non-owner-specific framing for each section. Shown regardless of
@@ -48,17 +52,39 @@ const ON_CALL_SIGNED_OUT_BODY: Record<OnCallSection, string> = {
  * `src/components/sources/sources-pages.tsx`'s factoring: peer surfaces off one
  * shared shape, so six sections cannot drift into six divergent shells.
  *
- * Entries are not wired yet — a later task adds the client store that reads and
- * writes `on_call_entries`. Until then every section renders the same real
- * empty state: signed in shows a genuine next step (search across the hub),
- * signed out shows the section's generic name and a sign-in action, and
- * neither state can leak entry content that does not exist yet.
+ * Contacts is the one section wired to real entries and the add/edit/delete
+ * editor (task 11) — it is the section Task 9 built as the template, and the
+ * only one the editor is reachable from today. The remaining five keep the
+ * placeholder empty state below until they adopt the same wiring in a later
+ * pass; nothing here stops that adoption from being a per-section addition.
  */
 export function OnCallSectionPage({ section }: { section: OnCallSection }) {
   const { isAuthenticated } = useAccountData();
   const [signInOpen, setSignInOpen] = useState(false);
+  const [editorState, setEditorState] = useState<{ open: boolean; entry: OnCallEntry | null }>({
+    open: false,
+    entry: null,
+  });
   const title = ON_CALL_SECTION_TITLES[section];
   const Icon = ON_CALL_SECTION_ICONS[section];
+  const isContacts = section === "contacts";
+
+  // Hooks run unconditionally; only the contacts branch below actually reads
+  // this. Harmless (and cheap — one fetch, then cache reads) for the other
+  // five sections until they adopt it too.
+  const { entries, isOffline, cachedAt } = useOnCallEntries();
+  const contactEntries = entries.filter((entry) => entry.section === "contacts");
+
+  function upsertCachedEntry(entry: OnCallEntry) {
+    const next = entries.some((existing) => existing.id === entry.id)
+      ? entries.map((existing) => (existing.id === entry.id ? entry : existing))
+      : [...entries, entry];
+    cacheOnCallEntries(next);
+  }
+
+  function removeCachedEntry(id: string) {
+    cacheOnCallEntries(entries.filter((existing) => existing.id !== id));
+  }
 
   return (
     <>
@@ -84,7 +110,17 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
           <h2 id={`on-call-${section}-entries-heading`} className="text-xl font-semibold">
             {title}
           </h2>
-          {isAuthenticated ? (
+          {isContacts && isAuthenticated ? (
+            <>
+              {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+              <OnCallContactsSection
+                entries={contactEntries}
+                onAddEntry={() => setEditorState({ open: true, entry: null })}
+                onEditEntry={(entry) => setEditorState({ open: true, entry })}
+                onVerified={upsertCachedEntry}
+              />
+            </>
+          ) : isAuthenticated ? (
             <EmptyState
               icon={Icon}
               title={`No ${title.toLowerCase()} entries yet`}
@@ -119,6 +155,16 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
         </section>
       </InformationPageShell>
       <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
+      {isContacts ? (
+        <OnCallEntryEditor
+          open={editorState.open}
+          onClose={() => setEditorState({ open: false, entry: null })}
+          section="contacts"
+          entry={editorState.entry}
+          onSaved={upsertCachedEntry}
+          onDeleted={removeCachedEntry}
+        />
+      ) : null}
     </>
   );
 }

@@ -289,6 +289,8 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/on-call/on-call-contacts-section.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -314,6 +316,8 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/on-call/on-call-contacts-section.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -370,8 +374,14 @@
       "source": "src/components/ui/choice.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -563,8 +573,14 @@
       "source": "src/components/ui/confirm-dialog.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/settings-dialog.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/settings-dialog.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -574,6 +590,7 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/on-call-editor.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -639,6 +656,7 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx",
         "src/components/therapy-compass/record/source-provenance.tsx"
       ],
       "productImportFiles": [
@@ -815,6 +833,7 @@
         "tests/design-system-adoption.test.ts",
         "tests/design-system-target-evidence.test.ts",
         "tests/dsm-search-empty-state.dom.test.tsx",
+        "tests/on-call-sections.dom.test.tsx",
         "tests/rsc-boundary.test.ts",
         "tests/therapy-compass-ui.dom.test.tsx",
         "tests/ui-primitives.dom.test.tsx"
@@ -902,7 +921,11 @@
       "source": "src/components/ui/link.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
+      "directImportFiles": [
+        "src/components/on-call/on-call-education-section.tsx",
+        "src/components/on-call/on-call-logistics-section.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx"
+      ],
       "productImportFiles": [],
       "designSync": {
         "listedInSourceMap": true,
@@ -938,7 +961,7 @@
         "preview": ".design-sync/previews/FieldError.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/on-call-editor.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -986,8 +1009,16 @@
       "source": "src/components/ui/form-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/select.tsx", "src/components/ui/text-field.tsx"],
-      "productImportFiles": ["src/components/ui/select.tsx", "src/components/ui/text-field.tsx"],
+      "directImportFiles": [
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/ui/select.tsx",
+        "src/components/ui/text-field.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/ui/select.tsx",
+        "src/components/ui/text-field.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1067,7 +1098,8 @@
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx"
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "productImportFiles": [
         "src/components/ClinicalDashboard.tsx",
@@ -1076,7 +1108,8 @@
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx"
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1672,10 +1705,12 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -1742,6 +1777,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
@@ -1778,6 +1814,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
@@ -2099,12 +2136,14 @@
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {

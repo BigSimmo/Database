@@ -3,7 +3,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const accountState = vi.hoisted(() => ({ isAuthenticated: true }));
 
@@ -55,6 +55,17 @@ const routes: RouteCase[] = [
   { section: "logistics", title: "Logistics", Route: OnCallLogisticsRoute },
 ];
 
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+}
+
+beforeEach(() => {
+  // OnCallSectionPage now reads the entry store (task 11) for every section, so
+  // every route render fetches. Stub it deterministically rather than letting a
+  // real network attempt reach an unmocked relative URL from jsdom.
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [], signedOut: false }));
+});
+
 afterEach(() => {
   cleanup();
   accountState.isAuthenticated = true;
@@ -95,7 +106,7 @@ describe("on-call section routes", () => {
     },
   );
 
-  it.each(routes.map((route) => [route.title, route] as const))(
+  it.each(routes.filter((route) => route.section !== "contacts").map((route) => [route.title, route] as const))(
     "%s shows a genuine next action for a signed-in reader with no entries yet",
     (_title, route) => {
       accountState.isAuthenticated = true;
@@ -106,6 +117,19 @@ describe("on-call section routes", () => {
       expect(screen.queryByTestId(`on-call-${route.section}-signed-out`)).toBeNull();
     },
   );
+
+  // Contacts is wired to the real entry store and editor (task 11): a signed-in
+  // reader with no entries yet gets the section's own "add one" action, rather
+  // than the other five sections' placeholder "search the hub" empty state.
+  it("Contacts offers 'Add contact' for a signed-in reader with no entries yet", () => {
+    accountState.isAuthenticated = true;
+    render(<OnCallContactsRoute />);
+
+    const empty = screen.getByTestId("on-call-contacts-empty");
+    expect(within(empty).getByRole("button", { name: "Add contact" })).toBeInTheDocument();
+    expect(within(empty).queryByRole("link", { name: "Search On Call" })).toBeNull();
+    expect(screen.queryByTestId("on-call-contacts-signed-out")).toBeNull();
+  });
 
   it.each(routes.map((route) => [route.title, route] as const))(
     "%s names the generic section but renders no entry content when signed out",

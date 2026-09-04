@@ -14,28 +14,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
 import { parseRouteParams } from "@/lib/validation/params";
+import { updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 
 export const runtime = "nodejs";
 
 const onCallEntryRouteParamsSchema = z.object({ id: z.string().uuid() });
-
-// A PATCH replaces the entry (its id comes from the route, never the body) — the same
-// contract POST validates against, minus `id`, plus a section-specific `details` check below.
-//
-// `.required()` additionally strips every `.default(...)` onCallEntrySchema declares
-// (subtitle, body, linkedDocumentIds, tags, isPersonal, includeOnCard, sortOrder,
-// lastVerifiedAt) and makes each of those fields mandatory. Defaults are correct on create — a
-// brand-new entry that omits `subtitle` really has no subtitle — but dangerous on update:
-// without `.required()`, a PATCH body that simply forgot to round-trip `lastVerifiedAt` would
-// validate successfully and silently reset it to null on save, discarding the "this entry is
-// still correct" record the mode's whole twelve-month staleness design rests on. Confirmed
-// against the installed Zod 4 (4.4.3) that `.required()` strips ZodDefault wrappers, not only
-// ZodOptional ones, so this rejects a partial body with a 400 instead of trusting the caller.
-// Exported for tests/on-call-api-contract.test.ts, which asserts against this schema directly
-// rather than re-deriving it — a route handler's own runtime methods (GET/POST/…) are the only
-// exports Next.js's Route Handler contract cares about; an additional plain const export is
-// inert to it.
-export const updateOnCallEntrySchema = onCallEntrySchema.omit({ id: true }).required();
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

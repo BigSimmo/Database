@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { updateOnCallEntrySchema } from "@/app/api/on-call/entries/[id]/route";
+import { updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 
 const list = readFileSync("src/app/api/on-call/entries/route.ts", "utf8");
 const detail = readFileSync("src/app/api/on-call/entries/[id]/route.ts", "utf8");

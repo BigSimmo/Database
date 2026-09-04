@@ -1,11 +1,13 @@
 "use client";
 
-import { Phone } from "lucide-react";
+import { Pencil, Phone, Plus } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { eyebrowText, metadataPillDensity } from "@/components/ui-primitives";
+import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 
@@ -14,6 +16,12 @@ export interface OnCallContactsSectionProps {
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
+  /** Opens the editor in create mode. Omit to hide "Add contact" (e.g. read-only previews). */
+  onAddEntry?: () => void;
+  /** Opens the editor pre-filled with this entry. Omit to hide the row's edit control. */
+  onEditEntry?: (entry: OnCallEntry) => void;
+  /** Handed a freshly-verified entry after a one-tap "still correct" confirm. Omit to hide it. */
+  onVerified?: (entry: OnCallEntry) => void;
 }
 
 interface OnCallContactDetails {
@@ -68,7 +76,17 @@ function slugifyArea(area: string): string {
   return slug || "group";
 }
 
-function ContactRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
+function ContactRow({
+  entry,
+  now,
+  onEdit,
+  onVerified,
+}: {
+  entry: OnCallEntry;
+  now: Date;
+  onEdit?: (entry: OnCallEntry) => void;
+  onVerified?: (entry: OnCallEntry) => void;
+}) {
   const details = parseContactDetails(entry.details);
   const freshness = onCallEntryFreshness(entry, now);
   const primary = details ? primaryNumber(details) : null;
@@ -85,32 +103,57 @@ function ContactRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
       ].filter((value): value is string => Boolean(value))
     : [];
 
+  const showVerify = freshness.state === "stale" && Boolean(onVerified);
+
   return (
-    <OnCallEntryRow
-      title={entry.title}
-      subtitle={details?.contactName}
-      icon={Phone}
-      href={href}
-      testId={`on-call-contact-row-${entry.slug}`}
-    >
-      {primary ? (
-        <span className={cn(metadataPillDensity.standard, "gap-1.5 rounded-full")}>
-          <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          {`${primary.label}: ${primary.value}`}
-        </span>
-      ) : (
-        <span className={cn(metadataPillDensity.standard, "rounded-full")}>No number on file</span>
-      )}
-      {otherNumbers.map((label) => (
-        <span key={label} className={cn(metadataPillDensity.standard, "rounded-full")}>
-          {label}
-        </span>
-      ))}
-      {details?.availability ? (
-        <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.availability}</span>
+    <div className="flex items-stretch gap-2">
+      <div className="min-w-0 flex-1">
+        <OnCallEntryRow
+          title={entry.title}
+          subtitle={details?.contactName}
+          icon={Phone}
+          href={href}
+          testId={`on-call-contact-row-${entry.slug}`}
+        >
+          {primary ? (
+            <span className={cn(metadataPillDensity.standard, "gap-1.5 rounded-full")}>
+              <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {`${primary.label}: ${primary.value}`}
+            </span>
+          ) : (
+            <span className={cn(metadataPillDensity.standard, "rounded-full")}>No number on file</span>
+          )}
+          {otherNumbers.map((label) => (
+            <span key={label} className={cn(metadataPillDensity.standard, "rounded-full")}>
+              {label}
+            </span>
+          ))}
+          {details?.availability ? (
+            <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.availability}</span>
+          ) : null}
+          <OnCallFreshnessBadge freshness={freshness} />
+        </OnCallEntryRow>
+      </div>
+      {/* Sibling to the row, never nested inside it: the row's own tap target is
+          already a `tel:` link, and a `<button>` inside an `<a>` is invalid,
+          duplicate-interactive markup. */}
+      {onEdit || showVerify ? (
+        <div className="flex shrink-0 flex-col items-stretch justify-center gap-1.5">
+          {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={() => onEdit(entry)}
+              aria-label={`Edit ${entry.title}`}
+              data-testid={`on-call-contact-edit-${entry.slug}`}
+              className={cn(toolbarButton, "shrink-0")}
+            >
+              <Pencil aria-hidden className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       ) : null}
-      <OnCallFreshnessBadge freshness={freshness} />
-    </OnCallEntryRow>
+    </div>
   );
 }
 
@@ -125,8 +168,17 @@ export function OnCallContactsSection({
   entries,
   now = new Date(),
   testId = "on-call-contacts-section",
+  onAddEntry,
+  onEditEntry,
+  onVerified,
 }: OnCallContactsSectionProps) {
   const contactEntries = entries.filter((entry) => entry.section === "contacts");
+
+  const addButton = onAddEntry ? (
+    <Button variant="secondary" size="sm" icon={Plus} onClick={onAddEntry} testId="on-call-contacts-add">
+      Add contact
+    </Button>
+  ) : undefined;
 
   if (contactEntries.length === 0) {
     return (
@@ -134,6 +186,7 @@ export function OnCallContactsSection({
         icon={Phone}
         title="No contacts yet"
         body="Contacts you add will appear here, grouped by area, with the whole row set up to ring the number."
+        actions={addButton}
         testId="on-call-contacts-empty"
       />
     );
@@ -162,6 +215,8 @@ export function OnCallContactsSection({
 
   return (
     <div data-testid={testId} className="grid gap-5">
+      {addButton ? <div className="flex justify-end">{addButton}</div> : null}
+
       {needsChecking.length > 0 ? (
         <section aria-labelledby="on-call-contacts-needs-checking-heading" className="grid gap-2">
           <h3
@@ -172,7 +227,7 @@ export function OnCallContactsSection({
           </h3>
           <div className="grid gap-2" data-testid="on-call-contacts-group-needs-checking">
             {sortEntries(needsChecking).map((entry) => (
-              <ContactRow key={entry.id} entry={entry} now={now} />
+              <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
             ))}
           </div>
         </section>
@@ -191,7 +246,7 @@ export function OnCallContactsSection({
             </h3>
             <div className="grid gap-2" data-testid={`on-call-contacts-group-${slug}`}>
               {group.entries.map((entry) => (
-                <ContactRow key={entry.id} entry={entry} now={now} />
+                <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
               ))}
             </div>
           </section>
