@@ -28,6 +28,7 @@ describe("consolidated mode home redirects", () => {
     expect(target("/formulation")).toBe("/?mode=formulation");
     expect(target("/differentials")).toBe("/?mode=differentials");
     expect(target("/therapy-compass")).toBe("/?mode=therapy-compass");
+    expect(target("/documents")).toBe("/?mode=documents");
   });
 
   it("leaves every other path alone", () => {
@@ -35,9 +36,11 @@ describe("consolidated mode home redirects", () => {
       "/",
       "/favourites",
       "/tools",
+      // Medication redirects too, but through its own bespoke proxy fast-path
+      // (src/proxy.ts, medicationsHomeTarget()) rather than this shared map — it
+      // has no `/medications/search` route for the generic ${pathname}/search
+      // submitted-target logic to forward to.
       "/medications",
-      // Documents is dashboard-owned: the shell paints a real Documents home there.
-      "/documents",
       "/mockups/favourites-hub",
     ]) {
       expect(target(pathname)).toBeNull();
@@ -78,6 +81,7 @@ describe("consolidated mode home redirects", () => {
   it("forwards a submitted deep link to the mode's own results surface", () => {
     expect(target("/dsm", "q=panic+disorder&run=1")).toBe("/dsm/search?q=panic+disorder&run=1&mode=dsm");
     expect(target("/forms", "q=transport&run=1&focus=1")).toBe("/forms/search?q=transport&run=1&focus=1&mode=forms");
+    expect(target("/documents", "q=lithium&run=1")).toBe("/documents/search?q=lithium&run=1&mode=documents");
     // Navigation context rides along, so a scoped or mode-qualified deep link
     // does not silently lose its filters crossing the hop.
     expect(target("/differentials", "q=acute&run=1&queryMode=compare_guidance&scope.medications=lithium")).toBe(

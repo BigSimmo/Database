@@ -7,3 +7,27 @@
    responsive ordering without overriding inline theming on later live routes. */
 @source "../";
 @source "../../components";
+
+/* `globals.css` excludes the mockup component tree from Tailwind's scan
+   with an `@source not` rule matching any component path named for a mockup, and
+   `@reference` above pulls that exclusion into this sheet as well — so the broad
+   `@source "../../components"` directly above never reached these files. The effect was silent: a utility
+   written only inside a mockup component produced no rule at all, the class
+   landed on the element, and nothing failed.
+
+   It was not hypothetical. Thirty-two utilities in the Caring Contacts prototype
+   were inert this way — the block/panel spacing, every custom `grid-cols`, the
+   hero type scale, the eyebrow tracking, the phone dock's `min-h`, and both wide
+   table `min-w`s. A utility survived only by coincidence: if production happened
+   to use the identical string, production's copy is what emitted it.
+
+   A later, more specific `@source` re-includes an excluded path, which is what
+   this line does. It restores this sheet to the "complete utility vocabulary"
+   its comment above already claims. Production is untouched — `globals.css` keeps
+   the exclusion, and only mockup routes load this sheet.
+
+   Scoped to Caring Contacts deliberately. The other eight mockup areas have the
+   same latent defect; re-including them would change how they render, which
+   wants its own look rather than a silent ride here. `tests/mockup-utility-emission.test.ts`
+   fails if a Caring Contacts prototype utility stops being emitted. */
+@source "../../components/caring-contacts/mockups";
