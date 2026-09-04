@@ -50,6 +50,7 @@ const staticHeavyGuards = [
   "check:maintainability-budgets",
   "check:type-scale",
   "check:icon-scale",
+  "check:design-drift-ratchet",
   "brand:check",
   "check:assets",
   "check:therapy-data-index",

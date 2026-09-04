@@ -65,7 +65,9 @@ export const prUiSpecProfiles = Object.freeze([
   // `tools-show-all` while this matcher still said only `tools` — so the spec was a production
   // journey that belonged to no shard. Zero timing follows the convention above: keep it on the
   // lightest measured shard until hosted timing is available, and replace this at the next
-  // refresh. A spec wired into no gate is a spec that never runs.
+  // refresh. A spec wired into no gate is a spec that never runs — the spec (PR #2008) was
+  // collected by NO project from 2026-08-16 until audit M32, and the two-way parity test in
+  // tests/playwright-pr-shards.test.ts now fails on that shape.
   { file: "tests/ui-tools-show-all.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Critical-only acceptance coverage; the required critical job owns its runtime.
   { file: "tests/ui-clinical-ask.spec.ts", shard: 1, fullSeconds: 1, criticalSeconds: 1 },
@@ -121,12 +123,6 @@ export const prUiSpecProfiles = Object.freeze([
   // `tests/playwright-pr-shards.test.ts`. Two small specs moved out to lift the
   // other two shards instead of packing this one.
   { file: "tests/ui-caring-contacts-workspace.spec.ts", shard: 2, fullSeconds: 34.2, criticalSeconds: 0 },
-  // The phone launcher "Show all" journey (PR #2008). It was collected by NO project from
-  // 2026-08-16 until audit M32 because its basename was in none of the config matchers; the
-  // two-way parity test in tests/playwright-pr-shards.test.ts now fails on that shape.
-  // ESTIMATE for one test, not a measurement: placed on the shard with the smallest full
-  // total; replace with hosted evidence at the next timing refresh.
-  { file: "tests/ui-tools-show-all.spec.ts", shard: 2, fullSeconds: 3.0, criticalSeconds: 0 },
   // ui-ward-{management,coordinator,roles}.spec.ts moved out of this required PR
   // shard: Ward Flow now lives behind the /mockups/ward-flow developer gate, so
   // (like ui-caring-contact-mockup.spec.ts) it runs only under the advisory
