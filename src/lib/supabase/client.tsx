@@ -5,6 +5,7 @@ import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@s
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import { clearOnCallEntryCache } from "@/lib/on-call/entry-store";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
@@ -389,6 +390,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    clearOnCallEntryCache();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
@@ -401,6 +403,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    clearOnCallEntryCache();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");
