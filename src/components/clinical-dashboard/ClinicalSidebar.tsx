@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
-import { BRAND_CATCHPHRASE, BRAND_MENU_DESCRIPTION } from "@/lib/brand";
+import { BRAND_CATCHPHRASE_BARE, BRAND_MENU_DESCRIPTION, BRAND_NAME } from "@/lib/brand";
 import {
   cn,
   fieldControlWithIcon,
@@ -140,7 +140,10 @@ const collapsedSidebarActiveButton =
    48px controls broken into groups rather than four rules with three spacings. */
 const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border)]";
 
-/* Phone drawer header (ClinicalMobileSidebar).
+/* Brand lockup header — the phone drawer (ClinicalMobileSidebar) and the
+ * expanded desktop sidebar share it, so the two entry points to the same
+ * navigation read as one product rather than two headers that happen to carry
+ * the same words.
  *
  * The stock Sheet header is built for a dialog that has to explain itself: a
  * 5-unit pad, an 18px title, and a `text-sm leading-6` description paragraph.
@@ -150,29 +153,64 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * also wrapped to two lines, because the title column is squeezed between the
  * brand mark and a 48px close button, which is why the block was so tall.
  *
- * The header now reads as a brand lockup rather than a dialog preamble: mark,
+ * So the header reads as a brand lockup rather than a dialog preamble: mark,
  * wordmark, one strapline that cannot wrap, and a close control that keeps its
  * full 48px tap target while giving up the boxed chrome that made it the
- * loudest thing in the header. The functional sentence moves to `sr-only`,
- * where it is still the accessible description.
+ * loudest thing in the header.
+ *
+ * What makes it a *band* rather than a row is the ground: one accent wash
+ * anchored at the top-left corner, behind the mark, dissolving before it reaches
+ * the close control, over a vertical surface fade that only resolves in dark
+ * (where `--surface-lux` and `--surface-raised` differ). It is the same idiom
+ * the document-summary and mode-switch headers already use, so the drawer gains
+ * a lit top edge without inventing a colour. The wash strength is the
+ * `--brand-band-wash` role token rather than a mix written here, because light
+ * and dark need opposite recipes to land on the same read — see its definition
+ * in `globals.css`. The divider stays a real `border-b`: a pseudo-element rule
+ * would disappear in forced-colors, which is exactly where a divider matters.
+ *
+ * The mark is drawn bare on that ground, never on a tile: see the brand note in
+ * `@/components/clinical-dashboard/brand` for why the tiled form is reserved for
+ * formats with no transparency.
  *
  * These are overrides on the shared Sheet rather than edits to it: every other
  * dialog in the app uses that header, and the case for a compact brand header
  * is specific to a navigation drawer that is already showing its own contents. */
-const drawerHeader = "gap-x-2.5 px-4 py-3 sm:px-5 sm:py-3.5";
-const drawerHeaderTitle = "text-base leading-6 tracking-tight sm:text-lg";
-const drawerHeaderStrapline = "block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]";
+const brandHeaderGround =
+  "bg-[radial-gradient(125%_165%_at_0%_0%,var(--brand-band-wash)_0%,transparent_60%),linear-gradient(180deg,var(--surface-lux)_0%,var(--surface-raised)_100%)]";
+/* Wordmark and strapline as one type pair, so the drawer and the sidebar cannot
+ * drift into two different settings of the same two lines.
+ *
+ * The setting is not a new one: it is the `shared-home-brand` lockup from
+ * `master-search-header`, matched line for line, because that is the same two
+ * lines on the same product and the reasoning behind every value there was
+ * measured rather than chosen — 18px/800 on the display tracking step for the
+ * name, 12px/500 in --text-muted for the strapline. In particular the strapline
+ * may not drop to --text-soft (3.07:1 on this ground, under the 4.5:1 floor) or
+ * to an 11px step (bottom-light for no gain); see the note at that call site
+ * before changing either.
+ *
+ * The strapline is the bare catchphrase: under a wordmark it is an identity
+ * label rather than a sentence, and `@/lib/brand` keeps the unpunctuated variant
+ * for exactly this position. */
+const brandWordmark =
+  "truncate text-lg font-extrabold leading-5 tracking-[var(--tracking-display)] text-[color:var(--text-heading)]";
+const brandStrapline = "block truncate text-xs font-medium leading-5 text-[color:var(--text-muted)]";
+const drawerHeader = `gap-x-3 border-[color:var(--border-lux)] px-4 py-3 shadow-[var(--shadow-inset)] sm:px-5 sm:py-3.5 ${brandHeaderGround}`;
+const drawerHeaderTitle = brandWordmark;
 /* Ghost close control, matching the collapsed rail's idiom (transparent border
  * that resolves on hover, so forced-colors still has an edge to paint) instead
  * of the toolbar recipe's resting border, fill and inset shadow. The tap target
- * is unchanged at h-tap/w-tap; only the chrome is quieter.
+ * is unchanged at h-tap/w-tap; only the chrome is quieter, and the hover now
+ * resolves into the accent rather than a neutral fill, so the one control in the
+ * band answers the accent in the ground behind the mark.
  *
  * The glyph is lifted to --spacing-icon-lg, the 20px "header / primary controls"
  * step, via a child variant: Sheet hardcodes its X at 16px, which reads as a
  * default-sized icon adrift once the surrounding box is removed. Scoped here
  * rather than changed in Sheet, since that icon is shared by every dialog. */
 const drawerHeaderClose =
-  "grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] [&>svg]:size-icon-lg";
+  "grid h-tap w-tap shrink-0 place-items-center rounded-full border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] [&>svg]:size-icon-lg";
 
 function SidebarModesTrigger({
   variant,
@@ -626,23 +664,28 @@ export function ClinicalSidebarContent({
   return (
     <div className="clinical-sidebar-content flex min-h-0 min-w-0 flex-1 flex-col gap-4">
       {showHeader ? (
-        <div className="flex shrink-0 items-center justify-between gap-3">
+        /* Same lockup, ground and divider as the phone drawer header, so the two
+           entry points to this navigation read as one product. The negative
+           margins bleed it to the edges of the `p-4` aside below — the band is a
+           header, not a card floating inside the padding — which couples it to
+           that padding; both live in this file, a few hundred lines apart. */
+        <div
+          className={cn(
+            "-mx-4 -mt-4 flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--border-lux)] px-4 pb-3.5 pt-4 shadow-[var(--shadow-inset)]",
+            brandHeaderGround,
+          )}
+        >
           <div className="flex min-w-0 items-center gap-3">
             <BrandMark tone="emphasis" className="h-10 w-10" />
-            {/* Same lockup as the phone drawer header: wordmark over strapline,
-                so the two entry points to the same navigation read as one brand
-                rather than two headers that happen to share a title. */}
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
-                Clinical Guide
-              </p>
-              <p className={drawerHeaderStrapline}>{BRAND_CATCHPHRASE}</p>
+              <p className={brandWordmark}>{BRAND_NAME}</p>
+              <p className={brandStrapline}>{BRAND_CATCHPHRASE_BARE}</p>
             </div>
           </div>
           <Button
             variant="ghost"
             icon={PanelLeftClose}
-            className="h-tap w-tap shrink-0 gap-0 px-0 [&>span]:hidden"
+            className="h-tap w-tap shrink-0 gap-0 rounded-full px-0 [&>span]:hidden"
             aria-label="Collapse sidebar"
             title="Collapse sidebar"
             onClick={() => onCollapsedChange?.(true)}
@@ -674,12 +717,12 @@ export function ClinicalSidebarContent({
             onNavigate?.();
             window.requestAnimationFrame(onOpenSearch);
           }}
-          aria-label="Search Clinical Guide"
+          aria-label="Search PsychSift"
           aria-keyshortcuts="Control+K Meta+K"
           className="focus-ring-contained flex min-h-tap w-full shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition-colors hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
         >
           <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-left">Search Clinical Guide</span>
+          <span className="min-w-0 flex-1 truncate text-left">Search PsychSift</span>
           <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
             Ctrl K
           </kbd>
@@ -935,7 +978,7 @@ function ClinicalCollapsedRail({
 
   return (
     <aside
-      aria-label="Clinical Guide collapsed sidebar"
+      aria-label="PsychSift collapsed sidebar"
       className={cn(
         // One 12px gap owns every step in the column, so the brand, the rule
         // beneath it, New chat, the scrolling groups and the footer all sit on
@@ -1148,7 +1191,7 @@ export function ClinicalDesktopSidebar({
       {!collapsed ? (
         <aside
           id="clinical-tools-sidebar"
-          aria-label="Clinical Guide sidebar"
+          aria-label="PsychSift sidebar"
           className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] lg:flex lg:flex-col"
         >
           <ClinicalSidebarContent
@@ -1210,11 +1253,11 @@ export function ClinicalMobileSidebar({
     <Sheet
       open={open}
       onClose={() => onOpenChange(false)}
-      title="Clinical Guide"
-      closeLabel="Close Clinical Guide menu"
+      title={BRAND_NAME}
+      closeLabel="Close PsychSift menu"
       placement="left"
       contentClassName={hiddenFrom === "lg" ? "lg:hidden" : "md:hidden"}
-      headerLeading={<BrandMark tone="emphasis" optical="chrome" className="h-7 w-7 sm:h-8 sm:w-8" />}
+      headerLeading={<BrandMark tone="emphasis" optical="chrome" className="h-8 w-8" />}
       headerClassName={drawerHeader}
       titleClassName={drawerHeaderTitle}
       closeButtonClassName={drawerHeaderClose}
@@ -1226,8 +1269,8 @@ export function ClinicalMobileSidebar({
               different sentences, so they get different sentences rather than one
               compromise that serves neither. */}
           <span className="sr-only">{BRAND_MENU_DESCRIPTION}</span>
-          <span aria-hidden="true" className={drawerHeaderStrapline}>
-            {BRAND_CATCHPHRASE}
+          <span aria-hidden="true" className={brandStrapline}>
+            {BRAND_CATCHPHRASE_BARE}
           </span>
         </>
       }
