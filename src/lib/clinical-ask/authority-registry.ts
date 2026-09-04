@@ -162,6 +162,17 @@ export function clinicalAskFeatureDecision(
   return { modeEnabled, externalEnabled: modeEnabled && config.externalEnabled };
 }
 
+/**
+ * The Clinical Ask master flag. Every provider-backed Clinical Ask route
+ * (`/api/clinical-ask/stream`, `/api/speech/transcribe`) must consult this
+ * before authentication, the durable rate limiter, or any provider client, and
+ * answer 404 when it is false, so that `CLINICAL_ASK_ENABLED=false` is the full
+ * rollback the operations runbook promises (audit M16, L33).
+ */
+export function clinicalAskEnabled() {
+  return env.CLINICAL_ASK_ENABLED;
+}
+
 export function clinicalAskModeEnabled(mode: ClinicalAskModeId) {
   return clinicalAskFeatureDecision(mode, {
     enabled: env.CLINICAL_ASK_ENABLED,
