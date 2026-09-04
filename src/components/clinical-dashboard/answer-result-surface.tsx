@@ -37,12 +37,21 @@ import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, S
  */
 /** The header status chips share one shape so they read as one status line.
  *
- * Sentence case, not uppercase. SPEC.md §"Capitalisation" reserves uppercase for `eyebrowText`,
- * and these are status chips, not eyebrows — the PEARLS rail heading below still shouts because
- * it genuinely is one. The all-caps setting made the two cautions the loudest thing on a screen
- * whose real warning is the wording inside them, and a caution that shouts is one a reader learns
- * to skip. Nothing about what these state has changed: same words, same amber, same icons. */
-const chipShape = "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs font-semibold";
+ * Sentence case at `--text-xs`, replacing uppercase at `--text-3xs`. **Owner preference, not a
+ * spec violation being corrected** — `docs/design-system/sweep-2026-08-29-unenforced-rules.md`
+ * row 9 counts `uppercase tracking-eyebrow` sites among the 75 SANCTIONED ones, so the previous
+ * setting was allowed and SPEC §11 carries no gate either way. Recorded as preference so a later
+ * reader does not take it for a rule.
+ *
+ * The size change is not cosmetic and must not be reverted with the capitalisation. At 10px,
+ * `uppercase` + `tracking-eyebrow` was carrying real legibility: every glyph sat at cap height
+ * with 0.08em of air. Sentence case at 10px drops most glyphs to x-height and takes the spacing
+ * away, which would have left the single most load-bearing string on this screen quieter than
+ * before rather than calmer. `--text-xs` is also what SPEC §"Type scale" assigns to chips; 10px
+ * is the micro floor for count bubbles and legends.
+ *
+ * Nothing about what these state has changed: same words, same amber tokens, same icons. */
+const chipShape = "inline-flex min-h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold";
 /**
  * An interactive chip is a small pill inside a full-size button, not a small
  * button. `before:-inset-y-*` hit expansion draws the same 48px region and is
@@ -374,7 +383,11 @@ function StagedAnswerResultSurfaceImpl({
               chipShape,
               evidenceGapsOpen
                 ? "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] group-hover:bg-[color:var(--surface-subtle)]",
+                : // `--text`, not `--text-muted`. On a source-only answer `VerificationNotice` is
+                  // `hidden print:flex`, so this label is the ONLY on-screen carrier of "no model
+                  // wrote this answer" and "a cited source is overdue". Muted grey made the
+                  // one string that must be read the quietest thing in the row.
+                  "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text)] group-hover:bg-[color:var(--surface-subtle)]",
               "transition",
               chipFocus,
             )}

@@ -3648,7 +3648,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(reviewDueTab).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
-    await expect(reviewDuePanel).toBeVisible();
+    // Re-resolved, not reused. `reviewDuePanel` above was captured from the first mount, and the
+    // banner's panel id comes from `useId` — closing the sheet unmounts it, so reopening mints a
+    // new id and the old locator matches nothing. This is the one real behaviour change the sheet
+    // brings to this test: an in-flow panel was only ever hidden, never unmounted.
+    const reopenedReviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
+    await expect(reopenedReviewDuePanel).toBeVisible();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
     await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
   });
@@ -6074,7 +6079,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const payload = await response.json();
     expect(typeof payload.demoMode).toBe("boolean");
-    expect(payload.checks).toHaveLength(6);
+    expect(payload.checks).toHaveLength(7);
     expect(payload.checks.map((check: { id: string }) => check.id)).toEqual([
       "env",
       "project",
@@ -6082,8 +6087,17 @@ test.describe("PsychSift UI smoke coverage", () => {
       "search",
       "openai",
       "worker",
+      // Added by #2590 and missed here, so this assertion has been red on `main` since it merged.
+      // Fixed rather than reported because it is the same author's regression and a one-line
+      // correction — the list is a deliberate enumeration, not a count, so it must name the check.
+      "answerPreview",
     ]);
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
+    // The whole point of this endpoint's coarsening. `answerPreview` is the one check whose detail
+    // now survives for an anonymous caller, so pin that its content stays a decision word: no
+    // query, document title, owner, or clinical text may ever appear here.
+    const answerPreview = payload.checks.find((check: { id: string }) => check.id === "answerPreview");
+    expect(answerPreview.detail).toMatch(/^(On\.|Switched off,)/);
   });
 
   test("production site does not offer document uploads to unauthenticated users", async ({ page, request }) => {

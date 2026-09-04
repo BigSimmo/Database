@@ -181,11 +181,15 @@ export function AnswerCard({
   // chip and the cited count read as one status line; the icon is decorative beside it rather
   // than a second signal.
   //
-  // Sentence case, not uppercase. SPEC.md §"Capitalisation" is explicit — sentence case
-  // everywhere, uppercase reserved for `eyebrowText` — and this is a status chip, not an eyebrow.
-  // The all-caps setting was the loudest thing on a screen whose actual warning is the wording,
-  // and shouting a caution is how a reader learns to skip it. The word, the colour, the border
-  // and the triangle are all unchanged: nothing about what this states has been softened.
+  // Sentence case, replacing uppercase. Owner preference, not a spec violation being corrected:
+  // `docs/design-system/sweep-2026-08-29-unenforced-rules.md` row 9 counts `uppercase
+  // tracking-eyebrow` among the sanctioned sites, and SPEC §11 has no gate. Recorded as
+  // preference so a later reader does not take it for a rule.
+  //
+  // Unlike the interactive chip beside it, this one keeps `--text-3xs`: it holds two words, it
+  // keeps `--warning` ink on `--warning-soft` with a `--warning` border and the triangle, so
+  // colour and glyph carry it even at the micro size. The chip beside it had a muted-grey label
+  // and no such fallback, which is why that one was resized and this one was not.
   const supportChip = (
     <p
       data-testid="answer-card-support"
@@ -226,10 +230,14 @@ export function AnswerCard({
         className,
       )}
     >
-      {/* Bare: the notice and the support word share one line, because on a
-          source-only answer they were two stacked banners saying the same thing
-          above a four-line answer. The degraded banner still takes its own line
-          via `w-full` below. */}
+      {/* Bare: the notice keeps its own line, and the support word now shares a line with the
+          interactive chips instead — see the status row below. The earlier arrangement paired
+          the notice with the support word, because on a source-only answer they were two
+          stacked banners saying the same thing above a four-line answer. That pairing is gone,
+          and so is the height it saved on a model-written answer: the row count there is a wash
+          (`[notice] / [support + chips]` for `[notice + support] / [chips]`). The saving is real
+          only on a source-only answer, where the notice is `hidden print:flex` and two rows
+          genuinely become one. The degraded banner still takes its own line via `w-full`. */}
       <div
         className={cn(
           bare
@@ -256,8 +264,10 @@ export function AnswerCard({
             not to give the chips their own row — it is to stop asking a 24px line to hold
             them. This row is centre-aligned and takes its height from the tallest child, so
             the 48px chip sets the height honestly and the static support pill centres inside
-            it. Two stacked rows became one, which returns ~24px to the `#227` phone scroll
-            budget rather than spending it. */}
+            it. On a source-only answer — where `VerificationNotice` is `hidden print:flex` —
+            two stacked rows become one and ~24px comes back to the `#227` phone scroll budget.
+            On a model-written answer the notice takes the line the support word vacated, so
+            the height is a wash rather than a saving. */}
         {bare ? (
           <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1">
             {supportChip}
