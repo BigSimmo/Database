@@ -789,7 +789,7 @@ async function openMobileClinicalGuideMenu(page: Page) {
   await waitForReactEventHandler(trigger, "onClick");
   await trigger.click();
 
-  const menu = page.getByRole("dialog", { name: "Clinical Guide" });
+  const menu = page.getByRole("dialog", { name: "PsychSift" });
   await expect(menu).toBeVisible();
   const menuBox = await menu.boundingBox();
   expect(menuBox).not.toBeNull();
@@ -876,7 +876,7 @@ async function openGuide(page: Page) {
         // The swallowed click leaves the phone menu OPEN, so a retry that always
         // reopens would toggle it shut and then fail to find Settings inside it.
         // Reuse the open menu; only summon one when there is none.
-        const openMenu = page.getByRole("dialog", { name: "Clinical Guide" });
+        const openMenu = page.getByRole("dialog", { name: "PsychSift" });
         const menu = (await openMenu.isVisible().catch(() => false))
           ? openMenu
           : await openMobileClinicalGuideMenu(page);

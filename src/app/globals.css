@@ -440,6 +440,15 @@
   --brand-mark: var(--clinical-accent);
   --brand-mark-emphasis: var(--clinical-accent-strong);
   --brand-mark-contrast: var(--clinical-accent-contrast);
+  /* Corner wash behind the brand lockup in the sidebar and phone drawer header.
+     Per-theme rather than an alias, because the two themes need opposite
+     mixes to land on the same *read* — a whisper of brand at the top-left that
+     dissolves before it reaches the close control. In light, --clinical-accent-soft
+     (#eff5fc) is within a hair of the white panel and simply disappears, so the
+     wash is cut from the accent itself at a low percentage. In dark, the soft
+     step is already a deep blue against a near-black panel and carries on its
+     own; cutting from the accent there would put a bright haze over the mark. */
+  --brand-band-wash: color-mix(in oklab, var(--clinical-accent) 13%, transparent);
   /* Tinted filter-count pill on the results band — quieter than a solid disc. */
   --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
@@ -751,6 +760,8 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #235a7d;
   --clinical-accent-contrast: #082e4d;
+  /* See the light definition: dark takes the soft step, not a cut of the accent. */
+  --brand-band-wash: color-mix(in oklab, var(--clinical-accent-soft) 88%, transparent);
   --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   --clinical-chat-sand: #2d2418;

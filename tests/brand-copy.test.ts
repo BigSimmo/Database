@@ -70,15 +70,21 @@ describe("brand copy has a single source", () => {
 
 describe("the catchphrase stays usable where it is shown", () => {
   /**
-   * The phone drawer renders the catchphrase on a single truncating line beside
-   * a 28px mark and a 48px close control. There is not much room, and the
+   * The phone drawer renders the bare catchphrase on a single truncating line
+   * beside a 32px mark and a 48px close control. There is not much room, and the
    * failure is silent: a longer line does not break the layout, it just gets
-   * cut off mid-word with an ellipsis and reads as a bug. 32 characters is the
-   * measured fit at the narrowest supported width (320px) — not a style
-   * preference, so raise it only against a re-measure.
+   * cut off mid-word with an ellipsis and reads as a bug.
+   *
+   * 28 characters is the measured fit at the narrowest supported width (320px),
+   * re-measured 2026-09-04 when the strapline moved onto the shared PsychSift
+   * lockup at 12px (it was 32 characters at the previous 10px setting). The
+   * measurement: a 304px panel less its 32px of padding leaves a 167px title
+   * column once the mark and the close control take their share, and the line
+   * renders at 5.91px per character. Not a style preference — raise it only
+   * against a re-measure at 320px.
    */
   it("fits the phone drawer strapline", () => {
-    expect(BRAND_CATCHPHRASE.length).toBeLessThanOrEqual(32);
+    expect(BRAND_CATCHPHRASE_BARE.length).toBeLessThanOrEqual(28);
   });
 
   it("is one line, not a sentence pair", () => {
