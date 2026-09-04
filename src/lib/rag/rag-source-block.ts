@@ -98,7 +98,10 @@ function sourceGovernanceLine(result: SearchResult) {
   ].join("; ");
 }
 
-function tableSnippetTextForFact(result: SearchResult, fact: NonNullable<SearchResult["table_facts"]>[number]) {
+export function ragTableSnippetTextForFact(
+  result: SearchResult,
+  fact: NonNullable<SearchResult["table_facts"]>[number],
+) {
   const image = fact.source_image_id ? result.images?.find((candidate) => candidate.id === fact.source_image_id) : null;
   const factMetadata = safeRecord(fact.metadata);
   const metadataCells = Array.isArray(factMetadata.cells)
@@ -118,7 +121,7 @@ function tableSnippetForFact(
   fact: NonNullable<SearchResult["table_facts"]>[number],
   limit = 420,
 ) {
-  return compactEvidenceText(tableSnippetTextForFact(result, fact), limit);
+  return compactEvidenceText(ragTableSnippetTextForFact(result, fact), limit);
 }
 
 function formatTableFactForSourceBlock(
@@ -129,8 +132,16 @@ function formatTableFactForSourceBlock(
   snippetLimit = 420,
 ) {
   if (!rich) {
+    const snippet = tableSnippetForFact(result, fact, snippetLimit);
     return compactEvidenceText(
-      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+      [
+        fact.table_title,
+        fact.row_label,
+        fact.clinical_parameter,
+        fact.threshold_value,
+        fact.action,
+        snippet ? `table context: ${snippet}` : "",
+      ]
         .filter(Boolean)
         .join(" | "),
       limit,
@@ -171,7 +182,7 @@ export function ragSerializedClinicalEvidenceText(result: SearchResult) {
       fact.clinical_parameter,
       fact.threshold_value,
       fact.action,
-      tableSnippetTextForFact(result, fact),
+      ragTableSnippetTextForFact(result, fact),
     ]),
     ...(result.memory_cards ?? []).map((card) => card.content),
     ...(result.images ?? []).filter((image) => isClinicalImageEvidence(image)).map((image) => image.tableTextSnippet),

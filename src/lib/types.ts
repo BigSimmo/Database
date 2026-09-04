@@ -152,6 +152,11 @@ export type ContextPackAdmissionReceipt = Readonly<{
   ownerId: string | null;
   sourcePolicyVersion: string;
   indexGeneration: string | null;
+  document: Readonly<{
+    corpusScope: "australian_public";
+    documentId: string;
+    chunkId: string;
+  }> | null;
   siteContent: Readonly<{
     releaseId: string;
     releaseDigest: string;

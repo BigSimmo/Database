@@ -104,6 +104,7 @@ function harness() {
       in: vi.fn(async (_column: string, ids: string[]) => ({
         data: ids.map((id) => ({
           id,
+          document_id: `${id}-document`,
           index_generation_id: "generation-1",
           documents: {
             owner_id: null,
@@ -249,6 +250,11 @@ describe("governed public corpus retrieval", () => {
       ownerId: null,
       sourcePolicyVersion: "source-policy-v1",
       indexGeneration: "generation-1",
+      document: {
+        corpusScope: "australian_public",
+        documentId: "australian_public-document",
+        chunkId: "australian_public",
+      },
       siteContent: null,
     });
     expect(
@@ -257,6 +263,53 @@ describe("governed public corpus retrieval", () => {
     expect(
       results.find((candidate) => candidate.corpus_scope === "international_supplementary")?.context_pack_admission,
     ).toBeUndefined();
+  });
+
+  it("does not issue admission when the authoritative chunk document differs from the candidate", async () => {
+    const candidate = row("australian-mismatch", "australian_public");
+    const supabase = {
+      rpc: vi.fn(() => ({ abortSignal: vi.fn(async () => ({ data: [candidate], error: null })) })),
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          in: vi.fn(async () => ({
+            data: [
+              {
+                id: candidate.id,
+                document_id: "authoritative-other-document",
+                index_generation_id: "generation-1",
+                documents: {
+                  owner_id: null,
+                  status: "indexed",
+                  index_generation_id: "generation-1",
+                  metadata: {
+                    corpus_scope: "australian_public",
+                    publication_manifest_version: 2,
+                    source_policy_version: "source-policy-v1",
+                    publication_source_policy_version: "source-policy-v1",
+                    publication_reviewed_index_generation_id: "generation-1",
+                  },
+                },
+              },
+            ],
+            error: null,
+          })),
+        })),
+      })),
+    };
+
+    const results = await searchGovernedCorpora({
+      supabase: supabase as never,
+      queryVariants: ["current guidance"],
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: false,
+      signal: new AbortController().signal,
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.context_pack_admission).toBeUndefined();
   });
 
   it("fails closed when a governed scope carries the wrong canonical source kind", async () => {

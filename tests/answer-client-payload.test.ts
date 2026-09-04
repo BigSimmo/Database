@@ -25,6 +25,7 @@ function fullSource(overrides: Partial<SearchResult> = {}): SearchResult {
       ownerId: null,
       sourcePolicyVersion: "source-policy-v1",
       indexGeneration: null,
+      document: null,
       siteContent: {
         releaseId: "12345678-1234-5678-9234-123456789abc",
         releaseDigest: "a".repeat(64),

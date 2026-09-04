@@ -5,6 +5,7 @@ import {
   answerRouteResultCanBeCached,
   generationRecoveryReserveMs,
 } from "../src/lib/rag/rag-route-budget";
+import { verifyAnswerNumbers } from "../src/lib/answer-verification";
 import type { RagAnswer, SearchResult, SourcePolicyConflict } from "../src/lib/types";
 
 function retrievalRpcBaseName(name: string) {
@@ -131,6 +132,19 @@ async function answerFromTextSources(
     captureProgress?: (event: { smartApiPlan?: unknown }) => void;
     captureRpcName?: (name: string) => void;
     governed?: { admittedChunkIds?: string[]; hydrationError?: boolean };
+    legacyAdjacentRows?: Array<{
+      id: string;
+      document_id: string;
+      page_number: number | null;
+      chunk_index: number;
+      section_heading: string | null;
+      content: string;
+      retrieval_synopsis?: string | null;
+      index_generation_id?: string | null;
+    }>;
+    forceExtractiveResultIds?: string[];
+    forceGenerationFallbackResultIds?: string[];
+    forceGenerationRoute?: boolean;
   } = {},
 ) {
   // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
@@ -138,6 +152,9 @@ async function answerFromTextSources(
   // must re-parse env after stubbing — otherwise the first test in this file keeps
   // the runner's offline snapshot and never exercises the mocked provider path.
   vi.resetModules();
+  vi.doUnmock("@/lib/rag/rag-extractive-first");
+  vi.doUnmock("@/lib/rag/rag-context-pack");
+  vi.doUnmock("@/lib/rag/rag-routing");
   vi.stubEnv("OPENAI_API_KEY", options.sourceOnly ? "" : "test-key");
   vi.stubEnv("RAG_PROVIDER_MODE", options.sourceOnly ? "offline" : "auto");
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -179,6 +196,29 @@ async function answerFromTextSources(
   });
 
   const admittedChunkIds = new Set(options.governed?.admittedChunkIds ?? []);
+  const adjacentQuery = () => {
+    const query = {
+      select() {
+        return query;
+      },
+      in() {
+        return query;
+      },
+      order() {
+        return query;
+      },
+      limit() {
+        return query;
+      },
+      then<TResult1 = { data: unknown[]; error: null }, TResult2 = never>(
+        onfulfilled?: ((value: { data: unknown[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+      ): PromiseLike<TResult1 | TResult2> {
+        return Promise.resolve({ data: options.legacyAdjacentRows ?? [], error: null }).then(onfulfilled, onrejected);
+      },
+    };
+    return query;
+  };
   const admissionQuery = () => {
     let selectedColumns = "";
     const query = {
@@ -195,6 +235,7 @@ async function answerFromTextSources(
                 .filter((id) => admittedChunkIds.has(id))
                 .map((id) => ({
                   id,
+                  document_id: governedSources.find((candidate) => candidate.id === id)?.document_id,
                   index_generation_id: "generation-1",
                   documents: {
                     owner_id: null,
@@ -237,7 +278,7 @@ async function answerFromTextSources(
     createAdminClient: () => ({
       rpc,
       from: vi.fn((table: string) =>
-        options.governed && table === "document_chunks" ? admissionQuery() : new EmptyQuery(),
+        table === "document_chunks" ? (options.governed ? admissionQuery() : adjacentQuery()) : new EmptyQuery(),
       ),
     }),
   }));
@@ -283,6 +324,64 @@ async function answerFromTextSources(
     embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
     generateStructuredTextResult,
   }));
+  if (options.forceExtractiveResultIds || options.forceGenerationRoute) {
+    vi.doMock("@/lib/rag/rag-extractive-first", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/rag/rag-extractive-first")>(
+        "../src/lib/rag/rag-extractive-first",
+      );
+      return {
+        ...actual,
+        chooseValidatedExtractiveShortCircuit: () =>
+          options.forceGenerationRoute
+            ? null
+            : {
+                reasonMarker: "validated_test_extractive_first",
+                resultIds: options.forceExtractiveResultIds,
+              },
+      };
+    });
+  }
+  const forcedGenerationFallbackResultIds = options.forceGenerationFallbackResultIds;
+  if (forcedGenerationFallbackResultIds) {
+    vi.doMock("@/lib/rag/rag-context-pack", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/rag/rag-context-pack")>(
+        "../src/lib/rag/rag-context-pack",
+      );
+      return {
+        ...actual,
+        packModelContextEvidencePair: async (
+          pair: Parameters<typeof actual.packModelContextEvidencePair>[0],
+          pack: Parameters<typeof actual.packModelContextEvidencePair>[1],
+          governed: Parameters<typeof actual.packModelContextEvidencePair>[2],
+        ) => {
+          const packed = await actual.packModelContextEvidencePair(pair, pack, governed);
+          const admittedIds = new Set(forcedGenerationFallbackResultIds);
+          return {
+            ...packed,
+            strongRetry: {
+              ...packed.strongRetry,
+              results: packed.strongRetry.results.filter((result) => admittedIds.has(result.id)),
+            },
+          };
+        },
+      };
+    });
+  }
+  if (options.forceGenerationRoute) {
+    vi.doMock("@/lib/rag/rag-routing", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/rag/rag-routing")>("../src/lib/rag/rag-routing");
+      return {
+        ...actual,
+        chooseAnswerRoute: () => ({
+          mode: "strong" as const,
+          model: "gpt-4.1-mini",
+          reason: "forced_strong_generation",
+          strongestScore: 0.72,
+          documentCount: sources.length,
+        }),
+      };
+    });
+  }
 
   const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
   return answerQuestionWithScope({
@@ -390,6 +489,53 @@ it("fails governed unsupported output closed when admission hydration fails", as
   expect(answer.documentBreakdown).toEqual([]);
   expect(answer.relatedDocuments).toEqual([]);
   expect(JSON.stringify(answer)).not.toContain("UNRECEIPTED_READ_FAILURE_MARKER");
+});
+
+it("uses legacy adjacent context in the no-scope prompt and numeric verification", async () => {
+  let prompt = "";
+  const primary = source({
+    id: "legacy-primary-dose",
+    document_id: "legacy-dose-document",
+    chunk_index: 5,
+    content: "The prescribing section describes the current quetiapine regimen.",
+  });
+  const answer = await answerFromTextSources(
+    "What maximum quetiapine dose is stated?",
+    [primary],
+    {
+      answer: "The stated maximum quetiapine dose is 300 mg daily.",
+      grounded: true,
+      confidence: "high",
+      answerSections: [],
+      citations: [{ chunk_id: primary.id }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    },
+    {
+      captureInput: (input) => {
+        prompt = input;
+      },
+      legacyAdjacentRows: [
+        {
+          id: "legacy-adjacent-dose",
+          document_id: primary.document_id,
+          page_number: 2,
+          chunk_index: 6,
+          section_heading: "Maximum dose",
+          content: "The maximum quetiapine dose is 300 mg daily.",
+          retrieval_synopsis: null,
+          index_generation_id: null,
+        },
+      ],
+    },
+  );
+
+  expect(prompt).toContain("The maximum quetiapine dose is 300 mg daily.");
+  expect(
+    verifyAnswerNumbers("The maximum quetiapine dose is 300 mg daily.", [{ chunk_id: primary.id }], answer.sources)
+      .unverifiedTokens,
+  ).toEqual([]);
+  expect(answer.grounded).toBe(true);
 });
 
 it("recomputes governed source-only comparison artifacts from the packed corpus", async () => {
@@ -2169,49 +2315,69 @@ describe("RAG structured-output fallback", () => {
   });
 
   it("preserves the final governance marker when direct extraction becomes a review fallback", async () => {
-    const answer = await answerFromTextSources("What ANC threshold does the clozapine table show?", [
-      source({
-        id: "outdated-clozapine-threshold-chunk",
-        document_id: "outdated-clozapine-doc",
-        title: "Clozapine Monitoring",
-        file_name: "Clozapine Monitoring.pdf",
-        page_number: 4,
-        section_heading: "ANC thresholds",
-        content: "Clozapine ANC threshold table: below 1.5 x 10^9/L, withhold clozapine and repeat FBC.",
-        source_metadata: {
-          source_title: "Clozapine Monitoring",
-          publisher: "Local service",
-          jurisdiction: "Australia/WA",
-          version: "1",
-          publication_date: null,
-          review_date: null,
-          uploaded_at: null,
-          indexed_at: null,
-          uploaded_by: null,
-          document_status: "outdated",
-          clinical_validation_status: "approved",
-          extraction_quality: "good",
+    const served = source({
+      id: "outdated-clozapine-threshold-chunk",
+      document_id: "outdated-clozapine-doc",
+      title: "Clozapine Monitoring",
+      file_name: "Clozapine Monitoring.pdf",
+      page_number: 4,
+      section_heading: "ANC thresholds",
+      content: "Clozapine ANC threshold table: below 1.5 x 10^9/L, withhold clozapine and repeat FBC.",
+      source_metadata: {
+        source_title: "Clozapine Monitoring",
+        publisher: "Local service",
+        jurisdiction: "Australia/WA",
+        version: "1",
+        publication_date: null,
+        review_date: null,
+        uploaded_at: null,
+        indexed_at: null,
+        uploaded_by: null,
+        document_status: "outdated",
+        clinical_validation_status: "approved",
+        extraction_quality: "good",
+      },
+      table_facts: [
+        {
+          id: "outdated-fact-anc-threshold",
+          document_id: "outdated-clozapine-doc",
+          source_chunk_id: "outdated-clozapine-threshold-chunk",
+          source_image_id: null,
+          page_number: 4,
+          table_title: "Clozapine ANC thresholds",
+          row_label: "ANC below 1.5",
+          clinical_parameter: "ANC",
+          threshold_value: "below 1.5 x 10^9/L",
+          action: "Withhold clozapine and repeat FBC.",
         },
-        table_facts: [
-          {
-            id: "outdated-fact-anc-threshold",
-            document_id: "outdated-clozapine-doc",
-            source_chunk_id: "outdated-clozapine-threshold-chunk",
-            source_image_id: null,
-            page_number: 4,
-            table_title: "Clozapine ANC thresholds",
-            row_label: "ANC below 1.5",
-            clinical_parameter: "ANC",
-            threshold_value: "below 1.5 x 10^9/L",
-            action: "Withhold clozapine and repeat FBC.",
-          },
-        ],
-      }),
-    ]);
+      ],
+    });
+    const packedButNotServed = source({
+      id: "packed-not-served-sentinel",
+      document_id: "packed-not-served-document",
+      title: "PACKED_NOT_SERVED_TITLE",
+      file_name: "packed-not-served.pdf",
+      section_heading: "Unrelated administration",
+      content: "PACKED_NOT_SERVED_SNIPPET records a general filing workflow with no ANC threshold.",
+      similarity: 0.2,
+      hybrid_score: 0.2,
+      text_rank: 0.01,
+    });
+    const answer = await answerFromTextSources(
+      "What ANC threshold does the clozapine table show?",
+      [served, packedButNotServed],
+      undefined,
+      { forceExtractiveResultIds: [served.id] },
+    );
 
     expect(answer.routingReason).toContain("material_source_governance_gap");
     expect(answer.routingReason).toContain("source_backed_review_fallback");
     expect(answer.routingReason).toContain("extractive_quality_gate:");
+    expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([served.id]);
+    expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
+    expect(answer.smartApiPlan?.answerPlan.sourceSelection.selectedCount).toBe(1);
+    expect(answer.smartApiPlan?.answerPlan.sourcePolicy).toBe("exact_source_links");
+    expect(JSON.stringify(answer.smartApiPlan)).not.toMatch(/PACKED_NOT_SERVED|packed-not-served/);
   });
 
   it("does not answer FBC withhold-threshold lookups from generic monitoring timing facts", async () => {
@@ -4236,30 +4402,103 @@ describe("RAG structured-output fallback", () => {
   });
 
   it("fails closed instead of leaking another medication's numeric dose after generation failure", async () => {
+    const served = source({
+      id: "sertraline-source-gap",
+      document_id: "sertraline-source-gap-doc",
+      title: "Antidepressant Dose Overview",
+      file_name: "antidepressant-dose-overview.pdf",
+      section_heading: "Maximum doses",
+      content:
+        "The table lists fluoxetine 60 mg and citalopram 40 mg, but it does not state a maximum sertraline dose.",
+      similarity: 0.96,
+      hybrid_score: 0.96,
+      text_rank: 1.3,
+    });
+    const packedButNotServed = source({
+      id: "generation-packed-not-served-sentinel",
+      document_id: "generation-packed-not-served-document",
+      title: "GENERATION_PACKED_NOT_SERVED_TITLE",
+      file_name: "generation-packed-not-served.pdf",
+      section_heading: "Unrelated administration",
+      content: "GENERATION_PACKED_NOT_SERVED_SNIPPET records a general filing workflow.",
+      similarity: 0.2,
+      hybrid_score: 0.2,
+      text_rank: 0.01,
+    });
     const answer = await answerFromTextSources(
       "What is the maximum sertraline dose?",
-      [
-        source({
-          id: "sertraline-source-gap",
-          document_id: "sertraline-source-gap-doc",
-          title: "Antidepressant Dose Overview",
-          file_name: "antidepressant-dose-overview.pdf",
-          section_heading: "Maximum doses",
-          content:
-            "The table lists fluoxetine 60 mg and citalopram 40 mg, but it does not state a maximum sertraline dose.",
-          similarity: 0.96,
-          hybrid_score: 0.96,
-          text_rank: 1.3,
-        }),
-      ],
+      [served, packedButNotServed],
       new Error("OpenAI generation incomplete: max_output_tokens"),
+      { forceGenerationFallbackResultIds: [served.id] },
     );
     expect(answer.answer).not.toMatch(/fluoxetine|citalopram|60 mg|40 mg/i);
     expect(answer.answer).toMatch(/source|guidance|support|evidence/i);
     expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
     expect(answer.routingReason).toContain("source_backed_review_fallback");
+    expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([served.id]);
+    expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
+    expect(answer.smartApiPlan?.answerPlan.sourceSelection.selectedCount).toBe(1);
+    expect(answer.smartApiPlan?.answerPlan.sourcePolicy).toBe("nearby_sources_allowed");
+    expect(JSON.stringify(answer.smartApiPlan)).not.toMatch(
+      /GENERATION_PACKED_NOT_SERVED|generation-packed-not-served/,
+    );
     expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
     expect(answerRouteResultCanBeCached({ deadlineExceeded: false }, answer)).toBe(false);
+  });
+
+  it("keeps post-generation review metadata on the exact served fallback corpus", async () => {
+    const served = source({
+      id: "generation-outdated-quetiapine-dose",
+      document_id: "generation-outdated-quetiapine-document",
+      title: "Quetiapine Prescribing Guideline",
+      file_name: "quetiapine-prescribing-guideline.pdf",
+      page_number: 4,
+      section_heading: "Maximum dose",
+      content: "The maximum recommended quetiapine dose is 200 mg daily.",
+      similarity: 0.86,
+      hybrid_score: 0.86,
+      text_rank: 1.1,
+      source_metadata: {
+        source_title: "Quetiapine Prescribing Guideline",
+        publisher: "Local service",
+        jurisdiction: "Australia/WA",
+        version: "1",
+        publication_date: null,
+        review_date: null,
+        uploaded_at: null,
+        indexed_at: null,
+        uploaded_by: null,
+        document_status: "outdated",
+        clinical_validation_status: "approved",
+        extraction_quality: "good",
+      },
+    });
+    const packedButNotServed = source({
+      id: "post-generation-packed-not-served-sentinel",
+      document_id: "post-generation-packed-not-served-document",
+      title: "POST_GENERATION_PACKED_NOT_SERVED_TITLE",
+      file_name: "post-generation-packed-not-served.pdf",
+      section_heading: "Unrelated administration",
+      content: "POST_GENERATION_PACKED_NOT_SERVED_SNIPPET records a general filing workflow.",
+      similarity: 0.2,
+      hybrid_score: 0.2,
+      text_rank: 0.01,
+    });
+
+    const answer = await answerFromTextSources(
+      "What is the maximum recommended quetiapine dose?",
+      [served, packedButNotServed],
+      new Error("OpenAI generation incomplete: max_output_tokens"),
+      { forceGenerationFallbackResultIds: [served.id], forceGenerationRoute: true },
+    );
+
+    expect(answer.routingReason).toContain("post_generation_claim_quality_gate");
+    expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([served.id]);
+    expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
+    expect(answer.smartApiPlan?.answerPlan.sourceSelection.selectedCount).toBe(1);
+    expect(JSON.stringify(answer.smartApiPlan)).not.toMatch(
+      /POST_GENERATION_PACKED_NOT_SERVED|post-generation-packed-not-served/,
+    );
   });
 
   it("prefers the safe single-chunk fallback candidate that carries the asked-for dose figure", async () => {

@@ -231,7 +231,7 @@ describe("RAG cache invalidation", () => {
     const shadowV1 = { ...legacyV1, ragQueryPlanMode: "shadow" as const };
     const shadowV2 = { ...shadowV1, ragQueryPlanVersion: "rag-query-plan-v2" };
 
-    expect(ragCacheDependencyVersion).toBe("rag-cache-v22");
+    expect(ragCacheDependencyVersion).toBe("rag-cache-v23");
     expect(scopedAnswerCacheKey(legacyV1)).not.toBe(scopedAnswerCacheKey(shadowV1));
     expect(scopedAnswerCacheKey(shadowV1)).not.toBe(scopedAnswerCacheKey(shadowV2));
     const searchKeys = [legacyV1, shadowV1, shadowV2].map((args) =>

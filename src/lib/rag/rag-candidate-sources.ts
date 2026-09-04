@@ -216,6 +216,7 @@ function sanitizeGovernedCandidateRows(args: {
               ownerId: null,
               sourcePolicyVersion: args.snapshot.sourcePolicyVersion,
               indexGeneration: null,
+              document: null,
               siteContent: {
                 releaseId: expectedReleaseId!,
                 releaseDigest: args.snapshot.publicSiteContent.releaseDigest!,
@@ -230,6 +231,7 @@ function sanitizeGovernedCandidateRows(args: {
 
 type AdmissionHydrationRow = {
   id?: unknown;
+  document_id?: unknown;
   index_generation_id?: unknown;
   documents?:
     | {
@@ -264,12 +266,19 @@ async function attachDocumentContextPackAdmission(args: {
   try {
     const { data, error } = await client
       .from("document_chunks")
-      .select("id,index_generation_id,documents!inner(owner_id,status,index_generation_id,metadata)")
+      .select("id,document_id,index_generation_id,documents!inner(owner_id,status,index_generation_id,metadata)")
       .in("id", [...new Set(documentResults.map((result) => result.id))]);
     if (error || !Array.isArray(data)) return args.results;
     const receiptByChunkId = new Map<string, ReturnType<typeof issueContextPackAdmissionReceipt>>();
+    const resultByChunkId = new Map(documentResults.map((result) => [result.id, result] as const));
     for (const raw of data as AdmissionHydrationRow[]) {
-      if (typeof raw.id !== "string" || raw.index_generation_id !== args.snapshot.documentIndexGeneration) continue;
+      if (
+        typeof raw.id !== "string" ||
+        typeof raw.document_id !== "string" ||
+        raw.index_generation_id !== args.snapshot.documentIndexGeneration ||
+        resultByChunkId.get(raw.id)?.document_id !== raw.document_id
+      )
+        continue;
       const document = Array.isArray(raw.documents) ? raw.documents[0] : raw.documents;
       if (!document || document.status !== "indexed" || document.index_generation_id !== raw.index_generation_id)
         continue;
@@ -294,6 +303,11 @@ async function attachDocumentContextPackAdmission(args: {
           ownerId,
           sourcePolicyVersion: args.snapshot.sourcePolicyVersion,
           indexGeneration: raw.index_generation_id,
+          document: {
+            corpusScope: "australian_public",
+            documentId: raw.document_id,
+            chunkId: raw.id,
+          },
           siteContent: null,
         }),
       );

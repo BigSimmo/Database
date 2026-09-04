@@ -39,8 +39,8 @@ function evidence(
   } = {},
 ): SearchResult {
   const {
-    corpusScope = "uploaded_local",
-    sourceRole = "local_guideline",
+    corpusScope = "australian_public",
+    sourceRole = "clinical_guideline",
     generation = "generation-current",
     ownerId = null,
     contentHash = `hash-${id}`,
@@ -66,6 +66,7 @@ function evidence(
             ownerId,
             sourcePolicyVersion: "source-policy-v1",
             indexGeneration: null,
+            document: null,
             siteContent: {
               releaseId: currentReleaseId,
               releaseDigest: currentReleaseDigest,
@@ -76,13 +77,22 @@ function evidence(
             ownerId,
             sourcePolicyVersion: "source-policy-v1",
             indexGeneration: generation,
+            document:
+              corpusScope === "australian_public"
+                ? {
+                    corpusScope: "australian_public",
+                    documentId: resultOverrides.document_id ?? "doc-guideline",
+                    chunkId: id,
+                  }
+                : null,
             siteContent: null,
           },
     ),
     source_metadata: {
       source_kind: corpusScope === "clinical_kb_site" ? "registry_record" : "document",
       source_title: "WA guideline",
-      publisher: "WA Health",
+      publisher: corpusScope === "australian_public" ? "Office of the Chief Psychiatrist WA" : "WA Health",
+      publisher_code: corpusScope === "australian_public" ? "OCPWA" : null,
       jurisdiction: "Australia/WA",
       version: "1",
       publication_date: "2026-01-01",
@@ -93,8 +103,8 @@ function evidence(
       corpus_scope: corpusScope,
       source_role: sourceRole,
       content_mode: "indexed_content",
-      source_catalogue_key: `catalogue:${id}`,
-      source_policy_version: "source-policy-v1",
+      source_catalogue_key: corpusScope === "australian_public" ? "wa-chief-psychiatrist" : `catalogue:${id}`,
+      source_policy_version: corpusScope === "australian_public" ? "australian-source-policy-v1" : "source-policy-v1",
       content_hash: contentHash,
       change_state: "unchanged",
       licence_policy: "public_index_permitted",
@@ -358,6 +368,7 @@ describe("claim-oriented context packing", () => {
         ownerId: null,
         sourcePolicyVersion: "source-policy-v1",
         indexGeneration: null,
+        document: null,
         siteContent: {
           releaseId: "87654321-4321-5678-9234-cba987654321",
           releaseDigest: "d".repeat(64),
@@ -467,10 +478,19 @@ describe("claim-oriented context packing", () => {
         site_content_lineage: [{ sourceId: shared.document_id, sourceHash: "family-x", relationship: "references" }],
       } as SearchResult["source_metadata"],
     });
-    const legal = evidence("legal", "Confirm the legal authority before proceeding.", {
+    const legalBase = evidence("legal", "Confirm the legal authority before proceeding.", {
       sourceRole: "legal",
       contentHash: "family-x",
     });
+    const legal = {
+      ...legalBase,
+      source_metadata: {
+        ...legalBase.source_metadata!,
+        publisher: "Western Australian Legislation",
+        publisher_code: "WALEG",
+        source_catalogue_key: "wa-legislation",
+      },
+    };
     const pack = packClaimOrientedContext({
       ...trustedAdmission(),
       selections: [selection("treatment", [shared, expanded]), selection("legal", [legal], "legal")],
@@ -485,7 +505,11 @@ describe("claim-oriented context packing", () => {
   });
 
   it("admits both sides of a verified conflict atomically or omits both", () => {
-    const local = evidence("local-conflict", "Use the local action.", { contentHash: "same-family" });
+    const local = evidence("local-conflict", "Use the local action.", {
+      corpusScope: "uploaded_local",
+      sourceRole: "local_guideline",
+      contentHash: "same-family",
+    });
     const australian = evidence("au-conflict", "Use the national action.", {
       corpusScope: "australian_public",
       sourceRole: "clinical_guideline",
@@ -617,7 +641,10 @@ describe("claim-oriented context packing", () => {
   });
 
   it("partitions governed cache identity by required lanes and verified conflicts", () => {
-    const local = evidence("cache-local", "Use the local monitoring schedule.");
+    const local = evidence("cache-local", "Use the local monitoring schedule.", {
+      corpusScope: "uploaded_local",
+      sourceRole: "local_guideline",
+    });
     const australian = evidence("cache-au", "Use the Australian monitoring schedule.", {
       corpusScope: "australian_public",
       sourceRole: "clinical_guideline",
@@ -674,7 +701,11 @@ describe("claim-oriented context packing", () => {
   });
 
   it("restores opaque admission only at the validated cache boundary", () => {
-    const source = evidence("cached", "Cached current guidance.");
+    const source = evidence("cached", "Cached current guidance.", {
+      corpusScope: "australian_public",
+      sourceRole: "clinical_guideline",
+      document_id: "doc-cached",
+    });
     const cloned = structuredClone([source]);
     const rejected = packClaimOrientedContext({
       ...trustedAdmission(),
@@ -692,6 +723,45 @@ describe("claim-oriented context packing", () => {
 
     expect(packedEvidenceResults(rejected)).toEqual([]);
     expect(packedEvidenceResults(admitted).map((result) => result.id)).toEqual(["cached"]);
+  });
+
+  it("rejects restored document admission transplanted across corpus, document, or chunk identity", () => {
+    const source = evidence("receipt-source", "Current Australian guidance.", {
+      corpusScope: "australian_public",
+      sourceRole: "clinical_guideline",
+      document_id: "receipt-document",
+    });
+    const cached = structuredClone(source);
+    const variants: SearchResult[] = [
+      {
+        ...cached,
+        corpus_scope: "uploaded_local",
+        source_metadata: { ...cached.source_metadata!, corpus_scope: "uploaded_local" },
+      },
+      {
+        ...cached,
+        corpus_scope: "international_supplementary",
+        source_metadata: { ...cached.source_metadata!, corpus_scope: "international_supplementary" },
+      },
+      { ...cached, document_id: "transplanted-document" },
+      { ...cached, id: "transplanted-chunk" },
+      {
+        ...cached,
+        context_pack_admission: {
+          ...cached.context_pack_admission!,
+          siteContent: {
+            releaseId: "12345678-1234-5678-9234-123456789abc",
+            releaseDigest: "d".repeat(64),
+            changeEpoch: "epoch-transplanted",
+          },
+        },
+      },
+    ];
+
+    const restored = restoreCachedContextPackAdmission([cached, ...variants]);
+
+    expect(restored[0]?.context_pack_admission).toBeDefined();
+    expect(restored.slice(1).every((result) => result.context_pack_admission === undefined)).toBe(true);
   });
 
   it("does not synthesize trusted admission provenance during model-context selection", () => {
@@ -791,6 +861,111 @@ describe("claim-oriented context packing", () => {
     expect(packedEvidenceResults(pack)).toEqual([]);
   });
 
+  it.each([
+    "Assess neonatal patients in NICU and notify the specialist.",
+    "Completed screening for a neonate or newborn and informed the treating team.",
+    "Ensured youth and teens were supported and observed.",
+    "Identified risks for each young person and involved young people in planning.",
+    "Include aged care residents and people aged 65 years or older in review.",
+    "Managed the presentation, provided care, recorded findings, and reported deterioration.",
+    "Consulted the prescriber, recommended follow-up, and screened for adverse effects.",
+  ])(
+    "omits newly recognised action/population content when an overlong primary field would truncate it: %s",
+    (tail) => {
+      const source = evidence("expanded-primary-signals", `${"Neutral background. ".repeat(180)} ${tail}`);
+      const pack = packClaimOrientedContext({
+        ...trustedAdmission(),
+        selections: [selection("population", [source])],
+        coverage: coverage(["population"]),
+        tokenBudget: 2_000,
+      });
+
+      expect(packedEvidenceResults(pack)).toEqual([]);
+    },
+  );
+
+  it("omits newly recognised action/population content when an overlong secondary field would truncate it", () => {
+    const source = evidence("expanded-secondary-signals", "Current contextual evidence.", {
+      retrieval_synopsis: `${"Neutral background. ".repeat(90)} Provide support to newborns in NICU and notify the neonatal team.`,
+    });
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("population", [source])],
+      coverage: coverage(["population"]),
+      tokenBudget: 2_000,
+    });
+
+    expect(packedEvidenceResults(pack)).toEqual([]);
+  });
+
+  it("serializes decisive non-rich table cell context intact or omits the whole group", () => {
+    const decisive = "For newborns in NICU, notify neonatology and provide respiratory support.";
+    const source = evidence("non-rich-table-cells", "See the current escalation table.", {
+      table_facts: [
+        {
+          id: "non-rich-table-fact",
+          document_id: "doc-guideline",
+          source_chunk_id: "non-rich-table-cells",
+          source_image_id: null,
+          page_number: 1,
+          table_title: "Escalation",
+          row_label: "Neonatal",
+          clinical_parameter: "Respiratory distress",
+          threshold_value: null,
+          action: null,
+          metadata: { cells: ["Population: newborn in NICU", decisive] },
+        },
+      ],
+    });
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("table", [source])],
+      coverage: coverage(["table"]),
+      queryClass: "document_lookup",
+      tokenBudget: 2_000,
+    });
+    const results = packedEvidenceResults(pack);
+    const rendered = buildPackedRagSourceBlock(pack.groups, { queryClass: "document_lookup" });
+
+    expect(results.map((result) => result.id)).toEqual([source.id]);
+    expect(rendered).toContain(decisive);
+    expect(rendered).toContain("Population: newborn in NICU");
+  });
+
+  it("omits a non-rich table group when bounded cell context would truncate its decisive tail", () => {
+    const source = evidence("overlong-non-rich-table-cells", "See the current escalation table.", {
+      table_facts: [
+        {
+          id: "overlong-non-rich-table-fact",
+          document_id: "doc-guideline",
+          source_chunk_id: "overlong-non-rich-table-cells",
+          source_image_id: null,
+          page_number: 1,
+          table_title: "Escalation",
+          row_label: "Neonatal",
+          clinical_parameter: "Respiratory distress",
+          threshold_value: null,
+          action: null,
+          metadata: {
+            cells: [
+              "Population: newborn in NICU",
+              `${"Neutral table context. ".repeat(70)} Notify neonatology and provide respiratory support.`,
+            ],
+          },
+        },
+      ],
+    });
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("table", [source])],
+      coverage: coverage(["table"]),
+      queryClass: "document_lookup",
+      tokenBudget: 2_000,
+    });
+
+    expect(packedEvidenceResults(pack)).toEqual([]);
+  });
+
   it("reconciles packed selections and downstream outputs to the exact admitted corpus", async () => {
     const admitted = evidence("admitted", "Admitted treatment action.", { document_id: "doc-admitted" });
     const omitted = evidence("omitted", `${"Large omitted background. ".repeat(180)} Stop for unique omitted claim.`, {
@@ -870,7 +1045,7 @@ describe("claim-oriented context packing", () => {
     expect(packed.served.coverageSelections[0]?.orderedEvidence.map((result) => result.id)).toEqual(["admitted"]);
   });
 
-  it("uses the predecessor loader unchanged when governed packing is inapplicable", async () => {
+  it("loads and deduplicates legacy adjacent context for both served and retry selections", async () => {
     const source = evidence("legacy-source", "Legacy input.");
     const selectionResults = [source];
     const loaded = [{ ...source, adjacent_context: "Legacy adjacent context." }];
@@ -887,9 +1062,16 @@ describe("claim-oriented context packing", () => {
       },
     });
 
-    const result = await packForGeneration({ results: selectionResults, coverageSelections: [], coverage: null });
+    const legacySelection = { results: selectionResults, coverageSelections: [], coverage: null };
+    const result = await packModelContextEvidencePair(
+      { served: legacySelection, strongRetry: { ...legacySelection } },
+      packForGeneration,
+    );
 
-    expect(result).toBe(loaded);
+    expect(result.served.results).toBe(loaded);
+    expect(result.strongRetry.results).toBe(loaded);
+    expect(result.served.results[0]?.adjacent_context).toBe("Legacy adjacent context.");
+    expect(result.strongRetry.results[0]?.adjacent_context).toBe("Legacy adjacent context.");
     expect(calls).toBe(1);
   });
 });

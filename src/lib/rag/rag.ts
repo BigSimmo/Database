@@ -2628,7 +2628,12 @@ async function answerQuestionWithScopeUncoalesced(
     ...contextPackerOptions,
     loadLegacy: async (legacyResults) => legacyResults,
   });
-  const packedRouteSelection = await packModelContextEvidence(routeSelection, packGovernedContext);
+  const useGovernedContextPacking = Boolean(
+    args.ragRequestContext?.snapshotCacheKey && governedContextPackingApplies(routeSelection),
+  );
+  const packedRouteSelection = useGovernedContextPacking
+    ? await packModelContextEvidence(routeSelection, packGovernedContext)
+    : routeSelection;
   const answerInputResults = packedRouteSelection.results;
   let coverageSelections: CoverageEvidenceSelection[] = packedRouteSelection.coverageSelections;
   const crossDocumentFusionBrief = crossDocumentPlan.enabled
@@ -2778,7 +2783,7 @@ async function answerQuestionWithScopeUncoalesced(
       results: planResults,
       routeMode: mode,
       routeReason: reason,
-      conflictsOrGaps,
+      conflictsOrGaps: buildSelectedEvidenceArtifacts(answerFocusQuery, planResults).conflictsOrGaps,
       retrievalStrategy: search.telemetry.retrieval_strategy,
       preferredResponseMode: reason.includes("validated_admission_discharge_extractive_first")
         ? "multi_document_synthesis"
@@ -3126,7 +3131,7 @@ async function answerQuestionWithScopeUncoalesced(
         finalizedAnswer.routingReason?.match(/\bfinal_quality_gate:([^;]+)/)?.[1] ??
         "ungrounded_extractive_answer";
       const reviewRouteReason = `${finalizedAnswer.routingReason ?? answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}; extractive_quality_gate:${extractiveQualityReason}`;
-      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason, extractiveContextResults);
       finalizedAnswer = finalizeAnswer({
         ...answer,
         answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
@@ -3279,7 +3284,7 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
   const openAIRequestIds: string[] = [];
   let answerRetryCount = 0;
   const answerRetryReasons: string[] = [];
-  const packContextForGeneration = governedContextPackingApplies(routeSelection)
+  const packContextForGeneration = useGovernedContextPacking
     ? packGovernedContext
     : createGenerationContextPacker({
         ...contextPackerOptions,
@@ -3377,7 +3382,6 @@ ${qualityRetryInstruction}`
     });
   }
 
-  /** Summarize generation failure reason. */
   function summarizeGenerationFailureReason(error: unknown) {
     const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim();
     const normalized = message.toLowerCase();
@@ -3495,7 +3499,7 @@ ${qualityRetryInstruction}`
     snapshot: args.ragRequestContext?.snapshot,
   });
   const { served: modelContextSelection, strongRetry: strongRetryContextSelection } =
-    await packModelContextEvidencePair(selectedContextPair, packContextForGeneration);
+    await packModelContextEvidencePair(selectedContextPair, packContextForGeneration, useGovernedContextPacking);
   const modelContextResults = modelContextSelection.results;
   const strongRetryContextResults = strongRetryContextSelection.results;
   coverageSelections = modelContextSelection.coverageSelections;
@@ -4070,11 +4074,7 @@ ${qualityRetryInstruction}`
     if (extractiveFallbackAnswer && referencesAdjacentGenerationBandConflict(extractiveFallbackAnswer)) {
       extractiveFallbackAnswer = null;
     }
-    // Generated synthesis has already failed, so do not stitch dose or threshold figures
-    // across fallback chunks. Prefer an individually complete candidate that passes every
-    // extractive and numeric safety gate — and among those, one whose answer carries the
-    // asked-for dose/monitoring figure, so a figure-less chunk that happens to rank first
-    // cannot displace a verbatim-supported dose or schedule.
+    // After generated synthesis fails, use only independently safe chunks; never stitch clinical figures.
     if (
       canRecoverGenerationErrorExtractively &&
       (queryClass === "medication_dose_risk" || queryClass === "table_threshold")
@@ -4152,7 +4152,7 @@ ${qualityRetryInstruction}`
               SOURCE_BACKED_REVIEW_FALLBACK_REASON,
               `extractive_quality_gate:${sourceBackedReviewReason}`,
             ].join("; ");
-            const reviewPlan = buildCurrentSmartApiPlan("unsupported", reviewRouteReason);
+            const reviewPlan = buildCurrentSmartApiPlan("unsupported", reviewRouteReason, generationFallbackResults);
             return {
               ...baseFallbackAnswer,
               answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
@@ -4181,7 +4181,7 @@ ${qualityRetryInstruction}`
         SOURCE_BACKED_REVIEW_FALLBACK_REASON,
         "post_generation_claim_quality_gate",
       ].join("; ");
-      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason, generationFallbackResults);
       fallbackAnswer = finalizeAnswer(
         annotateAnswerWithDiagnostics(
           {

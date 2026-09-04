@@ -20,6 +20,7 @@ import {
   estimatePackedRagSourceBlockTokens,
   ragSerializedClinicalEvidenceText,
   ragSourceSerializationPreservesAtomicEvidence,
+  ragTableSnippetTextForFact,
 } from "@/lib/rag/rag-source-block";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { searchResultEligibilityForClaim, sourceRoleEligibleForClaim } from "@/lib/source-role-policy";
@@ -124,7 +125,7 @@ function sanitizeStructuredTableFacts(result: SearchResult): SearchResult {
     (fact) =>
       Boolean(fact.row_label?.trim()) &&
       Boolean(fact.clinical_parameter?.trim()) &&
-      Boolean(fact.threshold_value?.trim() || fact.action?.trim()),
+      Boolean(fact.threshold_value?.trim() || fact.action?.trim() || ragTableSnippetTextForFact(result, fact)),
   );
   return tableFacts.length === result.table_facts.length ? result : { ...result, table_facts: tableFacts };
 }
@@ -484,19 +485,22 @@ export function governedContextPackingApplies(selection: ModelContextEvidenceSel
 export async function packModelContextEvidence(
   selection: ModelContextEvidenceSelection,
   pack: (selection: ModelContextEvidenceSelection) => Promise<SearchResult[]>,
+  governed = governedContextPackingApplies(selection),
 ) {
-  if (!governedContextPackingApplies(selection)) return selection as PackedModelContextEvidenceSelection;
-  return reconcilePackedSelection(selection, await pack(selection));
+  const packSelection = governed ? selection : { ...selection, coverageSelections: [], coverage: null };
+  const results = await pack(packSelection);
+  return governed ? reconcilePackedSelection(selection, results) : { ...selection, results };
 }
 
 /** Pack served and retry selections through the same authority before any generation-visible use. */
 export async function packModelContextEvidencePair(
   pair: { served: ModelContextEvidenceSelection; strongRetry: ModelContextEvidenceSelection },
   pack: (selection: ModelContextEvidenceSelection) => Promise<SearchResult[]>,
+  governed = governedContextPackingApplies(pair.served),
 ) {
   return {
-    served: await packModelContextEvidence(pair.served, pack),
-    strongRetry: await packModelContextEvidence(pair.strongRetry, pack),
+    served: await packModelContextEvidence(pair.served, pack, governed),
+    strongRetry: await packModelContextEvidence(pair.strongRetry, pack, governed),
   };
 }
 
