@@ -3091,14 +3091,15 @@ async function answerQuestionWithScopeUncoalesced(
         failClosedWithoutSourceBoundAnswer: isAdmissionDischargeRequirementsComparisonQuery(args.query, queryClass),
         timings: extractiveTimings,
       });
+    const extractiveBasePlan = buildCurrentSmartApiPlan("extractive", route.reason, extractiveContextResults);
     const extractiveSmartApiPlan = sourceBoundAdmissionDischargeAnswer
       ? {
-          ...smartApiPlan,
+          ...extractiveBasePlan,
           displayMode: "checklist" as const,
           answerFocus:
             "Present one directly supported admission requirement and one directly supported discharge requirement from distinct documents.",
         }
-      : smartApiPlan;
+      : extractiveBasePlan;
     const answer: RagAnswer = annotateAnswerWithDiagnostics(sourceSafeComparisonAnswer, retrievalDiagnostics);
     answer.quoteCards ??= extractiveContextArtifacts.quoteCards;
     answer.documentBreakdown ??= extractiveContextArtifacts.documentBreakdown;
@@ -3201,8 +3202,8 @@ async function answerQuestionWithScopeUncoalesced(
     routeDeadline.dispose();
     return finalizedAnswer;
   }
-
   function buildAnswerInput(contextResults: SearchResult[]) {
+    const contextSmartApiPlan = buildCurrentSmartApiPlan(route.mode, route.reason, contextResults);
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
     const fusedBrief = crossDocumentPlan.enabled
       ? buildCrossDocumentFusionBrief(answerFocusQuery, contextResults).text
@@ -3221,19 +3222,19 @@ async function answerQuestionWithScopeUncoalesced(
     );
     const answerCoveragePlan = coverageFor(contextResults);
     const internalSmartAnswerPlan = answerCoveragePlan
-      ? adaptSmartAnswerPlanForCoverage(smartApiPlan.answerPlan, answerCoveragePlan)
-      : smartApiPlan.answerPlan;
+      ? adaptSmartAnswerPlanForCoverage(contextSmartApiPlan.answerPlan, answerCoveragePlan)
+      : contextSmartApiPlan.answerPlan;
     const interpretedTask = [
-      `intent: ${smartApiPlan.intent}`,
+      `intent: ${contextSmartApiPlan.intent}`,
       `query_class: ${queryClass}`,
-      `answer_focus: ${smartApiPlan.answerFocus}`,
+      `answer_focus: ${contextSmartApiPlan.answerFocus}`,
       `answer_scope: ${
         isSimpleDirectQuestion(args.query, queryClass)
           ? "simple direct question: answer only the definition or direct fact requested; do not broaden into management unless asked"
           : "use the question wording to decide the necessary clinical scope"
       }`,
       relatedInformationMenuLine(queryClass, queryAnalysis.intent),
-      `display_mode: ${smartApiPlan.displayMode}`,
+      `display_mode: ${contextSmartApiPlan.displayMode}`,
       `route: ${route.mode} (${route.reason})`,
       `answer_plan.intent: ${internalSmartAnswerPlan.intent}`,
       `answer_plan.route_mode: ${internalSmartAnswerPlan.routeMode}`,
@@ -3242,20 +3243,20 @@ async function answerQuestionWithScopeUncoalesced(
       `answer_plan.coverage_behavior: ${"coverageBehavior" in internalSmartAnswerPlan ? internalSmartAnswerPlan.coverageBehavior : "unavailable"}`,
       `answer_plan.source_policy_review: ${"sourcePolicyReview" in internalSmartAnswerPlan ? internalSmartAnswerPlan.sourcePolicyReview : "none"}`,
       `answer_plan.retrieval_intent: ${
-        Object.entries(smartApiPlan.answerPlan.retrievalIntent)
+        Object.entries(internalSmartAnswerPlan.retrievalIntent)
           .filter(([, value]) => value === true)
           .map(([key]) => key)
           .join(", ") || "none"
       }`,
       `answer_plan.required_retrieval_signals: ${
-        smartApiPlan.answerPlan.retrievalIntent.requiredTermSignals.join(", ") || "none"
+        internalSmartAnswerPlan.retrievalIntent.requiredTermSignals.join(", ") || "none"
       }`,
       `answer_plan.source_selection: required_signals_satisfied=${
-        smartApiPlan.answerPlan.sourceSelection.requiredSignalsSatisfied
-      }; matched=${smartApiPlan.answerPlan.sourceSelection.matchedSignals.join(", ") || "none"}; missing=${
-        smartApiPlan.answerPlan.sourceSelection.missingRequiredSignals.join(", ") || "none"
+        internalSmartAnswerPlan.sourceSelection.requiredSignalsSatisfied
+      }; matched=${internalSmartAnswerPlan.sourceSelection.matchedSignals.join(", ") || "none"}; missing=${
+        internalSmartAnswerPlan.sourceSelection.missingRequiredSignals.join(", ") || "none"
       }`,
-      `answer_plan.source_policy: ${smartApiPlan.answerPlan.sourcePolicy}`,
+      `answer_plan.source_policy: ${internalSmartAnswerPlan.sourcePolicy}`,
       answerCoveragePlan ? formatAnswerCoveragePromptLine(answerCoveragePlan) : "answer_plan.coverage: unavailable",
       `quality_gate: ${internalSmartAnswerPlan.qualityCriteria.join(", ")}`,
       `fallback_behavior: ${internalSmartAnswerPlan.fallbackBehavior}`,
@@ -3275,7 +3276,6 @@ Sources:
 ${crossDocumentContext ? `${crossDocumentContext}\n\n` : ""}
 ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`;
   }
-
   let generationLatencyMs = 0;
   let modelUsed = route.model;
   let routingReason = route.reason;

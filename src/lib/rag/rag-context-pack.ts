@@ -330,7 +330,7 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
     }
   }
 
-  const candidates = coalesceAdjacentGroups(groups.map(refreshGroup));
+  const candidates = groups.map(refreshGroup);
   const units: PackedEvidenceGroup[][] = [];
   const unitById = new Map<string, PackedEvidenceGroup[]>();
   for (const candidate of candidates) {
@@ -375,12 +375,13 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
     }
     if (
       firstAllocationCeiling !== undefined &&
-      estimatePackedRagSourceBlockTokens(missing, { queryClass: input.queryClass }) > firstAllocationCeiling
+      estimatePackedRagSourceBlockTokens(coalesceAdjacentGroups(missing), { queryClass: input.queryClass }) >
+        firstAllocationCeiling
     ) {
       unit.forEach((group) => omittedIds.add(group.id));
       return false;
     }
-    const trial = [...selected, ...missing];
+    const trial = coalesceAdjacentGroups([...selected, ...missing]);
     if (estimatePackedRagSourceBlockTokens(trial, { queryClass: input.queryClass }) > Math.max(0, input.tokenBudget)) {
       unit.forEach((group) => omittedIds.add(group.id));
       return false;
@@ -405,8 +406,9 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
   }
   for (const unit of units) tryAdd(unit);
 
-  const usedTokens = selected.length
-    ? estimatePackedRagSourceBlockTokens(selected, { queryClass: input.queryClass })
+  const packedGroups = coalesceAdjacentGroups(selected);
+  const usedTokens = packedGroups.length
+    ? estimatePackedRagSourceBlockTokens(packedGroups, { queryClass: input.queryClass })
     : 0;
   const packId = `context-pack:${stableHash({
     version: ragContextPackVersion,
@@ -415,10 +417,10 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
     planVersion: input.planVersion ?? "unknown-plan",
     snapshotIdentity: ragContextSnapshotCacheKey(input.snapshot),
     accessScope: stableHash(retrievalAccessScopeKey(input.accessScope)),
-    groupIds: selected.map((group) => group.id),
+    groupIds: packedGroups.map((group) => group.id),
     omittedGroupIds: [...omittedIds],
   }).slice(0, 32)}`;
-  return { packId, groups: selected, usedTokens, omittedOptionalGroupIds: [...omittedIds] };
+  return { packId, groups: packedGroups, usedTokens, omittedOptionalGroupIds: [...omittedIds] };
 }
 
 export function packedEvidenceResults(pack: ClaimOrientedContextPack) {
@@ -552,6 +554,7 @@ export function packedContextCacheKey(
     identity: resultIdentity(result),
     role: result.source_metadata?.source_role ?? null,
     currentness: result.source_metadata?.document_status ?? null,
+    evidenceFamilyIds: [...evidenceFamilyIdsForResult(result)].sort(),
     serializedInputHash: stableHash(
       buildPackedRagSourceBlock([
         refreshGroup({

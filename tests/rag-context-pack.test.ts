@@ -560,6 +560,62 @@ describe("claim-oriented context packing", () => {
     expect(pack.usedTokens).toBeLessThanOrEqual(600);
   });
 
+  it("reserves a fitting required singleton before an oversized adjacent chunk", () => {
+    const required = evidence("required-singleton", "Use the required treatment action.", { chunk_index: 5 });
+    const oversizedAdjacent = evidence(
+      "oversized-adjacent",
+      `Context ${"background ".repeat(100)}that is not required to answer the question.`,
+      { chunk_index: 6 },
+    );
+    const requiredOnly = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("treatment", [required])],
+      coverage: coverage(["treatment"]),
+      tokenBudget: 2_000,
+    });
+    const tokenBudget = requiredOnly.usedTokens + 8;
+
+    expect(
+      estimatePackedRagSourceBlockTokens(
+        packClaimOrientedContext({
+          ...trustedAdmission(),
+          selections: [selection("treatment", [required, oversizedAdjacent])],
+          coverage: coverage(["treatment"]),
+          tokenBudget: 2_000,
+        }).groups,
+      ),
+    ).toBeGreaterThan(tokenBudget);
+
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("treatment", [required, oversizedAdjacent])],
+      coverage: coverage(["treatment"]),
+      tokenBudget,
+    });
+
+    expect(packedEvidenceResults(pack).map((result) => result.id)).toEqual([required.id]);
+    expect(pack.groups.flatMap((group) => group.subquestionIds)).toContain("treatment");
+    expect(pack.usedTokens).toBeLessThanOrEqual(tokenBudget);
+  });
+
+  it("preserves a required singleton when adjacent evidence cannot be serialized losslessly", () => {
+    const required = evidence("required-before-lossy", "Use the required treatment action.", { chunk_index: 8 });
+    const lossyAdjacent = evidence(
+      "lossy-adjacent",
+      `${"Neutral background. ".repeat(180)} For newborns, notify the neonatal team immediately.`,
+      { chunk_index: 9 },
+    );
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("treatment", [required, lossyAdjacent])],
+      coverage: coverage(["treatment"]),
+      tokenBudget: 2_000,
+    });
+
+    expect(packedEvidenceResults(pack).map((result) => result.id)).toEqual([required.id]);
+    expect(pack.groups.flatMap((group) => group.subquestionIds)).toContain("treatment");
+  });
+
   it("uses content-free versioned identities and never exceeds the route ceiling", () => {
     const rawQuestion = "private pregnancy wording 7461";
     const source = evidence("identity", "Current public clinical guidance.");
@@ -679,6 +735,55 @@ describe("claim-oriented context packing", () => {
         selections: [conflictedSelection],
       }),
     ).not.toBe(requiredKey);
+  });
+
+  it("partitions governed cache identity and reuse by evidence-family lineage", async () => {
+    const original = evidence("lineage-cache", "Use the current treatment action.", {
+      contentHash: "shared-content-hash",
+    });
+    const changedLineage = {
+      ...original,
+      source_metadata: {
+        ...original.source_metadata!,
+        site_content_lineage: [
+          { sourceId: "upstream-guideline", sourceHash: "upstream-hash", relationship: "derived_from" as const },
+        ],
+      },
+    };
+    const answerCoverage = coverage(["treatment"]);
+    const identityFor = (result: SearchResult) => ({
+      coverage: answerCoverage,
+      selections: [selection("treatment", [result])],
+      planVersion: "rag-query-plan-v1",
+      ...trustedAdmission(),
+    });
+    const originalKey = packedContextCacheKey([original], "document_lookup", identityFor(original));
+    const changedKey = packedContextCacheKey([changedLineage], "document_lookup", identityFor(changedLineage));
+    let cacheHits = 0;
+    const pack = createGenerationContextPacker({
+      queryClass: "document_lookup",
+      crossDocument: false,
+      planVersion: "rag-query-plan-v1",
+      ...trustedAdmission(),
+      loadLegacy: async (results) => results,
+      onCacheHit: () => {
+        cacheHits += 1;
+      },
+    });
+    const modelSelectionFor = (result: SearchResult) => ({
+      results: [result],
+      coverageSelections: [selection("treatment", [result])],
+      coverage: answerCoverage,
+    });
+
+    await pack(modelSelectionFor(original));
+    await pack(modelSelectionFor(changedLineage));
+
+    expect(changedKey).not.toBe(originalKey);
+    expect(cacheHits).toBe(0);
+    expect(packedContextCacheKey([changedLineage], "document_lookup")).toBe(
+      packedContextCacheKey([original], "document_lookup"),
+    );
   });
 
   it("fails closed when authoritative owner or generation admission is absent", () => {

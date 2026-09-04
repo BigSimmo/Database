@@ -143,6 +143,7 @@ async function answerFromTextSources(
       index_generation_id?: string | null;
     }>;
     forceExtractiveResultIds?: string[];
+    forceModelContextResultIds?: string[];
     forceGenerationFallbackResultIds?: string[];
     forceGenerationRoute?: boolean;
   } = {},
@@ -341,8 +342,9 @@ async function answerFromTextSources(
       };
     });
   }
+  const forcedModelContextResultIds = options.forceModelContextResultIds;
   const forcedGenerationFallbackResultIds = options.forceGenerationFallbackResultIds;
-  if (forcedGenerationFallbackResultIds) {
+  if (forcedModelContextResultIds || forcedGenerationFallbackResultIds) {
     vi.doMock("@/lib/rag/rag-context-pack", async () => {
       const actual = await vi.importActual<typeof import("../src/lib/rag/rag-context-pack")>(
         "../src/lib/rag/rag-context-pack",
@@ -355,12 +357,23 @@ async function answerFromTextSources(
           governed: Parameters<typeof actual.packModelContextEvidencePair>[2],
         ) => {
           const packed = await actual.packModelContextEvidencePair(pair, pack, governed);
-          const admittedIds = new Set(forcedGenerationFallbackResultIds);
+          const servedIds = forcedModelContextResultIds ? new Set(forcedModelContextResultIds) : null;
+          const strongRetryIds = forcedGenerationFallbackResultIds
+            ? new Set(forcedGenerationFallbackResultIds)
+            : servedIds;
           return {
             ...packed,
+            served: servedIds
+              ? {
+                  ...packed.served,
+                  results: packed.served.results.filter((result) => servedIds.has(result.id)),
+                }
+              : packed.served,
             strongRetry: {
               ...packed.strongRetry,
-              results: packed.strongRetry.results.filter((result) => admittedIds.has(result.id)),
+              results: strongRetryIds
+                ? packed.strongRetry.results.filter((result) => strongRetryIds.has(result.id))
+                : packed.strongRetry.results,
             },
           };
         },
@@ -2378,6 +2391,108 @@ describe("RAG structured-output fallback", () => {
     expect(answer.smartApiPlan?.answerPlan.sourceSelection.selectedCount).toBe(1);
     expect(answer.smartApiPlan?.answerPlan.sourcePolicy).toBe("exact_source_links");
     expect(JSON.stringify(answer.smartApiPlan)).not.toMatch(/PACKED_NOT_SERVED|packed-not-served/);
+  });
+
+  it("builds successful extractive Smart API metadata from only the delivered evidence", async () => {
+    const served = source({
+      id: "served-clozapine-threshold",
+      document_id: "served-clozapine-document",
+      title: "Clozapine Monitoring",
+      file_name: "clozapine-monitoring.pdf",
+      page_number: 4,
+      section_heading: "ANC thresholds",
+      content: "The clozapine ANC threshold is below 1.5 x 10^9/L; withhold clozapine and repeat FBC.",
+      table_facts: [
+        {
+          id: "served-clozapine-threshold-fact",
+          document_id: "served-clozapine-document",
+          source_chunk_id: "served-clozapine-threshold",
+          source_image_id: null,
+          page_number: 4,
+          table_title: "Clozapine ANC thresholds",
+          row_label: "ANC below 1.5",
+          clinical_parameter: "ANC",
+          threshold_value: "below 1.5 x 10^9/L",
+          action: "Withhold clozapine and repeat FBC.",
+        },
+      ],
+    });
+    const packedButNotDelivered = source({
+      id: "successful-extractive-sentinel",
+      document_id: "successful-extractive-sentinel-document",
+      title: "SUCCESSFUL_EXTRACTIVE_SENTINEL_TITLE",
+      file_name: "successful-extractive-sentinel.pdf",
+      section_heading: "ANC monitoring table",
+      content:
+        "SUCCESSFUL_EXTRACTIVE_SENTINEL_SNIPPET describes a clozapine ANC and FBC monitoring table without the requested threshold.",
+      similarity: 0.96,
+      hybrid_score: 0.96,
+      text_rank: 1.05,
+    });
+    const query = "What ANC threshold does the clozapine table show?";
+    const answer = await answerFromTextSources(query, [served, packedButNotDelivered], undefined, {
+      forceExtractiveResultIds: [served.id],
+    });
+    const servedOnly = await answerFromTextSources(query, [served], undefined, {
+      forceExtractiveResultIds: [served.id],
+    });
+
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
+    expect(answer.smartApiPlan).toEqual(servedOnly.smartApiPlan);
+    expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([served.id]);
+    expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
+    expect(answer.smartApiPlan?.answerPlan.sourceSelection.selectedCount).toBe(1);
+    expect(JSON.stringify(answer.smartApiPlan)).not.toMatch(
+      /SUCCESSFUL_EXTRACTIVE_SENTINEL|successful-extractive-sentinel/,
+    );
+  });
+
+  it("builds generation prompt planning metadata from the exact model context", async () => {
+    const served = source({
+      id: "generation-context-served",
+      document_id: "generation-context-served-document",
+      title: "Clozapine monitoring guidance",
+      file_name: "clozapine-monitoring.pdf",
+      section_heading: "Monitoring",
+      content: "Clozapine monitoring requires regular clinical review and documented follow-up.",
+    });
+    const routeOnlySentinel = source({
+      id: "generation-context-route-only-sentinel",
+      document_id: "generation-context-route-only-document",
+      title: "GENERATION_CONTEXT_ROUTE_ONLY_TITLE",
+      file_name: "generation-context-route-only.pdf",
+      section_heading: "ANC and FBC",
+      content: "GENERATION_CONTEXT_ROUTE_ONLY_SNIPPET mentions ANC and FBC monitoring.",
+      similarity: 0.2,
+      hybrid_score: 0.2,
+      text_rank: 0.01,
+    });
+    const query = "What ANC and FBC monitoring is required for clozapine?";
+    const routeWideInputs: string[] = [];
+    const servedOnlyInputs: string[] = [];
+
+    await answerFromTextSources(query, [served, routeOnlySentinel], new Error("provider unavailable"), {
+      forceGenerationRoute: true,
+      forceModelContextResultIds: [served.id],
+      captureInput: (input) => routeWideInputs.push(input),
+    });
+    await answerFromTextSources(query, [served], new Error("provider unavailable"), {
+      forceGenerationRoute: true,
+      forceModelContextResultIds: [served.id],
+      captureInput: (input) => servedOnlyInputs.push(input),
+    });
+
+    const planningLines = (input: string) =>
+      input
+        .split("\n")
+        .filter((line) =>
+          /^answer_plan\.(?:retrieval_quality|source_selection|source_policy):|^source_count:/.test(line),
+        );
+    expect(routeWideInputs).toHaveLength(1);
+    expect(servedOnlyInputs).toHaveLength(1);
+    expect(planningLines(routeWideInputs[0]!)).toEqual(planningLines(servedOnlyInputs[0]!));
+    expect(routeWideInputs[0]).toContain(`valid_evidence_chunk_ids: ${served.id}`);
+    expect(routeWideInputs[0]).not.toMatch(/GENERATION_CONTEXT_ROUTE_ONLY|generation-context-route-only/);
   });
 
   it("does not answer FBC withhold-threshold lookups from generic monitoring timing facts", async () => {
