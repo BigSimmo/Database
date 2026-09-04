@@ -128,13 +128,46 @@ const stageIcons = {
  * substituting `openedAt` or `now`: a completed step whose time nobody recorded says so in words
  * on screen. A guessed instant would be indistinguishable from a recorded one.
  */
-function stageReachedAt(movement: Movement, stage: MovementStage): Instant | undefined {
-  const recorded = movement.stageChanges.find((change) => change.to === stage);
+/**
+ * Exported ONLY so `tests/ward-stage-reached-at.test.ts` can drive the real function.
+ *
+ * ⚠️ IT WAS PRIVATE, AND THE TEST MIRRORED IT — WHICH GUARDED NOTHING. A re-implementation
+ * agrees with itself forever: reverting either decision below left every behavioural assertion
+ * green, because they were exercising the copy. Measured, not assumed — the mutation caught only
+ * the source-text pin. Exporting deletes the mirror and the whole class of drift with it.
+ */
+export function stageReachedAt(movement: Movement, stage: MovementStage): Instant | undefined {
+  /*
+   * 🔴 `findLast`, NOT `find` — THE CURRENT VISIT, NOT THE FIRST ONE EVER.
+   *
+   * A movement can return to an earlier stage and reach it again: accept, withdraw the acceptance,
+   * re-refer, re-accept. `find` returns the FIRST `accepted_awaiting_bed` transition, so the
+   * current-step sentence dated the movement from the decision that was WITHDRAWN, while
+   * `acceptedAt` beside it held the newer one. Two fields on one screen disagreeing, with the
+   * older one presented as the current state.
+   */
+  const recorded = movement.stageChanges.findLast((change) => change.to === stage);
   if (recorded) return recorded.at;
   if (stage === "placement_requested") return movement.openedAt;
   if (stage === "destination_review") return movement.referredAt;
   if (stage === "accepted_awaiting_bed") return movement.acceptedAt;
-  if (stage === "moving") return movement.transport?.enRouteAt ?? movement.transport?.collectedAt;
+  /*
+   * 🔴 `collectedAt`, NOT `enRouteAt`. The reducer enters `moving` on `PATIENT_COLLECTED`
+   * (ward-flow-reducer.ts case at 1584, `stage: "moving"` at 1595) — never on
+   * `TRANSPORT_EN_ROUTE`, which leaves the movement at `handover_ready`. So `enRouteAt` is the
+   * time the CREW set off, not the time the PATIENT began moving, and it is always the earlier of
+   * the two.
+   *
+   * Measured on the seeded fixture: three movements carry both and all three differ —
+   * WF-006 en route -15 / collected -7, WF-007 -25 / -10, WF-014 -10 / -4. The workspace was
+   * claiming WF-006 had been moving for eight minutes longer than it had.
+   *
+   * No fallback to `enRouteAt`: a movement with transport en route but not collected has not
+   * reached `moving` at all, so there is no time to report. `undefined` makes the screen say the
+   * step's time was not recorded, which is true — and the doc comment above is explicit that a
+   * guessed instant would be indistinguishable from a recorded one.
+   */
+  if (stage === "moving") return movement.transport?.collectedAt;
   if (stage === "arrived") {
     if (movement.transport?.arrivedAt !== undefined) return movement.transport.arrivedAt;
     return movement.closure?.outcome === "arrived" ? movement.closure.at : undefined;
