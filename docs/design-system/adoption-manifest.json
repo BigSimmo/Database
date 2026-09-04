@@ -2275,10 +2275,10 @@
         "previewValid": true
       },
       "testFiles": [
-        "tests/answer-source-marks.dom.test.tsx",
         "tests/answer-support-priority.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-smoke.spec.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx"
       ],
       "baseline": {

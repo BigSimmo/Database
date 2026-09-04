@@ -58,7 +58,11 @@ import {
   applyNumericVerification,
   textReferencesAdjacentBandConflict,
 } from "@/lib/answer-verification";
-import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
+import {
+  buildCachedEvidencePreviewProgress,
+  buildEvidencePreviewProgress,
+  type VerifiedUnit,
+} from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
 import { relatedInformationMenuLine } from "@/lib/rag/answer-composition";
@@ -2540,6 +2544,10 @@ async function answerQuestionWithScopeUncoalesced(
       directSourceCount: cachedRelevance.directSourceCount,
       weakSourceCount: cachedRelevance.weakSourceCount,
       relevance: cachedRelevance,
+      // A cache hit returns here without ever reaching the ranking event, so until this the
+      // wait for a repeated question showed no sources at all — the common case for a
+      // reference tool, where the same question recurs on the next patient.
+      ...buildCachedEvidencePreviewProgress({ results: cachedSources, relevance: cachedRelevance }),
     });
     return assessAndEnforceClaimSupport({
       ...cachedAnswer,
@@ -2568,6 +2576,9 @@ async function answerQuestionWithScopeUncoalesced(
       directSourceCount: cachedRelevance.directSourceCount,
       weakSourceCount: cachedRelevance.weakSourceCount,
       relevance: cachedRelevance,
+      // The shared cache survives restarts and spans replicas, so this path is the one a
+      // question asked again hours later takes. It showed no sources either.
+      ...buildCachedEvidencePreviewProgress({ results: cachedSources, relevance: cachedRelevance }),
     });
     return assessAndEnforceClaimSupport({
       ...sharedCachedAnswer,
