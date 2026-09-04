@@ -20,7 +20,7 @@ import { seedWardFlowState, wardFlowReducer, type WardFlowState } from "@/compon
 import { stageReachedAt } from "@/components/ward-management/ward-management-console";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import type { Instant } from "@/components/ward-management/ward-clock";
-import type { Movement, MovementStage } from "@/components/ward-management/ward-model";
+import type { Movement } from "@/components/ward-management/ward-model";
 
 function movementIn(state: WardFlowState, id: string): Movement {
   const found = state.movements.find((candidate) => candidate.id === id);
