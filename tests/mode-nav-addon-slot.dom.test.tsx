@@ -269,6 +269,10 @@ describe("header addon slot ownership", () => {
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
+      // The source record has no section index, so it renders the header's
+      // breadcrumb shape (back, title) straight from the Server Component page
+      // and needs no `*-nav-header.tsx` sibling to carry hooks or icons.
+      "src/components/sources/sources-pages.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
       "src/components/therapy-compass/therapy-record-nav-header.tsx",
     ]);
