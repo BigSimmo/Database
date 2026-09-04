@@ -94,10 +94,22 @@ function medicationsHomeTarget(pathname: string, search: URLSearchParams): strin
   const query = (params.get("q")?.trim() || params.get("query")?.trim()) ?? "";
   const focus = params.get("focus") === "1";
   const submitted = query.length > 0 && params.get("run") === "1";
-
-  if (!submitted) return appModeSelectionHref("prescribing");
-
   const navigationContext = readSearchNavigationContext(params);
+
+  if (!submitted) {
+    // A draft link (e.g. the PWA shortcut's `?focus=1`, or a query typed but not
+    // yet run) still carries navigation context that must survive the redirect —
+    // dropping it here previously erased `focus` and scope context on links like
+    // the manifest shortcut and `?q=…&queryMode=…` drafts.
+    return appModeSelectionHref("prescribing", {
+      query,
+      focus,
+      queryMode: navigationContext.queryMode,
+      scopeFilters: navigationContext.scopeFilters,
+      scopeRef: navigationContext.scopeRef,
+    });
+  }
+
   return appModeHomeHref("prescribing", {
     query,
     focus,

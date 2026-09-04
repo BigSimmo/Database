@@ -55,9 +55,9 @@ export default async function MedicationsHomeRoute({ searchParams }: Medications
   const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
   const focus = firstSearchParam(params.focus) === "1";
   const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
+  const navigationContext = readSearchNavigationContext(searchParamsFromRecord(params));
 
   if (hasSubmittedSearch) {
-    const navigationContext = readSearchNavigationContext(searchParamsFromRecord(params));
     redirect(
       appModeHomeHref("prescribing", {
         query,
@@ -69,6 +69,17 @@ export default async function MedicationsHomeRoute({ searchParams }: Medications
       }),
     );
   } else {
-    redirect(appModeSelectionHref("prescribing"));
+    // A draft link (e.g. the PWA shortcut's `?focus=1`, or a query typed but not
+    // yet run) still carries navigation context that must survive the redirect —
+    // see src/proxy.ts's `medicationsHomeTarget`, which mirrors this exact branch.
+    redirect(
+      appModeSelectionHref("prescribing", {
+        query,
+        focus,
+        queryMode: navigationContext.queryMode,
+        scopeFilters: navigationContext.scopeFilters,
+        scopeRef: navigationContext.scopeRef,
+      }),
+    );
   }
 }
