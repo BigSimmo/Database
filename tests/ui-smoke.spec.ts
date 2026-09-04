@@ -6087,9 +6087,9 @@ test.describe("PsychSift UI smoke coverage", () => {
       "search",
       "openai",
       "worker",
-      // Added by #2590 and missed here, so this assertion has been red on `main` since it merged.
-      // Fixed rather than reported because it is the same author's regression and a one-line
-      // correction — the list is a deliberate enumeration, not a count, so it must name the check.
+      // Added by #2590 and missed here, so this assertion was red on `main` from that merge until
+      // #2593 corrected it. Reached the same fix independently here; the conflict was comment-only.
+      // The list is a deliberate enumeration rather than a count, so it must name the check.
       "answerPreview",
     ]);
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
