@@ -295,15 +295,32 @@ describe("L129: every override in package.json matches a lock entry and has a re
         .filter(([path]) => path === `node_modules/${name}` || path.endsWith(`/node_modules/${name}`))
         .map(([, entry]) => entry.version?.split(".")[0]),
     );
+  const rationaleSection = () => {
+    const doc = read("docs/framework-dependency-modernization-checklist.md");
+    return doc.slice(doc.indexOf("## Overrides"));
+  };
+  // An override may deliberately outlive its lock match: a defensive pre-pin keeps a
+  // major on a patched release for the day a transitive bump reintroduces it. Deleting
+  // one silently drops that protection, so a pre-pin is exempt from the dead-override
+  // rule only while its row in the rationale table is marked `pre-pin` and says why.
+  const prePinned = () =>
+    new Set([...rationaleSection().matchAll(/^\|\s*`([^`]+)`[^|]*\|\s*pre-pin\s*\|/gm)].map((match) => match[1]));
 
-  it("keeps no major-scoped override that matches nothing in the lock", () => {
+  it("keeps no major-scoped override that matches nothing in the lock and is not a recorded pre-pin", () => {
+    const exempt = prePinned();
     const dead = Object.keys(overrides)
       .filter((key) => /^[^@].*@\d+$/.test(key))
+      .filter((key) => !exempt.has(key))
       .filter((key) => {
         const [name, major] = key.split("@");
         return !majorsOf(name).has(major);
       });
     expect(dead).toEqual([]);
+  });
+
+  it("lets a pre-pin claim the exemption only for an override that actually exists", () => {
+    const stray = [...prePinned()].filter((key) => !(key in overrides));
+    expect(stray, "a pre-pin row names an override package.json no longer carries").toEqual([]);
   });
 
   it("records why each override exists in the dependency checklist", () => {
