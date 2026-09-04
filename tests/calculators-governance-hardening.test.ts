@@ -1,5 +1,7 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -154,5 +156,55 @@ describe("calculator governance hardening", () => {
     };
     expect(packageJson.scripts?.["check:calculator-content"]).toBe("node scripts/check-calculator-content.mjs");
     expect(packageJson.scripts?.["verify:cheap:internal"]).toContain("npm run check:calculator-content");
+  });
+
+  it("fails the standalone governance checker on malformed fixture data, not just wiring", () => {
+    // The wiring test above only checks that check-calculator-content.mjs is referenced by name —
+    // an empty no-op script would still pass it. Run the real script against a deliberately
+    // corrupted copy of the content it validates and confirm it actually detects the corruption.
+    const scriptRelPath = "scripts/check-calculator-content.mjs";
+    const filesToCopy = [
+      scriptRelPath,
+      "data/calculators/evidence.json",
+      "data/calculators/golden-vectors.json",
+      "src/components/calculators/calculator-fixtures.ts",
+    ];
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "calculator-governance-"));
+    try {
+      for (const relPath of filesToCopy) {
+        const dest = path.join(tempRoot, relPath);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(path.join(REPO_ROOT, relPath), dest);
+      }
+      const scriptPath = path.join(tempRoot, scriptRelPath);
+
+      // Positive control: an unmodified copy of the real content must still pass, so a failure
+      // below is caused by the corruption, not by a harness bug.
+      const passing = execFileSync(process.execPath, [scriptPath], { encoding: "utf8" });
+      expect(passing).toContain("CALCULATOR_CONTENT_PASS");
+
+      // Corrupt a field the wiring test above never exercises: drop `supersedes` from an
+      // evidence source. A no-op or wiring-only checker would still report success.
+      const evidencePath = path.join(tempRoot, "data/calculators/evidence.json");
+      const evidence = JSON.parse(fs.readFileSync(evidencePath, "utf8")) as {
+        sources: Array<Record<string, unknown>>;
+      };
+      expect(evidence.sources.length).toBeGreaterThan(0);
+      delete evidence.sources[0].supersedes;
+      fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
+
+      let failure: { status: number | null; stderr: string } | undefined;
+      try {
+        execFileSync(process.execPath, [scriptPath], { encoding: "utf8" });
+      } catch (error) {
+        failure = error as { status: number | null; stderr: string };
+      }
+      expect(failure, "malformed fixture data must make the checker fail, not silently pass").toBeTruthy();
+      expect(failure?.status).toBe(1);
+      expect(failure?.stderr).toContain("CALCULATOR_CONTENT_FAIL");
+      expect(failure?.stderr).toContain("missing supersedes key");
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
