@@ -35,6 +35,7 @@ Corrected the verified R3 findings against rejected R2 HEAD `db405bf92dd615a2717
 - `npm run check:maintainability-budgets` — passed; `src/lib/rag/rag.ts` is 4,359/4,362 lines and satisfies the stricter Task 5 ceiling.
 - Scoped Prettier write/check — all correction-owned product and test files use Prettier style.
 - `git diff --check` — passed.
+- The first commit attempt stopped at `docs:check-index` because the hook classified the existing `.superpowers` evidence directory as an unindexed top-level module. It changed no docs. The product commit then used the hook's documented one-commit `SKIP_DOCS_SYNC_HOOK=1` override after the scoped documentation-independent gates above were green.
 
 ## Remaining boundaries
 
