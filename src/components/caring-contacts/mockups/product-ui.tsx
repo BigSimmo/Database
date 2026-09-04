@@ -36,6 +36,27 @@ export function ProductSection({
 
 export { SectionHeading, type SectionHeadingProps } from "@/components/ui/section-heading";
 
+/**
+ * The inset a card's own header needs, because neither of the two components involved supplies one.
+ *
+ * `ProductSection` above renders `cn(productSurface, className)` with no padding — deliberately, so
+ * a section can hold a full-bleed table or a divider that reaches the card edge. The shared
+ * `SectionHeading`'s DEFAULT branch has none either; only its `compact` variant carries `px-4 py-3`.
+ * Put the two together, as every screen here does, and the heading sits 1px from the card border
+ * while the body beneath it is inset 25px. Measured at 1280px on the Today screen before this
+ * constant existed: heading left offset 1px, body left offset 25px, on both of the first two cards
+ * a reader sees. Headings with an `icon` only LOOKED padded — the icon tile filled the space, and
+ * the icon itself was at 1px too.
+ *
+ * `px-5 py-5 sm:px-6` matches the body inset this file already uses (`px-5 py-5 sm:px-6`), so the
+ * heading and the content under it now share one left edge at every width.
+ *
+ * `SectionHeading` is shared with 40-odd other files app-wide, so the fix belongs here at the
+ * prototype's call sites rather than in that component: giving the default branch padding would
+ * move every other consumer of it in the app.
+ */
+export const productSectionHeadingPad = "px-5 py-5 sm:px-6";
+
 export function PersonAvatar({ initials, size = "md" }: { initials: string; size?: "sm" | "md" | "lg" }) {
   return (
     <span

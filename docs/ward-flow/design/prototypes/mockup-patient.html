@@ -1,0 +1,1312 @@
+<title>Patient Record — Ward Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Patient record screen — additions beyond the copied language above.
+     Everything below reuses .panel / .facts / .rows / .row / .chip / .rail /
+     .links / .attention exactly as specified. The few new rules are layout
+     placement or small components the language does not define yet (a
+     medication list, a condition list, the /people/new form fields). No
+     rule below introduces a colour that is not already a var(--…) token.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Explicit two-row placement for the record grid once the rail becomes a
+     third column. Left to the browser's default left-to-right placement,
+     the rail (the 5th item) would land in the middle of row one instead of
+     spanning both rows of content beside it. */
+  @media (min-width: 84rem) {
+    #record-grid {
+      grid-template-areas:
+        "psych meds rail"
+        "medhist referral rail";
+    }
+    #record-grid .gc-psych {
+      grid-area: psych;
+    }
+    #record-grid .gc-meds {
+      grid-area: meds;
+    }
+    #record-grid .gc-medhist {
+      grid-area: medhist;
+    }
+    #record-grid .gc-referral {
+      grid-area: referral;
+    }
+    #record-grid .rail {
+      grid-area: rail;
+    }
+  }
+
+  /* The add-a-person state only ever needs two columns, even on a wide
+     screen — override the shared .grid's 84rem three-column-with-rail step
+     for this one grid, since it has no rail. */
+  @media (min-width: 84rem) {
+    #new-person-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Current medications — the language has no drug-list component yet. */
+  .meds {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .meds li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+    font-size: 0.875rem;
+  }
+  .meds li:first-child {
+    border-top: 0;
+  }
+  .meds .drug {
+    font-weight: 500;
+  }
+  .meds .dose {
+    font-family: "JetBrains Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    font-size: 0.8125rem;
+  }
+
+  /* Past medical history — plain conditions list. No urgency colour: these
+     are administrative facts, not workflow states, so they take no chip. */
+  .conditions {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .conditions li {
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .conditions li:first-child {
+    border-top: 0;
+  }
+  .conditions .onset {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+  }
+
+  /* /people/new form-state mockup */
+  .form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    padding: var(--sp-4);
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+  .field label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .field .hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .field input {
+    font: inherit;
+    font-size: 0.875rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .field input::placeholder {
+    color: var(--faint);
+  }
+  .or-divider {
+    font-size: 0.75rem;
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .primary-action {
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.6rem 1.15rem;
+    cursor: pointer;
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    background: var(--ink);
+    color: var(--ground);
+    align-self: flex-start;
+  }
+  .deferred {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .deferred li {
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .deferred li:first-child {
+    border-top: 0;
+  }
+  .deferred li b {
+    display: block;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    margin-bottom: 0.15rem;
+  }
+  /* ─── this screen only ─── */
+  .identity--end {
+    align-items: flex-end;
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Every figure invented — listed at the foot</span>
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow">Coordinator · Patient record</span>
+      <h1>Marguerite Sowden</h1>
+      <p class="covers">
+        MRN <b class="num">048213</b> &middot; Born <b class="num">14 Mar 1987</b> &middot; Age <b class="num">39</b>
+      </p>
+    </div>
+    <div class="identity identity--end">
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span
+        ><span>Coordinator view<span class="sr"> — full record, including referral history, is visible</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September</span><span aria-hidden="true">&middot;</span
+        ><span>Record last updated 2 days ago</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════ IDENTITY AND KEY FACTS ══════════════
+       Today the model holds only the four fields shown in the masthead
+       above (name, record number, date of birth, age) — hence the sparse
+       screen this mockup replaces. Everything in this panel is the newly
+       approved field set. Every field below, including the last two, sits
+       in the same plain list with no icon, colour or special treatment. -->
+  <section class="panel" aria-labelledby="kf-title">
+    <header><h2 class="panel-title" id="kf-title">Identity and key facts</h2></header>
+    <dl class="facts">
+      <div>
+        <dt>Address</dt>
+        <dd>No. 42, Ashfield</dd>
+      </div>
+      <div>
+        <dt>Suburb</dt>
+        <dd>Ashfield</dd>
+      </div>
+      <div>
+        <dt>Aboriginal or Torres Strait Islander status</dt>
+        <dd>Aboriginal, not Torres Strait Islander</dd>
+      </div>
+      <div>
+        <dt>GP</dt>
+        <dd>Dr A. Fenwick, Ashfield Family Medical</dd>
+      </div>
+      <div>
+        <dt>Interpreter / preferred language</dt>
+        <dd>English &mdash; no interpreter required</dd>
+      </div>
+      <div>
+        <dt>Catchment community team</dt>
+        <dd>Midland</dd>
+      </div>
+      <div>
+        <dt>Open to the team</dt>
+        <dd>Yes &mdash; last contact 8 days ago</dd>
+      </div>
+      <div>
+        <dt>Legal status</dt>
+        <dd>Community Treatment Order, Mental Health Act 2014 (WA) &mdash; review due 18 Sep 2026</dd>
+      </div>
+    </dl>
+  </section>
+
+  <div class="grid" id="record-grid">
+    <section class="panel gc-psych" aria-labelledby="rp-psych">
+      <header>
+        <h2 class="panel-title" id="rp-psych">Past psychiatric history</h2>
+        <span class="n">3 admissions</span>
+      </header>
+      <p class="blurb">Previous admissions to a WA mental health ward, most recent first.</p>
+      <ul class="rows">
+        <li>
+          <a class="row" href="#">
+            <span class="id">14&ndash;29 Aug 2024</span>
+            <span class="path">RPH Adult Secure</span>
+            <span class="wait">15 days</span>
+            <span class="meta"
+              >Involuntary under the Mental Health Act &middot; working diagnosis: acute psychotic episode</span
+            >
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#">
+            <span class="id">2&ndash;11 Feb 2023</span>
+            <span class="path">SCGH Adult Open</span>
+            <span class="wait">9 days</span>
+            <span class="meta"
+              >Voluntary &middot; working diagnosis: major depressive episode with psychotic features</span
+            >
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#">
+            <span class="id">19 Nov&ndash;3 Dec 2021</span>
+            <span class="path">FSH Adult Secure</span>
+            <span class="wait">14 days</span>
+            <span class="meta"
+              >Involuntary under the Mental Health Act &middot; working diagnosis: bipolar affective disorder, manic
+              episode</span
+            >
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel gc-meds" aria-labelledby="rp-meds">
+      <header>
+        <h2 class="panel-title" id="rp-meds">Current medications</h2>
+        <span class="n">3 medications</span>
+      </header>
+      <p class="blurb">As last reconciled.</p>
+      <ul class="meds">
+        <li><span class="drug">Olanzapine</span><span class="dose">10&nbsp;mg nocte</span></li>
+        <li><span class="drug">Sertraline</span><span class="dose">100&nbsp;mg mane</span></li>
+        <li><span class="drug">Metformin</span><span class="dose">500&nbsp;mg twice daily</span></li>
+      </ul>
+    </section>
+
+    <section class="panel gc-medhist" aria-labelledby="rp-medhist">
+      <header>
+        <h2 class="panel-title" id="rp-medhist">Past medical history</h2>
+        <span class="n">3 conditions</span>
+      </header>
+      <ul class="conditions">
+        <li>Type 2 diabetes mellitus<span class="onset">Diagnosed 2019</span></li>
+        <li>Hypertension<span class="onset">Diagnosed 2021</span></li>
+        <li>Asthma<span class="onset">Since childhood &middot; occasional salbutamol use</span></li>
+      </ul>
+    </section>
+
+    <section class="panel gc-referral" aria-labelledby="rp-referral">
+      <header>
+        <h2 class="panel-title" id="rp-referral">Referral history</h2>
+        <span class="n scope-note">Coordinator only</span>
+      </header>
+      <p class="blurb">
+        <b>Not shown to ward staff.</b> A ward can only see referrals into and out of itself; this full cross-service
+        history is visible to coordinators only.
+      </p>
+      <ul class="rows">
+        <li>
+          <a class="row" href="#">
+            <span class="id">RF-041</span>
+            <span class="path">Ashfield<span class="arrow" aria-hidden="true">&rarr;</span>RPH Adult Secure</span>
+            <span class="wait">Aug 2024</span>
+            <span class="chip" data-level="accepted">Accepted</span>
+            <span class="meta">Admitted for 15 days &middot; involuntary</span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#">
+            <span class="id">RF-029</span>
+            <span class="path">Ashfield<span class="arrow" aria-hidden="true">&rarr;</span>Midland Community Team</span>
+            <span class="wait">Sep 2024</span>
+            <span class="chip" data-level="accepted">Accepted</span>
+            <span class="meta">Opened for community follow-up after discharge</span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#">
+            <span class="id">RF-017</span>
+            <span class="path">Ashfield<span class="arrow" aria-hidden="true">&rarr;</span>SCGH Adult Open</span>
+            <span class="wait">Feb 2023</span>
+            <span class="chip" data-level="accepted">Accepted</span>
+            <span class="meta">Admitted for 9 days &middot; voluntary</span>
+          </a>
+        </li>
+        <li>
+          <a class="row" href="#">
+            <span class="id">RF-009</span>
+            <span class="path">Ashfield<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span>
+            <span class="wait">Nov 2021</span>
+            <span class="chip" data-level="accepted">Accepted</span>
+            <span class="meta">Admitted for 14 days &middot; involuntary</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <aside class="rail" aria-label="Actions and attention">
+      <section class="panel" aria-labelledby="rp-att">
+        <header>
+          <h2 class="panel-title" id="rp-att">Needs a decision</h2>
+          <span class="n">2</span>
+        </header>
+        <ul class="attention">
+          <li><span class="who">Legal status</span>Community Treatment Order review is due 18 Sep 2026.</li>
+          <li>
+            <span class="who">GP details</span>Not reconfirmed since 2023 &mdash; worth checking before the next
+            community contact.
+          </li>
+        </ul>
+      </section>
+      <section class="panel" aria-labelledby="rp-go">
+        <header><h2 class="panel-title" id="rp-go">Go to</h2></header>
+        <ul class="links">
+          <li>
+            <a href="#">Refer this patient<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+          <li>
+            <a href="#">Search<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+          <li>
+            <a href="#">Referral board<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+          <li>
+            <a href="#">Edit this record<span class="arr" aria-hidden="true">&rarr;</span></a>
+          </li>
+        </ul>
+      </section>
+      <section class="panel" aria-labelledby="rp-rec">
+        <header><h2 class="panel-title" id="rp-rec">This record</h2></header>
+        <dl class="facts">
+          <div>
+            <dt>Record created</dt>
+            <dd class="num">3 Feb 2019</dd>
+          </div>
+          <div>
+            <dt>Last updated</dt>
+            <dd class="num">2 days ago</dd>
+          </div>
+        </dl>
+      </section>
+    </aside>
+  </div>
+
+  <!-- ══════════════ ALTERNATE STATE — NO PREVIOUS ADMISSION ══════════════
+       Same "Past psychiatric history" panel as above, shown here as a second
+       page-state (same pattern as "/people/new" below) for a patient with no
+       prior admission. This is not an edge case — a large share of
+       psychiatric admissions are a first presentation — and for that patient
+       the absence of history is itself the clinically significant fact. An
+       empty panel is indistinguishable from a panel that failed to load, so
+       the absence is worded as a positive statement, never left blank. -->
+  <div class="masthead" style="margin-top: var(--sp-6)">
+    <div class="identity">
+      <span class="eyebrow">Alternate state · Past psychiatric history</span>
+      <h2 style="font-size: clamp(1.2rem, 1rem + 1vw, 1.6rem)">No previous admission</h2>
+      <p class="covers">The same panel above, shown here for a patient new to inpatient mental health care.</p>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="rp-psych-zero">
+    <header>
+      <h2 class="panel-title" id="rp-psych-zero">Past psychiatric history</h2>
+      <span class="n">None</span>
+    </header>
+    <p class="absent">
+      No previous admission to a WA mental health ward. <b>This is a first presentation</b> &mdash; the absence of
+      history is itself a clinically significant fact, not a sign that the record is incomplete.
+    </p>
+  </section>
+
+  <!-- ══════════════ /people/new — ADDING A NEW PERSON ══════════════
+       A form that demanded the full record above before it would create a
+       person would be unusable in an emergency, so only two things are
+       required: a name (or an alias if the name is not yet known) and
+       either a date of birth or an estimated age. A record number is
+       assigned automatically. Every other field on this page, sensitive
+       fields included, can be added once the record exists. -->
+  <div class="masthead" style="margin-top: var(--sp-6)">
+    <div class="identity">
+      <span class="eyebrow">/people/new</span>
+      <h2 style="font-size: clamp(1.2rem, 1rem + 1vw, 1.6rem)">Adding a new person</h2>
+      <p class="covers">Two fields create the record. Everything else can wait.</p>
+    </div>
+  </div>
+
+  <div class="grid" id="new-person-grid">
+    <section class="panel" aria-labelledby="np-req">
+      <header><h2 class="panel-title" id="np-req">Required to create the record</h2></header>
+      <div class="form-fields">
+        <div class="field">
+          <label for="np-name">Name</label>
+          <input type="text" id="np-name" placeholder="e.g. Jordan Smith &mdash; or an alias if not yet known" />
+        </div>
+        <div class="field">
+          <label for="np-dob">Date of birth</label>
+          <input type="text" id="np-dob" placeholder="DD/MM/YYYY" />
+          <span class="hint">If the date of birth is not known, record an estimated age instead.</span>
+        </div>
+        <span class="or-divider">or</span>
+        <div class="field">
+          <label for="np-age">Estimated age</label>
+          <input type="text" id="np-age" placeholder="e.g. approximately 40" />
+        </div>
+        <div>
+          <button type="button" class="primary-action">Create record</button>
+          <p class="hint" style="margin-top: var(--sp-2)">
+            A record number is assigned automatically once the record is created.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="np-later">
+      <header><h2 class="panel-title" id="np-later">Can be added once the record exists</h2></header>
+      <p class="blurb">
+        None of these block creating the record. Add them from the record screen as soon as they're known &mdash; the
+        point of creating a record quickly is that care can start before the full picture does.
+      </p>
+      <ul class="deferred">
+        <li><b>Address and suburb</b>Determines the person's catchment community team.</li>
+        <li><b>Current community team and whether they are open to it</b></li>
+        <li><b>Past psychiatric history</b>Previous admissions &mdash; when, which ward, working diagnosis.</li>
+        <li><b>Past medical history</b></li>
+        <li><b>Current medications</b></li>
+        <li><b>Legal status under the Mental Health Act</b></li>
+        <li><b>GP</b></li>
+        <li><b>Interpreter or preferred language</b></li>
+        <li><b>Aboriginal or Torres Strait Islander status</b></li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="footnote">
+    <h2>Every figure and every name here is invented</h2>
+    <ul>
+      <li>
+        <b>The patient:</b> "Marguerite Sowden", MRN 048213, date of birth 14 Mar 1987, age 39 &mdash; invented and
+        deliberately unlike any real list.
+      </li>
+      <li>
+        <b>The address:</b> "No. 42" is an invented house number. No street name has been invented for it &mdash; only
+        the suburb, Ashfield, is real (see below).
+      </li>
+      <li>
+        <b>Every clinical fact:</b> the three admission dates, wards stays and working diagnoses; the three medications
+        and doses; the three past medical history entries and their onset years; the legal status, its review date,
+        "open to the team" status and last-contact interval; the GP name and clinic name; the interpreter/language and
+        Aboriginal/Torres Strait Islander status values.
+      </li>
+      <li>
+        <b>All four referral history entries</b> (RF-041, RF-029, RF-017, RF-009), their outcomes and their dates.
+      </li>
+      <li><b>"Record created" and "last updated" dates</b>, and both items in "Needs a decision".</li>
+      <li><b>"Jordan Smith"</b> in the new-person form is placeholder example text, not a record.</li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>The suburb Ashfield and its catchment team, Midland</b> &mdash; a verified pairing from this repository's
+        catchment table (`ward-catchment.ts`).
+      </li>
+      <li>
+        <b>The wards named</b> &mdash; RPH Adult Secure, SCGH Adult Open, FSH Adult Secure &mdash; and the team name
+        Midland Community Team, from `ward-sites.ts` / `ward-catchment.ts`.
+      </li>
+      <li>
+        <b>The four fields in the masthead</b> (name, record number, date of birth, age) are the only fields the model
+        holds today; every other field on this screen is newly approved and not yet built.
+      </li>
+      <li>
+        <b>Mental Health Act 2014 (WA)</b> is the real name of the governing legislation; the specific order and review
+        date attached to it here are invented.
+      </li>
+    </ul>
+    <h2>How this screen is organised</h2>
+    <ul>
+      <li>
+        <b>The masthead deliberately shows only today's four fields.</b> Everything the owner has newly approved sits in
+        the "Identity and key facts" panel directly beneath it, so the screen itself marks the line between what exists
+        now and what was added.
+      </li>
+      <li>
+        <b>Past admissions carry no workflow chip.</b> The urgent/routine/stalled/accepted vocabulary belongs to open
+        work; a closed admission from 2021 is not "routine" in that sense, so it is described in the row's own text
+        instead of borrowed colour.
+      </li>
+      <li>
+        <b>The referral history panel is headed, worded, and positioned as coordinator-only</b>, and referral
+        information appears nowhere else on the page &mdash; wards see only referrals into or out of themselves, never
+        this cross-service history.
+      </li>
+      <li>
+        <b>A second state models the more common case: no previous admission.</b> Below the main record, "No previous
+        admission" shows the same "Past psychiatric history" panel worded as a positive fact ("No previous admission to
+        a WA mental health ward") rather than left blank. An empty panel reads as a failed load, not as a first
+        presentation, and a first presentation is a large share of psychiatric admissions &mdash; not an edge case.
+      </li>
+      <li>
+        <b>Interpreter/language and Aboriginal or Torres Strait Islander status</b> sit inside the same plain facts list
+        as address and GP, with no icon, colour or card of their own &mdash; unchanged from before.
+        <b>Their order in that list changed.</b> They previously sat adjacent to each other, with Aboriginal or Torres
+        Strait Islander status last in the list, directly above the Past psychiatric history panel. Side by side, and
+        immediately preceding a history panel, that placement formed a cultural-identity cluster that invited a reading
+        no clinical record should invite &mdash; that the status was context offered for the history that followed. The
+        fix is ordering only: the fields keep their exact wording and styling, interpreter/preferred language now sits
+        with GP among the other contact and communication facts, and Aboriginal or Torres Strait Islander status sits
+        earlier in the demographic group, no longer last and no longer beside the language field. A future edit that
+        "tidies" this back into alphabetical or original order would reopen the adjacency this fixes.
+      </li>
+      <li>
+        <b>Every count on this page was checked for singular/plural agreement</b> (the panel counts, the admission and
+        referral wait figures, the contact intervals). None currently reads a number against the wrong grammatical form
+        &mdash; if this screen is ever wired to live data and any of these becomes exactly one, its noun must switch to
+        the singular ("1 admission", not "1 admissions"), matching the convention already used elsewhere in this set.
+      </li>
+    </ul>
+  </div>
+</div>

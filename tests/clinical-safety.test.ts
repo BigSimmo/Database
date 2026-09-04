@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   collapseDuplicateSafetyFindings,
   extractSafetyFindings,
+  groupSafetyFindingsByKind,
+  safetyFindingTone,
   sortSafetyFindingsBySeverity,
   type SafetyFinding,
+  type SafetyFindingKind,
 } from "../src/lib/clinical-safety";
 import type { RagAnswer } from "../src/lib/types";
 
@@ -468,5 +471,60 @@ describe("safety findings are counted once per passage", () => {
     ]);
 
     expect(findings).toHaveLength(2);
+  });
+});
+
+describe("clinical point tones", () => {
+  function finding(id: string, kind: SafetyFindingKind, label: string): SafetyFinding {
+    return {
+      id,
+      kind,
+      label,
+      text: `${label} text`,
+      citation: {
+        chunk_id: `chunk-${id}`,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: "/documents/doc-a?page=1",
+    };
+  }
+
+  it("reserves the danger tone for the two kinds that stop a prescription", () => {
+    expect(safetyFindingTone("contraindication")).toBe("stop");
+    expect(safetyFindingTone("red_flag")).toBe("stop");
+    expect(safetyFindingTone("escalation")).toBe("act");
+    expect(safetyFindingTone("dose_limit")).toBe("act");
+  });
+
+  it("keeps routine practice guidance out of the warning tones", () => {
+    // The point of the third tier. TOKENS.md reserves the clinical status
+    // colours for sanctioned urgency, and an answer where routine monitoring is
+    // painted amber is one where the amber has stopped meaning anything.
+    expect(safetyFindingTone("monitoring")).toBe("know");
+    expect(safetyFindingTone("exclusion")).toBe("know");
+    expect(safetyFindingTone("caveat")).toBe("know");
+  });
+
+  it("collapses repeated kinds into one counted pill, in severity order", () => {
+    const groups = groupSafetyFindingsByKind([
+      finding("a", "monitoring", "Monitoring"),
+      finding("b", "contraindication", "Contraindication"),
+      finding("c", "monitoring", "Monitoring"),
+      finding("d", "dose_limit", "Dose limit"),
+    ]);
+
+    expect(groups.map((group) => group.kind)).toEqual(["contraindication", "dose_limit", "monitoring"]);
+    expect(groups.map((group) => group.count)).toEqual([1, 1, 2]);
+    expect(groups.map((group) => group.tone)).toEqual(["stop", "act", "know"]);
+  });
+
+  it("returns nothing to render when an answer carries no findings", () => {
+    // The rail is hidden entirely rather than rendering an empty heading.
+    expect(groupSafetyFindingsByKind([])).toEqual([]);
   });
 });
