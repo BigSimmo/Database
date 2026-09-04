@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "43984ad802b2507c40505b2fe54abcd1088ac1d0",
-    "committed_at": "2026-09-04T13:46:50+00:00"
+    "sha": "42f0ddb075ddb3ee9e839762c53552c771248cd3",
+    "committed_at": "2026-09-04T17:36:37+00:00"
   },
   "routes": {
     "modes": [
@@ -2024,6 +2024,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/crisis-lines-verification.md",
+        "section": "care-plan",
+        "catalogued": true
+      },
+      {
         "path": "docs/care-plan/HANDOFF-2026-08-24-SUPERSEDED.md",
         "section": "care-plan",
         "catalogued": false
@@ -2184,6 +2189,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/hazard-log.md",
+        "section": "caring-contacts",
+        "catalogued": true
+      },
+      {
         "path": "docs/caring-contacts/interaction-matrix.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2192,6 +2202,11 @@
         "path": "docs/caring-contacts/linked-prototype-handoff.md",
         "section": "caring-contacts",
         "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/message-review-pack.md",
+        "section": "caring-contacts",
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-1-handoff.md",
@@ -5923,8 +5938,8 @@
       }
     ],
     "counts": {
-      "documents": 855,
-      "catalogued": 115,
+      "documents": 858,
+      "catalogued": 118,
       "uncatalogued": 740,
       "sections": 22
     }
