@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock3, ListChecks, RotateC
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { MissingValue, missingValuePhrase } from "@/components/ui/missing-value";
 
 import { calculators, domainLabels, type CalculatorFixture, type CalculatorItem } from "./calculator-fixtures";
 import {
@@ -116,9 +117,17 @@ function QuestionScreen({
             {stepIndex + 1} / {total}
           </p>
         </div>
-        <span className="inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 font-mono text-sm-minus font-extrabold tabular-nums text-[color:var(--text-heading)]">
-          {derived.started ? derived.score : 0}
-        </span>
+        {/* A literal 0 here asserted a real score of zero before anything was answered — on a
+            depression or distress scale that reads as "no symptoms", which is the negative-result
+            misreading SPEC §11 exists to prevent. Nothing has been computed yet, so the chip
+            gives way to the phrase (same treatment as the five sibling score slots). */}
+        {derived.started ? (
+          <span className="inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 font-mono text-sm-minus font-extrabold tabular-nums text-[color:var(--text-heading)]">
+            {derived.score}
+          </span>
+        ) : (
+          <MissingValue reason="not_yet_calculated" density="cell" />
+        )}
       </div>
 
       <div
@@ -278,8 +287,20 @@ function ResultScreen({
           <ul className="grid gap-1">
             {calc.items.map((item, itemIndex) => {
               const value = answers[item.id];
-              const answerLabel =
-                item.kind === "checkbox" ? (value === 1 ? "Yes" : "No") : (item.options?.[value ?? -1]?.label ?? "—");
+              // An unanswered item has no answer to review. A dash could not say that, and
+              // "No" was worse: it recorded an explicit clinical negative for an item the
+              // clinician never reached (SPEC §11). This row renders at `text-2xs`, below
+              // `MissingValue`'s smallest density, so the primitive's string form carries the
+              // phrase at the row's own size rather than making an unanswered row larger than
+              // an answered one.
+              const unanswered = value === undefined;
+              const answerLabel = unanswered
+                ? missingValuePhrase("not_recorded")
+                : item.kind === "checkbox"
+                  ? value === 1
+                    ? "Yes"
+                    : "No"
+                  : (item.options?.[value]?.label ?? missingValuePhrase("unknown"));
               const points = itemScore(item, value);
               return (
                 <li
@@ -290,7 +311,13 @@ function ResultScreen({
                     {itemIndex + 1}.
                   </span>
                   <span className="truncate font-medium text-[color:var(--text-muted)]">{item.text}</span>
-                  <span className="font-semibold text-[color:var(--text-heading)]">
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      // A missing answer must not be as loud as a given one.
+                      unanswered ? "text-[color:var(--text-muted)]" : "text-[color:var(--text-heading)]",
+                    )}
+                  >
                     {answerLabel}
                     <span className="ml-1 font-mono font-bold tabular-nums text-[color:var(--text-muted)]">
                       +{points}

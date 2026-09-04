@@ -16,7 +16,7 @@
   --ward-blue-border: var(--clinical-accent-border);
   --ward-canvas: var(--surface);
   --ward-chrome: var(--surface-chrome);
-  --ward-border: var(--border);
+  --ward-border: var(--neutral-500);
   --ward-heading: var(--text-heading);
   --ward-text: var(--text);
   --ward-muted: var(--text-muted);
@@ -354,5 +354,25 @@
 @media (forced-colors: active) {
   .linkActive {
     border: 0.125rem solid Highlight;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
+ *
+ * The border aliases above deliberately SEVER the chain to `--border`. Measured against
+ * `--surface`, the background every one of these screens paints, `--border` sits at 1.21:1 in
+ * light mode and 1.42:1 in dark — far below the 3:1 a boundary needs, so the dividers were very
+ * nearly invisible. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and
+ * 8.21:1.
+ *
+ * ⚠️ But severing that chain would ALSO cost a high-contrast user the system border colour, which
+ * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
+ * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
+ * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ */
+@media (forced-colors: active) {
+  .phoneBar {
+    --ward-border: var(--border);
   }
 }

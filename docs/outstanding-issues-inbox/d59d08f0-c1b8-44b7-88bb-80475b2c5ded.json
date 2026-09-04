@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d59d08f0-c1b8-44b7-88bb-80475b2c5ded",
+  "createdOn": "2026-09-03",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Source-side exclusions in the medication lexicon carry no authored reason, so the review sheet infers one from the source wording",
+    "detail": "PR #2582 renders each sourceDenySlugs entry on docs/medication-interaction-lexicon-review.md with the term, the record it is suppressed on, the rows affected, and the wording it appears in. The wording column is what makes the claim checkable, and for all three live exclusions (opioids/loperamide, statins and fibrates on simvastatin and atorvastatin) it happens to carry the justification legibly, because each row uses the class word for its own drug. That is a property of the current data, not a guarantee. The authored rationale actually lives in TypeScript comments in src/lib/medication-interaction-lexicon.ts, which the sheet cannot render and which nothing keeps in step with the exclusion it explains. FIX: add a structured reason field to the lexicon term alongside sourceDenySlugs, require it for every entry, and render it as its own column. Deliberately deferred on #2582 to avoid widening a review-thread fix into the shared lexicon file. Not urgent while three exclusions exist and each is self-evident from its row; revisit before the count grows or when the next exclusion is added, whichever comes first. NOTE for whoever picks this up: the sign-off mappings hash covers sourceDenySlugs but not any reason text, and it should stay that way, since a reworded rationale must not invalidate a clinician's sign-off any more than reflowing a table does.",
+    "source": "Codex P2 review thread on PR #2582 (discussion_r3927603216) asked for rows and reason; rows shipped, reason deferred with this rationale stated on the thread. Recorded 2026-09-03.",
+    "issueUlid": "01M1MA5A6QE8ARD5SZDT6W1720"
+  }
+}

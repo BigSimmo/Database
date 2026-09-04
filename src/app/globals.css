@@ -1215,7 +1215,7 @@ summary::-webkit-details-marker {
 /* Shared-home hero copy reserve.
  *
  * The mode toggle rewrites the title and subtitle in place, so the copy block
- * must already be as tall as the tallest copy any of the 15 modes can produce
+ * must already be as tall as the tallest copy any of the 16 modes can produce
  * or the composer below it jumps. That reserve used to sit on the heading and
  * the subtitle *individually* (`min-h-[2lh]` on each), which is why the pair
  * read as two unrelated lines: with a one-line title, half of each element's
@@ -2694,6 +2694,9 @@ summary::-webkit-details-marker {
 
 .answer-suggestion-chip:disabled {
   cursor: not-allowed;
+  background: var(--surface-subtle);
+  color: var(--disabled);
+  box-shadow: none;
 }
 
 .answer-suggestion-chip-icon {
@@ -4404,24 +4407,21 @@ html[data-motion="reduced"] .answer-progress-dot {
   animation-delay: calc(var(--stagger-index, 0) * var(--stagger-cascade));
 }
 
-/* The answer wait's source rail arrives one card at a time rather than as a single movement.
-   The default `--stagger-cascade` rung is right for a results grid the reader is about to
-   scan, but six cards in 175ms reads as one block appearing. On `--stagger-cascade-wide` the
-   last card lands around 450ms, so each is separately noticeable, and the whole rail is still
-   standing long before generation ends.
+/* The answer wait's source rail arrives one card at a time, and the pacing is NOT here.
 
-   Scoped to this rail deliberately — the shared class also drives the prose skeleton bars
-   immediately above it and the search result grids, which keep the 35ms rung. Declared here,
-   unlayered and adjacent to the rule it overrides, because `.answer-sources-arriving` itself
-   lives in @layer components and a layered rule would lose to this unlayered one whatever its
-   specificity.
+   This used to be a `--stagger-cascade-wide` delay override, because every card mounted at
+   once and only an animation delay could separate them. Six cards then landed inside 450ms —
+   correct to the millisecond, and over before a reader looking at an otherwise still screen
+   registered that anything had happened. The rail is now revealed a card at a time by
+   `useProgressiveReveal` in `answer-status.tsx`, one per `--duration-moderate`, so each card
+   animates on mount with the shared `.stagger-item` rule and no delay of its own. The cards
+   deliberately set no `--stagger-index`: mount timing and an animation delay would compound,
+   and the last card would arrive at twice the intended distance.
 
-   It cannot reintroduce motion when motion is suppressed: both reduced-motion paths below set
-   `animation: none !important` on `.stagger-item`, and that shorthand resets animation-delay
-   to 0s with it, so the cards stay immediately and fully visible. */
-.answer-sources-arriving .stagger-item {
-  animation-delay: calc(var(--stagger-index, 0) * var(--stagger-cascade-wide));
-}
+   The pacing owner moved, not the reduced-motion contract. The hook returns the full count
+   immediately when motion is suppressed, and both reduced-motion paths below independently set
+   `animation: none !important` on `.stagger-item`. Suppressing motion must never withhold
+   content on this surface — that is the rule this rail was built under. */
 
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion="full"]) .animate-skeleton-shimmer::after,

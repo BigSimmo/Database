@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    {
+      "artifactPath": "docs/ward-flow/control/evidence/artifacts/working-line/4cb91e27a685f8e4-39d842c4a896b844c84ad2e01bd9b8ba75a83af704d3672717e790294e7ad4b7-ward-change-reasons.ts",
+      "sourcePath": "src/components/ward-management/ward-change-reasons.ts",
+      "sourceSha256": "39d842c4a896b844c84ad2e01bd9b8ba75a83af704d3672717e790294e7ad4b7",
+      "status": " M"
+    },
+    {
+      "artifactPath": "docs/ward-flow/control/evidence/artifacts/working-line/c351177f2ead1e58-7653616acac3b2ee375f3369552ed14c48a3bfc366ae4e8bc55755c247357f40-ward-change-reasons.test.ts",
+      "sourcePath": "tests/ward-change-reasons.test.ts",
+      "sourceSha256": "7653616acac3b2ee375f3369552ed14c48a3bfc366ae4e8bc55755c247357f40",
+      "status": " M"
+    }
+  ],
+  "head": "5db2f02fc6f0d04eed3425bc74b0adad438b7ea7",
+  "kind": "ward-flow-dirty-artifact-manifest",
+  "schemaVersion": 1,
+  "sourceId": "working-line"
+}

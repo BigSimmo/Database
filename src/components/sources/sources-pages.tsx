@@ -2,79 +2,75 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
-import {
-  InformationPageBreadcrumbs,
-  InformationPageHeader,
-  InformationPageShell,
-} from "@/components/information-page-shell";
+import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
+import { Chip } from "@/components/ui/chip";
 import {
   SOURCE_RATING_WEIGHTS,
   type ClinicalSourceCatalogueEntry,
   type SourceGeographyScope,
+  type SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
 import { deriveSourceCatalogueFacets } from "@/lib/sources/catalogue-view";
 import { loadSourceCatalogue } from "@/lib/sources/load-source-catalogue";
+import { sourceAttentionFlags, sourceProvenanceNotes } from "@/lib/sources/source-status-presentation";
+import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation";
 
-const bandLabels = {
+const bandLabels: Record<SourceQualityBand, string> = {
   A: "A · Preferred",
   B: "B · Strong",
   C: "C · Supplementary",
   D: "D · Review required",
   excluded: "Excluded",
-} as const;
+};
+
+const bandTone = {
+  A: "success",
+  B: "info",
+  C: "neutral",
+  D: "warning",
+  excluded: "danger",
+} as const satisfies Record<SourceQualityBand, "success" | "info" | "neutral" | "warning" | "danger">;
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function valueOrUnknown(value: string | null) {
-  return value?.trim() || "Unknown";
-}
-
-function dateOrUnknown(value: string | null) {
-  if (!value) return "Unknown";
+function dateOrNull(value: string | null) {
+  if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime())
     ? value
     : new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
-function PageIntroduction({ title, description }: { title: string; description: string }) {
-  return (
-    <>
-      <InformationPageBreadcrumbs
-        home={{ label: "Sources", href: "/sources" }}
-        current={title === "Sources" ? undefined : title}
-      />
-      <InformationPageHeader title={title} subtitle={description} />
-    </>
-  );
+/**
+ * The page's accessible name without a title block above the content.
+ *
+ * These pages are reached through the Sources mode navigation, which already
+ * says which one you are on, so a repeated visual heading is chrome the reader
+ * scrolls past. The heading still has to exist for assistive technology and for
+ * the document outline, so it exists and is not painted.
+ */
+function PageName({ children }: { children: string }) {
+  return <h1 className="sr-only">{children}</h1>;
 }
 
 export async function SourcesCataloguePage(): Promise<ReactNode> {
   const catalogue = await loadSourceCatalogue();
-  return (
-    <InformationPageShell testId="sources-catalogue-main">
-      <SourcesCatalogueClient entries={catalogue.entries} hostedDocuments={catalogue.hostedDocuments} />
-    </InformationPageShell>
-  );
+  // `hostedDocuments` travels with the entries: when the document lookup is
+  // unavailable the catalogue is repository-only, and the page has to be able
+  // to say so rather than presenting a partial list as the whole registry.
+  return <SourcesCatalogueClient entries={catalogue.entries} hostedDocuments={catalogue.hostedDocuments} />;
 }
 
 export async function SourcesTopicsPage(): Promise<ReactNode> {
-  const { entries, hostedDocuments } = await loadSourceCatalogue();
+  const { entries } = await loadSourceCatalogue();
   const topics = deriveSourceCatalogueFacets(entries).topics;
   return (
     <InformationPageShell testId="sources-topics-main">
-      <PageIntroduction title="Topics" description="Browse clinical topics derived from registered source metadata." />
-      {hostedDocuments === "unavailable" ? (
-        <p
-          role="note"
-          className="rounded-xl border border-[color:var(--border)] p-4 text-sm text-[color:var(--text-muted)]"
-        >
-          Hosted document topics are temporarily unavailable; repository topic counts remain visible.
-        </p>
-      ) : null}
+      <PageName>Topics</PageName>
       {topics.length ? (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {topics.map((topic) => (
@@ -84,7 +80,7 @@ export async function SourcesTopicsPage(): Promise<ReactNode> {
             >
               <Link
                 className="flex min-h-12 items-center justify-between gap-4 font-semibold text-[color:var(--primary)]"
-                href={`/sources?topic=${encodeURIComponent(topic.value)}`}
+                href={`/sources/search?topic=${encodeURIComponent(topic.value)}`}
               >
                 <span>{titleCase(topic.value)}</span>
                 <span className="text-sm text-[color:var(--text-muted)]">{topic.count}</span>
@@ -102,7 +98,7 @@ export async function SourcesTopicsPage(): Promise<ReactNode> {
 }
 
 export async function SourcesPublishersPage(): Promise<ReactNode> {
-  const { entries, hostedDocuments } = await loadSourceCatalogue();
+  const { entries } = await loadSourceCatalogue();
   const publisherScopes: readonly { scope: SourceGeographyScope; label: string }[] = [
     { scope: "wa", label: "Western Australia" },
     { scope: "australian_national", label: "Australian national" },
@@ -120,18 +116,7 @@ export async function SourcesPublishersPage(): Promise<ReactNode> {
     .filter((group) => group.publishers.length > 0);
   return (
     <InformationPageShell testId="sources-publishers-main">
-      <PageIntroduction
-        title="Publishers"
-        description="Review publisher coverage and the jurisdictions represented in the catalogue."
-      />
-      {hostedDocuments === "unavailable" ? (
-        <p
-          role="note"
-          className="rounded-xl border border-[color:var(--border)] p-4 text-sm text-[color:var(--text-muted)]"
-        >
-          Hosted document publishers are temporarily unavailable; repository publisher counts remain visible.
-        </p>
-      ) : null}
+      <PageName>Publishers</PageName>
       {publisherGroups.length ? (
         <div className="grid gap-6">
           {publisherGroups.map((group) => (
@@ -139,31 +124,20 @@ export async function SourcesPublishersPage(): Promise<ReactNode> {
               <h2 id={`publisher-scope-${group.scope}`} className="text-xl font-semibold">
                 {group.label}
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {group.publishers.map((publisher) => {
-                  const publisherEntries = entries.filter(
-                    (entry) => entry.publisher === publisher.value && entry.geography.scope === group.scope,
-                  );
-                  const jurisdictions = [...new Set(publisherEntries.map((entry) => entry.geography.label))];
-                  return (
-                    <article
-                      key={publisher.value}
-                      className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5"
-                    >
-                      <h3 className="text-lg font-semibold">{publisher.value}</h3>
-                      <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                        {publisher.count} {publisher.count === 1 ? "source" : "sources"} ·{" "}
-                        {jurisdictions.join(", ") || "Jurisdiction unknown"}
-                      </p>
-                      <Link
-                        className="mt-3 inline-flex min-h-12 items-center font-semibold text-[color:var(--primary)] underline-offset-4 hover:underline"
-                        href={`/sources?publisher=${encodeURIComponent(publisher.value)}&jurisdiction=${group.scope}`}
-                      >
-                        View {publisher.value} sources
-                      </Link>
-                    </article>
-                  );
-                })}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {group.publishers.map((publisher) => (
+                  <Link
+                    key={publisher.value}
+                    href={`/sources/search?publisher=${encodeURIComponent(publisher.value)}&jurisdiction=${group.scope}`}
+                    aria-label={`View ${publisher.value} sources`}
+                    className="grid min-h-12 gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] motion-reduce:transition-none"
+                  >
+                    <span className="font-semibold text-[color:var(--text-heading)]">{publisher.value}</span>
+                    <span className="text-sm text-[color:var(--text-muted)]">
+                      {publisher.count} {publisher.count === 1 ? "source" : "sources"}
+                    </span>
+                  </Link>
+                ))}
               </div>
             </section>
           ))}
@@ -228,18 +202,18 @@ export function SourcesMethodPage(): ReactNode {
   ] as const;
   return (
     <InformationPageShell testId="sources-method-main" width="narrow">
-      <PageIntroduction title="Method" description="How the catalogue organises source review and traceability." />
+      <PageName>Method</PageName>
       <section className="grid gap-3" aria-labelledby="method-weights">
         <h2 id="method-weights" className="text-xl font-semibold">
           Rating dimensions
         </h2>
-        <dl className="grid gap-3">
+        <dl className="grid gap-2 sm:grid-cols-2">
           {weights.map(([label, points, description]) => (
-            <div key={label} className="rounded-xl border border-[color:var(--border)] p-4">
-              <dt className="font-semibold">{label}</dt>
-              <dd className="mt-1 text-sm text-[color:var(--text-muted)]">
-                <span className="font-medium text-[color:var(--text)]">{points} points</span> · {description}
-              </dd>
+            <div key={label} className="rounded-xl border border-[color:var(--border)] p-3">
+              <dt className="font-semibold">
+                {label} <span className="text-sm font-medium text-[color:var(--text-muted)]">{points} points</span>
+              </dt>
+              <dd className="mt-1 text-sm text-[color:var(--text-muted)]">{description}</dd>
             </div>
           ))}
         </dl>
@@ -288,9 +262,9 @@ export function SourcesMethodPage(): ReactNode {
           {statusDefinitions.map(([group, definitions]) => (
             <div key={group} className="grid gap-2">
               <h3 className="font-semibold">{group}</h3>
-              <dl className="grid gap-3">
+              <dl className="grid gap-2 sm:grid-cols-2">
                 {definitions.map(([label, definition]) => (
-                  <div key={label} className="rounded-xl border border-[color:var(--border)] p-4">
+                  <div key={label} className="rounded-xl border border-[color:var(--border)] p-3">
                     <dt className="font-semibold">{label}</dt>
                     <dd className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">{definition}</dd>
                   </div>
@@ -334,117 +308,150 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
   const entry = entries.find((candidate) => candidate.id === sourceId);
   if (!entry) notFound();
 
+  const usageGroups = groupSourceUsagesByMode(entry.usedBy);
+  const recordTotal = usageGroups.reduce((total, group) => total + group.recordCount, 0);
+  const flags = sourceAttentionFlags(entry);
+  const provenanceNotes = sourceProvenanceNotes(entry);
+
+  // Only the fields that carry a value. A grid of "Unknown" tiles reads as data
+  // when it is the absence of data, and it pushes the usages below the fold.
   const identityRows = [
-    ["Publisher", valueOrUnknown(entry.publisher)],
-    ["Publisher code", valueOrUnknown(entry.publisherCode)],
-    ["Version", valueOrUnknown(entry.version)],
+    ["Publisher", entry.publisher],
+    ["Version", entry.version],
+    ["Jurisdiction", entry.geography.label],
     ["Source type", titleCase(entry.sourceType)],
-    ["Validation", titleCase(entry.validationStatus)],
-    ["Currentness", titleCase(entry.documentStatus)],
-    ["Lifecycle", titleCase(entry.lifecycleStatus)],
-    ["Content mode", titleCase(entry.contentMode)],
-    ["Published", dateOrUnknown(entry.publicationDate)],
-    ["Review date", dateOrUnknown(entry.reviewDate)],
-    ["Expiry date", dateOrUnknown(entry.expiryDate)],
-  ] as const;
+    ["Published", dateOrNull(entry.publicationDate)],
+    ["Reviewed", dateOrNull(entry.reviewDate)],
+    ["Expires", dateOrNull(entry.expiryDate)],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
 
   return (
-    <InformationPageShell testId="source-detail-main">
-      <InformationPageBreadcrumbs home={{ label: "Sources", href: "/sources" }} current={entry.title} />
-      <InformationPageHeader
-        eyebrow={bandLabels[entry.rating.band]}
+    <>
+      <InPageNavHeader
+        back={{ href: "/sources/search", label: "Sources" }}
         title={entry.title}
-        subtitle={`Organisational score ${entry.rating.score}/100. This rating supports catalogue review; it is not a clinical endorsement.`}
+        titleAs="h1"
+        testIdPrefix="source"
       />
+      <InformationPageShell testId="source-detail-main">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip appearance={{ kind: "status", tone: bandTone[entry.rating.band] }} dot>
+            {bandLabels[entry.rating.band]}
+          </Chip>
+          <span className="text-sm font-semibold text-[color:var(--text-muted)]">
+            Review score {entry.rating.score}/100
+          </span>
+          {flags.map((flag) => (
+            <Chip key={flag.label} appearance={{ kind: "status", tone: flag.tone }}>
+              {flag.label}
+            </Chip>
+          ))}
+        </div>
 
-      <section className="grid gap-3" aria-labelledby="source-locations-heading">
-        <h2 id="source-locations-heading" className="text-xl font-semibold">
-          Source locations
-        </h2>
-        <dl className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-[color:var(--border)] p-4">
-            <dt className="font-semibold">Canonical location</dt>
-            <dd className="mt-2 break-words text-sm">
-              <CanonicalLocation entry={entry} />
-            </dd>
-          </div>
-          <div className="rounded-xl border border-[color:var(--border)] p-4">
-            <dt className="font-semibold">Geographic location</dt>
-            <dd className="mt-2 text-sm">{entry.geography.label}</dd>
-          </div>
-          <div className="rounded-xl border border-[color:var(--border)] p-4">
-            <dt className="font-semibold">Application location</dt>
-            <dd className="mt-2 text-sm">
-              {entry.usedBy.length} registered {entry.usedBy.length === 1 ? "usage" : "usages"}
-            </dd>
-          </div>
-        </dl>
-      </section>
+        {/* A band letter says a source is questionable; it does not say why. When
+            identity, location, completeness or clinical validation is the reason,
+            the reason is what a clinician needs before relying on the source. */}
+        {provenanceNotes.length ? (
+          <section
+            aria-labelledby="source-review-heading"
+            className="grid gap-1.5 rounded-2xl border border-[color:var(--warning-border,var(--border))] bg-[color:var(--surface-subtle)] p-4"
+          >
+            <h2 id="source-review-heading" className="text-sm font-extrabold text-[color:var(--text-heading)]">
+              Needs review before you rely on this
+            </h2>
+            <ul className="grid gap-1 text-sm text-[color:var(--text-muted)]">
+              {provenanceNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
-      <section className="grid gap-3" aria-labelledby="source-identity-heading">
-        <h2 id="source-identity-heading" className="text-xl font-semibold">
-          Identity and status
-        </h2>
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {identityRows.map(([label, value]) => (
-            <div key={label} className="rounded-xl bg-[color:var(--surface)] p-4">
-              <dt className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">{label}</dt>
-              <dd className="mt-1 text-sm font-medium">{value}</dd>
+        <section className="grid gap-3" aria-labelledby="source-usage-heading">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="source-usage-heading" className="text-xl font-semibold">
+              Where this source is used
+            </h2>
+            {recordTotal ? (
+              <span className="text-sm text-[color:var(--text-muted)]">
+                {recordTotal} {recordTotal === 1 ? "record" : "records"} across {usageGroups.length}{" "}
+                {usageGroups.length === 1 ? "area" : "areas"}
+              </span>
+            ) : null}
+          </div>
+          {usageGroups.length ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {usageGroups.map((group) => (
+                <section
+                  key={group.modeId}
+                  aria-labelledby={`source-usage-${group.modeId}`}
+                  className="grid content-start gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
+                >
+                  <h3
+                    id={`source-usage-${group.modeId}`}
+                    className="text-sm font-extrabold text-[color:var(--text-heading)]"
+                  >
+                    {group.modeLabel}{" "}
+                    <span className="font-semibold text-[color:var(--text-muted)]">
+                      · {group.recordCount} {group.recordCount === 1 ? "record" : "records"}
+                    </span>
+                  </h3>
+                  <ul className="grid gap-1">
+                    {group.usages.map((usage) => (
+                      <li key={usage.key}>
+                        <Link
+                          href={usage.href}
+                          className="grid min-h-12 content-center gap-0.5 rounded-lg px-2 py-1.5 transition hover:bg-[color:var(--surface-subtle)] motion-reduce:transition-none"
+                        >
+                          <span className="text-sm font-semibold text-[color:var(--primary)]">{usage.recordLabel}</span>
+                          <span className="text-2xs font-medium text-[color:var(--text-muted)]">{usage.purpose}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
             </div>
-          ))}
-        </dl>
-        <p className="text-sm">
-          <strong>Topics:</strong> {entry.topics.length ? entry.topics.map(titleCase).join(", ") : "Unknown"}
-        </p>
-        <p className="text-sm">
-          <strong>Aliases:</strong> {entry.aliases.length ? entry.aliases.join(", ") : "None registered"}
-        </p>
-      </section>
+          ) : (
+            <p className="rounded-xl border border-dashed border-[color:var(--border)] p-4 text-sm text-[color:var(--text-muted)]">
+              No record in PsychSift currently cites this source.
+            </p>
+          )}
+        </section>
 
-      <section className="grid gap-3" aria-labelledby="source-rating-heading">
-        <h2 id="source-rating-heading" className="text-xl font-semibold">
-          Rating breakdown
-        </h2>
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {entry.rating.reasons.map((reason) => (
-            <li key={reason} className="rounded-xl border border-[color:var(--border)] p-3 text-sm">
-              {reason}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="grid gap-3" aria-labelledby="source-versions-heading">
-        <h2 id="source-versions-heading" className="text-xl font-semibold">
-          Versions and warnings
-        </h2>
-        <p className="text-sm">
-          <strong>Supersedes:</strong> {entry.supersedes.join(", ") || "None registered"}
-        </p>
-        <p className="text-sm">
-          <strong>Superseded by:</strong> {entry.supersededBy.join(", ") || "None registered"}
-        </p>
-        <p className="text-sm">
-          <strong>Warnings:</strong>{" "}
-          {entry.warnings.length ? entry.warnings.map(titleCase).join(", ") : "No catalogue warnings"}
-        </p>
-      </section>
-
-      <section className="grid gap-3" aria-labelledby="source-usages-heading">
-        <h2 id="source-usages-heading" className="text-xl font-semibold">
-          Application usages
-        </h2>
-        <ul className="grid gap-2">
-          {entry.usedBy.map((usage) => (
-            <li
-              key={`${usage.modeId}:${usage.recordId}:${usage.field}`}
-              className="rounded-xl border border-[color:var(--border)] p-3 text-sm"
-            >
-              <strong>{usage.recordLabel}</strong> · {titleCase(usage.modeId)} · {titleCase(usage.field)}
-            </li>
-          ))}
-        </ul>
-      </section>
-    </InformationPageShell>
+        <section className="grid gap-3" aria-labelledby="source-record-heading">
+          <h2 id="source-record-heading" className="text-xl font-semibold">
+            Source record
+          </h2>
+          <p className="text-sm">
+            <CanonicalLocation entry={entry} />
+          </p>
+          <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            {identityRows.map(([label, value]) => (
+              <div
+                key={label}
+                className="flex items-baseline justify-between gap-3 border-b border-[color:var(--border)] py-1.5"
+              >
+                <dt className="text-sm text-[color:var(--text-muted)]">{label}</dt>
+                <dd className="text-sm font-medium">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {entry.supersededBy.length ? (
+            <p className="text-sm">
+              <strong>Superseded by:</strong> {entry.supersededBy.join(", ")}
+            </p>
+          ) : null}
+          {entry.supersedes.length ? (
+            <p className="text-sm">
+              <strong>Supersedes:</strong> {entry.supersedes.join(", ")}
+            </p>
+          ) : null}
+          {entry.topics.length ? (
+            <p className="text-sm text-[color:var(--text-muted)]">Topics: {entry.topics.map(titleCase).join(", ")}</p>
+          ) : null}
+        </section>
+      </InformationPageShell>
+    </>
   );
 }

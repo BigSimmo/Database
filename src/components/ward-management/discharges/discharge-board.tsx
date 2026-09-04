@@ -4,6 +4,7 @@ import { MissingValue } from "@/components/ui/missing-value";
 import { RELEASE_BANDS, releaseBand, type ReleaseBand } from "@/components/ward-management/ward-bed-availability";
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { bedReleaseStateLabels } from "@/components/ward-management/ward-derivations";
 import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { BedRelease, Unit } from "@/components/ward-management/ward-model";
@@ -15,8 +16,8 @@ import styles from "./discharges.module.css";
  * Task 6, spec D9: the discharge and egress board. A coordinator's whole reason to open this
  * board is "which bed do I chase, and which one is simply on its way" — so releases are grouped
  * by how much work is left on them, worst first: a **blocked** release needs somebody to act on
- * it right now, a **confirmed** one is just waiting for the clock, a **predicted** one is a
- * belief rather than a fact yet, and **released today** is done. Within a group, releases are
+ * it right now, a **confirmed** one is just waiting for the clock, a **expected** one is a
+ * belief rather than a fact yet, and **discharged today** is done. Within a group, releases are
  * ordered by `releaseBand` — the same "now / by midday / by 1600 / tonight" ladder the capacity
  * board uses (`ward-bed-availability.ts`), so the two boards never disagree about how soon
  * "soon" is.
@@ -30,36 +31,49 @@ import styles from "./discharges.module.css";
 const GROUP_LABELS = {
   blocked: "Blocked",
   confirmed: "Confirmed",
-  predicted: "Predicted",
-  "released-today": "Released today",
+  expected: "Expected",
+  "discharged-today": "Discharged today",
 } as const;
 
 type GroupKey = keyof typeof GROUP_LABELS;
 
-/** Every group, in the fixed scan order spec D9 names — blocked first because those are the
- *  rows somebody must act on. Never reorder this array; `tests/ward-discharge-board.dom.test.tsx`
- *  pins the rendered heading order against it. */
-const GROUP_ORDER: readonly GroupKey[] = ["blocked", "confirmed", "predicted", "released-today"];
+/**
+ * Every group, in the fixed scan order spec D9 names — blocked first because those are the rows
+ * somebody must act on. Never reorder this array; `tests/ward-discharge-board.dom.test.tsx` pins
+ * the rendered heading order against it.
+ *
+ * Bed-model rework (2026-08-28): these four groups are no longer four STATES. There are three
+ * stages now, and `blocked` is a flag that sits on a expected or confirmed release. The board
+ * keeps its four groups because they answer the coordinator's actual question — how much work is
+ * left on this row — and a stuck release is the one that needs somebody whichever stage it is in.
+ * `groupDischarges` therefore reads the FLAG first and the stage second, which is why a
+ * blocked-but-confirmed release lands here rather than under Confirmed. Note the asymmetry with
+ * `CapacityBreakdown.blockedToday`, and it is deliberate: the board is a work queue where each
+ * release must appear exactly once, the breakdown is a set of counts where "how many confirmed"
+ * and "how many stuck" are both wanted in full.
+ */
+const GROUP_ORDER: readonly GroupKey[] = ["blocked", "confirmed", "expected", "discharged-today"];
 
 const BAND_LABELS: Record<ReleaseBand, string> = {
   now: "Now",
   "by-midday": "By midday",
   "by-1600": "By 4pm",
   tonight: "Tonight",
+  tomorrow: "Tomorrow",
 };
 
 const EMPTY_REASON: Record<GroupKey, string> = {
   blocked: "release is currently blocked",
-  confirmed: "release is confirmed and unreleased",
-  predicted: "release is predicted",
-  "released-today": "release has been released today",
+  confirmed: "release is confirmed, unreleased and not blocked",
+  expected: "release is expected and not blocked",
+  "discharged-today": "the person has been discharged today",
 };
 
 export type DischargeGroups = {
   blocked: BedRelease[];
   confirmed: BedRelease[];
-  predicted: BedRelease[];
-  "released-today": BedRelease[];
+  expected: BedRelease[];
+  "discharged-today": BedRelease[];
   /** Releases expected beyond tonight (`EVENING_SHIFT_END_MINUTES`) — never merged into a group,
    *  always counted. Silent truncation reads as "we counted everything" when we did not. */
   excludedBeyondToday: number;
@@ -74,8 +88,8 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
   const buckets: Record<GroupKey, BedRelease[]> = {
     blocked: [],
     confirmed: [],
-    predicted: [],
-    "released-today": [],
+    expected: [],
+    "discharged-today": [],
   };
   let excludedBeyondToday = 0;
 
@@ -85,10 +99,15 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
       excludedBeyondToday += 1;
       continue;
     }
-    if (release.state === "released") buckets["released-today"].push(release);
-    else if (release.state === "blocked") buckets.blocked.push(release);
+    // The flag is read BEFORE the stage (bed-model rework, 2026-08-28), so a confirmed discharge
+    // that is stuck appears in the group a coordinator scans first rather than sitting quietly
+    // under Confirmed. Order matters: swapping these two tests would bury exactly the row this
+    // board exists to surface. `discharged` still wins over everything — a bed that is already
+    // free is nobody's work, and the reducer clears the flag when it releases anyway.
+    if (release.state === "discharged") buckets["discharged-today"].push(release);
+    else if (release.blocker !== null) buckets.blocked.push(release);
     else if (release.state === "confirmed") buckets.confirmed.push(release);
-    else buckets.predicted.push(release);
+    else buckets.expected.push(release);
   }
 
   const byBand = (list: BedRelease[]) =>
@@ -101,8 +120,8 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
   return {
     blocked: byBand(buckets.blocked),
     confirmed: byBand(buckets.confirmed),
-    predicted: byBand(buckets.predicted),
-    "released-today": byBand(buckets["released-today"]),
+    expected: byBand(buckets.expected),
+    "discharged-today": byBand(buckets["discharged-today"]),
     excludedBeyondToday,
   };
 }
@@ -129,9 +148,9 @@ export function DischargeBoard() {
         <div className={styles.governanceBanner} data-testid="ward-discharge-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This board is <strong>not a medical device</strong>. It shows only the release state a ward has recorded —
-            predicted, confirmed, blocked or released — and it never adds a predicted or unreleased bed into
-            &quot;available now&quot;.
+            This board is <strong>not a medical device</strong>. It shows only what a ward has recorded — a release
+            expected, confirmed or discharged, and whether it is currently blocked — and it never adds a expected or
+            unreleased bed into &quot;available now&quot;.
           </p>
         </div>
 
@@ -182,6 +201,7 @@ function DischargeGroupSection({
                   <th scope="col">Unit</th>
                   <th scope="col">Health service</th>
                   <th scope="col">Expected</th>
+                  <th scope="col">Stage</th>
                   <th scope="col">Blocker</th>
                   <th scope="col">Freshness</th>
                 </tr>
@@ -195,6 +215,12 @@ function DischargeGroupSection({
                       <td>{unitLabel(unit, release.unitId)}</td>
                       <td>{healthServiceLabel(unit)}</td>
                       <td>{BAND_LABELS[band]}</td>
+                      {/* Bed-model rework (2026-08-28): the stage is rendered on every row, in
+                          every group. Without it the Blocked group would swallow the one fact
+                          this rework exists to preserve — that a stuck discharge is still a
+                          DECIDED one — and a coordinator could not tell a blocked prediction
+                          from a blocked confirmation. */}
+                      <td>{bedReleaseStateLabels[release.state]}</td>
                       <td>
                         {/* SPEC §11: `blocker` is non-null only in `blocked` (ward-model.ts), so a
                             null here is a release to which a blocker cannot apply — not one whose
@@ -226,6 +252,7 @@ function DischargeGroupSection({
                     <span className={styles.cardUnit}>{unitLabel(unit, release.unitId)}</span>
                   </div>
                   <p className={styles.cardService}>{healthServiceLabel(unit)}</p>
+                  <p className={styles.cardService}>{bedReleaseStateLabels[release.state]}</p>
                   {release.blocker && <p className={styles.cardBlocker}>{release.blocker}</p>}
                   <WardFreshness confirmedAt={release.confirmedAt} confirmedByRole={release.confirmedBy} now={now} />
                 </li>
