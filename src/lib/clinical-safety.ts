@@ -70,6 +70,12 @@ const conciseTextCut = 257;
 // than show half of one.
 function truncateAtSafeBoundary(text: string, cut: number) {
   const slice = text.slice(0, cut);
+  // Audit L111, second boundary case (Codex review on PR #2610): when the cut
+  // itself lands on whitespace, the slice already ends on a COMPLETE token, so
+  // backing up to the previous space deletes a whole value. "…ANC below 1500"
+  // became "…ANC below" — worse than the original defect, because it still reads
+  // as a finished clinical instruction with the threshold silently removed.
+  if (/\s/.test(text.charAt(cut)) || /\s$/.test(slice)) return slice.trimEnd();
   const lastSpace = slice.lastIndexOf(" ");
   if (lastSpace > 0) return slice.slice(0, lastSpace).trimEnd();
   return slice.replace(/[\d.,]*\d[\d.,]*$/, "").trimEnd() || slice.trimEnd();

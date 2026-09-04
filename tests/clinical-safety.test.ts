@@ -214,6 +214,46 @@ describe("clinical safety findings", () => {
     expect(text.replace(/\.+$/, "")).toMatch(/\bweekly$/);
   });
 
+  // Audit L111, second boundary case (Codex review on PR #2610): when a numeric
+  // threshold ends EXACTLY at the cut, the slice already holds the complete token,
+  // but backing up to the previous space deleted the whole value — "ANC below 1500"
+  // rendered as "ANC below", which still reads as a finished instruction with the
+  // threshold silently removed.
+  it("keeps a threshold that ends exactly at the cut (L111)", () => {
+    const tail = "ANC below 1500";
+    const lead = "Monitor renal function weekly. ";
+    let prefix = "";
+    while (prefix.length < 257 - tail.length) prefix += lead;
+    prefix = prefix.slice(0, 257 - tail.length);
+    const quote = `${prefix}${tail} and escalate to haematology the same day.`;
+    // The final "0" is the last sliced character and the cut lands on the space.
+    expect(quote[256]).toBe("0");
+    expect(quote[257]).toBe(" ");
+
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote,
+        },
+      ],
+      sources: [],
+    });
+
+    const text = findings[0].text;
+    expect(text.length).toBeLessThanOrEqual(261);
+    expect(text).toContain("ANC below 1500");
+    // and never the value-stripped form that reads as a complete instruction
+    expect(text).not.toMatch(/ANC below\s*\.*$/);
+  });
+
   it("sorts safety findings by clinical severity", () => {
     const findings: SafetyFinding[] = [
       {
