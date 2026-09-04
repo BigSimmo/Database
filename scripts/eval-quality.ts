@@ -85,6 +85,10 @@ export type RagQualityResult = {
   unverifiedNumericTokenCount: number;
   hasFaithfulnessWarning: boolean;
   routingReason?: string;
+  /** Opening sentence of the answer — the span the text-shape gates inspect. */
+  answerOpeningSentence?: string | null;
+  /** Full answer text, recorded only when a text-shape gate rejected it. */
+  answerText?: string | null;
   timings?: {
     retrievalMs: number;
     routingMs: number;
