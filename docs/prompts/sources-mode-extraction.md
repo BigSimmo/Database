@@ -7,6 +7,24 @@ vocabularies and rules the Sources catalogue uses (`src/lib/sources/catalogue-ty
 be checked against `/sources/search` filters or pasted into a source registration task without
 translation.
 
+## Before you send anything
+
+Sending a document to an assistant discloses its full contents to that service. Check every
+document in the batch first, and do not send the batch until all of these hold:
+
+- No document contains patient-identifiable information, even incidentally (a case example in an
+  appendix, a name in a footer, a clinical note attached to a policy). Patient-identifiable
+  material is never sent through this workflow, redacted or not. `docs/clinical-governance.md`
+  "Data And Privacy" is the standing rule.
+- No document is a confidential or restricted local policy that the issuing body has not cleared
+  for external processing.
+- The assistant you are sending to is one whose data handling has been approved for this
+  material. Published guidelines, legislation and openly available references need no further
+  approval; anything internal does.
+
+If any document fails, remove it from the batch. The prompt also tells the assistant to stop and
+report rather than extract if it finds patient-identifiable content you missed.
+
 What the prompt deliberately does not do:
 
 - It never marks a source `approved` or `locally_reviewed`. Clinical validation is a human
@@ -48,6 +66,10 @@ RULES OF EVIDENCE
 - Canonical URL must be an https address printed in or on the document. Do not construct one.
 - Do not rate clinical accuracy. clinical_validation_status is always "unverified" for every
   record because clinical validation is a human decision made later.
+- If any document contains patient-identifiable information (a name, date of birth, medical
+  record number, address, or a clinical account that could identify a person), do not extract
+  from that document. Report it in Section 5 with the document title only, no details, and
+  continue with the rest of the batch.
 
 FIELDS FOR EVERY RECORD
 
@@ -58,10 +80,16 @@ aliases: other names, abbreviations or short titles used for the same source
 publisher: the issuing body as printed
 publisher_code: one of the recognised codes below, or null if the publisher is not listed.
   Never assign a code to a body that is not on the list.
-jurisdiction: use one of these printed forms exactly
-  Australia/WA | Australia/National | Australia/NSW | Australia/VIC | Australia/QLD |
-  Australia/SA | Australia/TAS | Australia/ACT | Australia/NT | International | Unknown
+jurisdiction: the jurisdiction as printed, written in one of these forms exactly
+  Australian: Australia/WA | Australia/National | Australia/NSW | Australia/VIC |
+    Australia/QLD | Australia/SA | Australia/TAS | Australia/ACT | Australia/NT
+  Non-Australian: United Kingdom | UK | England | International | Global | or the country
+    name as printed. Keep the printed form. A NICE guideline printed for England is
+    "England", not "International". WHO material is "International" or "Global".
+  Unknown if no jurisdiction is printed.
 geography_scope: wa | australian_national | australian_state | international | unknown
+  This is the normalised scope, separate from jurisdiction. Every non-Australian
+  jurisdiction is international.
 source_type: guideline | systematic_review | primary_study | standard | legislation |
   regulatory | professional_reference | consumer_reference | uploaded_document | dataset |
   other | unknown
@@ -75,8 +103,9 @@ document_status: current | review_due | outdated | unknown
   printed expiry or next review date has passed or it is marked withdrawn, rescinded or
   superseded. Otherwise unknown.
 clinical_validation_status: unverified (always)
-content_mode: indexed_content for a document I sent in full, link_only for a cited source
-  with a printed https URL, metadata_only for anything else
+content_mode: metadata_only by default. link_only for a cited source with a printed https
+  URL. indexed_content only when my message states that the document is already indexed in
+  PsychSift. Sending you a document does not make it indexed.
 lifecycle_status: active | inactive | excluded
   excluded if a replacement is identified in superseded_by, or the document is withdrawn.
 supersedes: titles or ids of earlier versions this source replaces, else empty list
