@@ -374,6 +374,7 @@ export function rankMedicationRecords(
     ],
     prefixBonus: 5,
     expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
+    expandedPhraseBonus: 8,
     limit,
     tieBreak: (left, right) => left.name.localeCompare(right.name),
   }).map(({ record, score, signals }) => ({

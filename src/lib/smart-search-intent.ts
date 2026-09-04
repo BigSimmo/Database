@@ -151,7 +151,50 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
     },
     { pattern: /\b(?:mental state exam)\b/i, terms: ["mental state examination", "MSE"] },
     { pattern: /\b(?:repeated unwanted thoughts)\b/i, terms: ["obsession", "intrusive thought"] },
+    { pattern: /\b(?:feel(?:ing)? sad|feeling down)\b/i, terms: ["low mood", "depression", "sadness"] },
   ],
+};
+
+const naturalLanguageStopWords = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "can",
+  "could",
+  "do",
+  "does",
+  "for",
+  "from",
+  "how",
+  "i",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "of",
+  "on",
+  "please",
+  "should",
+  "that",
+  "the",
+  "this",
+  "to",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+  "would",
+]);
+
+const modeSearchWords: Partial<Record<SmartNaturalSearchModeId, ReadonlySet<string>>> = {
+  calculators: new Set(["assessment", "calculator", "calculators", "measure", "measures", "screen", "score", "tool"]),
+  factsheets: new Set(["factsheet", "factsheets", "information", "know", "read", "sheet", "sheets", "someone"]),
+  dictionary: new Set(["called", "define", "definition", "explain", "mean", "meaning", "means", "term", "word"]),
 };
 
 const conversationalLeadPattern =
@@ -208,6 +251,29 @@ export function interpretSmartSearch(modeId: AppModeId, query: string): SmartSea
 
 export function smartSearchExpansions(modeId: AppModeId, query: string): string[] {
   return interpretSmartSearch(modeId, query).expansions;
+}
+
+/**
+ * Subject-bearing terms for deterministic catalogue matching.
+ *
+ * Expansions remain first so a specific governed phrase outranks incidental
+ * words from the question. Boilerplate and mode nouns are removed; the query
+ * itself remains unchanged in the URL and visible search state.
+ */
+export function smartSearchContentTerms(modeId: AppModeId, query: string): string[] {
+  const interpretation = interpretSmartSearch(modeId, query);
+  if (!interpretation.naturalLanguage) return interpretation.expansions;
+
+  const ignored = isSmartNaturalSearchMode(modeId) ? modeSearchWords[modeId] : undefined;
+  const phraseExpansions = interpretation.expansions.filter((term) => term.includes(" "));
+  const compactExpansions = interpretation.expansions.filter(
+    (term) => term.includes(" ") || !phraseExpansions.some((phrase) => phrase.split(" ").includes(term)),
+  );
+  const subjectTerms = lexicalTokens(interpretation.originalQuery)
+    .map(normalizeSearchText)
+    .filter((term) => term.length > 1 && !naturalLanguageStopWords.has(term) && !ignored?.has(term));
+
+  return Array.from(new Set([...compactExpansions, ...subjectTerms])).slice(0, 24);
 }
 
 export function expandedSmartSearchQuery(modeId: AppModeId, query: string): string {

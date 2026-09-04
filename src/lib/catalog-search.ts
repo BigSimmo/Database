@@ -139,6 +139,10 @@ export type RankCatalogOptions<T> = {
   broadBonus?: number;
   // Token expansion hook (differential alias table). Receives the deduped query terms.
   expandTokens?: (terms: string[]) => string[];
+  // Optional extra weight for specific multi-word expansion phrases. This is
+  // useful when a complete governed phrase is stronger than several generic
+  // one-word matches in long catalogue records.
+  expandedPhraseBonus?: number;
   limit?: number;
   // Defaults to input order (stable) when omitted.
   tieBreak?: (left: T, right: T) => number;
@@ -160,6 +164,7 @@ export function rankCatalogRecords<T>(
   const prefixBonus = options.prefixBonus ?? 0;
   const prefixMinLength = options.prefixMinLength ?? 3;
   const broadBonus = options.broadBonus ?? 1;
+  const expandedPhraseBonus = options.expandedPhraseBonus ?? 0;
 
   const compactQuery = compactSearchText(normalizedQuery);
   const baseTerms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length > 1)));
@@ -211,6 +216,8 @@ export function rankCatalogRecords<T>(
       score += content * contentWeight;
 
       const expanded = expandedTerms.filter((term) => text.includes(term)).length;
+      const expandedPhrases = expandedTerms.filter((term) => term.includes(" ") && text.includes(term)).length;
+      score += expandedPhrases * expandedPhraseBonus;
       const fuzzyContentFallback = !compact && fuzzy === 0 ? fuzzySearchTokenCount(normalizedQuery, text) : 0;
       fuzzy += fuzzyContentFallback;
       // Broad full-text fuzzy evidence is only a fallback and stays weaker than
