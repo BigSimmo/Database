@@ -1415,10 +1415,10 @@ export const DERIVED_QUERY_INVENTORY = [
     file: "src/app/api/ingestion/jobs/route.ts",
     table: "ingestion_jobs",
     fn: "GET",
-    queries: 2,
+    queries: 3,
     proof: PROOF_KINDS.DOCUMENTS_INNER_JOIN,
     reason:
-      'Both the page query and the active-count query join `documents!inner` and filter `.eq("documents.owner_id", user.id)`, so ownership rides on the query chain itself.',
+      'The page query, the active-count query and the failed-count query each join `documents!inner` and filter `.eq("documents.owner_id", user.id)`, so ownership rides on every one of the three query chains itself. 2 -> 3 on 2026-09-04 when #L15 added the pre-pagination failed-job head count, built as a copy of the active-count chain precisely so it would carry the same on-chain filter rather than need a weaker proof.',
   },
   {
     file: "src/app/api/ingestion/quality/route.ts",
