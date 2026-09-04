@@ -4,10 +4,17 @@
 // removed token/revising shapes, governance refusal emitting zero units, owner-boundary
 // trimming, and byte-identical preview/final reconciliation at the trim layer.
 
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { toClientAnswerPayload, trimSourceForClient } from "../src/lib/answer-client-payload";
-import { buildEvidencePreviewUnit } from "../src/lib/answer-preview";
+import {
+  buildCachedEvidencePreviewProgress,
+  buildEvidencePreviewProgress,
+  readLastEvidencePreviewReason,
+  buildEvidencePreviewUnit,
+} from "../src/lib/answer-preview";
 import { toPublicAnswerProgressEvent } from "../src/lib/answer-progress-public";
 import {
   isAnswerStreamEventName,
@@ -191,14 +198,83 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(buildEvidencePreviewUnit({ results: [outdated] })).toBeNull();
   });
 
-  it("suppresses a preview when another potential final source fails governance", () => {
+  it("excludes the danger-level document and still shows the clean sources beside it", () => {
+    // The behaviour this replaces suppressed the whole rail whenever any retrieved passage
+    // failed governance, which on a real corpus meant one badly-OCR'd chunk hid every good
+    // source in the answer. Excluding the flagged document is strictly safer per card: it can
+    // no longer appear in the preview at all, where the old wide check only delayed it until
+    // the answer's own rail.
     const safe = makeSource();
     const outdated = makeSource({
       id: "chunk-outdated",
+      document_id: "doc-outdated",
       source_metadata: { document_status: "outdated" } as SearchResult["source_metadata"],
     });
 
-    expect(buildEvidencePreviewUnit({ results: [safe], governanceResults: [safe, outdated] })).toBeNull();
+    const unit = buildEvidencePreviewUnit({ results: [safe, outdated] });
+    expect(unit).not.toBeNull();
+    expect(unit!.sources.map((source) => source.document_id)).toEqual(["doc-1"]);
+    // Counts what survived, never the wider set: the contract requires
+    // selectedContextCount >= sources.length, and a count including the excluded document
+    // would describe evidence the preview is deliberately not showing.
+    expect(unit!.selectedContextCount).toBe(1);
+  });
+
+  it("excludes every chunk of a danger-level document, not only the flagged chunk", () => {
+    const safe = makeSource();
+    const poorFirst = makeSource({
+      id: "chunk-poor-1",
+      document_id: "doc-poor",
+      source_metadata: { extraction_quality: "poor" } as SearchResult["source_metadata"],
+    });
+    // Same document, no flag of its own — governance is a property of the document, so this
+    // chunk must go with it rather than standing in as a clean card for the same PDF.
+    const poorSecond = makeSource({ id: "chunk-poor-2", document_id: "doc-poor" });
+
+    const unit = buildEvidencePreviewUnit({ results: [safe, poorFirst, poorSecond] });
+    expect(unit).not.toBeNull();
+    expect(unit!.sources.map((source) => source.id)).toEqual(["chunk-1"]);
+  });
+
+  it("excludes danger-level documents past the warnings display cap", () => {
+    // `sourceGovernanceWarnings` ends with `.slice(0, limit ?? 8)`, a cap sized for a warnings
+    // banner. An earlier cut of this filter read its exclusion set out of that capped list, so
+    // the ninth danger warning onwards was silently dropped and its document was disclosed as
+    // a preview card. Five documents that are both outdated and poorly extracted produce ten
+    // danger warnings, which is enough to push the last one out.
+    const flagged = Array.from({ length: 5 }, (_unused, index) =>
+      makeSource({
+        id: `chunk-flagged-${index}`,
+        document_id: `doc-flagged-${index}`,
+        source_metadata: {
+          document_status: "outdated",
+          extraction_quality: "poor",
+        } as SearchResult["source_metadata"],
+      }),
+    );
+    // Poor extraction only, so `document_status` stays "current" — the card badge reads only
+    // that field, so a document escaping the cap this way would be shown labelled "Current".
+    const badlyExtracted = makeSource({
+      id: "chunk-poor-ocr",
+      document_id: "doc-poor-ocr",
+      source_metadata: { document_status: "current", extraction_quality: "poor" } as SearchResult["source_metadata"],
+    });
+    const safe = makeSource();
+
+    const unit = buildEvidencePreviewUnit({ results: [...flagged, badlyExtracted, safe] });
+    expect(unit).not.toBeNull();
+    expect(unit!.sources.map((source) => source.document_id)).toEqual(["doc-1"]);
+  });
+
+  it("suppresses the whole preview when the danger verdict is answer-level, not per document", () => {
+    // `WEAK_EVIDENCE` from relevance.verdict === "none" says the retrieved evidence does not
+    // back the question at all. That is not a property of any one document, so no subset of
+    // the rail is safe to show and the all-or-nothing path must survive.
+    const unit = buildEvidencePreviewUnit({
+      results: [makeSource(), makeSource({ id: "chunk-2", document_id: "doc-2" })],
+      relevance: { isSourceBacked: false, verdict: "none" } as never,
+    });
+    expect(unit).toBeNull();
   });
 
   it("emits zero units for empty retrieval", () => {
@@ -270,5 +346,89 @@ describe("public progress DTO passthrough", () => {
   it("emits no verified unit by default (flag off end-to-end)", () => {
     const event = toPublicAnswerProgressEvent({ stage: "retrieved", resultCount: 3 });
     expect(event?.verifiedUnit).toBeUndefined();
+  });
+});
+
+describe("evidence preview emission (#100 — why a wait shows no sources)", () => {
+  it("shows the rail on a cached answer instead of returning nothing", () => {
+    // A cache hit returns before the ranking event, so until this every repeated question
+    // showed a wait with no sources while a first-time question showed them. Repeats are the
+    // common case here: the same question comes up on the next patient.
+    const fields = buildCachedEvidencePreviewProgress({ results: [makeSource()] });
+    expect(fields.previewReason).toBe("ok");
+    expect(fields.verifiedUnit?.sources).toHaveLength(1);
+  });
+
+  // The wiring, not just the helper. A unit test of `buildCachedEvidencePreviewProgress` alone
+  // passed happily while production emitted nothing on a cache hit — the same shape of gap that
+  // made this bug survive two rounds of "verified". Every cached progress event that has the
+  // sources in hand (it reports `resultCount`) must actually attach the preview. The
+  // inflight-coalesced event is deliberately excluded: it is waiting on another request and has
+  // no sources to offer yet.
+  it("attaches the preview at every cached progress event that has sources in hand", () => {
+    const ragSource = readFileSync(new URL("../src/lib/rag/rag.ts", import.meta.url), "utf8");
+    const cachedEvents = [...ragSource.matchAll(/stage: "cached",[\s\S]{0,1200}?\n    \}\);/g)].map(
+      (match) => match[0],
+    );
+    expect(cachedEvents.length).toBeGreaterThanOrEqual(2);
+
+    const withSources = cachedEvents.filter((event) => event.includes("resultCount:"));
+    expect(withSources.length).toBeGreaterThanOrEqual(2);
+    for (const event of withSources) {
+      expect(event).toContain("buildCachedEvidencePreviewProgress");
+    }
+  });
+
+  it("falls back to the generation context when the retry intersection is empty", () => {
+    // The two context sets apply the per-document cap to different input lists, so the
+    // intersection can empty out while retrieval and ranking are perfectly healthy.
+    const normal = makeSource({ id: "chunk-normal" });
+    const fallback = makeSource({ id: "chunk-strong", document_id: "doc-strong" });
+
+    const fields = buildEvidencePreviewProgress({ normalResults: [normal], fallbackResults: [fallback] });
+    expect(fields.previewReason).toBe("empty_intersection_relaxed");
+    expect(fields.verifiedUnit?.sources.map((source) => source.id)).toEqual(["chunk-normal"]);
+  });
+
+  it("keeps the stable intersection when there is one", () => {
+    const shared = makeSource();
+    const fields = buildEvidencePreviewProgress({ normalResults: [shared], fallbackResults: [shared] });
+    expect(fields.previewReason).toBe("ok");
+    expect(fields.verifiedUnit?.sources).toHaveLength(1);
+  });
+
+  it("names why it withheld, rather than returning a bare absence", () => {
+    expect(buildEvidencePreviewProgress({ normalResults: [], fallbackResults: [] }).previewReason).toBe(
+      "no_candidates",
+    );
+    expect(
+      buildCachedEvidencePreviewProgress({
+        results: [makeSource()],
+        relevance: { isSourceBacked: false, verdict: "none" } as never,
+      }).previewReason,
+    ).toBe("answer_level_danger");
+    expect(
+      buildCachedEvidencePreviewProgress({
+        results: [makeSource({ source_metadata: { document_status: "outdated" } as SearchResult["source_metadata"] })],
+      }).previewReason,
+    ).toBe("all_sources_danger");
+  });
+
+  it("records a contract rejection at the route boundary, which had no upstream reason", () => {
+    // The builder says "ok" and the boundary then discards the unit — the one preview failure
+    // that used to vanish without trace.
+    const event = toPublicAnswerProgressEvent({
+      stage: "ranking",
+      previewReason: "ok",
+      verifiedUnit: { schemaVersion: 1, kind: "evidence_preview", sequence: 0, sources: [], selectedContextCount: 0 },
+    });
+    expect(event?.previewReason).toBe("contract_rejected");
+    expect(event?.verifiedUnit).toBeUndefined();
+    expect(readLastEvidencePreviewReason()?.reason).toBe("contract_rejected");
+  });
+
+  it("passes a genuine absence through without calling it a rejection", () => {
+    const event = toPublicAnswerProgressEvent({ stage: "ranking", previewReason: "all_sources_danger" });
+    expect(event?.previewReason).toBe("all_sources_danger");
   });
 });

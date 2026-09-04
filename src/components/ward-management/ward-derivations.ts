@@ -5,6 +5,8 @@
  * these three files can drift out of sync if a formula changes, so a change here changes every
  * consumer at once rather than needing three coordinated edits.
  */
+import { SUITABILITY_GATES } from "@/components/ward-management/ward-flow-reducer";
+import { referralState } from "@/components/ward-management/ward-referrals";
 import type { LucideIcon } from "lucide-react";
 import { CircleAlert, Truck } from "lucide-react";
 
@@ -19,12 +21,13 @@ import {
 import {
   eligibility,
   requiresAuthorisedDestination,
-  type EligibilityVerdict,
+  type EligibilityGate,
+  type GateResult,
 } from "@/components/ward-management/ward-eligibility";
 import {
   changeReasonLabels,
   type CancelTransportReason,
-  type ReleaseHoldReason,
+  type ReleasePullReason,
 } from "@/components/ward-management/ward-change-reasons";
 import {
   MOVEMENT_STAGES,
@@ -34,6 +37,8 @@ import {
   type HealthService,
   type Movement,
   type MovementStage,
+  type Override,
+  type Referral,
   type TransportJob,
   type Unit,
 } from "@/components/ward-management/ward-model";
@@ -47,7 +52,7 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
   placement_requested: { label: "Placement requested", shortLabel: "Requested" },
   destination_review: { label: "Destination review", shortLabel: "Review" },
   accepted_awaiting_bed: { label: "Accepted, awaiting bed", shortLabel: "Accepted" },
-  bed_held: { label: "Bed held", shortLabel: "Held" },
+  pulled: { label: "Bed pulled", shortLabel: "Pulled" },
   handover_ready: { label: "Handover ready", shortLabel: "Ready" },
   moving: { label: "Moving", shortLabel: "Moving" },
   arrived: { label: "Arrived", shortLabel: "Arrived" },
@@ -57,11 +62,26 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
  *  ward-model.ts) are raw lowercase lifecycle identifiers, never sentence-case display text.
  *  A screen renders this label, never `release.state` directly (defect fix, visual pass). */
 export const bedReleaseStateLabels: Record<BedReleaseState, string> = {
-  predicted: "Predicted",
+  expected: "Expected",
   confirmed: "Confirmed",
-  blocked: "Blocked",
-  released: "Released",
+  discharged: "Discharged",
 };
+
+/** The blocked FLAG's label on one release row (bed-model rework, 2026-08-28). Deliberately NOT
+ *  a member of `bedReleaseStateLabels` above: being stuck is not one of the three stages, it sits
+ *  on top of one, and a screen renders both — "Confirmed" and "Blocked" together are the whole
+ *  point of the change. Named once here so no screen types the word itself. */
+export const BED_RELEASE_BLOCKED_LABEL = "Blocked";
+
+/**
+ * The same fact as a COUNT, and deliberately worded differently from the flag above.
+ * `unitCapacity()` already has a `blocked` figure meaning physically blocked BEDS, and the ward
+ * screen renders both chips side by side; two chips reading "Blocked" and meaning different
+ * things would be a defect, not a tidy-up. This is the one the morning page, the capacity board
+ * and the ward screen all render (`CAPACITY_FIGURE_LABELS.blockedToday` reads it), so the
+ * vocabulary spec D3/D14 requires to be identical at every level is identical by construction.
+ */
+export const BED_RELEASE_BLOCKED_FIGURE_LABEL = "Blocked releases";
 
 /** Counts are derived from whatever `movements` list the caller passes — every screen now
  * passes the live provider state (Task 6), so the pipeline strip can never advertise a count
@@ -74,7 +94,74 @@ export function stageSummaries(movements: Movement[]) {
   }));
 }
 
-export const wardServiceOrder: HealthService[] = ["North Metro", "East Metro", "South Metro", "WACHS", "Private"];
+/**
+ * THE SAME STRIP, RECONCILED WITH THE QUEUE STANDING NEXT TO IT.
+ *
+ * `stageSummaries` above answers "how many movements are AT this stage" and is correct for the
+ * screens that ask that. The network page asks a different question and rendered the same answer:
+ * its strip sits directly above a panel headed "Priority queue", so its seven cells read as the
+ * queue broken down by stage. They summed to 50 while the queue said 43.
+ *
+ * ⚠️ **THE OBVIOUS FIX IS WRONG BY ONE, AND IT IS THE VERSION TWO REVIEWERS INDEPENDENTLY ASKED
+ * FOR.** Both said: put stage 7 "Arrived" outside the total. That gives 44. `isOpen` is TWO
+ * conditions — `!closure && stage !== "arrived"` — and a movement that does not proceed closes at
+ * whatever stage it had reached, so the closed records are NOT all sitting in stage 7. The seed
+ * holds exactly one of them today.
+ *
+ * ⚠️ **AND 44 BESIDE 43 IS WORSE THAN 50 BESIDE 43.** Fifty is visibly unreconciled: a coordinator
+ * sees two numbers that obviously do not match and asks. Forty-four invites the arithmetic and then
+ * fails it by one, with nothing on screen indicating which cell is lying. A wrong number that looks
+ * right outranks a wrong number that looks wrong, in the direction of harm.
+ *
+ * So this returns the whole reconciliation rather than a rearranged strip: waiting cells that count
+ * PEOPLE STILL WAITING, and one cell holding everyone who has left the pathway by either route.
+ * `waiting` sums to the queue count, `waiting + left.total` is every movement, and
+ * `left.arrived + left.didNotProceed` equals `left.total` by construction rather than by
+ * coincidence — `arrived` is the remainder, so no third outcome can fall between them unnoticed.
+ *
+ * Pinned by `tests/ward-network-stage-strip.dom.test.tsx`, whose canary asserts the fixture still
+ * contains a movement that closed before arriving — because without one, the arrived-only fix
+ * passes every other assertion in that file.
+ */
+export function queueStageSummaries(movements: Movement[]) {
+  const left = movements.filter((movement) => !isOpen(movement));
+  const didNotProceed = left.filter((movement) => movement.closure?.outcome === "did_not_proceed").length;
+
+  return {
+    waiting: MOVEMENT_STAGES.filter((id) => id !== "arrived").map((id) => ({
+      id,
+      ...stageCopy[id],
+      count: movements.filter((movement) => movement.stage === id && isOpen(movement)).length,
+    })),
+    left: {
+      total: left.length,
+      // The remainder, deliberately. Counting `stage === "arrived"` directly would leave a
+      // did-not-proceed closure recorded at the arrived stage in neither bucket, and the two
+      // sub-figures would quietly stop summing to the total they are printed beneath.
+      arrived: left.length - didNotProceed,
+      didNotProceed,
+    },
+  };
+}
+
+/**
+ * The one canonical order of the health services, and the list every screen that groups by service
+ * iterates — the ED ward table, the coordinator flow diagram, the network map's two columns and the
+ * ward index.
+ *
+ * `readonly`, so a duplicate entry is a compile error rather than a runtime possibility. Every
+ * consumer groups by mapping over this list, so a service appearing in it twice renders its wards
+ * twice — and the ordering test reads `headings.indexOf(service)`, first occurrence, so it would
+ * not see the second. Nothing needs to mutate the array: every consumer only maps, flat-maps,
+ * filters or iterates it.
+ */
+export const wardServiceOrder: readonly HealthService[] = [
+  "North Metro",
+  "East Metro",
+  "South Metro",
+  "WACHS",
+  "Private",
+];
 
 export const roleLabels: Record<WardRole, string> = {
   flow: "Flow coordinator",
@@ -85,7 +172,7 @@ export const roleLabels: Record<WardRole, string> = {
 export const roleTaskLabel: Record<WardRole, string> = {
   flow: "Review & confirm",
   ed: "Confirm ED readiness",
-  ward: "Accept and hold bed",
+  ward: "Accept and pull bed",
 };
 
 /**
@@ -150,7 +237,7 @@ export function destinationNoLongerLawful(movement: Movement, units: Unit[]): Un
  * Task 5 fix round 1: `ShortlistPanel` used to dispatch `REFER_TO_UNITS` and unconditionally
  * render "Referred by a human coordinator" regardless of what the reducer actually did with it.
  * Nine of the eighteen hand-authored fixture movements sit in a non-referable stage (e.g.
- * `bed_held`) while still open and still offering eligible candidates — for every one of them the
+ * `pulled`) while still open and still offering eligible candidates — for every one of them the
  * old code showed a successful referral that never happened. This lets the Refer control state
  * the real reason up front instead of advertising an action it cannot perform.
  */
@@ -173,6 +260,102 @@ export function referralBlockedReason(movement: Movement): string | undefined {
 export function destinationUnit(movement: Movement, units: Unit[]): Unit | undefined {
   const id = movement.acceptedUnitId ?? movement.referredUnitIds[0];
   return id ? units.find((unit) => unit.id === id) : undefined;
+}
+
+/**
+ * THE FRONT-DOOR REFERRAL A JOURNEY WAS RAISED FROM, or `undefined` when there is none.
+ *
+ * The read half of `Movement.referralId` (owner ruling 8, 2026-09-01): a community team refers a
+ * patient to an emergency department, the patient attends it, and that department raises the
+ * journey. This resolves the second record back to the first.
+ *
+ * ⚠️ **`undefined` IS THE ANSWER FOR A MOVEMENT WITH NO REFERRAL, AND IT IS AN ANSWER RATHER THAN
+ * A FAILURE.** Most movements have none — somebody walked into a department and nobody referred
+ * them — so this neither throws nor falls back to a plausible-looking referral. There is nothing
+ * to guess from: a movement carries no other field that could identify one, and picking "the
+ * referral at the same department" or "the most recent one" would manufacture the join that
+ * `Admission.referralId` already manufactures and that
+ * `docs/ward-flow/fields-with-no-producer-2026-09-01.md` exists to record.
+ *
+ * ⚠️ **A DANGLING ID ALSO READS AS `undefined` HERE, AND THE GUARD IS UPSTREAM.** `RAISE_REFERRAL`
+ * is the only writer and refuses an id that does not resolve, so a movement built by the reducer
+ * cannot carry one. A hand-authored movement could; it would read as "no referral", which is the
+ * conservative answer, not a silent success. Callers wanting to distinguish "no referral" from
+ * "a referral this state does not hold" must compare `movement.referralId` themselves.
+ */
+export function referralForMovement(movement: Movement, referrals: Referral[]): Referral | undefined {
+  if (movement.referralId === undefined) return undefined;
+  return referrals.find((candidate) => candidate.id === movement.referralId);
+}
+
+/**
+ * WHAT THIS JOURNEY'S FRONT-DOOR REFERRAL IS, **OR WHY IT HAS NONE** — owner ruling
+ * R-2026-09-04-D, second half, and the half the ruling says is the one that matters.
+ *
+ * `referralForMovement` above answers with a referral or with `undefined`, and `undefined` was
+ * doing the work of three different situations at once:
+ *
+ *   - **`none_raised`** — somebody recorded that nobody referred this person. **The only CLINICAL
+ *     one**, and the only arm a screen may treat as an assertion rather than as a gap.
+ *   - **`not_asked`** — the journey was raised at runtime and nothing asked which referral it came
+ *     from (`RAISE_REFERRAL` writes this itself). Record-keeping.
+ *   - **`not_recorded`** — nothing has been recorded either way; in today's fixture that means the
+ *     movement predates the link. Record-keeping, and the DEFAULT for all existing data.
+ *
+ * Two further arms keep the reader honest rather than tidy: `unresolved` for an id naming a
+ * referral this state does not hold (unreachable through `RAISE_REFERRAL`, which refuses one, but
+ * reachable by hand), and `referral` for the resolved join.
+ *
+ * ⚠️ **A SET `referralId` WINS OVER ANY ABSENCE RECORD, AND THAT PRECEDENCE IS DELIBERATE.** The
+ * reducer refuses to create the contradiction — `RECORD_NO_REFERRAL` rejects a movement that names
+ * a referral — so a movement carrying both is hand-authored data. Reporting "nobody referred this
+ * person" while a real referral resolves beside it is the fabrication this ruling exists to
+ * prevent; reporting the referral is the conservative reading.
+ *
+ * ⚠️ **`none_raised` DOES NOT MEAN "NOBODY IS LOOKING FOR A BED FOR THIS PATIENT".** It means no
+ * referral brought them in. Whether anyone is searching for a bed is `referredUnitIds`/`declines`,
+ * which has its own unresolved version of this same three-causes problem — see the doc block in
+ * `ed/ed-home-derivations.ts`, which refuses to count it for exactly that reason. Do not read one
+ * as the other.
+ */
+export type MovementReferralLink =
+  | { kind: "referral"; referral: Referral }
+  | { kind: "unresolved"; referralId: string }
+  | { kind: "none_raised"; at: Instant }
+  | { kind: "not_asked"; at: Instant }
+  | { kind: "not_recorded" };
+
+export function movementReferralLink(movement: Movement, referrals: Referral[]): MovementReferralLink {
+  if (movement.referralId !== undefined) {
+    const referral = referralForMovement(movement, referrals);
+    return referral ? { kind: "referral", referral } : { kind: "unresolved", referralId: movement.referralId };
+  }
+  const absence = movement.referralAbsence;
+  if (absence === undefined) return { kind: "not_recorded" };
+  return absence.reason === "none_raised"
+    ? { kind: "none_raised", at: absence.at }
+    : { kind: "not_asked", at: absence.at };
+}
+
+/**
+ * WHETHER THIS PATIENT NEEDS TRANSPORT — three states, owner ruling R-2026-09-04-C.
+ *
+ * `"not_recorded"` is the DEFAULT and is not a soft `"not_needed"`: nobody has answered. The three
+ * names exist so a caller cannot write `movement.transportNeed?.needed ?? false` and silently turn
+ * an unanswered question into a stated "no" — the exact collapse the ED referral form's
+ * `specialling` checkbox was ordered fixed for, and the reason `Referral.medicalClearance` is
+ * shaped this way too.
+ *
+ * ⚠️ **IT IS NOT DERIVED FROM `Movement.transport`, AND MUST NOT BE.** A booked job proves need;
+ * the absence of one proves nothing at all, which is the whole gap this state closes. A movement
+ * carrying a transport job and no recorded need still reads `"not_recorded"` here — honest, and
+ * visibly so — rather than being upgraded to `"needed"` by an inference nobody made.
+ */
+export type TransportNeedState = "needed" | "not_needed" | "not_recorded";
+
+export function transportNeedState(movement: Pick<Movement, "transportNeed">): TransportNeedState {
+  if (movement.transportNeed === undefined) return "not_recorded";
+  return movement.transportNeed.needed ? "needed" : "not_needed";
 }
 
 export function unitSiteCode(unit: Unit) {
@@ -247,11 +430,11 @@ export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
     held,
     /**
      * Task 7 (Phase 5, spec D6); review Finding 4: this is a raw count of every bed release for
-     * the unit regardless of state or timing — it does not distinguish confirmed from predicted
+     * the unit regardless of state or timing — it does not distinguish confirmed from expected
      * from blocked, and it does not exclude a release that falls beyond tonight. Nothing renders
      * this field any more: `ward-management-modes.tsx`, `ward/ward-screen.tsx`,
      * `ward-management-network.tsx` and `coordinator/flow-diagram.tsx` all render
-     * `capacityBreakdown()`'s Confirmed/Predicted figures instead. This field's arithmetic is
+     * `capacityBreakdown()`'s Confirmed/Expected figures instead. This field's arithmetic is
      * deliberately left unchanged — it is protected — but it is dead beyond its remaining
      * offline test callers (`tests/ward-capacity-reconciliation.test.ts`,
      * `tests/ward-flow-reducer.test.ts`, `tests/ward-model.test.ts`); do not repurpose it as a
@@ -304,6 +487,41 @@ export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNo
   return undefined;
 }
 
+export type EligibilityWarning = { level: "ineligible"; text: string; failedGates: GateResult[] };
+
+/**
+ * The other half of the finding in `docs/ward-flow/the-engine-enforces-nothing.md`: `eligibility()`
+ * already computes whether this ward may lawfully or safely hold this movement, and nothing on the
+ * ward's own screen showed it. `ward-screen.tsx`'s accept and pull buttons deliberately mirror the
+ * reducer's own (eligibility-free) checks so the two can never advertise different verdicts — which
+ * means their silent agreement reads as "nothing wrong" even on a movement `eligibility()` would
+ * refuse outright. This is INFORMATION, never a gate: it never blocks accept or pull, and it calls
+ * `eligibility()` exactly as written — `ward-eligibility.ts` is a protected surface and its pass/fail
+ * semantics are untouched here, the same discipline `restrictionNotice` above already keeps.
+ *
+ * Independent of `restrictionNotice`, not a second copy of it: that function flags a ward MORE
+ * restrictive than a movement strictly needs (never itself a hard `eligibility()` failure — its
+ * `security` gate only fails the other direction, a movement needing Secure placed on an Open
+ * ward), or a voluntary patient held on a locked ward (a fact `eligibility()` does not gate on at
+ * all — its `authorisation` gate only fires for a NON-voluntary movement). Neither of
+ * `restrictionNotice`'s two cases can coincide with a failing `eligibility()` gate for the same
+ * pair, so a case already flagged there never also earns this warning for the same underlying fact.
+ *
+ * Lists EVERY failing gate's own `detail`, never just the first — `candidateReason()` deliberately
+ * picks one gate for a single-line "why not eligible" summary elsewhere on the coordinator's
+ * screen; a ward silently told about only one of several problems would read as complete when it
+ * is not.
+ */
+export function eligibilityWarning(movement: Movement, unit: Unit, now: Instant): EligibilityWarning | undefined {
+  const failedGates = eligibility(movement, unit, now).gates.filter((gate) => !gate.pass);
+  if (failedGates.length === 0) return undefined;
+  return {
+    level: "ineligible",
+    text: `Does not meet every placement requirement — ${failedGates.map((gate) => gate.detail).join("; ")}`,
+    failedGates,
+  };
+}
+
 /**
  * The units among `units` whose cohort matches this movement's, ranked eligible-first using the
  * real eligibility gates, then truncated to `limit`.
@@ -333,6 +551,148 @@ export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNo
  * at render time any more, and `tests/ward-flow-single-source.test.ts` enforces that with a
  * TypeScript-parser walk rather than a text scan.
  */
+/**
+ * ⚠️ WHAT A WARD IS TO THIS MOVEMENT, IN THE ONLY THREE STATES A COORDINATOR CAN ACT ON.
+ *
+ * `eligible`    — take it.
+ * `overridable` — every failing gate is a JUDGEMENT about the patient, so a named human may take
+ *                 it by recording why. The engine will accept that; see `eligibilityRefusal`.
+ * `unavailable` — at least one failing gate is a FACT ABOUT THE WORLD: no bed, no specialling
+ *                 capacity, a stale count. ⚠️ NO REASON BUYS PAST THESE, and a list that styled
+ *                 them like an overridable ward would be offering a coordinator something they can
+ *                 never have. The owner's rule: no reason typed into a form creates a bed.
+ */
+export type ShortlistAvailability = "eligible" | "previously_declined" | "overridable" | "unavailable";
+
+/**
+ * ⚠️ GATES THAT INFORM AND DO NOT BLOCK — a third kind, and neither of the two this file started
+ * with fits them.
+ *
+ * `prior_decline` says a ward has already said no to this person once. The owner ruled that
+ * re-approaching such a ward needs NO WRITTEN REASON, and the reducer already agrees: the gate is
+ * absent from `SUITABILITY_GATES`, so `eligibilityRefusal` never sees it and a re-approach passes
+ * with no friction at all.
+ *
+ * ⚠️ SO IT MUST NOT BE MOVED INTO `SUITABILITY_GATES` TO FIX THIS. That would make it
+ * overridable-WITH-a-reason, which is the thing he ruled against. It needs its own bucket, not a
+ * move between the two that exist.
+ *
+ * A ward that declined at 2pm because it was full, with a bed free at 8pm, must remain reachable —
+ * and the coordinator must still SEE that it said no before, because that is useful. The
+ * information is useful; the block was wrong.
+ */
+/**
+ * ⚠️ EXPORTED SO IT CAN BE PINNED AGAINST THE ENGINE, NOT SO IT CAN BE IMPORTED FOR CONVENIENCE.
+ * `tests/ward-informational-gates.test.ts` proves, for EVERY member, that the reducer genuinely
+ * accepts a referral to a ward failing only that gate with NOTHING recorded. Adding a member with
+ * no such case makes that test fail rather than pass quietly — the list cannot outrun the engine.
+ */
+export const INFORMATIONAL_GATES: readonly EligibilityGate[] = ["prior_decline"];
+
+/**
+ * ⚠️ THE ONE PLACE THAT SAYS WHICH WARDS A COORDINATOR MAY SIMPLY REFER TO — and it exists because
+ * the screen asked a DIFFERENT QUESTION from this file and got a different answer.
+ *
+ * `verdict.eligible` is false for a previously-declining ward, because `prior_decline` genuinely
+ * fails as a gate. So a control that reads `verdict.eligible` to decide whether Refer is available
+ * blocks a ward the owner ruled needs NO WRITTEN REASON — and the disabled control then reads
+ * "Not eligible … Use Override instead", which demands the very reason he ruled against.
+ *
+ * ⚠️ THAT IS WHAT SHIPPED IN `4e07bf520`, AND IT IS WORTH BEING PRECISE ABOUT WHAT WENT WRONG: the
+ * ward moved into the candidates list correctly, and THE SAME FALSE CLAIM REAPPEARED ON THE REFER
+ * BUTTON. The falsehood was not removed, it was MOVED. The list read `availability`; the button
+ * read `verdict.eligible`; nothing made them agree, and nothing went red.
+ *
+ * ⚠️ A browser check passed over it, because it searched for the sentence that had been REMOVED and
+ * that sentence was genuinely gone. Confirming the old wording is absent is not confirming the
+ * screen is right.
+ *
+ * Every consumer deciding "may this be referred with nothing recorded?" calls THIS, never
+ * `verdict.eligible`.
+ */
+export function needsNoRecordedReason(availability: ShortlistAvailability): boolean {
+  return availability === "eligible" || availability === "previously_declined";
+}
+
+export type ShortlistCandidate = {
+  unit: Unit;
+  verdict: ReturnType<typeof eligibility>;
+  availability: ShortlistAvailability;
+};
+
+/**
+ * EVERY ward, with an honest verdict on each — never a pre-filtered list.
+ *
+ * ⚠️ IT REPLACES A FILTER THAT MADE WARDS INVISIBLE RATHER THAN REFUSED. `eligibleCandidatesAmong`
+ * drops every unit of a different cohort BEFORE eligibility is computed, so those wards could never
+ * be seen, never be reasoned about, and never be overridden — they simply were not there.
+ *
+ * ⚠️ AND HIDING THEM WAS DEFENSIBLE UNTIL TONIGHT. While the engine refused a mismatched placement
+ * outright, showing a coordinator a ward they could not use was noise. Now a judgement gate is
+ * overridable with a recorded reason, so a cohort-mismatched ward is a LEGITIMATE DESTINATION and
+ * hiding it is the defect. `cohort` is itself one of the overridable gates.
+ *
+ * ⚠️ NO LIMIT, DELIBERATELY, and this is the part that must not be undone. The list it replaces was
+ * capped at `PARALLEL_REFERRAL_CAP` — a rule about how many places ONE REFERRAL MAY BE SENT TO,
+ * borrowed as a display count, which is a domain rule doing a layout job. Re-capping would restore
+ * the original defect in a new costume: with three eligible wards present, every overridable one
+ * would fall off the end and be invisible again. Order it, group it, scroll it — do not truncate it.
+ */
+export function shortlistCandidates(movement: Movement, units: Unit[], now: Instant): ShortlistCandidate[] {
+  return units
+    .map((unit) => {
+      const verdict = eligibility(movement, unit, now);
+      const failing = verdict.gates.filter((gate) => !gate.pass);
+      // ⚠️ Fail-closed by construction, the same rule the engine applies: a gate is overridable ONLY
+      // by appearing in `SUITABILITY_GATES`. Anything else — including a gate added later by
+      // somebody who never opened this file — makes the ward unavailable rather than overridable.
+      const blocking = failing.filter(
+        (gate) => !SUITABILITY_GATES.includes(gate.gate) && !INFORMATIONAL_GATES.includes(gate.gate),
+      );
+      const judgements = failing.filter((gate) => SUITABILITY_GATES.includes(gate.gate));
+      const availability: ShortlistAvailability = verdict.eligible
+        ? "eligible"
+        : blocking.length > 0
+          ? "unavailable"
+          : judgements.length > 0
+            ? "overridable"
+            : // Only informational gates failed — usable, needing nothing, with a note.
+              "previously_declined";
+      return { unit, verdict, availability };
+    })
+    .sort((a, b) => rankOf(a.availability) - rankOf(b.availability));
+}
+
+/**
+ * The gate to SHOW against a ward nothing can buy — the first failing gate OUTSIDE the overridable
+ * set, falling back to the first failing gate at all.
+ *
+ * ⚠️ IT EXISTS BECAUSE THE OBVIOUS VERSION IS WRONG IN THE DANGEROUS DIRECTION, and it was caught
+ * by looking at the rendered screen rather than by a test. Taking simply the first failing gate
+ * showed "Open ward does not meet a secure requirement" against a ward that is unavailable because
+ * it HAS NO BED — naming an OVERRIDABLE reason on a row no reason can buy. A coordinator reading
+ * that would reasonably conclude a recorded reason would get them in.
+ *
+ * The fallback is unreachable for an `unavailable` candidate by construction, and is kept so the
+ * function is total for any verdict a caller hands it.
+ */
+export function blockingGate(verdict: ReturnType<typeof eligibility>) {
+  return (
+    verdict.gates.find(
+      (gate) => !gate.pass && !SUITABILITY_GATES.includes(gate.gate) && !INFORMATIONAL_GATES.includes(gate.gate),
+    ) ?? verdict.gates.find((gate) => !gate.pass)
+  );
+}
+
+/** Eligible first, then what a reason can buy, then what nothing can. Stable within each group, so
+ *  the order inside a group is `units`' own and nothing is ranked against its neighbours. */
+function rankOf(availability: ShortlistAvailability): number {
+  if (availability === "eligible") return 0;
+  // A ward that only declined before needs nothing recorded, so it sits above one that does.
+  if (availability === "previously_declined") return 1;
+  return availability === "overridable" ? 2 : 3;
+}
+
 export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: Instant, limit = 3) {
   // Eligible-first cut FIRST, restrictiveness reorder SECOND, deliberately in two passes rather
   // than one combined sort. A single combined sort could pull in a unit that was previously
@@ -363,17 +723,13 @@ export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: 
 }
 
 /**
- * A binary, non-ordinal description of a verdict: eligible, or the specific gate that failed.
- * Eligibility gates are not commensurable (failing `authorisation` is a legal hard stop;
- * failing `capacity_freshness` is a staleness warning), so this deliberately never collapses
- * them into a "N of M passed" fraction — that shape reads as a score, and higher/lower
- * comparisons across two verdicts are not meaningful.
+ * Re-exported from `ward-eligibility.ts`, where this function now lives — see its doc comment
+ * there for what it does and for why it moved (fix round C, F1 / review finding C1: importing it
+ * from THIS module pulled the bed-release model into referral matching's transitive
+ * import graph and broke the D15 contract test). Kept exported here so the six call sites that
+ * already import it from `ward-derivations` need no edit.
  */
-export function candidateReason(verdict: EligibilityVerdict) {
-  if (verdict.eligible) return "Eligible now";
-  const failed = verdict.gates.find((gate) => !gate.pass);
-  return failed ? failed.detail : "Not eligible";
-}
+export { candidateReason } from "@/components/ward-management/ward-eligibility";
 
 export type InboxTone = "danger" | "warning";
 export type InboxItem = {
@@ -454,18 +810,18 @@ export function buildActionInbox(movements: Movement[], now: Instant, units: Uni
     });
   }
 
-  const expiredBedHolds = movements.filter(
-    (movement) => movement.stage === "bed_held" && movement.bedHeldUntil !== undefined && movement.bedHeldUntil < now,
+  const expiredBedPulls = movements.filter(
+    (movement) => movement.stage === "pulled" && movement.pullExpiresAt !== undefined && movement.pullExpiresAt < now,
   );
-  for (const movement of expiredBedHolds) {
-    const bedHeldUntil = movement.bedHeldUntil;
-    if (bedHeldUntil === undefined) continue;
+  for (const movement of expiredBedPulls) {
+    const pullExpiresAt = movement.pullExpiresAt;
+    if (pullExpiresAt === undefined) continue;
     items.push({
-      id: `bed-hold-${movement.id}`,
+      id: `bed-pull-${movement.id}`,
       tone: "danger",
       icon: CircleAlert,
-      title: "Bed hold expired",
-      detail: `${movement.id} · ${formatRemaining(minutesUntil(bedHeldUntil, now))}`,
+      title: "Bed pull expired",
+      detail: `${movement.id} · ${formatRemaining(minutesUntil(pullExpiresAt, now))}`,
       owner: movement.owner,
       movementId: movement.id,
     });
@@ -544,12 +900,53 @@ export function buildActionInbox(movements: Movement[], now: Instant, units: Uni
  * as `"escalated"`, never twice.
  */
 export type HandoverSnapshot = {
-  frozenAt: Instant;
+  /**
+   * WHEN THIS SNAPSHOT WAS TAKEN. Called `frozenAt` until owner decision OD-4, 2026-08-30, when
+   * the handover page stopped freezing and began reading live like every other screen. The old
+   * name would have gone on describing a freeze that no longer happens — the same way a field
+   * keeps asserting a behaviour after the behaviour is removed, which this project has been bitten
+   * by before. A snapshot is still taken at a moment; it is simply taken again on every render.
+   */
+  takenAt: Instant;
   longestWaits: { movement: Movement; unit: Unit | undefined }[];
-  heldBeds: { movement: Movement; unit: Unit | undefined; expired: boolean }[];
+  pulledBeds: { movement: Movement; unit: Unit | undefined; expired: boolean }[];
   inTransit: { movement: Movement; leg: TransportLeg | "Cancelled" | undefined }[];
   placementGoneWrong: { movement: Movement; kind: "escalated" | "declined_by_all" }[];
 };
+
+export type OverrideEntry = { movement: Movement; override: Override };
+
+/**
+ * THE WHOLE OVERRIDE REGISTER — the coordinator's view.
+ *
+ * Every override on every movement, newest last within a movement because that is the order they
+ * were made in. This is the unrestricted read, and it exists so the restriction below is a real
+ * restriction rather than a name for the only thing there is.
+ */
+export function allOverrides(movements: Movement[]): OverrideEntry[] {
+  return movements.flatMap((movement) => movement.overrides.map((override) => ({ movement, override })));
+}
+
+/**
+ * THE WARD'S VIEW — the overrides made AGAINST this unit, and nothing else.
+ *
+ * Owner decision OD-3: an override is **visible to the party overridden**. This is that clause, and
+ * it is the whole difference between an accountability record and an audit trail — which store
+ * identical data and differ only in who can read them.
+ *
+ * ⚠️ **THIS FILTERS AT THE SOURCE, NOT AT RENDER, AND THAT IS THE POINT.** The natural
+ * implementation is to hand a ward screen `allOverrides` and filter it in the component. That looks
+ * identical in review and passes any test asserting a ward sees its own overrides — and it leaks
+ * every other ward's the moment somebody adds a column, a debug panel, or a styling change that
+ * reveals a row meant to be hidden. **What a ward may not see must not reach it.**
+ * `tests/ward-override-register.test.ts` is the boundary that goes red.
+ *
+ * Same shape and same reasoning as FD-23's ward-blindness rule on referrals, which Ward Referrals
+ * is building: a ward-scoped surface is a projection, never the full record with fields hidden.
+ */
+export function overridesAgainstUnit(movements: Movement[], unitId: string): OverrideEntry[] {
+  return allOverrides(movements).filter((entry) => entry.override.unitIds.includes(unitId));
+}
 
 export function handoverSnapshot(movements: Movement[], units: Unit[], now: Instant): HandoverSnapshot {
   const open = movements.filter(isOpen);
@@ -558,11 +955,11 @@ export function handoverSnapshot(movements: Movement[], units: Unit[], now: Inst
     .sort((a, b) => now - b.openedAt - (now - a.openedAt))
     .map((movement) => ({ movement, unit: destinationUnit(movement, units) }));
 
-  const heldBeds = open
-    .filter((movement) => movement.bedHeldUntil !== undefined)
+  const pulledBeds = open
+    .filter((movement) => movement.pullExpiresAt !== undefined)
     .map((movement) => {
-      const bedHeldUntil = movement.bedHeldUntil as Instant;
-      return { movement, unit: destinationUnit(movement, units), expired: bedHeldUntil <= now };
+      const pullExpiresAt = movement.pullExpiresAt as Instant;
+      return { movement, unit: destinationUnit(movement, units), expired: pullExpiresAt <= now };
     });
 
   const inTransit = open
@@ -579,9 +976,9 @@ export function handoverSnapshot(movements: Movement[], units: Unit[], now: Inst
     .map((movement) => ({ movement, kind: "declined_by_all" as const }));
 
   return {
-    frozenAt: now,
+    takenAt: now,
     longestWaits,
-    heldBeds,
+    pulledBeds,
     inTransit,
     placementGoneWrong: [...escalated, ...declinedByAll],
   };
@@ -649,8 +1046,8 @@ export function escalationBoard(movements: Movement[], units: Unit[], now: Insta
  * it is checked against five real fields: the movement id, `originEdId`, the resolved destination
  * unit's `id` and `name` (via `destinationUnit`, so this reads the same "actual destination" every
  * other screen does — never a mere shortlist candidate), the stage's own display label (via
- * `stageCopy`, so a coordinator can type what the results table actually shows, e.g. "Bed held",
- * rather than the raw enum `bed_held`), and `owner`. An empty (or whitespace-only) `text` matches
+ * `stageCopy`, so a coordinator can type what the results table actually shows, e.g. "Bed pulled",
+ * rather than the raw enum `pulled`), and `owner`. An empty (or whitespace-only) `text` matches
  * every open movement, so the stage/department selects can filter alone with no text typed.
  *
  * ABSOLUTE RULE, enforced first and unconditionally: `isOpen` is applied before anything else.
@@ -686,6 +1083,98 @@ export function searchMovements(movements: Movement[], units: Unit[], query: Mov
     });
 }
 
+/**
+ * PATIENT SEARCH ACROSS BOTH RECORDS — the owner's requirement, 2026-08-30:
+ *
+ * > "when I search that patient, there should be some way of the ED psych to see the patient show
+ * > up."
+ *
+ * **`searchMovements` above cannot satisfy that, and the name is why nobody noticed.** It promises
+ * a patient search and searches MOVEMENTS — a record that begins when a person is already being
+ * moved. Somebody who has been referred and not yet accepted has no movement, so an ED
+ * psychiatrist typing their referral could search and be told, truthfully and uselessly, that
+ * there is nothing there. A search that returns nothing is indistinguishable from a search for
+ * somebody who does not exist.
+ *
+ * **This is deliberately a NEW function rather than a widening of `searchMovements`.** That one is
+ * called by one component and pinned by twenty assertions describing movement behaviour exactly —
+ * the `isOpen` rule above all, which must survive untouched. Widening it in place would have
+ * re-pointed every one of those assertions at a function that now answers a different question.
+ *
+ * **THE THIRD KIND IS THE SEAM AND IT IS DELIBERATELY ABSENT.** An admitted patient — somebody in
+ * a bed — is an `Admission`, and searching those is the other half of the owner's requirement. It
+ * is NOT built here, because the record that makes a patient survive arrival is being changed by
+ * another session right now and building against a shape mid-flight is how two sessions produce
+ * one broken record. The union below is what lets that drop in as a third member rather than a
+ * rewrite: nothing here assumes there are exactly two kinds, and every consumer must already
+ * switch on `kind`.
+ */
+export type PatientSearchResult = { kind: "movement"; movement: Movement } | { kind: "referral"; referral: Referral };
+
+/**
+ * The referral half's own text match, kept beside the movement one rather than merged with it.
+ *
+ * **The fields are not the same and pretending otherwise would be the defect.** A movement has a
+ * destination unit, a stage and an owner; a referral has none of those — it has not been accepted
+ * by anybody, which is the entire reason it is still a referral. What it does have is where it
+ * came from and who it is for.
+ *
+ * Deliberately NOT matched: `acceptedUnitId`. A referral that has been accepted has a movement,
+ * and matching it here would return the same person twice under two kinds, which reads on screen
+ * as two patients.
+ */
+function referralMatches(referral: Referral, needle: string): boolean {
+  if (needle === "") return true;
+  const haystack = [
+    referral.id,
+    referral.originSiteCode,
+    referral.homeRegion,
+    referral.ageBand,
+    referral.source,
+    referral.urgency,
+  ];
+  return haystack.some((value) => String(value).toLowerCase().includes(needle));
+}
+
+/**
+ * Both records, one result list, in a deliberate order: **referrals first.**
+ *
+ * A referral is somebody waiting for a decision and a movement is somebody whose decision has been
+ * made. When an ED psychiatrist searches a patient, the one still waiting is the one they can act
+ * on — so it goes at the top rather than being ranked by whatever the fixture order happens to be.
+ *
+ * **Queued referrals only.** An accepted referral has a movement and would otherwise appear twice;
+ * a declined one is a closed request, and surfacing it is the same untruth `isOpen` exists to
+ * prevent on the movement side — a search hit for somebody who is no longer in the system.
+ *
+ * `stage` and `edId` are movement-shaped filters and are honoured on the movement half alone. When
+ * either is set, referrals drop out entirely rather than being silently included: a coordinator
+ * who has picked a stage is asking a question referrals cannot answer, and returning them anyway
+ * would be answering a different question.
+ */
+export function searchPatients(
+  movements: Movement[],
+  referralList: Referral[],
+  units: Unit[],
+  query: MovementSearchQuery,
+): PatientSearchResult[] {
+  const needle = query.text.trim().toLowerCase();
+  const movementHalf: PatientSearchResult[] = searchMovements(movements, units, query).map((movement) => ({
+    kind: "movement",
+    movement,
+  }));
+
+  const movementFilterSet = query.stage !== undefined || query.edId !== undefined;
+  if (movementFilterSet) return movementHalf;
+
+  const referralHalf: PatientSearchResult[] = referralList
+    .filter((referral) => referralState(referral) === "queued")
+    .filter((referral) => referralMatches(referral, needle))
+    .map((referral) => ({ kind: "referral", referral }));
+
+  return [...referralHalf, ...movementHalf];
+}
+
 /** A real, per-movement audit trail built from actual fields — never generic flavour text. */
 export function movementTimeline(movement: Movement) {
   const events: Array<{ at: Instant; label: string }> = [{ at: movement.openedAt, label: "Movement opened" }];
@@ -715,15 +1204,23 @@ export function movementTimeline(movement: Movement) {
 
 /**
  * Task 9 (spec item 7): the governance board's audit of changes — every urgency change, legal
- * status change, hold release and transport cancellation across ALL movements, not one patient's
+ * status change, pull release and transport cancellation across ALL movements, not one patient's
  * own timeline (`movementTimeline` above stays scoped to a single movement; this is the
  * statewide counterpart). Newest first, so the most recent decision is the one a reviewer sees
  * without scrolling.
+ *
+ * ⚠️ **WIDENED FOR TASK 5'S STEP-BACK PAIR (2026-09-04): `"stage_corrected"` and
+ * `"acceptance_withdrawn"` join the two `UnwindRecord` kinds already here.** They are the same
+ * category of thing — a coordinator's own mutating decision, unwinding some earlier state — so
+ * excluding them from this board's audit would be the false-by-omission twin of leaving a real
+ * decision off it. The loop below already iterates every `movement.unwinds` entry regardless of
+ * kind, so nothing there needed to change to pick them up; only this type did.
  */
 export type ChangeAuditEntry = {
   at: Instant;
   movementId: string;
-  kind: "urgency" | "legal_status" | "hold_released" | "transport_cancelled";
+  kind:
+    "urgency" | "legal_status" | "pull_released" | "transport_cancelled" | "stage_corrected" | "acceptance_withdrawn";
   by: string;
   detail: string;
 };
@@ -750,15 +1247,37 @@ export function changeAudit(movements: Movement[]): ChangeAuditEntry[] {
       });
     }
     for (const unwind of movement.unwinds) {
+      if (unwind.kind === "stage_corrected" || unwind.kind === "acceptance_withdrawn") {
+        /*
+         * ⚠️ **FLAGGED, NOT A DEFAULT PAPERED OVER.** `unwind.reason` here is a `StepBackReason`
+         * (`ward-model.ts`), and `STEP_BACK_REASONS` carries no `changeReasonLabels` entry —
+         * that lookup table lives in `ward-change-reasons.ts`, outside this build's assigned
+         * scope, and is deferred alongside the reason-picker UI these two events feed. Looking the
+         * raw reason up in `changeReasonLabels` anyway would silently produce `undefined` for a
+         * field typed `string` (masked by the same unsafe cast the branch below uses for the
+         * other two kinds) — exactly the "field with no producer" class of defect this project has
+         * been bitten by before. Rather than fabricate a label here (a second place authoring text
+         * for `STEP_BACK_REASONS`, which is the "two places for one fact" this project also
+         * forbids), this renders the FACT without the specific reason until that label map exists.
+         */
+        entries.push({
+          at: unwind.at,
+          movementId: movement.id,
+          kind: unwind.kind,
+          by: unwind.by,
+          detail: unwind.kind === "stage_corrected" ? "Stage corrected" : "Acceptance withdrawn",
+        });
+        continue;
+      }
       // `UnwindRecord.reason` is typed as a plain `string` on `Movement` (ward-model.ts) because
-      // `RELEASE_HOLD` and `CANCEL_TRANSPORT` share one record shape for two different fixed
-      // reason lists. The reducer only ever writes a `ReleaseHoldReason` into a "hold_released"
+      // `RELEASE_PULL` and `CANCEL_TRANSPORT` share one record shape for two different fixed
+      // reason lists. The reducer only ever writes a `ReleasePullReason` into a "pull_released"
       // entry and a `CancelTransportReason` into a "transport_cancelled" one (ward-flow-reducer.ts),
       // so this assertion narrows back to that guarantee rather than inventing one — it does not
       // widen what values can reach the screen. Never render `unwind.reason` unlabelled: that is
       // the raw snake_case defect this file's own doc comment on `changeReasonLabels` exists to
       // prevent.
-      const reason = unwind.reason as ReleaseHoldReason | CancelTransportReason;
+      const reason = unwind.reason as ReleasePullReason | CancelTransportReason;
       entries.push({
         at: unwind.at,
         movementId: movement.id,
@@ -832,12 +1351,52 @@ export type EffectivenessMeasure = {
 };
 
 /**
+ * The fewest observations a governance figure may be computed from before it is published.
+ *
+ * **RULED BY THE OWNER, 2026-08-30, first-hand: hide the governance median below FIVE cases.** It
+ * was provisional until then — proposed by a session, recorded as provisional so it would be
+ * findable rather than inherited — and he has now decided it.
+ *
+ * ⚠️ **IT IS A DISPLAY THRESHOLD AND NOT A CLINICAL ONE, AND HE AGREED ON THAT BASIS.** Five is a
+ * convention borrowed from health reporting — the point at which a middle value stops describing
+ * anything real. **It is not derived from this data and it is not a figure from anywhere else.**
+ * That was said to him plainly before he agreed, and it is written here because it is exactly the
+ * kind of number a later reader assumes was derived from something.
+ *
+ * Applied to BOTH measures, not only the median that prompted it. They are the same kind of claim,
+ * rendered by the same component with the same basis line, and a floor on one alone would publish
+ * an average of two beside a suppressed median of four.
+ */
+export const MINIMUM_EFFECTIVENESS_SAMPLE = 5;
+
+/**
  * Task 9 (spec item 7), D7: the governance board's two live effectiveness numbers. Conservative
  * failure applies to each independently — a measure this cannot compute returns `undefined`,
  * never `0`, because zero minutes to acceptance or zero units contacted both read as a real
  * result rather than as "unknown". Both describe the current synthetic scenario only; nothing
  * here is a claim about the prototype's real-world effectiveness. Both carry their own basis
  * (`EffectivenessMeasure`) so a thin sample is never presented bare.
+ *
+ * ⚠️ **AND SINCE 2026-08-30 A THIN SAMPLE IS NOT PUBLISHED — BUT THAT DECISION IS NOT MADE HERE.**
+ * Owner ruling: below `MINIMUM_EFFECTIVENESS_SAMPLE` a measure reads "Not enough data to compute"
+ * rather than printing a figure. **This function keeps computing honestly and `EffectivenessValue`
+ * decides what to publish**, because suppressing here would have gutted five unit tests that exist
+ * to prove the median arithmetic and the `acceptedAt`-over-fallback preference — they feed it two
+ * and three movements on purpose. A publishing rule enforced inside the calculation stops the
+ * calculation being testable at the sizes it is interesting at. The board was publishing **"30 min — from 1 of 27 recorded acceptances"**, and the
+ * argument he approved is that **the word *Median* means "a typical case" to a clinician, and no
+ * caveat printed beside it undoes that** — on the one page whose entire purpose is being trusted
+ * about its own limits.
+ *
+ * ⚠️ **THIS DOES NOT OVERTURN THE DISCLOSURE RULE AND THAT DISTINCTION WAS NEARLY LOST.**
+ * `EffectivenessValue`'s comment says a thin sample "must say so in the same breath as the figure,
+ * not in a tooltip or a footnote"; one session read its tail clause as saying SUPPRESS and nearly
+ * put "your code disagrees with its own rule, shall I fix it?" to the owner — a framing that gets a
+ * yes from anybody and would have deleted a repair somebody deliberately made. The clause attaches
+ * to a median **rendered bare**. Disclosure stays: `sampleSize` and `population` survive
+ * suppression, so the screen still says "from 1 of 27" beside the absence, which is what makes the
+ * absence informative rather than merely blank. **This is a floor beneath the rule, not a
+ * replacement for it.**
  */
 export function effectivenessNumbers(movements: Movement[]): {
   medianMinutesToAcceptance: EffectivenessMeasure;

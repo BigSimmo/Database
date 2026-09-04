@@ -5,48 +5,150 @@ import { ChevronDown, ChevronLeft, ChevronRight, Info, Network, Sparkles } from 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
-import { eligibility } from "@/components/ward-management/ward-eligibility";
+import { eligibility, wardAddressing } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
-  destinationUnit,
   eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
   movementHealthService,
+  queueStageSummaries,
   stageCopy,
-  stageSummaries,
   transportStatusLabel,
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
+import { SYNTHETIC_TRAVEL_TIMES_NOTICE } from "@/components/ward-management/ward-distance";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
-import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { formatElapsed, formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
-import type { BedRelease, HealthService, LeaveBed, Movement, Unit } from "@/components/ward-management/ward-model";
+import type {
+  BedRelease,
+  HealthService,
+  LeaveBed,
+  Movement,
+  MovementStage,
+  Referral,
+  Unit,
+} from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
+import {
+  candidateAccepts,
+  groupCandidatesByTravelBand,
+  matchReason,
+  referralCandidates,
+  referralClocks,
+  referralQueueOrder,
+  REFERRAL_CLOCK_TERMS,
+  TRAVEL_BAND_GROUP_EMPTY_SENTENCE,
+  travelBandGroupCounts,
+  travelBandGroupCountsSentence,
+  travelBandGroupLabel,
+  type ReferralCandidate,
+  type TravelBandGroup,
+  type TravelBandGroupCounts,
+  referralPersonFacts,
+} from "@/components/ward-management/ward-referrals";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
-type BedStateKey = "available" | "held" | "confirmed" | "predicted" | "blocked";
+type BedStateKey = "available" | "held" | "confirmed" | "expected" | "blocked";
 
 // Review Finding 4: this used to be `"potential"`, sourced from `unitCapacity()`'s raw release
 // count — every release for the unit regardless of state or timing, including one already
-// `released` and one expected beyond tonight, both of which spec D5/D6 exclude from every count.
-// Confirmed and Predicted are read from `capacityBreakdown()` instead, the same figures the
+// `discharged` and one expected beyond tonight, both of which spec D5/D6 exclude from every count.
+// Confirmed and Expected are read from `capacityBreakdown()` instead, the same figures the
 // capacity board and the ward screen already show, so this board can never disagree with them.
 const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
   available: { label: "Ready", detail: "Available now" },
+  /*
+   * ⚠️ **THIS LABEL IS KNOWINGLY WRONG AND IS OWED TO THE SIX-BED-STATES TASK.**
+   *
+   * `Unit.held` means a bed that is physically EMPTY and that the ward is not offering — typically
+   * because it cannot staff it. Under the owner's 2026-09-01 bed states that concept is **`Closed`**.
+   *
+   * But since the hold-to-pull rename, **"Bed held" is the phrase for a bed kept for a patient who is
+   * away on leave** — a different thing entirely. So this label now describes the wrong concept in a
+   * summary a coordinator reads.
+   *
+   * It was left deliberately: renaming it belongs to the bed-states work, which has to decide the
+   * whole set at once. **Recorded here because "we knowingly left a wrong label" and "we missed a
+   * label" are indistinguishable to whoever reads it next** — Ward Verifier's point, and the right
+   * one.
+   */
   held: { label: "Held", detail: "Bed held" },
   confirmed: { label: "Confirmed", detail: "Confirmed today" },
-  predicted: { label: "Predicted", detail: "Predicted today" },
+  expected: { label: "Expected", detail: "Expected today" },
   blocked: { label: "Blocked", detail: "Not available" },
 };
 
-/** Left column carries the WA country service; right column carries the three metro services. */
+/**
+ * Which side of the whole-network overview each health service's cluster sits on.
+ *
+ * The LEFT column is the one layout decision taken here, and it is roadmap 14's "country sites
+ * present at all": the WA country service sits beside North Metro at the top of the picture rather
+ * than below three metro clusters.
+ *
+ * Phase 8, Task 9 (spec D11, step 4). The RIGHT column is now DERIVED — everything else
+ * `wardServiceOrder` knows about — where it used to be a hand-written copy of three of that list's
+ * five entries. `wardServiceOrder` is already this screen's canonical service list (`measure()`
+ * walks it to draw the demand trunks), so the copy was a second list that had to agree with it and
+ * could drift. That drift has exactly one symptom: a service added to the model but not to the copy
+ * renders no cluster, and every unit in it is simply not on the screen. **A unit missing from the
+ * whole-network overview reads as "no such bed exists"**, which is the worst thing a bed-finding
+ * screen can say, and it arrives through layout rather than through any claim about distance.
+ *
+ * Deriving one list from the other removes that particular way in. It is NOT by itself a proof that
+ * every unit is drawn — `wardServiceOrder` is still hand-written, and a unit whose site is missing
+ * from the site table would still vanish. The proof is the test: the overview's card set is pinned
+ * to `allUnits()` in `tests/ward-network-referral-placement.dom.test.tsx`.
+ *
+ * Today's picture is unchanged: the filter yields East Metro, South Metro, Private, in that order.
+ *
+ * One property of the list this now depends on, written down rather than assumed: `wardServiceOrder`
+ * is exported as a mutable `HealthService[]`, so a caller that reordered or spliced it in place
+ * would silently move or drop a whole column here. Nothing mutates it today — this is a note for
+ * whoever is tempted to, not a defect being reported. The order on screen is pinned against the
+ * model in `tests/ward-network-referral-placement.dom.test.tsx`, so such a mutation fails a test
+ * rather than quietly changing the picture.
+ */
+const LEFT_COLUMN_SERVICES: readonly HealthService[] = ["North Metro", "WACHS"];
+
 const columnServices: { left: readonly HealthService[]; right: readonly HealthService[] } = {
-  left: ["North Metro", "WACHS"],
-  right: ["East Metro", "South Metro", "Private"],
+  left: LEFT_COLUMN_SERVICES,
+  right: wardServiceOrder.filter((service) => !LEFT_COLUMN_SERVICES.includes(service)),
 };
+
+/**
+ * Phase 8, Task 8 (spec D11, step 3). What this screen says about the picture it is drawing, in the
+ * place a coordinator reads it.
+ *
+ * It is here rather than in `ward-distance.ts` because it describes THIS LAYOUT, not the travel-band
+ * data — the sentence about the data is `SYNTHETIC_TRAVEL_TIMES_NOTICE`, which is imported and
+ * rendered beside it. The test imports this constant rather than retyping it, so there is still only
+ * one spelling of it anywhere.
+ *
+ * Two claims, both of which have to be on the screen:
+ *
+ *  1. **It is not a map, and it is not called one.** Nobody has checked where any of these hospitals
+ *     is. A picture is read as a map whatever its caption says, so this deliberately positions
+ *     nothing: it is a stack of labelled bands, and a band is a lookup into an invented table.
+ *  2. **It is LESS than this screen was meant to have, and the reason is the missing fact rather
+ *     than a design preference.** Saying only the first would leave the shortfall looking like a
+ *     choice somebody made, which would be the wrong thing to learn from it. The last sentence is
+ *     the practical consequence and is checked before it is claimed: the bands are looked up per
+ *     render through `unitTravelBand` and stored nowhere, so replacing `ward-travel-bands.ts`'s
+ *     invented values with measured ones changes this arrangement and changes no code.
+ *
+ * No comparative proximity word, no distance figure, and nothing about how anyone travels.
+ */
+export const BAND_ARRANGEMENT_LIMITATION_NOTICE =
+  "These groups are the travel bands this prototype invented for this person's home region. They are " +
+  "not a map, and this arrangement is less than the roughly geographic layout this screen was meant " +
+  "to have. The reason is a missing fact rather than a preference: nobody has checked where any of " +
+  "these hospitals is. When real travel times are checked, this same arrangement becomes as " +
+  "geographic as the checked data allows, with no change to how it is built.";
 
 type Connector = { id: string; path: string; kind: "demand" | "route" };
 type Candidate = { unit: Unit; rank: number; etaLabel: string; verdict: ReturnType<typeof eligibility> };
@@ -60,7 +162,20 @@ function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidat
   // Only the movement's actual recorded destination may show a real transport state — the
   // other two candidates are computed shortlist entries the movement was never referred to,
   // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
-  const recordedDestinationId = destinationUnit(patient, units)?.id;
+  /*
+   * ACCEPTED-ONLY, not `destinationUnit`. This id decides which candidate is allowed to display
+   * the movement's REAL transport state; every other candidate shows "Not yet booked". Because
+   * `destinationUnit` is `acceptedUnitId ?? referredUnitIds[0]`, a movement with an outstanding
+   * referral and no acceptance handed its transport job to the FIRST WARD ASKED — a ward with no
+   * claim on it at all, displayed beside that ward's name as though the vehicle were coming there.
+   *
+   * The rule cannot lose anything by narrowing: a transport job only exists on a movement at stage
+   * `pulled` or beyond, and `PULL_PATIENT` requires an `acceptedUnitId`. So a movement with a
+   * transport job ALWAYS has an accepted unit, and the fallback could only ever fire on a movement
+   * whose transport was `undefined` — where it labelled the wrong ward "Not yet requested" rather
+   * than leaving it as a plain candidate.
+   */
+  const recordedDestinationId = patient.acceptedUnitId;
   return eligibleCandidatesAmong(patient, units, now, 3).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
@@ -75,11 +190,32 @@ function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidat
  * `Movement` has no catchment field (see the doc comment on `movementHealthService` and the
  * glossary's Catchment entry). Naming this `catchmentFit` previously collapsed exactly the
  * distinction Accepted ADR 3 exists to keep separate.
+ *
+ * The two labels are the fact this function computes and nothing more. They were "Best" and
+ * "Escalation" until Phase 8 Task 6. "Best" was the defect: on screen it read as the system's
+ * opinion about which bed this person should have, when all that was compared was two health
+ * service names — the doc comment above already said so at length, and the label did not.
+ * Phase 8 puts honest travel bands on this same screen, which would have made the superlative
+ * look as though it had been checked too.
+ *
+ * THIS FUNCTION sorts, ranks and hides nothing: it answers one yes/no comparison about one
+ * candidate and returns a label for it. That is a claim about this function alone, and it is
+ * deliberately not a claim about the file. `candidatesFor` above orders the shortlist and cuts it
+ * to three (`eligibleCandidatesAmong` sorts it twice), and the compare table renders a positional
+ * rank beside each column heading. Those predate Phase 8, are a deliberate three-of-many
+ * shortlist on this screen rather than a truncation bug, and are out of scope here — the point is
+ * only that the LABEL must not stack a ranking claim of its own on top of them, which is exactly
+ * what "Best" did. Neither label may ever carry a comparative word
+ * (`tests/ward-management.test.ts` pins that, the same guard `tests/ward-travel-bands.test.ts`
+ * holds over the band labels). The tones are unchanged — a colour is not a claim in the way a
+ * word is.
  */
-function originServiceFit(patient: Movement, unit: Unit) {
+export function originServiceFit(patient: Movement, unit: Unit) {
   const unitService = siteByCode(unit.siteCode)?.service;
-  if (unitService && unitService === movementHealthService(patient)) return { label: "Best", tone: "good" as const };
-  return { label: "Escalation", tone: "warning" as const };
+  if (unitService && unitService === movementHealthService(patient)) {
+    return { label: "Same health service", tone: "good" as const };
+  }
+  return { label: "Different health service", tone: "warning" as const };
 }
 
 function settingFit(patient: Movement, unit: Unit, now: Instant) {
@@ -95,7 +231,7 @@ function transportTone(etaLabel: string) {
   return /requested|awaiting|not yet/i.test(etaLabel) ? "warning" : "good";
 }
 
-// Review Finding 4: the "Confirmed"/"Predicted" chips read `capacityBreakdown()`, not
+// Review Finding 4: the "Confirmed"/"Expected" chips read `capacityBreakdown()`, not
 // `unitCapacity()`'s raw `potential` — see the `bedStateCopy` doc comment above. The four
 // physical states (Ready/Held/Blocked, plus Occupied where shown) are untouched.
 function bedStateValue(
@@ -104,7 +240,7 @@ function bedStateValue(
   breakdown: ReturnType<typeof capacityBreakdown>,
 ): number {
   if (key === "confirmed") return breakdown.confirmedToday;
-  if (key === "predicted") return breakdown.predictedToday;
+  if (key === "expected") return breakdown.expectedToday;
   return capacity[key];
 }
 
@@ -125,8 +261,19 @@ function BedStateChips({
   const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
   return (
     <span className={styles.bedChips}>
+      {/* `data-label` below is read by nothing on screen. It exists so the print block in
+          `ward-management-network.module.css` can put each chip's own word in front of its figure —
+          on paper the five chips are told apart by colour alone, and colour is the one channel a
+          printer may drop. Carried as an attribute rather than written into the CSS so
+          `bedStateCopy` stays the single place these five words are spelled. */}
       {(Object.keys(bedStateCopy) as BedStateKey[]).map((key) => (
-        <span className={styles.bedChip} data-state={key} key={key} title={bedStateCopy[key].detail}>
+        <span
+          className={styles.bedChip}
+          data-state={key}
+          data-label={bedStateCopy[key].label}
+          key={key}
+          title={bedStateCopy[key].detail}
+        >
           {bedStateValue(key, capacity, breakdown)}
         </span>
       ))}
@@ -142,6 +289,7 @@ function ServiceCard({
   now,
   routed,
   selected,
+  placement,
   onSelect,
   registerRef,
 }: {
@@ -151,11 +299,19 @@ function ServiceCard({
   now: Instant;
   routed: boolean;
   selected: boolean;
+  /** Task 7: this unit's own verdict for the referral currently selected, or `undefined` when no
+   *  referral is selected and the diagram is showing the movement view. NEVER recomputed here —
+   *  the candidate arrives already paired with the verdict `referralCandidates` computed for it. */
+  placement?: ReferralCandidate;
   onSelect: () => void;
   registerRef: (id: string, node: HTMLButtonElement | null) => void;
 }) {
   const capacity = unitCapacity(unit, bedReleases);
   const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
+  // One spelling for both outcomes, and it is the match view's own. `matchReason` answers "can
+  // this bed take this person, and if not why" for an accepting bed too ("Eligible now"), so this
+  // node and the coordinator's match view can never word the same verdict two different ways.
+  const verdict = placement ? matchReason(placement) : null;
   return (
     <button
       type="button"
@@ -165,21 +321,219 @@ function ServiceCard({
       data-routed={routed ? "true" : undefined}
       data-testid={`ward-network-card-${unit.id}`}
       className={styles.serviceCard}
-      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.predictedToday} predicted, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.`}
+      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.expectedToday} expected, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.${verdict ? ` ${verdict}.` : ""}`}
     >
       <span className={styles.serviceName}>{unit.name}</span>
       <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
       <BedStateChips unit={unit} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} showTime />
+      {placement && verdict ? (
+        <span
+          className={styles.placementVerdict}
+          data-accepts={candidateAccepts(placement) ? "true" : "false"}
+          data-testid={`ward-network-verdict-${unit.id}`}
+        >
+          {verdict}
+        </span>
+      ) : null}
     </button>
   );
 }
 
+/**
+ * Phase 8, Task 8 (spec D11, step 3). One band group on the diagram: its heading, its two counts,
+ * and the unit nodes in it.
+ *
+ * The SAME nodes the service-column layout draws — `ServiceCard`, with the same `data-testid` and
+ * the same verdict — rearranged into bands. Nothing here computes anything about a unit: the
+ * candidate carries the verdict `referralCandidates` produced once in the workspace below, and the
+ * band is the group this candidate was put in rather than a second lookup per node. A band looked up
+ * twice is a band that can disagree with itself, and the heading and its nodes would be the two
+ * places.
+ *
+ * **It does not fold, and it deliberately no longer can.** This screen briefly used
+ * `<details>`/`<summary>` here, mirroring the match view's band groups. The owner ruled that out on
+ * 2026-08-29: the decision permitting a fold was taken about the bed LIST, where folding only
+ * shortens a scroll, and on a picture a folded group makes wards disappear — far closer to the
+ * metro/rural filter that was declined for hiding beds than to folding a list. So every group is
+ * always open, and the match view's own collapse is unaffected. The two screens now behave
+ * differently on purpose.
+ *
+ * What survives the ruling, because neither depended on it: the heading carries BOTH counts, and an
+ * EMPTY group still renders with its heading and both counts rather than vanishing. "There is
+ * nothing within an hour" is the answer a coordinator came for, and a group that disappears when it
+ * is empty cannot give it.
+ */
+function NetworkBandGroup({
+  group,
+  counts,
+  bedReleases,
+  leaveBeds,
+  now,
+  selectedUnitId,
+  onSelectUnit,
+  registerRef,
+}: {
+  group: TravelBandGroup;
+  counts: TravelBandGroupCounts;
+  bedReleases: BedRelease[];
+  leaveBeds: LeaveBed[];
+  now: Instant;
+  selectedUnitId: string | null;
+  onSelectUnit: (unitId: string) => void;
+  registerRef: (id: string, node: HTMLButtonElement | null) => void;
+}) {
+  const headingId = `ward-network-band-heading-${group.band}`;
+  return (
+    <section
+      className={styles.bandGroup}
+      data-testid={`ward-network-band-group-${group.band}`}
+      aria-labelledby={headingId}
+    >
+      <header className={styles.bandHeader} data-testid={`ward-network-band-header-${group.band}`}>
+        <span className={styles.bandLabel} id={headingId}>
+          {travelBandGroupLabel(group.band)}
+        </span>
+        {/* Two present facts about the beds in this band, from `travelBandGroupCounts` — which counts
+         *  the very candidates rendered below, so a heading cannot disagree with its own nodes.
+         *  Neither figure counts what is missing. The sentence is the match view's own, shared so the
+         *  two surfaces cannot word one fact two ways. */}
+        <span className={styles.bandCounts} data-testid={`ward-network-band-counts-${group.band}`}>
+          {travelBandGroupCountsSentence(counts)}
+        </span>
+      </header>
+      {group.candidates.length === 0 ? (
+        <p className={styles.bandEmpty} data-testid={`ward-network-band-empty-${group.band}`}>
+          {TRAVEL_BAND_GROUP_EMPTY_SENTENCE}
+        </p>
+      ) : (
+        <div className={styles.bandCards}>
+          {group.candidates.map((candidate) => (
+            <ServiceCard
+              key={candidate.unit.id}
+              unit={candidate.unit}
+              bedReleases={bedReleases}
+              leaveBeds={leaveBeds}
+              now={now}
+              /* The movement shortlist's route highlighting belongs to the movement view, which has
+               * stood down by the time this renders — there is no route to be on. */
+              routed={false}
+              selected={selectedUnitId === candidate.unit.id}
+              placement={candidate}
+              onSelect={() => onSelectUnit(candidate.unit.id)}
+              registerRef={registerRef}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Task 7 (spec D8-5). What the aside says while a referral is the diagram's subject: who is being
+ * placed, and where the answers are.
+ *
+ * It deliberately carries NO tally and NO banner. "N of M units accept this referral right now"
+ * and "no unit of this age band exists in this network" are the coordinator's match view's own
+ * sentences, and the second must always be met before the first — repeating either here would be
+ * a second surface answering one question, in wording that could drift from the original. The
+ * verdicts themselves are on the unit nodes, where the beds are, from the one function the match
+ * view uses.
+ *
+ * The referral's five facts and its wait, and nothing else: no band (that is step two), no
+ * kilometre, no free text, no comparative word about any bed.
+ */
+/**
+ * THE TWO CLOCKS A REFERRAL CARRIES, worded so a stopped one cannot read as a running one.
+ *
+ * This replaces `referralWaitLabel`, which was `formatElapsed(minutesUntil(now, raisedAt))` — a
+ * clock with no stop condition. It counted from the referral forever, including long after the
+ * person was triaged and sitting in a department.
+ *
+ * ⚠️ MEASURED ON THE SEED, AND THE MEASUREMENT CORRECTED MY OWN CLAIM. Four hours into the
+ * demonstration `RF-003` reads "4h 55m waiting" against a true referral wait of 25 MINUTES — nearly
+ * twelvefold. I was about to report that as visible here. IT IS NOT: `RF-003` is `accepted`, and
+ * `referralQueueOrder` filters to `queued`, so this screen never shows it. Every referral this
+ * queue DOES show was triaged before the referral was raised, so the old label was right for all
+ * of them.
+ *
+ * So on this surface the defect is LATENT rather than live — the wrong function was wired in, and
+ * the fixture happens to contain no queued referral that exposes it. It becomes visible the moment
+ * a queued referral is triaged during a demonstration; `RF-001` is queued and not yet in a
+ * department, so triaging it does exactly that.
+ *
+ * ⚠️ AN INFLATED WAIT IS WHY THIS SURVIVES ANYWHERE: a wrong clock looks wrong, a wrong length of
+ * stay looks plausible. The fixture's own longest wait is hours, so a doubled figure reads as a
+ * busy night rather than as a bug.
+ *
+ * Wording comes from `REFERRAL_CLOCK_TERMS`, never from here — the same rule as `urgencyTierLabel`
+ * below, because a second spelling of one field is this project's most expensive defect class.
+ *
+ * ⚠️ NEVER SAY "ARRIVED". The field is `triagedAt`. A patient arrives, waits, and is triaged some
+ * time later; on a busy night that gap is not small. "In department" is measured from triage and
+ * must never be worded as arrival.
+ */
+function referralClockLines(referral: Referral, now: Instant): { department: string; referral: string } {
+  const { sinceReferral, sinceReferralRunning, inDepartment } = referralClocks(referral, now);
+  return {
+    // `undefined` means not in the department yet — NEVER 0. "0m in department" reads as "just
+    // got there", the exact opposite of the truth.
+    department:
+      inDepartment === undefined
+        ? REFERRAL_CLOCK_TERMS.notInDepartment
+        : `${formatElapsed(inDepartment)} ${REFERRAL_CLOCK_TERMS.inDepartment}`,
+    referral: `${formatElapsed(sinceReferral)} ${
+      sinceReferralRunning ? REFERRAL_CLOCK_TERMS.sinceReferral : REFERRAL_CLOCK_TERMS.sinceReferralStopped
+    }`,
+  };
+}
+
+function ReferralPlacementSummary({ referral, now }: { referral: Referral; now: Instant }) {
+  return (
+    <>
+      <header className={styles.panelHeader}>
+        <h2>
+          <Sparkles aria-hidden="true" /> Referral placement · {referral.id}
+        </h2>
+      </header>
+      <p className={styles.patientLine} data-tier={referral.urgency} data-testid="ward-network-placement-tier">
+        {urgencyTierLabel(referral.urgency)}
+      </p>
+      <p className={styles.patientSubLine} data-testid="ward-network-placement-facts">
+        {referralPersonFacts(referral).join(" · ")}
+      </p>
+      {/* Both clocks, side by side. The owner's decision (P9-D2): the GAP between them is the
+          signal — a long time in department with a short time since referral says the delay is
+          upstream of mental health, and the reverse says it is ours. One number cannot say either. */}
+      <p className={styles.patientSubLine} data-testid="ward-network-placement-clocks">
+        {referralClockLines(referral, now).department} &middot; {referralClockLines(referral, now).referral}
+      </p>
+      <p className={styles.placementNote} data-testid="ward-network-placement-note">
+        Every unit in the network carries its own verdict for this referral on the diagram — and for each one that
+        cannot take this person, the single reason why.
+      </p>
+    </>
+  );
+}
+
 export function WardNetworkWorkspace() {
-  const { movements, units, bedReleases, leaveBeds, now } = useWardFlow();
+  const { movements, units, referrals, bedReleases, leaveBeds, now } = useWardFlow();
   const [selectedPatientId, setSelectedPatientId] = useState(movements[0].id);
+  const [selectedReferralId, setSelectedReferralId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
+  /**
+   * Which stage the queue below is narrowed to, or the whole queue.
+   *
+   * ⚠️ **THE HEADER COUNT DOES NOT READ THIS, AND THAT IS THE SAFETY PROPERTY RATHER THAN AN
+   * OVERSIGHT.** The figure beside "Priority queue" is what a coordinator reads as "how much demand
+   * is there", and a filter that could shrink it would let somebody who has not noticed the filter
+   * read a fraction of the waiting list as the whole of it — a wrong number that agrees with the
+   * rows beneath it and so has nothing on screen to contradict it. The narrowing is stated in
+   * words instead, in its own banner, with a way out that is always present.
+   */
+  const [stageFilter, setStageFilter] = useState<MovementStage | null>(null);
 
   // `selectedPatientId` is only ever set from a real movement's own id (see the queue button
   // below), so this can't miss today — but every hook after this one must still run
@@ -190,7 +544,91 @@ export function WardNetworkWorkspace() {
     [movements, selectedPatientId],
   );
   const candidates = useMemo(() => (patient ? candidatesFor(patient, units, now) : []), [patient, units, now]);
-  const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
+
+  /*
+   * Task 7 (spec D8-5). Referral selection sits ALONGSIDE the movement selection above: the
+   * diagram answers "which of these beds can take this person" for either subject, and exactly one
+   * of them is the subject at a time.
+   *
+   * The queue is `referralQueueOrder` — the coordinator board's own spelling, not a second one —
+   * and the selected referral is resolved out of that list on every render rather than captured at
+   * click time (Task 6 Finding 2: a record held as an object goes stale the moment a sibling
+   * screen dispatches against it). A referral that leaves the queue therefore drops the selection
+   * and the diagram falls back to the movement view, rather than going on answering for a decision
+   * somebody has already taken.
+   */
+  const referralQueue = useMemo(() => referralQueueOrder(referrals), [referrals]);
+  const selectedReferral = useMemo(
+    () => referralQueue.find((referral) => referral.id === selectedReferralId) ?? null,
+    [referralQueue, selectedReferralId],
+  );
+
+  /**
+   * Phase 8, Task 8 (spec D11, step 3). Who the band arrangement is drawn for — and the ONE place
+   * that is decided, so there is a single line to read and a single line to change.
+   *
+   * A referral, or nothing at all. **A movement can never be one**, and the missing `??` on the
+   * right of this line is the whole point rather than an omission. A `Movement` carries an origin
+   * emergency department — where the person presented — and no home region whatsoever (see
+   * `movementHealthService`'s own doc comment, and Accepted ADR 3 on why presenting somewhere is
+   * not living there). A band arrangement drawn from an origin would therefore be a proximity claim
+   * with no fact behind it, which is precisely the defect this phase exists to close: WF-018, sitting
+   * in SCGH's own emergency department, was once offered RPH first under a heading reading "Nearest
+   * candidates", in an order that was only the array's order.
+   *
+   * So while a movement is the subject the diagram draws NO arrangement and the service-column
+   * layout stands unchanged. That is a gap the spec left and this plan filled; the owner may prefer
+   * something else, but the something else cannot be an arrangement without a home region.
+   */
+  const bandSubject: Referral | null = selectedReferral;
+
+  /*
+   * EVERY unit, each with its own verdict — `referralCandidates` never truncates, sorts or ranks,
+   * and nothing here does either. This is deliberately not the movement path's three-of-many
+   * shortlist: that shortlist is a decision taken on the movement screen and it is untouched
+   * below. The verdicts are computed ONCE, here, and every node reads that one answer; a second
+   * call per node would be a second computation of the same question.
+   */
+  const placements = useMemo(
+    // Bed placement is a ward question only; a subject addressed anywhere else has no bed
+    // shortlist to draw on this map. See `referralCandidates`' own signature.
+    () => {
+      // Bed placement is a ward question. A subject addressed only to an ED, a medical ward or a
+      // community team has no bed shortlist to draw on this map -- an empty list here is "no ward
+      // was asked", not "the network has nothing".
+      const ward = bandSubject ? wardAddressing(bandSubject) : undefined;
+      return bandSubject && ward ? referralCandidates(bandSubject, ward.destination, units, now) : [];
+    },
+    [bandSubject, units, now],
+  );
+  /*
+   * Phase 8, Task 8 (spec D11, step 3). The same `placements` above, rearranged by how far each bed
+   * is from where this person lives.
+   *
+   * `placements` — the ARRAY, not a map keyed by unit id, and not a second call to
+   * `referralCandidates`. Two things follow from that and both are load-bearing. The grouping is a
+   * pure rearrangement that preserves its caller's order, so passing the array in the network's own
+   * fixed order is what makes each band's contents arrive in that same fixed order for free; and
+   * every verdict shown under a heading is the very object the heading counted, so the two cannot
+   * disagree. That is also why `travelBandGroupCounts` takes the GROUP rather than a referral and a
+   * clock: `referralEligibility`'s capacity-freshness gate is time-dependent, so a count recomputed
+   * against a second `now` could legitimately differ from the nodes beside it, and nothing would
+   * look wrong in either place.
+   *
+   * Empty while a movement is the subject, which is what leaves the service-column layout standing
+   * below — see the canvas.
+   */
+  const bandGroups = useMemo(
+    () => (bandSubject ? groupCandidatesByTravelBand(bandSubject, placements) : []),
+    [bandSubject, placements],
+  );
+  const bandGroupCounts = useMemo(() => bandGroups.map(travelBandGroupCounts), [bandGroups]);
+
+  /* The movement shortlist's route lines and highlighted cards belong to the movement view, so
+   * they stand down while a referral is the subject. `candidates` itself is untouched — nothing is
+   * widened, narrowed or re-ordered, only which overlay the diagram is currently drawing. */
+  const routeCandidates = useMemo(() => (selectedReferral ? [] : candidates), [selectedReferral, candidates]);
+  const routedIds = useMemo(() => new Set(routeCandidates.map((candidate) => candidate.unit.id)), [routeCandidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const hubRef = useRef<HTMLDivElement | null>(null);
@@ -208,7 +646,15 @@ export function WardNetworkWorkspace() {
   const measure = useCallback(() => {
     const canvas = canvasRef.current;
     const hub = hubRef.current;
-    if (!canvas || !hub) return;
+    /* Task 8: the hub and the service clusters are the movement view's own picture and unmount while
+     * a referral is the subject, so this is now reachable in normal use rather than only on a
+     * missing ref. Clearing is the whole point — returning early would leave the previous frame's
+     * connector paths drawn across a layout they no longer describe. The functional update keeps the
+     * same empty array when it is already empty, so a resize with no hub cannot loop. */
+    if (!canvas || !hub) {
+      setConnectors((current) => (current.length === 0 ? current : []));
+      return;
+    }
     const base = canvas.getBoundingClientRect();
     const hubBox = hub.getBoundingClientRect();
     const hubLeft = { x: hubBox.left - base.left, y: hubBox.top - base.top + hubBox.height / 2 };
@@ -230,7 +676,7 @@ export function WardNetworkWorkspace() {
       next.push({ id: `demand-${service}`, path: elbow(from, onLeft ? hubLeft : hubRight), kind: "demand" });
     }
 
-    for (const candidate of candidates) {
+    for (const candidate of routeCandidates) {
       const node = cardRefs.current.get(candidate.unit.id);
       if (!node) continue;
       const box = node.getBoundingClientRect();
@@ -245,7 +691,7 @@ export function WardNetworkWorkspace() {
     }
 
     setConnectors(next);
-  }, [candidates]);
+  }, [routeCandidates]);
 
   useLayoutEffect(() => {
     measure();
@@ -267,9 +713,40 @@ export function WardNetworkWorkspace() {
   // `BedStateChips`/`unitCapacity` below, so the selected unit's own capacity figures must move
   // the instant its ward confirms new capacity, not only at first paint.
   const detail = selectedUnitId ? (units.find((unit) => unit.id === selectedUnitId) ?? null) : null;
-  // Arrived and self-discharged movements have left the pathway (spec §7), so this must not
-  // be the raw stage-count sum — that includes them and overstates live demand.
-  const openMovements = movements.filter(isOpen).length;
+  /**
+   * THE PEOPLE STILL WAITING FOR A PLACE — one array, and everything about the queue reads it.
+   *
+   * Arrived and self-discharged movements have left the pathway (spec §7), so a queue for placement
+   * must not count them: doing so overstates live demand, and this is the figure a coordinator
+   * looks at first.
+   *
+   * ⚠️ **THIS IS DELIBERATELY AN ARRAY RATHER THAN A COUNT, AND THAT IS THE FIX.** Until 2026-08-30
+   * the count was `movements.filter(isOpen).length` here and the panel rendered `movements.length`
+   * thirty-three lines below, with the list rendering `movements.map` — so the header, the list and
+   * this line were three separate answers to one question and two of them were wrong. The comment
+   * explaining why the raw total is wrong was already sitting on this line while the raw total was
+   * on screen.
+   *
+   * A corrected number would drift back. A single array the count and the list both read cannot
+   * disagree with itself. Phase 1's audit recorded this same shape in a different component — "48
+   * open movements counted six arrived and one closed record" — so it has now recurred once, and
+   * `tests/ward-network-queue-count.dom.test.tsx` is what stops a third time.
+   */
+  const openQueue = movements.filter(isOpen);
+  const openMovements = openQueue.length;
+  /**
+   * The strip above the queue, counted the way the queue counts. `queueStageSummaries` rather than
+   * `stageSummaries` — the other screens that render a strip are not standing beside a queue and
+   * are right to ask the other question. See that function's doc comment for why the obvious
+   * remedy here is wrong by exactly one.
+   */
+  const pipeline = queueStageSummaries(movements);
+  /**
+   * The rows actually rendered. Derived from `openQueue` rather than from `movements`, so a filter
+   * can only ever narrow the people who are genuinely waiting — it can never reach past `isOpen`
+   * and put an arrived patient back into a queue for placement.
+   */
+  const visibleQueue = stageFilter ? openQueue.filter((candidate) => candidate.stage === stageFilter) : openQueue;
   const primary = candidates[0];
 
   if (!patient) {
@@ -287,52 +764,159 @@ export function WardNetworkWorkspace() {
       data-shortlist={shortlistOpen ? "open" : "collapsed"}
     >
       <section className={styles.pipeline} aria-label="Movement pipeline">
-        {stageSummaries(movements).map((stage, index) => (
-          <span className={styles.pipelineStage} key={stage.id}>
+        {/*
+          These were `<span>`s until 2026-08-30 — numbered 1 to 6, which reads as a pipeline you can
+          step into, and inert. The button-wiring gate could not fire precisely BECAUSE they were not
+          buttons, so nothing in the repository was able to notice.
+
+          The counts stay unfiltered whatever is selected. A strip that narrowed with the queue would
+          leave no legible route back to the whole picture, and its cells would stop summing to the
+          header count they sit directly above.
+        */}
+        {pipeline.waiting.map((stage, index) => (
+          <button
+            type="button"
+            className={styles.pipelineStage}
+            key={stage.id}
+            data-waiting-stage="true"
+            data-testid={`ward-pipeline-waiting-${stage.id}`}
+            aria-pressed={stageFilter === stage.id}
+            onClick={() => setStageFilter((current) => (current === stage.id ? null : stage.id))}
+          >
             <span className={styles.pipelineLabel}>
               {index + 1} {stage.label}
             </span>
-            <strong>{stage.count}</strong>
-          </span>
+            <strong data-testid="ward-pipeline-count">{stage.count}</strong>
+          </button>
         ))}
+        {/*
+          Everyone who has LEFT the pathway, in one cell, deliberately after a divider and
+          deliberately not numbered. The waiting cells above sum to the queue's own count; this one
+          holds the remainder, so the strip and the queue reconcile exactly and the two figures
+          beneath it always add up to the figure above them. See `queueStageSummaries`.
+        */}
+        <span className={styles.pipelineLeftPathway} data-testid="ward-pipeline-left-pathway">
+          <span className={styles.pipelineLabel}>Left the pathway</span>
+          <strong>{pipeline.left.total}</strong>
+          <span className={styles.pipelineSplit}>
+            {pipeline.left.arrived} arrived &middot; {pipeline.left.didNotProceed} did not proceed
+          </span>
+        </span>
       </section>
 
       <div className={styles.networkGrid}>
-        <section className={styles.queuePanel} aria-label="Priority queue">
-          <header className={styles.panelHeader}>
-            <h2>Priority queue</h2>
-            <span className={styles.count}>{movements.length}</span>
-          </header>
-          <div className={styles.queueList}>
-            {movements.map((candidate) => (
-              <button
-                type="button"
-                key={candidate.id}
-                onClick={() => {
-                  setSelectedPatientId(candidate.id);
-                  setSelectedUnitId(null);
-                }}
-                aria-pressed={candidate.id === patient.id}
-                data-testid={`ward-network-queue-${candidate.id}`}
-                className={styles.queueRow}
-              >
-                <span className={styles.queueTop}>
-                  <strong>{candidate.id}</strong>
-                  <span className={styles.elapsed}>{elapsedLabel(candidate, now)}</span>
+        <div className={styles.queueColumn}>
+          <section className={styles.queuePanel} aria-label="Priority queue">
+            <header className={styles.panelHeader}>
+              <h2>Priority queue</h2>
+              {/*
+                ⚠️ `openMovements`, NEVER the filtered length. This figure is read as "how much
+                demand is there", and a filter that could shrink it would let a coordinator who has
+                not noticed the filter take a fraction of the waiting list for the whole of it —
+                with the rows beneath it agreeing, so nothing on the screen could contradict it.
+
+                ⚠️ AND THE NAME IS `open-total`, NOT `queue-count`, FOR A REASON THAT COSTS TWO RED
+                TESTS TO REDISCOVER. The rows below are `ward-network-queue-<id>`, and the suites
+                count them with `getAllByTestId(/^ward-network-queue-/)`. Any testid starting
+                `ward-network-queue-` therefore joins that count as a phantom row: the first draft
+                of this element was `ward-network-queue-count`, and the row totals silently became
+                44 and 16 instead of 43 and 14. Do not name anything in this panel with that prefix
+                unless it is a row.
+              */}
+              <span className={styles.count} data-testid="ward-network-open-total">
+                {openMovements}
+              </span>
+            </header>
+            {stageFilter ? (
+              <p className={styles.queueFilterNotice} data-testid="ward-network-filter-notice">
+                <span>
+                  Showing {visibleQueue.length} of {openMovements} &mdash; {stageCopy[stageFilter].label}
                 </span>
-                <span className={styles.queueMeta}>
-                  <span className={styles.tier} data-tier={candidate.urgency}>
-                    {candidate.urgency}
+                <button type="button" className={styles.queueFilterClear} onClick={() => setStageFilter(null)}>
+                  Show the whole queue
+                </button>
+              </p>
+            ) : null}
+            <div className={styles.queueList}>
+              {visibleQueue.map((candidate) => (
+                <button
+                  type="button"
+                  key={candidate.id}
+                  onClick={() => {
+                    setSelectedPatientId(candidate.id);
+                    setSelectedReferralId(null);
+                    setSelectedUnitId(null);
+                  }}
+                  aria-pressed={selectedReferral === null && candidate.id === patient.id}
+                  data-testid={`ward-network-queue-${candidate.id}`}
+                  className={styles.queueRow}
+                >
+                  <span className={styles.queueTop}>
+                    <strong>{candidate.id}</strong>
+                    <span className={styles.elapsed}>{elapsedLabel(candidate, now)}</span>
                   </span>
-                  {candidate.cohort} · {candidate.security} ward
-                </span>
-                <span className={styles.queueMeta}>
-                  {movementHealthService(candidate) ?? "Unknown"} · {candidate.legalStatus}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
+                  <span className={styles.queueMeta}>
+                    <span
+                      className={styles.tier}
+                      data-tier={candidate.urgency}
+                      data-label={urgencyTierLabel(candidate.urgency)}
+                    >
+                      {candidate.urgency}
+                    </span>
+                    {candidate.cohort} · {candidate.security} ward
+                  </span>
+                  <span className={styles.queueMeta}>
+                    {movementHealthService(candidate) ?? "Unknown"} · {candidate.legalStatus}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/*
+           * Task 7. The second subject the diagram can answer for. It sits beside the movement queue
+           * rather than replacing it — a coordinator places both, and neither list is a shortlist of
+           * the other. Selecting a referral here makes it the diagram's subject; selecting it again
+           * hands the diagram back to the movement above, so every control does something.
+           */}
+          <section className={styles.queuePanel} aria-label="Referral queue">
+            <header className={styles.panelHeader}>
+              <h2>Referral queue</h2>
+              <span className={styles.count}>{referralQueue.length}</span>
+            </header>
+            <div className={styles.queueList}>
+              {referralQueue.map((referral) => (
+                <button
+                  type="button"
+                  key={referral.id}
+                  onClick={() => {
+                    setSelectedReferralId((current) => (current === referral.id ? null : referral.id));
+                    setSelectedUnitId(null);
+                  }}
+                  aria-pressed={selectedReferral?.id === referral.id}
+                  data-testid={`ward-network-referral-${referral.id}`}
+                  className={styles.queueRow}
+                >
+                  <span className={styles.queueTop}>
+                    <strong>{referral.id}</strong>
+                    {/* The referral clock only: a queue row is about how long this has waited for a
+                        decision, and the department clock is on the detail panel where there is room
+                        for the comparison. It carries its own term, so a stopped clock reads as
+                        "referral to triage" rather than as a wait still being served. */}
+                    <span className={styles.elapsed}>{referralClockLines(referral, now).referral}</span>
+                  </span>
+                  {/* `urgencyTierLabel`, never a bare digit: the referral board already spells a
+                   *  referral's tier this way on every row, and a second spelling of one field is
+                   *  this project's most expensive defect class. */}
+                  <span className={styles.queueMeta} data-tier={referral.urgency}>
+                    {urgencyTierLabel(referral.urgency)}
+                  </span>
+                  <span className={styles.queueMeta}>{referralPersonFacts(referral).join(" · ")}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
 
         <section className={styles.canvasPanel} aria-label="Operational constellation">
           <header className={styles.panelHeader}>
@@ -355,7 +939,7 @@ export function WardNetworkWorkspace() {
             </span>
           </header>
 
-          <div className={styles.canvas} ref={canvasRef}>
+          <div className={styles.canvas} ref={canvasRef} data-layout={bandSubject ? "bands" : "services"}>
             <svg className={styles.connectorLayer} aria-hidden="true">
               <defs>
                 <marker id="ward-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
@@ -375,54 +959,103 @@ export function WardNetworkWorkspace() {
               ))}
             </svg>
 
-            {(["left", "right"] as const).map((side) => (
-              <div className={styles.column} data-side={side} key={side}>
-                {columnServices[side].map((service) => (
-                  <section
-                    className={styles.cluster}
-                    key={service}
-                    ref={(node) => registerCluster(service, node)}
-                    aria-labelledby={`ward-network-${service}`}
-                  >
-                    <header className={styles.clusterHeader}>
-                      <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
-                      <span>
-                        {units
-                          .filter((unit) => siteByCode(unit.siteCode)?.service === service)
-                          .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
-                        ready
-                      </span>
-                    </header>
-                    <div className={styles.clusterCards}>
-                      {units
-                        .filter((unit) => siteByCode(unit.siteCode)?.service === service)
-                        .map((unit) => (
-                          <ServiceCard
-                            key={unit.id}
-                            unit={unit}
-                            bedReleases={bedReleases}
-                            leaveBeds={leaveBeds}
-                            now={now}
-                            routed={routedIds.has(unit.id)}
-                            selected={detail?.id === unit.id}
-                            onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
-                            registerRef={registerCard}
-                          />
-                        ))}
-                    </div>
-                  </section>
+            {/*
+             * Phase 8, Task 8 (spec D11, step 3). Which picture the canvas is drawing, and the ONE
+             * place that is decided.
+             *
+             * With a referral selected the diagram arranges every unit by how far it is from where
+             * that person lives. With a MOVEMENT selected it draws no band arrangement at all and the
+             * service-column layout stands exactly as it did: a movement carries no home region (it
+             * carries an origin emergency department, which is where the person presented, not where
+             * they live — see `movementHealthService`), so any arrangement here would be a proximity
+             * claim with no fact behind it. That is the "Nearest candidates" defect this whole phase
+             * exists to close, in a new coat: WF-018, sitting in SCGH's own emergency department, was
+             * once offered RPH first under that heading, in an order that was only the array's order.
+             *
+             * There is no third branch and no fallback subject. Both pictures draw the same
+             * `ServiceCard` nodes, so this is a rearrangement of one set of nodes and never two sets
+             * — rendering both at once would put every unit on the screen twice.
+             */}
+            {bandSubject ? (
+              <div className={styles.bandArrangement} data-testid="ward-network-band-arrangement">
+                {/* What this picture is, and what it is not. Rendered above the groups, because a
+                 *  reader who takes it for a map has already taken it for one by the time they reach
+                 *  a footnote. */}
+                <p className={styles.bandLimitation} data-testid="ward-network-band-limitation">
+                  {BAND_ARRANGEMENT_LIMITATION_NOTICE}
+                </p>
+                {/* The one place this screen states that the travel times are invented. Imported,
+                 *  never retyped, and rendered once — a band shown anywhere without this sentence on
+                 *  the same screen is a defect. */}
+                <p className={styles.syntheticNotice} data-testid="ward-network-synthetic-notice">
+                  {SYNTHETIC_TRAVEL_TIMES_NOTICE}
+                </p>
+                {bandGroups.map((group, index) => (
+                  <NetworkBandGroup
+                    key={group.band}
+                    group={group}
+                    counts={bandGroupCounts[index]}
+                    bedReleases={bedReleases}
+                    leaveBeds={leaveBeds}
+                    now={now}
+                    selectedUnitId={detail?.id ?? null}
+                    onSelectUnit={(unitId) => setSelectedUnitId(detail?.id === unitId ? null : unitId)}
+                    registerRef={registerCard}
+                  />
                 ))}
               </div>
-            ))}
+            ) : (
+              <>
+                {(["left", "right"] as const).map((side) => (
+                  <div className={styles.column} data-side={side} key={side}>
+                    {columnServices[side].map((service) => (
+                      <section
+                        className={styles.cluster}
+                        key={service}
+                        ref={(node) => registerCluster(service, node)}
+                        aria-labelledby={`ward-network-${service}`}
+                      >
+                        <header className={styles.clusterHeader}>
+                          <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
+                          <span>
+                            {units
+                              .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+                              .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
+                            ready
+                          </span>
+                        </header>
+                        <div className={styles.clusterCards}>
+                          {units
+                            .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+                            .map((unit) => (
+                              <ServiceCard
+                                key={unit.id}
+                                unit={unit}
+                                bedReleases={bedReleases}
+                                leaveBeds={leaveBeds}
+                                now={now}
+                                routed={routedIds.has(unit.id)}
+                                selected={detail?.id === unit.id}
+                                onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
+                                registerRef={registerCard}
+                              />
+                            ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                ))}
 
-            <div className={styles.hub} ref={hubRef}>
-              <Network aria-hidden="true" />
-              <strong>STATEWIDE FLOW</strong>
-              <span>Coordinated visibility and placement</span>
-              <span className={styles.hubMeta}>
-                {patient.id} routing · {openMovements} open movements
-              </span>
-            </div>
+                <div className={styles.hub} ref={hubRef}>
+                  <Network aria-hidden="true" />
+                  <strong>STATEWIDE FLOW</strong>
+                  <span>Coordinated visibility and placement</span>
+                  <span className={styles.hubMeta}>
+                    {patient.id} routing · {openMovements} open movements
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           <footer className={styles.legend}>
@@ -433,135 +1066,179 @@ export function WardNetworkWorkspace() {
                 <b>{bedStateCopy[key].label}</b> {bedStateCopy[key].detail}
               </span>
             ))}
-            <span className={styles.legendItem}>
-              <i className={styles.legendRoute} aria-hidden="true" />
-              <b>Shortlisted</b> Route for selected movement
-            </span>
-            <span className={styles.legendItem}>
-              <i className={styles.legendDemand} aria-hidden="true" />
-              <b>Demand</b> Health service into statewide flow
-            </span>
+            {/* Task 8: both entries describe connector lines, and neither line is drawn while a
+             *  referral is the subject — the band arrangement has no route and no demand trunk. A
+             *  legend key for a line that is not on the canvas invites a reader to look for one.
+             *  The bed-state entries above are unconditional because those chips are on every node in
+             *  either picture. Gated on `bandSubject`, the same expression the canvas branches on —
+             *  the legend describes the canvas, so one decision is read in one spelling rather than
+             *  two that happen to agree today. */}
+            {bandSubject ? null : (
+              <>
+                <span className={styles.legendItem}>
+                  <i className={styles.legendRoute} aria-hidden="true" />
+                  <b>Shortlisted</b> Route for selected movement
+                </span>
+                <span className={styles.legendItem}>
+                  <i className={styles.legendDemand} aria-hidden="true" />
+                  <b>Demand</b> Health service into statewide flow
+                </span>
+              </>
+            )}
           </footer>
         </section>
 
-        <aside className={styles.shortlistPanel} aria-label="Explainable shortlist" aria-live="polite">
-          <header className={styles.panelHeader}>
-            <h2>
-              <Sparkles aria-hidden="true" /> Explainable shortlist · {patient.id}
-            </h2>
-          </header>
-          <p className={styles.patientLine}>
-            <span className={styles.tier} data-tier={patient.urgency}>
-              {patient.urgency}
-            </span>
-            {patient.cohort} · {patient.security} ward · {movementHealthService(patient) ?? "Unknown"} service
-          </p>
-          <p className={styles.patientSubLine}>
-            {patient.legalStatus} ·{" "}
-            {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
-          </p>
-          <p className={styles.patientSubLine}>
-            {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}
-          </p>
+        <aside
+          className={styles.shortlistPanel}
+          aria-label={selectedReferral ? "Referral placement" : "Explainable shortlist"}
+          aria-live="polite"
+        >
+          {selectedReferral ? (
+            <ReferralPlacementSummary referral={selectedReferral} now={now} />
+          ) : (
+            <>
+              <header className={styles.panelHeader}>
+                <h2>
+                  <Sparkles aria-hidden="true" /> Explainable shortlist · {patient.id}
+                </h2>
+              </header>
+              {/* `data-label` is read by nothing on screen — same job as the bed chips' own
+                  `data-label` above. This badge is an 18px square whose tier is carried by its
+                  fill colour and a bare digit, so on paper (where the fill is inked away and a
+                  mono printer would flatten it regardless) "1" alone is indistinguishable from a
+                  rank. The print block swaps in this label, and takes it from `urgencyTierLabel`
+                  so the printed words are the same ones the coordinator's queue and the referral
+                  board already use. */}
+              <p className={styles.patientLine}>
+                <span
+                  className={styles.tier}
+                  data-tier={patient.urgency}
+                  data-label={urgencyTierLabel(patient.urgency)}
+                >
+                  {patient.urgency}
+                </span>
+                {patient.cohort} · {patient.security} ward · {movementHealthService(patient) ?? "Unknown"} service
+              </p>
+              <p className={styles.patientSubLine}>
+                {patient.legalStatus} ·{" "}
+                {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
+              </p>
+              <p className={styles.patientSubLine}>
+                {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}
+              </p>
 
-          <div className={styles.tableScroll}>
-            <table className={styles.compareTable}>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <span className="sr-only">Comparison factor</span>
-                  </th>
-                  {candidates.map((candidate) => (
-                    <th scope="col" key={candidate.unit.id}>
-                      {candidate.rank} {candidate.unit.name}
-                    </th>
+              <div className={styles.tableScroll}>
+                <table className={styles.compareTable}>
+                  <thead>
+                    <tr>
+                      <th scope="col">
+                        <span className="sr-only">Comparison factor</span>
+                      </th>
+                      {candidates.map((candidate) => (
+                        <th scope="col" key={candidate.unit.id}>
+                          {candidate.rank} {candidate.unit.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Same health service as origin</th>
+                      {candidates.map((candidate) => {
+                        const fit = originServiceFit(patient, candidate.unit);
+                        return (
+                          <td key={candidate.unit.id} data-tone={fit.tone}>
+                            {fit.label}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <th scope="row">Open/secure fit</th>
+                      {candidates.map((candidate) => {
+                        const fit = settingFit(patient, candidate.unit, now);
+                        return (
+                          <td key={candidate.unit.id} data-tone={fit.tone}>
+                            {fit.label}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <th scope="row">Current bed state</th>
+                      {candidates.map((candidate) => (
+                        <td key={candidate.unit.id}>
+                          <BedStateChips
+                            unit={candidate.unit}
+                            bedReleases={bedReleases}
+                            leaveBeds={leaveBeds}
+                            now={now}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <th scope="row">Transport state</th>
+                      {candidates.map((candidate) => (
+                        <td key={candidate.unit.id} data-tone={transportTone(candidate.etaLabel)}>
+                          {candidate.etaLabel}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <th scope="row">Eligibility</th>
+                      {candidates.map((candidate) => (
+                        <td key={candidate.unit.id} title={candidateReason(candidate.verdict)}>
+                          <strong>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</strong>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p className={styles.tierNote}>
+                <span
+                  className={styles.tier}
+                  data-tier={patient.urgency}
+                  data-label={urgencyTierLabel(patient.urgency)}
+                >
+                  {patient.urgency}
+                </span>
+                <b>Urgency tier leads.</b> Eligibility only orders candidates inside a tier. It is not clinical
+                severity.
+              </p>
+
+              <button
+                type="button"
+                className={styles.factorsToggle}
+                aria-expanded={factorsOpen}
+                onClick={() => setFactorsOpen((open) => !open)}
+              >
+                Eligibility gates ({primary ? primary.verdict.gates.length : 0})
+                <ChevronDown aria-hidden="true" data-open={factorsOpen ? "true" : undefined} />
+              </button>
+              {factorsOpen && primary ? (
+                <ul className={styles.factorList}>
+                  {primary.verdict.gates.map((gate) => (
+                    <li key={gate.gate}>{gate.detail}</li>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Same health service as origin</th>
-                  {candidates.map((candidate) => {
-                    const fit = originServiceFit(patient, candidate.unit);
-                    return (
-                      <td key={candidate.unit.id} data-tone={fit.tone}>
-                        {fit.label}
-                      </td>
-                    );
-                  })}
-                </tr>
-                <tr>
-                  <th scope="row">Open/secure fit</th>
-                  {candidates.map((candidate) => {
-                    const fit = settingFit(patient, candidate.unit, now);
-                    return (
-                      <td key={candidate.unit.id} data-tone={fit.tone}>
-                        {fit.label}
-                      </td>
-                    );
-                  })}
-                </tr>
-                <tr>
-                  <th scope="row">Current bed state</th>
-                  {candidates.map((candidate) => (
-                    <td key={candidate.unit.id}>
-                      <BedStateChips unit={candidate.unit} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} />
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <th scope="row">Transport state</th>
-                  {candidates.map((candidate) => (
-                    <td key={candidate.unit.id} data-tone={transportTone(candidate.etaLabel)}>
-                      {candidate.etaLabel}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <th scope="row">Eligibility</th>
-                  {candidates.map((candidate) => (
-                    <td key={candidate.unit.id} title={candidateReason(candidate.verdict)}>
-                      <strong>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</strong>
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </ul>
+              ) : null}
 
-          <p className={styles.tierNote}>
-            <span className={styles.tier} data-tier={patient.urgency}>
-              {patient.urgency}
-            </span>
-            <b>Urgency tier leads.</b> Eligibility only orders candidates inside a tier. It is not clinical severity.
-          </p>
+              <div className={styles.ownerBlock}>
+                <span className={styles.ownerLabel}>Current owner</span>
+                <strong>{patient.owner}</strong>
+                <span>Next action: {patient.blocker}</span>
+              </div>
 
-          <button
-            type="button"
-            className={styles.factorsToggle}
-            aria-expanded={factorsOpen}
-            onClick={() => setFactorsOpen((open) => !open)}
-          >
-            Eligibility gates ({primary ? primary.verdict.gates.length : 0})
-            <ChevronDown aria-hidden="true" data-open={factorsOpen ? "true" : undefined} />
-          </button>
-          {factorsOpen && primary ? (
-            <ul className={styles.factorList}>
-              {primary.verdict.gates.map((gate) => (
-                <li key={gate.gate}>{gate.detail}</li>
-              ))}
-            </ul>
-          ) : null}
+              <Link className={styles.primaryLink} href={`/mockups/ward-flow/movements/${patient.id}`}>
+                Open movement workspace
+              </Link>
+            </>
+          )}
 
-          <div className={styles.ownerBlock}>
-            <span className={styles.ownerLabel}>Current owner</span>
-            <strong>{patient.owner}</strong>
-            <span>Next action: {patient.blocker}</span>
-          </div>
-
-          <Link className={styles.primaryLink} href={`/mockups/ward-flow/patients/${patient.id}`}>
-            Open movement workspace
-          </Link>
+          {/* One spelling, outside the branch, because it is true of either subject. */}
           <p className={styles.assurance}>System suggests, you decide. No automatic allocation.</p>
 
           {detail ? (
@@ -573,8 +1250,8 @@ export function WardNetworkWorkspace() {
               </p>
               <BedStateChips unit={detail} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} />
               <p className={styles.detailMeta}>
-                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Confirmed and predicted
-                beds are not allocatable yet.
+                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Confirmed and expected beds
+                are not allocatable yet.
               </p>
             </section>
           ) : null}

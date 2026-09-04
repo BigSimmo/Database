@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "3aa1deba-5dd9-410a-933d-b386ad1dbb9c",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Six undeclared CSS custom properties leave two ward-board controls with no background or border",
+    "issueUlid": "01M1G4P3FG2VX8AZT9JJV1MSEC"
+  }
+}

@@ -14,7 +14,7 @@ import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { formRecords } from "../src/lib/forms";
-import { deriveGovernanceFromSections } from "../src/lib/medication-records";
+import { publicMedicationGovernance } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { searchMedicationCatalog } from "../src/lib/medication-query";
 import { medicationToSearchResult, type MedicationRecord } from "../src/lib/medications";
@@ -359,14 +359,10 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
         await route.fulfill({ status: 404, json: { error: `No medication found for "${slug}".` } });
         return;
       }
-      const governance = deriveGovernanceFromSections(record);
       await route.fulfill({
         json: {
           record,
-          governance: {
-            sourceStatus: governance.source_status,
-            validationStatus: governance.validation_status,
-          },
+          governance: publicMedicationGovernance(record),
           demoMode: true,
         },
       });
@@ -1845,6 +1841,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+    // Sources reached the desktop menu (built from `appModeDefinitions`) but not
+    // this one, which renders `phoneModeGroups` and drops any mode no group names.
+    // `tests/phone-mode-groups.test.ts` guards the constant; this is the rendered proof.
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Sources\b/ })).toBeAttached();
     await expect(modeOptions.first()).toBeInViewport();
     await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
     await expect(modeOptions.first()).toContainText("Source-backed clinical answer");
@@ -2089,17 +2089,52 @@ test.describe("PsychSift UI smoke coverage", () => {
     // when safetyFindings.length > 0, see answer-result-surface.tsx) must FAIL this
     // @critical smoke, not pass silently on an absent trigger (audit F3 / C6). Asserting
     // the trigger is visible unconditionally enforces "safety findings present".
+    const clinicalPointsRail = page.getByTestId("answer-clinical-points");
+    await expect(clinicalPointsRail).toBeVisible();
     const safetyFindingsTrigger = page.getByTestId("answer-safety-findings-trigger");
     await expect(safetyFindingsTrigger).toBeVisible();
     await expectMinTouchTarget(safetyFindingsTrigger);
+
+    // The rail sits at the seam: after the prose, before the cited sources.
+    const pointsBox = await clinicalPointsRail.boundingBox();
+    const proseSeamBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const sourceRailBox = await page.getByTestId("answer-source-rail").boundingBox();
+    expect(pointsBox).not.toBeNull();
+    expect(proseSeamBox).not.toBeNull();
+    expect(sourceRailBox).not.toBeNull();
+    expect(pointsBox!.y).toBeGreaterThanOrEqual(proseSeamBox!.y + proseSeamBox!.height - 1);
+    expect(sourceRailBox!.y).toBeGreaterThanOrEqual(pointsBox!.y + pointsBox!.height - 1);
+
     await safetyFindingsTrigger.click();
-    const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
+    const safetyFindingsSheet = page.getByRole("dialog", { name: "Key points" });
     await expect(safetyFindingsSheet).toBeVisible();
     await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
     expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
-    await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
+    // Severity order inside the sheet: a stop-tier row never follows a know-tier
+    // one, so the list always reads in the same direction.
+    const sheetTones = await safetyFindingsSheet
+      .getByTestId("safety-finding-row")
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-tone")));
+    const toneRank = { stop: 0, act: 1, know: 2 } as Record<string, number>;
+    const sheetRanks = sheetTones.map((tone) => toneRank[tone ?? "know"] ?? 2);
+    expect(sheetRanks).toEqual([...sheetRanks].sort((left, right) => left - right));
+    await safetyFindingsSheet.getByRole("button", { name: "Close key points" }).click();
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
+
+    // Opening from a LATER pill must return focus to that pill, not to the first
+    // one. A ref bound to the first button satisfies every assertion above while
+    // dragging focus back to the left edge of a horizontally scrolling rail.
+    const laterPills = clinicalPointsRail.getByTestId("answer-clinical-point");
+    if ((await laterPills.count()) > 0) {
+      const laterPill = laterPills.first();
+      await laterPill.click();
+      await expect(page.getByRole("dialog", { name: "Key points" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Key points" })).toHaveCount(0);
+      await expect(laterPill).toBeFocused();
+      await expect(safetyFindingsTrigger).not.toBeFocused();
+    }
 
     // The status chips carry a real 48px tap target inside a 24px-tall pill. The
     // first shape did that with `-my-3`, which keeps `boundingBox()` honest while
@@ -2120,7 +2155,7 @@ test.describe("PsychSift UI smoke coverage", () => {
         };
         const chips = [
           box('[data-testid="answer-safety-findings-trigger"]'),
-          box('[data-testid="answer-evidence-gaps-trigger"]'),
+          box('[data-testid="answer-limitations-trigger"]'),
         ].filter((entry) => entry !== null);
         const neighbours = [
           box('[data-testid="answer-card-support"]'),
@@ -2144,6 +2179,28 @@ test.describe("PsychSift UI smoke coverage", () => {
       expect(collisions, `status chip hit regions overlap at ${statusWidth}px`).toEqual([]);
     }
     await page.setViewportSize({ width: 390, height: 820 });
+
+    // The support word and the limitations chip share one line at 390px. They used to be forced
+    // onto separate rows by a `w-full` on the chip container, on the reasoning that a 48px
+    // control cannot sit in a 24px line without a negative margin. True, and the row is now
+    // centre-aligned and 48px tall instead, so no negative margin is needed and the collision
+    // check above still passes. Asserted positively because "they do not overlap" is also
+    // satisfied by stacking them again, which is the regression this guards.
+    const statusRowShare = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
+      const support = rect('[data-testid="answer-card-support"]');
+      const chip = rect('[data-testid="answer-limitations-trigger"]');
+      if (!support || !chip) return null;
+      return {
+        verticalOverlap: Math.min(support.bottom, chip.bottom) - Math.max(support.top, chip.top),
+        horizontalGap: Math.max(support.left, chip.left) - Math.min(support.right, chip.right),
+      };
+    });
+    expect(statusRowShare, "support pill and limitations chip both render at 390px").not.toBeNull();
+    // Sharing a line: the shorter pill's full height sits within the taller chip's band.
+    expect(statusRowShare!.verticalOverlap).toBeGreaterThan(8);
+    // Side by side, not on top of each other.
+    expect(statusRowShare!.horizontalGap).toBeGreaterThan(0);
 
     // Decision 2 (2026-08-24): tables fold into the source drawer, so they are no
     // longer on the answer surface at all — reaching one goes through a rail row.
@@ -3329,72 +3386,87 @@ test.describe("PsychSift UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium");
     await visibleAnswerSubmitButton(page).click();
 
-    // Source-only owns the one on-screen warning. The complete verification
-    // notice remains print-only, while its governed compact wording is folded
-    // into this disclosure instead of repeating above the prose.
+    // Owner decision (2026-09-03): the Source-only pill that used to sit below
+    // the prose is gone. Its governed wording leads the Answer limitations
+    // disclosure, and the chip that opens it carries the word "Source-only" so
+    // the provenance fact still reaches the default view — `VerificationNotice`
+    // stays print-only on this answer, so if the chip loses that word nothing
+    // on screen says no model wrote the answer.
     await expect(page.getByTestId("verification-notice")).toBeHidden();
-    const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
-    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
-    const sourceOnlyRail = page.getByTestId("answer-source-rail");
-    await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyRail).toBeVisible();
-    await expect(sourceOnlyDisclosure).toContainText("Source-only");
-    await expect(sourceOnlyDisclosure).toContainText("verify passages");
-    await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
+    await expect(page.getByTestId("source-only-disclosure")).toHaveCount(0);
+    await expect(page.getByTestId("answer-source-status-row")).toHaveCount(0);
 
+    const limitationsChip = page.getByTestId("answer-limitations-trigger");
+    const limitationsDetail = page.locator("#answer-limitations-detail");
+    const sourceOnlyRail = page.getByTestId("answer-source-rail");
+    await expect(limitationsChip).toBeVisible();
+    await expect(sourceOnlyRail).toBeVisible();
+    await expect(limitationsChip).toContainText("Source-only");
+    // Opens a dialog, so it announces `haspopup` rather than `expanded`/`controls`. The two are
+    // not interchangeable: `aria-expanded` promises a region revealed in place, which is the
+    // behaviour that was removed. Asserted as absent, not merely changed, so a half-finished
+    // revert that leaves both attributes on the trigger fails here.
+    await expect(limitationsChip).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(limitationsChip).not.toHaveAttribute("aria-expanded", /.*/);
+    await expect(limitationsChip).not.toHaveAttribute("aria-controls", /.*/);
+    // Not merely hidden — the sheet is not in the document until it is opened.
+    await expect(limitationsDetail).toHaveCount(0);
+
+    // The chip is a full-size button carrying a small pill, so it keeps the
+    // 48px tap region rather than the pill's own height.
+    await expectMinTouchTarget(limitationsChip);
+
+    // The prose runs straight into the source rail now that nothing sits between
+    // them.
     const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
-    const disclosureButtonBox = await sourceOnlyButton.boundingBox();
-    const disclosureBox = await sourceOnlyDisclosure.boundingBox();
     const railBox = await sourceOnlyRail.boundingBox();
     expect(proseBox).not.toBeNull();
-    expect(disclosureButtonBox).not.toBeNull();
-    expect(disclosureBox).not.toBeNull();
     expect(railBox).not.toBeNull();
-    // The compact disclosure now deliberately carries the 40px compact-meta
-    // interaction floor. Its bordered container is 42px high in Chromium, so
-    // preserve both the usable target and the compact one-row layout.
-    // Tolerate sub-pixel rounding (CI saw 39.999969482421875 for a 40px target).
-    expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(39.5);
-    expect(disclosureBox!.height).toBeLessThanOrEqual(42);
-    expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
-    const disclosureToRailGap = railBox!.y - (disclosureBox!.y + disclosureBox!.height);
-    expect(disclosureToRailGap).toBeGreaterThanOrEqual(3);
-    expect(disclosureToRailGap).toBeLessThanOrEqual(6);
+    expect(railBox!.y).toBeGreaterThanOrEqual(proseBox!.y + proseBox!.height);
 
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await sourceOnlyButton.focus();
-    await expect(sourceOnlyButton).toBeFocused();
+    await limitationsChip.focus();
+    await expect(limitationsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(sourceOnlyDisclosure).toContainText(
+    const limitationsSheet = page.getByRole("dialog", { name: "Answer limitations" });
+    await expect(limitationsSheet).toBeVisible();
+    await expect(limitationsDetail).toBeVisible();
+    // The governed extractive wording, verbatim, as the first row of the sheet. This is the
+    // assertion that matters most in this block: the wording must survive the move out of the
+    // in-flow panel unchanged, because it is the caution a source-only answer rests on.
+    await expect(limitationsDetail.getByTestId("answer-limitation-source-only")).toContainText(
       "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     );
-    const sourceOnlyDetailId = await sourceOnlyButton.getAttribute("aria-controls");
-    expect(sourceOnlyDetailId).toBeTruthy();
-    await expect(page.locator(`[id="${sourceOnlyDetailId}"]`)).toHaveCSS("animation-name", "none");
+
+    // Escape closes, and focus comes back to the chip that opened it — the trigger no longer
+    // toggles, so a second Enter would reopen rather than close.
+    await page.keyboard.press("Escape");
+    await expect(limitationsSheet).toHaveCount(0);
+    await expect(limitationsChip).toBeFocused();
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-    await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyButton).toBeFocused();
-    expect(await sourceOnlyDisclosure.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("solid");
+    await expect(limitationsChip).toBeVisible();
+    await expect(limitationsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+    await expect(limitationsSheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(limitationsSheet).toHaveCount(0);
     await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
-      await expect(sourceOnlyDisclosure).toBeVisible();
-      const responsiveDisclosureButtonBox = await sourceOnlyButton.boundingBox();
-      expect(responsiveDisclosureButtonBox).not.toBeNull();
-      // Same 40px compact-meta floor with sub-pixel tolerance as above.
-      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(39.5);
+      await expect(limitationsChip).toBeVisible();
+      // The label grew a "Source-only" prefix, so the narrow widths are the ones
+      // that matter here.
+      await expectMinTouchTarget(limitationsChip);
       await expectNoPageHorizontalOverflow(page);
     }
 
     // The "Review source match" card is gone with the support card. The caution
-    // it restated is not: the source-only disclosure above already carries the
-    // governed wording ("verify passages", asserted earlier in this test), and
-    // the chip states the degraded support level rather than reading like a
-    // fully supported answer.
+    // it restated is not: the limitations chip carries "Source-only" on the
+    // default view and its panel carries the governed wording, and the support
+    // chip states the degraded support level rather than reading like a fully
+    // supported answer.
     const sourceOnlySupportChip = page.getByTestId("answer-card-support");
     await expect(sourceOnlySupportChip).toBeVisible();
     await expect(sourceOnlySupportChip).toHaveAttribute("data-support", /limited|unassessed/);
@@ -3454,36 +3526,32 @@ test.describe("PsychSift UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
     await visibleAnswerSubmitButton(page).click();
 
-    const statusRow = page.getByTestId("answer-source-status-row");
-    const sourceOnlyDisclosure = statusRow.getByTestId("source-only-disclosure");
-    await expect(statusRow).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await expect(sourceOnlyDisclosure).toBeVisible();
+    // Owner decision (2026-09-03): the answer body owns no status row at all.
+    // Both the Source-only wording and the per-source overdue detail are
+    // statements about this answer's evidence, so both live behind the
+    // limitations chip with the other such statements.
+    await expect(page.getByTestId("answer-source-status-row")).toHaveCount(0);
+    await expect(page.getByTestId("source-only-disclosure")).toHaveCount(0);
 
-    // Owner decision (2026-09-01): the per-source overdue detail is a statement
-    // about this answer's evidence, so it lives with the other such statements
-    // behind the evidence-gaps chip, not as a second control in the answer body.
-    // The worded caution stays on the default view — only the detail is a tap
-    // away — so the status row must now carry the Source-only disclosure alone.
-    await expect(statusRow.getByTestId("retrieval-state-stale-toggle")).toHaveCount(0);
-
-    const gapsChip = page.getByTestId("answer-evidence-gaps-trigger");
+    const gapsChip = page.getByTestId("answer-limitations-trigger");
     await expect(gapsChip).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    // Both halves, not one: the gap count does not displace "Review due". On a
-    // source-only answer this chip is the only thing on the default view that
-    // says a cited source is overdue, so losing that word here loses the fact.
+    // All three parts, not one. This chip is the only thing on the default view
+    // that says no model wrote the answer AND that a cited source is overdue —
+    // `VerificationNotice` is print-only here — so a limitation count must never
+    // displace either prefix.
+    await expect(gapsChip).toContainText("Source-only");
     await expect(gapsChip).toContainText("Review due");
-    await expect(gapsChip).toContainText(/\d+ evidence gaps?/);
-    await expect(gapsChip).toHaveAttribute("aria-controls", "answer-evidence-gaps-detail");
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
-    const gapsDetail = page.locator("#answer-evidence-gaps-detail");
-    await expect(gapsDetail).toBeHidden();
+    await expect(gapsChip).toContainText(/\d+ limitations?/);
+    await expect(gapsChip).toHaveAttribute("aria-haspopup", "dialog");
+    const gapsDetail = page.locator("#answer-limitations-detail");
+    await expect(gapsDetail).toHaveCount(0);
 
     const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
-    await expect(reviewDueTab).toBeHidden();
-    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+    await expect(reviewDueTab).toHaveCount(0);
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(0);
 
     await gapsChip.click();
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("dialog", { name: "Answer limitations" })).toBeVisible();
     await expect(gapsDetail).toBeVisible();
     // And the count is of gaps only. A source being due for review is a
     // statement about that source's currency, not a missing piece of evidence,
@@ -3491,10 +3559,29 @@ test.describe("PsychSift UI smoke coverage", () => {
     // both overstate the gaps and report one fact twice under the wrong name.
     // Derived from what the panel actually renders, so the assertion holds when
     // the demo corpus changes how many warnings it produces.
-    const panelWarnings = await gapsDetail.locator("> p").allInnerTexts();
+    // The panel's own rows, excluding the heading and the source-only row that
+    // leads it — neither is a counted limitation.
+    const sourceOnlyRow = gapsDetail.getByTestId("answer-limitation-source-only");
+    await expect(sourceOnlyRow).toBeVisible();
+    // The wording is state-specific by design (#207 precedence lets stale
+    // outrank source_only), so this asserts the ATTRIBUTION rather than one
+    // state's sentence: every extractive variant opens "Copied from", and none
+    // of them may claim a model wrote the answer.
+    await expect(sourceOnlyRow).toContainText(/Copied from/);
+    await expect(sourceOnlyRow).not.toContainText("AI-generated");
+    // Excluded by ELEMENT, not by text. The source-only row's eyebrow is
+    // `uppercase`, so `innerText` reports "SOURCE-ONLY" and a case-sensitive
+    // text filter silently counted this row as a limitation.
+    //
+    // The "Answer limitations" filter below is now belt-and-braces: that heading became the
+    // sheet's own title and is no longer a `<p>` inside this container. It is kept so the
+    // count stays right if the heading is ever reinstated in the body.
+    const panelWarnings = (
+      await gapsDetail.locator('> p:not([data-testid="answer-limitation-source-only"])').allInnerTexts()
+    ).filter((text) => !/^Answer limitations$/i.test(text.trim()));
     const gapWarnings = panelWarnings.filter((text) => !/\bdue for review\.$/.test(text.trim()));
     expect(panelWarnings.length).toBeGreaterThan(0);
-    await expect(gapsChip).toContainText(`${gapWarnings.length} evidence ${gapWarnings.length === 1 ? "gap" : "gaps"}`);
+    await expect(gapsChip).toContainText(`${gapWarnings.length} limitation${gapWarnings.length === 1 ? "" : "s"}`);
     // The banner is inside the disclosure, not merely somewhere on the page.
     await expect(gapsDetail.getByTestId("retrieval-state-stale-toggle")).toBeVisible();
     await expect(reviewDueTab).toContainText("Review due");
@@ -3518,17 +3605,11 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.evaluate(
         () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
       );
-      const statusBox = await statusRow.boundingBox();
-      const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
-      expect(statusBox).toBeTruthy();
-      expect(sourceOnlyBox).toBeTruthy();
-      // The status row is a single compact line holding the one disclosure, at
-      // every width — it must not grow a second line or a second control.
-      const statusBottom = statusBox!.y + statusBox!.height;
-      expect(sourceOnlyBox!.y).toBeGreaterThanOrEqual(statusBox!.y - 1);
-      expect(sourceOnlyBox!.y + sourceOnlyBox!.height).toBeLessThanOrEqual(statusBottom + 1);
-      expect(statusBox!.height).toBeLessThanOrEqual(42);
-      expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
+      // The chip keeps its full tap region at every width, and the longer
+      // three-part label must not push the page into horizontal overflow.
+      await expect(gapsChip).toBeVisible();
+      await expectMinTouchTarget(gapsChip);
+      await expectNoPageHorizontalOverflow(page);
       // The overdue detail stays reachable and inside the disclosure, however
       // narrow the viewport gets.
       const gapsDetailBox = await gapsDetail.boundingBox();
@@ -3549,30 +3630,30 @@ test.describe("PsychSift UI smoke coverage", () => {
     });
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
-    await sourceOnlyButton.focus();
-    await expect(sourceOnlyButton).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "true");
-    await page.keyboard.press("Enter");
-    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
 
-    // Both disclosures — the chip and the banner inside it — stay operable from
+    // Both disclosures — the chip and the banner inside the sheet it opens — stay operable from
     // the keyboard in forced colors with motion reduced.
-    await gapsChip.focus();
+    //
+    // The sheet is still open from the click above, and it has to be closed before the chip can
+    // be driven again: while a sheet is open the trigger sits behind the overlay and focus is
+    // trapped inside the dialog. Escape closes and returns focus to the chip, which is the whole
+    // round trip this block is here to prove.
+    await page.keyboard.press("Escape");
+    await expect(gapsDetail).toHaveCount(0);
     await expect(gapsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
-    await expect(gapsDetail).toBeHidden();
-    await page.keyboard.press("Enter");
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
     await expect(gapsDetail).toBeVisible();
 
     await reviewDueTab.focus();
     await expect(reviewDueTab).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
-    await expect(reviewDuePanel).toBeVisible();
+    // Re-resolved, not reused. `reviewDuePanel` above was captured from the first mount, and the
+    // banner's panel id comes from `useId` — closing the sheet unmounts it, so reopening mints a
+    // new id and the old locator matches nothing. This is the one real behaviour change the sheet
+    // brings to this test: an in-flow panel was only ever hidden, never unmounted.
+    const reopenedReviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
+    await expect(reopenedReviewDuePanel).toBeVisible();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
     await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
   });
@@ -5998,7 +6079,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const payload = await response.json();
     expect(typeof payload.demoMode).toBe("boolean");
-    expect(payload.checks).toHaveLength(6);
+    expect(payload.checks).toHaveLength(7);
     expect(payload.checks.map((check: { id: string }) => check.id)).toEqual([
       "env",
       "project",
@@ -6006,8 +6087,17 @@ test.describe("PsychSift UI smoke coverage", () => {
       "search",
       "openai",
       "worker",
+      // Added by #2590 and missed here, so this assertion was red on `main` from that merge until
+      // #2593 corrected it. Reached the same fix independently here; the conflict was comment-only.
+      // The list is a deliberate enumeration rather than a count, so it must name the check.
+      "answerPreview",
     ]);
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
+    // The whole point of this endpoint's coarsening. `answerPreview` is the one check whose detail
+    // now survives for an anonymous caller, so pin that its content stays a decision word: no
+    // query, document title, owner, or clinical text may ever appear here.
+    const answerPreview = payload.checks.find((check: { id: string }) => check.id === "answerPreview");
+    expect(answerPreview.detail).toMatch(/^(On\.|Switched off,)/);
   });
 
   test("production site does not offer document uploads to unauthenticated users", async ({ page, request }) => {

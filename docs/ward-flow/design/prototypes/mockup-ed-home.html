@@ -1,0 +1,1253 @@
+<title>Emergency Departments — Coordinator View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     ADDITIONS — global emergency-department home (coordinator, every ED
+     at once). Nothing above this comment was changed.
+
+     This screen has no existing route to imitate: Ward Flow only has a
+     single-department hub at /mockups/ward-flow/ed/[edId]. Everything
+     below exists to answer one question on sight — where are psychiatric
+     patients stuck in an ED, and which department is worst right now —
+     while keeping only ONE card shouting, per the design brief. That is
+     the ".hero" panel: it uses the --crit (red) token rather than the
+     --signal (amber) used by flagged totals tiles, deliberately one tier
+     more severe, so it never competes with the two amber-flagged totals
+     for the reader's eye and is unambiguously the loudest thing on the
+     page. The other seven departments are grouped into three plain panels
+     by health service (East Metro / North Metro / South Metro, the real
+     values of the model's HealthService type) and use only worded chips
+     and sentences — no additional colour escalation — which is the "eight
+     cards all shouting is worse than none" judgement call named in the
+     brief.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .model-limit {
+    margin-top: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+  .model-limit b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* The single dominant "worst department" panel. */
+  .hero {
+    margin-top: var(--sp-3);
+    border: 1px solid color-mix(in oklab, var(--crit) 45%, var(--rule));
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .hero-band {
+    background: var(--crit-wash);
+    padding: var(--sp-4);
+    border-bottom: 1px solid color-mix(in oklab, var(--crit) 35%, var(--rule));
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--crit);
+  }
+  .hero-eyebrow .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--crit);
+    flex: none;
+  }
+  .hero-title {
+    margin-top: 0.5rem;
+    font-weight: 700;
+    font-size: clamp(1.25rem, 1rem + 1vw, 1.7rem);
+    letter-spacing: -0.02em;
+  }
+  .hero-lede {
+    margin: var(--sp-2) 0 0;
+    max-width: 54rem;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: var(--ink-2);
+  }
+  .hero-figures {
+    display: grid;
+    gap: var(--sp-3);
+    padding: var(--sp-4);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 40rem) {
+    .hero-figures {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 64rem) {
+    .hero-figures {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .hero-fig {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .hero-fig dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.35;
+  }
+  .hero-fig dd {
+    margin: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-fig .state {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+  .hero-patients {
+    padding: 0 var(--sp-4) var(--sp-4);
+  }
+  .hero-patients .blurb2 {
+    margin: 0 0 var(--sp-2);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .hero-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 0.55rem 0.95rem;
+    margin: 0 var(--sp-4) var(--sp-4);
+    border: 1px solid color-mix(in oklab, var(--crit) 45%, var(--rule));
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--crit);
+  }
+  .hero-open:hover {
+    background: var(--crit);
+    color: var(--surface);
+    border-color: var(--crit);
+  }
+
+  /* Health-service grouping for the remaining seven EDs. */
+  .service-panel > header .svc-n {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .row .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  /* ─── this screen only ─── */
+  .identity--end {
+    align-items: flex-end;
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Every figure invented — listed at the foot</span>
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow">Coordinator</span>
+      <h1>Emergency departments — every site</h1>
+      <p class="covers"><b>8 emergency departments</b> across 3 health services</p>
+    </div>
+    <div class="identity identity--end">
+      <div class="picker">
+        <label for="ed-select">Open a department</label>
+        <select id="ed-select">
+          <option value="">Choose a department…</option>
+          <option value="rph-ed">Royal Perth Hospital</option>
+          <option value="scgh-ed">Sir Charles Gairdner Hospital</option>
+          <option value="fsh-ed">Fiona Stanley Hospital</option>
+          <option value="arm-ed">Armadale Hospital</option>
+          <option value="sjgm-ed">St John of God Midland</option>
+          <option value="rgh-ed">Rockingham General Hospital</option>
+          <option value="jhc-ed">Joondalup Health Campus</option>
+          <option value="peel-ed">Peel Health Campus</option>
+        </select>
+      </div>
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span><span>Live<span class="sr"> — data is current</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September, updated 2 minutes ago</span>
+      </p>
+    </div>
+  </div>
+
+  <p class="model-limit">
+    <b>The emergency department record itself holds almost nothing.</b> The model's
+    <code>EmergencyDepartment</code> type carries only an id, a site code and a name — no bed count, no waiting count,
+    no capacity figure. Every number on this screen is counted from referrals whose destination is an emergency
+    department and from movements recording where a patient currently is, not from anything the department itself
+    records.
+  </p>
+
+  <dl class="totals">
+    <div class="total">
+      <dt>Waiting for a psychiatric bed, all sites</dt>
+      <dd><span class="figure">34</span></dd>
+      <span class="sub">Counted from movements currently open in an emergency department</span>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Longest single wait</dt>
+      <dd>
+        <span class="figure">1</span><span class="unit">d</span><span class="figure">6</span><span class="unit">h</span>
+      </dd>
+      <span class="sub">WF-231 &middot; Royal Perth Hospital</span>
+    </div>
+    <div class="total">
+      <dt>Detained under the Mental Health Act, waiting</dt>
+      <dd><span class="figure">14</span><span class="unit">of 34</span></dd>
+      <span class="sub">Narrows which wards can take them</span>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Declined by every ward asked</dt>
+      <dd><span class="figure">7</span></dd>
+      <span class="sub">Nobody is now looking for these beds</span>
+    </div>
+    <div class="total">
+      <dt>Departments past the 24-hour access target</dt>
+      <dd><span class="figure">2</span><span class="unit">of 8</span></dd>
+      <span class="sub">Royal Perth Hospital, Fiona Stanley Hospital</span>
+    </div>
+  </dl>
+
+  <!-- ══════════════ THE ONE DOMINANT CARD ══════════════ -->
+  <section class="panel hero" aria-labelledby="hero-title">
+    <div class="hero-band">
+      <span class="hero-eyebrow"><span class="dot" aria-hidden="true"></span>Worst department right now</span>
+      <h2 class="hero-title" id="hero-title">Royal Perth Hospital Emergency Department</h2>
+      <p class="hero-lede">
+        Nine people are waiting here for a psychiatric bed — more than anywhere else in the network. Two have now passed
+        the department's own 24-hour access target, three have been declined by every ward asked and nobody is currently
+        looking for a bed for any of them, and six of the nine are detained under the Mental Health Act, which narrows
+        which wards can take them to begin with. This is why Royal Perth is the one department this page puts in front
+        of you; the other seven are worded, not shouted, below.
+      </p>
+    </div>
+    <dl class="hero-figures">
+      <div class="hero-fig">
+        <dt>Waiting for a bed</dt>
+        <dd>9</dd>
+        <span class="state">Highest of any department</span>
+      </div>
+      <div class="hero-fig">
+        <dt>Longest wait</dt>
+        <dd>1d 6h</dd>
+        <span class="state">Past the 24-hour access target</span>
+      </div>
+      <div class="hero-fig">
+        <dt>Detained under the Act</dt>
+        <dd>6<span style="font-size: 0.85rem; font-weight: 500; color: var(--muted)"> of 9</span></dd>
+        <span class="state">Only an authorised bed can take them</span>
+      </div>
+      <div class="hero-fig">
+        <dt>Declined by every ward</dt>
+        <dd>3</dd>
+        <span class="state">Nobody is now looking</span>
+      </div>
+      <div class="hero-fig">
+        <dt>Past 24 hours</dt>
+        <dd>2<span style="font-size: 0.85rem; font-weight: 500; color: var(--muted)"> of 9</span></dd>
+        <span class="state">The department's own access measure, not a legal deadline</span>
+      </div>
+    </dl>
+    <div class="hero-patients">
+      <p class="blurb2">Worst three of the nine waiting here. The remaining six are on the department's own hub.</p>
+      <ul class="rows">
+        <li data-level="urgent">
+          <div class="row">
+            <span class="id">WF-231</span><span class="name">T. Osei &middot; detained awaiting examination</span
+            ><span class="wait">1d 6h</span><span class="chip" data-level="urgent">Past 24 hours</span
+            ><span class="meta"><span>Declined by 3 wards, nobody now looking</span></span>
+          </div>
+        </li>
+        <li data-level="urgent">
+          <div class="row">
+            <span class="id">WF-244</span><span class="name">K. Wynyard &middot; involuntary inpatient</span
+            ><span class="wait">1d 1h</span><span class="chip" data-level="urgent">Past 24 hours</span
+            ><span class="meta"><span>Awaiting a secure, authorised bed</span></span>
+          </div>
+        </li>
+        <li data-level="stalled">
+          <div class="row">
+            <span class="id">WF-249</span
+            ><span class="name">F. Delacroix &middot; referred for psychiatric examination</span
+            ><span class="wait">9h</span><span class="chip" data-level="stalled">Declined by 2 wards</span
+            ><span class="meta"><span>Not yet detained; examination pending</span></span>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <a class="hero-open" href="#ed/rph-ed">Open Royal Perth Hospital ED hub&nbsp;&rarr;</a>
+  </section>
+
+  <section class="panel" style="margin-top: var(--sp-3)" aria-labelledby="need-decision">
+    <header>
+      <h2 class="panel-title" id="need-decision">Needs a decision</h2>
+      <span class="n">4</span>
+    </header>
+    <ul class="attention">
+      <li>
+        <span class="who">Royal Perth Hospital ED</span>Nine people are waiting for a bed, two of them for more than 24
+        hours, and three have now been declined by every ward asked.
+      </li>
+      <li>
+        <span class="who">Fiona Stanley Hospital ED</span>One patient has passed the department's 24-hour access target
+        and is detained under the Mental Health Act, which narrows which wards can take them.
+      </li>
+      <li>
+        <span class="who">7 patients, network-wide</span>Every ward asked has declined and nobody is now looking for a
+        bed for any of them.
+      </li>
+      <li>
+        <span class="who">Sir Charles Gairdner Hospital ED</span>Its longest wait is 20 hours and climbing toward the
+        24-hour access target, though nobody there has passed it yet.
+      </li>
+    </ul>
+  </section>
+
+  <!-- ══════════════ THE OTHER SEVEN, GROUPED BY HEALTH SERVICE ══════════════ -->
+  <div class="band">
+    <section class="panel service-panel" aria-labelledby="svc-east">
+      <header>
+        <h2 class="panel-title" id="svc-east">East Metro</h2>
+        <span class="svc-n">2 departments &middot; Royal Perth Hospital shown above</span>
+      </header>
+      <ul class="rows">
+        <li>
+          <a class="row" href="#ed/arm-ed"
+            ><span class="id">ARM</span><span class="name">Armadale Hospital ED</span><span class="wait">14h</span
+            ><span class="chip" data-level="stalled">1 declined by every ward</span
+            ><span class="meta"
+              ><span>4 waiting</span><span>1 detained under the Act</span
+              ><span>Nobody now looking for that bed</span></span
+            ></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#ed/sjgm-ed"
+            ><span class="id">SJGM</span><span class="name">St John of God Midland ED</span><span class="wait">6h</span
+            ><span class="chip" data-level="routine">Routine</span
+            ><span class="meta"
+              ><span>2 waiting</span><span>None detained</span><span>Every referral has somewhere pending</span></span
+            ></a
+          >
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel service-panel" aria-labelledby="svc-north">
+      <header>
+        <h2 class="panel-title" id="svc-north">North Metro</h2>
+        <span class="svc-n">2 departments</span>
+      </header>
+      <ul class="rows">
+        <li>
+          <a class="row" href="#ed/scgh-ed"
+            ><span class="id">SCGH</span><span class="name">Sir Charles Gairdner Hospital ED</span
+            ><span class="wait">20h</span><span class="chip" data-level="routine">Approaching 24 hours</span
+            ><span class="meta"
+              ><span>5 waiting</span><span>2 detained under the Act</span
+              ><span>Not yet past the access target</span></span
+            ></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#ed/jhc-ed"
+            ><span class="id">JHC</span><span class="name">Joondalup Health Campus ED</span><span class="wait">9h</span
+            ><span class="chip" data-level="routine">Routine</span
+            ><span class="meta"
+              ><span>3 waiting</span><span>1 detained under the Act</span
+              ><span>Every referral has somewhere pending</span></span
+            ></a
+          >
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel service-panel" aria-labelledby="svc-south">
+      <header>
+        <h2 class="panel-title" id="svc-south">South Metro</h2>
+        <span class="svc-n">3 departments</span>
+      </header>
+      <ul class="rows">
+        <li data-level="urgent">
+          <a class="row" href="#ed/fsh-ed"
+            ><span class="id">FSH</span><span class="name">Fiona Stanley Hospital ED</span
+            ><span class="wait">1d 3h</span><span class="chip" data-level="urgent">Past 24 hours</span
+            ><span class="meta"
+              ><span>6 waiting</span><span>3 detained under the Act</span><span>2 declined by every ward</span></span
+            ></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#ed/rgh-ed"
+            ><span class="id">RGH</span><span class="name">Rockingham General Hospital ED</span
+            ><span class="wait">16h</span><span class="chip" data-level="stalled">1 declined by every ward</span
+            ><span class="meta"
+              ><span>4 waiting</span><span>1 detained under the Act</span
+              ><span>Nobody now looking for that bed</span></span
+            ></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#ed/peel-ed"
+            ><span class="id">PEEL</span><span class="name">Peel Health Campus ED</span><span class="wait">3h</span
+            ><span class="chip" data-level="routine">Routine</span
+            ><span class="meta"
+              ><span>1 waiting</span><span>None detained</span><span>Arrived within the last few hours</span></span
+            ></a
+          >
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="footnote">
+    <h2>Every figure here is invented</h2>
+    <ul>
+      <li>
+        <b>All eight departments' figures:</b> everyone-waiting counts, longest-wait durations, detained counts,
+        "declined by every ward" counts, and the two departments named as past the 24-hour target — 34, 1d 6h, 14 of 34,
+        7, and 2 of 8 in the totals strip, and every count in the hero panel and the three health-service groups.
+      </li>
+      <li>
+        <b>Every movement id (WF-231, WF-244, WF-249) and every patient name.</b> Patient names are invented and
+        deliberately unlike any real list.
+      </li>
+      <li><b>"Updated 2 minutes ago"</b> and the "Live" marker. Nothing here refreshes.</li>
+      <li>
+        <b>The choice of Royal Perth Hospital as worst.</b> A real deployment would compute this from live referrals and
+        movements; here it was chosen so the ranking rule below has something to demonstrate.
+      </li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>All eight hospitals, their emergency department names and site codes, and their health-service grouping</b> —
+        from this repository's <code>ward-sites.ts</code>: Royal Perth Hospital, Sir Charles Gairdner Hospital and Fiona
+        Stanley Hospital (each with its own named ED), Armadale Hospital ED (on the Armadale Health Service site), St
+        John of God Midland ED, Rockingham General Hospital ED, Joondalup Health Campus ED and Peel Health Campus ED.
+        East Metro, North Metro and South Metro are the model's own <code>HealthService</code> values.
+      </li>
+      <li>
+        <b>The Mental Health Act legal-status wording</b> &mdash; "Referred for psychiatric examination", "Detained
+        awaiting examination" and "Involuntary inpatient" &mdash; is the model's own <code>LegalStatus</code> type, not
+        invented phrasing.
+      </li>
+      <li>
+        <b>The 24-hour figure is a real, named constant</b> (<code>ED_ACCESS_TARGET_MINUTES</code>, 1440 minutes),
+        counted up from when a movement opened. The model is explicit that this is a departmental access measure, not a
+        Mental Health Act deadline, and this page follows that: "past 24 hours" is worded as an access-target breach,
+        never as a legal one.
+      </li>
+      <li>
+        <b>"Declined by every ward"</b> uses the model's real closed set of decline reasons
+        (<code>DECLINE_REASONS</code>) and the real shape of a decline record (unit, time, reason) &mdash; only the
+        count on this screen is invented.
+      </li>
+      <li>
+        <b>That the department record itself holds only an id, a site code and a name</b> is exactly what
+        <code>EmergencyDepartment</code> in the ward model contains &mdash; nothing else. Every figure above is derived
+        from referrals and movements that point at a department, never read off the department itself.
+      </li>
+    </ul>
+    <h2>Design decisions</h2>
+    <ul>
+      <li>
+        <b>Ranking rule.</b> Departments are ordered first by whether anyone there has passed the 24-hour access target,
+        then by how many patients have been declined by every ward asked, then by the raw number waiting. Royal Perth
+        Hospital leads on all three at once, which is what makes it the unambiguous worst rather than a close call
+        between two departments.
+      </li>
+      <li>
+        <b>Only one card shouts.</b> The brief warned that eight amber cards is worse than none, so only Royal Perth
+        gets the hero treatment, and it uses the crit (red) token rather than the signal (amber) token the two flagged
+        totals use &mdash; one tier more severe, so it never competes with them for attention. The other seven
+        departments carry their state in words and a chip, never in an escalated background.
+      </li>
+      <li>
+        <b>At most two amber-flagged totals.</b> "Longest single wait" and "Declined by every ward" are the two flagged
+        tiles in the totals strip; every other figure, including the hero panel's own figures, is unflagged by design.
+      </li>
+      <li>
+        <b>Grouping by health service, not by severity.</b> The remaining seven departments are grouped East Metro /
+        North Metro / South Metro, matching how the ward screens group units, rather than re-sorted worst-first a second
+        time &mdash; the ranking argument was already made once, by the hero card.
+      </li>
+      <li>
+        <b>Fiona Stanley is the honest second-worst.</b> It is also past 24 hours, so the "Needs a decision" panel names
+        it explicitly in words rather than letting one red card imply every other department is fine.
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var select = document.getElementById("ed-select");
+    select.addEventListener("change", function () {
+      if (select.value) {
+        window.location.hash = "ed/" + select.value;
+      }
+    });
+  })();
+</script>

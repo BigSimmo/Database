@@ -1250,13 +1250,20 @@ describe("design-system adoption manifest", () => {
   it("discovers all Next UI convention entries while excluding api and mockup trees", () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-next-entries-"));
     try {
+      // The root-level "loading" entry is deliberately not used here: that exact file was
+      // retired from src/app (root loading skeleton duplicated every ward screen in the DOM),
+      // and check-mockup-retirement.mjs's Tier C scan flags ANY surviving file that still
+      // names a retired path verbatim — including a synthetic fixture string with no real
+      // import. The "loading" convention type is still exercised, just nested, so coverage
+      // for it is unchanged; deliberately not spelling the retired path out here either, so
+      // this comment cannot itself trip that same scan.
       const productionEntries = [
         "src/app/page.tsx",
         "src/app/layout.tsx",
-        "src/app/loading.tsx",
         "src/app/error.tsx",
         "src/app/not-found.tsx",
         "src/app/nested/layout.tsx",
+        "src/app/nested/loading.tsx",
         "src/app/nested/template.tsx",
         "src/app/nested/default.tsx",
         "src/app/nested/forbidden.ts",
@@ -1417,7 +1424,8 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 81 = 76 prior census + 5 Sources routes. Prior 76 = 59 + 6 + 10 + 1: the 59 production pages that preceded both changes, the six
+    // 82 = 76 prior census + 6 Sources routes (the sixth is `/sources/search`, which took the
+    // catalogue over when `/sources` became a mode home of its own). Prior 76 = 59 + 6 + 10 + 1: the 59 production pages that preceded both changes, the six
     // `<mode>/search` routes home consolidation split out of the bare paths, the Caring
     // Contacts workspace's ten screens (Today; the Patients caseload from Phase 2B Task 5;
     // the per-patient overview from Task 6; the activation wizard from Task 7; the Schedule
@@ -1432,7 +1440,7 @@ describe("design-system adoption manifest", () => {
     // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
     // resolving and still count as declared routes. This is a census, so a route nobody
     // intended to add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(81);
+    expect(manifest.routeCoverage.discovered).toHaveLength(82);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

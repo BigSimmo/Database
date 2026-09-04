@@ -25,6 +25,8 @@ import {
   MESSAGE_TYPE_ORDER,
   MESSAGE_TYPE_WORDING,
   PATHWAY_VERSION_STATE_WORDING,
+  LIFECYCLE_CHIP_BASE,
+  LIFECYCLE_CHIP_TONES,
   TEMPLATE_LIFECYCLE_LABELS,
   heldMessageTypes,
   joinPhrases,
@@ -33,6 +35,7 @@ import {
   templateLifecycleOf,
   type TemplateLifecycle,
 } from "./templates-library";
+import { workspacePanelPadded } from "./surfaces";
 
 /**
  * ONE governed pathway version, in full: its lifecycle, its dual approval, the wording its own
@@ -123,8 +126,7 @@ const LIFECYCLE_ICONS: Readonly<Record<TemplateLifecycle, ComponentType<SVGProps
 const backLinkClass =
   "inline-flex min-h-tap min-w-0 items-center gap-2 self-start rounded-[var(--radius-md)] px-2 text-sm font-semibold text-[color:var(--clinical-accent)] underline decoration-dotted underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const cardClass =
-  "min-w-0 rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 forced-colors:border-[CanvasText]";
+const cardClass = workspacePanelPadded;
 
 const cardHeadingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
 
@@ -201,11 +203,12 @@ function VersionRecord({ version }: { version: PathwayVersion }) {
             <p className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]">{version.id}</p>
           </div>
           {/*
-            Words and an icon, never colour alone. The chip names the group the design shows; the
-            recorded state beneath it is the exact state, so grouping `draft` with `inReview` never
-            hides which of the two this record is in.
+            Words, an icon AND a tint — never colour alone. The chip names the group the design
+            shows; the recorded state beneath it is the exact state, so grouping `draft` with
+            `inReview` never hides which of the two this record is in. The chip shell and tone map
+            are shared with the library so the two screens cannot drift.
           */}
-          <p className="inline-flex min-w-0 shrink-0 items-center gap-2 rounded-[var(--radius-pill)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-1 text-xs font-semibold text-[color:var(--text)] forced-colors:border-[CanvasText]">
+          <p className={`${LIFECYCLE_CHIP_BASE} ${LIFECYCLE_CHIP_TONES[lifecycle]}`}>
             <Icon aria-hidden="true" className="size-icon-sm shrink-0" />
             <span className="min-w-0">{TEMPLATE_LIFECYCLE_LABELS[lifecycle]}</span>
           </p>
