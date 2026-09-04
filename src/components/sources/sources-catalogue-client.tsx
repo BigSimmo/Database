@@ -91,12 +91,38 @@ function uniqueSorted(values: readonly string[]) {
   return [...new Set(values)].sort(compareText);
 }
 
+/**
+ * The most recent date the entry can stand behind.
+ *
+ * Expiry is not a candidate: a source that expires in 2027 is not thereby
+ * current, and reading a future expiry as recency is the inference the Method
+ * page forbids. Absent dates return null and the tile says nothing rather than
+ * inventing a currency claim.
+ */
+function latestKnownDate(entry: ClinicalSourceCatalogueEntry) {
+  const candidates = [entry.reviewDate, entry.publicationDate].filter((value): value is string => Boolean(value));
+  const parsed = candidates
+    .map((value) => ({ value, time: Date.parse(value) }))
+    .filter((candidate) => !Number.isNaN(candidate.time))
+    .sort((left, right) => right.time - left.time);
+  if (!parsed[0]) return null;
+  return {
+    label: entry.reviewDate === parsed[0].value ? "reviewed" : "published",
+    text: new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric" }).format(new Date(parsed[0].time)),
+  };
+}
+
 function SourceTile({ entry }: { entry: ClinicalSourceCatalogueEntry }) {
   const flags = sourceAttentionFlags(entry);
   const usageGroups = groupSourceUsagesByMode(entry.usedBy);
+  const recordTotal = usageGroups.reduce((total, group) => total + group.recordCount, 0);
+  // "Used in Dictionary" says a mode cites this; it does not say whether one
+  // record leans on it or forty. The record count is what tells a reader how
+  // much of the app moves if this source turns out to be wrong.
   const usageSummary = usageGroups.length
-    ? `Used in ${usageGroups.map((group) => group.modeLabel).join(", ")}`
+    ? `Used in ${usageGroups.map((group) => group.modeLabel).join(", ")} · ${recordTotal} ${recordTotal === 1 ? "record" : "records"}`
     : "Not used by any record yet";
+  const currency = latestKnownDate(entry);
 
   return (
     <Link
@@ -124,9 +150,15 @@ function SourceTile({ entry }: { entry: ClinicalSourceCatalogueEntry }) {
           {entry.title}
         </span>
         <span className="mt-1 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
-          {entry.publisher ?? "Publisher unknown"} · {entry.geography.label}
+          {entry.publisher ?? "Publisher unknown"} · {entry.geography.label} · {titleCase(entry.sourceType)}
         </span>
-        <span className="mt-2 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">{usageSummary}</span>
+        <span className="mt-2 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          {usageSummary}
+          {/* Currency, on the card rather than one navigation away. Whether a
+              guideline was reviewed last year or in 2016 changes whether you
+              open it, and the band letter alone does not say. */}
+          {currency ? ` · ${currency.label} ${currency.text}` : null}
+        </span>
       </span>
       <ArrowRight
         className={cn(
