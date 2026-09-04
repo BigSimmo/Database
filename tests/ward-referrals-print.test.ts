@@ -1,9 +1,19 @@
 import { readFileSync } from "node:fs";
+
+import { blankCssComments } from "./helpers/strip-source-comments";
+
+/*
+ * ⚠️ COMMENTS BLANKED BEFORE ANY MATCH. This guard scans CSS as text, so a comment quoting a rule
+ * captures the match — which is not hypothetical: the sibling handover and morning print guards
+ * were broken exactly that way twice on 2026-09-04, both times by a comment written to EXPLAIN the
+ * print rule. `blankCssComments` blanks in place, so every line number still points at the real
+ * file.
+ */
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 function source(path: string): string {
-  return readFileSync(resolve(process.cwd(), path), "utf8");
+  return blankCssComments(readFileSync(resolve(process.cwd(), path), "utf8"));
 }
 
 const CSS_PATH = "src/components/ward-management/referrals/referrals.module.css";

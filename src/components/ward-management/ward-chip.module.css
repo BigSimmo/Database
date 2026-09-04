@@ -1,0 +1,87 @@
+/* appended to ward-chip.module.css */
+.chip {
+  composes: wardTokens from "./ward-tokens.module.css";
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  padding: var(--ward-space-4) var(--ward-space-10);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  line-height: var(--ward-leading-ui);
+}
+.chip[data-level="urgent"] {
+  color: var(--ward-danger);
+  border-color: var(--ward-danger);
+}
+.chip[data-level="routine"] {
+  color: var(--ward-muted);
+  border-color: var(--ward-border-strong);
+}
+.chip[data-level="stalled"] {
+  color: var(--ward-warning);
+  border-color: var(--ward-warning);
+}
+.chip[data-level="accepted"] {
+  color: var(--ward-success);
+  border-color: var(--ward-success);
+}
+.chip[data-level="enroute"] {
+  color: var(--ward-blue);
+  border-color: var(--ward-blue-border);
+}
+.chip[data-level="cancelled"] {
+  color: var(--ward-muted);
+  border-color: var(--ward-divider);
+  text-decoration: line-through;
+}
+
+/* appended for Task 3b */
+
+/* A kind chip is quieter than a state chip on purpose: it is a label, not a signal.
+   No danger/warning/success token appears here — those carry urgency, and what a
+   record IS never implies how urgent it is. */
+.kindChip {
+  composes: chip;
+  color: var(--ward-muted);
+  border-color: var(--ward-border);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.kindChip[data-kind="ward"] {
+  border-left: 3px solid var(--ward-blue-border);
+}
+.kindChip[data-kind="community"] {
+  border-left: 3px solid var(--ward-border-strong);
+}
+.kindChip[data-kind="ed"] {
+  border-left: 3px solid var(--ward-blue);
+}
+.kindChip[data-kind="transport"] {
+  border-left: 3px solid var(--ward-divider);
+}
+
+/*
+ * A colour declared directly on an element cannot be overridden by any ancestor rule at any
+ * specificity, so the print reset carried by whichever screen hosts a chip can never reach these
+ * — each state/kind variant above declares its own `color`. `.chip` has no element children (it
+ * is a leaf `<span>`, per ward-chip.tsx), so there is no root-plus-descendant relationship here to
+ * lean on; every declaring selector is enumerated instead. `!important` is required, not
+ * decorative: each selector below already carries real specificity of its own, and a plain
+ * wildcard reset from a containing screen would not reliably outrank it.
+ */
+@media print {
+  .chip[data-level="urgent"],
+  .chip[data-level="routine"],
+  .chip[data-level="stalled"],
+  .chip[data-level="accepted"],
+  .chip[data-level="enroute"],
+  .chip[data-level="cancelled"],
+  .kindChip {
+    color: CanvasText !important;
+  }
+}

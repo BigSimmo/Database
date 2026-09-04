@@ -1,32 +1,26 @@
 /*
- * Task 2 (Phase 6): the morning bed state. Same self-contained-tokens convention every ward-
- * management module documents on its own root class (`ward-role-switcher.module.css`,
- * `handover.module.css`): every local custom property this file needs is declared here, never
- * borrowed from another module's scope.
+ * Task 2 (Phase 6): the morning bed state.
+ *
+ * ⚠️ THIS FILE NO LONGER DECLARES ITS OWN SCALE. It used to, and the comment here used to say so —
+ * "never borrowed from another module's scope". That convention was abandoned on 2026-09-04 when
+ * this screen adopted the shared Board layer: `.screen` composes `ward-tokens.module.css` and
+ * every spacing and leading value now comes from there. The one deliberate survivor is
+ * `--mp-leading-headline: 1`, which has no ward twin and is not rounded to one.
  */
 .screen {
-  --wf-border: var(--neutral-500);
-  --mp-space-4: 0.25rem;
-  --mp-space-6: 0.375rem;
-  --mp-space-8: 0.5rem;
-  --mp-space-10: 0.625rem;
-  --mp-space-12: 0.75rem;
-  --mp-space-14: 0.875rem;
-  --mp-space-16: 1rem;
-  --mp-space-20: 1.25rem;
-  --mp-space-24: 1.5rem;
-  --mp-tap: var(--spacing-tap);
-  --mp-leading-body: 1.4;
+  composes: wardTokens from "../ward-tokens.module.css";
   /* The headline figure sits on its own line at 2.5rem, so it takes no extra leading. Declared as
      a token rather than written inline: check:design-system-contract counts raw line-height
      literals and a bare `line-height: 1` on .headlineValue took this file from 0 to 1, turning
-     that gate red at HEAD. Same shape as --mp-leading-body immediately above. */
+     that gate red at HEAD. No ward leading token has this value (the scale runs 1.1-1.55), so it
+     stays as a local one-off rather than joining the retired private scale. */
   --mp-leading-headline: 1;
 
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /* NO background HERE, deliberately — the shell owns the ground. Do not reintroduce one in any
+     spelling (var(--surface), var(--ward-canvas), var(--ward-ground), or otherwise). */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -36,21 +30,21 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--mp-space-20);
+  gap: var(--ward-space-20);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--mp-space-16) var(--mp-space-20) var(--mp-space-24);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
 }
 
 .governanceBanner {
   display: flex;
-  min-height: var(--mp-tap);
+  min-height: var(--spacing-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--mp-space-12);
-  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   background: var(--surface-chrome);
-  padding: var(--mp-space-8) var(--mp-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -59,7 +53,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--mp-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .prototypeBadge {
@@ -67,7 +61,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--mp-space-4) var(--mp-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -77,12 +71,12 @@
 
 .noHandover {
   display: grid;
-  gap: var(--mp-space-12);
+  gap: var(--ward-space-12);
   justify-items: start;
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--mp-space-16);
+  padding: var(--ward-space-16);
 }
 
 /* The <h1> for the no-handover branch (review finding M5). Sized as a page title, not as the
@@ -102,13 +96,13 @@
 
 .noHandoverButton {
   display: inline-flex;
-  min-height: var(--mp-tap);
+  min-height: var(--spacing-tap);
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid var(--clinical-accent-border);
   border-radius: var(--radius-md);
   background: var(--clinical-accent);
-  padding: 0 var(--mp-space-16);
+  padding: 0 var(--ward-space-16);
   color: var(--clinical-accent-contrast);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -127,16 +121,16 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   align-items: start;
-  gap: var(--mp-space-12);
+  gap: var(--ward-space-12);
 }
 
 .headline {
   display: grid;
-  gap: var(--mp-space-6);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-6);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--mp-space-16);
+  padding: var(--ward-space-16);
 }
 
 .headlineTitle {
@@ -150,7 +144,7 @@
   margin: 0;
   display: flex;
   align-items: baseline;
-  gap: var(--mp-space-8);
+  gap: var(--ward-space-8);
 }
 
 .headlineValue {
@@ -174,11 +168,11 @@
  */
 .peopleWaiting {
   display: grid;
-  gap: var(--mp-space-6);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-6);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--mp-space-16);
+  padding: var(--ward-space-16);
 }
 
 .peopleWaitingTitle {
@@ -192,7 +186,7 @@
   display: flex;
   align-items: baseline;
   margin: 0;
-  gap: var(--mp-space-8);
+  gap: var(--ward-space-8);
 }
 
 .peopleWaitingValue {
@@ -207,23 +201,23 @@
   max-width: 60ch;
   color: var(--text-muted);
   font-size: var(--text-2xs);
-  line-height: var(--mp-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .figureGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: var(--mp-space-10);
+  gap: var(--ward-space-10);
   margin: 0;
 }
 
 .figureItem {
   display: grid;
-  gap: var(--mp-space-4);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-4);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  padding: var(--mp-space-8) var(--mp-space-10);
+  padding: var(--ward-space-8) var(--ward-space-10);
 }
 
 .figureLabel {
@@ -263,30 +257,30 @@
   display: inline-flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--mp-space-6);
+  gap: var(--ward-space-6);
 }
 
 .viewControl {
   display: grid;
-  gap: var(--mp-space-8);
+  gap: var(--ward-space-8);
 }
 
 .viewButtons {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--mp-space-8);
+  gap: var(--ward-space-8);
 }
 
 .viewButton,
 .viewButtonActive {
   display: inline-flex;
-  min-height: var(--mp-tap);
+  min-height: var(--spacing-tap);
   align-items: center;
-  gap: var(--mp-space-8);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  padding: 0 var(--mp-space-16);
+  padding: 0 var(--ward-space-16);
   color: var(--text);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -310,21 +304,21 @@
   max-width: 60ch;
   color: var(--text-muted);
   font-size: var(--text-2xs);
-  line-height: var(--mp-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .siteList {
   display: grid;
-  gap: var(--mp-space-16);
+  gap: var(--ward-space-16);
 }
 
 .siteBlock {
   display: grid;
-  gap: var(--mp-space-10);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-10);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--mp-space-12) var(--mp-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }
 
 .siteHeader {
@@ -332,7 +326,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--mp-space-8);
+  gap: var(--ward-space-8);
 }
 
 .siteName {
@@ -351,7 +345,7 @@
 
 .unitList {
   display: grid;
-  gap: var(--mp-space-10);
+  gap: var(--ward-space-10);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -359,11 +353,11 @@
 
 .unitRow {
   display: grid;
-  gap: var(--mp-space-6);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-6);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  padding: var(--mp-space-8) var(--mp-space-10);
+  padding: var(--ward-space-8) var(--ward-space-10);
 }
 
 .unitHeader {
@@ -371,7 +365,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--mp-space-8);
+  gap: var(--ward-space-8);
 }
 
 .unitName {
@@ -382,21 +376,21 @@
 
 .footer {
   display: grid;
-  gap: var(--mp-space-8);
-  border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
-  padding-top: var(--mp-space-16);
+  gap: var(--ward-space-8);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding-top: var(--ward-space-16);
 }
 
 .printButton {
   display: inline-flex;
-  min-height: var(--mp-tap);
+  min-height: var(--spacing-tap);
   width: fit-content;
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid var(--clinical-accent-border);
   border-radius: var(--radius-md);
   background: var(--clinical-accent);
-  padding: 0 var(--mp-space-16);
+  padding: 0 var(--ward-space-16);
   color: var(--clinical-accent-contrast);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -407,7 +401,7 @@
   max-width: 68ch;
   color: var(--text-muted);
   font-size: var(--text-xs);
-  line-height: var(--mp-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .crossLink a {
@@ -435,7 +429,7 @@
   margin: 0;
   max-width: 68ch;
   font-size: var(--text-2xs);
-  line-height: var(--mp-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 /*
@@ -450,14 +444,21 @@
  */
 @media print {
   /*
-   * `.screen` and `.governanceBanner` carry their own explicit `background: var(--surface)` /
-   * `var(--surface-chrome)` for the on-screen dark theme (`ckb-v2-tokens.css`'s `.dark .ckb-v2`
-   * ramp resolves those to near-black — `#12161a` / `#0e1216`). The global print reset in
-   * globals.css only resets `html`/`body`'s own background, which does not cascade into an
-   * element's own explicit `background` declaration — so without this reset, printing the page
-   * while the app is in dark mode would paint the whole screen container and the governance
-   * banner as a dark band, not the white sheet the print reset promises everywhere else on this
-   * page. Found by actually looking at the print rendering (Phase 6 Task 6), not by a test.
+   * ⚠️ `.screen` NO LONGER CARRIES A BACKGROUND — it was deleted when this file adopted the shared
+   * token layer, and the shell paints the ground instead. `.governanceBanner` DOES still carry its
+   * own explicit `background: var(--surface-chrome)`, and in dark mode `ckb-v2-tokens.css`'s
+   * `.dark .ckb-v2` ramp resolves that to near-black (`#0e1216`).
+   *
+   * The global print reset in globals.css only resets `html`/`body`'s own background, which does
+   * not cascade into an element's own explicit `background` declaration. So the banner reset below
+   * is load-bearing: without it, printing while the app is in dark mode paints a dark band across
+   * the sheet.
+   *
+   * 🔴 AND THE `background: none` LINE BELOW STAYS EVEN THOUGH IT NOW RESETS NOTHING. Two reasons,
+   * and the second is the real one. The print guard for this file pins that literal string. And
+   * `ward-shell.module.css` — which took over painting the ground — carries no print block at all
+   * on this branch, so nothing downstream replaces what this line used to do. It is a belt beside a
+   * brace that is not there yet. Do not tidy it away.
    */
   /*
    * `color-scheme` is inherited, and `.dark` (globals.css) sets `color-scheme: dark` on the
@@ -474,6 +475,19 @@
   .screen {
     grid-template-columns: 1fr;
     background: none;
+    /*
+     * 🔴 THE LOAD-BEARING LINE, AND IT IS THE COLOUR RATHER THAN THE BACKGROUND. Dark tokens are
+     * scoped by the CLASS `.ckb-v2.dark.ckb-v2`, not by a media query, so the class stays on
+     * <html> when printing and `--text` stays near-white. `globals.css` sets a black print colour
+     * on `body`, but `.screen` is a class selector and beats `body`, so this root's own
+     * `color: var(--text)` wins and prints near-white text.
+     *
+     * While the root also painted a dark background you got light text on a dark band — obviously
+     * broken. Deleting that background on adoption removed the band and left near-white on white:
+     * a blank sheet, which is WORSE, because a blank sheet reads as "nothing to print" rather than
+     * as a fault.
+     */
+    color: CanvasText;
     color-scheme: light;
   }
 
@@ -484,7 +498,7 @@
   .main {
     overflow: visible;
     padding: 0;
-    gap: var(--mp-space-10);
+    gap: var(--ward-space-10);
   }
 
   .viewControl {
@@ -498,7 +512,7 @@
    */
   .printViewMeta {
     display: block !important;
-    margin-bottom: var(--mp-space-8);
+    margin-bottom: var(--ward-space-8);
   }
 
   /*
@@ -540,21 +554,21 @@
   .siteList {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--mp-space-6);
+    gap: var(--ward-space-6);
   }
 
   .siteBlock {
-    gap: var(--mp-space-6);
-    padding: var(--mp-space-8) var(--mp-space-10);
+    gap: var(--ward-space-6);
+    padding: var(--ward-space-8) var(--ward-space-10);
   }
 
   .figureGridDense {
     grid-template-columns: repeat(6, 1fr);
-    gap: var(--mp-space-6);
+    gap: var(--ward-space-6);
   }
 
   .figureGridDense .figureItem {
-    padding: var(--mp-space-6) var(--mp-space-8);
+    padding: var(--ward-space-6) var(--ward-space-8);
   }
 
   .footer .printButton {
@@ -599,15 +613,15 @@
    */
   .headlineRow {
     grid-template-columns: 1fr 1fr;
-    gap: var(--mp-space-8);
+    gap: var(--ward-space-8);
   }
 
   .peopleWaiting {
-    padding: var(--mp-space-8) var(--mp-space-10);
+    padding: var(--ward-space-8) var(--ward-space-10);
   }
 
   .headline {
-    padding: var(--mp-space-8) var(--mp-space-10);
+    padding: var(--ward-space-8) var(--ward-space-10);
   }
 
   /*
@@ -721,6 +735,7 @@
  */
 @media (forced-colors: active) {
   .screen {
-    --wf-border: var(--border);
+    --ward-border: var(--border);
+    --ward-divider: var(--border);
   }
 }

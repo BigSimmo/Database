@@ -117,7 +117,14 @@ const mockupPatterns = [
   // alternation and that one in step; a spec in one and not the other either
   // never runs or trips this gate.
   "src/components/ward-management",
-  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning|referrals)\.spec\.ts$/,
+  // `forced-colors` added 2026-09-04, and by the same route as `morning` before it: the spec was
+  // added to `mockupSpecPattern` in playwright.config.ts on a ward branch and never here, so the
+  // union resolution that brought that branch onto the integration line tripped
+  // `assertMockupSpecParity` immediately. The guard named the file and the consequence
+  // ("editing that spec would leave advisory_ui_changed=false and the journey unrun") — repaired
+  // here rather than by widening the guard, which is the second time this exact drift has been
+  // caught by it and the second time the repair is one alternative in this list.
+  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning|referrals|forced-colors)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {

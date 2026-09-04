@@ -1494,11 +1494,101 @@ function verifiedEvidenceBytes(relative, expectedSha256, ref, label, root = repo
   return { normalized, bytes };
 }
 
+/**
+ * THE INTEGRITY REQUIREMENT IS THE BRANCH. THE PATH IS A CACHE.
+ *
+ * A recorded worktree path is stale by construction. `.claude/worktrees` on this machine was wiped
+ * by an unrelated cleanup session on 2026-08-21, and on 2026-09-04 THREE OF THE FIVE recorded
+ * checkouts pointed at folders that no longer existed. Nothing was lost when that happened: the
+ * refs and objects live in the shared repository, not in the folder, and all five branches still
+ * resolved with every recorded head still on its branch. A branch survived what a path did not,
+ * on this machine, to these exact records.
+ *
+ * `git worktree move` updates git's own pointers, which is why renaming the master worktree from
+ * `ward-seed-link` to `ward-lead` on 2026-09-02 cost nothing — and why a path copied into JSON
+ * could not have followed it.
+ *
+ * So: branch missing, or recorded head not on that branch, is REAL LOSS and must be loud. A branch
+ * that is fine with no worktree mounted is an ordinary state — a handover record legitimately
+ * describes work on a branch nobody currently has checked out. (Ward Lead ruling, 2026-09-04.)
+ *
+ * ⚠️ THE HEAD CHECK IS "IS IT ON THE BRANCH", NOT "DOES THE OBJECT EXIST". Reachability alone is
+ * nearly vacuous: a commit stays in the object store after its branch is deleted, until gc. Being
+ * an ancestor of the branch is the property that actually means the branch still carries the work.
+ * Verified 2026-09-04: all five recorded heads pass the stronger check.
+ *
+ * ⚠️ AND THE REPOSITORY MATTERS. When a checkout is mounted these run inside it, because a fixture
+ * repository has its own branches; when it is not, they run in this repository. Passing the wrong
+ * cwd turns a healthy record into a phantom loss report.
+ */
+function assertRecordedBranchIsIntact(source, sourceId, { cwd } = {}) {
+  const branch = requireString(source.branch, `${sourceId} branch`);
+  const head = requireString(source.head, `${sourceId} head`);
+  if (!SHA_PATTERN.test(head)) fail(`${sourceId} head must be a full commit SHA`);
+  const options = cwd ? { cwd } : {};
+  try {
+    git(["rev-parse", "--verify", `${branch}^{commit}`], options);
+  } catch {
+    fail(`${sourceId} branch ${branch} no longer resolves — the recorded work may be lost`);
+  }
+  try {
+    git(["merge-base", "--is-ancestor", head, branch], options);
+  } catch {
+    fail(`${sourceId} recorded head ${head} is not on ${branch} — the recorded work may be lost`);
+  }
+  return { branch, head };
+}
+
+/**
+ * ⚠️ NEVER "FIX" A RECORDED PATH INSIDE A HANDOVER OR AN EVIDENCE RECEIPT. Those filenames ARE
+ * their own SHA-256 — verified 2026-09-04 by comparing `sha256sum` against the basename of
+ * `docs/ward-flow/control/handovers/a60d51ea7706…handover.json` and of
+ * `docs/ward-flow/control/evidence/current-truth/inventory-5c5d53d2…json`. Editing a value inside
+ * one destroys the identity it exists to provide, and nothing in the filename tells you that.
+ *
+ * `docs/ward-flow/live-state.json` is the editable one. It is also the file this validator reads,
+ * and it already records `branch` and `head` beside every `checkout` — so keying on the branch
+ * needed no data migration at all.
+ */
 export function assertCheckoutMatchesSnapshot(source, status, sourceId) {
   const checkout = path.resolve(requireString(source.checkout, `${sourceId} checkout`));
-  if (!path.isAbsolute(source.checkout) || !existsSync(checkout)) {
-    fail(`${sourceId} checkout must be an existing absolute path`);
+  if (!path.isAbsolute(source.checkout)) {
+    fail(`${sourceId} checkout must be an absolute path`);
   }
+  if (!existsSync(checkout)) {
+    const { branch, head } = assertRecordedBranchIsIntact(source, sourceId);
+    /*
+     * 🔴 AN UNMOUNTED CHECKOUT MAY REPORT "NO WORKTREE"; IT MAY NOT REPORT "CLEAN".
+     *
+     * Returning empty `tracked`/`untrackedPaths` here says the source had no uncommitted work —
+     * a positive claim, made from a directory that does not exist and cannot support it. The
+     * caller then validates dirty artifacts by reading original files out of that same missing
+     * path, so the branch advertised as "unmounted is an ordinary state" silently worked only for
+     * clean snapshots.
+     *
+     * ⚠️ THIS IS ONE WORKTREE DELETION AWAY FROM BEING LIVE, NOT HYPOTHETICAL. `ward-board`
+     * records 139 untracked files and is mounted today; three sibling checkouts under
+     * `.claude/worktrees/` were destroyed by unrelated cleanup on 2026-08-21. The day the fourth
+     * goes, this would have reported 139 files of recorded work as no work at all.
+     *
+     * Committed work is safe either way — the branch and head are verified above, and objects
+     * live in the shared repository rather than in the folder. Uncommitted work is exactly what a
+     * missing folder takes with it, which is why silence here is the wrong answer and a refusal is
+     * the right one.
+     */
+    const recordedTracked = Array.isArray(status?.tracked) ? status.tracked.length : 0;
+    const recordedUntracked = Number(status?.untrackedCount ?? 0);
+    if (recordedTracked > 0 || recordedUntracked > 0) {
+      fail(
+        `${sourceId} checkout is not mounted, but the recorded snapshot carries uncommitted work ` +
+          `(${recordedTracked} tracked, ${recordedUntracked} untracked). Those artifacts can only be ` +
+          `validated from the checkout itself, so this cannot be reported as clean. Re-mount the ` +
+          `worktree for branch ${branch}, or record the artifacts durably and clear the snapshot.`,
+      );
+    }
+    return { checkout, mounted: false, branch, head, tracked: [], untrackedPaths: [] };
+  }
+  assertRecordedBranchIsIntact(source, sourceId, { cwd: checkout });
   const topLevel = git(["rev-parse", "--show-toplevel"], { cwd: checkout }).trim();
   if (localPathIdentity(realpathSync(topLevel)) !== localPathIdentity(realpathSync(checkout))) {
     fail(`${sourceId} checkout does not resolve to the recorded Git worktree root`);
@@ -1534,6 +1624,7 @@ export function assertCheckoutMatchesSnapshot(source, status, sourceId) {
   }
   return {
     checkout,
+    mounted: true,
     branch: actualBranch,
     head: actualHead,
     tracked: actualTracked,
