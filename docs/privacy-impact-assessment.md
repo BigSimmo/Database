@@ -503,11 +503,15 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 
 ### Mode-aware Clinical Ask privacy boundary
 
-Clinical Ask remains dormant by default. When the server enables a governed mode, the shared composer can route a
-clearly question-like typed input into Smart Clinical Ask. The current user interface has no microphone or dictation
-control. Typed questions, non-identifying Case Context, clarification answers, request-scoped external authority
-extracts, and cited answers remain ephemeral and tab-scoped. Identifier-shape detection is a blocking warning aid, not
-de-identification and not a guarantee that clinical text contains no personal information.
+Clinical Ask remains dormant by default and is gated by the `CLINICAL_ASK_ENABLED` server flag. Since PR #2360
+removed the composer controls, the product has no user entry point into Clinical Ask: the shared composer never routes
+typed input into it, and enabling the flag exposes only the server route until a governed composer action is
+reinstated. While the flag is off, the Clinical Ask stream and speech transcription routes answer 404 before any
+authentication, rate-limit, or provider work, and the browser policy denies the microphone. The current user
+interface has no microphone or dictation control. Typed questions, non-identifying Case Context, clarification
+answers, request-scoped external authority extracts, and cited answers remain ephemeral and tab-scoped.
+Identifier-shape detection is a blocking warning aid, not de-identification and not a guarantee that clinical text
+contains no personal information.
 
 Raw Clinical Ask question, transcript, Case Context, audio, answer, and external extracts are excluded from URLs,
 history, browser storage, logs, content-free telemetry, structured feedback, public errors, and default copy output.
