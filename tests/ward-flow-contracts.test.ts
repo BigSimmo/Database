@@ -370,16 +370,20 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
         ).toBeDefined();
       }
     }
-    // No current fixture record is stage "arrived" while still carrying a transport job — both
-    // the hand-authored WF-007 and every generated "arrived" record close without ever having had
-    // a transport job at all. This is a forward-looking guard, not a vacuous one: asserting the
-    // real count (0) today, rather than `toBeGreaterThan(0)`, keeps that honest instead of
-    // inventing a fixture record just to make a non-zero check pass. The assertion above still
-    // runs on every movement that matches the condition, and still fails the moment one exists —
-    // proved by mutation in the accompanying report, which forces a "moving" movement's stage to
-    // "arrived" without giving it `arrivedAt` and confirms both this line and the inner assertion
-    // go red.
-    expect(matched).toBe(0);
+    // 0 -> 6 on 2026-09-04, Task 6 (sweep R64) of the ward-flow movement step-track plan, a THIRD
+    // instance of this same sweep's own defect class found while building its reachability test:
+    // `PATIENT_ARRIVED` refuses outright unless `movement.stage === "moving" &&
+    // movement.transport?.collectedAt`, so an "arrived" record with NO transport job at all — true
+    // of both the hand-authored WF-007 and every generated "arrived" record until this fix — was a
+    // state the reducer could never produce. `stageFields`'s `case "arrived"` (`ward-movements.ts`)
+    // and WF-007 itself now both carry a completed transport job (`collectedAt` AND `arrivedAt`
+    // set), the same fix `case "moving"` three lines above it already had. This assertion's own
+    // job did not change: every "arrived" movement that carries a transport job must have
+    // `arrivedAt` set on it, which the inner assertion above still checks per-movement and still
+    // fails the moment one does not — only the COUNT this file expected to find matching the outer
+    // condition moved, because the fixture correctly stopped being one of the records with no
+    // transport job in the first place.
+    expect(matched).toBe(6);
   });
 
   it("only ever fills transport stamps in the order the reducer allows, never after NOW_ANCHOR", () => {
@@ -548,7 +552,17 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // 12 -> 14 on 2026-08-30. Both new long waits are `placement_requested` with no referral,
     // decline or withdrawal, which is what a patient nobody has yet referred anywhere looks like -
     // so they belong in this count and the coherence rule holds for both.
-    expect(matched, "the number of clean placement_requested movements changed").toBe(14);
+    // 14 -> 18 on 2026-09-04, Task 6 (sweep R64), defect 5a of the ward-flow movement step-track
+    // plan: `routineMovements` remapped its four generated `destination_review` records to
+    // `placement_requested` (`ward-movements.ts`), because every one of them carries an
+    // unconditionally empty `referredUnitIds` AND an unconditionally empty `declines` — a state
+    // `REFER_TO_UNITS`/`DECLINE` never leave a movement at `destination_review` in, exactly
+    // mirroring the existing `handover_ready` remap three lines above `stageFields` in that same
+    // file. They belong in THIS count for the same reason the two long waits above do: no
+    // referral, decline or withdrawal is exactly what a patient nobody has yet referred anywhere
+    // looks like. `WF-009` (empty referredUnitIds, two hand-authored declines) is untouched — it
+    // is hand-authored, not generated, and its `declines` is genuinely non-empty.
+    expect(matched, "the number of clean placement_requested movements changed").toBe(18);
   });
 
   it("never lets a movement carry a live referral outside the 'destination_review' stage REFER_TO_UNITS put it in", () => {

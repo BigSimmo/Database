@@ -384,6 +384,12 @@ describe("front-door contract — an ED may close to all admissions, never refus
     // refusal. That would be a refusal expressed through data, which the doc block above already
     // places outside its reach. Written down so the reasoning is visible rather than assumed.
     RECORD_MEDICAL_CLEARANCE: false,
+    // Records whether a patient needs transport. NOT a refusal: `needed: false` says this patient
+    // can travel without a booked job, which decides nothing about whether anybody will have them.
+    RECORD_TRANSPORT_NEED: false,
+    // Records that NOBODY referred this patient — an answer about the front door, not a decision
+    // about a named referral or placement. There is no referral here to refuse: that is the fact.
+    RECORD_NO_REFERRAL: false,
     // A discharge records that somebody LEFT a ward. It refuses nobody — it is the end of a stay,
     // not a decision about a named referral or placement.
     // The REFERRER taking its own referral back, for every destination at once. Not a refusal of
@@ -446,6 +452,15 @@ describe("front-door contract — an ED may close to all admissions, never refus
     RECORD_LOCAL_BED_SOUGHT: false,
     // The referral front door's own refusal, with a reason from `REFERRAL_DECLINE_REASONS`.
     DECLINE_REFERRAL: true,
+    // The coordinator's own record correction (Task 5, 2026-09-04) — moves `stage` strictly
+    // backwards and touches nothing else. Same shape as RELEASE_PULL/CANCEL_TRANSPORT above:
+    // refuses nobody, names no subject, and carries a reason from STEP_BACK_REASONS rather than a
+    // decline-reason list.
+    STEP_BACK_STAGE: false,
+    // The coordinator undoes a WARD's earlier "yes" — not the same act as DECLINE or
+    // DECLINE_REFERRAL. The movement returns to destination_review, open to referral again; no
+    // unit is declining anything and no subject is named as refused.
+    WITHDRAW_ACCEPTANCE: false,
   };
 
   /**

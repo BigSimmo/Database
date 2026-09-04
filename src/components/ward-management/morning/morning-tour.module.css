@@ -128,6 +128,21 @@
   .tour {
     display: none !important;
   }
+
+  /*
+   * This module does not compose `wardTokens` from ward-tokens.module.css, so the central print
+   * reset that file carries never reaches these selectors on its own. `.tour` is a genuine root
+   * that wraps every other class this file declares (see morning-tour.tsx), so the root-wildcard
+   * form below covers all of them in one rule. It still needs to win here even though `.tour`
+   * itself is hidden above: the print-coverage guard checks stylesheet text, not rendered output,
+   * and a future change that relaxes the `display: none` must not silently reintroduce near-white
+   * text on white paper.
+   */
+  .tour,
+  .tour * {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
 }
 
 /*
