@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { appModeHomeHref, appModeSelectionHref } from "@/lib/app-modes";
 import {
   consolidatedModeHomeTarget,
   standaloneModeSubmittedSearchTarget,
@@ -14,6 +15,7 @@ import {
   DEVELOPER_AREA_PATH_HEADER,
   DEVELOPER_GATED_PATH_PREFIXES,
 } from "@/lib/developer-area/headers";
+import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 import { signProxyAuthPayload } from "@/lib/supabase/proxy-auth-crypto";
 
@@ -63,6 +65,48 @@ const staticRouteRedirects: Record<string, string> = {
   // src/lib/developer-area/headers.ts); the constellation redirect moved with it.
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
+
+/**
+ * Where `/medications` forwards — a fast-path mirror of the two branches in
+ * `src/app/(search-app)/medications/page.tsx`.
+ *
+ * Medication is consolidated the same way as the modes `consolidatedModeHomeTarget`
+ * covers below, but is deliberately kept OUT of that shared map: there is no
+ * `/medications/search` route, so the map's generic `${pathname}/search`
+ * submitted-target logic would send a submitted medication search to a page that
+ * doesn't exist. Medication's submitted search already resolves correctly today,
+ * straight to the dashboard-owned `/?mode=prescribing&q=…&run=1` surface — this
+ * only adds the missing unsubmitted branch, resolved here for the same reason as
+ * every other redirect in this file: a page-level `redirect()` under the
+ * streaming `(search-app)` layout emits a client-side meta refresh (a second of
+ * empty shell) instead of a 307. `medications/page.tsx` keeps its own redirect as
+ * a backstop, built from the exact same `appModeHomeHref`/`appModeSelectionHref`
+ * calls used here, so the fast path and the backstop can never disagree.
+ *
+ * Fully additive: this touches nothing `consolidatedModeHomeTarget` or
+ * `unsubmittedModeSearchTarget` read or export, so it carries zero risk to the
+ * modes already using that shared mechanism.
+ */
+function medicationsHomeTarget(pathname: string, search: URLSearchParams): string | null {
+  if (pathname !== "/medications") return null;
+
+  const params = new URLSearchParams(search);
+  const query = (params.get("q")?.trim() || params.get("query")?.trim()) ?? "";
+  const focus = params.get("focus") === "1";
+  const submitted = query.length > 0 && params.get("run") === "1";
+
+  if (!submitted) return appModeSelectionHref("prescribing");
+
+  const navigationContext = readSearchNavigationContext(params);
+  return appModeHomeHref("prescribing", {
+    query,
+    focus,
+    run: true,
+    queryMode: navigationContext.queryMode,
+    scopeFilters: navigationContext.scopeFilters,
+    scopeRef: navigationContext.scopeRef,
+  });
+}
 
 const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);
 
@@ -179,6 +223,19 @@ export async function proxy(request: NextRequest) {
   if (consolidatedHomeTarget) {
     const url = request.nextUrl.clone();
     const [targetPathname, targetSearch = ""] = consolidatedHomeTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
+  // Medication (`/medications`): consolidated the same way, but via its own
+  // bespoke resolver above rather than the `consolidatedModeHomePaths` map — see
+  // `medicationsHomeTarget`'s doc comment for why.
+  const medicationsTarget = medicationsHomeTarget(pathname, request.nextUrl.searchParams);
+
+  if (medicationsTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = medicationsTarget.split("?");
     url.pathname = targetPathname;
     url.search = targetSearch;
     return withCsp(NextResponse.redirect(url));

@@ -812,11 +812,14 @@ async function openMobileClinicalGuideMenu(page: Page) {
     // browse/recent workspace, but it is a second landing page — same subtitle,
     // different title — and reaching it from the sidebar read as the wrong screen.
     // It keeps its route and its inbound link from the Tools directory.
-    // Medication is not consolidated: /medications is the prescribing workspace,
-    // not a 307 onto /?mode=prescribing.
+    // Medication also redirects now — through its own bespoke proxy fast-path
+    // rather than the shared consolidatedModeHomePaths map, since /medications has
+    // no /search sub-route (src/proxy.ts, medicationsHomeTarget()) — and the
+    // pinned sidebar entry points straight at the shared home now too, matching
+    // Documents/Services above (ClinicalSidebar.tsx).
     { name: "Documents", href: "/?mode=documents" },
     { name: "Services", href: "/?mode=services" },
-    { name: "Medication", href: "/medications" },
+    { name: "Medication", href: "/?mode=prescribing" },
     { name: "Factsheets", href: "/?mode=factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
@@ -1190,7 +1193,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
-  test("Medication shortcut opens the standalone Medication home", async ({ page }) => {
+  test("Medication shortcut opens the shared Medication home", async ({ page }) => {
+    // Medication was reversed out of its standalone `/medications` home (see
+    // src/app/(search-app)/medications/page.tsx) so its idle view is now the shared
+    // home, matching the other consolidated modes and Documents.
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
@@ -1199,8 +1205,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     const menu = await openMobileClinicalGuideMenu(page);
     await menu.getByRole("link", { name: "Medication" }).click();
 
-    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
-    await expect(page.getByTestId("medication-home").first()).toBeVisible();
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/");
+    await expect.poll(() => new URL(page.url()).searchParams.get("mode"), { timeout: 30_000 }).toBe("prescribing");
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
@@ -1389,7 +1397,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/?mode=services" },
-      { name: "Medication", href: "/medications" },
+      { name: "Medication", href: "/?mode=prescribing" },
       { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
@@ -4522,8 +4530,12 @@ test.describe("PsychSift UI smoke coverage", () => {
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents");
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
+    // Documents' idle browse tiles (including the old "Browse library" button)
+    // are retired — `/documents` now redirects to the shared home instead of
+    // rendering them. The Sources dialog this test checks is still reachable,
+    // from a submitted search's wide filter panel, so land there directly.
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1&mode=documents");
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible({ timeout: 30_000 });
 
     const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
       (buttons) =>
@@ -4535,7 +4547,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     );
     expect(visibleNewChatCount).toBe(1);
 
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
+    await page.getByTestId("document-filter-trigger-wide").click();
+    const browseLibraryButton = page.getByRole("button", { name: "Browse all sources" }).first();
     await browseLibraryButton.click();
     const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(sourcesDialog).toBeVisible();
@@ -4571,37 +4584,23 @@ test.describe("PsychSift UI smoke coverage", () => {
   test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    // `/` is the shared home for every mode now, so the Documents home lives at
-    // its own route — reached from the sidebar, like every other mode home.
-    await gotoApp(page, "/documents");
+    // Documents' idle browse tiles (Recent documents / Browse library / Open a
+    // source PDF, previously rendered on a distinct `/documents` home) are
+    // retired — `/documents` now redirects to the shared home with Documents
+    // preselected, the same as the other ten consolidated modes. The three
+    // actions those tiles used to trigger are still reachable from the
+    // composer's "Open documents options" menu (unaffected by this change), so
+    // this test exercises them from there instead.
+    await gotoApp(page, "/?mode=documents");
 
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
-    await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
-    await expect(visibleQuestionInput(page)).toBeVisible();
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Start here" })).toBeVisible();
-    const searchInputBox = await visibleQuestionInput(page).boundingBox();
-    const startHereBox = await page.getByRole("region", { name: "Start here" }).boundingBox();
-    const documentsHeadingBox = await page.getByRole("main").getByRole("heading", { name: "Documents" }).boundingBox();
-    expect(searchInputBox).not.toBeNull();
-    expect(startHereBox).not.toBeNull();
-    expect(documentsHeadingBox).not.toBeNull();
-    expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    // Phones keep the compact composer in the mode-home hero (above Start here),
-    // matching every other mode home — no fixed bottom dock on the empty home.
-    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
-    await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
-    await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
-    const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
-    const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
-    await expect(recentDocumentsButton).toBeVisible();
-    await expect(browseLibraryButton).toBeVisible();
-    await expect(sourcePdfButton).toBeVisible();
 
+    const optionsButton = page.getByRole("button", { name: "Open documents options" });
+
+    await optionsButton.click();
+    const recentDocumentsButton = page.getByRole("button", { name: "Recent documents", exact: true });
     await recentDocumentsButton.click();
     const recentDocumentsDialog = page.getByRole("dialog", { name: "Recent documents" });
     await expect(recentDocumentsDialog).toBeVisible();
@@ -4609,6 +4608,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(recentDocumentsDialog).toHaveCount(0);
 
+    await optionsButton.click();
+    const browseLibraryButton = page.getByRole("button", { name: "Browse library", exact: true });
     await browseLibraryButton.click();
     const sourceLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(sourceLibraryDialog).toBeVisible();
@@ -4616,8 +4617,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(sourceLibraryDialog.getByRole("group", { name: "Refine sources" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sourceLibraryDialog).toHaveCount(0);
-    await expect(browseLibraryButton).toBeFocused();
+    // The menu item that opened it is unmounted once the popover closes, so
+    // focus returns to the menu's own trigger instead.
+    await expect(optionsButton).toBeFocused();
 
+    await optionsButton.click();
+    const sourcePdfButton = page.getByRole("button", { name: "Open source PDF", exact: true });
     await sourcePdfButton.click();
     const sourcePdfDialog = page.getByRole("dialog", { name: "Source PDFs" });
     await expect(sourcePdfDialog).toBeVisible();
@@ -4958,10 +4963,12 @@ test.describe("PsychSift UI smoke coverage", () => {
       if (pathname === "/api/ingestion/quality") requestCounts.quality += 1;
     });
 
-    // Start on the Documents home rather than switching mode from `/`: the mode
-    // pill no longer changes the page, and a mid-test navigation would reset the
-    // request counts this test exists to measure.
-    await gotoApp(page, "/documents");
+    // Start directly on the shared home with Documents preselected, rather than
+    // switching mode from `/`: the mode pill no longer changes the page, and a
+    // mid-test navigation would reset the request counts this test exists to
+    // measure. `/documents` itself now only 307s here, so land on the real
+    // destination directly instead of relying on that extra hop.
+    await gotoApp(page, "/?mode=documents");
     // waitForDemoDashboardReady looks for "Open answer options"; the actions
     // trigger is named for the active mode, which is Documents on this route.
     await expect(visibleQuestionInput(page)).toBeEnabled();
@@ -4974,10 +4981,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(requestCounts.batches).toBe(0);
     expect(requestCounts.quality).toBe(0);
     // Escape closes the scope popover but leaves the composer's command dropdown
-    // open, and that dropdown overlays the home actions below it — so dismiss the
+    // open, and that dropdown overlays the home content below it — so dismiss the
     // composer the way a user does, by clicking away from it. Previously this test
     // switched mode after scoping and the re-render reset the composer for free;
-    // the Documents home is now its own route, so the blur has to be explicit.
+    // the shared home is a single static route, so the blur has to be explicit.
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("scope-command-popover")).toHaveCount(0);
     await page
@@ -4986,13 +4993,13 @@ test.describe("PsychSift UI smoke coverage", () => {
       .first()
       .click({ position: { x: 2, y: 2 } });
     // Scope restore can land on the composer + trigger; the command listbox must
-    // stay closed so it cannot cover Start-here actions (Browse library).
+    // stay closed so it cannot cover the composer's "Open documents options" menu.
     await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
 
-    await page
-      .getByRole("button", { name: /Browse library/i })
-      .first()
-      .click();
+    // Documents' idle browse tiles are retired; "Browse library" now lives in
+    // the composer's own options menu instead of being directly on the page.
+    await page.getByRole("button", { name: "Open documents options" }).click();
+    await page.getByRole("button", { name: "Browse library", exact: true }).first().click();
     await expect.poll(() => requestCounts.documents).toBe(1);
     expect(requestCounts.jobs).toBe(0);
     expect(requestCounts.batches).toBe(0);

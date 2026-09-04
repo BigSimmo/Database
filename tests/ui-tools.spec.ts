@@ -1191,10 +1191,16 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
 
   for (const home of [
     { path: "/?mode=answer", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
-    { path: "/medications", testId: "medication-home", heroTestId: "medication-home" },
     // Consolidated modes share one hero, so each is checked through the shared
     // home its bare path now redirects to. The copy differs per mode, which is
-    // what makes more than one row worth running.
+    // what makes more than one row worth running. Medication (prescribing) was
+    // the last standalone home to join this list (2026-09): `/medications` now
+    // redirects here too, and its own `medication-home` idle view is retired.
+    {
+      path: "/?mode=prescribing",
+      testId: "shared-home-empty-state",
+      heroTestId: "shared-home-empty-state",
+    },
     {
       path: "/?mode=documents",
       testId: "shared-home-empty-state",
@@ -1347,14 +1353,18 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
         heading: "Clinical Documents",
         headingLevel: 2,
       },
+      // Consolidated modes reach the same hero through the shared home; the
+      // heading is the mode's own `sharedHomePresentation` title at level 2.
+      // Medication (prescribing) joined this list in 2026-09 when `/medications`
+      // stopped rendering its own `medication-home` idle view and started
+      // redirecting here like the others — the heading text is unchanged, since
+      // both surfaces read it from the same `sharedHomePresentation.prescribing`.
       {
-        path: "/medications",
-        testId: "medication-home",
+        path: "/?mode=prescribing",
+        testId: "shared-home-empty-state",
         heading: "Medication Guidance",
         headingLevel: 2,
       },
-      // Consolidated modes reach the same hero through the shared home; the
-      // heading is the mode's own `sharedHomePresentation` title at level 2.
       {
         path: "/?mode=services",
         testId: "shared-home-empty-state",
@@ -3167,92 +3177,22 @@ test.describe("Responsive layout guards", () => {
     });
   }
 
-  test("prescribing mode home centres above the phone composer and balances on tablet", async ({ page }) => {
-    async function verticalWeighting(width: number) {
-      // Tall viewport exaggerates the free space so the anchor is unambiguous.
-      await page.setViewportSize({ width, height: 900 });
-      await gotoLauncher(page, "/medications");
-      const home = visibleByTestId(page, "medication-home");
-      await expect(home).toHaveCount(1);
-      await expect(home).toBeVisible();
-      await settleLayout(page);
-      const measure = () =>
-        page.evaluate(() => {
-          const rect = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="medication-home"]'))
-            .map((node) => node.getBoundingClientRect())
-            .find((candidate) => candidate.width > 0 && candidate.height > 0);
-          if (!rect) return null;
-          return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
-        });
-      // The smart-search hint/prompt rows render at first paint and are hidden
-      // by a post-hydration check on phone, shrinking the measured home ~50px
-      // shortly after load. Poll until two consecutive measurements match so
-      // the guard asserts the settled layout, not the transient one.
-      let result = await measure();
-      await expect(async () => {
-        const next = await measure();
-        const stable =
-          result !== null && next !== null && result.topGap === next.topGap && result.bottomGap === next.bottomGap;
-        result = next;
-        expect(stable).toBe(true);
-      }).toPass({ timeout: 10_000 });
-      return result;
-    }
-
-    // Phone (< sm): the home block centres within the space above the bottom
-    // composer reserve, so it sits mid-screen leaning toward the top edge.
-    const phone = await verticalWeighting(375);
-    expect(phone).not.toBeNull();
-    expect(phone?.topGap ?? 0).toBeLessThan(phone?.bottomGap ?? 0);
-
-    // Tablet hero-composer homes include the portaled search shell in the measured
-    // block, so viewport gap balance is looser than phone bottom-anchoring.
-    const tablet = await verticalWeighting(768);
-    expect(tablet).not.toBeNull();
-    const balance = Math.abs((tablet?.topGap ?? 0) - (tablet?.bottomGap ?? 0));
-    expect(balance).toBeLessThan(Math.max(tablet?.topGap ?? 0, tablet?.bottomGap ?? 0) * 1.45);
-  });
-
-  test("prescribing mobile shortcuts and checks are distinct, actionable, and scrollable", async ({ page }) => {
+  // "prescribing mode home centres above the phone composer and balances on
+  // tablet" and the idle portion of "prescribing mobile shortcuts and checks are
+  // distinct, actionable, and scrollable" were removed here (2026-09
+  // consolidation): both exercised the `medication-home` idle view — the
+  // Dose/Safety/Monitoring/Access shortcut pills and the vertical centering of
+  // that specific component — that `/medications` used to render on its own
+  // standalone route. `/medications` now redirects to the shared home
+  // (`/?mode=prescribing`, `shared-home-empty-state`) like most other modes, so
+  // `medication-home` is retired and no longer reachable from any route; its
+  // vertical-centering behavior is unreachable along with it, and the pill
+  // click/query assertions have nothing left to click. The still-live half of
+  // the second test — the submitted-search results view — survives below,
+  // reached directly instead of via a pill click.
+  test("prescribing submitted search keeps results above the phone bottom dock", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);
-    await gotoLauncher(page, "/medications");
-
-    const home = visibleByTestId(page, "medication-home");
-    await expect(home).toBeVisible();
-    await expect(home).toContainText("Check renal dosing and contraindications.");
-    await expect(home).toContainText("Review opioid-use precautions before prescribing.");
-    await expect(home).toContainText("Check maximum dose and titration guidance.");
-
-    const checksRegion = home.getByRole("region", { name: "Medication checks" });
-    const checkButtons = checksRegion.getByRole("button");
-    await expect(checkButtons).toHaveCount(4);
-    for (const button of await checkButtons.all()) await expectMinTouchTarget(button);
-
-    const rowMetrics = await checksRegion.locator(".answer-suggestion-row-scroll").evaluate((row) => {
-      const style = getComputedStyle(row);
-      return {
-        overflows: row.scrollWidth > row.clientWidth + 1,
-        maskImage: style.maskImage || style.webkitMaskImage,
-      };
-    });
-    expect(rowMetrics.overflows).toBe(true);
-    expect(rowMetrics.maskImage).not.toBe("none");
-    await expectNoPageHorizontalOverflow(page);
-
-    const capabilitySearches = [
-      ["Dose", "medication dose adjustment"],
-      ["Safety", "medication contraindications and cautions"],
-      ["Monitoring", "medication baseline and follow-up monitoring"],
-      ["Access", "medication PBS access and brand availability"],
-    ] as const;
-
-    for (const [label, query] of capabilitySearches) {
-      await gotoLauncher(page, "/medications");
-      await visibleByTestId(page, "medication-home").getByRole("button", { name: label, exact: true }).click();
-      await expect(visibleGlobalSearchInput(page).first()).toHaveValue(query);
-      await expect(visibleByTestId(page, "medication-home")).toHaveCount(0);
-    }
 
     await gotoLauncher(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
     const resultCard = page.getByTestId("medication-result-acamprosate-phone");
