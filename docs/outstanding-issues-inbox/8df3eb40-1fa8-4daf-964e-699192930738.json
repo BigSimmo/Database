@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8df3eb40-1fa8-4daf-964e-699192930738",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "isProfileEmpty treats a recorded hepatic \"none\" as no information, so an affirmative \"no hepatic impairment\" profile still renders the empty state instead of a verdict",
+    "detail": "src/lib/medication-patient-alerts.ts:164-180 isProfileEmpty() short-circuits on hepatic with 'if (profile.hepatic && profile.hepatic !== \"none\") return false;' (line 176), so a profile whose only entry is hepatic: \"none\" — an affirmative clinical answer, not a blank — is still reported empty. Verified 2026-09-02 on origin/main and unchanged by PR #2538. The engine disagrees with it: evaluateRow() at line 269-276 treats \"none\" as an answer, not a gap, using 'if (!hepatic) missingGates.push(\"hepatic status\")' and then testing membership only when hepatic !== \"none\" — so an entered \"none\" clears the hepatic gate. The consequence is that both consumers of isEmpty (MedicationConsiderations and the interactions block in src/components/clinical-dashboard/medication-considerations.tsx) render \"Enter patient details above\" and produce no verdict at all for that profile. Both surfaces therefore degrade conservatively — nothing is claimed that should not be — so this is a cosmetic inconsistency with the engine rather than a safety defect. NEXT STEP: its own change with its own tests, not a rider on other work: making a one-field profile produce evaluated output is a behaviour change, and the DOM tests in tests/medication-interaction-surfaces.dom.test.tsx and tests/patient-profile-panel.dom.test.tsx pin the current empty-state text.",
+    "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
+    "issueUlid": "01M1GA265PY2E4DX4J556D3TWW"
+  }
+}
