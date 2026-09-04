@@ -87,6 +87,28 @@ describe("claude code permissions", () => {
     }
   });
 
+  /**
+   * The `.mcp.json` server is named `supabase`, so its tools arrive as `mcp__supabase__*`. The
+   * cloud route `docs/claude-cloud.md` recommends instead — a claude.ai connector — surfaces the
+   * same tools as `mcp__Supabase__*` (capital S). Whether Claude Code matches MCP rule names
+   * case-insensitively could not be verified offline (audit L40), so the write-capable tools
+   * this file hard-denies are spelled both ways: an `apply_migration` reaching the live clinical
+   * database via the connector must not be left in the default ask state on a case detail.
+   */
+  it("denies every write-capable Supabase MCP tool under both the server and connector spellings", () => {
+    const deny = settings.permissions.deny as string[];
+    const serverSpelled = deny.filter((rule) => rule.startsWith("mcp__supabase__"));
+    expect(serverSpelled.length, "the Supabase write-tool deny list must not be empty").toBeGreaterThan(5);
+    for (const rule of serverSpelled) {
+      const twin = rule.replace(/^mcp__supabase__/, "mcp__Supabase__");
+      expect(deny, `${rule} is denied but its connector spelling ${twin} is not`).toContain(twin);
+    }
+    for (const tool of ["execute_sql", "apply_migration", "deploy_edge_function", "merge_branch"]) {
+      expect(deny).toContain(`mcp__supabase__${tool}`);
+      expect(deny).toContain(`mcp__Supabase__${tool}`);
+    }
+  });
+
   it("soft-denies live supabase inspection in auto mode", () => {
     const allow = (settings.autoMode?.allow ?? []) as string[];
     const softDeny = (settings.autoMode?.soft_deny ?? []) as string[];
@@ -142,40 +164,103 @@ describe("claude code permissions", () => {
  * 3. `gh pr create` was blanket-allowed, letting an agent open a PR and trigger hosted CI
  *    without the confirmation provider-backed GitHub writes otherwise require.
  *
- * These tests pin the fixes using the same `bashRuleMatches` prefix-match model above, and
- * additionally assert that the broader loosened rule still matches the dangerous command —
- * proving the narrower deny/ask rule is what closes the gap via precedence, not merely the
- * absence of an allow match (see the docstring above on why that distinction matters).
+ * The 2026-09-02 audit (M21) then showed that closing `HEAD:main` was not enough: permission
+ * rules are prefix matches, so the blanket `Bash(git push:*)` allow let every other spelling
+ * through with no prompt — `origin --force <b>`, `origin +<b>` (refspec force), `-u origin main`,
+ * `--delete`, `--mirror`, and `--no-verify` (which also skips `guard-push.mjs`). The fix is
+ * two-sided: the allow list names only the safe spellings (plain `git push`, `git push origin
+ * HEAD`, and `git push -u origin claude/<branch>`), so every other spelling falls back to the
+ * default ask; and the deny list spells out the force, delete, mirror, hook-skipping, and
+ * main/master-target shapes so those hard-stop rather than prompt.
+ *
+ * These tests pin the fixes using the same `bashRuleMatches` prefix-match model above.
  */
-describe("git push HEAD:main destination-refspec tightening", () => {
+describe("git push tightening", () => {
+  const deny = settings.permissions.deny as string[];
+  const allow = settings.permissions.allow as string[];
+
+  const safePushCommands = ["git push", "git push origin HEAD", "git push -u origin claude/audit-fix"];
+
+  it.each(safePushCommands)("%s is allowed without a prompt", (command) => {
+    const reachedBy = allow.filter((rule) => bashRuleMatches(rule, command));
+    expect(reachedBy.length, `${command} is the routine handoff push and should be allowed`).toBeGreaterThan(0);
+    expect(deny.filter((rule) => bashRuleMatches(rule, command))).toEqual([]);
+  });
+
+  it("does not carry a blanket git push allow rule", () => {
+    // `Bash(git push:*)` is the rule that made every dangerous spelling below an auto-allow.
+    expect(allow).not.toContain("Bash(git push:*)");
+    expect(allow.filter((rule) => /^Bash\(git push:\*\)$/.test(rule))).toEqual([]);
+  });
+
   const dangerousPushCommands = [
+    // main/master targets in every spelling
+    "git push origin main",
+    "git push origin master",
     "git push origin HEAD:main",
     "git push origin HEAD:main --force-with-lease",
     "git push origin HEAD:master",
+    "git push -u origin main",
+    "git push -u origin master",
+    "git push --set-upstream origin main",
+    "git push --set-upstream origin master",
+    "git push -u origin HEAD:main",
+    // force in every spelling
+    "git push --force origin feature",
+    "git push -f origin feature",
+    "git push --force-with-lease origin feature",
+    "git push origin --force feature",
+    "git push origin -f feature",
+    "git push origin --force-with-lease feature",
+    "git push origin +feature",
+    "git push origin +HEAD:main",
+    "git push +feature",
+    "git push -u origin +feature",
+    // remote deletion and mirroring
+    "git push --delete origin feature",
+    "git push -d origin feature",
+    "git push origin --delete feature",
+    "git push origin -d feature",
+    "git push origin :feature",
+    "git push --mirror origin",
+    // skipping the pre-push guard
+    "git push --no-verify origin feature",
+    "git push origin --no-verify feature",
   ];
 
   it.each(dangerousPushCommands)("%s is matched by a deny rule", (command) => {
-    const deny = settings.permissions.deny as string[];
     const matched = deny.filter((rule) => bashRuleMatches(rule, command));
     expect(
       matched.length,
-      `${command} pushes to the protected main/master branch via an explicit refspec ` +
-        `destination even though the source ref is not literally "main" — it must stay denied`,
+      `${command} rewrites history, deletes a remote ref, skips the push guard, or targets the ` +
+        `protected main/master branch — it must stay denied`,
     ).toBeGreaterThan(0);
   });
 
-  it.each(dangerousPushCommands)(
-    "%s is still matched by the generic push allow rule (deny must win via precedence)",
-    (command) => {
-      const allow = settings.permissions.allow as string[];
-      const matched = allow.some((rule) => bashRuleMatches(rule, command));
-      expect(
-        matched,
-        `${command} should still be reachable by Bash(git push:*) — this test only holds if ` +
-          `the deny match above is what blocks it, not an absence of an allow match`,
-      ).toBe(true);
-    },
-  );
+  it.each(dangerousPushCommands)("%s is not reachable through an allow rule", (command) => {
+    const matched = allow.filter((rule) => bashRuleMatches(rule, command));
+    expect(
+      matched,
+      `${command} matched allow rule(s): ${matched.join(", ")} — the allow list must name only ` +
+        `the safe push spellings so deny never has to win on precedence alone`,
+    ).toEqual([]);
+  });
+
+  // Spellings the deny list cannot express as a prefix (a `<src>:main` destination on an
+  // otherwise ordinary branch push, or `--force` trailing the branch) must at least not be
+  // auto-allowed: with no allow match they fall back to the default ask.
+  const promptOnlyPushCommands = [
+    "git push origin feature:main",
+    "git push origin refs/heads/x:refs/heads/main",
+    "git push origin feature --force",
+    "git push -u origin feature",
+    "git push origin claude/branch",
+  ];
+
+  it.each(promptOnlyPushCommands)("%s is not reachable through an allow rule", (command) => {
+    const matched = allow.filter((rule) => bashRuleMatches(rule, command));
+    expect(matched, `${command} matched allow rule(s): ${matched.join(", ")}`).toEqual([]);
+  });
 });
 
 describe("git add forced-staging tightening", () => {
