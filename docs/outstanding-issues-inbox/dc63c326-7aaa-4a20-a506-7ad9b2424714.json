@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "dc63c326-7aaa-4a20-a506-7ad9b2424714",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "ON DELETE RESTRICT on the four visibility tables protects nothing while the corpus is in public mode",
+    "detail": "Found while fixing #ZBAC9D (2026-09-02, offline schema read at 45a3dcacb54a). Migration 20260901120000 closed the owner-deletion half of #ZBAC9D by moving documents, document_labels, document_summaries and document_table_facts to ON DELETE RESTRICT, so deleting an auth user fails rather than nulling owner_id and republishing the rows. That control only bites while owner_id is non-null. public.set_document_corpus_access_mode('public') (20260825025032) sets owner_id = null on every document, and the measured production corpus on 2026-09-01 was 2851 of 2851 ownerless - i.e. exactly the mode in which the restrict constraint references nothing and the auth-user delete succeeds. The rows are then handled by the deleted-owner rollback in 20260826090000, which quarantines them as status = 'failed' with the publication marker stripped. So the deletion half is closed for a private-mode corpus and inert for the public-mode corpus production actually runs in. Not a live exposure - the quarantine plus the new documents_ownerless_requires_publication_marker constraint keep those rows out of retrieval - but the ledger should not record the deletion half as unconditionally closed. NEXT: decide whether public mode should block owner deletion by another route, or whether the quarantine path is accepted as the whole control, and record which.",
+    "source": "supabase/migrations/20260901120000_restrict_owner_delete_on_public_visibility_tables.sql; supabase/migrations/20260825025032_reversible_document_corpus_access_mode.sql:172-184; supabase/migrations/20260826090000_fail_closed_deleted_document_owner_rollback.sql:111-131; offline audit during #ZBAC9D, 2026-09-02",
+    "issueUlid": "01M1G7TXC6VX609AB4901SHCC7"
+  }
+}

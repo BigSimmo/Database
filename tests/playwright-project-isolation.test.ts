@@ -86,10 +86,11 @@ describe("Playwright production-project isolation", () => {
   });
 
   /**
-   * The Caring Contacts activation journey (#JZA0XK) is the repository's ONE spec that runs against
-   * a different server: `run-playwright.mjs` starts a second `next start` with
-   * `CARING_CONTACTS_DEMO_SEED=on`, and `chromium-caring-contacts-seeded` is the only project
-   * pointed at it.
+   * Two Caring Contacts specs run against a different server: `run-playwright.mjs` starts a second
+   * `next start` with `CARING_CONTACTS_DEMO_SEED=on`, and `chromium-caring-contacts-seeded` is the
+   * only project pointed at it. The activation journey (#JZA0XK) was the first; the populated
+   * layout sweep joined it, because every other layout assertion in this repository is measured on
+   * an EMPTY Caring Contacts screen and an empty screen cannot overflow.
    *
    * Both directions matter and both fail silently rather than loudly:
    *
@@ -103,7 +104,7 @@ describe("Playwright production-project isolation", () => {
    * The gate wiring is pinned here too: a spec collected by a project no gate ever selects is the
    * same defect as a spec collected by nothing.
    */
-  it("collects the seeded caring-contacts activation spec only in the seeded project", () => {
+  it("collects the seeded caring-contacts specs only in the seeded project", () => {
     const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
     const productionSpecPattern = configPattern(source, "productionSpecPattern");
     const mockupSpecPattern = configPattern(source, "mockupSpecPattern");
@@ -112,18 +113,28 @@ describe("Playwright production-project isolation", () => {
     expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
     const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
 
-    const spec = "tests/ui-caring-contacts-activation.spec.ts";
-    expect(existsSync(resolve(process.cwd(), spec)), `${spec} is missing`).toBe(true);
-    expect(testMatchPattern.test(spec), `${spec} is not collected by top-level testMatch`).toBe(true);
-    expect(
-      seededSpecPattern.test(spec),
-      `${spec} is not collected by seededSpecPattern, so the activation wizard has no browser gate at all`,
-    ).toBe(true);
-    expect(
-      productionSpecPattern.test(spec),
-      `${spec} leaked into the projects pointed at the UNSEEDED server, where its referral does not exist`,
-    ).toBe(false);
-    expect(mockupSpecPattern.test(spec), `${spec} leaked into the advisory mockup project`).toBe(false);
+    /**
+     * The specs that belong on the seeded server, and the ONLY ones that may reach it.
+     *
+     * Two, not one, since the populated sweep landed. They need the same populated store for
+     * opposite reasons — `-activation` drives the one journey that WRITES, `-populated` measures
+     * every screen's layout with records on it and writes nothing — and neither can run against
+     * the primary server, whose Caring Contacts store is empty by design.
+     */
+    const seededSpecs = ["tests/ui-caring-contacts-activation.spec.ts", "tests/ui-caring-contacts-populated.spec.ts"];
+    for (const spec of seededSpecs) {
+      expect(existsSync(resolve(process.cwd(), spec)), `${spec} is missing`).toBe(true);
+      expect(testMatchPattern.test(spec), `${spec} is not collected by top-level testMatch`).toBe(true);
+      expect(
+        seededSpecPattern.test(spec),
+        `${spec} is not collected by seededSpecPattern, so it has no browser gate at all`,
+      ).toBe(true);
+      expect(
+        productionSpecPattern.test(spec),
+        `${spec} leaked into the projects pointed at the UNSEEDED server, where its population does not exist`,
+      ).toBe(false);
+      expect(mockupSpecPattern.test(spec), `${spec} leaked into the advisory mockup project`).toBe(false);
+    }
 
     // The seeded project exists, matches only that pattern, and reads its own base URL from the
     // second server rather than inheriting the primary one.
@@ -136,7 +147,7 @@ describe("Playwright production-project isolation", () => {
     // No production spec may be pulled into the seeded project either: it would then run against a
     // populated store while its own assertions describe an empty one.
     for (const file of readdirSync(resolve(process.cwd(), "tests")).filter((entry) => entry.endsWith(".spec.ts"))) {
-      if (`tests/${file}` === spec) continue;
+      if (seededSpecs.includes(`tests/${file}`)) continue;
       expect(seededSpecPattern.test(`tests/${file}`), `${file} was pulled into the seeded project`).toBe(false);
     }
 
@@ -148,7 +159,7 @@ describe("Playwright production-project isolation", () => {
       "node scripts/run-playwright.mjs --project=chromium-caring-contacts-seeded tests/ui-caring-contacts-activation.spec.ts",
     );
     expect(packageJson.scripts?.["test:e2e:pr"]).toContain("--project=chromium-caring-contacts-seeded");
-    expect(prUiShardGroups[1]).toContain(spec);
+    for (const spec of seededSpecs) expect(prUiShardGroups[1]).toContain(spec);
     expect(playwrightArgsForPrUiShard(1)).toContain("--project=chromium-caring-contacts-seeded");
     // ...and only the shard that holds it pays for the second server.
     expect(playwrightArgsForPrUiShard(2)).not.toContain("--project=chromium-caring-contacts-seeded");
