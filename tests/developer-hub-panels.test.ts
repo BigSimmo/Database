@@ -52,10 +52,10 @@ describe("hub panels", () => {
       expect(panel?.href, `${id} needs a destination`).toBeTruthy();
     }
 
-    expect(toolCatalogRecords.some((tool) => tool.href.startsWith("/mockups/") || tool.href === "/caring-contacts")).toBe(
-      false,
-    );
-    expect(SETTINGS_SECTIONS.some((section) => section.id === "development")).toBe(false);
+    expect(
+      toolCatalogRecords.some((tool) => tool.href.startsWith("/mockups/") || tool.href === "/caring-contacts"),
+    ).toBe(false);
+    expect(SETTINGS_SECTIONS.some((section) => (section.id as string) === "development")).toBe(false);
     expect(DEVELOPER_GATED_PATH_PREFIXES).toContain("/caring-contacts");
 
     const workspaceLayout = readFileSync(join(process.cwd(), "src/app/caring-contacts/layout.tsx"), "utf8");
