@@ -141,14 +141,15 @@ export async function POST(request: Request) {
     const rawBody = await parseJsonBody(request, z.unknown(), "Invalid request body.");
     const parsedEntry = createOnCallEntrySchema.safeParse(rawBody);
     if (!parsedEntry.success) {
-      return NextResponse.json({ error: "Invalid On Call entry.", issues: parsedEntry.error.issues }, { status: 400 });
+      // One envelope for every public error in this repository
+      // (`apiErrorPayloadSchema`, enforced by tests/api-validation-contract.test.ts), so the
+      // raw Zod issue list stays server-side. The two messages below are what tells a caller
+      // which half of the contract it failed.
+      return publicErrorResponse("Invalid On Call entry.", 400);
     }
     const parsedDetails = onCallDetailsSchemaFor(parsedEntry.data.section).safeParse(parsedEntry.data.details);
     if (!parsedDetails.success) {
-      return NextResponse.json(
-        { error: "Invalid On Call entry details.", issues: parsedDetails.error.issues },
-        { status: 400 },
-      );
+      return publicErrorResponse("Invalid On Call entry details.", 400);
     }
 
     const entry = onCallEntrySchema.parse({

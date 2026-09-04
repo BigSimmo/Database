@@ -439,13 +439,11 @@ describe("app mode search contract", () => {
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       calculators: "/calculators/search?q=clozapine&run=1",
       sources: "/sources/search?q=clozapine&run=1",
+      "on-call": "/on-call/search?q=clozapine&run=1",
       // Same route, submitted branch: these still own a home of their own.
       favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
-      // On Call has no search route by design: its own home filters in place,
-      // like Favourites and Tools.
-      "on-call": "/on-call?q=clozapine&run=1",
     });
   });
 

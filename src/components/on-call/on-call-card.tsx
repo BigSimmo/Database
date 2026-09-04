@@ -6,13 +6,11 @@ import { Phone } from "lucide-react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
-import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-nav-header";
+import { ON_CALL_SECTION_TITLES, OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { BrowserPrintButton, PrintOutput, PrintSection } from "@/components/ui/print-output";
-import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { PrintOutput, PrintSection } from "@/components/ui/print-output";
 import { selectCardEntries } from "@/lib/on-call/card-selection";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { ON_CALL_SECTIONS, type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -79,8 +77,10 @@ function formatPrintedAt(now: Date): string {
  *
  * The print action lives in the header's actions sheet, following
  * `DictionaryTermPage`'s "Print entry" row — the one place every converted
- * information page keeps its print control — built here from the shared
- * `BrowserPrintButton` rather than a bare `window.print()` call.
+ * information page keeps its print control. The header itself is
+ * `OnCallCardNavHeader`, in the mode's `*-nav-header.tsx` sibling: that file
+ * is where this mode registers its claim on the phone header's addon slot,
+ * and `tests/mode-nav-addon-slot.dom.test.tsx` holds it to one claimant.
  */
 export function OnCallCard({ now = new Date() }: { now?: Date } = {}) {
   const { isAuthenticated } = useAccountData();
@@ -95,19 +95,7 @@ export function OnCallCard({ now = new Date() }: { now?: Date } = {}) {
 
   return (
     <>
-      <InPageNavHeader
-        back={{ href: consolidatedModeSearchPath("on-call"), label: "On Call" }}
-        title="Essentials card"
-        testIdPrefix="on-call-card"
-        actionsTitle="Card actions"
-        actionsDescription="Print the numbers flagged for this card."
-        actionsNoun="card"
-        actions={
-          <div className="grid gap-1">
-            <BrowserPrintButton label="Print card" />
-          </div>
-        }
-      />
+      <OnCallCardNavHeader />
       <InformationPageShell testId="on-call-card-main" width="narrow">
         <InformationPageHeader
           eyebrow="On Call"

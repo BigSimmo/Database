@@ -4,6 +4,7 @@ import { BookOpen, GraduationCap, ListChecks, MapPinned, Phone, Repeat } from "l
 import type { LucideIcon } from "lucide-react";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { BrowserPrintButton } from "@/components/ui/print-output";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
@@ -70,6 +71,38 @@ export function OnCallNavHeader({ section }: { section: OnCallSection }) {
       activeId={activeId}
       onSelectSection={selectSection}
       testIdPrefix={`on-call-${section}`}
+    />
+  );
+}
+
+/**
+ * The essentials card's header.
+ *
+ * It lives here rather than in `on-call-card.tsx` because
+ * `tests/mode-nav-addon-slot.dom.test.tsx` pins one claimant file per mode:
+ * every route that claims the phone header's addon slot registers that claim
+ * in its mode's `*-nav-header.tsx` sibling, so the set of pages competing for
+ * the single collapse owner can be read off a list of files rather than
+ * discovered by grepping every page component. The card briefly mounted
+ * `InPageNavHeader` itself and turned that test red.
+ *
+ * The print control sits in the actions sheet, following `DictionaryTermPage`
+ * — the one place every converted information page keeps its print row.
+ */
+export function OnCallCardNavHeader() {
+  return (
+    <InPageNavHeader
+      back={{ href: consolidatedModeSearchPath("on-call"), label: "On Call" }}
+      title="Essentials card"
+      testIdPrefix="on-call-card"
+      actionsTitle="Card actions"
+      actionsDescription="Print the numbers flagged for this card."
+      actionsNoun="card"
+      actions={
+        <div className="grid gap-1">
+          <BrowserPrintButton label="Print card" />
+        </div>
+      }
     />
   );
 }
