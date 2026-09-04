@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
-import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 
 /**
  * Generic, non-owner-specific framing for each section. Shown regardless of
