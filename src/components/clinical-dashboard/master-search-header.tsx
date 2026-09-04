@@ -1186,7 +1186,7 @@ export function MasterSearchHeader({
           "relative grid w-full items-center text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
           usesPhoneSearchLayout
             ? "min-h-14 grid-cols-[2.5rem_minmax(0,1fr)_1.5rem] gap-2.5 rounded-xl px-2 py-2"
-            : "min-h-11 grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-md px-2.5 py-1.5",
+            : "min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-md px-2.5 py-1.5",
           active
             ? usesPhoneSearchLayout
               ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)] ring-1 ring-inset ring-[color:var(--clinical-accent-border)]"
@@ -2422,7 +2422,7 @@ export function MasterSearchHeader({
               )}
             >
               <div className="border-b border-[color:var(--border)] p-3 pb-2.5">
-                <div className="grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)] transition-[border-color,box-shadow] focus-within:border-[color:var(--clinical-accent-border)] focus-within:ring-1 focus-within:ring-[color:var(--clinical-accent-border)]">
+                <div className="grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)] transition-[border-color,box-shadow] focus-within:border-[color:var(--clinical-accent-border)]">
                   <Search aria-hidden="true" className="size-icon-md text-[color:var(--text-muted)]" strokeWidth={2} />
                   <input
                     ref={desktopModeMenuSearchRef}
@@ -2459,7 +2459,6 @@ export function MasterSearchHeader({
                 </div>
                 <p
                   role="status"
-                  aria-live="polite"
                   className="nums mt-2 px-1 text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]"
                 >
                   {normalizedModeMenuQuery
