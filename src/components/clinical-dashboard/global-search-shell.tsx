@@ -223,12 +223,12 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
     if (params.get("mode") || params.get("q")?.trim() || params.get("query")?.trim() || params.get("run") === "1") {
       return;
     }
-    // Settings "Default landing view" points at real mode homes now that bare
-    // `/?mode=documents` is the shared home with Documents preselected, not the
-    // Documents Start-here surface.
+    // Settings "Default landing view" → Documents now lands on the shared home
+    // with Documents preselected, same as any other consolidated mode — there is
+    // no separate Documents Start-here surface to navigate to any more.
     const landingMode = landingModeForPreference(readAppPreferences().landing);
     if (landingMode === "documents") {
-      router.replace("/documents", { scroll: false });
+      router.replace(appModeSelectionHref("documents"), { scroll: false });
       return;
     }
     if (landingMode === "tools") {
@@ -267,9 +267,12 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           initialSearchMode={resolvedSearchMode}
           initialQuery={requestedQuery}
           focusSearch={searchParams.get("focus") === "1"}
-          // Dashboard-owned mode homes (`/documents`) mount ClinicalDashboard with
-          // nothing submitted. Keystroke drafts must not auto-run there — same
-          // contract as bare `/` — or every composer edit fires `/api/search`.
+          // Dashboard-owned mode homes mount ClinicalDashboard with nothing
+          // submitted. Keystroke drafts must not auto-run there — same contract
+          // as bare `/` — or every composer edit fires `/api/search`. No mode
+          // currently uses this path (`dashboardOwnedModeHomePaths` is empty
+          // since Documents' bare path became a redirect), but the check stays
+          // ready for the next mode shaped this way.
           autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
           clinicalAskAvailableModeIds={props.clinicalAskAvailableModeIds}
         />
