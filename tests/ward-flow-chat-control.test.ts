@@ -458,26 +458,39 @@ describe("Ward Flow compact chat control", () => {
       cwd: projectRoot,
       encoding: "utf8",
     }).trim();
-    const candidates = execFileSync("git", ["for-each-ref", "--format=%(objectname)", "refs/heads/"], {
+    /*
+     * 🔴 SYNTHESISED, NOT SCAVENGED — AND THAT CHANGE CAME FROM CI, NOT FROM REVIEW.
+     *
+     * The first version walked `refs/heads/` for a branch head that is not an ancestor of the
+     * current branch. That works in a development clone with many branches and FAILS IN CI, where
+     * the checkout carries one branch and there is no such head to find. The test then hit its own
+     * anti-vacuity assertion and went red — correctly. It refused to pass without being able to
+     * discriminate, which is exactly what it was written to do; the defect was that it depended on
+     * the ambient shape of the repository rather than on anything it controlled.
+     *
+     * `commit-tree` on the current tree with no parent produces a commit object that genuinely
+     * EXISTS and is genuinely NOT an ancestor of any branch — the two properties this test needs,
+     * in every checkout, deterministically. It is a dangling object and `gc` reclaims it.
+     *
+     * Both properties are asserted BEFORE use, because a fixture that silently lacks one of them
+     * would make this test pass against a validator that only calls `cat-file -e` — the precise
+     * weakening a SHA of forty 2s could not detect, recorded below.
+     */
+    const offBranch = execFileSync("git", ["commit-tree", `${branch}^{tree}`, "-m", "ward-flow ancestry fixture"], {
       cwd: projectRoot,
       encoding: "utf8",
-    })
-      .split(String.fromCharCode(10))
-      .map((line) => line.trim())
-      .filter(Boolean);
-    const offBranch = candidates.find((sha) => {
-      try {
-        execFileSync("git", ["merge-base", "--is-ancestor", sha, branch], { cwd: projectRoot, stdio: "ignore" });
-        return false;
-      } catch {
-        return true;
-      }
-    });
+    }).trim();
+
+    expect(offBranch, "commit-tree produced no object, so there is no fixture to test with").toMatch(/^[0-9a-f]{40}$/u);
     expect(
-      offBranch,
-      "no local branch head is off the current branch, so this test cannot discriminate ancestry " +
-        "from mere existence — it would pass against a validator that only checks the object exists",
-    ).toBeDefined();
+      () => execFileSync("git", ["cat-file", "-e", `${offBranch}^{commit}`], { cwd: projectRoot, stdio: "ignore" }),
+      "the fixture commit must EXIST, or this test cannot tell ancestry from mere existence",
+    ).not.toThrow();
+    expect(
+      () =>
+        execFileSync("git", ["merge-base", "--is-ancestor", offBranch, branch], { cwd: projectRoot, stdio: "ignore" }),
+      "the fixture commit must NOT be an ancestor of the branch, or there is nothing to detect",
+    ).toThrow();
     expect(() =>
       assertCheckoutMatchesSnapshot(
         { checkout: missingPath, branch, head: offBranch },
