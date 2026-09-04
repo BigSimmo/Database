@@ -1,0 +1,1650 @@
+<title>Refer a Patient</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+</style>
+
+<style>
+  /* ─── REFERRAL FORM — screen-specific rules only. Tokens from the block above. ─── */
+  .split {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 64rem) {
+    .split {
+      grid-template-columns: minmax(0, 1fr) 23rem;
+    }
+  }
+  @media (min-width: 64rem) {
+    .aside-sticky {
+      position: sticky;
+      top: var(--sp-4);
+    }
+  }
+
+  .step {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .step + .step {
+    margin-top: var(--sp-3);
+  }
+  .step > header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .step-n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 2px;
+    display: grid;
+    place-items: center;
+    background: var(--sunken);
+    color: var(--muted);
+    border: 1px solid var(--rule);
+  }
+  .step[data-done="true"] .step-n {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .step > header h2 {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .step[data-done="true"] > header h2 {
+    color: var(--ink);
+  }
+  .step-state {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .step-body {
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-4);
+  }
+  @media (min-width: 40rem) {
+    .step-body.two {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .field > label,
+  .field > .legend {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .field .hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .field select,
+  .field input[type="text"] {
+    font: inherit;
+    font-size: 0.875rem;
+    padding: 0.55rem 0.65rem;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: 3px;
+    width: 100%;
+  }
+  fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+  .choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--rule-2);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .choice[data-chosen="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .prefilled {
+    border: 1px dashed var(--rule-2);
+    border-radius: 3px;
+    padding: var(--sp-3);
+    background: var(--panel);
+  }
+  .prefilled .from {
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* destinations, with eligibility stated */
+  .dests {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+  }
+  .dests li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .dest {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3);
+  }
+  .dest .box {
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 1px solid var(--rule-2);
+    border-radius: 2px;
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .dest[data-chosen="true"] .box {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .dest .who {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .dest .sub2 {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .dest[data-eligible="false"] {
+    background: var(--sunken);
+  }
+  .dest[data-eligible="false"] .who {
+    color: var(--muted);
+  }
+  .dest .why {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--signal);
+    line-height: 1.5;
+  }
+  .override {
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.3rem 0.55rem;
+    cursor: pointer;
+    border: 1px solid color-mix(in oklab, var(--signal) 45%, var(--rule));
+    border-radius: 3px;
+    background: var(--signal-wash);
+    color: var(--signal);
+    white-space: nowrap;
+  }
+  .free {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+  }
+
+  /* send */
+  .send-bar {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    padding: var(--sp-4);
+    margin-top: var(--sp-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    align-items: center;
+    justify-content: space-between;
+  }
+  .send {
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    padding: 0.7rem 1.4rem;
+    cursor: pointer;
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    background: var(--ink);
+    color: var(--ground);
+  }
+  .send[aria-disabled="true"] {
+    background: var(--sunken);
+    color: var(--muted);
+    border-color: var(--rule-2);
+    cursor: default;
+  }
+  .why-not {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.55;
+    max-width: 44ch;
+    margin: 0;
+  }
+  .refusal {
+    border-left: 2px solid var(--crit);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  /* the record panel */
+  .knows {
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-4);
+  }
+  .knows-note {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.55;
+    margin: 0;
+    border-left: 2px solid var(--rule-2);
+    padding-left: var(--sp-3);
+  }
+  .kv {
+    display: grid;
+    gap: var(--sp-2);
+    margin: 0;
+  }
+  .kv > div {
+    display: grid;
+    grid-template-columns: 7.5rem 1fr;
+    gap: var(--sp-3);
+    align-items: baseline;
+  }
+  .kv dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .kv dd {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+  .stopper {
+    border: 1px solid color-mix(in oklab, var(--signal) 40%, var(--rule));
+    border-radius: 3px;
+    background: var(--signal-wash);
+    padding: var(--sp-3);
+  }
+  .stopper h3 {
+    margin: 0 0 var(--sp-2);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--signal);
+  }
+  .stopper p {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .stopper p + p {
+    margin-top: var(--sp-2);
+  }
+  .summary {
+    padding: var(--sp-4);
+  }
+  .summary .kv > div {
+    grid-template-columns: 8.5rem 1fr;
+  }
+  .summary .pending {
+    color: var(--muted);
+    font-weight: 400;
+    font-style: italic;
+  }
+  /* ─── this screen only ─── */
+  .identity--end {
+    align-items: flex-end;
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Every figure invented — listed at the foot</span>
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow">New referral</span>
+      <h1>Refer D. Okonkwo</h1>
+      <p class="covers">Opened from the patient record &middot; <b>UMRN 2214887</b> &middot; 34 years</p>
+    </div>
+    <div class="identity identity--end">
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span><span>Draft<span class="sr"> — not yet sent</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September</span><span aria-hidden="true">&middot;</span
+        ><span>Nothing is sent until you press Send</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="split">
+    <!-- ════════ THE FORM ════════ -->
+    <form>
+      <section class="step" data-done="true" aria-labelledby="s1">
+        <header>
+          <span class="step-n" aria-hidden="true">1</span>
+          <h2 id="s1">Who this is</h2>
+          <span class="step-state">Filled from the record</span>
+        </header>
+        <div class="step-body two">
+          <div class="field">
+            <span class="legend">Taken from the patient record</span>
+            <div class="prefilled">
+              <p class="from">Not asked again</p>
+              <dl class="kv" style="margin-top: 0.5rem">
+                <div>
+                  <dt>Age band</dt>
+                  <dd>30&ndash;39</dd>
+                </div>
+                <div>
+                  <dt>Sex</dt>
+                  <dd>Female</dd>
+                </div>
+                <div>
+                  <dt>Suburb</dt>
+                  <dd>East Perth</dd>
+                </div>
+                <div>
+                  <dt>Catchment</dt>
+                  <dd>Inner City</dd>
+                </div>
+              </dl>
+            </div>
+            <p class="hint">
+              These four were nine separate questions before. Opening the form from a person means it already knows them
+              &mdash; and a fact taken from the record cannot be mistyped here.
+            </p>
+          </div>
+          <div class="field">
+            <label for="region">Home region</label>
+            <select id="region">
+              <option selected>Metropolitan &mdash; East</option>
+              <option>Metropolitan &mdash; North</option>
+              <option>Metropolitan &mdash; South</option>
+              <option>Country &mdash; South West</option>
+              <option>Outside Western Australia</option>
+            </select>
+            <p class="hint">
+              Confirm rather than assume: the catchment suburb and the person's actual home region disagree often enough
+              to matter.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="step" data-done="true" aria-labelledby="s2">
+        <header>
+          <span class="step-n" aria-hidden="true">2</span>
+          <h2 id="s2">Why now</h2>
+          <span class="step-state">3 of 3 answered</span>
+        </header>
+        <div class="step-body two">
+          <div class="field">
+            <span class="legend" id="lg-src">Who is referring</span>
+            <fieldset aria-labelledby="lg-src">
+              <div class="choices">
+                <span class="choice" data-chosen="true">Community team</span><span class="choice">Crisis service</span
+                ><span class="choice">Police</span><span class="choice">Ambulance</span
+                ><span class="choice">Another hospital</span>
+              </div>
+            </fieldset>
+          </div>
+          <div class="field">
+            <span class="legend" id="lg-urg">Urgency</span>
+            <fieldset aria-labelledby="lg-urg">
+              <div class="choices">
+                <span class="choice" data-chosen="true">Urgent</span><span class="choice">Routine</span>
+              </div>
+            </fieldset>
+            <p class="hint">Urgent means contact is needed within 24 hours.</p>
+          </div>
+          <div class="field" style="grid-column: 1/-1">
+            <label for="origin">Where the person is right now</label>
+            <select id="origin">
+              <option selected>Inner City clinic</option>
+              <option>Royal Perth Hospital Emergency Department</option>
+              <option>Sir Charles Gairdner Hospital Emergency Department</option>
+              <option>At home</option>
+              <option>In police custody</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="step" data-done="true" aria-labelledby="s3">
+        <header>
+          <span class="step-n" aria-hidden="true">3</span>
+          <h2 id="s3">What they need</h2>
+          <span class="step-state">3 of 3 answered</span>
+        </header>
+        <div class="step-body two">
+          <div class="field">
+            <span class="legend" id="lg-sec">Secure bed needed</span>
+            <fieldset aria-labelledby="lg-sec">
+              <div class="choices">
+                <span class="choice" data-chosen="true">Yes</span><span class="choice">No</span>
+              </div>
+            </fieldset>
+          </div>
+          <div class="field">
+            <span class="legend" id="lg-inv">Detained under the Mental Health Act</span>
+            <fieldset aria-labelledby="lg-inv">
+              <div class="choices">
+                <span class="choice" data-chosen="true">Yes</span><span class="choice">No</span>
+              </div>
+            </fieldset>
+            <p class="hint">
+              This is a legal fact, not a preference. It decides which wards may lawfully take the person, which is why
+              step 4 changes when you answer it.
+            </p>
+          </div>
+          <div class="field" style="grid-column: 1/-1">
+            <span class="legend" id="lg-tr">Transport needed</span>
+            <fieldset aria-labelledby="lg-tr">
+              <div class="choices">
+                <span class="choice" data-chosen="true">Yes, with escort</span><span class="choice">Yes, no escort</span
+                ><span class="choice">No</span>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+      </section>
+
+      <section class="step" data-done="true" aria-labelledby="s4">
+        <header>
+          <span class="step-n" aria-hidden="true">4</span>
+          <h2 id="s4">Where to</h2>
+          <span class="step-state">1 chosen of 6 she qualifies for</span>
+        </header>
+        <div class="step-body">
+          <div class="field">
+            <span class="legend">Chosen</span>
+            <ul class="dests">
+              <li>
+                <div class="dest" data-chosen="true" data-eligible="true">
+                  <span class="box" aria-hidden="true">&#10003;</span><span class="who">RPH Adult Secure</span
+                  ><span class="free">1 free</span
+                  ><span class="sub2"
+                    >Royal Perth Hospital &middot; locked &middot; adult &middot; 11 km &middot;
+                    <b>meets all four requirements</b></span
+                  >
+                </div>
+              </li>
+            </ul>
+            <p class="hint">
+              Pick from <b>Where she can go</b> on the right. That panel holds every option with the reason it does or
+              does not fit, so the choosing happens next to the record rather than away from it.
+            </p>
+          </div>
+          <div class="field">
+            <span class="legend">One combination this form refuses</span>
+            <p class="refusal">
+              <b>A bed and a community team cannot travel on one referral.</b> Send the community follow-up as a second
+              referral. This is the owner&rsquo;s ruling, and it shipped to production on 3 September.
+            </p>
+          </div>
+        </div>
+      </section>
+      <div class="send-bar">
+        <p class="why-not">
+          <b>One question left:</b> confirm the home region in step 1. Send stays unavailable until every question has
+          an answer.
+        </p>
+        <button type="submit" class="send" aria-disabled="true" aria-describedby="why-not-id">Send referral</button>
+      </div>
+      <p class="sr" id="why-not-id">One question is unanswered: home region in step 1.</p>
+    </form>
+
+    <!-- ════════ THE RECORD, ALONGSIDE ════════ -->
+    <aside class="rail aside-sticky" aria-label="What the record already knows">
+      <section class="panel" aria-labelledby="k1">
+        <header><h2 class="panel-title" id="k1">Who you are referring</h2></header>
+        <div class="knows">
+          <dl class="kv">
+            <div>
+              <dt>Name</dt>
+              <dd>D. Okonkwo</dd>
+            </div>
+            <div>
+              <dt>Age</dt>
+              <dd>34 &middot; born 14 Mar 1992</dd>
+            </div>
+            <div>
+              <dt>Record</dt>
+              <dd class="num">UMRN 2214887</dd>
+            </div>
+            <div>
+              <dt>Address</dt>
+              <dd>No. 42, East Perth</dd>
+            </div>
+            <div>
+              <dt>Community team</dt>
+              <dd>Inner City &mdash; open</dd>
+            </div>
+            <div>
+              <dt>Language</dt>
+              <dd>English</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="k2">
+        <header>
+          <h2 class="panel-title" id="k2">Before you send</h2>
+          <span class="n">3</span>
+        </header>
+        <div class="knows">
+          <p class="knows-note">
+            Everything here is already in the record.
+            <b>Nothing on this panel is a suggestion, a prediction or a score</b>, and nothing here fills in a field for
+            you &mdash; it is the hunting you would otherwise do in four other screens, brought to where the decision is
+            made.
+          </p>
+          <div class="stopper">
+            <h3>Already referred elsewhere</h3>
+            <p>
+              <b>RF-115</b> is open, raised 1 day ago by Inner City, asking FSH Adult Secure. Three wards have declined
+              it and nothing is pending.
+            </p>
+            <p>Referring again may duplicate it rather than replace it.</p>
+          </div>
+          <div class="stopper">
+            <h3>Last admission</h3>
+            <p>
+              Discharged from <b>RPH Adult Secure</b> 11 days ago after 9 days, detained under the Act. Working
+              diagnosis recorded as schizoaffective disorder.
+            </p>
+          </div>
+          <div class="stopper">
+            <h3>Legal status now</h3>
+            <p>
+              Detained under the Act. <b>Expires in 4 days</b> unless extended &mdash; which changes which wards may
+              take her.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="k4">
+        <header>
+          <h2 class="panel-title" id="k4">Where she can go</h2>
+          <span class="n">5 of 10</span>
+        </header>
+        <div class="knows" style="gap: var(--sp-3)">
+          <p class="knows-note">
+            Every ward and department, with the reason it fits or does not.
+            <b>This ranks nothing and recommends nothing</b> &mdash; the reasons are the model&rsquo;s own eligibility
+            rules, and <b>you choose the order</b>. Ten destinations are listed; five can take this referral now.
+            Choosing is yours.
+          </p>
+          <div class="field">
+            <label class="sr" for="dest-search">Search wards and departments</label>
+            <input id="dest-search" type="text" placeholder="Search a ward, hospital or department" />
+          </div>
+          <div class="picker">
+            <label for="dest-sort">Order by</label>
+            <select id="dest-sort">
+              <option value="name" selected>Name (A&ndash;Z)</option>
+              <option value="distance">Distance</option>
+              <option value="free">Free beds</option>
+            </select>
+          </div>
+          <p class="caption">Meets all four requirements &mdash; secure, adult, detained, a free bed</p>
+          <ul class="dests">
+            <li>
+              <div class="dest" data-km="11" data-free="1" data-chosen="true" data-eligible="true">
+                <span class="box" aria-hidden="true">&#10003;</span><span class="who">RPH Adult Secure</span
+                ><span class="free">1 free &middot; 11 km</span><span class="sub2">Royal Perth Hospital</span>
+              </div>
+            </li>
+            <li>
+              <div class="dest" data-km="22" data-free="3" data-eligible="true">
+                <span class="box" aria-hidden="true"></span><span class="who">FSH Adult Secure</span
+                ><span class="free">3 free &middot; 22 km</span><span class="sub2">Fiona Stanley Hospital</span>
+              </div>
+            </li>
+            <li>
+              <div class="dest" data-km="47" data-free="1" data-eligible="true">
+                <span class="box" aria-hidden="true"></span><span class="who">RGH Adult Secure</span
+                ><span class="free">1 free &middot; 47 km</span><span class="sub2">Rockingham General Hospital</span>
+              </div>
+            </li>
+          </ul>
+          <p class="caption">Also possible &mdash; a department rather than a bed</p>
+          <ul class="dests">
+            <li>
+              <div class="dest" data-km="0.4" data-eligible="true">
+                <span class="box" aria-hidden="true"></span><span class="who">Royal Perth Hospital ED</span
+                ><span class="free">0.4 km</span
+                ><span class="sub2">For psychiatric review &mdash; a doctor sees her in the department</span>
+              </div>
+            </li>
+            <li>
+              <div class="dest" data-km="8" data-eligible="true">
+                <span class="box" aria-hidden="true"></span><span class="who">SCGH Emergency Department</span
+                ><span class="free">8 km</span
+                ><span class="sub2">For psychiatric review &mdash; a doctor sees her in the department</span>
+              </div>
+            </li>
+          </ul>
+          <p class="caption">Not on this referral &mdash; arranged at step 4</p>
+          <ul class="dests">
+            <li>
+              <div class="dest" data-eligible="false">
+                <span class="box" aria-hidden="true"></span><span class="who">Inner City team</span
+                ><span class="why"
+                  >Her own community team, and she is already open to it. Discharge planning is answered at
+                  <b>step 4</b>, not by choosing a destination here.</span
+                >
+              </div>
+            </li>
+          </ul>
+          <p class="caption">Cannot take her, and why &mdash; you may still ask</p>
+          <ul class="dests">
+            <li>
+              <div class="dest" data-eligible="false">
+                <span class="box" aria-hidden="true"></span><span class="who">SCGH Adult Open</span
+                ><span class="why">Open ward, and she is detained under the Act. <b>Cannot lawfully hold her.</b></span
+                ><button type="button" class="override">Ask anyway</button>
+              </div>
+            </li>
+            <li>
+              <div class="dest" data-eligible="false">
+                <span class="box" aria-hidden="true"></span><span class="who">RPH Older Adult</span
+                ><span class="why">Older adult ward, and she is 34.</span
+                ><button type="button" class="override">Ask anyway</button>
+              </div>
+            </li>
+            <li>
+              <div class="dest" data-eligible="false">
+                <span class="box" aria-hidden="true"></span><span class="who">ARM Adult Open</span
+                ><span class="why">No free bed, and an open ward. Two reasons, both stated.</span
+                ><button type="button" class="override">Ask anyway</button>
+              </div>
+            </li>
+            <li>
+              <div class="dest" data-eligible="false">
+                <span class="box" aria-hidden="true"></span><span class="who">FSH Older Adult</span
+                ><span class="why">Older adult ward, and no free bed.</span
+                ><button type="button" class="override">Ask anyway</button>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="k3">
+        <header><h2 class="panel-title" id="k3">The referral you are building</h2></header>
+        <div class="summary">
+          <dl class="kv">
+            <div>
+              <dt>Person</dt>
+              <dd>D. Okonkwo, 34</dd>
+            </div>
+            <div>
+              <dt>Raised by</dt>
+              <dd>Inner City team</dd>
+            </div>
+            <div>
+              <dt>Urgency</dt>
+              <dd>Urgent &mdash; contact within 24h</dd>
+            </div>
+            <div>
+              <dt>Needs</dt>
+              <dd>Secure bed &middot; detained &middot; transport with escort</dd>
+            </div>
+            <div>
+              <dt>Asking</dt>
+              <dd>RPH Adult Secure</dd>
+            </div>
+            <div>
+              <dt>Home region</dt>
+              <dd class="pending">not yet confirmed</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="footnote">
+    <h2>Every figure and the person here are invented</h2>
+    <ul>
+      <li>
+        <b>D. Okonkwo, UMRN 2214887, born 14 Mar 1992, No. 42 East Perth</b> &mdash; an invented person. The record
+        number is invented and deliberately not in WA UMRN format length conventions; the address is a bare number plus
+        a real suburb, with no invented street.
+      </li>
+      <li>
+        <b>Free-bed counts</b> (2, 1, 4, 3, 0), <b>distances</b> (11 km, 22 km), <b>RF-115 and its three declines</b>,
+        the <b>11 days / 9 days</b> admission figures, and the <b>4 days</b> until legal status expires.
+      </li>
+      <li><b>The working diagnosis</b> and every clinical detail.</li>
+      <li><b>Distances</b> &mdash; 0.4 km to 47 km &mdash; and the count &ldquo;6 of 9&rdquo;.</li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>The wards and hospitals</b> &mdash; RPH Adult Secure, FSH Adult Secure, SCGH Adult Open, RPH Older Adult, ARM
+        Adult Open, and the Royal Perth and Sir Charles Gairdner emergency departments, all named in the ward model.
+      </li>
+      <li>
+        <b>East Perth belongs to the Inner City clinic</b> &mdash; verified in the catchment table built from five WA
+        Health documents.
+      </li>
+      <li>
+        <b>The eligibility reasons are the model's real rules:</b> an open ward cannot hold a detained person, an
+        older-adult ward is for older adults, and a ward with no free bed has none. So is the refusal of a bed and a
+        community team on one referral &mdash; that shipped to production yesterday on the owner's ruling.
+      </li>
+    </ul>
+    <h2>What changed, and why</h2>
+    <ul>
+      <li>
+        <b>Twelve equally-weighted cards became four numbered steps.</b> Numbering is honest here because this genuinely
+        is a sequence: step 4 cannot be answered until step 3 is, since the legal answer decides which wards may take
+        the person.
+      </li>
+      <li>
+        <b>Four questions disappeared entirely.</b> Age band, sex, suburb and catchment come from the record when the
+        form is opened from a person. A fact read from the record cannot be mistyped into it.
+      </li>
+      <li>
+        <b>Ineligible wards stay listed with their reason and an "Ask anyway".</b> Hiding them would be the easier
+        design and the wrong one: the coordinator can override eligibility, and a screen that removes the option
+        silently removes the authority. The reason is stated in words, never by colour alone.
+      </li>
+      <li>
+        <b>The right-hand panel surfaces facts and makes no judgements.</b> That is a deliberate limit, agreed before
+        this was designed: it may tell you a referral is already open, and it may not tell you where to send this one.
+        The moment it suggests a destination it is making a clinical decision, and the moment it fills a field an
+        unreviewed guess becomes a record.
+      </li>
+      <li>
+        <b>Every option she qualifies for is now in the right-hand panel, with a search.</b> Step 4 shows only what has
+        been CHOSEN. Discovery sits beside the record because that is where the facts that decide it are &mdash; her
+        legal status, her age, the open referral &mdash; and commitment sits in the form. One control, not two: the
+        panel is where you tick, and step 4 is what you have ticked.
+      </li>
+      <li>
+        <b>The panel groups options by whether they fit, and states why in words.</b> “Meets all four requirements”,
+        “also possible — a department rather than a bed”, and “cannot take her, and why”. The clinician sets the order
+        and the panel <b>ranks nothing</b>: eligibility is a rule the model computes, choosing is a clinical decision,
+        and the panel does the first and refuses the second.
+      </li>
+      <li>
+        ⚠️
+        <b
+          >An ED card claimed &ldquo;a notification, not a bed request &mdash; nobody declines it&rdquo;. That was
+          false, and it is corrected here.</b
+        >
+        Checked against <code>src/components/ward-management/ward-referrals.ts</code>: the spec&rsquo;s
+        <b>FD-18</b> correction of 2026-08-30 says
+        <i>&ldquo;every referral is declinable, the ward&rsquo;s medical notification included&rdquo;</i>, and that
+        stating a referral&rsquo;s PURPOSE is
+        <i>&ldquo;a safety rule rather than a presentational preference&rdquo;</i>, because a declinable row with no
+        stated purpose is indistinguishable from a bed request. The card would have told a clinician a referral cannot
+        come back declined when it can. Both ED rows now state the purpose and say nothing about who may decline.
+      </li>
+      <li>
+        <b>&ldquo;Inner City team&rdquo; left the &ldquo;also possible&rdquo; group.</b> It sat under a heading a reader
+        skims as available while its own text said it was not, so a clinician could tick it and be refused &mdash; the
+        confusion the refusal exists to prevent. It has its own heading rather than joining &ldquo;cannot take
+        her&rdquo;, because nothing is wrong with the team: it is her own, and discharge planning is simply answered at
+        step 4.
+      </li>
+      <li>
+        <b>The count read &ldquo;6 of 9&rdquo; above ten destinations.</b> Both figures were wrong. Counted: three meet
+        all four requirements, two departments can take the referral, one is arranged at step 4, four cannot take her.
+        Ten listed, five available now.
+      </li>
+      <li>
+        ⚠️ <b>The order was distance, under a caption saying the panel ranks nothing.</b> Choosing distance IS a
+        judgement about what matters most, and first position reads as the answer whatever the caption says &mdash; it
+        put RPH Adult Secure (1 free, 11 km) above FSH Adult Secure (3 free, 22 km), and for a detained patient needing
+        escorted transport that trade-off is the clinician&rsquo;s to make rather than inherit. The order is now hers to
+        set. <b>The default is alphabetical</b>, because every option in that group already meets all four requirements,
+        so ordering by any clinical quantity puts a thumb on a scale the panel says it is not touching; a name carries
+        no such signal.
+      </li>
+      <li>
+        <b>Send names the one thing outstanding.</b> Not "complete all fields" &mdash; the specific question, in the
+        step it lives in.
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script id="dest-sort-behaviour">
+  /* The destination order is the clinician's, not the page's. Every group in this panel re-sorts
+     together, so a chosen order is not true under one heading and false under the next. Entries
+     carrying no distance or bed count — a community team, a ward that cannot take her — sort last
+     under those orders rather than being given an invented number.
+
+     Scoped to this panel deliberately: step 4 renders the CHOSEN destination in a list of the same
+     class, and reordering somebody's answer because they changed how they are browsing is wrong. */
+  (function () {
+    var select = document.getElementById("dest-sort");
+    if (!select) return;
+    var panel = select.closest("section");
+    var lists = [].slice.call((panel || document).querySelectorAll("ul.dests"));
+    var num = function (li, attr) {
+      var d = li.querySelector(".dest");
+      var raw = d && d.getAttribute(attr);
+      return raw === null || raw === undefined || raw === "" ? null : parseFloat(raw);
+    };
+    var name = function (li) {
+      var w = li.querySelector(".who");
+      return (w ? w.textContent : "").trim().toLowerCase();
+    };
+    var byName = function (a, b) {
+      return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
+    };
+    var apply = function (mode) {
+      lists.forEach(function (list) {
+        var items = [].slice.call(list.children);
+        items.sort(function (a, b) {
+          if (mode === "name") return byName(a, b);
+          var attr = mode === "distance" ? "data-km" : "data-free";
+          var x = num(a, attr),
+            y = num(b, attr);
+          if (x === null && y === null) return byName(a, b);
+          if (x === null) return 1;
+          if (y === null) return -1;
+          if (x === y) return byName(a, b);
+          return mode === "distance" ? x - y : y - x;
+        });
+        items.forEach(function (li) {
+          list.appendChild(li);
+        });
+      });
+    };
+    select.addEventListener("change", function () {
+      apply(select.value);
+    });
+    apply(select.value);
+  })();
+</script>

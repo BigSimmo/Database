@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   acquireLease,
   assertCommonTransitionSourceSha,
@@ -274,6 +274,31 @@ function childExit(child: ReturnType<typeof spawn>) {
   });
 }
 
+/*
+ * ⚠️ THE PER-TEST BUDGET IS RAISED BECAUSE OF LOAD, NOT BECAUSE THE WORK IS SLOW. Measured on a
+ * quiet machine, 2026-09-04, whole file 64.16s for 39 tests:
+ *
+ *   slowest ordinary test   9195 ms   "mechanically inventories Git documents, chat logs and
+ *                                      checkout sources"
+ *   next                    4822 ms
+ *   the 124 MB bundle test 13943 ms   and it already carries its own 300_000 override below
+ *
+ * So vitest's 5000 ms default was never matched to this file, and the 30_000 ms it was running
+ * under was only ~3x the slowest ordinary test. With four subagents running, seven tests in this
+ * file timed out at 30_000 ms — and A DIFFERENT SET FAILED ON EACH RUN, which is the signature of
+ * a clock rather than a defect.
+ *
+ * 🔴 THAT FAILURE MODE IS WHY THIS IS RAISED RATHER THAN THE ASSERTIONS WEAKENED. A gate that is
+ * red when the machine is busy and green when it is quiet teaches everyone to re-run it, and a
+ * passing re-run is indistinguishable from a real pass. Nobody would ever again be able to tell a
+ * genuine control-plane failure from a busy afternoon.
+ *
+ * 120_000 is ~13x the slowest ordinary test: ample headroom for load, while a genuinely hung test
+ * still fails in two minutes rather than five. Do not raise it further without measuring again —
+ * the number above is the justification, not the value.
+ */
+vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
+
 describe("Ward Flow compact chat control", () => {
   it("pins exactly three roles, one sole integrator and the activation gate the live state has reached", () => {
     const contract = validateRolesContract(readJson("roles.json"));
@@ -393,6 +418,90 @@ describe("Ward Flow compact chat control", () => {
         "recorded-source",
       ),
     ).toThrow(/checkout status drifted/);
+  });
+
+  /*
+   * 🔴 THE BRANCH IS THE INTEGRITY REQUIREMENT; THE PATH IS A CACHE. These three pin the rekey of
+   * 2026-09-04, after THREE OF THE FIVE recorded checkouts were found pointing at folders wiped by
+   * an unrelated cleanup session — while all five branches still resolved and every recorded head
+   * was still on its branch. Nothing had been lost; the validator was reporting a folder, not the work.
+   *
+   * ⚠️ THESE CALL THE VALIDATOR DIRECTLY, ON PURPOSE, AND THAT IS THE WHOLE POINT OF THEM.
+   * `validateControlPlane` reads the snapshot from a COMMITTED REF (`headFile(..., { ref: sourceSha })`),
+   * not from the working tree — so editing `live-state.json` on disk to test this proves NOTHING.
+   * The first attempt did exactly that, passed, and the mutant had never run.
+   */
+  it("treats a branch that no longer resolves as real loss, even with no worktree mounted", () => {
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-"), "never-created");
+    expect(existsSync(missingPath), "this test needs a path that does NOT exist").toBe(false);
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch: "claude/no-such-branch-anywhere", head: "2".repeat(40) },
+        { tracked: [], untrackedCount: 0 },
+        "recorded-source",
+      ),
+    ).toThrow(/branch claude\/no-such-branch-anywhere no longer resolves/);
+  });
+
+  it("treats a recorded head that is not on its branch as real loss, not merely unreachable", () => {
+    /*
+     * ⚠️ THE HEAD USED HERE MUST EXIST AS AN OBJECT AND NOT BE ON THE BRANCH. My first version of
+     * this test used a SHA of forty 2s, which exists nowhere — so it failed the ancestry check AND
+     * a mere object-existence check identically, and could not tell them apart. Weakening the
+     * validator to `cat-file -e` left it GREEN. Proved by mutation, not by reading it.
+     *
+     * So this walks the real branch graph for a commit that is genuinely present and genuinely not
+     * an ancestor, and SKIPS rather than pretends if this checkout has no such commit.
+     */
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-"), "never-created");
+    const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }).trim();
+    const candidates = execFileSync("git", ["for-each-ref", "--format=%(objectname)", "refs/heads/"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    })
+      .split(String.fromCharCode(10))
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const offBranch = candidates.find((sha) => {
+      try {
+        execFileSync("git", ["merge-base", "--is-ancestor", sha, branch], { cwd: projectRoot, stdio: "ignore" });
+        return false;
+      } catch {
+        return true;
+      }
+    });
+    expect(
+      offBranch,
+      "no local branch head is off the current branch, so this test cannot discriminate ancestry " +
+        "from mere existence — it would pass against a validator that only checks the object exists",
+    ).toBeDefined();
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head: offBranch },
+        { tracked: [], untrackedCount: 0 },
+        "recorded-source",
+      ),
+    ).toThrow(/is not on/);
+  });
+
+  it("accepts an intact branch with no worktree mounted, and says so rather than failing", () => {
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-"), "never-created");
+    const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }).trim();
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf8" }).trim();
+    const result = assertCheckoutMatchesSnapshot(
+      { checkout: missingPath, branch, head },
+      { tracked: [], untrackedCount: 0 },
+      "recorded-source",
+    );
+    expect(result.mounted, "an unmounted checkout is an ordinary state, not an error").toBe(false);
+    expect(result.branch).toBe(branch);
+    expect(result.head).toBe(head);
   });
 
   it("requires the Verifier checkout itself to equal the frozen target", () => {
