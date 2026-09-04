@@ -26,6 +26,20 @@ describe("retrieveCatalogueEvidence", () => {
     }
   });
 
+  it.each(clinicalAskCases)(
+    "returns no $mode evidence when nothing matches instead of the whole catalogue",
+    async (request) => {
+      // A question that matches no catalogue record must reach the orchestrator as
+      // an empty tier so its evidence-gap path fires before any provider call (L16).
+      const evidence = await retrieveCatalogueEvidence(
+        { ...request, question: "zqxvblorp qwxzk" },
+        new AbortController().signal,
+      );
+
+      expect(evidence).toEqual([]);
+    },
+  );
+
   it("preserves Therapy governance without ranking needs-review records upward", async () => {
     const request = clinicalAskCases.find(({ mode }) => mode === "therapy-compass")!;
     const evidence = await retrieveCatalogueEvidence({ ...request, question: "" }, new AbortController().signal);
