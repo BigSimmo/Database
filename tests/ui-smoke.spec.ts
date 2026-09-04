@@ -2106,7 +2106,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(sourceRailBox!.y).toBeGreaterThanOrEqual(pointsBox!.y + pointsBox!.height - 1);
 
     await safetyFindingsTrigger.click();
-    const safetyFindingsSheet = page.getByRole("dialog", { name: "Pearls" });
+    const safetyFindingsSheet = page.getByRole("dialog", { name: "Key points" });
     await expect(safetyFindingsSheet).toBeVisible();
     await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
     expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
@@ -2118,7 +2118,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const toneRank = { stop: 0, act: 1, know: 2 } as Record<string, number>;
     const sheetRanks = sheetTones.map((tone) => toneRank[tone ?? "know"] ?? 2);
     expect(sheetRanks).toEqual([...sheetRanks].sort((left, right) => left - right));
-    await safetyFindingsSheet.getByRole("button", { name: "Close pearls" }).click();
+    await safetyFindingsSheet.getByRole("button", { name: "Close key points" }).click();
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
 
@@ -2129,9 +2129,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     if ((await laterPills.count()) > 0) {
       const laterPill = laterPills.first();
       await laterPill.click();
-      await expect(page.getByRole("dialog", { name: "Pearls" })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Key points" })).toBeVisible();
       await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog", { name: "Pearls" })).toHaveCount(0);
+      await expect(page.getByRole("dialog", { name: "Key points" })).toHaveCount(0);
       await expect(laterPill).toBeFocused();
       await expect(safetyFindingsTrigger).not.toBeFocused();
     }

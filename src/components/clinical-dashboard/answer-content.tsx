@@ -398,7 +398,7 @@ export function NaturalLanguageAnswer({
   query?: string;
   preformatted?: boolean;
   /**
-   * The Pearls rail, rendered at the seam between the answer and its
+   * The Key points rail, rendered at the seam between the answer and its
    * sources. Passed in rather than derived here because the surface owns the
    * findings and the sheet they open; this component owns only where the seam
    * is.

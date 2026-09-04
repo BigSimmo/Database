@@ -255,14 +255,14 @@ function StagedAnswerResultSurfaceImpl({
    * glance invite the reader to look for a difference between them.
    *
    * The safety findings themselves are NOT here any more (owner decision,
-   * 2026-09-03). They render as the Pearls rail below the prose, at the
+   * 2026-09-03). They render as the Key points rail below the prose, at the
    * seam where the answer ends and its evidence begins, because a finding is
    * extracted content rather than a statement about the answer's status. This
    * row is now the support chip plus the limitations control alone.
    */
   const answerMetaChips = null;
   /**
-   * The Pearls rail: one pill per finding kind, in severity order,
+   * The Key points rail: one pill per finding kind, in severity order,
    * every pill opening the same sheet.
    *
    * Grouped by kind because `SafetyFinding` carries no short title — only
@@ -281,11 +281,11 @@ function StagedAnswerResultSurfaceImpl({
     safetyFindings.length > 0 ? (
       <section
         data-testid="answer-clinical-points"
-        aria-label={`Pearls — ${safetyFindings.length} ${safetyFindings.length === 1 ? "pearl" : "pearls"}`}
+        aria-label={`Key points — ${safetyFindings.length} ${safetyFindings.length === 1 ? "point" : "points"}`}
         className="flex min-w-0 items-center gap-2 overflow-x-auto scrollbar-none"
       >
         <span className="shrink-0 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-          Pearls
+          Key points
         </span>
         {clinicalPointGroups.map((group, index) => (
           <button
@@ -299,7 +299,7 @@ function StagedAnswerResultSurfaceImpl({
             type="button"
             onClick={openSafetyFindings}
             className={cn("group shrink-0", chipButton)}
-            aria-label={`Open pearls — ${group.label}${group.count > 1 ? `, ${group.count}` : ""}`}
+            aria-label={`Open key points — ${group.label}${group.count > 1 ? `, ${group.count}` : ""}`}
           >
             <span
               className={cn(
@@ -641,9 +641,9 @@ function StagedAnswerResultSurfaceImpl({
           <Sheet
             open={safetyFindingsOpen}
             onClose={closeSafetyFindingsReview}
-            title="Pearls"
+            title="Key points"
             description="Drawn from the cited source text. Verify before clinical use."
-            closeLabel="Close pearls"
+            closeLabel="Close key points"
             // The warning tones are written out rather than layered onto
             // `iconTilePremium`: that recipe carries the clinical-accent border and
             // background, so appending `text-…` recoloured only the glyph — the sheet
@@ -683,7 +683,7 @@ function StagedAnswerResultSurfaceImpl({
           </Sheet>
         ) : null}
 
-        {/* The limitations sheet. Same shape as the pearls sheet above deliberately: two chips
+        {/* The limitations sheet. Same shape as the key-points sheet above deliberately: two chips
             sitting on one status line should not open two different kinds of thing. */}
         {answerEvidenceGapsDetail ? (
           <Sheet

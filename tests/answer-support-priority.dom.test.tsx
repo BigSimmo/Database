@@ -210,7 +210,7 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     );
     expect(surface).toContain("<AnswerUtilityActions");
     // The support card was removed on 2026-08-31. The header chip that replaced
-    // it became the Pearls rail (named Clinical points until 2026-09-04), moved to the seam
+    // it became the Key points rail (named Clinical points until 2026-09-04), moved to the seam
     // between the answer and its sources. The rail is therefore the ONLY route
     // to the findings sheet, so every pill must stay a button.
     expect(surface).not.toContain("<AnswerSupportSummaryCard");
