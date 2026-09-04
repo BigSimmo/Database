@@ -130,4 +130,62 @@ describe("privacy page interaction", () => {
     expect(panel.textContent).toContain("without signing in");
     expect(panel.textContent).toContain("row-level security");
   });
+
+  /**
+   * Nothing in the application checks what an uploaded document contains, and
+   * `docs/privacy-impact-assessment.md` §2 classifies uploaded documents as
+   * possibly carrying PHI. The corpus claim must read as intent, not as fact.
+   */
+  it("states the guideline-only corpus as intent rather than an enforced fact", () => {
+    render(<PrivacyQuietSignalPage />);
+
+    const { panel } = panelFor("Who can access your data");
+    expect(panel.textContent).toContain("intended to hold guideline and reference material, not patient data");
+    expect(panel.textContent).not.toContain("the corpus is guideline and reference material rather than patient data");
+    expect(panel.textContent).toContain("Nothing in the application inspects what a document actually contains");
+  });
+
+  /**
+   * `set_document_corpus_access_mode('public')`
+   * (`supabase/migrations/20260825025032_reversible_document_corpus_access_mode.sql`)
+   * disables `documents_require_publication_approval` and publishes every captured
+   * document at once, so per-document approval is not the only publication path.
+   */
+  it("names the corpus-wide publication switch, not only the per-document path", () => {
+    render(<PrivacyQuietSignalPage />);
+
+    const { panel } = panelFor("Who can access your data");
+    expect(panel.textContent).toContain("publish the corpus as a whole rather than document by document");
+    expect(panel.textContent).toContain("suspends the per-document approval requirement");
+  });
+
+  /**
+   * The app tier reads through the service-role admin client and enforces
+   * ownership in application code (`withOwnerReadScope`); RLS is the layer
+   * behind it, not the mechanism the page reads through. See
+   * `docs/audit/tenancy-defense-in-depth-review.md` §2.
+   */
+  it("puts the application owner scope ahead of row-level security", () => {
+    render(<PrivacyQuietSignalPage />);
+
+    const { panel } = panelFor("Who can access your data");
+    expect(panel.textContent).toContain("the server scopes every read to that owner");
+    expect(panel.textContent).toContain("row-level security stands behind it");
+    expect(panel.textContent).not.toContain("row-level security restricts reads to that owner");
+  });
+
+  /**
+   * `POST /api/upload` requires `{ administrator: true }`, so an ordinary
+   * signed-in reader must not be told the page is describing "your uploads".
+   */
+  it("describes uploading as an administrator action", () => {
+    render(<PrivacyQuietSignalPage />);
+
+    const { panel } = panelFor("Who can access your data");
+    expect(panel.textContent).toContain("Uploading documents is an administrator action");
+    expect(panel.textContent).toContain("stays with the administrator account that uploaded it");
+
+    const responsibilities = panelFor("Your responsibilities").panel;
+    expect(responsibilities.textContent).toContain("If your account has administrator upload access");
+  });
 });
