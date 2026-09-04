@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getMedicationRecord } from "@/lib/medication-snapshot";
-import { recordToRow, rowToMedicationRecord, type MedicationRecordRow } from "@/lib/medication-records";
+import { recordToRow, rowGovernance, rowToMedicationRecord, type MedicationRecordRow } from "@/lib/medication-records";
 
 function baseRow(overrides: Partial<MedicationRecordRow> = {}): MedicationRecordRow {
   return {
@@ -162,5 +162,72 @@ describe("rowToMedicationRecord", () => {
     expect(record.stats).toEqual(snapshot.stats);
     expect(record.sections).toEqual(snapshot.sections);
     expect(record.quick).toEqual(snapshot.quick);
+  });
+});
+
+describe("rowGovernance", () => {
+  const datedSections = [
+    {
+      title: "Sources",
+      type: "src",
+      rows: [{ key: "Source Review", val: "TGA PI checked 2026-05-14" }],
+    },
+  ];
+
+  it("ages the stored status from the row's own sections instead of trusting the column", () => {
+    // `source_status` is written once, by `recordToRow` at insert time, and never
+    // ages. Before this, a row inserted as `current` claimed `current` forever in
+    // production while demo mode — which re-derives per request — aged correctly.
+    const row = baseRow({ sections: datedSections, source_status: "current" });
+    const governance = rowGovernance(row, new Date("2028-01-01T00:00:00.000Z"));
+
+    expect(governance.sourceStatus).toBe("review_due");
+    expect(governance.sourceCheckedAt).toBe("2026-05-14");
+  });
+
+  it("still reports current while the stored sections are inside the review interval", () => {
+    const row = baseRow({ sections: datedSections, source_status: "unknown" });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+
+    expect(governance.sourceStatus).toBe("current");
+    expect(governance.sourceCheckedAt).toBe("2026-05-14");
+  });
+
+  it("reports unknown for a row with no source section even when the column says current", () => {
+    const row = baseRow({ sections: [], source_status: "current" });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+
+    expect(governance.sourceStatus).toBe("unknown");
+    expect(governance.sourceCheckedAt).toBeNull();
+  });
+
+  it("reports unknown for malformed sections JSONB rather than falling back to the column", () => {
+    const row = baseRow({ sections: { not: "an array" } as never, source_status: "current" });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+
+    expect(governance.sourceStatus).toBe("unknown");
+  });
+
+  it("never downgrades a stored superseded status by re-deriving from age", () => {
+    // `outdated` asserts a recorded clinical judgement that guidance was superseded.
+    // Age can neither establish nor refute it, so re-derivation must not erase it.
+    const row = baseRow({ sections: datedSections, source_status: "outdated" });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+
+    expect(governance.sourceStatus).toBe("outdated");
+  });
+
+  it("passes validation status and review timestamps through unchanged", () => {
+    const row = baseRow({
+      sections: datedSections,
+      validation_status: "approved",
+      last_reviewed_at: "2026-05-14T00:00:00.000Z",
+      review_due_at: "2027-05-14T00:00:00.000Z",
+    });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+
+    expect(governance.validationStatus).toBe("approved");
+    expect(governance.lastReviewedAt).toBe("2026-05-14T00:00:00.000Z");
+    expect(governance.reviewDueAt).toBe("2027-05-14T00:00:00.000Z");
   });
 });

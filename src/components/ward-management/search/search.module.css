@@ -4,22 +4,46 @@
  * needs is declared here, never borrowed from another module's scope.
  */
 .screen {
-  --ps-space-4: 0.25rem;
-  --ps-space-6: 0.375rem;
-  --ps-space-8: 0.5rem;
-  --ps-space-10: 0.625rem;
-  --ps-space-12: 0.75rem;
-  --ps-space-14: 0.875rem;
-  --ps-space-16: 1rem;
-  --ps-space-20: 1.25rem;
-  --ps-space-24: 1.5rem;
-  --ps-space-48: var(--spacing-tap);
-  --ps-leading-body: 1.4;
+  /*
+   * ⚠️ THE LOCAL SCALE IS GONE, and its absence is the point. This file used to declare
+   * `--wf-border` and `--ps-space-4` … `--ps-space-48` on this rule — a second scale running
+   * alongside the shared one, which is the fork `ward-tokens.module.css` exists to prevent.
+   * Every value mapped one-for-one: `--ps-space-N` and `--ward-space-N` held identical values,
+   * and `--wf-border` and `--ward-border` both resolve to `--neutral-500`, so nothing rendered
+   * differently. ⚠️ `--ps-space-48` was NEVER a spacing step — it aliased `var(--spacing-tap)`,
+   * the 48px tap target — so it maps to that token directly rather than to a space of any name.
+   */
+  composes: wardTokens from "../ward-tokens.module.css";
+  /*
+   * ⚠️ `--ps-leading-note: 1.5` IS GONE, AND THIS IS NOT THE ROUNDING ITS OLD COMMENT WARNED
+   * ABOUT. That comment was right in principle: rounding somebody's chosen leading to satisfy a
+   * checker is the wrong way round. But 1.5 is the exact value `--ward-leading-prose` BEAT when
+   * the three duplicate token layers were consolidated (see `ward-tokens.module.css`), so keeping
+   * it here re-litigates a settled question by accident. The rule, which now applies to every
+   * screen: A LOCAL VALUE THAT LOST A CONSOLIDATION ADOPTS THE WINNER. `.referralNote` below uses
+   * `--ward-leading-prose` (1.55) and is 0.05 looser than it was authored.
+   */
 
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /*
+   * ⚠️ THE GROUND, AND THIS ONE LINE IS THE WHOLE DIRECTION. Painting `--surface` here put white
+   * behind every panel on a white page, so nothing read as a discrete instrument. The panels below
+   * keep their own surfaces; what changes is that the gaps between them now show ground.
+   */
+  /*
+   * ⚠️ NO background HERE, DELIBERATELY, and do not reintroduce one in any spelling.
+   *
+   * The shell owns the ground. `tests/ward-shell.dom.test.tsx` pins that as a sorted list of the
+   * stylesheets painting `--ward-ground` and requires it to be exactly `ward-shell.module.css`,
+   * because a count would survive the declaration simply moving to another file.
+   *
+   * This screen previously painted `var(--surface)` over that ground. Repointing it to
+   * `var(--ward-ground)` looked like the adoption and was the same mistake in the Board's own
+   * vocabulary: a screen painting the ground at all is a screen covering the shell's. Deleting it
+   * is the adoption.
+   */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -29,21 +53,21 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--ps-space-20);
+  gap: var(--ward-space-20);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--ps-space-16) var(--ps-space-20) var(--ps-space-24);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
 }
 
 .governanceBanner {
   display: flex;
-  min-height: var(--ps-space-48);
+  min-height: var(--spacing-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--ps-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-border);
   background: var(--surface-chrome);
-  padding: var(--ps-space-8) var(--ps-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -52,7 +76,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--ps-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .prototypeBadge {
@@ -60,7 +84,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--ps-space-4) var(--ps-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -71,7 +95,7 @@
 .pageHeader {
   display: flex;
   flex-direction: column;
-  gap: var(--ps-space-4);
+  gap: var(--ward-space-4);
 }
 
 .pageTitle {
@@ -95,22 +119,37 @@
  */
 .filters {
   display: grid;
-  gap: var(--ps-space-8);
+  gap: var(--ward-space-8);
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  border: 0.0625rem solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  padding: var(--ps-space-12) var(--ps-space-14);
+  /*
+   * The filter strip is the same card shape as a panel but carries no title, and the Board
+   * vocabulary has no primitive for an untitled control strip — `WardPanel` always renders a
+   * header. So these four values are hand-matched to `.panel`'s, which is a duplication the
+   * layer does not yet name: if the panel's border, radius, surface or inset is ever re-pointed,
+   * this rule will not follow it and nothing will report the divergence.
+   */
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  background: var(--ward-canvas);
+  padding: var(--ward-space-12) var(--ward-space-16);
 }
 
 .field {
-  display: grid;
   /* Grid items refuse to shrink below their content width by default, and a `<select>` is as wide
      as its widest option. Without `min-width: 0` here and `width: 100%` below, the Department
      select rendered wider than its own card on a 390px phone and spilled past the card's right
      edge — visible in a screenshot, invisible to every structural check. */
-  min-width: 0;
-  gap: var(--ps-space-4);
+  composes: field from "../ward-shared.module.css";
+  /*
+   * ⚠️ COMPOSED, NOT COPIED. The shared class carries the layout only — `display: flex`,
+   * `flex-direction: column`, a 4px gap and `min-width: 0` — so the phone-overflow fix the comment
+   * above describes survives adoption. That was checked by reading the shared rule, not by deleting
+   * and waiting for a red: no test renders this at 390px, so nothing would have gone red either way.
+   *
+   * The shared class is NOT a superset: it sets no colour and no type. The three declarations below
+   * are what it does not carry, and keeping them here is the difference between composing and
+   * re-implementing.
+   */
   color: var(--text-heading);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -120,37 +159,42 @@
 .field select {
   width: 100%;
   min-width: 0;
-  min-height: var(--ps-space-48);
-  border: 0.0625rem solid var(--border);
+  min-height: var(--spacing-tap);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  padding: 0 var(--ps-space-10);
+  padding: 0 var(--ward-space-10);
   color: var(--text);
   font-size: var(--text-xs);
   font-weight: 400;
 }
 
-.section {
-  display: grid;
-  gap: var(--ps-space-8);
-  border: 0.0625rem solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  padding: var(--ps-space-12) var(--ps-space-14);
-}
-
-.resultsHeading {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: 700;
-}
-
 .emptyNote {
   margin: 0;
+  padding: var(--ward-space-12) var(--ward-space-16);
   color: var(--text-muted);
   font-size: var(--text-xs);
   font-style: italic;
+}
+
+/*
+ * The one link inside `.emptyNote`'s own sentence ("...they need adding before they can be
+ * referred. Add this person"). Deliberately NOT `.personLink` (a block-level, 48px flex row built
+ * for a list item, `min-height` and all) — this link sits inside a run of prose, not its own row,
+ * and WCAG 2.5.8's own inline exception is exactly this shape: a target "in a sentence, or its
+ * size is otherwise constrained by the line-height of non-target text". Not italic like the
+ * sentence around it, so the one actionable word in the paragraph reads as actionable.
+ */
+.emptyNoteLink {
+  color: var(--clinical-accent);
+  font-style: normal;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.emptyNoteLink:hover,
+.emptyNoteLink:focus-visible {
+  text-decoration-thickness: 0.125rem;
 }
 
 .table {
@@ -161,8 +205,8 @@
 
 .table th,
 .table td {
-  border-bottom: 0.0625rem solid var(--border);
-  padding: var(--ps-space-6) var(--ps-space-8);
+  border-bottom: 0.0625rem solid var(--ward-border);
+  padding: var(--ward-space-6) var(--ward-space-8);
   text-align: left;
   vertical-align: top;
 }
@@ -195,6 +239,28 @@
 }
 
 /*
+ * A person's row is a link across its whole line, at the full 3rem tap target this repository uses
+ * for production controls rather than the height of the text. These rows were inert `<li>`s that
+ * absorbed a click in silence; making them clickable but hard to hit would swap one quiet failure
+ * for a quieter one.
+ */
+.personLink {
+  display: flex;
+  min-width: 0;
+  min-height: var(--spacing-tap);
+  align-items: center;
+  gap: var(--ward-space-6);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.personLink:hover,
+.personLink:focus-visible {
+  text-decoration: underline;
+}
+
+/*
  * Wide content scrolls; it never crushes. Without this the table is `width: 100%` on a 390px
  * phone, so the browser squeezes every column until words break mid-syllable — measured on a
  * production build: "Place/ment reque/sted", "Desti/natio/n revie/w" — and the right-hand column
@@ -203,6 +269,45 @@
  *
  * Found by looking at a screenshot. Every structural check passed on this table.
  */
+/*
+ * WAITING REFERRALS, shown above the movement table and never inside it.
+ *
+ * A referral has no stage, no department, no destination and no time since arrival — four of the
+ * table's six columns — because nobody has accepted it. Four blank cells on a clinical screen read
+ * as missing data rather than as inapplicable, which is why this is a list and not extra rows.
+ */
+.referralList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* Closes the block against whatever follows it in the panel — here, the movements table. */
+  border-bottom: 1px solid var(--ward-divider);
+}
+
+.referralRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-4);
+  border-top: 1px solid var(--ward-divider);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+
+/* The panel header already draws a line here; a second one on the first row doubles it. */
+.referralList li:first-child {
+  border-top: 0;
+}
+
+.referralId {
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+.referralNote {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--ward-leading-prose);
+}
+
 .tableScroll {
   overflow-x: auto;
 }
@@ -219,5 +324,129 @@
 @media (max-width: 40rem) {
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/* The people section. Listed above the movements because a person is the subject and a movement is
+   something that happened to them — the ordering is the claim, so it is stated here rather than
+   left to whichever section happens to be rendered first. */
+.peopleList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/*
+ * ⚠️ THE ROW CARRIES NO PADDING; THE LINK INSIDE IT DOES. Both would double-count: measured on
+ * screen at 72px for a row whose whole content is one 48px tap target, leaving 24px of every row
+ * looking clickable and not being. Putting the inset on the link makes the entire row the target
+ * and the row exactly one tap target tall.
+ *
+ * Nothing could have caught this. The row rendered, the text was right, the tap target still met
+ * its minimum, and every assertion about this list is about its contents. It was found by opening
+ * the screen and measuring an element that looked too tall.
+ */
+.peopleList li {
+  border-top: 1px solid var(--ward-divider);
+}
+
+.peopleList li:first-child {
+  border-top: 0;
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    /*
+     * ⚠️ REPOINTED AT `--ward-border`, NOT DELETED, AND DELETING IT IS THE TRAP THIS ADOPTION
+     * INVITES. `ward-tokens.module.css` declares `--ward-border` and carries NO forced-colors
+     * block of its own — checked, and seven other ward stylesheets do have one, so its absence
+     * there is a gap rather than a convention. Adopt the shared layer, drop this override, and a
+     * high-contrast user silently loses the system border colour. Nothing goes red: no test
+     * renders under forced colours.
+     */
+    --ward-border: var(--border);
+  }
+}
+
+/*
+ * 🔴 PRINTING THIS SCREEN SILENTLY DROPPED TWO COLUMNS UNTIL THIS BLOCK EXISTED.
+ *
+ * Measured at A4 portrait (794x1123) with 43 rows: `.tableScroll` had clientWidth 637 against
+ * scrollWidth 704, so 67px was outside the box. Present on paper: Movement, Stage, Department,
+ * Destination. CUT OFF: "Since arrival" and "Open" — the elapsed time being the column a
+ * coordinator prints this list to read.
+ *
+ * ⚠️ HORIZONTAL OVERFLOW DOES NOT EXIST ON PAPER, AND THAT IS THE WHOLE PROBLEM. Vertical overflow
+ * paginates: a long list simply runs onto the next sheet. Horizontal overflow is not paginated, not
+ * ruled, not marked with an ellipsis, and leaves no sign of itself. The reader sees six columns,
+ * reads them as the whole table, and never learns there were eight.
+ *
+ * ⚠️ AND IT WAS ONLY VISIBLE BECAUSE THIS SCREEN SEEDS 43 ROWS. A screen with a short seed list
+ * measures clean at A4 and prints badly the day real data arrives, so a green sweep across the
+ * other screens would not mean much.
+ *
+ * Same shape as `ward-management-modes.module.css`'s print block. `!important` because the
+ * on-screen rule is what has to be beaten, and there is no other declaration to lose to.
+ */
+@media print {
+  .tableScroll {
+    overflow: visible !important;
+  }
+
+  /*
+   * 🔴 THREE CONSTRAINTS MAKE THIS TABLE TOO WIDE, AND ALL THREE HAVE TO GO. Releasing only the
+   * container turns "67px hidden inside a scroll box" into "67px hanging off the paper" — the same
+   * two columns missing, and now with nothing to grep for.
+   *
+   *   .tableScroll  overflow-x: auto     clips it
+   *   .table        min-width: 44rem     704px against A4's 637px content width — the 67px exactly
+   *   .table th     white-space: nowrap  re-forces the width even at min-width: 0
+   *
+   * `.table td` already has `overflow-wrap: anywhere`, so body cells reflow once the floor is
+   * released. The headers are the only cells that cannot, which is why the third rule is here.
+   */
+  .table {
+    min-width: 0 !important;
+  }
+
+  .table th {
+    white-space: normal !important;
+  }
+
+  /*
+   * 🔴 THE WILDCARD AND `!important` ARE BOTH LOAD-BEARING, AND NEITHER IS BELT-AND-BRACES.
+   *
+   * `.screen` alone is one class, specificity (0,1,0). Every class-plus-type rule in this file
+   * outranks it — `.table td`, `.table th`, `.governanceBanner p` — so a print reset written only
+   * on the root leaves those cells painting their themed colour. In dark mode that is near-white
+   * on white paper: the row is on the page, sized and spaced correctly, and invisible.
+   *
+   * ⚠️ THE WILDCARD ALONE DOES NOT FIX IT EITHER. `.screen *` is a class plus the universal
+   * selector, and the universal contributes ZERO — still (0,1,0). It loses the same fight, and
+   * loses it silently: every plain element prints black, so a spot-check on a heading or a
+   * paragraph confirms the fix while the table rows stay invisible. Specificity resolves before
+   * source order, so sitting last in the file buys nothing. `!important` is what wins.
+   *
+   * `coordinator.module.css` reached this conclusion first and its print block does exactly this;
+   * this is that rule, not a new invention. `color-scheme` needs no `!important` — nothing
+   * competes for it.
+   */
+  .screen,
+  .screen * {
+    color: CanvasText !important;
+  }
+
+  .screen {
+    background: none;
+    color-scheme: light;
   }
 }

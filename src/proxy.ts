@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { consolidatedModeHomeTarget, unsubmittedModeSearchTarget } from "@/lib/consolidated-mode-home-redirect";
+import {
+  consolidatedModeHomeTarget,
+  standaloneModeSubmittedSearchTarget,
+  unsubmittedModeSearchTarget,
+} from "@/lib/consolidated-mode-home-redirect";
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
@@ -175,6 +179,19 @@ export async function proxy(request: NextRequest) {
   if (consolidatedHomeTarget) {
     const url = request.nextUrl.clone();
     const [targetPathname, targetSearch = ""] = consolidatedHomeTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
+  // The mirror image, for a standalone mode home whose results live on a separate
+  // route: `/sources` renders a home now, so only a *submitted* link forwards, to
+  // `/sources/search`. Unsubmitted requests fall through and the home renders.
+  const standaloneSearchTarget = standaloneModeSubmittedSearchTarget(pathname, request.nextUrl.searchParams);
+
+  if (standaloneSearchTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = standaloneSearchTarget.split("?");
     url.pathname = targetPathname;
     url.search = targetSearch;
     return withCsp(NextResponse.redirect(url));

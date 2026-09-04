@@ -15,6 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
+import { floatingControl, primaryControl } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 import {
@@ -79,6 +80,7 @@ import {
   previousPlanWizardStage,
   type PlanWizardStage,
 } from "./stages";
+import { workspacePanelPadded } from "../surfaces";
 import { StatedReason } from "./stated-reason";
 
 /**
@@ -228,14 +230,29 @@ export type PlanWizardProps = {
   patientVisibleMessageSpecimen: string;
 };
 
-const panelClass =
-  "min-w-0 rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 sm:p-5";
+const panelClass = workspacePanelPadded;
 
-const primaryControlClass =
-  "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--text-muted)] forced-colors:border-[CanvasText]";
+/**
+ * The wizard's decisive command, on the shared recipe rather than a local accent fill.
+ *
+ * It was a filled `--clinical-accent` control, which put TWO filled primaries in TWO colours into
+ * one decision: pressing "Create and start this plan" opens an overlay whose own confirm is
+ * `primaryControl`, i.e. filled `--command`. `ckb-v2-tokens.css` states the rule this broke —
+ * one filled `--command` button per surface, and Clinical Sky is for navigation and selection,
+ * which is already how `aria-[current]` is drawn on the filter chips and the schedule day strip.
+ * Activating a plan is a decisive command, so Graphite is the right role for it and the overlay
+ * behind it now agrees.
+ *
+ * `primaryControl` also brings `controlBase` with it, which supplies `min-h-tap`, the focus ring,
+ * `forced-colors:border`, `active:translate-y-px` and `controlDisabled`. That last one is a
+ * deliberate, visible change: a disabled label lands on `--disabled` rather than `--text-muted`,
+ * because the design system encodes disabled (flatten the fill, drop the shadow, remove the press)
+ * instead of dimming label and fill together with an opacity. The wizard's disabled states are
+ * transient and use the native attribute, which WCAG's contrast criterion exempts.
+ */
+const primaryControlClass = `${primaryControl} min-w-0`;
 
-const secondaryControlClass =
-  "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border-[CanvasText]";
+const secondaryControlClass = `${floatingControl} min-w-0`;
 
 const optionRowClass =
   "min-w-0 border-t border-[color:var(--border)] px-4 py-2 text-left first:border-t-0 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-0.125rem] focus-within:outline-[color:var(--focus)]";

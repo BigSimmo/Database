@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Same matcher as playwright.config.ts `seededSpecPattern` (keep in sync).
@@ -30,7 +30,7 @@ export const productionSpecFilePattern =
  * the unseeded server. They still belong to a shard: a spec wired into no gate is a spec that
  * silently never runs, which is the defect these groups exist to make impossible.
  */
-export const seededSpecFilePattern = /^ui-caring-contacts-activation\.spec\.ts$/;
+export const seededSpecFilePattern = /^ui-caring-contacts-(activation|populated)\.spec\.ts$/;
 
 /** The project each shard file must be collected by. Production files use `chromium`. */
 export const SEEDED_PR_UI_PROJECT = "chromium-caring-contacts-seeded";
@@ -47,13 +47,26 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-smoke.spec.ts", shard: 1, fullSeconds: 134.4, criticalSeconds: 21.7 },
   { file: "tests/ui-mode-nav-density.spec.ts", shard: 1, fullSeconds: 36.5, criticalSeconds: 0 },
   { file: "tests/ui-phone-scroll-page-owned.spec.ts", shard: 1, fullSeconds: 42.5, criticalSeconds: 0 },
-  { file: "tests/ui-accessibility.spec.ts", shard: 1, fullSeconds: 17.1, criticalSeconds: 0 },
+  // Moved to shard 2 to offset the Caring Contacts populated sweep landing on shard 1; its own
+  // timing is unchanged.
+  { file: "tests/ui-accessibility.spec.ts", shard: 2, fullSeconds: 17.1, criticalSeconds: 0 },
   { file: "tests/ui-route-coverage.spec.ts", shard: 1, fullSeconds: 21.1, criticalSeconds: 0 },
-  { file: "tests/ui-formulation.spec.ts", shard: 1, fullSeconds: 11.0, criticalSeconds: 0 },
+  // Moved to shard 3 to offset the Caring Contacts populated sweep landing on shard 1; its own
+  // timing is unchanged.
+  { file: "tests/ui-formulation.spec.ts", shard: 3, fullSeconds: 11.0, criticalSeconds: 0 },
   // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
   { file: "tests/ui-dictionary.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // New route-focused suite; keep on the lightest measured shard until hosted timing is available.
   { file: "tests/ui-sources.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
+  // New computed-value proof spec (PR #2577); keep on the lightest measured shard until
+  // hosted timing is available.
+  { file: "tests/ui-token-layer-resolution.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
+  // Arrived from `main` in the 2026-09-03 merge, which widened `productionSpecPattern` to name
+  // `tools-show-all` while this matcher still said only `tools` — so the spec was a production
+  // journey that belonged to no shard. Zero timing follows the convention above: keep it on the
+  // lightest measured shard until hosted timing is available, and replace this at the next
+  // refresh. A spec wired into no gate is a spec that never runs.
+  { file: "tests/ui-tools-show-all.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Critical-only acceptance coverage; the required critical job owns its runtime.
   { file: "tests/ui-clinical-ask.spec.ts", shard: 1, fullSeconds: 1, criticalSeconds: 1 },
   // Added after the timing sample. Measured locally at ~4.8s for 3 tests; replace
@@ -74,6 +87,20 @@ export const prUiSpecProfiles = Object.freeze([
     file: "tests/ui-caring-contacts-activation.spec.ts",
     shard: 1,
     fullSeconds: 8.0,
+    criticalSeconds: 0,
+    project: SEEDED_PR_UI_PROJECT,
+  },
+
+  // The populated layout sweep, on the SAME shard as the activation journey so only one shard
+  // pays for the second server. It writes nothing, so it cannot interfere with that journey's
+  // single creating run.
+  // 36.0s is a LOCAL measurement (56 cases green, `npm run test:e2e:caring-contacts-populated`,
+  // 2026-09-02) rather than a hosted sample like the rest of this table, so treat it as the better
+  // of two approximations rather than as hosted evidence. Replace at the next timing refresh.
+  {
+    file: "tests/ui-caring-contacts-populated.spec.ts",
+    shard: 1,
+    fullSeconds: 36.0,
     criticalSeconds: 0,
     project: SEEDED_PR_UI_PROJECT,
   },

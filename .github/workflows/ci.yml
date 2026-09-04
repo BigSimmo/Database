@@ -372,6 +372,10 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:icon-scale
 
+      - name: Design drift ratchet
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:design-drift-ratchet
+
       - name: Brand asset check
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run brand:check
@@ -1138,6 +1142,60 @@ jobs:
             );
           }
           NODE
+
+      # #QCNE6N. The step above proves the manifest is not stale and `supabase
+      # migration up --local` proved the chain APPLIES. Neither compares the
+      # RESULT of the chain against supabase/schema.sql, so a migration whose
+      # function body or policy predicate diverges from the mirror passes every
+      # pre-merge gate — which is how correct_clinical_query_terms(text,real)
+      # reached main red on 2026-09-01, caught only by the post-merge live-drift
+      # alarm.
+      #
+      # The mirror side is the manifest `drift:manifest` just regenerated from
+      # THIS PR's schema.sql, so no second replay is built here. That does mean
+      # the two sides come from different images (emulator vs the pinned bare
+      # supabase/postgres) and some reported difference will be platform
+      # provenance — see the header of scripts/check-chain-mirror-parity.ts.
+      #
+      # REPORT-ONLY on purpose. The divergences that already exist cannot be
+      # enumerated offline (docs/database-drift-detection.md backlog item 10
+      # records ~13 chain-vs-mirror keys plus schema.sql-only storage buckets),
+      # so this lands printing them rather than blocking on a set nobody has
+      # measured. The follow-up commits supabase/chain-mirror-allowlist.json from
+      # this job's summary, adds `--strict`, and drops the `continue-on-error`
+      # lines below in the same change. tests/chain-mirror-parity.test.ts pins
+      # those two facts to each other so they cannot drift apart.
+      - name: Capture the migration chain's schema snapshot
+        id: chain-snapshot
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # --filter rather than `| grep | head`: under `set -o pipefail` a SIGPIPE
+          # from head is a step failure, and grep exiting 1 on no match aborts
+          # before the explicit `test -n` can say what went wrong.
+          db_container="$(docker ps --format '{{.Names}}' --filter 'name=^supabase_db_' | head -n 1)"
+          test -n "${db_container}"
+          docker exec -i "${db_container}" \
+            psql -U postgres -d postgres -tA -v ON_ERROR_STOP=1 \
+            -c 'select public.schema_drift_snapshot()::text;' > /tmp/chain-snapshot.json
+          test -s /tmp/chain-snapshot.json
+
+      - name: Compare the migration chain against supabase/schema.sql
+        id: chain-mirror-parity
+        continue-on-error: true
+        if: steps.chain-snapshot.outcome == 'success'
+        run: |
+          npm run check:chain-mirror-parity -- \
+            --chain /tmp/chain-snapshot.json \
+            --mirror-manifest supabase/drift-manifest.json
+
+      - name: Report a chain/mirror parity step that produced no evidence
+        # Both steps above carry continue-on-error, so without this a crashing
+        # compare step is a grey mark nobody reads and is indistinguishable from
+        # a clean run. Cover the compare outcome too, not just the capture.
+        if: steps.chain-snapshot.outcome != 'success' || steps.chain-mirror-parity.outcome != 'success'
+        run: |
+          echo "::warning::chain/mirror parity produced no evidence (capture=${{ steps.chain-snapshot.outcome }}, compare=${{ steps.chain-mirror-parity.outcome }}). It is report-only today so it does not block the merge, but the comparison did not run."
 
       - name: Upload regenerated drift manifest
         if: always()

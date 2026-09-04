@@ -242,6 +242,21 @@ describe("calculator filter predicates", () => {
     expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)).toEqual(["phq9"]);
   });
 
+  it("finds the subject of a natural calculator question without a curated phrase rule", () => {
+    const records = recordsWithProgress();
+    const query = "What tool measures depression symptoms?";
+
+    expect(smartSearchExpansions("calculators", query)).toEqual([]);
+    expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)[0]).toBe("phq9");
+  });
+
+  it("does not invent calculator matches from question boilerplate alone", () => {
+    const records = recordsWithProgress();
+
+    expect(filterCalculatorRecords(records, "Which calculator should I use?", emptyFilters())).toEqual([]);
+    expect(filterCalculatorRecords(records, "Can you help me choose a score?", emptyFilters())).toEqual([]);
+  });
+
   it("matches calculator identities with spaced or unicode-dash separators", () => {
     const phq9 = calculators.find((calculator) => calculator.id === "phq9")!;
 

@@ -80,8 +80,8 @@ test.describe("@mockup Ward screen", () => {
 
     const card = wardScreen.getByTestId("ward-accepted-WF-003");
     await expect(card).toBeVisible();
-    await card.getByTestId("ward-hold-WF-003").click();
-    await expect(card).toContainText("Bed hold 1h 00m left");
+    await card.getByTestId("ward-pull-WF-003").click();
+    await expect(card).toContainText("Bed pull 1h 00m left");
 
     // The trigger must never be mistaken for a clinical action — checked in words, not merely by
     // colour: its accessible name and title both say so explicitly.
@@ -101,8 +101,8 @@ test.describe("@mockup Ward screen", () => {
 
     // The one thing spec §5 says the control exists to demonstrate: a held bed watched
     // expiring in seconds. 45 minutes advanced against a 60-minute hold leaves 15.
-    await expect(card).toContainText("Bed hold 15m left");
-    await expect(card).not.toContainText("Bed hold 1h 00m left");
+    await expect(card).toContainText("Bed pull 15m left");
+    await expect(card).not.toContainText("Bed pull 1h 00m left");
   });
 
   /**
@@ -256,7 +256,7 @@ test.describe("@mockup Live tracker", () => {
     await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
 
     await expect(page.locator('[data-testid^="ward-tracker-row-"]')).toHaveCount(8);
-    await expect(page.getByTestId("ward-tracker-governance")).toContainText(/33 of 41/);
+    await expect(page.getByTestId("ward-tracker-governance")).toContainText(/35 of 43/);
   });
 
   /**
@@ -382,13 +382,15 @@ test.describe("@mockup Emergency department screen", () => {
   });
 
   /**
-   * `HANDOVER_READY` requires stage `bed_held` and nothing else (`ward-flow-reducer.ts`'s own
-   * `case "HANDOVER_READY"`). WF-016 (`peel-ed`, `bed_held`) proves the control is live and that
+   * `HANDOVER_READY` requires stage `pulled` and nothing else (`ward-flow-reducer.ts`'s own
+   * `case "HANDOVER_READY"`). WF-016 (`peel-ed`, `pulled`) proves the control is live and that
    * dispatching it actually changes the outstanding item to transport; WF-303 (`peel-ed`,
    * `accepted_awaiting_bed`) proves the control never advertises an action the reducer would
    * refuse — `aria-disabled`, never native `disabled`, naming the movement's real stage.
    */
-  test("marks handover ready only once a bed is held, mirroring the reducer's own precondition", async ({ page }) => {
+  test("marks handover ready only once a bed is pulled and transport is booked, mirroring the reducer's own precondition", async ({
+    page,
+  }) => {
     await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     // Interacting (the click below) before hydration completes silently no-ops — a plain DOM
@@ -405,6 +407,22 @@ test.describe("@mockup Emergency department screen", () => {
     await expect(blockedHandover).toHaveAttribute("title", /accepted, awaiting bed/i);
 
     const readyHandover = page.getByTestId("ward-ed-handover-WF-016");
+    // HANDOVER_READY now refuses a movement with no transport booked — the reducer's own
+    // `case "HANDOVER_READY"` says so, dated 2026-08-31, and `handoverBlockedReason` mirrors it on
+    // this screen. WF-016 sits at `pulled` with no transport in the fixture, so the control is
+    // blocked before booking and states the real reason, exactly like the WF-303 case above.
+    //
+    // ⚠️ The repair BOOKS transport rather than asserting less. Relaxing the assertion would have
+    // made the test green against a precondition it no longer exercises; this satisfies the
+    // precondition and adds two assertions the test did not previously make.
+    await expect(readyHandover).toHaveAttribute("aria-disabled", "true");
+    await expect(readyHandover).toHaveAttribute("title", /no transport booked/i);
+
+    await page.getByTestId("ward-ed-book-transport-toggle-WF-016").click();
+    await page.getByTestId("ward-ed-transport-provider-WF-016").selectOption("Ambulance service");
+    await page.getByTestId("ward-ed-transport-escort-no-WF-016").check();
+    await page.getByTestId("ward-ed-book-transport-confirm-WF-016").click();
+
     await expect(readyHandover).not.toHaveAttribute("aria-disabled", "true");
     await readyHandover.click();
 
@@ -461,6 +479,146 @@ test.describe("@mockup Emergency department screen", () => {
     await expect(page.locator('[data-testid="ward-ed-governance"]:visible')).toBeVisible();
     await expect(page.locator('[data-testid="ward-ed-patient-WF-005"]:visible')).toBeVisible();
   });
+
+  /**
+   * RF-009 exists to make this screen demonstrable, and until now nothing had looked at it.
+   *
+   * It was added 2026-08-30 because every emergency department's psychiatry inbox was empty and the
+   * screen was "indistinguishable from a working one with nothing to show". `rph-ed` is the only
+   * department whose inbox is non-empty — `emergency_department` appears exactly once in the whole
+   * movements fixture — and `rph-ed` appeared in **zero** of the 46 `ui-*.spec.ts` files before this
+   * test, against a control of `peel-ed` appearing 13 times in this one. A fixture added to make a
+   * screen demonstrable, and no browser ever opened the screen.
+   *
+   * The empty-inbox half is not decoration: it is what proves the row above was selected for this
+   * department rather than rendered for every department alike.
+   */
+  test("shows rph-ed the one queued psychiatry referral, and shows peel-ed none", async ({ page }) => {
+    expect(edById("rph-ed"), "fixture assumption: rph-ed resolves to a real department").toBeDefined();
+    expect(edById("peel-ed"), "fixture assumption: peel-ed resolves to a real department").toBeDefined();
+
+    await page.goto("/mockups/ward-flow/ed/rph-ed", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    // Exact, not `> 0`: RF-009 is the only ED-addressed referral in the fixture, so a second row
+    // here would mean the inbox had stopped filtering by department.
+    await expect(page.locator('[data-testid^="ward-ed-inbox-row-"]')).toHaveCount(1);
+
+    const row = page.getByTestId("ward-ed-inbox-row-RF-009");
+    await expect(row).toBeVisible();
+    await expect(row).toHaveAttribute("data-ed-id", "rph-ed");
+    await expect(row).toHaveAttribute("data-purpose", "psychiatric_review");
+    await expect(page.getByTestId("ward-ed-inbox-purpose-RF-009")).toContainText("For psychiatric review");
+
+    // Both clocks render. Their VALUES are deliberately not pinned: the provider ticks every 30s and
+    // `now` is live in the browser, so 245 and 35 minutes increment while the page is open. Asserting
+    // the numbers would buy nothing and would flake on a slow load.
+    await expect(page.getByTestId("ward-ed-inbox-department-clock-RF-009")).toBeVisible();
+    await expect(page.getByTestId("ward-ed-inbox-referral-clock-RF-009")).toBeVisible();
+
+    await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ward-ed-inbox-empty")).toBeVisible();
+    await expect(page.locator('[data-testid^="ward-ed-inbox-row-"]')).toHaveCount(0);
+  });
+
+  /**
+   * The decline control, landed 2026-09-01 and until now covered by unit tests only.
+   *
+   * ⚠️ Three things here would each produce a confusing red if assumed rather than checked, and all
+   * three are behaviour rather than markup:
+   *
+   *  - The confirm is `aria-disabled`, NEVER natively `disabled`, so a Playwright `toBeDisabled()`
+   *    fails against a control that is working correctly. The control keeps its tab stop on purpose,
+   *    so the reason it is unavailable can be reached by a screen reader.
+   *  - No reason is preselected, deliberately. The owner ruled the reason list likely incomplete, so
+   *    a default would have a clinician record the closest available reason and thereby file a
+   *    clinical fact nobody chose.
+   *  - Only two of the six decline reasons are offered here, derived by filtering rather than
+   *    hand-listed: this screen answers a request for REVIEW, and the other four answer a request for
+   *    a BED. Asserting their absence is the closest a browser can get to "this screen is not
+   *    answering a bed question".
+   *
+   * On confirm the row LEAVES the inbox — `edReferralsFor` keeps only `queued` addressings — so the
+   * proof of success is disappearance, not a changed state in place. What the browser cannot show is
+   * WHO was recorded as deciding, or the reason stored against it: nothing renders `decidedBy` or the
+   * reason anywhere on this screen. That half stays a DOM test, and this test does not pretend to it.
+   */
+  test("rph-ed cannot record a decline without a reason, and the referral leaves the inbox once it can", async ({
+    page,
+  }) => {
+    await page.goto("/mockups/ward-flow/ed/rph-ed", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.locator('[data-testid^="ward-ed-inbox-row-"]')).toHaveCount(1);
+
+    await page.getByTestId("ward-ed-inbox-decline-RF-009").click();
+    await expect(page.getByTestId("ward-ed-inbox-decline-panel-RF-009")).toBeVisible();
+
+    const confirm = page.getByTestId("ward-ed-inbox-decline-confirm-RF-009");
+    await expect(confirm, "unavailable-with-a-reason uses aria-disabled, never native disabled").toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+
+    const reason = page.getByTestId("ward-ed-inbox-decline-reason-RF-009");
+    // Exact set, not a subset: the assertion that matters is that the four BED-shaped reasons are
+    // absent, and a `toContainText` on the two present ones would pass whether or not they were.
+    // ⚠️ A FOURTH OPTION ARRIVED ON 2026-09-02 AND THIS EXACT-SET ASSERTION IS WHY THAT IS SAFE.
+    // The owner added a catch-all to `REFERRAL_DECLINE_REASONS`; `ED_DECLINE_REASONS` derives by
+    // EXCLUDING the four bed-shaped reasons, so a non-bed-shaped member arrives here on its own
+    // rather than being silently dropped — which is the whole point of writing that filter as an
+    // exclusion. The exact set is KEPT, not relaxed to a subset: the property pinned is still that
+    // the four bed-shaped reasons are ABSENT, and a subset check would pass either way.
+    //
+    // ⚠️ ADDED BY WARD BUILDER TWO, WHICH CANNOT RUN PLAYWRIGHT. This line is REASONED from the
+    // filter and the label, never observed. If the rendered text differs, trust this line least.
+    await expect(reason.locator("option")).toHaveText([
+      "Choose a reason",
+      "Belongs to another service",
+      "Referred elsewhere",
+      "Another reason — needs follow-up",
+    ]);
+
+    // Pressing it while unavailable must change nothing — the handler is inert, not merely styled.
+    //
+    // ⚠️ `force` IS LOAD-BEARING AND ITS ABSENCE READS AS FLAKE, NOT AS FAILURE. Playwright's
+    // actionability check treats `aria-disabled="true"` as not-enabled and refuses to click, so
+    // without `force` this line does not fail loudly — it retries for 45s and times out. That is
+    // the repo convention working against the test: `aria-disabled` + an inert handler is chosen
+    // precisely so the control KEEPS its tab stop and its stated reason, and the only way to prove
+    // the handler is inert is to dispatch the click anyway. Same shape as
+    // `ui-caring-contact-mockup.spec.ts:276` and five sites in `ui-ward-coordinator.spec.ts`.
+    await confirm.click({ force: true });
+    await expect(page.getByTestId("ward-ed-inbox-row-RF-009")).toBeVisible();
+
+    await reason.selectOption({ label: "Referred elsewhere" });
+    await expect(confirm).not.toHaveAttribute("aria-disabled", "true");
+
+    await confirm.click();
+
+    await expect(page.getByTestId("ward-ed-inbox-row-RF-009")).toHaveCount(0);
+    await expect(page.getByTestId("ward-ed-inbox-empty")).toBeVisible();
+  });
+
+  /*
+   * THE THIRD PROPERTY THIS JOURNEY WAS ASKED FOR — that an emergency department may not decline a
+   * WARD bed — is deliberately not tested here, because this screen cannot express the violation.
+   *
+   * The inbox is built from `edReferralsFor(referrals, edId, "psychiatric_review")`, which drops any
+   * addressing whose kind is not `emergency_department`, so a ward-addressed row can never render and
+   * there is no control to click. `submitDecline` then hardcodes `destinationKind:
+   * "emergency_department"`, so even a row that somehow rendered would dispatch the ED kind.
+   *
+   * The rule itself lives in the reducer's `answerableBy` map and is pinned in
+   * `tests/ward-referral-decision-scope.test.ts`, in BOTH directions: "REFUSES AN EMERGENCY DEPARTMENT
+   * DECIDING ON A PSYCHIATRIC WARD'S BED" and "REFUSES A WARD DECIDING ON AN EMERGENCY
+   * DEPARTMENT'S REFERRAL — the same rule, mirrored". A browser step here would assert the filter, not
+   * the rule, while reading as though it proved the rule — which is worse than leaving it out.
+   */
 });
 
 test.describe("@mockup Role switcher — the loop", () => {
@@ -498,7 +656,7 @@ test.describe("@mockup Role switcher — the loop", () => {
     expect(destinationUnit, "fixture assumption: rph-adult-secure resolves to a real unit").toBeDefined();
 
     function switcherTrigger() {
-      return page.getByRole("button", { name: "Switch role" });
+      return page.getByRole("button", { name: "Change view" });
     }
 
     /**
@@ -546,7 +704,15 @@ test.describe("@mockup Role switcher — the loop", () => {
     // picker (addendum R52). Whole-branch review M3: the old regex-based `toContainText` assertion
     // was satisfied by a single "Parallel referral" badge, so it never actually checked the claim
     // this comment makes. `toHaveCount(3)` on the real badge locator checks the stated claim.
+    //
+    // ⚠️ SPLIT 2026-09-02, AND THE SECOND LINE IS WHAT MAKES THE FIRST MEAN ANYTHING. Until today
+    // `shortlist-panel.tsx` gave BOTH badge arms — the resolved one and the "referral to an
+    // unresolved unit" one — the same testid, so this count summed two different kinds. It read
+    // three and could not tell three resolved referrals from two resolved plus one unresolved,
+    // which is the exact confusion the count exists to detect. All three units referred above
+    // (RPH, FSH, RGH Adult Secure) are real and resolve, so the correct reading is 3 and 0.
     await expect(shortlist.getByTestId("ward-shortlist-referred-badge")).toHaveCount(3);
+    await expect(shortlist.getByTestId("ward-shortlist-unresolved-referred-badge")).toHaveCount(0);
 
     // --- Step 3: Ward, reached via the picker (three live referrals — R52). ---
     await switchTo("RPH Adult Secure");
@@ -560,7 +726,7 @@ test.describe("@mockup Role switcher — the loop", () => {
     // --- Step 4: Ward — hold a bed. ---
     const accepted = page.getByTestId("ward-accepted-WF-315");
     await expect(accepted).toBeVisible();
-    await accepted.getByRole("button", { name: "Hold a bed" }).click();
+    await accepted.getByRole("button", { name: "Pull a bed" }).click();
 
     // --- Step 5 (recommended): Coordinator — confirm the acceptance is visible from another
     // role. The shared `focusMovementId` (ward-flow-provider.tsx) re-selects WF-315 on this
@@ -573,12 +739,33 @@ test.describe("@mockup Role switcher — the loop", () => {
       "Accepted destination: RPH Adult Secure",
     );
 
-    // --- Step 6: ED — mark handover ready. The only producer of the transport job; without it
-    // every officer action below would be refused (addendum R42). ---
+    // --- Step 6: ED — book transport, then mark handover ready. Without a booked transport job,
+    // every officer action below would be refused (addendum R42).
+    //
+    // Since commit 5cc23173a (2026-08-31), `HANDOVER_READY` REQUIRES a pre-booked transport job
+    // instead of fabricating one on the spot — see `ward-flow-reducer.ts`'s own
+    // `case "HANDOVER_READY"` and its screen-side mirror `handoverBlockedReason` in
+    // `ed-screen.tsx`. WF-315 is a generated fixture movement (`routineMovements(30, 300)` index
+    // 315), so `stageFields("placement_requested")` gives it no `transport` at seed, and
+    // `PULL_PATIENT` (step 4 above) never sets one either — it only touches `stage`,
+    // `pullExpiresAt` and `admissionId`. Without the booking sequence below, the handover click
+    // would render `aria-disabled="true"` and do nothing, and the outstanding-item assertion that
+    // used to follow it directly would time out waiting for a change that never happens. ---
     await switchTo("Armadale Hospital Emergency Department");
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
-    await page.getByTestId("ward-ed-handover-WF-315").click();
+
+    const handoverButton = page.getByTestId("ward-ed-handover-WF-315");
+    await page.getByTestId("ward-ed-book-transport-toggle-WF-315").click();
+    await page.getByTestId("ward-ed-transport-provider-WF-315").selectOption("Patient transport service");
+    await page.getByTestId("ward-ed-transport-escort-no-WF-315").check();
+    await page.getByTestId("ward-ed-book-transport-confirm-WF-315").click();
+    // Proves the booking actually landed rather than just asserting the clicks happened: before
+    // this, `handoverBlockedReason` renders the control `aria-disabled="true"` and a click on it
+    // is inert.
+    await expect(handoverButton).not.toHaveAttribute("aria-disabled", "true");
+
+    await handoverButton.click();
     await expect(page.getByTestId("ward-ed-outstanding-WF-315")).toHaveAttribute("data-kind", "transport");
 
     // --- Steps 7-10: Officer — Accepted, En route, Collected, Arrived. ---
@@ -636,7 +823,7 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     await page.setViewportSize({ width: 1600, height: 1100 });
 
     function switcherTrigger() {
-      return page.getByRole("button", { name: "Switch role" });
+      return page.getByRole("button", { name: "Change view" });
     }
     async function switchTo(menuItemName: string) {
       await switcherTrigger().click();
@@ -654,10 +841,15 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     await expect(bedGrid).toContainText("Ready 1");
     await expect(bedGrid).toContainText("Held 1");
 
-    const holdButton = wardScreen.getByTestId("ward-hold-WF-003");
-    await expect(holdButton).toBeVisible();
-    await expect(holdButton).not.toHaveAttribute("aria-disabled");
-    await expect(holdButton).not.toHaveAttribute("title");
+    // ⚠️ The testid below is the PULL one, not the older spelling. The merge with main took
+    // main's copy of this line, and main predates this line's rename of that control -- so the
+    // query looked for a testid the ward screen no longer renders, while line 83 of this same
+    // file already used the current one. The file contradicted itself and only a browser run
+    // could see it.
+    const pullButton = wardScreen.getByTestId("ward-pull-WF-003");
+    await expect(pullButton).toBeVisible();
+    await expect(pullButton).not.toHaveAttribute("aria-disabled");
+    await expect(pullButton).not.toHaveAttribute("title");
 
     // --- Step 2: confirm zero allocatable beds, on this same page, no reload. ---
     await wardScreen.getByTestId("ward-capacity-input").fill("0");
@@ -673,8 +865,8 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     // --- Step 4: the Hold control must stop advertising an action the reducer would now
     // refuse — the reviewer's Proof 2 ("hold button ... aria-disabled = null ... nothing
     // happened"). It must carry BOTH aria-disabled and a stated reason naming this ward. ---
-    await expect(holdButton).toHaveAttribute("aria-disabled", "true");
-    await expect(holdButton).toHaveAttribute("title", /No allocatable bed remains at RPH Adult Secure/);
+    await expect(pullButton).toHaveAttribute("aria-disabled", "true");
+    await expect(pullButton).toHaveAttribute("title", /No allocatable bed remains at RPH Adult Secure/);
 
     // --- Step 5: click through to the coordinator — the role switcher's real <Link>, never a
     // goto. Coordinator is never ambiguous (spec §9: "Statewide — no ward or department"). ---
@@ -683,7 +875,7 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     await page.waitForLoadState("networkidle");
 
     // --- Step 6: the reviewer's Proof 3. Select any open movement (the diagram renders every
-    // one of the 22 units' own capacity regardless of which movement is selected, so which
+    // one of the 23 units' own capacity regardless of which movement is selected, so which
     // movement is picked here does not matter to this proof), then select RPH Adult Secure's
     // own node in the statewide flow diagram. ---
     const diagram = page.getByRole("region", { name: "Statewide flow" });

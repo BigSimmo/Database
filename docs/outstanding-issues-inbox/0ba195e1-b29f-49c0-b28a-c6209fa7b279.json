@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "0ba195e1-b29f-49c0-b28a-c6209fa7b279",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Subagent-driven-development workspaces are git-ignored, so a session's triage and review artefacts vanish at cleanup",
+    "detail": "The SDD skill writes its ledger, briefs, reports and review packages under .superpowers/sdd/, which .gitignore:175 ignores wholesale. Observed 2026-09-02: 1,853 lines of triage (24 findings with executable mutation specs) existed only there and would not have survived a clean; it was rescued by hand to docs/ward-flow/triage/ at 38f90d138. Two other chats reported the same exposure, one losing nine recorded rulings. Recommendation: either the skill's close-down step copies durable artefacts into a tracked path, or the workspace path is documented as ephemeral where sessions will actually read it. Not a defect in the skill; a mismatch between where it writes and how long its output is expected to matter.",
+    "issueUlid": "01M1G4Q6D6A2AV7P5445T10N55"
+  }
+}

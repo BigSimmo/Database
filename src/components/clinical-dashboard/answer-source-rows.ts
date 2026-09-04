@@ -128,6 +128,14 @@ export function sourceSpokenLabel(index: number) {
  * because three surfaces print it — the rail card, the drawer's title pill and
  * the drawer's pager — and the rail alone having the rule is how the drawer came
  * to number an "Also found" row that the card beside it dashed.
+ *
+ * Not a SPEC.md §11 MissingValue site, deliberately: every consumer renders
+ * this in an `aria-hidden` numeral badge sized for one digit, not a text
+ * field, and its own accessible name is {@link sourceSpokenName} below
+ * ("Also found", never "Source 4" or a dash) — the exact failure §11 exists
+ * to prevent is already closed by a different, badge-appropriate mechanism.
+ * Swapping the dash for one of the four §11 phrases would overflow the
+ * badge for no accessibility gain.
  */
 export function sourceBadgeDisplay(source: AnswerSourceRow, index: number) {
   return source.cited === false ? "—" : sourceBadgeLabel(index);

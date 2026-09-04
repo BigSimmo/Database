@@ -151,7 +151,72 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
     },
     { pattern: /\b(?:mental state exam)\b/i, terms: ["mental state examination", "MSE"] },
     { pattern: /\b(?:repeated unwanted thoughts)\b/i, terms: ["obsession", "intrusive thought"] },
+    { pattern: /\b(?:feel(?:ing)? sad|feeling down)\b/i, terms: ["low mood", "depression", "sadness"] },
   ],
+};
+
+const naturalLanguageStopWords = new Set([
+  "a",
+  "about",
+  "all",
+  "an",
+  "and",
+  "are",
+  "be",
+  "been",
+  "by",
+  "can",
+  "choose",
+  "could",
+  "do",
+  "does",
+  "for",
+  "from",
+  "give",
+  "has",
+  "have",
+  "help",
+  "how",
+  "i",
+  "if",
+  "in",
+  "is",
+  "it",
+  "looking",
+  "me",
+  "my",
+  "need",
+  "needs",
+  "of",
+  "on",
+  "or",
+  "please",
+  "right",
+  "should",
+  "that",
+  "the",
+  "there",
+  "they",
+  "this",
+  "to",
+  "use",
+  "using",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+  "would",
+  "you",
+  "your",
+]);
+
+const modeSearchWords: Partial<Record<SmartNaturalSearchModeId, ReadonlySet<string>>> = {
+  calculators: new Set(["assessment", "calculator", "calculators", "measure", "measures", "screen", "score", "tool"]),
+  factsheets: new Set(["factsheet", "factsheets", "information", "know", "read", "sheet", "sheets", "someone"]),
+  dictionary: new Set(["called", "define", "definition", "explain", "mean", "meaning", "means", "term", "word"]),
 };
 
 const conversationalLeadPattern =
@@ -208,6 +273,42 @@ export function interpretSmartSearch(modeId: AppModeId, query: string): SmartSea
 
 export function smartSearchExpansions(modeId: AppModeId, query: string): string[] {
   return interpretSmartSearch(modeId, query).expansions;
+}
+
+/**
+ * Subject-bearing terms for deterministic catalogue matching.
+ *
+ * Expansions remain first so a specific governed phrase outranks incidental
+ * words from the question. Boilerplate and mode nouns are removed; the query
+ * itself remains unchanged in the URL and visible search state.
+ */
+export function smartSearchContentTerms(modeId: AppModeId, query: string): string[] {
+  const interpretation = interpretSmartSearch(modeId, query);
+  if (!interpretation.naturalLanguage) return interpretation.expansions;
+
+  const ignored = isSmartNaturalSearchMode(modeId) ? modeSearchWords[modeId] : undefined;
+  // Recompute the curated terms straight from the matching rules rather than
+  // reusing `interpretation.expansions`, which also carries the single-word
+  // pieces a multi-word rule term is decomposed into (for `smartSearchExpansions`
+  // consumers that only ever `.includes()` against a flat, unstructured haystack).
+  // Deduping against that flattened list previously dropped a rule's own curated
+  // single-word term whenever another rule for the same query also contributed a
+  // phrase containing that word — e.g. a "hallucination" rule term disappeared
+  // whenever "auditory hallucination" matched too, because the decomposed
+  // "hallucination" token from the phrase looked identical and got filtered out
+  // as redundant, along with the real curated term.
+  const curatedTerms = isSmartNaturalSearchMode(modeId)
+    ? modeExpansionRules[modeId]
+        .filter((rule) => rule.pattern.test(interpretation.originalQuery))
+        .flatMap((rule) => rule.terms)
+        .map(normalizeSearchText)
+        .filter(Boolean)
+    : interpretation.expansions;
+  const subjectTerms = lexicalTokens(interpretation.originalQuery)
+    .map(normalizeSearchText)
+    .filter((term) => term.length > 1 && !naturalLanguageStopWords.has(term) && !ignored?.has(term));
+
+  return Array.from(new Set([...curatedTerms, ...subjectTerms])).slice(0, 24);
 }
 
 export function expandedSmartSearchQuery(modeId: AppModeId, query: string): string {

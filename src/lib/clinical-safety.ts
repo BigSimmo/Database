@@ -275,3 +275,67 @@ const safetyKindPriority: Record<SafetyFindingKind, number> = {
 export function sortSafetyFindingsBySeverity(findings: SafetyFinding[]): SafetyFinding[] {
   return [...findings].sort((left, right) => safetyKindPriority[left.kind] - safetyKindPriority[right.kind]);
 }
+
+/**
+ * What the reader is being asked to do, which is not the same question as how
+ * severe the finding is.
+ *
+ * The three tiers exist so routine monitoring stops being painted amber.
+ * `docs/design-system/TOKENS.md` reserves the clinical status colours for
+ * "source state and sanctioned urgency only", and an answer whose every finding
+ * is a warning colour teaches the reader that the warning colours mean nothing —
+ * which is exactly the state a contraindication cannot afford them to be in.
+ *
+ * `stop` earns `--danger`, `act` earns `--warning`, and `know` deliberately
+ * earns neither.
+ */
+export type SafetyFindingTone = "stop" | "act" | "know";
+
+const safetyKindTone: Record<SafetyFindingKind, SafetyFindingTone> = {
+  contraindication: "stop",
+  red_flag: "stop",
+  escalation: "act",
+  dose_limit: "act",
+  monitoring: "know",
+  exclusion: "know",
+  caveat: "know",
+};
+
+export function safetyFindingTone(kind: SafetyFindingKind): SafetyFindingTone {
+  return safetyKindTone[kind];
+}
+
+/**
+ * The findings collapsed to one entry per kind, in severity order, for the
+ * rail of clinical points under an answer.
+ *
+ * Grouped by kind rather than listed per finding because `SafetyFinding` has no
+ * short title: it carries `label` ("Contraindication") and `text` (the whole
+ * passage), and a rail of full passages is the panel this rail exists to
+ * replace. The count keeps two monitoring findings from rendering as two
+ * identical pills.
+ */
+export type SafetyFindingGroup = {
+  kind: SafetyFindingKind;
+  label: string;
+  tone: SafetyFindingTone;
+  count: number;
+};
+
+export function groupSafetyFindingsByKind(findings: SafetyFinding[]): SafetyFindingGroup[] {
+  const groups = new Map<SafetyFindingKind, SafetyFindingGroup>();
+  for (const finding of sortSafetyFindingsBySeverity(findings)) {
+    const existing = groups.get(finding.kind);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    groups.set(finding.kind, {
+      kind: finding.kind,
+      label: finding.label,
+      tone: safetyFindingTone(finding.kind),
+      count: 1,
+    });
+  }
+  return [...groups.values()];
+}
