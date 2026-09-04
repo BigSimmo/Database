@@ -51,9 +51,9 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
-The product surface is **16 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+The product surface is **17 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
 answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
-prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources.
+prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources, on-call.
 
 ### The two flows that matter
 
@@ -376,12 +376,34 @@ names it by href, never by import), so the dashboard references no chunk exclusi
 
 ### On Call mode
 
-`src/lib/on-call/` is a clinical reference mode for shift handoff and rapid lookup. The domain model is
-pure TypeScript with no I/O, fully testable offline.
+The junior-doctor operations hub: the owner's **own** service information — numbers, escalation
+routes, referral pathways, orientation, teaching and logistics. Six sections, one row shape.
 
-| Module        | Role                                                                                    |
-| ------------- | --------------------------------------------------------------------------------------- |
-| `entry-model` | Section names, per-section Zod schemas, twelve-month staleness derivation and freshness |
+**It carries no app-authored clinical content.** Every entry is written by the owner, and the mode
+states only what they typed. What it does add is provenance: each entry records when it was last
+verified, and `entry-model` derives a twelve-month staleness state from that date rather than storing
+one, so a number that has not been confirmed in a year is labelled stale wherever it appears — and
+the printable card excludes stale entries outright.
+
+`src/lib/on-call/`:
+
+| Module           | Role                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `entry-model`    | The six section ids, per-section `.strict()` Zod schemas, and the twelve-month freshness rule |
+| `repository`     | Owner-scoped reads of `on_call_entries`; throws rather than query without an owner id         |
+| `api-schemas`    | Create/update request shapes (kept out of the route files, which may export only route names) |
+| `entry-store`    | Browser cache over `createBrowserStore`, cleared on sign-out and session expiry               |
+| `search`         | Offline search across all six sections, over the cached entries                               |
+| `card-selection` | Which entries reach the printable card: on-card, not personal, not stale                      |
+
+Routes live at `/on-call/<section>` (`contacts`, `playbook`, `referrals`, `orientation`,
+`education`, `logistics`) plus `/on-call/search` and `/on-call/card`; components are in
+`src/components/on-call/`. The API is `/api/on-call/entries`, `[id]`, and `[id]/verify` — the last
+being the one-tap "still correct today" action that resets the freshness clock.
+
+**Storage.** `on_call_entries` is owner-scoped with RLS enabled and revoked from `anon` and
+`authenticated`; reads and writes go through the service-role client at the API layer, the same
+application-layer ownership model as `clinical_registry_records`.
 
 ---
 
@@ -518,7 +540,7 @@ sequenceDiagram
 
 ### PsychSift surface
 
-- 16 app modes with unified search shell
+- 17 app modes with unified search shell
 - Documents mode: browse indexed guidelines, search, scope, and inspect cited answers; document uploads remain in the administrator backend
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
@@ -706,7 +728,7 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
   page: freshness stamp, count tiles, a "blocking now" callout, the recommended running order
   (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
-  and pending inbox requests. `/mockups/development/routes` — every page and all 16 modes, from
+  and pending inbox requests. `/mockups/development/routes` — every page and every app mode, from
   the repo awareness snapshot's route walk. `/mockups/development/documentation` — every tracked
   document, its area, and whether the codebase index lists it. `/mockups/development/test-health`
   — unstable and quarantined tests, from the flake ledger. `/mockups/development/review-state` —
@@ -794,7 +816,7 @@ terminology: `docs/care-plan-context.md`; build history and rulings: `docs/care-
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes**: all 16 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while five routes still own a functional home of their own — `/medications` (the Prescribing workspace, with dose/safety/monitoring checks), `/favourites` (a hub), `/tools` (a launcher), `/documents` (dashboard-owned: browse, recent documents and the document-search empty state) and `/sources` (a `ModeHomeTemplate` home over the source catalogue, which lives at `/sources/search`). None of those five is a duplicate of the shared home; each is its mode’s own functional surface. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. The other ten modes were consolidated onto the shared home: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary` and `/therapy-compass` are now `redirect()` stubs (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
+- **Mode homes**: all 17 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while five routes still own a functional home of their own — `/medications` (the Prescribing workspace, with dose/safety/monitoring checks), `/favourites` (a hub), `/tools` (a launcher), `/documents` (dashboard-owned: browse, recent documents and the document-search empty state) and `/sources` (a `ModeHomeTemplate` home over the source catalogue, which lives at `/sources/search`). None of those five is a duplicate of the shared home; each is its mode’s own functional surface. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. The other eleven modes were consolidated onto the shared home: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary`, `/therapy-compass` and `/on-call` (whose six section pages live under `/on-call/<section>`) are now `redirect()` stubs (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
 - **Information (detail) pages**: catalogue/record routes under each mode (`/services/[slug]`, `/forms/[slug]`, `/medications/[slug]`, `/specifiers/[slug]`, `/formulation/[slug]`, `/factsheets/[slug]`, `/dictionary/[slug]`, `/dictionary/topics/[slug]`, `/therapy-compass/[slug]`, `/dsm/diagnoses/[slug]`, …). Route detection: `src/lib/information-pages.ts` (`isInformationPage`). Shared outer chrome: `src/components/information-page-shell.tsx` (`InformationPageShell`, breadcrumbs, optional footer). Specifier/formulation mode shells re-export that primitive. Intentional opt-outs: document viewer and the differentials presentation workflow.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
 - **Results routing**: each consolidated mode owns its submitted searches at `<mode>/search` (`/services/search` → `ServicesNavigatorPage`, `/forms/search` → `FormsSearchResultsPage`, `/differentials/search` → `DifferentialsHome` results view, `/formulation/search` → local mechanism results, and the same shape for dsm, dictionary, factsheets, specifiers, calculators, therapy-compass and documents). That split is not cosmetic: the bare path redirects to the shared home, so routing a submitted query back at it would loop — `consolidatedModeHomeModeIds` drives both halves from one list, and `tests/consolidated-mode-home-redirect.test.ts` pins the no-loop property. `/favourites` and `/tools` keep filtering in place on their own routes. `/sources` is the one standalone home that is not consolidated yet still keeps its results on a separate route: a submitted link forwards to `/sources/search` through `standaloneModeSubmittedSearchTarget`, which `app-modes.ts` and `src/proxy.ts` both read so the href and the redirect cannot disagree. Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. Bare `/?mode=<id>` always renders the shared home with that mode preselected; only a submitted deep link (`q` plus `run=1`) resolves onward to the mode's own search surface.

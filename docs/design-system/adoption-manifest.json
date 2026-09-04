@@ -2470,6 +2470,7 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/on-call/card/page.tsx",
         "src/app/(search-app)/on-call/contacts/page.tsx",
         "src/app/(search-app)/on-call/education/page.tsx",
         "src/app/(search-app)/on-call/logistics/page.tsx",
@@ -2737,6 +2738,16 @@
           "sanctionedPatternsPresent": []
         },
         {
+          "file": "src/app/(search-app)/on-call/card/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
           "file": "src/app/(search-app)/on-call/contacts/page.tsx",
           "exists": true,
           "imports": [],
@@ -2814,7 +2825,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ModeHome"]
+          "sanctionedPatternsPresent": ["ModeHome", "SearchPage"]
         },
         {
           "file": "src/app/(search-app)/services/[slug]/page.tsx",
@@ -4146,6 +4157,7 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/card/page.tsx",
       "src/app/(search-app)/on-call/contacts/page.tsx",
       "src/app/(search-app)/on-call/education/page.tsx",
       "src/app/(search-app)/on-call/logistics/page.tsx",
@@ -4238,6 +4250,7 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/card/page.tsx",
       "src/app/(search-app)/on-call/contacts/page.tsx",
       "src/app/(search-app)/on-call/education/page.tsx",
       "src/app/(search-app)/on-call/logistics/page.tsx",
@@ -4292,7 +4305,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 97,
+    "inheritedCkbV2RootCount": 98,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4301,8 +4314,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 39,
-    "rootCount": 98,
-    "productionRouteCount": 90,
-    "nextUiEntryCount": 153
+    "rootCount": 99,
+    "productionRouteCount": 91,
+    "nextUiEntryCount": 154
   }
 }

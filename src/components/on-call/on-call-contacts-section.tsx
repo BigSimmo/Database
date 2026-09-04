@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil, Phone, Plus } from "lucide-react";
+import Link from "next/link";
+import { Pencil, Phone, Plus, Printer } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
@@ -180,6 +181,17 @@ export function OnCallContactsSection({
     </Button>
   ) : undefined;
 
+  const cardLink = (
+    <Link
+      href="/on-call/card"
+      data-testid="on-call-contacts-card-link"
+      className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]"
+    >
+      <Printer className="h-4 w-4 shrink-0" aria-hidden />
+      Printable card
+    </Link>
+  );
+
   if (contactEntries.length === 0) {
     return (
       <EmptyState
@@ -215,7 +227,10 @@ export function OnCallContactsSection({
 
   return (
     <div data-testid={testId} className="grid gap-5">
-      {addButton ? <div className="flex justify-end">{addButton}</div> : null}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {cardLink}
+        {addButton}
+      </div>
 
       {needsChecking.length > 0 ? (
         <section aria-labelledby="on-call-contacts-needs-checking-heading" className="grid gap-2">

@@ -4,7 +4,7 @@ import type { AppModeId } from "@/lib/app-modes";
  * How the phone mode sheet groups the app's modes.
  *
  * The desktop mode menu renders `appModeDefinitions` as one flat list, but a
- * sixteen-item list is unusable on a phone, so the sheet groups it. That makes
+ * seventeen-item list is unusable on a phone, so the sheet groups it. That makes
  * this a *second* list of mode ids, and a mode missing from every group here is
  * silently dropped from the sheet — `satisfies readonly AppModeId[]` constrains
  * membership but not exhaustiveness, so nothing in the type system catches it.

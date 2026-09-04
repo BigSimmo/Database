@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "8480dc3f48de445c2d51a5088565be4a1a42b6d5",
-    "committed_at": "2026-09-04T11:21:42+00:00"
+    "sha": "fbfc8948b1eb45de17d8a927e29e730040e77e6b",
+    "committed_at": "2026-09-04T12:00:40+00:00"
   },
   "routes": {
     "modes": [
@@ -1051,6 +1051,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/card",
+        "file": "src/app/(search-app)/on-call/card/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/on-call/contacts",
         "file": "src/app/(search-app)/on-call/contacts/page.tsx",
         "area": "product"
@@ -1564,8 +1569,8 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 220,
-      "product_pages": 75,
+      "pages": 221,
+      "product_pages": 76,
       "mockup_pages": 145,
       "redirects": 19,
       "api": 63

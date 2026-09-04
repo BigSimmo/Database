@@ -139,6 +139,7 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/on-call/card/page.tsx",
         "src/app/(search-app)/on-call/contacts/page.tsx",
         "src/app/(search-app)/on-call/education/page.tsx",
         "src/app/(search-app)/on-call/logistics/page.tsx",
