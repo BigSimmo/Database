@@ -1,25 +1,24 @@
 /*
- * Task 4: the shift handover — a point-in-time, printable summary. Same self-contained-tokens
- * convention `officer.module.css` documents on its own `.screen`: every local custom property
- * this file needs is declared here, never borrowed from another module's scope.
+ * Task 4: the shift handover — a point-in-time, printable summary. Adopts the shared Ward Flow
+ * token layer (`ward-tokens.module.css`) instead of declaring its own local scale — this file
+ * previously kept `--wf-border` and `--ho-space-4` … `--ho-space-48` here, a second scale
+ * running alongside the shared one. Every value mapped one-for-one: `--ho-space-N` and
+ * `--ward-space-N` held identical values, and `--wf-border` and `--ward-border`/`--ward-divider`
+ * both resolve to `--neutral-500`, so nothing renders differently. `--ho-space-48` was never a
+ * spacing step — it aliased `var(--spacing-tap)`, the 48px tap target — so it maps to that token
+ * directly rather than to a space of any name.
  */
 .screen {
-  --ho-space-4: 0.25rem;
-  --ho-space-6: 0.375rem;
-  --ho-space-8: 0.5rem;
-  --ho-space-10: 0.625rem;
-  --ho-space-12: 0.75rem;
-  --ho-space-14: 0.875rem;
-  --ho-space-16: 1rem;
-  --ho-space-20: 1.25rem;
-  --ho-space-24: 1.5rem;
-  --ho-space-48: var(--spacing-tap);
-  --ho-leading-body: 1.4;
+  composes: wardTokens from "../ward-tokens.module.css";
 
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /*
+   * NO background HERE, DELIBERATELY, and do not reintroduce one in any spelling. The shell
+   * (`ward-shell.module.css`, mounted once via `WardGround`) already paints `--ward-ground`
+   * behind every route, including this one; this screen must paint nothing behind its panels.
+   */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -29,21 +28,21 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--ho-space-20);
+  gap: var(--ward-space-20);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--ho-space-16) var(--ho-space-20) var(--ho-space-24);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
 }
 
 .governanceBanner {
   display: flex;
-  min-height: var(--ho-space-48);
+  min-height: var(--spacing-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--ho-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   background: var(--surface-chrome);
-  padding: var(--ho-space-8) var(--ho-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -52,7 +51,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--ho-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .prototypeBadge {
@@ -60,7 +59,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--ho-space-4) var(--ho-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -72,7 +71,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--ho-space-12);
+  gap: var(--ward-space-12);
 }
 
 .pageTitle {
@@ -82,7 +81,7 @@
   font-weight: 700;
 }
 
-.frozenAt {
+.takenAt {
   margin: 0;
   flex: 1 1 auto;
   color: var(--text-muted);
@@ -91,13 +90,13 @@
 
 .printButton {
   display: inline-flex;
-  min-height: var(--ho-space-48);
+  min-height: var(--spacing-tap);
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid var(--clinical-accent-border);
   border-radius: var(--radius-md);
   background: var(--clinical-accent);
-  padding: 0 var(--ho-space-16);
+  padding: 0 var(--ward-space-16);
   color: var(--clinical-accent-contrast);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -105,11 +104,11 @@
 
 .section {
   display: grid;
-  gap: var(--ho-space-8);
-  border: 0.0625rem solid var(--border);
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--ho-space-12) var(--ho-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }
 
 .sectionHeading {
@@ -134,8 +133,8 @@
 
 .table th,
 .table td {
-  border-bottom: 0.0625rem solid var(--border);
-  padding: var(--ho-space-6) var(--ho-space-8);
+  border-bottom: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-6) var(--ward-space-8);
   text-align: left;
   vertical-align: top;
 }
@@ -156,6 +155,23 @@
   border-bottom: none;
 }
 
+/* Spec D9: one-line link back to the morning bed state, naming the question each page answers —
+ * same register as `morning.module.css`'s own `.crossLink`. */
+.crossLink {
+  margin: 0;
+  max-width: 68ch;
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding-top: var(--ward-space-16);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-body);
+}
+
+.crossLink a {
+  color: var(--clinical-accent-strong);
+  font-weight: 600;
+}
+
 /*
  * Print: ink-on-paper, no rail, no chrome, no interactive control. The global print reset in
  * globals.css already hides every `header`/`nav`/`button` element (which drops the Print
@@ -164,8 +180,50 @@
  * blank strip down every printed page. Hidden explicitly here, scoped to this screen only.
  */
 @media print {
+  /*
+   * ⚠️ `.screen` NO LONGER CARRIES A BACKGROUND — it was deleted when this file adopted the shared
+   * token layer, and the shell paints the ground instead. `.governanceBanner` DOES still carry its
+   * own explicit `background: var(--surface-chrome)`, and in dark mode `ckb-v2-tokens.css`'s
+   * `.dark .ckb-v2` ramp resolves that to near-black (`#0e1216`).
+   *
+   * The global print reset in globals.css only resets `html`/`body`'s own background, which does
+   * not cascade into an element's own explicit `background` declaration. So the banner reset below
+   * is load-bearing: without it, printing while the app is in dark mode paints a dark band across
+   * the sheet.
+   *
+   * 🔴 AND THE `background: none` LINE BELOW STAYS EVEN THOUGH IT NOW RESETS NOTHING. Two reasons,
+   * and the second is the real one. The print guard for this file pins that literal string. And
+   * `ward-shell.module.css` — which took over painting the ground — carries no print block at all
+   * on this branch, so nothing downstream replaces what this line used to do. It is a belt beside a
+   * brace that is not there yet. Do not tidy it away.
+   */
+  /*
+   * `color-scheme` is inherited, and `.dark` (globals.css) sets `color-scheme: dark` on the
+   * root. System colours such as `CanvasText` below resolve against the *inherited*
+   * `color-scheme`, not against the active media type — so under print while the app is in
+   * dark mode, `CanvasText` resolves to white (dark-appearance ink) rather than black,
+   * printing white text on the white sheet the print reset forces. Pinning `color-scheme:
+   * light` here makes every `CanvasText` / `Canvas` reference under `.screen` resolve to the
+   * light (paper) appearance regardless of the on-screen theme, which is what a printed sheet
+   * needs. See `morning.module.css`'s own `@media print` block for the measured before/after.
+   */
   .screen {
     grid-template-columns: 1fr;
+    background: none;
+    /*
+     * 🔴 THE LOAD-BEARING LINE, AND IT IS THE COLOUR RATHER THAN THE BACKGROUND. Dark tokens are
+     * scoped by the CLASS `.ckb-v2.dark.ckb-v2`, not by a media query, so the class stays on
+     * <html> when printing and `--text` stays near-white. `globals.css` sets a black print colour
+     * on `body`, but `.screen` is a class selector and beats `body`, so this root's own
+     * `color: var(--text)` wins and prints near-white text.
+     *
+     * While the root also painted a dark background you got light text on a dark band — obviously
+     * broken. Deleting that background on adoption removed the band and left near-white on white:
+     * a blank sheet, which is WORSE, because a blank sheet reads as "nothing to print" rather than
+     * as a fault.
+     */
+    color: CanvasText;
+    color-scheme: light;
   }
 
   .screen > aside {
@@ -184,6 +242,7 @@
    */
   .governanceBanner {
     border-bottom: 0.0625rem solid CanvasText;
+    background: none;
   }
 
   .section {
@@ -196,6 +255,11 @@
   .table td {
     border-bottom-color: CanvasText;
   }
+
+  .crossLink {
+    border-top-color: CanvasText;
+    color: CanvasText;
+  }
 }
 
 /*
@@ -206,5 +270,21 @@
 @media (max-width: 40rem) {
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --ward-border: var(--border);
+    --ward-divider: var(--border);
   }
 }

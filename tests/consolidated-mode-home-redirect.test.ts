@@ -9,6 +9,9 @@ import {
   consolidatedModeHomeModeIds,
   consolidatedModeHomeTarget,
   isConsolidatedModeHomePath,
+  standaloneModeSearchPath,
+  standaloneModeSubmittedSearchTarget,
+  standaloneModeSubmittedSearchTargetForSearchParams,
 } from "@/lib/consolidated-mode-home-redirect";
 
 const target = (pathname: string, search = "") => consolidatedModeHomeTarget(pathname, new URLSearchParams(search));
@@ -216,5 +219,79 @@ describe("consolidated mode home redirects", () => {
         expect(unsubmittedModeSearchTarget(entry.href, new URLSearchParams()), entry.href).toBeNull();
       }
     }
+  });
+});
+
+/*
+ * `/sources` is the mirror image of a consolidated home: its bare path renders a
+ * real home, so only a *submitted* link forwards — to the catalogue that used to
+ * live at the bare path. An unsubmitted request must fall through and render the
+ * home, and the href builder and the redirect must agree on the destination.
+ */
+describe("standalone mode homes with a separate results route", () => {
+  const submitted = (pathname: string, search = "") =>
+    standaloneModeSubmittedSearchTarget(pathname, new URLSearchParams(search));
+
+  it("forwards a submitted Sources link to the catalogue, preserving the query string", () => {
+    expect(submitted("/sources", "q=RANZCP&run=1")).toBe("/sources/search?q=RANZCP&run=1");
+    expect(submitted("/sources", "q=RANZCP&run=1&focus=1&band=A")).toBe(
+      "/sources/search?q=RANZCP&run=1&focus=1&band=A",
+    );
+    // The legacy `query` alias counts as submitted, exactly as it does for the
+    // consolidated paths, so an old deep link is not silently stripped.
+    expect(submitted("/sources", "query=RANZCP&run=1")).toBe("/sources/search?query=RANZCP&run=1");
+  });
+
+  it("leaves an unsubmitted visit on the home so the home can render", () => {
+    expect(submitted("/sources")).toBeNull();
+    expect(submitted("/sources", "focus=1")).toBeNull();
+    // A query with no `run=1` is a draft, not a submission.
+    expect(submitted("/sources", "q=RANZCP")).toBeNull();
+    // An empty query with `run=1` has nothing to search for.
+    expect(submitted("/sources", "q=%20&run=1")).toBeNull();
+  });
+
+  // A filter chip has no "draft" state the way a typed query does — a link
+  // carrying one is a complete, shareable catalogue selection on its own, so it
+  // forwards without needing `run=1`.
+  it("forwards a filter-only deep link even without run=1", () => {
+    expect(submitted("/sources", "topic=governance")).toBe("/sources/search?topic=governance");
+    expect(submitted("/sources", "usedBy=dictionary")).toBe("/sources/search?usedBy=dictionary");
+    expect(submitted("/sources", "band=A&jurisdiction=AU")).toBe("/sources/search?band=A&jurisdiction=AU");
+    // A filter alongside a draft (unsubmitted) query still forwards; the filter
+    // is the reason, not the query.
+    expect(submitted("/sources", "q=RANZCP&topic=governance")).toBe("/sources/search?q=RANZCP&topic=governance");
+  });
+
+  it("never matches a sub-route, another mode home, or a mode without a separate results route", () => {
+    for (const pathname of [
+      "/sources/search",
+      "/sources/topics",
+      "/sources/method",
+      "/sources/src_example",
+      "/medications",
+      "/favourites",
+      "/tools",
+      "/documents",
+      "/",
+    ]) {
+      expect(submitted(pathname, "q=RANZCP&run=1"), pathname).toBeNull();
+    }
+    expect(standaloneModeSearchPath("prescribing")).toBeNull();
+    expect(standaloneModeSearchPath("tools")).toBeNull();
+  });
+
+  it("resolves the same destination the href builder uses", () => {
+    expect(standaloneModeSearchPath("sources")).toBe("/sources/search");
+    expect(appModeHomeHref("sources", { query: "RANZCP", run: true })).toBe("/sources/search?q=RANZCP&run=1");
+    // Unsubmitted stays on the home rather than deep-linking the catalogue.
+    expect(appModeHomeHref("sources")).toBe("/sources");
+  });
+
+  it("reads a page's own searchParams the same way the proxy reads the URL", () => {
+    expect(standaloneModeSubmittedSearchTargetForSearchParams("/sources", { q: "RANZCP", run: "1" })).toBe(
+      "/sources/search?q=RANZCP&run=1",
+    );
+    expect(standaloneModeSubmittedSearchTargetForSearchParams("/sources", {})).toBeNull();
   });
 });

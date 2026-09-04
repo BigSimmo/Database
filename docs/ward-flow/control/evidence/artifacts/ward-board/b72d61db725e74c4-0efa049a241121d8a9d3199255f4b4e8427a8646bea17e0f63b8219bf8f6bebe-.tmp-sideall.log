@@ -1,0 +1,10 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+
+ Test Files  84 passed (84)
+      Tests  1249 passed (1249)
+   Start at  12:50:56
+   Duration  64.94s (transform 12.49s, setup 13.57s, import 28.39s, tests 125.46s, environment 53.74s)
+

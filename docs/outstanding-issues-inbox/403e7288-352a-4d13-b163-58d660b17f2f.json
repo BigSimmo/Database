@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "403e7288-352a-4d13-b163-58d660b17f2f",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "A vitest run with an unrecognised --reporter dies at startup, runs zero tests, and reports no failures",
+    "detail": "Observed 2026-09-02 by two Ward Flow chats independently; one would have reported three failing tests as fixed. 'npm run test -- --reporter=basic' is not a valid reporter in this vitest: the process exits before collecting, so there is no 'Test Files' line and no failure count, which is visually indistinguishable from a clean pass in a scrollback. Recommendation: a wrapper assertion that a run reporting zero failures also reports a NONZERO number of tests RAN, and that the run emitted a summary line at all. Same family as the existing 'checks that cannot fail' work — a gate whose silence is read as success.",
+    "issueUlid": "01M1G4PW5NEV7RMQBNBFHBTR72"
+  }
+}

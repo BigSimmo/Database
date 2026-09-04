@@ -35,7 +35,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { posix as posixPath, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const CLI_USAGE = [
@@ -47,8 +47,63 @@ const CLI_USAGE = [
 ].join("\n");
 
 export const MOCKUP_ROUTE_ROOT = "src/app/mockups";
+
+/**
+ * The file that MAKES a directory a route, and therefore the only deletion the owner's register
+ * can speak about. The register records routes — "/mockups/example-gated/panel/[id]" — while
+ * Tier B fires per deleted FILE, so the two only meet once this suffix is off. A co-located
+ * component deleted from the same folder is deliberately NOT cleared by a route's record: nobody
+ * decided about it, and Tier B's whole job is to insist somebody did.
+ */
+export const ROUTE_ENTRY_SUFFIX = "/page.tsx";
+
+/**
+ * The one file whose job is to name paths that deliberately do NOT resolve: it registers link
+ * targets known to dangle, so a deleted path recorded there is the record of the deletion
+ * rather than a reference that survived it. Named explicitly, because scoping this to the
+ * Set-literal shape alone would discount a real route allowlist in any other file.
+ */
+export const UNRESOLVABLE_LINK_REGISTRY = "scripts/check-docs-links.mjs";
+
+/**
+ * Whether a Route-column cell names a retirable ROUTE rather than something else.
+ *
+ * Two conditions, and the second is the one that was missing: it must live under `/mockups/`,
+ * and its last segment must not be a source FILE. The extensions here are deliberately the same
+ * set the survivor scan reads, because those are exactly the paths somebody holding a deletion
+ * diff has in hand and might paste into the wrong column.
+ */
+export function isRetirableRoutePath(route) {
+  if (typeof route !== "string" || !route.startsWith("/mockups/")) return false;
+  const last = route.split("/").pop() ?? "";
+  return !SOURCE_FILE_EXTENSION.test(last);
+}
+
+// ⚠️ THE DOT IS ESCAPED, AND IT WAS NOT. An unescaped `.` matches ANY character, so this rejected
+// every route whose last segment merely ENDS in an extension-like suffix — `/mockups/caring-
+// contacts/reports` (the `.` taking `r`, then `ts`), and `charts` likewise. That is a FALSE
+// REFUSAL: it would have blocked a legitimate owner-approved retirement, which is the opposite of
+// the defect this predicate was added to fix. Found in review, not by my own six cases, because
+// every case I wrote was either an obvious file or an obvious route and none ended in `ts`.
+const SOURCE_FILE_EXTENSION = /\.(tsx?|mjs|cjs|jsx?|css|json|md)$/iu;
 export const MOCKUP_INDEX_FILE = "mockups/README.md";
 export const RETIRED_SECTION_HEADING = "## Retired mockups";
+
+/**
+ * The owner's register for Tier B.
+ *
+ * The policy says a developer-gated retirement is "a product decision, outside this policy", and
+ * Tier B refuses one unconditionally. That refusal is right and it stays: it is what stops a
+ * cleanup sweep quietly deleting a screen that is live behind the gate. But a decision the owner
+ * HAS made needs somewhere to be written down, or the refusal is not a question being asked, it
+ * is a route that can never be retired however the product changes.
+ *
+ * This register is that place, and it is deliberately the strictest table in the file: five
+ * columns, every one of them non-blank, naming who approved the retirement as well as what
+ * replaced it. A gated deletion absent from this table fails exactly as it did before.
+ */
+export const OWNER_DECISION_SECTION_HEADING = "## Retired developer-gated routes (owner decisions)";
+export const OWNER_DECISION_TABLE_HEADER = ["Retired", "Route", "Approved by", "Superseded by", "Evidence"];
 export const DEVELOPER_GATE_SOURCE = "src/lib/developer-area/headers.ts";
 
 /** Directories under the mockup route root that are shell/infrastructure, not routes. */
@@ -135,13 +190,50 @@ export function inlineCodeSpans(markdown) {
   return [...String(markdown).matchAll(/`([^`\n]+)`/gu)].map((match) => match[1].trim());
 }
 
-/** The body of the "## Retired mockups" section, or "" when the section is absent. */
-export function retiredSection(markdown) {
+/** True for a line inside a fenced code block, including the fence lines themselves. */
+function fenceMask(lines) {
+  const mask = [];
+  let open = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const marker = trimmed.startsWith("```") ? "```" : trimmed.startsWith("~~~") ? "~~~" : null;
+    if (open === null && marker) {
+      open = marker;
+      mask.push(true);
+      continue;
+    }
+    if (open !== null && marker === open) {
+      open = null;
+      mask.push(true);
+      continue;
+    }
+    mask.push(open !== null);
+  }
+  return mask;
+}
+
+/** An ATX heading of any level — `#` through `######` followed by a space. */
+function isMarkdownHeading(line) {
+  let hashes = 0;
+  while (hashes < line.length && line[hashes] === "#") hashes += 1;
+  return hashes > 0 && hashes <= 6 && line[hashes] === " ";
+}
+
+/** The body of a named heading's section, or "" when the section is absent. */
+export function sectionBody(markdown, heading) {
   const lines = String(markdown).split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim() === RETIRED_SECTION_HEADING);
+  // A fenced EXAMPLE of one of these tables would otherwise redirect the whole check to the
+  // sample rows — plausible precisely because this README's job is to explain the format to
+  // future editors, so the more carefully somebody documents it the more likely they break it.
+  const fenced = fenceMask(lines);
+  const start = lines.findIndex((line, index) => !fenced[index] && line.trim() === heading);
   if (start === -1) return "";
   const rest = lines.slice(start + 1);
-  const end = rest.findIndex((line) => /^##\s/u.test(line));
+  // Any heading ends the section, not just another `##`. Terminating only on `##` meant a
+  // `###` subsection’s rows were read as the PRECEDING register’s rows — latent while both
+  // registers are `##`, and live the moment anyone demotes a heading or adds a subsection.
+  const offset = start + 1;
+  const end = rest.findIndex((line, index) => !fenced[offset + index] && isMarkdownHeading(line));
   return (end === -1 ? rest : rest.slice(0, end)).join("\n");
 }
 
@@ -188,6 +280,58 @@ export function retiredSlugs(markdown) {
     slugs.add(route.replace(/^\/mockups\//u, "").replace(/\/.*$/u, ""));
   }
   return slugs;
+}
+
+/** The body of the "## Retired mockups" section, or "" when the section is absent. */
+export function retiredSection(markdown) {
+  return sectionBody(markdown, RETIRED_SECTION_HEADING);
+}
+
+/**
+ * Route paths the owner has explicitly approved retiring from a developer-gated subtree.
+ *
+ * Returns full "/mockups/..." paths, NOT the top-level slugs that "## Retired mockups" records.
+ * That difference is the point: a Tier B decision retires ONE route out of a gated application
+ * that is otherwise still live, so a slug-granular record cannot express it — and would reject
+ * it anyway, because the application's own slug still exists.
+ */
+export function ownerApprovedGatedRoutes(markdown) {
+  const section = sectionBody(markdown, OWNER_DECISION_SECTION_HEADING);
+  if (!section.trim()) return new Set();
+  const rows = section.split(/\r?\n/).filter((line) => line.trim().startsWith("|"));
+  if (!rows.length) return new Set();
+
+  // Column order is load-bearing here for the same reason it is in the retirement table: the
+  // Route column names a route that must be GONE, the "Superseded by" column names one that
+  // must be live. Reordering them silently inverts the record.
+  const header = rows[0]
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+  if (header.join("|") !== OWNER_DECISION_TABLE_HEADER.join("|")) {
+    throw new Error(
+      `the "${OWNER_DECISION_SECTION_HEADING}" table header must be ${OWNER_DECISION_TABLE_HEADER.join(" | ")} — found ${header.join(" | ") || "<none>"}`,
+    );
+  }
+
+  const routes = new Set();
+  // `-{2,}` let a row of SINGLE hyphens through, and a lone `-` is the conventional markdown
+  // way to write "nothing here" — so the most natural way to fill a row you cannot complete
+  // was exactly the one that passed, clearing the tier on a row that records no date, no
+  // approver, no successor and no reason.
+  const separator = /^-+$/u;
+  const blank = (cell) => !cell || separator.test(cell);
+  for (const line of rows.slice(1)) {
+    const cells = line.split("|").map((cell) => cell.trim());
+    const route = inlineCodeSpans(cells[2] ?? "")[0];
+    if (!route) continue;
+    // Every other column is load-bearing too. A row naming a route and nothing else would clear
+    // a gated deletion on the strength of a table row that records no date, no approver, no
+    // successor and no reason — which is the decision this tier exists to insist on.
+    if (blank(cells[1]) || blank(cells[3]) || blank(cells[4]) || blank(cells[5])) continue;
+    routes.add(route.replace(/\/+$/u, ""));
+  }
+  return routes;
 }
 
 /** Slugs the index mentions anywhere — the completeness signal. */
@@ -287,9 +431,21 @@ export function moduleSpecifiersFor(file) {
 
   // A route directory is referenced by its URL, never by a module specifier — the four dead
   // `pathname === "/mockups/<slug>"` branches this gate first shipped without are why.
+  //
+  // The specifier must name the route that actually went, not just its root: a deep deleted
+  // page used to collapse to only its first path segment — the route's root, which usually
+  // still exists and is exactly what every surviving nav/test legitimately references.
+  // Dropping only the trailing filename and keeping the rest of the directory chain instead
+  // names the deleted route itself, segment for segment; the bare root falls out of the same
+  // formula when the deleted file IS the root's own page (no segments left to keep).
   if (path.startsWith(`${MOCKUP_ROUTE_ROOT}/`)) {
-    const slug = path.slice(MOCKUP_ROUTE_ROOT.length + 1).split("/")[0];
-    if (slug && !NON_ROUTE_ENTRIES.has(slug)) specifiers.add(`/mockups/${slug}`);
+    const segments = path.slice(MOCKUP_ROUTE_ROOT.length + 1).split("/");
+    const slug = segments[0];
+    if (slug && !NON_ROUTE_ENTRIES.has(slug)) {
+      const routeSegments = segments.slice(0, -1);
+      const route = routeSegments.length ? routeSegments.join("/") : slug;
+      specifiers.add(`/mockups/${route}`);
+    }
   }
 
   // The bare tail, so `./name`, `../../dir/name` and a CSS-module `composes` source all match.
@@ -301,13 +457,81 @@ export function moduleSpecifiersFor(file) {
   return [...specifiers];
 }
 
-/** A reference to `specifier` that survives a relative prefix. */
+/**
+ * True for a bare basename tail (`loading`, `name.css`) as opposed to an aliased (`@/…`) or
+ * route (`/mockups/…`) specifier — the two kinds `moduleSpecifiersFor` ever produces that
+ * already carry their own path shape by construction.
+ */
+function isBareTailSpecifier(specifier) {
+  return !specifier.startsWith("@/") && !specifier.startsWith("/");
+}
+
+/**
+ * A reference to `specifier` that survives a relative prefix.
+ *
+ * A bare tail is only ever a real reference when it is PATH-SHAPED — `./name`, `../x/name`, or
+ * a CSS `composes … from "./name.css"` — so it requires an immediately preceding `/`, never a
+ * bare quote. Anchoring a bare tail on a quote alone was the defect: an ordinary string literal
+ * like `"loading"` (a state value, not an import) opens with the same quote character and
+ * matched every time — 54 false positives against a retired root-level "loading" route file on
+ * this branch alone (its own literal path is deliberately not spelled out here, so this comment
+ * cannot itself trip the Tier C scan below).
+ * The aliased and route specifiers are already path-shaped by construction (they start with
+ * `@/` or `/`), so they keep matching on a leading quote too.
+ */
 export function referencePattern(specifier) {
   const escaped = specifier.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return new RegExp(`(?:["'\`]|/)${escaped}["'\`]`, "u");
+  const prefix = isBareTailSpecifier(specifier) ? "/" : `(?:["'\`]|/)`;
+  return new RegExp(`${prefix}${escaped}["'\`]`, "u");
+}
+
+const SOURCE_EXTENSION = /\.(tsx?|mjs|jsx?)$/u;
+
+/** Every quoted relative import/require/dynamic-import/`composes` specifier (`./x`, `../../x`) in `body`. */
+export function relativeSpecifiersIn(body) {
+  const pattern = /(["'`])(\.\.?\/[^"'`]+)\1/gu;
+  const specifiers = [];
+  let match;
+  while ((match = pattern.exec(body))) specifiers.push(match[2]);
+  return specifiers;
+}
+
+/**
+ * Whether relative `specifier`, written inside `survivor`, resolves to `deletedFile`.
+ *
+ * The bare-tail specifier text alone (`loading`) cannot tell a genuine reference to one deleted
+ * file apart from a reference to any OTHER file sharing that basename — and a per-route
+ * convention file like `loading.tsx` exists dozens of times over in this repository, each one a
+ * legitimate relative import from a sibling. Resolving the specifier against the importing
+ * file's own directory, the way module resolution actually works, is what disambiguates them;
+ * matching bare basename text cannot. Extension-agnostic on both sides, since neither a written
+ * import specifier nor `moduleSpecifiersFor`'s output carries one (CSS is the exception, and
+ * both sides keep `.module.css` for the same reason).
+ */
+export function relativeSpecifierResolvesTo(specifier, survivor, deletedFile) {
+  const survivorDir = posixPath.dirname(normalizeRepoPath(survivor));
+  const resolved = posixPath.normalize(posixPath.join(survivorDir, specifier)).replace(SOURCE_EXTENSION, "");
+  const target = normalizeRepoPath(deletedFile).replace(SOURCE_EXTENSION, "");
+  return resolved === target;
 }
 
 /** Every tracked text file that survives the diff, with its contents. */
+/**
+ * A body with every "known-unresolvable link" registry entry for this path removed.
+ *
+ * The shape is load-bearing and narrow on purpose: the path must be the sole member of a Set
+ * literal, which is how `scripts/check-docs-links.mjs` records a target it expects to dangle.
+ * Anything else — an import, a string in a template, a path built by concatenation — is left in
+ * place, so the caller's re-test still sees it.
+ */
+export function stripRegistryEntries(body, file, survivor) {
+  // Scoped to the registry FILE, not just its shape. Matching the shape alone discounted any
+  // one-member Set anywhere — and `export const GATED_ROUTES = new Set(["<path>"])` is an
+  // idiomatic route allowlist, i.e. a genuine dependency, not a record of a deletion.
+  if (survivor !== UNRESOLVABLE_LINK_REGISTRY) return String(body);
+  return String(body).split(`new Set(["${file}"])`).join("");
+}
+
 function survivingSources(root, runGit, fileSystem, deleted) {
   const gone = new Set(deleted.map(normalizeRepoPath));
   const tracked = runGit(["ls-files", "src", "tests", "scripts", "worker"], root)
@@ -360,6 +584,7 @@ export function auditDeletions(
   const survivingSlugs = listRouteSlugs(root, fileSystem);
   const markdown = fileSystem.readFileSync(resolve(root, ...MOCKUP_INDEX_FILE.split("/")), "utf8");
   const recorded = retiredSlugs(markdown);
+  const approved = ownerApprovedGatedRoutes(markdown);
   const sources = survivingSources(root, runGit, fileSystem, deleted);
 
   // Tier B — developer-gated applications are live behind admin auth, not design scratch.
@@ -370,9 +595,36 @@ export function auditDeletions(
     const gated = gatedPrefixes.find(
       (prefix) => routePath && (routePath === prefix || routePath.startsWith(`${prefix}/`)),
     );
-    if (gated) {
+    const approvedRoute =
+      routePath && routePath.endsWith(ROUTE_ENTRY_SUFFIX) ? routePath.slice(0, -ROUTE_ENTRY_SUFFIX.length) : routePath;
+    if (gated && !(approvedRoute && approved.has(approvedRoute))) {
       violations.push(
-        `${file} is under the developer-gated prefix ${gated} — that subtree is live in production behind DeveloperAreaGate, so retiring it is a product decision, not cleanup`,
+        `${file} is under the developer-gated prefix ${gated} — that subtree is live in production behind DeveloperAreaGate, so retiring it is a product decision, not cleanup. If the owner has made that decision, record it under "${OWNER_DECISION_SECTION_HEADING}" in ${MOCKUP_INDEX_FILE}`,
+      );
+    }
+  }
+
+  for (const route of approved) {
+    // ⚠️ THE ROUTE COLUMN MUST CONTAIN A ROUTE, AND NOTHING USED TO CHECK THAT. Writing a FILE
+    // path there cleared Tier B for that one file, and the symmetry check below could not see it:
+    // it probes `route + "/page.tsx"`, so for `…/widget.tsx` it looked for
+    // `…/widget.tsx/page.tsx`, which cannot exist, and stayed silent. A pass with its own
+    // counter-check disabled by construction. Same family as the single-hyphen row: the tier's
+    // protection is that a row must MEAN something, and nothing checked that this cell meant what
+    // its column says.
+    //
+    // Fails closed rather than ignoring the row, so the silence becomes a question. A row that
+    // records the wrong KIND of thing is a mistake worth a message, not a line to skip quietly.
+    if (!isRetirableRoutePath(route)) {
+      violations.push(
+        `${route} is recorded under "${OWNER_DECISION_SECTION_HEADING}" in ${MOCKUP_INDEX_FILE} but is not a route path — that column records routes, and a file path there would clear this tier for one file with the "recorded but still live" check unable to fire`,
+      );
+      continue;
+    }
+    const file = `${MOCKUP_ROUTE_ROOT}/${route.slice("/mockups/".length)}${ROUTE_ENTRY_SUFFIX}`;
+    if (fileSystem.existsSync(resolve(root, ...file.split("/")))) {
+      violations.push(
+        `${route} is recorded under "${OWNER_DECISION_SECTION_HEADING}" in ${MOCKUP_INDEX_FILE} but ${file} still exists — a retirement record for a live route pre-authorises a deletion nobody has decided on`,
       );
     }
   }
@@ -385,12 +637,26 @@ export function auditDeletions(
         violations.push(`${survivor} is unreadable — cannot prove ${file} is unreferenced`);
         continue;
       }
-      if (body.includes(file)) {
+      // A path can be named by a survivor for the opposite of the usual reason: the docs-link
+      // checker keeps a registry of link targets that are KNOWN not to resolve, so a deleted
+      // path listed there is the record of the deletion, not a reference that survived it.
+      // Only that exact shape is discounted, and the rest of the file is then re-tested — a
+      // genuine reference elsewhere in the same file still fails.
+      if (body.includes(file) && stripRegistryEntries(body, file, survivor).includes(file)) {
         violations.push(`${file} is still named as a path by ${survivor} — remove that reference first`);
         continue;
       }
+      // A bare tail cannot be text-matched — this repo has dozens of same-named per-route
+      // convention files (`loading.tsx` alone, 24 of them) — so it is resolved as a real
+      // relative import against the survivor's own directory instead. The aliased and route
+      // specifiers stay text-matched: both are already fully qualified, so no other file can
+      // collide with them.
+      const relativeSpecifiers = relativeSpecifiersIn(body);
       for (const specifier of specifiers) {
-        if (!referencePattern(specifier).test(body)) continue;
+        const matched = isBareTailSpecifier(specifier)
+          ? relativeSpecifiers.some((relative) => relativeSpecifierResolvesTo(relative, survivor, file))
+          : referencePattern(specifier).test(body);
+        if (!matched) continue;
         const kind = survivor.startsWith("tests/")
           ? "a committed test"
           : survivor.startsWith("scripts/") || survivor.startsWith("worker/")
@@ -459,6 +725,116 @@ function selfTest({ stdout = console.log, stderr = console.error } = {}) {
   check("mentionedSlugs sees the live entry", mentionedSlugs(markdown).has("example-study"));
   check("inlineCodeSpans unwraps backticks", inlineCodeSpans("a `b` c").join() === "b");
 
+  // The owner register for Tier B. Each control below is the FALSE direction: a table that
+  // records less than a decision must not clear a gated deletion, because the whole tier is
+  // there to insist somebody decided.
+  const ownerTable = (rows) =>
+    [
+      OWNER_DECISION_SECTION_HEADING,
+      "",
+      "| Retired | Route | Approved by | Superseded by | Evidence |",
+      "| --- | --- | --- | --- | --- |",
+      ...rows,
+      "",
+      "## Something else",
+      "",
+      "`/mockups/example-gated/never-approved`",
+    ].join("\n");
+
+  const approvedRow =
+    "| 2026-09-03 | `/mockups/example-gated/panel/[id]` | Owner | `/mockups/example-gated/replacement/[id]` | Split into person and movement screens. |";
+
+  check(
+    "ownerApprovedGatedRoutes finds a fully recorded decision",
+    ownerApprovedGatedRoutes(ownerTable([approvedRow])).has("/mockups/example-gated/panel/[id]"),
+  );
+  check(
+    "ownerApprovedGatedRoutes never reads the successor column as retired",
+    !ownerApprovedGatedRoutes(ownerTable([approvedRow])).has("/mockups/example-gated/replacement/[id]"),
+  );
+  check(
+    "ownerApprovedGatedRoutes stops at the next heading",
+    !ownerApprovedGatedRoutes(ownerTable([approvedRow])).has("/mockups/example-gated/never-approved"),
+  );
+  for (const [name, row] of [
+    ["no approver", "| 2026-09-03 | `/mockups/example-gated/panel/[id]` |  | `/x` | Reason. |"],
+    ["no successor", "| 2026-09-03 | `/mockups/example-gated/panel/[id]` | Owner |  | Reason. |"],
+    ["no evidence", "| 2026-09-03 | `/mockups/example-gated/panel/[id]` | Owner | `/x` |  |"],
+    ["no date", "|  | `/mockups/example-gated/panel/[id]` | Owner | `/x` | Reason. |"],
+  ]) {
+    check(
+      `ownerApprovedGatedRoutes rejects a row with ${name}`,
+      !ownerApprovedGatedRoutes(ownerTable([row])).has("/mockups/example-gated/panel/[id]"),
+    );
+  }
+  check(
+    "ownerApprovedGatedRoutes refuses a reordered header",
+    (() => {
+      try {
+        ownerApprovedGatedRoutes(ownerTable([approvedRow]).replace("| Retired | Route |", "| Route | Retired |"));
+        return false;
+      } catch {
+        return true;
+      }
+    })(),
+  );
+  // Four holes an adversarial review opened in this tier on 2026-09-03, each pinned with the
+  // control that proves the fix still catches the real thing. Every one of them passed the
+  // suite as written, so none of these would have been noticed by re-running it.
+  const gatedRoute = "/mockups/example-gated/panel/[id]";
+  check(
+    "a row of single hyphens records nothing and is rejected",
+    !ownerApprovedGatedRoutes(ownerTable(["| - | `" + gatedRoute + "` | - | - | - |"])).has(gatedRoute),
+  );
+  check(
+    "a ### subsection is not read as the register",
+    !ownerApprovedGatedRoutes(
+      ownerTable([approvedRow]).replace(
+        "## Something else",
+        "### A subsection\n\n| 2026-09-03 | `/mockups/sneaky` | Owner | `/z` | Reason. |\n\n## Something else",
+      ),
+    ).has("/mockups/sneaky"),
+  );
+  const fencedExample = [
+    "```",
+    OWNER_DECISION_SECTION_HEADING,
+    "",
+    "| Retired | Route | Approved by | Superseded by | Evidence |",
+    "| --- | --- | --- | --- | --- |",
+    "| 2026-09-03 | `/mockups/fenced-example` | Owner | `/z` | Reason. |",
+    "```",
+    "",
+    ownerTable([approvedRow]),
+  ].join("\n");
+  check(
+    "a fenced example table is documentation, not a register",
+    !ownerApprovedGatedRoutes(fencedExample).has("/mockups/fenced-example"),
+  );
+  check("and the real table after the fence is still read", ownerApprovedGatedRoutes(fencedExample).has(gatedRoute));
+  const deletedPath = "src/app/mockups/a/page.tsx";
+  const setLiteral = `new Set(["${deletedPath}"])`;
+  check(
+    "an idiomatic route allowlist in another file is still a reference",
+    stripRegistryEntries(`export const GATED = ${setLiteral};`, deletedPath, "src/lib/routes.ts").includes(deletedPath),
+  );
+  check(
+    "the unresolvable-link registry is discounted",
+    !stripRegistryEntries(setLiteral, deletedPath, UNRESOLVABLE_LINK_REGISTRY).includes(deletedPath),
+  );
+  check(
+    "but a real import inside that same registry file is not",
+    stripRegistryEntries(
+      `${setLiteral}\nimport X from \"${deletedPath}\";`,
+      deletedPath,
+      UNRESOLVABLE_LINK_REGISTRY,
+    ).includes(deletedPath),
+  );
+
+  check(
+    "the two registers do not read each other",
+    ownerApprovedGatedRoutes(markdown).size === 0 && retiredSlugs(ownerTable([approvedRow])).size === 0,
+  );
+
   check(
     "moduleSpecifiersFor builds the @/ alias",
     moduleSpecifiersFor("src/components/example-study-mockups.tsx").includes("@/components/example-study-mockups"),
@@ -470,6 +846,67 @@ function selfTest({ stdout = console.log, stderr = console.error } = {}) {
   check(
     "moduleSpecifiersFor ignores a bare page basename",
     !moduleSpecifiersFor("src/app/mockups/foo/page.tsx").includes("page"),
+  );
+
+  // Defect 2 — a deep deleted route must be named by the route that actually went, not
+  // collapsed to its (possibly still-live) root.
+  check(
+    "moduleSpecifiersFor names a deep deleted route by its full path, not just its root",
+    moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/ward-flow/patients/[id]/page.tsx`).includes(
+      "/mockups/ward-flow/patients/[id]",
+    ),
+  );
+  check(
+    "moduleSpecifiersFor does not also emit the bare root for a deep deleted route",
+    !moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/ward-flow/patients/[id]/page.tsx`).includes("/mockups/ward-flow"),
+  );
+  check(
+    "moduleSpecifiersFor still emits the bare root when the root's own page is what was deleted",
+    moduleSpecifiersFor(`${MOCKUP_ROUTE_ROOT}/gone/page.tsx`).includes("/mockups/gone"),
+  );
+
+  // Defect 1 — a bare tail is only ever a real reference when it is path-shaped.
+  check(
+    "referencePattern's bare-tail form requires a leading slash, not a bare quote",
+    !referencePattern("loading").test('const status = "loading";'),
+  );
+  check(
+    "referencePattern's bare-tail form still matches a relative import",
+    referencePattern("loading").test('import X from "./loading";'),
+  );
+  check(
+    "referencePattern's alias form keeps matching on a leading quote (unaffected by Defect 1)",
+    referencePattern("@/app/demo/loading").test('import X from "@/app/demo/loading";'),
+  );
+
+  // The residual ambiguity Defect 1 alone cannot resolve: many files can share one bare tail
+  // (24 `loading.tsx` route files in this repo), so a real relative import must be RESOLVED
+  // against the importing file's own directory, not merely text-matched. Synthetic example
+  // paths below deliberately avoid spelling out the real retired root-level file's exact repo
+  // path, so this self-test cannot trip the Tier C scan it is testing.
+  check(
+    "relativeSpecifierResolvesTo confirms a real reference from a sibling file",
+    relativeSpecifierResolvesTo("./loading", "src/app/demo/page.tsx", "src/app/demo/loading.tsx"),
+  );
+  check(
+    "relativeSpecifierResolvesTo confirms a real reference from a nested file, walking up",
+    relativeSpecifierResolvesTo("../../loading", "src/app/demo/a/b/page.tsx", "src/app/demo/loading.tsx"),
+  );
+  check(
+    "relativeSpecifierResolvesTo rejects a same-named file elsewhere in the tree",
+    !relativeSpecifierResolvesTo("../loading", "src/app/demo/services/search/page.tsx", "src/app/demo/loading.tsx"),
+  );
+  check(
+    "relativeSpecifierResolvesTo is extension-agnostic on the specifier side",
+    relativeSpecifierResolvesTo(
+      "./example-shell.module.css",
+      "src/components/x.tsx",
+      "src/components/example-shell.module.css",
+    ),
+  );
+  check(
+    "relativeSpecifiersIn extracts a dynamic import specifier",
+    relativeSpecifiersIn('dynamic(() => import("./example-study-mockups"))').includes("./example-study-mockups"),
   );
 
   check(

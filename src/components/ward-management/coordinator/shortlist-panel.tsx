@@ -8,45 +8,88 @@ import {
   changeReasonLabels,
   ESCALATION_CONTACTS,
   LEGAL_STATUS_CHANGE_REASONS,
-  RELEASE_HOLD_REASONS,
+  RELEASE_PULL_REASONS,
   URGENCY_CHANGE_REASONS,
   type CancelTransportReason,
   type EscalationContact,
   type LegalStatusChangeReason,
-  type ReleaseHoldReason,
+  type ReleasePullReason,
   type UrgencyChangeReason,
+  OVERRIDE_REASONS,
+  type OverrideReason,
 } from "@/components/ward-management/ward-change-reasons";
-import { clockState, formatInstant, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
+import { clockState, formatInstantWithDay, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
   candidateReason,
   destinationUnit,
   elapsedLabel,
-  eligibleCandidatesAmong,
+  blockingGate,
+  referralForMovement,
+  shortlistCandidates,
   referralBlockedReason,
+  needsNoRecordedReason,
   restrictionNotice,
   unitCapacity,
 } from "@/components/ward-management/ward-derivations";
-import { eligibility, type GateResult } from "@/components/ward-management/ward-eligibility";
+import { eligibility, type EligibilityGate, type GateResult } from "@/components/ward-management/ward-eligibility";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { legalFormName } from "@/components/ward-management/ward-legal-forms";
 import {
   PARALLEL_REFERRAL_CAP,
+  URGENCY_LEVELS,
   type BedRelease,
   type LegalStatus,
   type Movement,
+  type Referral,
   type Unit,
 } from "@/components/ward-management/ward-model";
-import { operationalScore } from "@/components/ward-management/ward-priority";
+import { referralSuburbLabel } from "@/components/ward-management/ward-referrals";
+import { operationalScore, urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./coordinator.module.css";
+
+/**
+ * One spelling, used by the control, its `title` and its screen-reader note.
+ *
+ * ⚠️ `ed-screen.tsx` carries its own wording for the same gate rather than importing this one.
+ * That is deliberate and follows this codebase's existing convention — every blocked-control
+ * sentence is written for the reader of ITS panel — but it means two sentences must be changed
+ * together. If a third site ever needs it, move it to a shared module instead of adding a third.
+ */
+/**
+ * ⚠️ The worst of the six. `URGENCY_CHANGE_REASONS[0]` is `reassessed`, so a coordinator correcting
+ * a mistyped urgency who never touched this control recorded a CLINICAL REASSESSMENT THAT NEVER
+ * HAPPENED — inventing a clinical event rather than mis-attributing a clerical one.
+ */
+const URGENCY_REASON_UNCHOSEN =
+  "Choose why the urgency is changing before recording it. None is chosen for you: an unpicked reason would be filed as a clinical reassessment nobody made.";
+
+/** Same defect, on the two unwind controls: option zero submitted as a stated reason nobody stated. */
+const UNWIND_REASON_UNCHOSEN =
+  "Choose a reason before recording this. None is chosen for you: an unpicked reason would be filed as the coordinator's own stated reason.";
+
+const LEGAL_STATUS_REASON_UNCHOSEN =
+  "Choose where this entry came from before recording the change. None is chosen for you: a reason nobody picked would be filed as the treating team's own report.";
 
 type ShortlistPanelProps = {
   movement: Movement | undefined;
   now: Instant;
   units: Unit[];
   bedReleases: BedRelease[];
+  /**
+   * Every front-door referral this state holds — the same live collection `useWardFlow()` hands
+   * back, never a filtered subset. Added so this panel can resolve `movement.referralId` back to
+   * its referral and read `referral.suburb`.
+   *
+   * ⚠️ **COORDINATOR-ONLY, BY WHICH FILE THIS IS.** Nothing here restricts what a caller could pass
+   * — this is a screen-scoping decision, not a runtime one, the same way `ward-referral-visibility`'s
+   * own doc comment frames FD-23. `ShortlistPanel` lives under `coordinator/` and nothing under
+   * `ward/` imports it, so passing the full `referrals` array here cannot by itself put a suburb on
+   * a ward-facing screen. Owner ruling, 2026-09-02: a coordinator may see a patient's suburb.
+   */
+  referrals: Referral[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
   dispatch: Dispatch<WardFlowEvent>;
@@ -58,9 +101,30 @@ type ShortlistPanelProps = {
  * straight from `movement.referredUnitIds`, the reducer's own live output, so a second,
  * optimistic local flag would only ever be a second place for the truth to diverge from.
  *
- * Override still needs local state, because the typed reason has nowhere else to live —
- * `REFER_TO_UNITS` carries no reason field, so a typed override reason is never written to
- * shared state. But this record is never trusted at face value: `overrideSucceeded` below reads
+ * ⚠️ **CORRECTED 2026-08-30. THIS PARAGRAPH SAID `REFER_TO_UNITS` CARRIES NO REASON FIELD, AND IT
+ * HAD STOPPED BEING TRUE.** The event now carries `overrideReason?: OverrideReason`, the reducer
+ * validates it against `OVERRIDE_REASONS` by membership and rejects anything outside the list, and
+ * a present reason is stored on `Movement.overrides` — which is the whole of owner decision `OD-3`.
+ * The control beside it is a `<select>` over that same list, never a textarea.
+ *
+ * ⚠️ **AND THE FIRST VERSION OF THIS CORRECTION WAS ITSELF WRONG, WHICH IS THE MORE USEFUL HALF.**
+ * It said the paragraph had "misinformed another session" — that Ward Referrals read a rotted
+ * comment and filed a request for work already done. **That was not what happened.** The reason
+ * field exists on `claude/ward-flow-phases-6-7-design` and does NOT exist on
+ * `claude/ward-flow-wave1-referral-corrections`, where that session was standing. **On its branch
+ * both the comment and its request were correct.** There was no stale comment and no victim; there
+ * were two branches, and I compared its report against my own working tree and read the difference
+ * as its mistake.
+ *
+ * So this paragraph is stale HERE, on this branch, from the day `OD-3` landed here — and it is
+ * accurate anywhere the event has not arrived. **An observation carries its branch as well as its
+ * date, and a fact with its position stripped off looks like a fact about the world.** I had quoted
+ * that exact rule at another session hours earlier, after it reported a defect class closed from a
+ * grep on one branch.
+ *
+ * Override still keeps local state, for a smaller reason than the one this used to give: the
+ * `<select>` needs a value between choosing a reason and submitting it. This record is never
+ * trusted at face value either: `overrideSucceeded` below reads
  * `movement.referredUnitIds` fresh on every render and only renders a success message when those
  * ids are actually present there, so a refused override (the movement was not in a referable
  * stage, or any other reducer-side reason) can never be reported as one that happened.
@@ -68,18 +132,35 @@ type ShortlistPanelProps = {
 type OverrideRecord = { unitIds: string[]; at: Instant; reason: string };
 
 /**
- * Human labels for the eight `eligibility()` gates. Order here is irrelevant — the rendered list
- * is sorted failures-first from the real `GateResult[]`, never from this map's key order.
+ * Human labels for the eligibility gates. Order here is irrelevant — the rendered list is sorted
+ * failures-first from the real `GateResult[]`, never from this map's key order.
+ *
+ * ⚠️ **EXHAUSTIVE OVER `EligibilityGate`, AND THAT IS THE POINT — IT WAS NOT, AND A CLINICIAN SAW
+ * THE CONSEQUENCE.** This was `Record<string, string>` read through `GATE_LABELS[gate.gate] ??
+ * gate.gate`. A hand-listed map with a silent identifier fallback cannot fail: it degrades to
+ * something that looks almost right, and nothing compared it to the gate list it was labelling.
+ * When `sex_designation` was added to the movement path on 2026-09-02 — closing a live defect
+ * where a Female Adult movement was returned eligible for the network's Male-only bed — this map
+ * had no key for it, and the coordinator's shortlist rendered the raw string `sex_designation`
+ * beside eight rows carrying sentences.
+ *
+ * Keyed on `EligibilityGate` now, so **a new gate is a compile error here rather than an
+ * identifier on a clinician's screen.** Do not restore the `??` fallback and do not widen the key
+ * back to `string`: both make this map incapable of failing again, which is the whole defect.
  */
-const GATE_LABELS: Record<string, string> = {
+const GATE_LABELS: Record<EligibilityGate, string> = {
+  age: "Age band",
+  allocatable_bed: "Allocatable bed",
   authorisation: "Mental Health Act authorisation",
+  capacity_freshness: "Capacity freshness",
   cohort: "Cohort match",
+  forensic: "Forensic history",
+  legal_status: "Legal status",
+  prior_decline: "Prior decline",
   security: "Security level",
+  sex_designation: "Sex designation",
   sex_mix: "Sex mix",
   specialling: "Specialling capacity",
-  prior_decline: "Prior decline",
-  capacity_freshness: "Capacity freshness",
-  allocatable_bed: "Allocatable bed",
 };
 
 /** Every `LegalStatus` value — the same hand-listed shape `ed-screen.tsx`'s own intake picker
@@ -91,7 +172,9 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
   "Involuntary inpatient",
 ];
 
-const URGENCY_OPTIONS = [1, 2, 3] as const;
+// Phase 7 Task 5: derived from `URGENCY_LEVELS` (`ward-model.ts`) rather than hand-listed —
+// see that file's own doc comment on `SEXES` for the defect class this prevents.
+const URGENCY_OPTIONS = URGENCY_LEVELS;
 
 function capacityLine(unit: Unit, bedReleases: BedRelease[]) {
   const capacity = unitCapacity(unit, bedReleases);
@@ -127,7 +210,7 @@ function legalFormLine(movement: Movement, now: Instant) {
 
 /**
  * The explainable shortlist: where the placement decision is actually made. Every gate row states
- * its own verdict in real text (never icon-only), all eight gates render every time (never
+ * its own verdict in real text (never icon-only), every gate the verdict carries renders (never
  * `.slice()`), an ineligible candidate is never presented or styled as a recommendation, and
  * nothing is allocated until a human clicks Confirm or records an override reason.
  *
@@ -141,14 +224,25 @@ export function ShortlistPanel({
   now,
   units,
   bedReleases,
+  referrals,
   selectedUnitId,
   onSelectUnit,
   dispatch,
 }: ShortlistPanelProps) {
-  const shortlist = useMemo(
-    () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
-    [movement, units, now],
-  );
+  /**
+   * ⚠️ EVERY WARD, NOT A FILTERED THREE. This was `eligibleCandidatesAmong(…, PARALLEL_REFERRAL_CAP)`,
+   * which dropped every unit of a different cohort BEFORE eligibility was computed and then cut the
+   * remainder to a length borrowed from a rule about how many places one referral may be SENT to.
+   * A coordinator could not see those wards, reason about them, or override them — they were not
+   * there. Hiding them was defensible while the engine refused a mismatched placement outright, and
+   * became the defect the moment a judgement gate turned overridable with a recorded reason.
+   */
+  const shortlist = useMemo(() => (movement ? shortlistCandidates(movement, units, now) : []), [movement, units, now]);
+  /** What a coordinator can act on: take it, or take it with a reason. Never collapsed, at any count. */
+  const offerable = useMemo(() => shortlist.filter((c) => c.availability !== "unavailable"), [shortlist]);
+  /** What no reason can buy. Collapsed behind a disclosure that states its count — see the list below. */
+  const unavailable = useMemo(() => shortlist.filter((c) => c.availability === "unavailable"), [shortlist]);
+  const [unavailableOpen, setUnavailableOpen] = useState(false);
 
   // The unit whose gates this panel currently explains. A selection carried over from another
   // page (the diagram shares the same `selectedUnitId` state) is honoured even when it falls
@@ -174,7 +268,8 @@ export function ShortlistPanel({
     return cached ? cached.verdict : eligibility(movement, activeUnit, now);
   }, [movement, activeUnit, shortlist, now]);
 
-  // Failures first, stable otherwise — never a `.slice()`. All eight gates render every time.
+  // Failures first, stable otherwise — never a `.slice()`. Every gate the verdict carries renders;
+  // the count is whatever `eligibility()` emitted, never a number written down here.
   const sortedGates: GateResult[] = useMemo(
     () => (activeVerdict ? [...activeVerdict.gates].sort((a, b) => Number(a.pass) - Number(b.pass)) : []),
     [activeVerdict],
@@ -196,30 +291,35 @@ export function ShortlistPanel({
   const [escalationOpen, setEscalationOpen] = useState(false);
   // Task 6 (spec item 11): chosen, never typed — the free-text `escalationContact` string state
   // this replaces is gone. Defaults to the list's first entry, the same pattern every other fixed
-  // picker in this panel already uses (`urgencyDraft.reason`, `releaseHoldReason`, and so on).
+  // picker in this panel already uses (`urgencyDraft.reason`, `releasePullReason`, and so on).
   const [escalationContact, setEscalationContact] = useState<EscalationContact>(ESCALATION_CONTACTS[0]);
   // Task 2: urgency and legal status can change mid-flight. Both a coordinator and the referring
   // ED clinician may make either change (`EVENT_ROLE.CHANGE_URGENCY`/`CHANGE_LEGAL_STATUS`), so
   // this panel dispatches as role "coordinator" — the ED screen's own controls dispatch as "ed".
   const [urgencyChangeOpen, setUrgencyChangeOpen] = useState(false);
-  const [urgencyDraft, setUrgencyDraft] = useState<{ urgency: 1 | 2 | 3; reason: UrgencyChangeReason }>({
+  const [urgencyDraft, setUrgencyDraft] = useState<{
+    urgency: 1 | 2 | 3;
+    reason: UrgencyChangeReason | undefined;
+  }>({
     urgency: movement?.urgency ?? 1,
-    reason: URGENCY_CHANGE_REASONS[0],
+    reason: undefined,
   });
   const [legalStatusChangeOpen, setLegalStatusChangeOpen] = useState(false);
   const [legalStatusDraft, setLegalStatusDraft] = useState<{
     legalStatus: LegalStatus;
-    reason: LegalStatusChangeReason;
-  }>({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
+    reason: LegalStatusChangeReason | undefined;
+    // Starts UNCHOSEN. `recorded_by_treating_team` used to be pre-selected, so a coordinator
+    // correcting a mistyped legal status who never touched the control filed the correction as a
+    // fresh report FROM the treating team — a team that never made one. The two options say where
+    // the entry came from, not why a status changed: an audit-trail defect, not a clinical one.
+  }>({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: undefined });
   // Task 3: the undo the prototype has never had. Both forms only ever OPEN when the reducer
-  // would actually accept the event — see `canReleaseHold`/`canCancelTransport` below — so
+  // would actually accept the event — see `canReleasePull`/`canCancelTransport` below — so
   // neither control can advertise an action the reducer would silently refuse.
-  const [releaseHoldOpen, setReleaseHoldOpen] = useState(false);
-  const [releaseHoldReason, setReleaseHoldReason] = useState<ReleaseHoldReason>(RELEASE_HOLD_REASONS[0]);
+  const [releasePullOpen, setReleasePullOpen] = useState(false);
+  const [releasePullReason, setReleasePullReason] = useState<ReleasePullReason | undefined>(undefined);
   const [cancelTransportOpen, setCancelTransportOpen] = useState(false);
-  const [cancelTransportReason, setCancelTransportReason] = useState<CancelTransportReason>(
-    CANCEL_TRANSPORT_REASONS[0],
-  );
+  const [cancelTransportReason, setCancelTransportReason] = useState<CancelTransportReason | undefined>(undefined);
 
   // A confirmation, an open override form, or a referral selection all belong to the movement
   // they were made against — moving to a different movement must never leave a stale "Referred"
@@ -236,13 +336,13 @@ export function ShortlistPanel({
     setEscalationOpen(false);
     setEscalationContact(ESCALATION_CONTACTS[0]);
     setUrgencyChangeOpen(false);
-    setUrgencyDraft({ urgency: movement?.urgency ?? 1, reason: URGENCY_CHANGE_REASONS[0] });
+    setUrgencyDraft({ urgency: movement?.urgency ?? 1, reason: undefined });
     setLegalStatusChangeOpen(false);
-    setLegalStatusDraft({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
-    setReleaseHoldOpen(false);
-    setReleaseHoldReason(RELEASE_HOLD_REASONS[0]);
+    setLegalStatusDraft({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: undefined });
+    setReleasePullOpen(false);
+    setReleasePullReason(undefined);
     setCancelTransportOpen(false);
-    setCancelTransportReason(CANCEL_TRANSPORT_REASONS[0]);
+    setCancelTransportReason(undefined);
   }
 
   if (!movement) {
@@ -259,9 +359,9 @@ export function ShortlistPanel({
 
   // Task 3: each control renders ONLY when the reducer would accept it — never dispatched
   // optimistically and left for the reducer to refuse silently (the defect Task 5's `canRefer`
-  // exists to prevent, applied here to the undo path). Mirrors `RELEASE_HOLD`/`CANCEL_TRANSPORT`'s
+  // exists to prevent, applied here to the undo path). Mirrors `RELEASE_PULL`/`CANCEL_TRANSPORT`'s
   // own preconditions in `ward-flow-reducer.ts` exactly.
-  const canReleaseHold = movement.stage === "bed_held";
+  const canReleasePull = movement.stage === "pulled";
   const canCancelTransport =
     movement.transport !== undefined &&
     movement.transport.cancelledAt === undefined &&
@@ -274,6 +374,22 @@ export function ShortlistPanel({
   const originLabel = originEd
     ? `Currently at ${originEd.siteCode} — ${originEd.name}`
     : "Currently at an unresolved department";
+
+  /**
+   * Owner ruling, 2026-09-02: a coordinator may see the suburb a referred patient is from —
+   * `PD-3`'s permission reaches this field precisely because a suburb is a service area, never an
+   * address. Resolved the same way every other reader of a referral does: `referralForMovement`
+   * (`ward-derivations.ts`) joins `movement.referralId` back to `referrals`, and
+   * `referralSuburbLabel` (`ward-referrals.ts`) turns the resulting `ReferralSuburb` into the one
+   * shared wording a screen shows — never a second copy of "Suburb not known" written here.
+   *
+   * ⚠️ **`undefined` FOR A MOVEMENT WITH NO REFERRAL, AND THAT IS MOST OF THEM.** Most seeded
+   * movements carry no `referralId` at all (see that field's own doc comment on `Movement`), so
+   * this line is absent rather than a placeholder for the common case — the same conservative
+   * failure the rest of this panel already holds to.
+   */
+  const referral = referralForMovement(movement, referrals);
+  const suburbLabel = referral ? referralSuburbLabel(referral.suburb) : undefined;
 
   // A form with no `dueAt` is never breached — `undefined` must never reach `clockState`'s
   // arithmetic. As of the 2026-08-23 product-owner correction, neither a Form 1A nor a Form 3B
@@ -310,17 +426,24 @@ export function ShortlistPanel({
   // acting on it is not.
   const referredCandidates = referTargets.map((unitId) => shortlist.find((candidate) => candidate.unit.id === unitId));
   const hasReferSelection = referTargets.length > 0;
-  const allSelectedEligible = referredCandidates.every((candidate) => candidate?.verdict.eligible === true);
+  // ⚠️ `availability`, NEVER `verdict.eligible`. A previously-declining ward has `eligible === false`
+  // and yet the owner ruled it may be referred to with nothing recorded. Reading `eligible` here is
+  // what made this control say "Not eligible … Use Override instead" about a ward that needs no
+  // reason at all — his ruling inverted, on a clinical screen. `needsNoRecordedReason` is the single
+  // fact this control and the candidates list both read.
+  const allSelectedReferable = referredCandidates.every(
+    (candidate) => candidate !== undefined && needsNoRecordedReason(candidate.availability),
+  );
   // Fix round 1, Finding 1: `REFER_TO_UNITS` only accepts a movement at `placement_requested` or
   // `destination_review` (`ward-flow-reducer.ts`'s `REFERRABLE_MOVEMENT_STAGES`) — nine of the
-  // eighteen hand-authored fixture movements sit outside that, at stages like `bed_held`, while
+  // eighteen hand-authored fixture movements sit outside that, at stages like `pulled`, while
   // still open and still offering eligible candidates. Refer used to dispatch anyway and
   // unconditionally claim success, so a coordinator on one of those nine read "Referred by a
   // human coordinator" while the reducer had silently refused every one of them. Folding this
   // into `canRefer` stops the control from ever advertising an action it cannot perform — the
   // stated reason below names the movement's own real stage, never a generic string.
   const referralBlocked = referralBlockedReason(movement);
-  const canRefer = hasReferSelection && allSelectedEligible && referralBlocked === undefined;
+  const canRefer = hasReferSelection && allSelectedReferable && referralBlocked === undefined;
   // Override deliberately carries only the explicit-selection guard, NOT the stage guard above.
   // It is the "a human decided to try anyway, with a stated reason" path — for an ineligible
   // candidate (its original purpose) and, now, for a non-referable stage too. Its own success
@@ -329,7 +452,11 @@ export function ShortlistPanel({
   // exactly like Refer would be, the refusal surfaces on the Exceptions drawer via `rejections`,
   // and no local flag here is ever left claiming a success that did not happen.
   const canOverride = hasReferSelection;
-  const firstIneligibleSelected = referredCandidates.find((candidate) => candidate && !candidate.verdict.eligible);
+  // Same fact as `allSelectedReferable`. A ward that only declined before is NOT one of these, so
+  // the "Use Override instead" sentence below can never be shown about it again.
+  const firstIneligibleSelected = referredCandidates.find(
+    (candidate) => candidate && !needsNoRecordedReason(candidate.availability),
+  );
   const referUnavailableReason = referralBlocked
     ? referralBlocked
     : !hasReferSelection
@@ -372,7 +499,21 @@ export function ShortlistPanel({
     if (!canOverride) return;
     const reason = overrideReason.trim();
     if (reason.length === 0) return;
-    dispatch({ type: "REFER_TO_UNITS", role: "coordinator", now, movementId, unitIds: [...referTargets] });
+    // Membership-checked here as well as in the reducer. The reducer's check is the one that
+    // matters; this one keeps a malformed value from being reported on screen as recorded.
+    if (!OVERRIDE_REASONS.includes(reason as OverrideReason)) return;
+    // OD-3: the reason travels WITH the event now. It used to go only into `overrideRecord`
+    // below -- this component's own state, cleared on the next patient selection -- while the
+    // governance page said override reasons were recorded. The reducer keeps it on
+    // `Movement.overrides`; `overrideRecord` is now only the on-screen confirmation.
+    dispatch({
+      type: "REFER_TO_UNITS",
+      role: "coordinator",
+      now,
+      movementId,
+      unitIds: [...referTargets],
+      overrideReason: reason as OverrideReason,
+    });
     setOverrideRecord({ unitIds: [...referTargets], at: now, reason });
     setOverrideOpen(false);
     setOverrideReason("");
@@ -417,6 +558,8 @@ export function ShortlistPanel({
    */
   function submitUrgencyChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // A real <form>: Enter inside a field submits it whatever the button advertises.
+    if (urgencyDraft.reason === undefined) return;
     dispatch({
       type: "CHANGE_URGENCY",
       role: "coordinator",
@@ -435,6 +578,9 @@ export function ShortlistPanel({
    */
   function submitLegalStatusChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // A real <form>: Enter inside a field submits it whatever the button advertises, and the
+    // reducer requires a reason, so an unguarded Enter would dispatch `undefined`.
+    if (legalStatusDraft.reason === undefined) return;
     dispatch({
       type: "CHANGE_LEGAL_STATUS",
       role: "coordinator",
@@ -447,26 +593,30 @@ export function ShortlistPanel({
   }
 
   /**
-   * Releases a held bed back to allocatable WITHOUT closing the movement, clearing `legalForm`,
+   * Releases a pulled bed back to allocatable WITHOUT closing the movement, clearing `legalForm`,
    * or touching `referredUnitIds` — the patient survives and keeps their acceptance; only the
-   * hold itself unwinds. Dispatched as role "coordinator", so no `actingUnitId` is needed — a
-   * coordinator may release a hold at any unit.
+   * pull itself unwinds. Dispatched as role "coordinator", so no `actingUnitId` is needed — a
+   * coordinator may release a pull at any unit.
    */
-  function submitReleaseHold(event: FormEvent<HTMLFormElement>) {
+  function submitReleasePull(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canReleaseHold) return;
-    dispatch({ type: "RELEASE_HOLD", role: "coordinator", now, movementId, reason: releaseHoldReason });
-    setReleaseHoldOpen(false);
+    if (!canReleasePull) return;
+    // A real <form>: Enter inside a field submits it whatever the button advertises.
+    if (releasePullReason === undefined) return;
+    dispatch({ type: "RELEASE_PULL", role: "coordinator", now, movementId, reason: releasePullReason });
+    setReleasePullOpen(false);
   }
 
   /**
-   * Cancels the transport job WITHOUT closing the movement — the bed itself (held or already
+   * Cancels the transport job WITHOUT closing the movement — the bed itself (pulled or already
    * occupied) is untouched by this handler. Dispatched as role "coordinator", so no
    * `actingUnitId` is needed.
    */
   function submitCancelTransport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canCancelTransport) return;
+    // A real <form>: Enter inside a field submits it whatever the button advertises.
+    if (cancelTransportReason === undefined) return;
     dispatch({ type: "CANCEL_TRANSPORT", role: "coordinator", now, movementId, reason: cancelTransportReason });
     setCancelTransportOpen(false);
   }
@@ -499,6 +649,11 @@ export function ShortlistPanel({
           {movement.cohort} · {movement.security}
         </span>
         <span className={styles.shortlistMetaLine}>{originLabel}</span>
+        {suburbLabel ? (
+          <span className={styles.shortlistMetaLine} data-testid="ward-shortlist-suburb">
+            Suburb: {suburbLabel}
+          </span>
+        ) : null}
         <span className={legalBreached ? styles.shortlistLegalBreach : styles.shortlistMetaLine}>
           {movement.legalStatus} · {legalFormLine(movement, now)}
         </span>
@@ -519,7 +674,14 @@ export function ShortlistPanel({
                 5's Refer action uses everywhere this fact is surfaced. Whole-branch review M3:
                 `data-testid` here (never present before) is what lets a test assert the real
                 COUNT of these badges — the journey's own "Three live referrals" comment used to
-                sit over an assertion one badge alone could satisfy. */}
+                sit over an assertion one badge alone could satisfy.
+
+                ⚠️ THE TWO ARMS CARRY DIFFERENT TESTIDS AND MUST KEEP DOING SO. Until 2026-09-02
+                both spans below were `ward-shortlist-referred-badge`, so the one assertion that
+                counts them summed two different kinds and could not tell three resolved referrals
+                from two resolved plus one unresolved — the precise failure the count exists to
+                catch. `origin/main` d29f70eff split them; this branch had drifted back to the
+                ambiguous form. Never collapse them again to make one selector simpler. */}
             {referredUnits.map(({ id, unit }) =>
               unit ? (
                 <span key={id} data-testid="ward-shortlist-referred-badge" className={styles.shortlistReferredBadge}>
@@ -610,9 +772,13 @@ export function ShortlistPanel({
                 setUrgencyDraft((current) => ({ ...current, urgency: Number(event.target.value) as 1 | 2 | 3 }))
               }
             >
+              {/* The option TEXT carries the tier's direction, the option VALUE stays the bare tier.
+                  A bare "1"/"2"/"3" left the direction of the scale to the reader on the one control
+                  that re-ranks a patient in a queue urgency now dominates. `urgencyTierLabel` is the
+                  one spelling, shared with the boards that read the same field back. */}
               {URGENCY_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {urgencyTierLabel(option)}
                 </option>
               ))}
             </select>
@@ -623,20 +789,36 @@ export function ShortlistPanel({
               id="ward-change-urgency-reason"
               required
               className={styles.shortlistOverrideSelect}
-              value={urgencyDraft.reason}
+              value={urgencyDraft.reason ?? ""}
               onChange={(event) =>
-                setUrgencyDraft((current) => ({ ...current, reason: event.target.value as UrgencyChangeReason }))
+                setUrgencyDraft((current) => ({
+                  ...current,
+                  reason: event.target.value === "" ? undefined : (event.target.value as UrgencyChangeReason),
+                }))
               }
             >
+              <option value="">Choose a reason</option>
               {URGENCY_CHANGE_REASONS.map((reason) => (
                 <option key={reason} value={reason}>
                   {changeReasonLabels[reason]}
                 </option>
               ))}
             </select>
-            <button type="submit" className={styles.shortlistOverrideSubmit}>
+            <button
+              type="submit"
+              className={styles.shortlistOverrideSubmit}
+              aria-disabled={urgencyDraft.reason === undefined ? "true" : undefined}
+              aria-describedby={urgencyDraft.reason === undefined ? "ward-change-urgency-reason-blocked" : undefined}
+              title={urgencyDraft.reason === undefined ? URGENCY_REASON_UNCHOSEN : undefined}
+              onClick={urgencyDraft.reason === undefined ? ignoreUnavailableActivation : undefined}
+            >
               Record urgency change
             </button>
+            {urgencyDraft.reason === undefined ? (
+              <span id="ward-change-urgency-reason-blocked" className="sr-only">
+                {URGENCY_REASON_UNCHOSEN}
+              </span>
+            ) : null}
           </form>
         ) : null}
 
@@ -670,44 +852,61 @@ export function ShortlistPanel({
               id="ward-change-legal-status-reason"
               required
               className={styles.shortlistOverrideSelect}
-              value={legalStatusDraft.reason}
+              value={legalStatusDraft.reason ?? ""}
               onChange={(event) =>
                 setLegalStatusDraft((current) => ({
                   ...current,
-                  reason: event.target.value as LegalStatusChangeReason,
+                  reason: event.target.value === "" ? undefined : (event.target.value as LegalStatusChangeReason),
                 }))
               }
             >
+              {/* Same wording as this panel's other unchosen-reason select, so the blank option
+                  reads as one convention rather than two. */}
+              <option value="">Choose a reason</option>
               {LEGAL_STATUS_CHANGE_REASONS.map((reason) => (
                 <option key={reason} value={reason}>
                   {changeReasonLabels[reason]}
                 </option>
               ))}
             </select>
-            <button type="submit" className={styles.shortlistOverrideSubmit}>
+            <button
+              type="submit"
+              className={styles.shortlistOverrideSubmit}
+              aria-disabled={legalStatusDraft.reason === undefined ? "true" : undefined}
+              aria-describedby={
+                legalStatusDraft.reason === undefined ? "ward-change-legal-status-reason-blocked" : undefined
+              }
+              title={legalStatusDraft.reason === undefined ? LEGAL_STATUS_REASON_UNCHOSEN : undefined}
+              onClick={legalStatusDraft.reason === undefined ? ignoreUnavailableActivation : undefined}
+            >
               Record legal status change
             </button>
+            {legalStatusDraft.reason === undefined ? (
+              <span id="ward-change-legal-status-reason-blocked" className="sr-only">
+                {LEGAL_STATUS_REASON_UNCHOSEN}
+              </span>
+            ) : null}
           </form>
         ) : null}
       </section>
 
       {/* Task 3: the undo the prototype has never had. Before this, the only path that released a
-          held bed or cancelled a transport job was closing the movement outright, by recording an
+          pulled bed or cancelled a transport job was closing the movement outright, by recording an
           examination with outcome community_order or revoked. Each control renders only while the
-          reducer would actually accept it — see `canReleaseHold`/`canCancelTransport` above. */}
-      {canReleaseHold || canCancelTransport ? (
+          reducer would actually accept it — see `canReleasePull`/`canCancelTransport` above. */}
+      {canReleasePull || canCancelTransport ? (
         <section aria-label="Release or cancel">
-          <h4 className={styles.shortlistSectionHeading}>Release hold or cancel transport</h4>
+          <h4 className={styles.shortlistSectionHeading}>Release pull or cancel transport</h4>
           <div className={styles.shortlistActionRow}>
-            {canReleaseHold ? (
+            {canReleasePull ? (
               <button
                 type="button"
-                data-testid="ward-release-hold-toggle"
-                aria-expanded={releaseHoldOpen}
+                data-testid="ward-release-pull-toggle"
+                aria-expanded={releasePullOpen}
                 className={styles.shortlistOverrideButton}
-                onClick={() => setReleaseHoldOpen((open) => !open)}
+                onClick={() => setReleasePullOpen((open) => !open)}
               >
-                Release the held bed
+                Release the pulled bed
               </button>
             ) : null}
             {canCancelTransport ? (
@@ -723,27 +922,44 @@ export function ShortlistPanel({
             ) : null}
           </div>
 
-          {canReleaseHold && releaseHoldOpen ? (
-            <form className={styles.shortlistOverrideForm} onSubmit={submitReleaseHold} data-testid="ward-release-hold">
-              <label className={styles.shortlistOverrideLabel} htmlFor="ward-release-hold-reason">
-                Reason for releasing the held bed for {movement.id}
+          {canReleasePull && releasePullOpen ? (
+            <form className={styles.shortlistOverrideForm} onSubmit={submitReleasePull} data-testid="ward-release-pull">
+              <label className={styles.shortlistOverrideLabel} htmlFor="ward-release-pull-reason">
+                Reason for releasing the pulled bed for {movement.id}
               </label>
               <select
-                id="ward-release-hold-reason"
+                id="ward-release-pull-reason"
                 required
                 className={styles.shortlistOverrideSelect}
-                value={releaseHoldReason}
-                onChange={(event) => setReleaseHoldReason(event.target.value as ReleaseHoldReason)}
+                value={releasePullReason ?? ""}
+                onChange={(event) =>
+                  setReleasePullReason(
+                    event.target.value === "" ? undefined : (event.target.value as ReleasePullReason),
+                  )
+                }
               >
-                {RELEASE_HOLD_REASONS.map((reason) => (
+                <option value="">Choose a reason</option>
+                {RELEASE_PULL_REASONS.map((reason) => (
                   <option key={reason} value={reason}>
                     {changeReasonLabels[reason]}
                   </option>
                 ))}
               </select>
-              <button type="submit" className={styles.shortlistOverrideSubmit}>
-                Release the held bed
+              <button
+                type="submit"
+                className={styles.shortlistOverrideSubmit}
+                aria-disabled={releasePullReason === undefined ? "true" : undefined}
+                aria-describedby={releasePullReason === undefined ? "ward-release-pull-reason-blocked" : undefined}
+                title={releasePullReason === undefined ? UNWIND_REASON_UNCHOSEN : undefined}
+                onClick={releasePullReason === undefined ? ignoreUnavailableActivation : undefined}
+              >
+                Release the pulled bed
               </button>
+              {releasePullReason === undefined ? (
+                <span id="ward-release-pull-reason-blocked" className="sr-only">
+                  {UNWIND_REASON_UNCHOSEN}
+                </span>
+              ) : null}
             </form>
           ) : null}
 
@@ -760,18 +976,37 @@ export function ShortlistPanel({
                 id="ward-cancel-transport-reason"
                 required
                 className={styles.shortlistOverrideSelect}
-                value={cancelTransportReason}
-                onChange={(event) => setCancelTransportReason(event.target.value as CancelTransportReason)}
+                value={cancelTransportReason ?? ""}
+                onChange={(event) =>
+                  setCancelTransportReason(
+                    event.target.value === "" ? undefined : (event.target.value as CancelTransportReason),
+                  )
+                }
               >
+                <option value="">Choose a reason</option>
                 {CANCEL_TRANSPORT_REASONS.map((reason) => (
                   <option key={reason} value={reason}>
                     {changeReasonLabels[reason]}
                   </option>
                 ))}
               </select>
-              <button type="submit" className={styles.shortlistOverrideSubmit}>
+              <button
+                type="submit"
+                className={styles.shortlistOverrideSubmit}
+                aria-disabled={cancelTransportReason === undefined ? "true" : undefined}
+                aria-describedby={
+                  cancelTransportReason === undefined ? "ward-cancel-transport-reason-blocked" : undefined
+                }
+                title={cancelTransportReason === undefined ? UNWIND_REASON_UNCHOSEN : undefined}
+                onClick={cancelTransportReason === undefined ? ignoreUnavailableActivation : undefined}
+              >
                 Cancel transport
               </button>
+              {cancelTransportReason === undefined ? (
+                <span id="ward-cancel-transport-reason-blocked" className="sr-only">
+                  {UNWIND_REASON_UNCHOSEN}
+                </span>
+              ) : null}
             </form>
           ) : null}
         </section>
@@ -787,14 +1022,14 @@ export function ShortlistPanel({
             states the real ordering rather than leaving the reader to assume one. */}
         <h4 className={styles.shortlistSectionHeading}>Candidates</h4>
         <p className={styles.shortlistSectionNote}>
-          Units matching this movement&apos;s cohort, listed eligible first. Not ranked by distance — this prototype
-          holds no location data.
+          Every ward in the network, listed eligible first, then those that only declined before, then those a recorded
+          reason could still place this person in. Not ranked by distance — this prototype holds no location data.
         </p>
-        {shortlist.length === 0 ? (
-          <p className={styles.placeholder}>No cohort-matching units found.</p>
+        {offerable.length === 0 ? (
+          <p className={styles.placeholder}>No ward can take this person, with or without a recorded reason.</p>
         ) : (
           <ul className={styles.shortlistCandidateList}>
-            {shortlist.map((candidate) => {
+            {offerable.map((candidate) => {
               // `data-showing` is purely visual — which candidate's gates this panel is
               // currently displaying, including the default (nothing explicitly selected)
               // case. `aria-pressed` is Task 5's real, explicit MULTI-select state
@@ -855,6 +1090,77 @@ export function ShortlistPanel({
             })}
           </ul>
         )}
+
+        {/* ⚠️ A DISCLOSURE, NOT A FILTER, AND THE DIFFERENCE IS WHETHER A CHOICE IS BEING HIDDEN.
+            Eligible and overridable are both actionable and are never collapsed at any count —
+            hiding either is the defect this panel just stopped committing. These wards are
+            provably NOT actionable: each fails at least one gate no recorded reason can buy past,
+            so there is no choice behind this toggle. What is hidden is layout, not options.
+
+            Two things keep that true, and without either it becomes a filter again:
+            the COUNT IS STATED WHILE COLLAPSED, so a coordinator knows they exist and can look;
+            and what is behind it is the REASONS, not just the names, because "why can I not use
+            X" is the only question that sends anybody in here. */}
+        {unavailable.length > 0 ? (
+          <div className={styles.shortlistUnavailableBlock}>
+            <button
+              type="button"
+              className={styles.shortlistOverrideButton}
+              data-testid="ward-shortlist-unavailable-toggle"
+              aria-expanded={unavailableOpen}
+              onClick={() => setUnavailableOpen((open) => !open)}
+            >
+              {unavailable.length} {unavailable.length === 1 ? "ward cannot" : "wards cannot"} take this person
+            </button>
+            {unavailableOpen ? (
+              <ul className={styles.shortlistCandidateList} data-testid="ward-shortlist-unavailable-list">
+                {unavailable.map((candidate) => {
+                  // ⚠️ THE GATE THAT ACTUALLY MAKES THIS UNAVAILABLE, NOT MERELY THE FIRST ONE
+                  // FAILING. Caught by looking at the rendered screen: taking the first failing
+                  // gate showed "Open ward does not meet a secure requirement" against a ward that
+                  // is unavailable because it has NO BED — naming an overridable reason on a row
+                  // no reason can buy. A coordinator reading that would conclude a recorded reason
+                  // would get them in, which is the precise thing this group exists to prevent.
+                  // The blocking gate is the first failing one OUTSIDE the overridable set.
+                  const blocking = blockingGate(candidate.verdict);
+                  const reason = blocking?.detail ?? candidateReason(candidate.verdict);
+                  const describedBy = `ward-shortlist-unavailable-why-${candidate.unit.id}`;
+                  return (
+                    <li key={candidate.unit.id}>
+                      {/* ⚠️ `aria-disabled`, NEVER native `disabled`. Native disabled removes the tab
+                          stop, which puts the reason out of reach of the person most dependent on
+                          it — and the two attributes together fail lint. The row stays focusable,
+                          announces itself unavailable, and carries why. */}
+                      <button
+                        type="button"
+                        data-testid={`ward-shortlist-unavailable-${candidate.unit.id}`}
+                        className={styles.shortlistCandidateRow}
+                        aria-disabled="true"
+                        aria-describedby={describedBy}
+                        title={`${candidate.unit.name} — ${reason}`}
+                        onClick={ignoreUnavailableActivation}
+                      >
+                        <span className={styles.shortlistCandidateName}>{candidate.unit.name}</span>
+                        <span className={styles.shortlistCandidateCapacity}>
+                          {capacityLine(candidate.unit, bedReleases)}
+                        </span>
+                        {/* ⚠️ THE REASON IS ON SCREEN, NOT ONLY IN THE TITLE. "No allocatable bed"
+                            and "Open ward does not meet a secure requirement" look identical as
+                            greyed rows and are completely different facts — one can never be had,
+                            the other could have been had five minutes ago. A coordinator scanning
+                            two dozen rows must not have to hover to tell them apart. */}
+                        <span className={styles.shortlistCandidateReasonBad}>{reason}</span>
+                        <span id={describedBy} className="sr-only">
+                          Unavailable: {reason}. No recorded reason can place this person here.
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section aria-label="Eligibility checks">
@@ -898,7 +1204,7 @@ export function ShortlistPanel({
                 ) : (
                   <CircleAlert aria-hidden="true" className={styles.shortlistGateIconBad} />
                 )}
-                <span className={styles.shortlistGateLabel}>{GATE_LABELS[gate.gate] ?? gate.gate}</span>
+                <span className={styles.shortlistGateLabel}>{GATE_LABELS[gate.gate]}</span>
                 <strong className={gate.pass ? styles.shortlistGateVerdictOk : styles.shortlistGateVerdictBad}>
                   {gate.pass ? "Met" : "Not met"}
                 </strong>
@@ -924,11 +1230,8 @@ export function ShortlistPanel({
                   className={styles.shortlistDeclineRow}
                 >
                   <strong>{unit ? unit.name : "Unresolved unit"}</strong>
-                  <span>
-                    {decline.reason.replace(/_/g, " ")}
-                    {decline.note ? ` — ${decline.note}` : ""}
-                  </span>
-                  <span>{formatInstant(decline.at)}</span>
+                  <span>{decline.reason.replace(/_/g, " ")}</span>
+                  <span>{formatInstantWithDay(decline.at, now)}</span>
                 </li>
               );
             })}
@@ -949,7 +1252,7 @@ export function ShortlistPanel({
         <h4 className={styles.shortlistSectionHeading}>Escalation</h4>
         {movement.escalation ? (
           <p className={styles.shortlistEscalationRecord} data-testid="ward-shortlist-escalation-record">
-            {`Escalated at ${formatInstant(movement.escalation.at)} — tried ${movement.escalation.triedUnitIds.length} unit${movement.escalation.triedUnitIds.length === 1 ? "" : "s"} — contact: "${movement.escalation.contact}".`}
+            {`Escalated at ${formatInstantWithDay(movement.escalation.at, now)} — tried ${movement.escalation.triedUnitIds.length} unit${movement.escalation.triedUnitIds.length === 1 ? "" : "s"} — contact: "${movement.escalation.contact}".`}
           </p>
         ) : null}
         {topEligible === undefined ? (
@@ -1033,7 +1336,7 @@ export function ShortlistPanel({
             instead (`rejections`), never claimed as a success on this footer. */}
         {overrideRecord && overrideSucceeded ? (
           <p className={styles.shortlistConfirmationRecord} data-testid="ward-shortlist-confirmation-record">
-            {`Overridden by a human coordinator — referred to ${overrideRecordUnits.join(", ")} at ${formatInstant(overrideRecord.at)} — reason: "${overrideRecord.reason}". No bed was allocated automatically.`}
+            {`Overridden by a human coordinator — referred to ${overrideRecordUnits.join(", ")} at ${formatInstantWithDay(overrideRecord.at, now)} — reason: "${overrideRecord.reason}". No bed was allocated automatically.`}
           </p>
         ) : null}
 
@@ -1075,17 +1378,92 @@ export function ShortlistPanel({
 
         {overrideOpen && canOverride ? (
           <form className={styles.shortlistOverrideForm} onSubmit={handleOverrideSubmit}>
+            {/*
+              ⚠️ WHAT THE BED FAILED ON, IN THE FORM, AT THE MOMENT OF OVERRIDING.
+              Derivation by Ward Verifier; the sentence already existed, computed and in scope, one
+              line from being rendered — `firstIneligibleSelected` at :404 and `candidateReason` at
+              :410, where it feeds the INERT plain-Refer button's `title`.
+              And that was the whole problem. Until now the failing gate reached a sighted mouse
+              user ONLY as a tooltip on a button they cannot click, plus an `sr-only` span. A
+              coordinator on a touch screen never saw it. One moving by keyboard never saw it. One
+              who had scrolled past never saw it. So at the only irreversible moment, for a large
+              class of users, the advice was never legible at all.
+              The owner ruled "keep advising and let the clinician decide". THIS IS THAT RULING'S
+              REMAINING WORK — advising where the decision is actually taken.
+              ⚠️ NOT A GATE. It does not disable Override, does not add a confirmation step, and
+              does not touch `canOverride`. It states the reason and leaves the decision where the
+              owner put it.
+            */}
+            {/*
+              TWO BLOCKERS, NOT ONE — and the first version of this block rendered for only one of
+              them. Refer can be unavailable because a selected ward is ineligible OR because the
+              movement's own stage is not referable, and `canOverride` deliberately carries neither
+              guard: overriding a non-referable stage is a documented, intended path (see the
+              comment on `canOverride`). Keying this block on `firstIneligibleSelected` alone meant
+              a coordinator overriding a STAGE block, with every selected ward eligible, opened the
+              form and read nothing at all — the same silence at the same moment, from the other
+              cause. Found by Ward Verifier, against my own comment forty lines up that had already
+              said the stage path existed.
+
+              ⚠️ BOTH REASONS RENDER WHEN BOTH APPLY, and the stage reason leads. The button shows
+              one reason because it has room for one; this form is the moment of the irreversible
+              act, and showing only the higher-precedence one would leave a coordinator who has
+              just overridden the stage block still unaware the ward is ineligible — which is this
+              defect again, one layer down. Leading with the stage matches `referUnavailableReason`
+              above, so the form and the button never disagree about which reason comes first.
+
+              ⚠️ STILL NOT A GATE. Neither line touches `canOverride`.
+            */}
+            {referralBlocked || firstIneligibleSelected ? (
+              /* ⚠️ THE WRAPPER TAKES A NEW ID AND THE OLD ONE GOES BACK WHERE IT MEANT SOMETHING.
+                 `ward-shortlist-override-failing-gate` used to name THE INELIGIBILITY SENTENCE. When
+                 this became two lines I put it on the wrapper, whose `textContent` is now BOTH
+                 sentences concatenated — so a future assertion written against that id would pass
+                 for the wrong reason, which is structurally the same defect this block exists to
+                 fix. Found by Ward Verifier, which checked the whole tree first and confirmed no
+                 test references it today, so nothing breaks. */
+              <div data-testid="ward-shortlist-override-reasons">
+                {referralBlocked ? (
+                  <p className={styles.shortlistOverrideLabel} data-testid="ward-shortlist-override-stage-block">
+                    {referralBlocked}
+                  </p>
+                ) : null}
+                {firstIneligibleSelected ? (
+                  <p className={styles.shortlistOverrideLabel} data-testid="ward-shortlist-override-failing-gate">
+                    <strong>{firstIneligibleSelected.unit.name}</strong>
+                    {" — Not eligible: "}
+                    {candidateReason(firstIneligibleSelected.verdict)}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <label className={styles.shortlistOverrideLabel} htmlFor="ward-shortlist-override-reason">
               Reason for overriding the shortlist for{" "}
               {referredCandidates.map((c) => c?.unit.name ?? "an unresolved unit").join(", ")}
             </label>
-            <textarea
+            {/*
+              Owner decision OD-3: the free-text box is gone and these five replace it. Derived
+              from `OVERRIDE_REASONS` rather than written out here — a second copy of an
+              owner-approved list is how two screens come to offer different words for one thing.
+
+              ⚠️ NEVER ADD AN "OTHER, PLEASE SPECIFY" (WB-DB-16). That option is precisely how free
+              text returns after being removed from the front, and it would undo the decision this
+              control implements.
+            */}
+            <select
               id="ward-shortlist-override-reason"
               required
-              className={styles.shortlistOverrideTextarea}
+              className={styles.shortlistOverrideSelect}
               value={overrideReason}
               onChange={(event) => setOverrideReason(event.target.value)}
-            />
+            >
+              <option value="">Choose a reason</option>
+              {OVERRIDE_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {reason}
+                </option>
+              ))}
+            </select>
             <button type="submit" className={styles.shortlistOverrideSubmit}>
               Record override
             </button>

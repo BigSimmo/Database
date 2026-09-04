@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "75e3b4fa-5cdd-4d26-afd3-44aeab3700bf",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "No gate detects a test fixture that lies about its type: casts defeat tsc and vitest runs none",
+    "detail": "A cast on a fixture suppresses the only check that would catch a missing or phantom field, because vitest runs no typecheck and a cast silences tsc. Search by TARGET type, not by operator: 'as unknown as' appears 228 times in tests/ and almost all are legitimate (you cannot hand-construct a Request or an IntersectionObserver). Dangerous only when the target is a domain-model type. Filter comment lines: 'as' appearing is not 'as' being used. A 90-file sweep of ward tests never mentioned casts once - grep for cast across that document returns zero.",
+    "source": "Ward Builder Three, class handed over by Ward Builder One, measured at adcd8bcb5",
+    "issueUlid": "01M1G4NN9VWRZJVRXYFJQ3EWXF"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "63cd34c6-29e0-4d49-a79a-c25a769b273e",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Services and differentials governance still returns the frozen source_status column verbatim, and derives it with a substring test that matches its own negation",
+    "detail": "Two defects, one fix. (a) FROZEN COLUMN: src/lib/registry-records.ts:112 rowGovernance() returns registrySourceStatus(row.source_status) (line 119) and src/lib/differential-records.ts:105 rowGovernance() returns differentialSourceStatus(row.source_status) (line 112). That column is written once at insert time by recordToRow/presentationToRow/diagnosisToRow and never ages, so a row written while its sources were fresh keeps claiming \"current\" indefinitely — the exact defect PR #2536 fixed for medications by re-deriving on the read path (see the rowGovernance doc comment on the #2536 head, which spells out why the stored column must stop being the answer). Both feed clinician-facing governance: /api/registry/records, /api/differentials, and the services and differentials detail pages. (b) SUBSTRING: src/lib/registry-records.ts:42 uses status.includes(\"checked\") and src/lib/differential-records.ts:37 uses reviewStatus.includes(\"checked\") || includes(\"current\") — both substrings also match \"not checked\" and \"unchecked\", which would grade an explicitly unchecked source as \"current\". Latent today, not live: verified 2026-09-02 that data/services-snapshot.json (219 records) carries only \"Added/checked via internet review\" or \"Extracted from uploaded deep research only\", and neither snapshot contains any negative form. src/lib/medication-records.ts:30 already carries the veto regex /\\b(?:not\\s+checked|unchecked|unverified)\\b/i. NEXT STEP: mirror #2536's read-time derivation and that negative-form veto into both modules; keep #2536's rule that a stored \"outdated\" survives re-derivation.",
+    "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
+    "issueUlid": "01M1GA10FXZV7H8Q1EF31NKWR8"
+  }
+}

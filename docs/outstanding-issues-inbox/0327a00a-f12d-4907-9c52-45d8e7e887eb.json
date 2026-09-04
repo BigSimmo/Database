@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0327a00a-f12d-4907-9c52-45d8e7e887eb",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The generated counts sentence in docs/scripts-index.md conflicts on every concurrent PR, the same failure #Y090R5 describes for the issues snapshot",
+    "detail": "docs/scripts-index.md opens with a machine-written sentence counting script files and npm scripts; scripts/update-docs-inventory.mjs rewrites it by regex and docs:check-inventory fails if it drifts. Because every change to the script surface rewrites that one line, any two concurrent PRs collide on it. Measured on PR #2531 five times in about three hours, at main c0ee4ddd, ff37de6d, 59b3490e, 88ffbdb9 and 4dcd8dde: each time the whole conflict was that single line, with both sides correct about their own half. Twice it came bundled with a real package.json conflict on verify:cheap:internal, where two PRs each inserted a different gate into the same chain -- resolvable only as a union, and it silently desynchronises the gate counts that check:gate-manifest reads from CLAUDE.md and .claude/skills/gates/SKILL.md, so those must be re-derived after every such merge. This is the same root cause as #Y090R5 (data/outstanding-issues-snapshot.json): a single-line generated artefact that every PR must regenerate. PR #2530 has now fixed the snapshot half by moving regeneration into the serialised reconcile step; the scripts-index half is untouched. Two traps for whoever resolves it: taking main's whole file silently deletes the branch's own new script entry (hit once on #2531), and after resolving you must re-run scripts/update-docs-inventory.mjs rather than picking a side. Worth either moving the counts out of the prose sentence into a generated block with a union merge strategy, or regenerating them in a serialised step as #2530 did for the snapshot.",
+    "source": "PRs #2531 and #2544, session 2026-09-02",
+    "issueUlid": "01M1GZH5MH2MTYDVYDW7HKXMXF"
+  }
+}
