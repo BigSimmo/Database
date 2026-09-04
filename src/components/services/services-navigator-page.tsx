@@ -915,18 +915,18 @@ export function ServicesNavigatorPage() {
           ) : null}
 
           {/* The bookmark control is otherwise silent, and a failed save must
-              not read as a success. Visible rather than sr-only: "Sign in to
+              not read as a success. Visible rather than hidden: "Sign in to
               save services" is the common outcome for a guest, and hiding it
               from sighted readers leaves the bookmark looking simply broken.
-              The live region is always mounted so the announcement is not
-              swallowed by the node appearing at the same time as its text. */}
-          <p
-            role="status"
-            aria-live="polite"
-            className={cn("text-xs font-semibold text-[color:var(--text-muted)]", saveNotice ? "min-h-5" : "sr-only")}
-          >
+              SPEC.md §9.2 still forbids aria-live on this visible node, so the
+              announcement itself lives in the always-mounted sr-only span
+              below rather than here. */}
+          {saveNotice ? (
+            <p className="min-h-5 text-xs font-semibold text-[color:var(--text-muted)]">{saveNotice}</p>
+          ) : null}
+          <span role="status" aria-live="polite" className="sr-only">
             {saveNotice ?? ""}
-          </p>
+          </span>
 
           <ResultFilterSheet
             open={filterOpen}

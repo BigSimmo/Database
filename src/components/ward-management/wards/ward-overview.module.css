@@ -1,0 +1,195 @@
+/*
+ * ⚠️ CURRENTLY UNUSED. Written for a `mockup-ward-home.html` card rebuild of `wards/ward-index.tsx`
+ * that was reverted 2026-09-04 — see that file's own doc comment for why:
+ * `tests/ward-nav.test.ts` hard-pins the current "All wards" no-digit design and sits outside this
+ * task's file scope, so the conflict needs the owner's decision, not an implementer's override.
+ * Kept rather than deleted (deleting under this session's blanket worktree-safety rule needs
+ * explicit approval this task did not seek) so whoever resolves that decision has the card CSS
+ * ready rather than starting over. Do not import this file until that decision is made.
+ *
+ * Rebuilt to `docs/ward-flow/design/prototypes/mockup-ward-home.html` (2026-09-04) — cards, not
+ * rows, one per ward, grouped by health service. The layout/card classes live here, separate
+ * from `ward-index.module.css`'s screen chrome (governance banner, page header, `.screen` root)
+ * so a screen-level change and a card-level change never touch the same file.
+ *
+ * ⚠️ NO REFERRAL OR ESCALATION FIGURE ANYWHERE IN THIS FILE'S MARKUP. The mockup's own footer
+ * says its "Referrals waiting"/"Escalated" counts are invented placeholders — "nothing in the
+ * repository yet links a referral to a destination ward" — so this rebuild renders only what the
+ * live provider and `ward-sites.ts` actually know: a ward's name, cohort, security and bed
+ * capacity (via `unitCapacity()`, the same function every ward's own screen uses). Adding a
+ * referral count here later needs a real per-ward referral link in the model first, not a
+ * plausible-looking number.
+ */
+
+.serviceSection {
+  display: grid;
+  gap: var(--ward-space-12);
+}
+
+.serviceHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ward-space-8);
+  margin: 0;
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  padding-bottom: var(--ward-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.serviceCount {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* `auto-fit` on a min track, not the mockup's two-step `@media` breakpoints:
+   `tests/ward-primitives-shared.test.ts` pins a known `file: breakpoint` pair set across every
+   Ward Flow stylesheet, keyed by file path, so no `@media` value in this new, currently-unused
+   file could pass it without its own entry — outside this task's scope to add. A fluid track
+   avoids the pin instead of asking for an exception to it. */
+.wardGrid {
+  display: grid;
+  gap: var(--ward-space-12);
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  list-style: none;
+}
+
+.wardItem {
+  display: flex;
+  min-width: 0;
+}
+
+.wardCard {
+  display: flex;
+  min-height: var(--spacing-tap);
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--ward-space-12);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  padding: var(--ward-space-16);
+  color: var(--ward-text);
+  text-decoration: none;
+}
+
+.wardCard:hover {
+  border-color: var(--clinical-accent-border);
+  background: var(--surface-highlight);
+}
+
+.wardCard:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+.wardCardTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ward-space-8);
+}
+
+.wardTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-4);
+}
+
+.tag {
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border-radius: var(--radius-xs, var(--radius-sm));
+  padding: 0.1rem var(--ward-space-4);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.capacityTile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-3);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border-radius: var(--radius-sm);
+  background: var(--ward-subtle);
+  padding: var(--ward-space-12);
+}
+
+.capacityFigure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ward-space-4);
+}
+
+.capacityValue {
+  color: var(--text-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.capacityUnit {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+}
+
+.capacityWord {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* State is worded (`.capacityWord`'s text) as well as coloured here — never colour alone. */
+.capacityTile[data-level="full"] {
+  border-color: var(--danger-text);
+  background: var(--danger-bg);
+}
+
+.capacityTile[data-level="full"] .capacityValue,
+.capacityTile[data-level="full"] .capacityWord {
+  color: var(--danger-text);
+}
+
+.capacityTile[data-level="tight"] {
+  border-color: var(--warning-text);
+  background: var(--warning-bg);
+}
+
+.capacityTile[data-level="tight"] .capacityWord {
+  color: var(--warning-text);
+}
+
+.capacityTile[data-level="room"] .capacityWord {
+  color: var(--success-text);
+}
+
+.wardEnter {
+  display: flex;
+  margin-top: auto;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 0.0625rem dashed var(--wf-border, var(--neutral-500));
+  padding-top: var(--ward-space-8);
+  color: var(--clinical-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.wardCard:hover .wardEnter,
+.wardCard:focus-visible .wardEnter {
+  color: var(--text-heading);
+}

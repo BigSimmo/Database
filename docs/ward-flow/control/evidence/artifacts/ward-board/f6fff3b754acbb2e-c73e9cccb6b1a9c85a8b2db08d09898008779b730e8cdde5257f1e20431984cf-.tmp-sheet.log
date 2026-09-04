@@ -1,0 +1,485 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-daily-sheet.dom.test.tsx (44 tests | 1 failed) 1817ms
+     × says on the PAPER that a patient is at an emergency department, not only on the screen 51ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-daily-sheet.dom.test.tsx > the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot lie > says on the PAPER that a patient is at an emergency department, not only on the screen
+TestingLibraryElementError: Unable to find an element with the text: /at an emergency department/i. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<section[39m
+  [33maria-labelledby[39m=[32m"ward-daily-sheet-heading"[39m
+  [33mclass[39m=[32m"_sheet_76eb4c"[39m
+  [33mdata-testid[39m=[32m"ward-daily-sheet"[39m
+[36m>[39m
+  [36m<h2[39m
+    [33mclass[39m=[32m"_sheetHeading_76eb4c"[39m
+    [33mid[39m=[32m"ward-daily-sheet-heading"[39m
+  [36m>[39m
+    [0mThe ward's daily sheet[0m
+  [36m</h2>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"_sheetIntro_76eb4c"[39m
+  [36m>[39m
+    [0mLive at the moment stamped above — on screen and on paper, nothing here is held from an earlier hour.[0m
+  [36m</p>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"_sheetSince_76eb4c"[39m
+    [33mdata-testid[39m=[32m"ward-daily-sheet-since"[39m
+  [36m>[39m
+    [0mSince yesterday: [0m
+    [0m0[0m
+    [0m left this ward, [0m
+    [0m0[0m
+    [0m bed[0m
+    [0ms[0m
+    [0m given away, [0m
+    [0m7[0m
+    [0m expected date[0m
+    [0ms[0m
+    [0m moved.[0m
+  [36m</p>[39m
+  [36m<div[39m
+    [33mclass[39m=[32m"_sheetGroups_76eb4c"[39m
+  [36m>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"ward-daily-sheet-in-heading"[39m
+      [33mclass[39m=[32m"_sheetGroup_76eb4c"[39m
+      [33mdata-testid[39m=[32m"ward-daily-sheet-in"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"_sheetGroupHeading_76eb4c"[39m
+        [33mid[39m=[32m"ward-daily-sheet-in-heading"[39m
+      [36m>[39m
+        [0mWho came in[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetGroupCount_76eb4c"[39m
+        [33mdata-testid[39m=[32m"ward-daily-sheet-in-count"[39m
+      [36m>[39m
+        [0mNobody is recorded as coming in to this ward.[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetNote_76eb4c"[39m
+      [36m>[39m
+        [0mNo arrival time is shown: the record holds when a bed was given away, and nothing about when anybody will get here.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"ward-daily-sheet-out-heading"[39m
+      [33mclass[39m=[32m"_sheetGroup_76eb4c"[39m
+      [33mdata-testid[39m=[32m"ward-daily-sheet-out"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"_sheetGroupHeading_76eb4c"[39m
+        [33mid[39m=[32m"ward-daily-sheet-out-heading"[39m
+      [36m>[39m
+        [0mWho is going[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetGroupCount_76eb4c"[39m
+        [33mdata-testid[39m=[32m"ward-daily-sheet-out-count"[39m
+      [36m>[39m
+        [0mConfirmed today[0m
+        [0m: [0m
+        [0m0[0m
+        [0m bed[0m
+        [0ms[0m
+        [0m expected to free today.[0m
+      [36m</p>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"_sheetDestinations_76eb4c"[39m
+        [33mdata-testid[39m=[32m"ward-daily-sheet-destinations"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Kimberley"[39m
+        [36m>[39m
+          [0mKimberley[0m
+          [0m: [0m
+          [0m2[0m
+          [0m [0m
+          [0mpeople[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0mdue now or overdue[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Peel"[39m
+        [36m>[39m
+          [0mPeel[0m
+          [0m: [0m
+          [0m1[0m
+          [0m [0m
+          [0mperson[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0mdue now or overdue[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Pilbara"[39m
+        [36m>[39m
+          [0mPilbara[0m
+          [0m: [0m
+          [0m1[0m
+          [0m [0m
+          [0mperson[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0min 1 day[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Goldfields-Esperance"[39m
+        [36m>[39m
+          [0mGoldfields-Esperance[0m
+          [0m: [0m
+          [0m1[0m
+          [0m [0m
+          [0mperson[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0min 2 days[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Gascoyne"[39m
+        [36m>[39m
+          [0mGascoyne[0m
+          [0m: [0m
+          [0m1[0m
+          [0m [0m
+          [0mperson[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0min 3 days[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Mid West"[39m
+        [36m>[39m
+          [0mMid West[0m
+          [0m: [0m
+          [0m2[0m
+          [0m [0m
+          [0mpeople[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0min 4 days[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Great Southern"[39m
+        [36m>[39m
+          [0mGreat Southern[0m
+          [0m: [0m
+          [0m1[0m
+          [0m [0m
+          [0mperson[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0min 4 days[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-South West"[39m
+        [36m>[39m
+          [0mSouth West[0m
+          [0m: [0m
+          [0m1[0m
+          [0m [0m
+          [0mperson[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0min 5 days[0m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-destination-Wheatbelt"[39m
+        [36m>[39m
+          [0mWheatbelt[0m
+          [0m: [0m
+          [0m1[0m
+          [0m [0m
+          [0mperson[0m
+          [0m, soonest[0m
+          [0m [0m
+          [0min 7 days[0m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetNote_76eb4c"[39m
+      [36m>[39m
+        [0mBeds are not people: a bed release records nothing about who is leaving. The destinations above are where the people currently in these beds are expected to head.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"ward-daily-sheet-stuck-heading"[39m
+      [33mclass[39m=[32m"_sheetGroup_76eb4c"[39m
+      [33mdata-testid[39m=[32m"ward-daily-sheet-stuck"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"_sheetGroupHeading_76eb4c"[39m
+        [33mid[39m=[32m"ward-daily-sheet-stuck-heading"[39m
+      [36m>[39m
+        [0mWho is stuck[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetGroupCount_76eb4c"[39m
+        [33mdata-testid[39m=[32m"ward-daily-sheet-stuck-count"[39m
+      [36m>[39m
+        [0m1 on this ward.[0m
+      [36m</p>[39m
+      [36m<ol[39m
+        [33mclass[39m=[32m"_sheetList_76eb4c"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRow_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-stuck-AD-BTYS-05"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLead_76eb4c"[39m
+          [36m>[39m
+            [0mDay 115[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"_sheetRowBand_76eb4c"[39m
+            [36m>[39m
+              [0mOver 3 months[0m
+            [36m</span>[39m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mFemale[0m
+            [0m, from [0m
+            [0mPilbara[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mTentative diagnosis: Disorders of adult personality and behaviour (F60–F69).[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mHeld up by: [0m
+            [0mAwaiting transport[0m
+            [0m.[0m
+          [36m</p>[39m
+        [36m</li>[39m
+      [36m</ol>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetNote_76eb4c"[39m
+      [36m>[39m
+        [0mHeld-up reasons are about the BED, from a fixed list. An absent reason is silence, never a finding that nothing is outstanding.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"ward-daily-sheet-overdue-heading"[39m
+      [33mclass[39m=[32m"_sheetGroup_76eb4c"[39m
+      [33mdata-testid[39m=[32m"ward-daily-sheet-overdue"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"_sheetGroupHeading_76eb4c"[39m
+        [33mid[39m=[32m"ward-daily-sheet-overdue-heading"[39m
+      [36m>[39m
+        [0mWho is overdue[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetGroupCount_76eb4c"[39m
+        [33mdata-testid[39m=[32m"ward-daily-sheet-overdue-count"[39m
+      [36m>[39m
+        [0m2 on this ward.[0m
+      [36m</p>[39m
+      [36m<ol[39m
+        [33mclass[39m=[32m"_sheetList_76eb4c"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRow_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-overdue-AD-BTYS-12"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLead_76eb4c"[39m
+          [36m>[39m
+            [0mDay 130[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"_sheetRowBand_76eb4c"[39m
+            [36m>[39m
+              [0mOver 3 months[0m
+            [36m</span>[39m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mMale[0m
+            [0m, from [0m
+            [0mKimberley[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mTentative diagnosis: Schizophrenia, schizotypal and delusional disorders (F20–F29).[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0m2[0m
+            [0m day[0m
+            [0ms[0m
+            [0m past the ward's expected date.[0m
+          [36m</p>[39m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRow_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-overdue-AD-BTYS-06"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLead_76eb4c"[39m
+          [36m>[39m
+            [0mDay 40[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"_sheetRowBand_76eb4c"[39m
+            [36m>[39m
+              [0m1–3 months[0m
+            [36m</span>[39m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mMale[0m
+            [0m, from [0m
+            [0mPeel[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mTentative diagnosis: none recorded.[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0m1[0m
+            [0m day[0m
+            [0m past the ward's expected date.[0m
+          [36m</p>[39m
+        [36m</li>[39m
+      [36m</ol>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetNote_76eb4c"[39m
+      [36m>[39m
+        [0mThe expected date is the ward's own revisable plan. It carries no legal or contractual weight, and being past it is not a breach of anything.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"ward-daily-sheet-no-date-heading"[39m
+      [33mclass[39m=[32m"_sheetGroup_76eb4c"[39m
+      [33mdata-testid[39m=[32m"ward-daily-sheet-no-date"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"_sheetGroupHeading_76eb4c"[39m
+        [33mid[39m=[32m"ward-daily-sheet-no-date-heading"[39m
+      [36m>[39m
+        [0mNobody has said when they are going[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetGroupCount_76eb4c"[39m
+        [33mdata-testid[39m=[32m"ward-daily-sheet-no-date-count"[39m
+      [36m>[39m
+        [0m2 on this ward.[0m
+      [36m</p>[39m
+      [36m<ol[39m
+        [33mclass[39m=[32m"_sheetList_76eb4c"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRow_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-no-date-AD-BTYS-04"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLead_76eb4c"[39m
+          [36m>[39m
+            [0mDay 9[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"_sheetRowBand_76eb4c"[39m
+            [36m>[39m
+              [0mUnder 2 weeks[0m
+            [36m</span>[39m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mMale[0m
+            [0m, from [0m
+            [0mGoldfields-Esperance[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mTentative diagnosis: Schizophrenia, schizotypal and delusional disorders (F20–F29).[0m
+          [36m</p>[39m
+        [36m</li>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"_sheetRow_76eb4c"[39m
+          [33mdata-testid[39m=[32m"ward-daily-sheet-no-date-AD-BTYS-09"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLead_76eb4c"[39m
+          [36m>[39m
+            [0mDay 3[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"_sheetRowBand_76eb4c"[39m
+            [36m>[39m
+              [0mUnder 2 weeks[0m
+            [36m</span>[39m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mFemale[0m
+            [0m, from [0m
+            [0mPerth Metropolitan[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"_sheetRowLine_76eb4c"[39m
+          [36m>[39m
+            [0mTentative diagnosis: Schizophrenia, schizotypal and delusional disorders (F20–F29).[0m
+          [36m</p>[39m
+        [36m</li>[39m
+      [36m</ol>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"_sheetNote_76eb4c"[39m
+      [36m>[39m
+        [0mAn absent date means nobody has set one. It never reads as a plan to stay, and the system never guesses one.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+  [36m<p[39m
+    [33mclass[39m=[32m"_sheetNote_76eb4c"[39m
+    [33mdata-testid[39m=[32m"ward-daily-sheet-limits"[39m
+  [36m>[39m
+    [0mThis sheet is read-only. Updating a discharge date, or confirming that nothing has changed, is not done from here.[0m
+  [36m</p>[39m
+[36m</section>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:109:15
+ ❯ tests/ward-daily-sheet.dom.test.tsx:131:33
+    129|     const sheet = screen.getByTestId("ward-daily-sheet");
+    130|
+    131|     const notes = within(sheet).getAllByText(/at an emergency departme…
+       |                                 ^
+    132|     expect(notes.length, "the printed sheet mentions no ED trip at all…
+    133|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 43 passed (44)
+   Start at  06:20:12
+   Duration  4.11s (transform 434ms, setup 320ms, import 595ms, tests 1.82s, environment 1.20s)
+
