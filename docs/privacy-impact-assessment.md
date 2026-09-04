@@ -42,13 +42,17 @@ material.
 - **Data residency**: the Supabase project runs in **`ap-southeast-2` (AWS Sydney, Australia)** â€”
   clinical data at rest stays onshore. Confirmed live via the Supabase API (project region
   `ap-southeast-2`).
-- **Query redaction**: raw query text is **not** persisted by default. Every log write goes through
-  `queryTextForStorage()` which stores a hash placeholder unless `RAG_PERSIST_RAW_QUERY_TEXT=true`
-  ([src/lib/query-privacy.ts](../src/lib/query-privacy.ts)).
+- **Query redaction**: raw query text is **not** persisted **server-side** by default. Every log write
+  goes through `queryTextForStorage()` which stores a hash placeholder unless
+  `RAG_PERSIST_RAW_QUERY_TEXT=true` ([src/lib/query-privacy.ts](../src/lib/query-privacy.ts)). This is a
+  server-side statement only: the browser row in §2 and the browser-side retention note in §6 record
+  that raw query text and the generated answer are held in `window.sessionStorage` for up to 12 hours
+  (gap PIA-8).
 - **The M15 HMAC fix is present** ([src/lib/query-privacy.ts](../src/lib/query-privacy.ts)) â€” the
   stored hash is a keyed HMAC-SHA256 pseudonym **when `RAG_QUERY_HASH_SECRET` is set** (see gap PIA-2).
 - **Retention is automated**: nightly `pg_cron` jobs purge `rag_queries` (30d) and
-  `rag_retrieval_logs` (90d). **Verified running on live** (both jobs `active = true`).
+  `rag_retrieval_logs` (90d). **Verified running on live** (both jobs `active = true`) - verified
+  2026-07-06 under job ids that were re-issued 2026-09-01; see §6 for what is and is not proven since.
 - **OpenAI response storage is off** by default (`OPENAI_STORE_RESPONSES=false`,
   [src/lib/env.ts](../src/lib/env.ts)).
 - Storage buckets are **private**; files are only reachable via short-lived (10 min) server-minted
@@ -65,6 +69,7 @@ material.
 | PIA-5 | Medium    | Draft point-of-entry collection notices and a `/privacy` data-processing page ship, but no governance-approved final privacy policy exists (APP 1, APP 5).                                                                               |
 | PIA-6 | Low-Med   | GPT-5.6-and-later models use `prompt_cache_options.ttl="30m"` by default; gpt-5.5 forces the legacy 24h field. OpenAI documents up to 24 hours of prompt-cache application state; the configured TTL is only the minimum cache lifetime. |
 | PIA-7 | Low       | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                                                                                    |
+| PIA-8 | Low-Med   | A completed answer thread keeps raw query text and the generated answer in `sessionStorage` for up to 12 h; on a shared clinical workstation an unclosed tab leaves incidental PHI restorable.                                           |
 
 ---
 
@@ -276,15 +281,15 @@ which is why the query-hash approach (not raw storage) is the right primary cont
 
 ## 6. Retention and purge
 
-| Data                   | Retention              | Mechanism                                                                                                                                       | Live status                                                                        |
-| ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `rag_queries`          | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                                              | **Active** by job name; jobid re-issued 2026-09-01 (see note below)                |
-| `rag_retrieval_logs`   | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                                                | **Active** by job name; jobid re-issued 2026-09-01 (see note below)                |
-| `rag_query_misses`     | 90 days                | `purge_expired_rag_query_misses(90)`, `pg_cron` `purge-rag-query-misses` @ 03:45 UTC                                                            | **Active** by job name; jobid re-issued 2026-09-01 (see note below)                |
-| `rag_response_cache`   | ~5 min read TTL        | `expires_at` filtered on read; `purge_expired_rag_response_cache(1000)`, hourly `pg_cron` `purge-rag-response-cache`                            | **Active** by job name; jobid re-issued 2026-09-01; obsolete unbounded job removed |
-| `audit_logs`           | Indefinite (by design) | Documented in [migration 20260702120000](../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql)                                | Intentional; "do not add purge without compliance review"                          |
-| Browser answer thread  | 12 h (or tab close)    | `window.sessionStorage` TTL + `New chat`, sign-out, and account-change clears ([answer-thread-storage.ts](../src/lib/answer-thread-storage.ts)) | Client-side only; no server job to verify                                          |
-| Browser recent queries | Tab close              | `window.sessionStorage`; cleared by Settings > Privacy and security ([recent-query-storage.ts](../src/lib/recent-query-storage.ts))             | Client-side only; no server job to verify                                          |
+| Data                   | Retention              | Mechanism                                                                                                                                       | Live status                                                                                                                |
+| ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `rag_queries`          | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                                              | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read                                 |
+| `rag_retrieval_logs`   | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                                                | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read                                 |
+| `rag_query_misses`     | 90 days                | `purge_expired_rag_query_misses(90)`, `pg_cron` `purge-rag-query-misses` @ 03:45 UTC                                                            | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read                                 |
+| `rag_response_cache`   | ~5 min read TTL        | `expires_at` filtered on read; `purge_expired_rag_response_cache(1000)`, hourly `pg_cron` `purge-rag-response-cache`                            | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read; obsolete unbounded job removed |
+| `audit_logs`           | Indefinite (by design) | Documented in [migration 20260702120000](../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql)                                | Intentional; "do not add purge without compliance review"                                                                  |
+| Browser answer thread  | 12 h (or tab close)    | `window.sessionStorage` TTL + `New chat`, sign-out, and account-change clears ([answer-thread-storage.ts](../src/lib/answer-thread-storage.ts)) | Client-side only; no server job to verify                                                                                  |
+| Browser recent queries | Tab close              | `window.sessionStorage`; cleared by Settings > Privacy and security ([recent-query-storage.ts](../src/lib/recent-query-storage.ts))             | Client-side only; no server job to verify                                                                                  |
 
 **Historical verification (live `cron.job` query, 2026-07-06) - job ids below are superseded:**
 
@@ -316,10 +321,17 @@ name says "staging" but its effect is environment-neutral. It unschedules the fi
 re-schedules four of them, so `purge-expired-rag-queries`, `purge-rag-retrieval-logs`,
 `purge-rag-query-misses` and `purge-rag-response-cache` now hold **new `cron.job` ids on production**.
 Job ids 11, 12, 13 and 16 are therefore stale evidence and must not be re-quoted; the durable evidence
-is the **job name plus schedule**, and the post-merge `live-drift` workflow run for that merge is the
-schema-application gate. Re-reading the live ids is provider-backed and needs operator confirmation, so
-this assessment deliberately records no replacement id. Any future retention attestation should cite job
-names, not ids, and should say which environments the migration reached.
+is the **job name plus schedule**. The post-merge `live-drift` workflow is **not** the gate here: its
+drift inventory compares extensions, tables, views, functions, indexes, policies, constraints, triggers
+and storage buckets only ([scripts/check-drift.ts](../scripts/check-drift.ts)), and `cron.job` rows are
+not among those categories - so a failed or skipped apply of `20260901033250` would leave `live-drift`
+green while the purge jobs sat in whatever prior state they had. That blind spot is recorded as finding
+**M23** in [docs/audit/full-repository-audit-2026-09-02.md](audit/full-repository-audit-2026-09-02.md).
+The only proof that the four purge jobs are scheduled on production is an operator
+`select jobname, schedule from cron.job` read. That read is provider-backed and needs operator
+confirmation, so this assessment deliberately records no replacement id and no post-2026-09-01 live
+status. Any future retention attestation should cite job names, not ids, and should say which
+environments the migration reached.
 
 **Browser-side retention (not a server control).** A completed answer keeps the raw query text, the
 generated answer, and the source excerpts for up to 12 turns (up to 4.5 MB) in `window.sessionStorage` under
@@ -529,6 +541,26 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 - **Evidence:** [query-privacy.ts](../src/lib/query-privacy.ts), [env.ts](../src/lib/env.ts).
 - **Fix:** Keep it **off** in production; if ever enabled, require a documented retention/consent basis
   and consider a shorter purge window for raw-text rows.
+
+### PIA-8 â€” Browser-side answer thread retains raw query text for 12 h on a shared workstation **(Low-Medium)**
+
+- **Risk:** A completed answer keeps the raw query text, the generated answer, and the source excerpts
+  for up to 12 turns in `window.sessionStorage` under `clinical-kb-answer-thread:<ownerId>` with a
+  12-hour TTL, and the last five raw queries under `clinical-kb-recent-queries:<ownerId>`. On a shared
+  clinical workstation where a tab is left open, incidental PHI in a typed query stays restorable until
+  the TTL expires or the tab closes. Signed-out visitors share the `guest-tab-session` owner key, so an
+  anonymous thread survives page loads within that tab rather than being tied to an account. This is the
+  browser-side counterpart to the server-side redaction recorded in §1.
+- **Evidence:** [answer-thread-storage.ts](../src/lib/answer-thread-storage.ts),
+  [recent-query-storage.ts](../src/lib/recent-query-storage.ts); §2 browser row and the browser-side
+  retention note in §6. Behaviour is pinned by
+  [tests/answer-thread-storage.test.ts](../tests/answer-thread-storage.test.ts),
+  [tests/use-answer-thread-bootstrap.test.ts](../tests/use-answer-thread-bootstrap.test.ts), and
+  [tests/recent-query-storage.test.ts](../tests/recent-query-storage.test.ts).
+- **Fix:** Keep the content in tab-scoped `sessionStorage` (any move to `localStorage`, or any widening
+  beyond the owner-scoped keys, is a deviation from this assessment and needs governance review). For
+  shared-workstation deployments, require the organisation's session-lock/logout practice, and consider
+  a shorter TTL or an explicit end-of-session clear as a governance decision rather than a code default.
 
 ---
 
