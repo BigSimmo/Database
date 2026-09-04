@@ -331,10 +331,14 @@ function answerPreviewCheck(): SetupCheck {
   if (!last) {
     return check("answerPreview", "Answer wait shows sources", "ready", "Enabled. No answer has been served yet.");
   }
-  const detail =
-    last.reason === "ok"
-      ? `Enabled. The last answer showed its sources (${last.at}).`
-      : `Enabled. The last answer withheld its sources: ${last.reason} (${last.at}).`;
+  // Two reasons mean the rail was drawn, not withheld: the ordinary path, and the fallback
+  // that rescues an emptied retry intersection. Reading anything but "ok" as a withholding
+  // would have this diagnostic report a failure at exactly the moment the fallback worked —
+  // the reading that sent this investigation down the wrong path in the first place.
+  const delivered = last.reason === "ok" || last.reason === "empty_intersection_relaxed";
+  const detail = delivered
+    ? `Enabled. The last answer showed its sources (${last.reason}, ${last.at}).`
+    : `Enabled. The last answer withheld its sources: ${last.reason} (${last.at}).`;
   return check("answerPreview", "Answer wait shows sources", "ready", detail);
 }
 

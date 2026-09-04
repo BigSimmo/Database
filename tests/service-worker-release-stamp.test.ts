@@ -45,6 +45,15 @@ describe("service worker release stamp", () => {
     expect(twice.version).toBe(once.version);
   });
 
+  // The stamp is worthless if the runtime image takes public/ from the build CONTEXT instead
+  // of the build STAGE: the deployed worker would be the unstamped original and the update
+  // prompt would stay broken while every test here still passed. Caught in review, not by me.
+  it("ships the stamped worker in the runtime image, not the unstamped original", () => {
+    const dockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
+    expect(dockerfile).toContain("COPY --from=build /app/public ./public");
+    expect(dockerfile).not.toMatch(/^COPY public \.\/public$/m);
+  });
+
   it("runs in the production build, before Next copies public/", () => {
     // Stamping after `next build` would miss the standalone output entirely.
     const build = packageJson.scripts["build:internal"];
