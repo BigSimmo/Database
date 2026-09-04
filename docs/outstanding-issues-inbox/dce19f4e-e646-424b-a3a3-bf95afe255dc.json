@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "dce19f4e-e646-424b-a3a3-bf95afe255dc",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "clearlyNonClinicalConsumerPattern refuses in-corpus psychiatric queries on bare consumer tokens, the same defect as the topic denylist",
+    "detail": "Found while fixing #000GN4 (2026-09-02, probed against the real analyzeClinicalQuery on main at 45a3dcacb54a). src/lib/rag/rag-query-guard.ts:3-4 short-circuits any soft-tail-eligible query matching bare tokens including phone, car, tv, television, restaurant, holiday, hotel, flight, kitchen and laptop. Measured, with shouldShortCircuitUnsupportedSearch on the real analyzer: 'phone contact after discharge' short-circuits to zero retrieval while 'telephone follow up after discharge' reaches retrieval, and the word 'phone' is the only difference. Post-discharge phone contact is a topic this repo actively builds for - see the Caring Contacts work. Also confirmed refused by the pattern alone, with confidence and expandedTerms both above the soft-tail thresholds so the pattern is the sole cause: 'restaurant avoidance in social anxiety', 'car accident trauma assessment', 'tv watching and negative symptoms', 'holiday leave from the ward'. Separately, the token 'flight' matches 'flight of ideas', a core sign of mania, though that query would short-circuit through the soft tail anyway. This is milder than #000GN4 because these tokens sit behind unsupportedSoftTailEligible rather than firing unconditionally, but the mechanism is identical: a bare token standing in for a topic judgement. FIX: the same shape as #000GN4 - replace bare tokens with phrases that cannot occur in a clinical question, or route the decision through classifyCorpusGrounding where the query is soft-tail eligible anyway. Protected RAG surface: needs the RAG impact declaration, the clinical governance preflight, and an eval:quality --rag-only run, since the consumer controls in rag-eval-cases.ts (coffee machine, air fryer, overnight oats) are what this pattern pins. Note unavailableDocumentNoisePattern was checked in the same pass and is clean - every entry there is a multi-word phrase.",
+    "source": "src/lib/rag/rag-query-guard.ts:3-4; probed with shouldShortCircuitUnsupportedSearch against analyzeClinicalQuery on main 45a3dcacb54a; RAG retrieval review of PR branch claude/rag-query-guard, 2026-09-02",
+    "issueUlid": "01M1G8MVT43944SV0BPYE7ZZWX"
+  }
+}

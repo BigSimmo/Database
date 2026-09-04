@@ -1,50 +1,24 @@
 .patientWorkspace {
-  --ward-blue: var(--clinical-accent);
-  --ward-blue-soft: var(--clinical-accent-soft);
-  --ward-blue-border: var(--clinical-accent-border);
-  --ward-canvas: var(--surface);
-  --ward-chrome: var(--surface-chrome);
-  --ward-subtle: var(--surface-subtle);
-  --ward-border: var(--border);
-  --ward-border-strong: var(--border-strong);
-  --ward-text: var(--text);
-  --ward-heading: var(--text-heading);
-  --ward-muted: var(--text-muted);
-  --ward-success: var(--success-text);
-  --ward-success-soft: var(--success-bg);
-  --ward-warning: var(--warning-text);
-  --ward-warning-soft: var(--warning-bg);
-  --ward-danger: var(--danger-text);
-  --ward-danger-soft: var(--danger-bg);
-  --ward-space-1: 0.0625rem;
-  --ward-space-2: 0.125rem;
-  --ward-space-3: 0.1875rem;
-  --ward-space-4: 0.25rem;
-  --ward-space-5: 0.3125rem;
-  --ward-space-6: 0.375rem;
-  --ward-space-7: 0.4375rem;
-  --ward-space-8: 0.5rem;
-  --ward-space-10: 0.625rem;
-  --ward-space-12: 0.75rem;
-  --ward-space-14: 0.875rem;
-  --ward-space-16: 1rem;
-  --ward-space-20: 1.25rem;
-  --ward-space-24: 1.5rem;
-  --ward-space-32: 2rem;
-  --ward-leading-compact: 1.1;
-  --ward-leading-tight: 1.15;
-  --ward-leading-dense: 1.25;
-  --ward-leading-ui: 1.3;
-  --ward-leading-copy: 1.35;
-  --ward-leading-body: 1.4;
-  --ward-leading-relaxed: 1.45;
-  --ward-leading-prose: 1.55;
-  --ward-z-base: 1;
-  --ward-z-raised: 2;
-  --ward-z-sticky: 3;
-  --ward-z-phone: 20;
-  --ward-radius-pixel: 0.0625rem;
-  background: var(--ward-canvas);
+  composes: wardTokens from "./ward-tokens.module.css";
+  /*
+   * ⚠️ NO BACKGROUND HERE, DELIBERATELY, AND NOT IN ANY SPELLING.
+   *
+   * `WardGround` (ward-shell.module.css) is the one stylesheet in Ward Flow that paints
+   * `--ward-ground`, mounted once at the layout above every route. A background on this root
+   * paints straight over it, and the whole approved direction — panels floating on a ground —
+   * reverts to the white-on-white it was meant to replace.
+   *
+   * ⚠️ THIS ROOT USED TO PAINT IT TWICE. `.patientWorkspace` was declared here with
+   * `background: var(--ward-canvas)` AND again below with `background: var(--background)`; same
+   * selector, same specificity, so the second one won and the paint that actually reached the
+   * screen was `--background` — a third app token that the contract test's ground detector does
+   * not look for. Deleting only the first would have turned the gate green while the page went on
+   * covering the ground. Both are gone.
+   *
+   * ⚠️ DO NOT "FIX" THIS BY REPOINTING IT TO `var(--ward-ground)` OR `var(--ward-canvas)`.
+   * `--ward-canvas` IS `var(--surface)`, and a screen painting the ground at all is a screen
+   * covering the shell's. `tests/ward-shell.dom.test.tsx` pins the painters as a sorted list.
+   */
   color: var(--ward-text);
   font-variant-numeric: tabular-nums;
 }
@@ -59,24 +33,11 @@
    * (computed background transparent, border 0px, z-index auto, padding 0px, nav gap `normal`),
    * found empirically while verifying Task 9's rail-nav move — a real pre-existing gap, not
    * something this task introduced, but one this task's own new `.modeNavigation` gap would
-   * otherwise inherit too. Declaring exactly the tokens this component's own subtree consumes
-   * (rail chrome/border/z-index, `.railRule` background, `.railLink`/`.railLinkActive` colors,
-   * `.avatar` colors, and the padding/gap spacing) here makes `ClinicalRail` self-sufficient
+   * otherwise inherit too. Composing the shared `wardTokens` layer (rather than hand-declaring
+   * a subset, as before this task's consolidation) keeps `ClinicalRail` self-sufficient
    * regardless of which shell hosts it.
    */
-  --ward-blue: var(--clinical-accent);
-  --ward-blue-soft: var(--clinical-accent-soft);
-  --ward-blue-border: var(--clinical-accent-border);
-  --ward-canvas: var(--surface);
-  --ward-chrome: var(--surface-chrome);
-  --ward-border: var(--border);
-  --ward-heading: var(--text-heading);
-  --ward-muted: var(--text-muted);
-  --ward-space-6: 0.375rem;
-  --ward-space-8: 0.5rem;
-  --ward-space-10: 0.625rem;
-  --ward-space-12: 0.75rem;
-  --ward-z-sticky: 3;
+  composes: wardTokens from "./ward-tokens.module.css";
   grid-column: 1;
   grid-row: 1 / -1;
   z-index: var(--ward-z-sticky);
@@ -331,158 +292,39 @@
   letter-spacing: 0.01em;
 }
 
-.movementPipeline {
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-lg);
-  background: var(--ward-canvas);
-  box-shadow: var(--e0);
-}
-
-.movementPipeline {
-  display: flex;
-  height: 4.5rem;
-  min-height: 4.5rem;
-  align-items: stretch;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.stageGroup {
-  display: flex;
-  height: 100%;
-  min-width: 9rem;
-  flex: 1 0 9rem;
-  align-items: center;
-}
-
-.stage,
-.stageActive {
-  display: grid;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-  flex: 1;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: var(--ward-space-8);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--ward-muted);
-  text-align: left;
-}
-
-.stage:hover {
-  background: var(--ward-subtle);
-}
-
-.stageActive {
-  background: var(--ward-blue-soft);
-  color: var(--ward-blue);
-}
-
-.stage > svg,
-.stageActive > svg {
-  width: 1.375rem;
-  height: 1.375rem;
-}
-
-.stageNumber {
-  align-self: start;
-  margin-top: 0.125rem;
-  font-size: var(--text-2xs);
-  font-weight: 700;
-}
-
-.stage strong,
-.stage b {
-  display: block;
-}
-
-.stage > span:last-child,
-.stageActive > span:last-child {
-  display: grid;
-  min-width: 0;
-  gap: var(--ward-space-2);
-}
-
-.stage strong {
-  overflow: hidden;
-  color: var(--ward-heading);
-  font-size: var(--text-2xs);
-  font-weight: 650;
-  line-height: var(--ward-leading-dense);
-  text-overflow: ellipsis;
-}
-
-.stageActive strong {
-  color: var(--ward-blue);
-}
-
-.stage b {
-  margin-top: 0.125rem;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  line-height: var(--ward-leading-compact);
-}
-
-.stageArrow {
-  width: 0.875rem;
-  height: 0.875rem;
-  flex: 0 0 auto;
-  color: var(--ward-muted);
-}
-
-.aiLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ward-space-6);
-  margin-top: 0.625rem;
-  color: var(--ward-muted);
-  font-size: var(--text-2xs);
-  font-weight: 650;
-}
-
-.aiLabel svg {
-  width: 0.875rem;
-  height: 0.875rem;
-  color: var(--ward-blue);
-}
-
-.confirmButton,
-.confirmedButton {
-  display: inline-flex;
-  min-height: var(--spacing-tap);
-  align-items: center;
-  justify-content: center;
-  gap: var(--ward-space-8);
-  border: 0.0625rem solid var(--ward-blue);
-  border-radius: var(--radius-md);
-  background: var(--ward-blue);
-  color: var(--command-contrast);
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
-
-.confirmedButton {
-  border-color: var(--success-border);
-  background: var(--ward-success-soft);
-  color: var(--ward-success);
-}
-
-.confirmButton svg,
-.confirmedButton svg {
-  width: 1rem;
-  height: 1rem;
-}
+/* ────────────────────────────────────────────────────────────────────────────────────────────
+ * THE MOVEMENT WORKSPACE ITSELF — redesigned 2026-09-04 onto the Board design language
+ * (docs/ward-flow/design/prototypes/DESIGN-LANGUAGE.md, canonical example community-home.html).
+ *
+ * What went, and why it is not coming back:
+ *   · `.movementPipeline` / `.stage*` — seven buttons showing counts of OTHER patients on one
+ *     patient's page, with the current step rendered in accent blue even on a closed movement.
+ *   · `.workspaceTabs` — four "tabs" that never replaced anything; the Overview grid rendered
+ *     byte-identical under all four selections and the other three appended below it.
+ *   · `.workspaceGrid` / `.workspaceSummary` / `.workspaceScore` / `.factList` / `.reasonList` /
+ *     `.alternativeRow` — bare definition lists in a three-column grid, no panels, no ground.
+ *   · `.aiLabel` / `.confirmedButton` — the "Eligibility check" sparkle eyebrow and the second
+ *     state of a confirm button that recorded nothing.
+ *
+ * ⚠️ WHAT THIS STYLESHEET CAN AND CANNOT REACH. `WardPanel`, `WardChip` and `WardFigure` each
+ * `composes: wardTokens`, which declares all of the `--ward-*` tokens on the primitive's OWN
+ * element — and a same-element custom-property declaration always beats an inherited one. So
+ * nothing below, including the forced-colours block at the foot of this file, can change how a
+ * panel, chip or figure paints. `ward-shared.module.css` composes nothing and declares nothing,
+ * so classes composed FROM it do inherit from here. A high-contrast fix inside a panel can only
+ * live in `ward-tokens.module.css`; do not try it from this file.
+ *
+ * ⚠️ ONLY ONE `min-width` BREAKPOINT IS AVAILABLE TO THIS FILE — 64rem. Every Ward Flow
+ * `@media (min-width: …)` value is pinned by file in `tests/ward-primitives-shared.test.ts`
+ * (`KNOWN_BREAKPOINTS`), that list is not this task's file, and a new value there is a surprise
+ * the gate reports. The layout below therefore has exactly two shapes.
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 .patientWorkspace {
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: 4.5rem minmax(0, 1fr);
-  background: var(--background);
 }
 
 .patientWorkspace .clinicalRail {
@@ -490,6 +332,10 @@
   grid-row: 1 / -1;
 }
 
+/* Page chrome: a back control, the route's place, and the synthetic marker. Deliberately NOT the
+ * masthead — the page's own `<h1>` lives in `<main>` with the rest of the identity, so this bar
+ * carries a plain label rather than a heading a screen reader would announce as the page title
+ * while the real one sits below it. */
 .workspaceHeader {
   grid-column: 2;
   grid-row: 1;
@@ -498,7 +344,7 @@
   align-items: center;
   gap: var(--ward-space-14);
   border-bottom: 0.0625rem solid var(--ward-border);
-  background: var(--ward-canvas);
+  background: var(--ward-chrome);
   padding: 0 var(--ward-space-20);
 }
 
@@ -518,8 +364,11 @@
 }
 
 .workspaceHeader > div {
+  display: flex;
   min-width: 0;
   flex: 1;
+  align-items: baseline;
+  gap: var(--ward-space-8);
 }
 
 .workspaceHeader span {
@@ -528,10 +377,10 @@
   font-weight: 650;
 }
 
-.workspaceHeader h1 {
+.headerCrumb {
   overflow: hidden;
   color: var(--ward-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -542,266 +391,735 @@
   grid-row: 2;
   display: grid;
   align-content: start;
-  gap: var(--ward-space-12);
+  gap: var(--ward-space-16);
   overflow-y: auto;
-  padding: var(--ward-space-16);
+  padding: var(--ward-space-16) var(--ward-space-16) var(--ward-space-32);
 }
 
-.workspaceSummary,
-.workspaceGrid > section,
-.contextPanel,
-.governanceNote {
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-lg);
-  background: var(--ward-canvas);
-  box-shadow: var(--e1);
-}
+/* ── Masthead ─────────────────────────────────────────────────────────────────────────────── */
 
-.workspaceSummary {
+.masthead {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(12rem, auto);
-  align-items: center;
-  gap: var(--ward-space-24);
-  padding: var(--ward-space-16) var(--ward-space-20);
+  gap: var(--ward-space-4);
 }
 
-.workspaceSummary h2 {
-  margin-top: 0.25rem;
+.eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ward-muted);
+}
+
+.mastheadTitle {
+  margin: 0;
   color: var(--ward-heading);
   font-size: var(--text-2xl);
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.024em;
+  line-height: var(--ward-leading-tight);
+  text-wrap: balance;
 }
 
-.workspaceSummary p {
-  margin-top: 0.25rem;
+.where {
+  margin: 0;
   color: var(--ward-muted);
   font-size: var(--text-sm);
-}
-
-.workspaceScore {
-  display: grid;
-  min-width: 8rem;
-  justify-items: center;
-  border-left: 0.0625rem solid var(--ward-border);
-  border-right: 0.0625rem solid var(--ward-border);
-  padding: var(--ward-space-8) var(--ward-space-24);
-}
-
-.workspaceScore span,
-.workspaceScore small {
-  color: var(--ward-muted);
-  font-size: var(--text-2xs);
-}
-
-.workspaceScore strong {
-  color: var(--ward-heading);
-  font-size: var(--text-2xl);
-  font-weight: 650;
-}
-
-.workspaceTabs {
-  display: flex;
-  gap: var(--ward-space-6);
-  overflow-x: auto;
-  border-bottom: 0.0625rem solid var(--ward-border);
-  padding-bottom: var(--ward-space-8);
-}
-
-.workspaceTabs button {
-  min-height: var(--spacing-tap);
-  flex: 0 0 auto;
-  border: 0.0625rem solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  padding: 0 var(--ward-space-12);
-  color: var(--ward-muted);
-  font-size: var(--text-xs);
-  font-weight: 650;
-}
-
-.workspaceTabs button[aria-pressed="true"] {
-  border-color: var(--ward-blue-border);
-  background: var(--ward-blue-soft);
-  color: var(--ward-blue);
-}
-
-.workspaceGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--ward-space-12);
-}
-
-.workspaceGrid > section,
-.contextPanel {
-  padding: var(--ward-space-16);
-}
-
-.workspaceGrid h2,
-.contextPanel h2 {
-  color: var(--ward-heading);
-  font-size: var(--text-sm);
-  font-weight: 650;
-}
-
-.workspaceGrid h3 {
-  margin-top: 1rem;
-  color: var(--ward-heading);
-  font-size: var(--text-xs);
-  font-weight: 650;
-}
-
-.factList {
-  display: grid;
-  gap: var(--ward-space-10);
-  margin-top: 0.75rem;
-}
-
-.factList div {
-  display: grid;
-  grid-template-columns: minmax(6rem, 0.8fr) minmax(0, 1fr);
-  gap: var(--ward-space-12);
-  border-bottom: 0.0625rem solid var(--ward-border);
-  padding-bottom: var(--ward-space-8);
-}
-
-.factList dt {
-  color: var(--ward-muted);
-  font-size: var(--text-2xs);
-}
-
-.factList dd {
-  color: var(--ward-heading);
-  font-size: var(--text-xs);
-  font-weight: 600;
-}
-
-.reasonList,
-.readinessList,
-.timeline {
-  display: grid;
-  gap: var(--ward-space-10);
-  margin-top: 0.75rem;
-  list-style: none;
-}
-
-.reasonList li {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--ward-space-8);
-  color: var(--ward-text);
-  font-size: var(--text-xs);
   line-height: var(--ward-leading-body);
 }
 
-.reasonList svg,
-.readinessList svg {
-  width: 1rem;
-  height: 1rem;
-  flex: 0 0 auto;
-  color: var(--ward-success);
-}
-
-.alternativeRow {
+.chipRow {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ward-space-12);
-  border-bottom: 0.0625rem solid var(--ward-border);
-  padding: var(--ward-space-10) 0;
+  flex-wrap: wrap;
+  gap: var(--ward-space-8);
+  margin-top: var(--ward-space-4);
 }
 
-.alternativeRow span {
-  min-width: 0;
-}
+/* ── Closure ──────────────────────────────────────────────────────────────────────────────── */
 
-.alternativeRow strong,
-.alternativeRow small {
-  display: block;
-}
-
-.alternativeRow strong {
-  color: var(--ward-heading);
-  font-size: var(--text-xs);
-}
-
-.alternativeRow small {
-  color: var(--ward-muted);
-  font-size: var(--text-2xs);
-}
-
-.alternativeRow b {
-  color: var(--ward-success);
-  font-size: var(--text-sm);
-}
-
-.readinessList li {
+/* A closed movement is a DIFFERENT ARRANGEMENT of this page, not the same page with a banner.
+ * This host exists so the closure panel can be given the page's whole width and sit directly
+ * under the masthead, ahead of the figures and the live tools. */
+.closureHost {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--ward-space-10);
 }
 
-.readinessList li:last-child svg {
-  color: var(--ward-warning);
-}
-
-.readinessList strong,
-.readinessList span {
-  display: block;
-}
-
-.readinessList strong {
+.closureReason {
+  margin: 0;
   color: var(--ward-heading);
-  font-size: var(--text-2xs);
+  font-size: var(--text-lg);
+  font-weight: 650;
+  line-height: var(--ward-leading-dense);
+  text-wrap: balance;
 }
 
-.readinessList span {
-  color: var(--ward-muted);
-  font-size: var(--text-xs);
-}
-
-.contextPanel p {
-  margin-top: 0.5rem;
+.closureMeta {
+  margin: var(--ward-space-8) 0 0;
   color: var(--ward-muted);
   font-size: var(--text-sm);
   line-height: var(--ward-leading-prose);
 }
 
-.timeline li {
+/* ── The two-column body ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * ⚠️ THE RAIL IS ON THE LEFT HERE, WHICH DEVIATES FROM THE CANONICAL MOCKUP, DELIBERATELY.
+ * `community-home.html` puts its 19rem rail on the RIGHT, because on a dashboard the rail is a
+ * sidebar to a board. This page is a detail view whose FIRST job is to say what is wrong with one
+ * patient (Ward Lead ruling 3, 2026-09-04) — every route in is a list, so the reader arrives
+ * already knowing who this is and wanting the answer. Putting the attention panel bottom-right of
+ * a long single-patient record would bury the one thing they came for. Reported as a deviation
+ * rather than taken silently.
+ */
+.layout {
   display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
+  gap: var(--ward-space-16);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .layout {
+    grid-template-columns: 22rem minmax(0, 1fr);
+  }
+}
+
+.rail,
+.column {
+  display: grid;
+  min-width: 0;
+  gap: var(--ward-space-16);
+  align-content: start;
+}
+
+/* A group of panels that belong to one another and must stay adjacent — the eligibility block's
+ * live-calculation note, its destination panel and its ranked alternatives. */
+.panelStack {
+  display: grid;
+  min-width: 0;
   gap: var(--ward-space-12);
-  border-left: 0.125rem solid var(--ward-blue-border);
-  padding-left: var(--ward-space-12);
 }
 
-.timeline time {
-  color: var(--ward-blue);
+/* ── Panel interiors ─────────────────────────────────────────────────────────────────────── */
+
+/* A panel's own prose body. `WardPanel` paints the frame and its header; everything inside is
+ * this file's job, and the 12/16 inset matches `.panelHeader`'s so a body and its header line up. */
+.panelBody {
+  margin: 0;
+  padding: var(--ward-space-12) var(--ward-space-16);
+  color: var(--ward-text);
+  font-size: var(--text-sm);
+  line-height: var(--ward-leading-prose);
+}
+
+.panelLede {
+  margin: 0;
+  color: var(--ward-heading);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: var(--ward-leading-body);
+}
+
+/*
+ * The legal-risk sentence — `restrictionNotice`'s own text, and the `destinationNoLongerLawful`
+ * exception beside it. Worded first and coloured second: the sentence says what is wrong on its
+ * own, and the left edge only reinforces it, which is this app's ratcheted accessibility rule.
+ */
+.legalRisk {
+  margin: var(--ward-space-12) var(--ward-space-16);
+  border-left: 0.1875rem solid var(--ward-danger);
+  padding: var(--ward-space-8) var(--ward-space-12);
+  background: var(--ward-danger-soft);
+  color: var(--ward-danger);
   font-size: var(--text-xs);
-  font-weight: 650;
+  font-weight: 600;
+  line-height: var(--ward-leading-body);
 }
 
-.timeline span {
+/* Only ever rendered above a recomputed eligibility verdict on a CLOSED movement, where the
+ * calculation is opt-in — see the component's own comment on why the default changed. */
+.liveCalculationNote {
+  margin: 0;
+  border: 0.0625rem solid var(--ward-warning);
+  border-radius: var(--radius-sm);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-12) var(--ward-space-16);
   color: var(--ward-text);
   font-size: var(--text-xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.liveCalculationNote strong {
+  color: var(--ward-heading);
+  font-weight: 700;
+}
+
+/* ── Attention rail ─────────────────────────────────────────────────────────────────────── */
+
+/*
+ * ⚠️ A LOCATOR PLUS ONE PLAIN SENTENCE, per item. The design language's attention panel: a
+ * dashboard's job is to say what is wrong, and links are what you use afterwards. Rows are
+ * divided rather than stacked as cards — a card inside a panel is a border inside a border, and
+ * reads as a level of nesting that is not there.
+ */
+.attentionList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attentionItem {
+  display: grid;
+  gap: var(--ward-space-6);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+
+.attentionItem:first-child {
+  border-top: 0;
+}
+
+.attentionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-8);
+}
+
+.attentionWho {
+  color: var(--ward-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.attentionSay {
+  color: var(--ward-text);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-prose);
+}
+
+/* ── The progress track, for ONE patient ────────────────────────────────────────────────── */
+
+.track {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trackStep {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: var(--ward-space-12);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-10) var(--ward-space-16);
+}
+
+.trackStep:first-child {
+  border-top: 0;
+}
+
+.trackMark {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  color: var(--ward-muted);
+}
+
+.trackMark svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.trackBody {
+  display: grid;
+  min-width: 0;
+  gap: var(--ward-space-2);
+}
+
+.trackLabel {
+  color: var(--ward-heading);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  line-height: var(--ward-leading-dense);
+}
+
+.trackWhen {
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-copy);
+}
+
+/* Passed: filled, quiet, done. */
+.trackStep[data-state="done"] .trackMark {
+  border-color: var(--ward-success);
+  background: var(--ward-success-soft);
+  color: var(--ward-success);
+}
+
+/* Where the movement is NOW — only ever on an open movement. */
+.trackStep[data-state="current"] {
+  background: var(--ward-blue-soft);
+}
+
+.trackStep[data-state="current"] .trackMark {
+  border-color: var(--ward-blue-border);
+  background: var(--ward-canvas);
+  color: var(--ward-blue);
+}
+
+.trackStep[data-state="current"] .trackLabel {
+  color: var(--ward-blue);
+}
+
+/*
+ * ⚠️ WHERE A CLOSED MOVEMENT STOPPED — NOT "you are here". Observed 2026-09-04 on WF-008: the
+ * banner said the movement was closed while step 3 rendered in accent blue as though it were
+ * live. This state is a full stop, and it must never share a rule with `current`.
+ */
+.trackStep[data-state="stopped"] {
+  background: var(--ward-subtle);
+}
+
+.trackStep[data-state="stopped"] .trackMark {
+  border-color: var(--ward-border-strong);
+  color: var(--ward-border-strong);
+}
+
+.trackStep[data-state="stopped"] .trackLabel {
+  color: var(--ward-heading);
+  text-decoration: line-through;
+}
+
+/* Not reached. Greyed, and not a control — these are `<li>`s, never buttons. */
+.trackStep[data-state="ahead"] .trackLabel,
+.trackStep[data-state="ahead"] .trackWhen {
+  color: var(--ward-muted);
+}
+
+.trackStep[data-state="ahead"] .trackMark {
+  border-style: dashed;
+}
+
+/* ── Labelled record values ─────────────────────────────────────────────────────────────── */
+
+.factGrid {
+  display: grid;
+  margin: 0;
+  padding: 0;
+}
+
+.factRow {
+  display: grid;
+  gap: var(--ward-space-4);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-10) var(--ward-space-16);
+}
+
+.factRow:first-child {
+  border-top: 0;
+}
+
+@media (min-width: 64rem) {
+  .factRow {
+    grid-template-columns: minmax(9rem, 15rem) minmax(0, 1fr);
+    gap: var(--ward-space-16);
+    align-items: baseline;
+  }
+}
+
+.factLabel {
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: var(--ward-leading-ui);
+}
+
+.factValue {
+  margin: 0;
+  color: var(--ward-text);
+  font-size: var(--text-sm);
+  line-height: var(--ward-leading-body);
+}
+
+/* ── Rows (ranked wards) ────────────────────────────────────────────────────────────────── */
+
+.rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ward-space-12);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.rowMain {
+  display: grid;
+  min-width: 12rem;
+  flex: 1 1 16rem;
+  gap: var(--ward-space-4);
+}
+
+.rowName {
+  composes: wardName from "./ward-shared.module.css";
+  font-size: var(--text-sm);
+}
+
+.rowNote {
+  composes: hint from "./ward-shared.module.css";
+}
+
+.rowRisk {
+  color: var(--ward-danger);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: var(--ward-leading-copy);
+}
+
+/*
+ * "No ward on this list could take this patient" — rendered above the ranked rows only when every
+ * one of them has declined or fails a check. Warning-toned rather than danger-toned: the ranking is
+ * not wrong, it simply contains nothing to act on, and reserving the danger colour for legal risk
+ * is what keeps that colour meaning something. Sits inside the panel above the first row, so its
+ * bottom edge is the list's own first divider rather than a second border.
+ */
+.shortlistNote {
+  margin: 0;
+  border-bottom: 0.0625rem solid var(--ward-divider);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  color: var(--ward-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ward-leading-prose);
+}
+
+.rowChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-8);
+}
+
+.rowVerdict {
+  color: var(--ward-heading);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Readiness ──────────────────────────────────────────────────────────────────────────── */
+
+.readinessList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.readinessItem {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: var(--ward-space-12);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+
+.readinessItem:first-child {
+  border-top: 0;
+}
+
+.readinessIcon {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.125rem;
+  color: var(--ward-muted);
+}
+
+.readinessIcon[data-tone="warning"] {
+  color: var(--ward-warning);
+}
+
+.readinessBody {
+  display: grid;
+  min-width: 0;
+  gap: var(--ward-space-2);
+}
+
+.readinessBody strong {
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.readinessBody span {
+  color: var(--ward-text);
+  font-size: var(--text-sm);
+  line-height: var(--ward-leading-body);
+}
+
+/*
+ * WHERE THE FACT ACTUALLY LIVES — the pointer line under each readiness verdict.
+ *
+ * Readiness owns no facts of its own (see the panel's comment in ward-management-console.tsx): it
+ * states whether each of the four is in a travelling state and then says which panel holds it.
+ * Quieter and smaller than the verdict above it, because it is navigation, not information —
+ * `.readinessBody span` above sets the verdict's size and this must out-specify it, which is why
+ * it is written as a descendant pair rather than a bare class.
+ */
+.readinessBody .readinessWhere {
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-copy);
+}
+
+/* ── Eligibility gates ─────────────────────────────────────────────────────────────────── */
+
+.gateList {
+  display: grid;
+  gap: var(--ward-space-8);
+  margin: var(--ward-space-12) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gateItem {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  gap: var(--ward-space-8);
+  align-items: start;
+  color: var(--ward-text);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-body);
+}
+
+.gatePass,
+.gateFail {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.0625rem;
+}
+
+.gatePass {
+  color: var(--ward-success);
+}
+
+.gateFail {
+  color: var(--ward-warning);
+}
+
+/* ── Timelines ─────────────────────────────────────────────────────────────────────────── */
+
+.timeline {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timelineItem {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, auto) minmax(0, 1fr);
+  gap: var(--ward-space-12);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-8) var(--ward-space-16);
+}
+
+.timelineItem:first-child {
+  border-top: 0;
+}
+
+.timelineWhen {
+  color: var(--ward-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--ward-leading-body);
+}
+
+.timelineWhat {
+  color: var(--ward-text);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-body);
+}
+
+/*
+ * WHAT HAPPENED THAT NOTHING TIMED — under the audit timeline, deliberately outside the ordered
+ * list. An undated fact cannot be placed in a chronological record without inventing an instant,
+ * and dropping it made a one-row timeline read as a movement on which nothing happened. Separated
+ * from the rows above by a rule BETWEEN them, not by an outer edge.
+ */
+.untimed {
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+
+.untimedTitle {
+  margin: 0 0 var(--ward-space-8);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: var(--ward-leading-copy);
+  text-transform: uppercase;
+}
+
+.untimedList {
+  display: grid;
+  gap: var(--ward-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.untimedItem {
+  color: var(--ward-text);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-body);
+}
+
+/* ── The three things this page lets you do ──────────────────────────────────────────────── */
+
+.actionStack {
+  display: grid;
+  margin: 0;
+  padding: 0;
+}
+
+.action {
+  display: grid;
+  gap: var(--ward-space-8);
+  border-top: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+
+.action:first-child {
+  border-top: 0;
+}
+
+.actionTitle {
+  margin: 0;
+  color: var(--ward-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.actionSay {
+  margin: 0;
+  color: var(--ward-text);
+  font-size: var(--text-sm);
+  line-height: var(--ward-leading-prose);
+}
+
+/*
+ * Recording what is holding a movement up. `Movement.blocker` is free prose on the owner's
+ * 2026-09-01 ruling, so this is a text field rather than a picker — a chosen list cannot hold an
+ * absence together with its reason, nor activity by a party the model has no field for.
+ */
+.blockerForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-10);
+  align-items: flex-end;
+}
+
+.blockerLabel {
+  display: block;
+  width: 100%;
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: var(--ward-leading-copy);
+}
+
+.blockerInput {
+  flex: 1 1 16rem;
+  min-height: var(--spacing-tap);
+  padding: 0 var(--ward-space-10);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+  font: inherit;
+  font-size: var(--text-xs);
+}
+
+/* ⚠️ `min-height: var(--spacing-tap)` IS 48px AND IS NOT TO BE REDUCED. A generic WCAG rule
+ * suggests 44px; dropping to it reintroduces a known `ui-smoke` flake in this repository. */
+.blockerButton,
+.confirmButton,
+.revealButton {
+  display: inline-flex;
+  min-height: var(--spacing-tap);
+  align-items: center;
+  justify-content: center;
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-blue);
+  border-radius: var(--radius-md);
+  background: var(--ward-blue);
+  padding: 0 var(--ward-space-12);
+  color: var(--command-contrast);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/* ⚠️ `.action` IS A GRID, AND A GRID ITEM STRETCHES. Observed live 2026-09-04: "Flag this patient
+ * as urgent" rendered as a full-width blue bar across the whole content column — louder than the
+ * attention rail, which is the one thing on this page that is supposed to shout. `inline-flex`
+ * does not prevent that; only the alignment does. */
+.action > .blockerButton,
+.action > .confirmButton {
+  justify-self: start;
+}
+
+.blockerButton:disabled {
+  border-color: var(--ward-border);
+  background: var(--ward-canvas);
+  color: var(--ward-muted);
+}
+
+/* The opt-in eligibility recomputation on a closed movement. Secondary by design: asking for a
+ * calculation is not the primary thing to do on a page about a movement that has ended. */
+.revealButton {
+  justify-self: start;
+  margin-top: var(--ward-space-12);
+  border-color: var(--ward-border-strong);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.revealButton:hover {
+  background: var(--ward-subtle);
 }
 
 .governanceNote {
   margin: 0;
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  background: var(--ward-subtle);
   padding: var(--ward-space-12) var(--ward-space-16);
   color: var(--ward-muted);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
-}
-
-@media (max-width: 62rem) {
-  .workspaceGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .workspaceGrid > section:last-child {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 40rem) {
@@ -827,34 +1145,22 @@
     display: none;
   }
 
+  /*
+   * Decision 3 / Task 5 (docs/superpowers/plans/2026-09-04-ward-flow-navigation-shell.md):
+   * `.phoneBar` (ward-sidebar.module.css) is the single top-anchored phone element. This used to
+   * also be `position: sticky; top: var(--spacing-ward-phone-bar); z-index:
+   * var(--ward-z-phone-header);`, which stacked a second bar directly under the phone bar —
+   * undetected because nothing guarded the property (tests/ward-chrome-owner.test.ts now does).
+   * It is ordinary in-flow content now; `.patientWorkspace`'s `padding-top:
+   * var(--spacing-ward-phone-bar)` above already reserves room for `.phoneBar` alone, so this
+   * header simply renders below that reserve rather than pinning itself a second time.
+   */
   .workspaceHeader {
-    position: sticky;
-    top: var(--spacing-ward-phone-bar);
-    z-index: var(--ward-z-phone);
+    display: flex;
     min-height: 4rem;
     border-bottom: 0.0625rem solid var(--ward-border);
     padding: max(var(--ward-space-8), env(safe-area-inset-top)) max(var(--ward-space-12), env(safe-area-inset-right))
       var(--ward-space-8) max(var(--ward-space-12), env(safe-area-inset-left));
-  }
-
-  .prototypeBadge {
-    max-width: 5.25rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .movementPipeline {
-    min-height: 4.75rem;
-  }
-
-  .stageGroup {
-    min-width: 10rem;
-    flex-basis: 10rem;
-  }
-
-  .workspaceHeader {
-    display: flex;
   }
 
   .workspaceHeader .prototypeBadge {
@@ -863,37 +1169,165 @@
 
   .workspaceMain {
     display: grid;
-    padding: var(--ward-space-12);
-  }
-
-  .workspaceSummary {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--ward-space-12);
-  }
-
-  .workspaceScore {
-    grid-template-columns: repeat(3, auto);
-    justify-content: start;
-    align-items: baseline;
-    gap: var(--ward-space-12);
-    border: 0;
-    border-top: 0.0625rem solid var(--ward-border);
-    border-bottom: 0.0625rem solid var(--ward-border);
-    padding: var(--ward-space-10) 0;
-  }
-
-  .workspaceGrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .workspaceGrid > section:last-child {
-    grid-column: auto;
+    padding: var(--ward-space-12) var(--ward-space-12) var(--ward-space-24);
   }
 }
 
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
+ *
+ * The border aliases in the token layer deliberately SEVER the chain to `--border`. Measured
+ * against `--surface`, the background every one of these screens paints, `--border` sits at
+ * 1.21:1 in light mode and 1.42:1 in dark — far below the 3:1 a boundary needs, so the dividers
+ * were very nearly invisible. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives
+ * 7.55:1 and 8.21:1.
+ *
+ * ⚠️ But severing that chain would ALSO cost a high-contrast user the system border colour, which
+ * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
+ * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
+ * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ *
+ * ⚠️ `--ward-divider` IS RE-POINTED HERE TOO, AND EVERY OTHER WARD SCREEN'S BLOCK IS MISSING IT.
+ * `--ward-border` and `--ward-divider` resolve to the same `--neutral-500` in the ordinary
+ * cascade, which is why the omission is invisible — but `--ward-divider` is re-aliased NOWHERE in
+ * `src/`, so a block that repoints only `--ward-border` leaves every rule BETWEEN rows drawing in
+ * a colour the system did not choose. This file uses `--ward-divider` on eight row rules, so the
+ * pair genuinely diverges here precisely where a high-contrast user is looking. Measured and
+ * reported by Ward Lead, 2026-09-04; the other screens are not this task's files.
+ *
+ * ⚠️ AND THIS BLOCK CANNOT REACH A PANEL, A CHIP OR A FIGURE. Those three primitives each
+ * `composes: wardTokens`, so all 48 tokens are declared on the primitive's own element, and a
+ * same-element declaration beats an inherited one. What follows therefore covers only what this
+ * page draws itself — the header, the masthead, the attention rows, the track, the fact rows, the
+ * ward rows, the readiness list, the timelines and the controls. Classes composed from
+ * `ward-shared.module.css` (`.rowName`, `.rowNote`) ARE reached, because that module composes and
+ * declares nothing. A high-contrast repair inside a panel can only be made in
+ * `ward-tokens.module.css`, and is not this task's file.
+ */
 @media (forced-colors: active) {
+  .patientWorkspace {
+    --ward-border: var(--border);
+    --ward-border-strong: var(--border-strong);
+    --ward-divider: var(--border);
+  }
+
+  .clinicalRail {
+    --ward-border: var(--border);
+  }
+
   .railLinkActive,
-  .stageActive {
+  .trackStep[data-state="current"] .trackMark {
     border: 0.125rem solid Highlight;
+  }
+}
+
+/*
+ * 🔴 PRINTING THIS PAGE — what this block does, and what it deliberately does not claim to do.
+ *
+ * Before 2026-09-04 this stylesheet had NO print block, and `.patientWorkspace` painted
+ * `var(--background)` — near-black in dark. `globals.css`'s print reset whitens `html`/`body`
+ * only, and a div's own explicit background does not inherit that reset, so printing this route
+ * in dark mode put a near-black rectangle over the whole sheet. Deleting the root background
+ * removes that outright: the root now paints nothing, and `.shell` (ward-shell.module.css) already
+ * resets the ground to `transparent` under print.
+ *
+ * ⚠️ WHAT REMAINS UNFIXED, STATED RATHER THAN IMPLIED. Six ward screens carry
+ * `background: none; color-scheme: light` on their own root under print. `color-scheme` is kept
+ * here for consistency with them, but it does NOT recolour text in this codebase: the dark ramp is
+ * a `.dark` CLASS on an ancestor redefining the tokens (globals.css), not `light-dark()`, so
+ * `color-scheme` reaches UA-rendered widgets and nothing else. Printing this page from the dark
+ * theme therefore still puts pale ink on white paper, exactly as it did before tonight — the six
+ * screens that solved that did it by re-declaring each element's colour inside their own print
+ * block, measured with a print-ink sweep. That work is not done here and is not claimed.
+ *
+ * ⚠️ NOT VERIFIED ON PAPER. This is a read of the cascade plus one deleted declaration, not an
+ * observation of a printout.
+ */
+@media print {
+  /*
+   * 🔴 `color: CanvasText` IS THE LOAD-BEARING LINE HERE, NOT `color-scheme: light`.
+   *
+   * Every ward screen root sets `color: var(--ward-text)`. The dark ramp is scoped by the CLASS
+   * `.ckb-v2.dark.ckb-v2` (ckb-v2-tokens.css:326), NOT by a media query — the class stays on
+   * <html> when printing, so `--text` stays `#f4f6f8`. globals.css:4627 sets
+   * `body { background: #fff; color: #000 }` for print, but `.patientWorkspace` is a CLASS
+   * selector and beats `body`, so the root's own colour wins: near-white ink on white paper.
+   *
+   * ⚠️ `color-scheme: light` DOES NOT FIX THAT. It affects UA-rendered chrome and
+   * `light-dark()`; it cannot re-resolve tokens a class redefines. Ward Lead asserted twice that
+   * it was the missing half and was wrong twice.
+   *
+   * ⚠️ AND DELETING THE ROOT BACKGROUND MADE THIS MORE DANGEROUS, NOT LESS. Before, this
+   * route printed a near-black band from dark mode — obviously broken, and it gets reported.
+   * With the background gone it prints a blank sheet, which reads as "nothing to print".
+   *
+   * ⚠️ IT CANNOT BE FIXED CENTRALLY. `.shell` setting `color` under print cannot beat a
+   * declaration `.patientWorkspace` makes on its own element. It has to live in the file that
+   * made the declaration — here.
+   *
+   * ⚠️ AND THE RESET MUST BE ON THE ROOT — BUT THE ROOT ALONE IS NOT ENOUGH EITHER. Four other
+   * screens were believed safe because their print blocks reset `color` on DESCENDANTS — banners,
+   * cells, headings — covered one at a time. That depends on every descendant having been
+   * individually enumerated, which nobody has ever verified and no test asserts, and it is also
+   * backwards: an ancestor's reset does not reach a descendant that sets `color` on itself either,
+   * for exactly the same reason `.shell` cannot reach `.patientWorkspace`. `board.module.css` tried
+   * the enumeration route directly — 56 coloured selectors listed across a 250-line print block —
+   * and still missed five. An enumerated list is the defect regenerating: any new coloured selector
+   * re-opens it, silently, forever. So this reset now targets `.patientWorkspace` AND every
+   * descendant with one wildcard rule, which cannot drift, and it flattens nothing anybody
+   * wanted — a sweep of every existing print block across these seven files found zero
+   * non-`CanvasText` colour declarations inside any of them.
+   *
+   * ⚠️ `!important` IS REQUIRED ON `color` HERE, AND THE WILDCARD ALONE IS NOT ENOUGH — measured
+   * through an actual cascade (jsdom's computed-style engine), not read off the CSS. Specificity is
+   * resolved before source order, so sitting at the end of the file buys nothing: `.patientWorkspace
+   * *` is one class plus the universal selector (specificity 0,1,0; the universal contributes
+   * zero), and any rule combining a class with a type, pseudo-class or attribute selector outranks
+   * it — this file has many: `.workspaceHeader span` (0,1,1), `.readinessIcon[data-tone="warning"]`
+   * (0,2,0), every `.trackStep[data-state="…"] .trackMark`/`.trackLabel` pair (0,3,0). Confirmed on
+   * an equivalent-shaped selector: it computed `rgb(244, 246, 248)` — still near-white — with the
+   * wildcard alone, and `rgb(0, 0, 0)` once `!important` was added. `color-scheme` needs no
+   * `!important`: nothing competes for it. `coordinator.module.css` already carries `color:
+   * CanvasText !important` in its own print blocks — this file now matches that precedent rather
+   * than re-deriving it.
+   *
+   * ⚠️ THE WILDCARD ALONE WOULD HAVE LOOKED FIXED. It corrects every plain element, so a spot-check
+   * on any single-class element prints black and the fix reads as confirmed, while the progress
+   * track and readiness rows — state-keyed compound selectors — stay invisible. Fix one instance,
+   * verify on the instance in front of you, never revisit the siblings: the same defect recurring
+   * at a third level, after file and after selector.
+   *
+   * NOT VERIFIED ON PAPER. This is a jsdom cascade resolution, not an observation of a printout —
+   * `!important` winning over specificity is spec behaviour common to every rendering engine,
+   * including the one that will actually print the page, so the result should carry over.
+   */
+  .patientWorkspace,
+  .patientWorkspace * {
+    color-scheme: light;
+    color: CanvasText !important;
+    /*
+     * 🔴 THE MISSING HALF, AND WITHOUT IT THE LINE ABOVE MAKES THE PAGE WORSE. Measured in
+     * Chromium 151 under print + dark: a themed card kept `rgb(23, 26, 29)` because nothing
+     * resets backgrounds, while the reset forced its text to `rgb(0, 0, 0)`. **Black on a dark
+     * card — gone.** Before the text reset that same text was near-white on the dark card:
+     * wasteful, and READABLE. The fix and the untouched background are each defensible alone
+     * and strictly worse together, and nothing either of us checked would have caught it,
+     * because we were both looking at text colour on a white page.
+     *
+     * ⚠️ `background-color`, NEVER the `background` shorthand. `board.module.css` hatches its
+     * blocked, held and past-date bed states with `background-image: repeating-linear-gradient`.
+     * The shorthand wipes `background-image` and would silently erase the pattern that
+     * distinguishes a blocked bed from an empty one — a state distinction, not decoration.
+     */
+    background-color: Canvas !important;
+  }
+
+  .patientWorkspace {
+    display: block;
+  }
+
+  .workspaceMain {
+    display: block;
+    overflow: visible;
   }
 }
