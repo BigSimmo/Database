@@ -85,3 +85,23 @@
     --wf-border: var(--border);
   }
 }
+
+/*
+ * This module does not compose `wardTokens` from ward-tokens.module.css, so the central print
+ * reset that file carries never reaches these selectors. There is no wrapping root class to hang
+ * a wildcard reset on: `.placeholder` and `.list` are alternate top-level renders of this
+ * component (see the file comment above), so every themed-colour and themed-background selector
+ * is enumerated by hand instead of inventing a wrapper this module was never given. `.entry`'s
+ * background is reset alongside its descendants' text so a card never ends up black text on a
+ * still-dark card.
+ */
+@media print {
+  .placeholder,
+  .entry,
+  .entryHeader strong,
+  .entryReason,
+  .entryMeta {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+}

@@ -19,6 +19,7 @@ import {
   type Movement,
   type Unit,
 } from "@/components/ward-management/ward-model";
+import { eligibility } from "@/components/ward-management/ward-eligibility";
 import { edPressure } from "@/components/ward-management/ward-pressure";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
@@ -92,7 +93,15 @@ function recordedDestinationIds(movement: Movement | undefined): Set<string> {
  * `ward-sites.ts`'s `unitById`/`allUnits` — a name lookup here still must reflect a unit that
  * exists in the live world the same as any capacity figure would.
  */
-function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandidate[], units: Unit[]) {
+// Exported for `tests/ward-flow-diagram-status-truthfulness.test.ts`, which drives it over the whole
+// fixture. The alternative was rendering the diagram fifty times in jsdom to read one string, which
+// would test the renderer rather than the sentence.
+export function hubStatusText(
+  movement: Movement | undefined,
+  shortlist: ShortlistCandidate[],
+  units: Unit[],
+  now: Instant,
+) {
   if (!movement) return "Select a movement from the priority queue to route it";
 
   // "Other" means other than the units already recorded against this movement -- a candidate that
@@ -119,7 +128,37 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
   if (shortlist.length === 0) return `${movement.id} — no destinations found for this cohort`;
   const eligibleCount = shortlist.filter((candidate) => candidate.verdict.eligible).length;
   if (eligibleCount === shortlist.length) {
-    return `${movement.id} — ${eligibleCount} eligible destination${eligibleCount === 1 ? "" : "s"}`;
+    // ⚠️ **THIS SAID "3 eligible destinations" WHERE THIRTEEN WERE ELIGIBLE, and the number was
+    // never network-wide.** `shortlist` is `eligibleCandidatesAmong(..., PARALLEL_REFERRAL_CAP)`,
+    // which ends `.slice(0, limit)` with `limit` 3 — the three wards a coordinator may refer to in
+    // parallel, not the eligible destinations that exist. `eligibleCount` is therefore a count
+    // WITHIN a capped shortlist, and this branch was the only one of the three that dropped the
+    // denominator and let it read as an absolute.
+    //
+    // ⚠️ THE OTHER TWO BRANCHES WERE ALWAYS RIGHT — "N eligible of M candidates" and "M candidates,
+    // all excluded" both name the population. This one lost it precisely because the two numbers
+    // were EQUAL, so the denominator looked redundant. **A count is not safe to drop just because
+    // it happens to equal the numerator; it is the only thing naming what was counted.**
+    //
+    // The label is changed rather than the number, because the diagram beside it renders exactly
+    // these candidates as nodes. Making the number network-wide would contradict what is on screen.
+    // ⚠️ THE NETWORK FIGURE IS HERE BECAUSE WITHOUT IT NO GUARD CAN TELL THE TRUE LINE FROM THE
+    // FALSE ONE. My first repair only rescoped the words — "all 3 candidates shown are eligible" —
+    // and a property test asserting "the population size must appear in the line" PASSED against
+    // the original "3 eligible destinations", because in this branch `eligibleCount` and
+    // `shortlist.length` are the SAME NUMBER. The test fell into the identical trap as the code:
+    // the denominator looked redundant because it equalled the numerator.
+    //
+    // Stating how many are eligible across the cohort makes the sentence carry a figure that only
+    // a truthful version can have, so `tests/ward-flow-diagram-status-truthfulness.test.ts` has
+    // something to check. It also answers the defect itself: this line understated the coordinator's
+    // real options, saying three where thirteen wards could take the patient.
+    const cohortEligible = units.filter(
+      (unit) => unit.cohort === movement.cohort && eligibility(movement, unit, now).eligible,
+    ).length;
+    return cohortEligible > shortlist.length
+      ? `${movement.id} — all ${shortlist.length} shown are eligible, of ${cohortEligible} eligible across the network`
+      : `${movement.id} — all ${shortlist.length} eligible destination${shortlist.length === 1 ? "" : "s"} shown`;
   }
   if (eligibleCount === 0) {
     return `${movement.id} — no eligible destination; ${shortlist.length} candidates, all excluded`;
@@ -411,7 +450,7 @@ export function FlowDiagram({
           <div className={styles.diagramHub} ref={hubRef}>
             <Network aria-hidden="true" />
             <strong>Statewide flow hub</strong>
-            <span>{hubStatusText(movement, shortlist, units)}</span>
+            <span>{hubStatusText(movement, shortlist, units, now)}</span>
           </div>
 
           <div className={styles.diagramUnitsColumn}>

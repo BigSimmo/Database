@@ -149,7 +149,7 @@ export function StatisticsWardScreen({ unitId, units: unitsOverride }: { unitId:
          */}
         <p className={styles.body} data-testid="ward-statistics-ward-computed-not-surfaced">
           <strong>Most of it is computed and simply not surfaced anywhere.</strong>{" "}
-          <code className={styles.field}>wardStatistics()</code> already derives, per ward: average length of stay,
+          <code className={styles.fieldName}>wardStatistics()</code> already derives, per ward: average length of stay,
           average empty-bed minutes from the pull to the person arriving, discharge-date outcomes as met, missed and
           moved, admissions ready to leave but blocked, and long stays. It has no consumer in the app — only its own
           test — so the gap between here and a ward&apos;s figures is a rendering decision about what to show and how to
@@ -160,19 +160,20 @@ export function StatisticsWardScreen({ unitId, units: unitsOverride }: { unitId:
           <strong>
             One figure beside them is genuinely blocked, and it is the clearest example of what this page is for.
           </strong>{" "}
-          <code className={styles.field}>WardStatistics.averageWaitlistWaitMinutes</code> is always{" "}
-          <code className={styles.field}>null</code> — how long somebody accepted in principle waits before a bed is
-          given cannot be measured, because no instant on <code className={styles.field}>Admission</code> marks the
-          moment they entered <code className={styles.field}>waitlisted</code>. The instants it does carry are not all
-          of one kind — some are about the bed, some are about the discharge plan, and at least one is a fact about the
-          person rather than about the bed, which is how <code className={styles.field}>ward-admissions.ts</code> puts
-          it on the field itself. None of them is the moment somebody joined the waitlist. They are deliberately not
-          listed here: the field set belongs to a record this page does not own, so a copy of it would go stale the day
-          one is added and nothing on this page would fail. The nearest equivalent elsewhere in this prototype measures
-          from <code className={styles.field}>Referral.raisedAt</code>, a field this derivation has no access to,
-          because it takes admissions only, by design. So no amount of data entry against today&apos;s model would
-          produce this figure: it needs the admission record to gain an instant of its own, or the derivation to be
-          given a different input, and either is a change to the model rather than to this page.
+          <code className={styles.fieldName}>WardStatistics.averageWaitlistWaitMinutes</code> is always{" "}
+          <code className={styles.fieldName}>null</code> — how long somebody accepted in principle waits before a bed is
+          given cannot be measured, because no instant on <code className={styles.fieldName}>Admission</code> marks the
+          moment they entered <code className={styles.fieldName}>waitlisted</code>. The instants it does carry are not
+          all of one kind — some are about the bed, some are about the discharge plan, and at least one is a fact about
+          the person rather than about the bed, which is how{" "}
+          <code className={styles.fieldName}>ward-admissions.ts</code> puts it on the field itself. None of them is the
+          moment somebody joined the waitlist. They are deliberately not listed here: the field set belongs to a record
+          this page does not own, so a copy of it would go stale the day one is added and nothing on this page would
+          fail. The nearest equivalent elsewhere in this prototype measures from{" "}
+          <code className={styles.fieldName}>Referral.raisedAt</code>, a field this derivation has no access to, because
+          it takes admissions only, by design. So no amount of data entry against today&apos;s model would produce this
+          figure: it needs the admission record to gain an instant of its own, or the derivation to be given a different
+          input, and either is a change to the model rather than to this page.
         </p>
 
         <p className={styles.note}>
