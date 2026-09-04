@@ -4401,7 +4401,13 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await appModeButton.click();
     await expect(appModeMenu).toBeVisible();
-    await appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ }).focus();
+    // Opening schedules the search autofocus in a requestAnimationFrame. Focusing an
+    // option before that frame runs lets the autofocus steal focus back into the search
+    // box, where Tab is not a dismiss key, so the menu stays open and this fails.
+    await expect(modeSearch).toBeFocused();
+    const reopenedAnswerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
+    await reopenedAnswerMode.focus();
+    await expect(reopenedAnswerMode).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(appModeMenu).toBeHidden();
   });
