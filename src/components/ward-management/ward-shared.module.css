@@ -1,0 +1,87 @@
+/* src/components/ward-management/ward-shared.module.css
+ *
+ * Seven classes that every Ward Flow screen independently invented. Reviewing the ten mockups for
+ * classes outside the shared block found the same seven names in file after file, written by
+ * different builders who never saw each other's work. A class three screens invent separately is
+ * not screen-specific — it is a primitive nobody had defined yet, and left alone it drifts into
+ * three near-diverged definitions, which is exactly the state the --ward-* token layer was found
+ * in before Task 1 consolidated it.
+ */
+
+/* A labelled value in a record. Every screen invented this; none of them agreed on the gap.
+ * --ward-space-N is N pixels (--ward-space-4 = 4px), not the fractional rem the first draft of
+ * this file assumed — corrected 2026-09-04 against the token layer ward-tokens.module.css
+ * actually shipped with. 4px is the tight label-to-value gap this class exists for. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-4);
+  min-width: 0;
+}
+
+/* Secondary explanation under a control or figure. Never the only carrier of meaning. */
+.hint {
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-body);
+}
+
+/* A record waiting on somebody else. Worded as well as styled -- see the chip rule. */
+.pending {
+  color: var(--ward-muted);
+  font-style: normal;
+}
+
+/* One numbered stage of a multi-part form. A 16px gap between the number and its text --
+ * corrected 2026-09-04, see the note on .field above. */
+.step {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ward-space-16);
+}
+
+/* A ward name where it must stay readable beside a figure: never truncated to fit. */
+.wardName {
+  font-weight: 600;
+  color: var(--ward-text);
+  overflow-wrap: break-word;
+}
+
+/* The opening block of a screen: title, scope, and what the reader is looking at. The title-to-
+ * subtitle gap stays tight (4px); the block's own breathing room is 32px -- corrected 2026-09-04,
+ * see the note on .field above. */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-4);
+  padding-block: var(--ward-space-32);
+}
+
+/* The figure strip inside a hero. The two-shout rule from Task 4 applies to its children.
+ * 16px gap between tiles -- corrected 2026-09-04, see the note on .field above. */
+.heroFigures {
+  display: grid;
+  gap: var(--ward-space-16);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 60rem) {
+  .heroFigures {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/*
+ * This module does not compose `wardTokens` from ward-tokens.module.css, so the central print
+ * reset that file carries never reaches these selectors. This file is a flat set of primitives
+ * with no wrapping root class of its own — it is mounted inside whichever screen already owns
+ * one — so the three classes that declare a themed text colour are enumerated by hand rather than
+ * inventing a wrapper this module was never given.
+ */
+@media print {
+  .hint,
+  .pending,
+  .wardName {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+}
