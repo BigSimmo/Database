@@ -373,6 +373,15 @@ wrong. What holds Ruling 13 is the module boundary, which does not decay as file
 nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue
 names it by href, never by import), so the dashboard references no chunk exclusive to it.
 
+### On Call mode
+
+`src/lib/on-call/` is a clinical reference mode for shift handoff and rapid lookup. The domain model is
+pure TypeScript with no I/O, fully testable offline.
+
+| Module        | Role                                                                                    |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `entry-model` | Section names, per-section Zod schemas, twelve-month staleness derivation and freshness |
+
 ---
 
 ## Supabase
