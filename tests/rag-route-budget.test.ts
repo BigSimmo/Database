@@ -104,6 +104,13 @@ describe("RAG route deadlines", () => {
         degradedMode: undefined,
       }),
     ).toBe(false);
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        fallbackReasonCode: "provider_timeout",
+        routingReason: "source_backed_extractive_fallback",
+        degradedMode: { active: true, reason: "safe public phrase" },
+      }),
+    ).toBe(false);
   });
 });
 

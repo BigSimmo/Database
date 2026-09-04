@@ -3825,14 +3825,21 @@ function applyProviderLabels(answer: RagAnswer): RagAnswer {
   const answerQualityTier: RagAnswer["answerQualityTier"] =
     answer.answerQualityTier ??
     (answer.modelUsed ? "model_synthesis" : inferredSourceOnlyFallback ? "source_only" : undefined);
+  const legacyFallbackReason = answer.routingReason
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => /source_only_[a-z_]+|fallback|unsupported|no_|gap|conflict|failed|low_signal/i.test(part));
   const fallbackReason =
-    answer.fallbackReason ??
-    (answerQualityTier === "source_only" ? (fallbackReasonFromRouting(answer.routingReason) ?? "source_only") : null);
+    answer.fallbackReason ?? (answerQualityTier === "source_only" ? (legacyFallbackReason ?? "source_only") : null);
+  const inferredFallbackReasonCode = fallbackReasonFromRouting(answer.routingReason);
+  const fallbackReasonCode =
+    answer.fallbackReasonCode ?? (inferredFallbackReasonCode === "unknown" ? null : inferredFallbackReasonCode);
   const degradedActive = answerQualityTier === "source_only";
   return {
     ...answer,
     providerMode: answer.providerMode ?? ragProviderMode(),
     answerQualityTier,
+    fallbackReasonCode,
     fallbackReason,
     degradedMode: answer.degradedMode ?? {
       active: degradedActive,

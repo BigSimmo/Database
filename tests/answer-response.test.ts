@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   answerDegradedModeSignal,
+  buildGovernedEmptyScopeAnswerClientResponse,
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "../src/lib/answer-response";
@@ -61,14 +62,35 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 describe("governed answer response", () => {
   it("keeps a normal grounded answer and derives source-only degradation consistently", () => {
     const result = buildGovernedAnswerClientResponse(
-      answer({ answerQualityTier: "source_only", fallbackReason: "generation_fallback" }),
+      answer({
+        answerQualityTier: "source_only",
+        fallbackReasonCode: "provider_timeout",
+        fallbackReason: "generation_fallback: socket private-host?token=secret",
+        routingReason: "generation_fallback: socket private-host?token=secret",
+        degradedMode: { active: true, reason: "socket private-host?token=secret" },
+        queryAnalysis: { secret: "private-query" } as never,
+        retrievalDiagnostics: { secret: "private-diagnostics" } as never,
+        openAIRequestIds: ["req_secret"],
+      }),
     );
 
     expect(result.refused).toBe(false);
     expect(result.payload).toMatchObject({
       answer: "Use the cited monitoring pathway.",
-      degradedMode: { active: true, reason: "generation_fallback" },
+      fallbackReasonCode: "provider_timeout",
+      degradedMode: {
+        active: true,
+        reason: "Answer generation timed out; the verified source-backed portion is shown.",
+      },
     });
+    expect(result.payload).not.toHaveProperty("routingReason");
+    expect(result.payload).not.toHaveProperty("fallbackReason");
+    expect(result.payload).not.toHaveProperty("queryAnalysis");
+    expect(result.payload).not.toHaveProperty("retrievalDiagnostics");
+    expect(result.payload).not.toHaveProperty("openAIRequestIds");
+    expect(JSON.stringify(result.payload)).not.toMatch(
+      /private-host|token=secret|private-query|private-diagnostics|req_secret/,
+    );
     expect(answerDegradedModeSignal()).toEqual({ active: false, reason: null });
   });
 
@@ -103,10 +125,33 @@ describe("governed answer response", () => {
       confidence: "unsupported",
       citations: [],
       sources: [],
-      degradedMode: { active: true, reason: "supabase_api_key_configuration" },
+      fallbackReasonCode: "unknown",
+      degradedMode: {
+        active: true,
+        reason: "The answer could not be completed from the currently verified sources.",
+      },
       fallbackMode: "non_production_demo",
-      fallbackReason: "supabase_api_key_configuration",
     });
+    expect(result).not.toHaveProperty("fallbackReason");
     expect(result).not.toHaveProperty("smartPanel");
+  });
+
+  it("builds direct empty-scope JSON and SSE payloads through the same safe projection", () => {
+    const first = buildGovernedEmptyScopeAnswerClientResponse("No indexed documents matched.");
+    const second = buildGovernedEmptyScopeAnswerClientResponse("No indexed documents matched.");
+
+    expect(first.payload).toEqual(second.payload);
+    expect(first.payload).toMatchObject({
+      answer: "No indexed documents matched.",
+      grounded: false,
+      confidence: "unsupported",
+      fallbackReasonCode: "no_candidates",
+      degradedMode: {
+        active: true,
+        reason: "No directly relevant source passage was found in the active corpus.",
+      },
+    });
+    expect(first.payload).not.toHaveProperty("routingReason");
+    expect(first.payload).not.toHaveProperty("fallbackReason");
   });
 });

@@ -13,9 +13,9 @@ import {
 import { publicAccessContext } from "@/lib/public-api-access";
 import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import {
-  answerDegradedModeSignal,
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
+  buildGovernedEmptyScopeAnswerClientResponse,
 } from "@/lib/answer-response";
 import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
@@ -24,7 +24,6 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
-import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
@@ -39,7 +38,6 @@ import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-s
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
-import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -218,19 +216,8 @@ function streamAnswer(
               });
           sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {
-            const emptyAnswer = observeRagAnswer(
-              {
-                answer: emptyScopeAnswer,
-                grounded: false,
-                confidence: "unsupported",
-                citations: [],
-                sources: [],
-                routingMode: "unsupported",
-                fallbackReason: "retrieval_miss",
-                responseMode: "evidence_gap",
-              } satisfies RagAnswer,
-              observationContext,
-            );
+            const governedEmptyResponse = buildGovernedEmptyScopeAnswerClientResponse(emptyScopeAnswer);
+            const emptyAnswer = observeRagAnswer(governedEmptyResponse.telemetryAnswer, observationContext);
             await persistAnswerDiagnostics({
               supabase: createAdminClient(),
               query: body.query,
@@ -239,14 +226,8 @@ function streamAnswer(
               answer: emptyAnswer,
             });
             sendFinal({
-              answer: emptyScopeAnswer,
-              grounded: false,
-              confidence: "unsupported",
-              citations: [],
-              sources: [],
-              degradedMode: answerDegradedModeSignal(),
+              ...governedEmptyResponse.payload,
               scope: { ...scope, queryMode: body.queryMode },
-              sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
               ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
             });
             return;

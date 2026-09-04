@@ -145,9 +145,14 @@ describe("toClientAnswerPayload", () => {
     expect(answer.sources![0].content.length).toBeGreaterThan(700);
   });
 
-  it("passes through answers without sources", () => {
-    const empty = answerWith([]);
-    expect(toClientAnswerPayload(empty)).toBe(empty);
+  it("projects answers without sources instead of returning the server object", () => {
+    const empty = {
+      ...answerWith([]),
+      routingReason: "server-only-routing",
+      futureServerSecret: "must-not-cross-boundary",
+    } as Pick<RagAnswer, "sources" | "routingReason"> & { futureServerSecret: string };
+    expect(toClientAnswerPayload(empty)).toEqual({ sources: [] });
+    expect(toClientAnswerPayload(empty)).not.toBe(empty);
   });
 
   it("materially shrinks a representative payload", () => {

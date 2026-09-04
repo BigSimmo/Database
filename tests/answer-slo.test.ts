@@ -32,7 +32,9 @@ function fakeClient(
       },
       or: (filters: string) => {
         observedNarrowingFilters.push({ method: "or", column: "", value: filters });
-        return build("degraded");
+        return build(
+          filters.startsWith("metadata->>fallback_reason_code.eq.provider_timeout") ? "timeout" : "degraded",
+        );
       },
       ilike: (_column: string, pattern: string) =>
         build(pattern.includes("max_output_tokens") ? "truncation" : "timeout"),
@@ -89,11 +91,31 @@ describe("answerSloSnapshot", () => {
     expect(observedNarrowingFilters).toContainEqual({
       method: "or",
       column: "",
-      value: "metadata->>provider_generation_degraded.eq.true,metadata->>fallback_reason.ilike.%generation_fallback:%",
+      value:
+        "metadata->>provider_generation_degraded.eq.true,metadata->>fallback_reason_code.in.(provider_auth,provider_quota,provider_rate_limit,provider_timeout,provider_failure),metadata->>fallback_reason.ilike.%generation_fallback:%",
     });
     expect(observedNarrowingFilters).not.toContainEqual(
       expect.objectContaining({ method: "not", column: "metadata->>fallback_reason" }),
     );
+  });
+
+  it("counts typed timeout codes before retaining the legacy text fallback", async () => {
+    const observedNarrowingFilters: Array<{
+      method: "eq" | "not" | "or";
+      column: string;
+      value: unknown;
+    }> = [];
+
+    const snapshot = await answerSloSnapshot(
+      fakeClient({ total: 7, hybrid: 0, degraded: 0, timeout: 2 }, undefined, [], observedNarrowingFilters),
+    );
+
+    expect(snapshot.timeoutFallbackQueries).toBe(2);
+    expect(observedNarrowingFilters).toContainEqual({
+      method: "or",
+      column: "",
+      value: "metadata->>fallback_reason_code.eq.provider_timeout,metadata->>fallback_reason.ilike.%timeout%",
+    });
   });
 
   it("reports zero rates (not NaN) when there are no queries in the window", async () => {

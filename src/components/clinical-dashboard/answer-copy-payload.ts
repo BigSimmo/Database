@@ -15,10 +15,7 @@
 // retrieval layer in, and `RagAnswer` is the retrieval layer.
 
 import { answerStateFromRetrieval, type AnswerState } from "@/components/ui/answer-state";
-import {
-  isPreformattedGroundedAnswer,
-  primaryAnswerDisplayText,
-} from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer, primaryAnswerDisplayText } from "@/components/clinical-dashboard/answer-content";
 import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
@@ -86,6 +83,7 @@ export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCo
     sources: resolveAnswerSources(answer.sources, sources),
     citations: answer.citations,
     answerQualityTier: answer.answerQualityTier,
+    fallbackReasonCode: answer.fallbackReasonCode,
     fallbackReason: answer.fallbackReason,
     routingReason: answer.routingReason,
     grounded: answer.grounded,

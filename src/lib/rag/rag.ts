@@ -44,6 +44,7 @@ import {
   isSourceOnlyMode,
   sourceOnlyReason,
 } from "@/lib/rag/rag-provider";
+import { generationFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
 import {
   GenerationQualityError,
   generationQualityFailureDiagnostics,
@@ -2902,7 +2903,7 @@ async function answerQuestionWithScopeUncoalesced(
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(route.reason),
           degraded: finalizedAnswer.degradedMode?.active ?? false,
-          provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer.routingReason),
+          provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer),
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(smartApiPlan),
@@ -3105,7 +3106,7 @@ async function answerQuestionWithScopeUncoalesced(
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(finalizedAnswer.routingReason),
           degraded: finalizedAnswer.degradedMode?.active ?? false,
-          provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer.routingReason),
+          provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer),
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(finalizedAnswer.smartApiPlan ?? extractiveSmartApiPlan),
@@ -3373,6 +3374,7 @@ ${qualityRetryInstruction}`
       openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
       routingMode: "unsupported",
       routingReason: `${route.reason}; generation_fallback:${sanitizedReason}`,
+      fallbackReasonCode: generationFallbackReasonCode(classifyProviderFailure(error), sanitizedReason),
       queryClass,
       queryAnalysis,
       responseMode: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`, fallbackResults)
@@ -3808,7 +3810,7 @@ ${qualityRetryInstruction}`
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(answer.routingReason),
           degraded: answer.degradedMode?.active ?? false,
-          provider_generation_degraded: isProviderGenerationDegraded(answer.routingReason),
+          provider_generation_degraded: isProviderGenerationDegraded(answer),
           model_used: modelUsed,
           requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
           requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,
@@ -3879,10 +3881,7 @@ ${qualityRetryInstruction}`
       }
     }
     relatedDocuments = retainRelatedDocumentsForResults(relatedDocuments, generationFallbackResults);
-    // #231: surface the specific quality-gate verdict that used to be flattened to the
-    // single `generation_quality_failed` token. Metadata only — the degraded reason the
-    // UI/cache sees is unchanged; the structured verdict rides alongside in
-    // answer_retry_reasons and the fallback log fields below.
+    // #231: retain the specific quality-gate verdict alongside the stable degraded reason below.
     const generationQualityFailure = initialGenerationQualityFailure ?? generationQualityFailureDiagnostics(error);
     if (generationQualityFailure) {
       answerRetryReasons.push(`generation_quality_gate:${generationQualityFailure.gateReason}`);
@@ -4158,7 +4157,7 @@ ${qualityRetryInstruction}`
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(fallbackAnswer.routingReason),
           degraded: fallbackAnswer.degradedMode?.active ?? false,
-          provider_generation_degraded: isProviderGenerationDegraded(fallbackAnswer.routingReason),
+          provider_generation_degraded: isProviderGenerationDegraded(fallbackAnswer),
           model_used: null,
           requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
           requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,

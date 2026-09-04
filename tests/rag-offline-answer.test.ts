@@ -169,6 +169,7 @@ describe("source-only / offline answers", () => {
     // quality signalling for the UI disclosure
     expect(answer.answerQualityTier).toBe("source_only");
     expect(answer.providerMode).toBe("offline");
+    expect(answer.fallbackReasonCode).toBe("provider_offline");
     expect(answer.fallbackReason).toContain("source_only");
   });
 

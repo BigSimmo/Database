@@ -30,6 +30,7 @@ const ragAnswerSatisfiesProjectionInput: AssignableTo<
     | "sources"
     | "citations"
     | "answerQualityTier"
+    | "fallbackReasonCode"
     | "fallbackReason"
     | "routingReason"
     // #207: the grounding signals the ungrounded channel reads. Pinned here so a
@@ -171,7 +172,8 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     const generationFailed = answerStateFromRetrieval({
       sources: [],
       answerQualityTier: "source_only",
-      routingReason: "fast; generation_fallback: provider timeout",
+      fallbackReasonCode: "provider_timeout",
+      routingReason: "quality_gate_only",
     });
     expect(generationFailed).toEqual({ kind: "source_only", reason: "generation_failed" });
 
@@ -181,6 +183,24 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
       fallbackReason: "low_signal_retrieval_gate",
     });
     expect(qualityGate).toEqual({ kind: "source_only", reason: "quality_gate" });
+  });
+
+  it("gives the typed code precedence and parses legacy markers only when it is absent", () => {
+    expect(
+      answerStateFromRetrieval({
+        sources: [],
+        answerQualityTier: "source_only",
+        fallbackReasonCode: "coverage_gap",
+        routingReason: "generation_fallback:provider_timeout",
+      }),
+    ).toEqual({ kind: "source_only", reason: "quality_gate" });
+    expect(
+      answerStateFromRetrieval({
+        sources: [],
+        answerQualityTier: "source_only",
+        routingReason: "generation_fallback:provider_timeout",
+      }),
+    ).toEqual({ kind: "source_only", reason: "generation_failed" });
   });
 
   it("treats a source-only answer over overdue sources as stale evidence first", () => {

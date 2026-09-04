@@ -7,6 +7,7 @@ import {
   selectAustralianClinicalContext,
 } from "@/lib/australian-source-priority";
 import { evidenceFamilyKeys, siteContentClaimPolicy } from "@/lib/site-content/site-content-registry";
+import { classifyRagFallbackReason } from "@/lib/rag/rag-fallback-reason";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { normalizeClinicalSourceMetadata } from "@/lib/source-metadata";
 import {
@@ -564,6 +565,9 @@ export function reconcileAnswerSourcePolicyConflicts(
   selections: readonly CoverageEvidenceSelection[],
   coveragePlan: AnswerCoveragePlan | null,
 ) {
+  if (!answer.fallbackReasonCode && coveragePlan?.insufficiencyReason) {
+    answer.fallbackReasonCode = classifyRagFallbackReason({ insufficiencyReason: coveragePlan.insufficiencyReason });
+  }
   const candidateConflicts = selections.flatMap((selection) => selection.conflicts);
   const nonPolicyFlags = (answer.conflictsOrGaps ?? []).filter(
     (item) =>

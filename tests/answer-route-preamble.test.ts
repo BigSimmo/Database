@@ -164,4 +164,25 @@ describe("/api/answer preamble", () => {
     expect(response.status).toBeGreaterThanOrEqual(500);
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
+
+  it("projects an empty scope through the same bounded answer payload", async () => {
+    consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(false));
+    resolveSearchScope.mockResolvedValue({ documentIds: [], filters: {}, activeFilterCount: 0, warnings: [] });
+
+    const { POST } = await import("../src/app/api/answer/route");
+    const response = await POST(answerRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      fallbackReasonCode: "no_candidates",
+      degradedMode: { active: true, reason: expect.any(String) },
+      sources: [],
+    });
+    expect(payload).not.toHaveProperty("routingReason");
+    expect(payload).not.toHaveProperty("fallbackReason");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
 });

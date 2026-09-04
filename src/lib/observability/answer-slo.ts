@@ -78,12 +78,12 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
     // model-generation failures that actually forced a local fallback. Keep the
     // legacy reason match until pre-flag rows have aged out of every SLO window.
     base().or(
-      "metadata->>provider_generation_degraded.eq.true,metadata->>fallback_reason.ilike.%generation_fallback:%",
+      "metadata->>provider_generation_degraded.eq.true,metadata->>fallback_reason_code.in.(provider_auth,provider_quota,provider_rate_limit,provider_timeout,provider_failure),metadata->>fallback_reason.ilike.%generation_fallback:%",
     ),
     // fallback_reason values look like "...generation_fallback:provider_incomplete_max_output_tokens"
     // and "...generation_fallback:provider_timeout" (confirmed in live rag_queries).
     base().ilike("metadata->>fallback_reason", "%max_output_tokens%"),
-    base().ilike("metadata->>fallback_reason", "%timeout%"),
+    base().or("metadata->>fallback_reason_code.eq.provider_timeout,metadata->>fallback_reason.ilike.%timeout%"),
   ]);
 
   for (const result of [total, hybrid, degraded, truncation, timeout]) {

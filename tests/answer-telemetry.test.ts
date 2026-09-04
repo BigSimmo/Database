@@ -42,6 +42,7 @@ function answer(overrides: Partial<AnswerTelemetrySource> = {}): AnswerTelemetry
     providerMode: "openai",
     answerQualityTier: "model_synthesis",
     responseMode: "threshold_table",
+    fallbackReasonCode: null,
     fallbackReason: null,
     degradedMode: { active: false, reason: null },
     openAIUsage: {
@@ -109,6 +110,25 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     expect(row.miss_reason).toBe("evidence_gap");
     expect(row.candidate_count).toBe(0);
     expect(row.selected_chunk_ids).toEqual([]);
+  });
+
+  it("persists the bounded typed reason ahead of incompatible legacy detail", () => {
+    const row = buildAnswerLogRow({
+      query: "unknown drug?",
+      interactionId: INTERACTION_ID,
+      answer: answer({
+        grounded: false,
+        confidence: "unsupported",
+        fallbackReasonCode: "coverage_gap",
+        fallbackReason: "generation_fallback:private-host?token=secret",
+        routingReason: "generation_fallback:private-host?token=secret",
+      }),
+    });
+    const meta = row.metadata as unknown as AnswerMetadata;
+
+    expect(meta.answer.fallback_reason_code).toBe("coverage_gap");
+    expect(row.miss_reason).toBe("coverage_gap");
+    expect(JSON.stringify(meta.answer)).not.toMatch(/private-host|token=secret/);
   });
 
   it("drops non-UUID chunk/document ids from the selected arrays", () => {

@@ -1251,6 +1251,7 @@ export type RagAnswer = {
   // "source-only — may be lower quality, verify against cited passages" disclosure.
   providerMode?: "auto" | "openai" | "offline";
   answerQualityTier?: "model_synthesis" | "source_only" | "cached";
+  fallbackReasonCode?: RagFallbackReasonCode | null;
   fallbackReason?: string | null;
   degradedMode?: {
     active: boolean;

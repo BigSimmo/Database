@@ -19,6 +19,29 @@ vi.mock("@/lib/answer-response", () => ({
   answerDegradedModeSignal: () => ({ active: false }),
   buildGovernedAnswerClientResponse: (answer: unknown) => ({ payload: answer, telemetryAnswer: answer }),
   buildGovernedDemoAnswerClientResponse: vi.fn(),
+  buildGovernedEmptyScopeAnswerClientResponse: (answer: string) => {
+    const telemetryAnswer = {
+      answer,
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      fallbackReasonCode: "no_candidates",
+      fallbackReason: "retrieval_miss",
+    };
+    return {
+      telemetryAnswer,
+      payload: {
+        answer,
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        sources: [],
+        fallbackReasonCode: "no_candidates",
+        degradedMode: { active: true, reason: "No directly relevant source passage was found." },
+      },
+    };
+  },
 }));
 vi.mock("@/lib/search-scope", async (importOriginal) => ({
   ...(await importOriginal()),
@@ -156,10 +179,10 @@ describe("answer stream verified preview ordering", () => {
 
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
     const logged = persistAnswerDiagnostics.mock.calls[0]?.[0] as
-      { interactionId: string; answer: { fallbackReason?: string } } | undefined;
+      { interactionId: string; answer: { fallbackReasonCode?: string; fallbackReason?: string } } | undefined;
     expect(logged).toMatchObject({
       interactionId: expect.any(String),
-      answer: { fallbackReason: "retrieval_miss" },
+      answer: { fallbackReasonCode: "no_candidates", fallbackReason: "retrieval_miss" },
     });
     const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
     expect(ragProgrammeTelemetryForAnswer(logged!.answer as never)?.interaction_id).toBe(logged?.interactionId);

@@ -50,6 +50,12 @@ describe("provider failure classification", () => {
       "quota_exhausted",
     );
     expect(p.classifyProviderFailure(Object.assign(new Error("x"), { status: 401 }))).toBe("auth_failed");
+    expect(p.classifyProviderFailure(new PublicApiError("denied", 403, { code: "openai_access_denied" }))).toBe(
+      "auth_failed",
+    );
+    expect(p.classifyProviderFailure(new PublicApiError("invalid", 401, { code: "openai_invalid_api_key" }))).toBe(
+      "auth_failed",
+    );
     expect(
       p.classifyProviderFailure(
         Object.assign(new Error("Rate limit reached"), { status: 429, code: "rate_limit_exceeded" }),
@@ -58,6 +64,7 @@ describe("provider failure classification", () => {
     expect(p.classifyProviderFailure(Object.assign(new Error("Request timed out"), { code: "ETIMEDOUT" }))).toBe(
       "timeout",
     );
+    expect(p.classifyProviderFailure(new PublicApiError("timeout", 504, { code: "openai_timeout" }))).toBe("timeout");
     expect(p.classifyProviderFailure(new Error("something else"))).toBe("provider_failed");
   });
 
@@ -70,5 +77,23 @@ describe("provider failure classification", () => {
     expect(auto.sourceOnlyReason(new PublicApiError("quota", 429, { code: "insufficient_quota" }))).toBe(
       "source_only_quota_exhausted",
     );
+  });
+
+  it("normalizes provider outcomes directly to the canonical fallback taxonomy", async () => {
+    const p = await loadProvider({ mode: "auto", key: "sk-test" });
+    expect(p.providerFallbackReasonCode(Object.assign(new Error("x"), { status: 401 }))).toBe("provider_auth");
+    expect(p.providerFallbackReasonCode(new PublicApiError("quota", 429, { code: "insufficient_quota" }))).toBe(
+      "provider_quota",
+    );
+    expect(p.providerFallbackReasonCode(Object.assign(new Error("Rate limit"), { status: 429 }))).toBe(
+      "provider_rate_limit",
+    );
+    expect(p.providerFallbackReasonCode(new Error("request timed out"))).toBe("provider_timeout");
+    expect(p.providerFallbackReasonCode(new Error("socket detail"))).toBe("provider_failure");
+
+    const offline = await loadProvider({ mode: "offline", key: "sk-test" });
+    expect(offline.providerFallbackReasonCode()).toBe("provider_offline");
+    const missing = await loadProvider({ mode: "auto", key: "" });
+    expect(missing.providerFallbackReasonCode()).toBe("provider_missing_key");
   });
 });

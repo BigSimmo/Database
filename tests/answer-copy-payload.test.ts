@@ -98,6 +98,19 @@ describe("answerStateForAnswer · empty sources fallback", () => {
 
     expect(state).toEqual({ kind: "ready", sourceCount: 0 });
   });
+
+  it("carries typed fallback precedence into every clipboard state projection", () => {
+    const state = answerStateForAnswer({
+      answer: {
+        ...answerWith([]),
+        answerQualityTier: "source_only",
+        fallbackReasonCode: "coverage_gap",
+        routingReason: "generation_fallback:provider_timeout",
+      },
+    });
+
+    expect(state).toEqual({ kind: "source_only", reason: "quality_gate" });
+  });
 });
 
 describe("buildAnswerClipboardText · single-document provenance", () => {

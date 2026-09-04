@@ -3247,6 +3247,7 @@ describe("RAG structured-output fallback", () => {
 
     expect(answer.routingMode).toBe("extractive");
     expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.fallbackReasonCode).toBe("provider_timeout");
     expect(answer.grounded).toBe(true);
     expect(answer.answer).toMatch(/IM medication|oral medication|agitation/i);
   });
@@ -4905,6 +4906,16 @@ describe("RAG structured-output fallback", () => {
       answerRouteResultCanBeCached(
         { deadlineExceeded: false },
         {
+          fallbackReasonCode: "provider_timeout",
+          routingReason: "source_backed_extractive_fallback",
+          degradedMode: { active: true, reason: "Provider generation was unavailable." },
+        },
+      ),
+    ).toBe(false);
+    expect(
+      answerRouteResultCanBeCached(
+        { deadlineExceeded: false },
+        {
           routingReason: "strong_generation; generation_fallback:provider_timeout",
           degradedMode: { active: true, reason: "generation_fallback:provider_timeout" },
         },
@@ -6279,10 +6290,14 @@ describe("budget-aware generation deadlines", () => {
         from: vi.fn(() => new EmptyQuery()),
       }),
     }));
-    const grantedTimeoutsMs: number[] = [];
+    const grantedOptions: Array<{ timeoutMs?: number; maxRetries?: number; signal?: AbortSignal }> = [];
     const generateStructuredTextResult = vi.fn(
-      async (_input: string, _schema: unknown, options?: { timeoutMs?: number }) => {
-        grantedTimeoutsMs.push(options?.timeoutMs ?? Number.NaN);
+      async (
+        _input: string,
+        _schema: unknown,
+        options?: { timeoutMs?: number; maxRetries?: number; signal?: AbortSignal },
+      ) => {
+        grantedOptions.push(options ?? {});
         // Consume the entire granted window, then fail like a provider timeout. With the
         // reserve subtracted this leaves 2_000ms of route budget for the recovery path;
         // without it, recovery would start with the budget already fully spent.
@@ -6308,13 +6323,18 @@ describe("budget-aware generation deadlines", () => {
     // generationRequestTimeoutMs is reverted to requestTimeoutMs at the generation call
     // site (that revert would grant 25_000ms).
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
-    expect(grantedTimeoutsMs).toEqual([answerRouteBudgetMs.strong - 10_000 - generationRecoveryReserveMs]);
+    expect(grantedOptions.map(({ timeoutMs }) => timeoutMs)).toEqual([
+      answerRouteBudgetMs.strong - 10_000 - generationRecoveryReserveMs,
+    ]);
+    expect(grantedOptions[0]?.maxRetries).toBe(0);
+    expect(grantedOptions[0]?.signal).toBeInstanceOf(AbortSignal);
     expect(answer.latencyTimings?.route_budget_ms).toBe(answerRouteBudgetMs.strong);
     // The attempt used its whole window, yet the reserve kept the source-backed recovery
     // inside the route budget.
     expect(answer.latencyTimings?.route_deadline_exceeded).toBe(false);
     expect(answer.latencyTimings?.total_latency_ms).toBeLessThan(answerRouteBudgetMs.strong);
     expect(answer.routingReason).toContain("generation_fallback:provider_timeout");
+    expect(answer.fallbackReasonCode).toBe("provider_timeout");
     expect(answer.sources.length).toBeGreaterThan(0);
   });
 

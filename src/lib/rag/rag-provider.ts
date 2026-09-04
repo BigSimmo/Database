@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
+import type { RagFallbackReasonCode } from "@/lib/types";
 
 export type RagProviderMode = "auto" | "openai" | "offline";
 
@@ -63,12 +64,39 @@ export function classifyProviderFailure(error: unknown): ProviderFailureKind {
   const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
 
   if (code === "insufficient_quota" || /quota|billing/.test(message)) return "quota_exhausted";
-  if (status === 401 || status === 403 || /authentication|unauthori[sz]ed|api key/.test(message)) {
+  if (
+    code === "openai_invalid_api_key" ||
+    code === "openai_access_denied" ||
+    status === 401 ||
+    status === 403 ||
+    /authentication|unauthori[sz]ed|api key/.test(message)
+  ) {
     return "auth_failed";
   }
   if (code === "rate_limit_exceeded" || (status === 429 && /rate limit/.test(message))) return "rate_limited";
-  if (status === 408 || status === 504 || /timed out|timeout|aborted/.test(message)) return "timeout";
+  if (
+    code === "openai_timeout" ||
+    code === "ETIMEDOUT" ||
+    status === 408 ||
+    status === 504 ||
+    /timed out|timeout|aborted/.test(message)
+  )
+    return "timeout";
   return "provider_failed";
+}
+
+const providerFallbackCodes: Record<ProviderFailureKind, RagFallbackReasonCode> = {
+  missing_key: "provider_missing_key",
+  auth_failed: "provider_auth",
+  quota_exhausted: "provider_quota",
+  rate_limited: "provider_rate_limit",
+  timeout: "provider_timeout",
+  provider_failed: "provider_failure",
+};
+
+export function providerFallbackReasonCode(error?: unknown): RagFallbackReasonCode {
+  if (error !== undefined) return providerFallbackCodes[classifyProviderFailure(error)];
+  return ragProviderMode() === "offline" ? "provider_offline" : "provider_missing_key";
 }
 
 /**

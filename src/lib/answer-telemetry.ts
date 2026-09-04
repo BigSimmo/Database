@@ -15,6 +15,7 @@ import {
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer } from "@/lib/types";
+import { classifyRagFallbackReason, isProviderGenerationFallbackCode } from "@/lib/rag/rag-fallback-reason";
 
 // Per-answer observability (threat-model §7 follow-up).
 //
@@ -48,6 +49,7 @@ export type AnswerTelemetrySource = Pick<
   | "providerMode"
   | "answerQualityTier"
   | "responseMode"
+  | "fallbackReasonCode"
   | "fallbackReason"
   | "degradedMode"
   | "openAIUsage"
@@ -67,6 +69,14 @@ function meanHybridScore(sources: AnswerTelemetrySource["sources"]): number | nu
   return mean || null;
 }
 
+function boundedFallbackReasonCode(answer: AnswerTelemetrySource) {
+  if (Object.prototype.hasOwnProperty.call(answer, "fallbackReasonCode")) return answer.fallbackReasonCode ?? null;
+  const legacyReason = [answer.fallbackReason, answer.degradedMode?.reason, answer.routingReason]
+    .filter(Boolean)
+    .join("; ");
+  return legacyReason ? classifyRagFallbackReason({ routingReason: legacyReason }) : null;
+}
+
 // Build the rag_retrieval_logs insert row for an answered request. Pure and
 // synchronous so it can be unit-tested without a database.
 export function buildAnswerLogRow(args: {
@@ -83,6 +93,7 @@ export function buildAnswerLogRow(args: {
   const timings = answer.latencyTimings ?? {};
   const usage = answer.openAIUsage ?? {};
   const isMiss = answer.grounded === false || answer.confidence === "unsupported";
+  const fallbackReasonCode = boundedFallbackReasonCode(answer);
 
   const answerTelemetry = {
     log_source: "answer",
@@ -93,9 +104,9 @@ export function buildAnswerLogRow(args: {
     confidence: answer.confidence,
     grounded: answer.grounded,
     response_mode: answer.responseMode ?? null,
-    routing_reason: answer.routingReason ?? null,
-    fallback_reason: answer.fallbackReason ?? null,
+    fallback_reason_code: fallbackReasonCode,
     degraded: answer.degradedMode?.active ?? false,
+    provider_generation_degraded: isProviderGenerationFallbackCode(fallbackReasonCode),
     generation_latency_ms: finiteOrNull(timings.generation_latency_ms),
     search_latency_ms: finiteOrNull(timings.search_latency_ms),
     answer_retry_count: finiteOrNull(timings.answer_retry_count),
@@ -140,7 +151,7 @@ export function buildAnswerLogRow(args: {
     embedding_field_count: finiteOrNull(timings.embedding_field_count),
     embedding_cache_hit: typeof timings.embedding_cache_hit === "boolean" ? timings.embedding_cache_hit : null,
     is_miss: isMiss,
-    miss_reason: isMiss ? (answer.fallbackReason ?? answer.responseMode ?? "unsupported") : null,
+    miss_reason: isMiss ? (fallbackReasonCode ?? answer.responseMode ?? "unsupported") : null,
     metadata: { answer: answerTelemetry } as unknown as Json,
   };
 }
@@ -154,6 +165,7 @@ export function buildRagQueryLogRow(args: {
   observation?: ReturnType<typeof ragQueryObservationForAnswer>;
 }) {
   const observation = args.observation;
+  const fallbackReasonCode = boundedFallbackReasonCode(args.answer);
   return {
     owner_id: args.ownerId ?? null,
     query: queryTextForStorage(args.query),
@@ -165,9 +177,9 @@ export function buildRagQueryLogRow(args: {
       grounded: args.answer.grounded,
       confidence: args.answer.confidence,
       routing_mode: args.answer.routingMode ?? null,
-      routing_reason: args.answer.routingReason ?? null,
-      fallback_reason: args.answer.fallbackReason ?? null,
+      fallback_reason_code: fallbackReasonCode,
       degraded: args.answer.degradedMode?.active ?? false,
+      provider_generation_degraded: isProviderGenerationFallbackCode(fallbackReasonCode),
       model_used: args.answer.modelUsed ?? null,
       ...buildRagQueryMetadata(args.programmeTelemetry, env.RAG_TELEMETRY_EXTENDED),
       ...queryPrivacyMetadata(args.query),

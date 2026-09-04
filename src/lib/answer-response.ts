@@ -7,6 +7,25 @@ import {
 } from "@/lib/source-governance";
 import type { RagAnswer, SafetyWarning } from "@/lib/types";
 import { carryRagProgrammeTelemetry } from "@/lib/rag/rag-programme-telemetry";
+import { classifyRagFallbackReason, publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
+
+function answerFallbackReasonCode(
+  answer?: Pick<
+    RagAnswer,
+    "fallbackReasonCode" | "fallbackReason" | "routingReason" | "degradedMode" | "answerQualityTier"
+  >,
+) {
+  if (!answer) return null;
+  if (answer.fallbackReasonCode) return answer.fallbackReasonCode;
+  const active = answer.degradedMode?.active === true || answer.answerQualityTier === "source_only";
+  if (!active && !answer.fallbackReason && !answer.routingReason) return null;
+  const code = classifyRagFallbackReason({
+    routingReason: [answer.fallbackReason, answer.degradedMode?.reason, answer.routingReason]
+      .filter(Boolean)
+      .join("; "),
+  });
+  return code === "unknown" && !active && !answer.fallbackReason ? null : code;
+}
 
 function clientSafetyWarning(warning: SafetyWarning): SafetyWarning {
   const citation = warning.citation;
@@ -31,13 +50,16 @@ function clientSafetyWarning(warning: SafetyWarning): SafetyWarning {
 }
 
 export function answerDegradedModeSignal(
-  answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">,
+  answer?: Pick<
+    RagAnswer,
+    "fallbackReasonCode" | "degradedMode" | "answerQualityTier" | "fallbackReason" | "routingReason"
+  >,
 ) {
-  if (answer?.degradedMode) return answer.degradedMode;
-  const active = answer?.answerQualityTier === "source_only";
+  const fallbackReasonCode = answerFallbackReasonCode(answer);
+  const active = answer?.degradedMode?.active === true || answer?.answerQualityTier === "source_only";
   return {
     active,
-    reason: active ? (answer?.fallbackReason ?? "source_only") : null,
+    reason: active ? publicFallbackReason(fallbackReasonCode ?? "unknown") : null,
   };
 }
 
@@ -64,6 +86,7 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
       citations: [],
       sources: [],
       responseMode: "evidence_gap",
+      fallbackReasonCode: "source_governance_block",
       fallbackReason: "source_governance_refusal",
       routingReason,
     } satisfies RagAnswer);
@@ -78,7 +101,11 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
         confidence: "unsupported" as const,
         citations: [],
         sources: [],
-        degradedMode: answerDegradedModeSignal(answer),
+        fallbackReasonCode: "source_governance_block" as const,
+        degradedMode: answerDegradedModeSignal({
+          fallbackReasonCode: "source_governance_block",
+          answerQualityTier: "source_only",
+        }),
         sourceGovernanceWarnings: warnings,
         safetyWarnings: [],
       },
@@ -91,6 +118,7 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
     telemetryAnswer: answer,
     payload: {
       ...toClientAnswerPayload(answer),
+      fallbackReasonCode: answerFallbackReasonCode(answer),
       degradedMode: answerDegradedModeSignal(answer),
       sourceGovernanceWarnings: warnings,
       safetyWarnings,
@@ -100,11 +128,37 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
 
 /** Apply the governed browser contract while preserving explicit demo/degraded state. */
 export function buildGovernedDemoAnswerClientResponse(answer: RagAnswer, fallbackReason?: string) {
-  const governedResponse = buildGovernedAnswerClientResponse(answer);
+  const demoFallbackCode = fallbackReason
+    ? classifyRagFallbackReason({ routingReason: fallbackReason })
+    : answerFallbackReasonCode(answer);
+  const governedResponse = buildGovernedAnswerClientResponse({
+    ...answer,
+    ...(fallbackReason ? { fallbackReasonCode: demoFallbackCode, answerQualityTier: "source_only" as const } : {}),
+  });
   return {
     ...governedResponse.payload,
     demoMode: true as const,
-    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : answerDegradedModeSignal(answer),
-    ...(fallbackReason ? { fallbackMode: "non_production_demo" as const, fallbackReason } : {}),
+    ...(fallbackReason ? { fallbackReasonCode: demoFallbackCode } : {}),
+    degradedMode: fallbackReason
+      ? { active: true, reason: publicFallbackReason(demoFallbackCode ?? "unknown") }
+      : answerDegradedModeSignal(answer),
+    ...(fallbackReason ? { fallbackMode: "non_production_demo" as const } : {}),
   };
+}
+
+/** Shared direct empty-scope owner used by both JSON and SSE answer routes. */
+export function buildGovernedEmptyScopeAnswerClientResponse(answer: string) {
+  return buildGovernedAnswerClientResponse({
+    answer,
+    grounded: false,
+    confidence: "unsupported",
+    citations: [],
+    sources: [],
+    routingMode: "unsupported",
+    routingReason: "retrieval_miss; no_candidates",
+    fallbackReasonCode: "no_candidates",
+    fallbackReason: "retrieval_miss",
+    answerQualityTier: "source_only",
+    responseMode: "evidence_gap",
+  });
 }

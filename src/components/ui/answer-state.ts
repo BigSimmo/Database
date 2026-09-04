@@ -1,5 +1,5 @@
 import type { AnswerState, OverdueSource, UngroundedReason } from "@/lib/answer-state-types";
-import type { ClinicalSourceMetadata } from "@/lib/types";
+import type { ClinicalSourceMetadata, RagFallbackReasonCode } from "@/lib/types";
 import { createBoundedDiagnosticRecorder } from "@/components/ui/design-system-diagnostics";
 
 /**
@@ -56,6 +56,7 @@ export type AnswerStateInput = {
   /** Claim-level supporting chunk ids — same filter as citations when present. */
   supportingChunkIds?: readonly string[] | null;
   answerQualityTier?: "model_synthesis" | "source_only" | "cached" | null;
+  fallbackReasonCode?: RagFallbackReasonCode | null;
   fallbackReason?: string | null;
   routingReason?: string | null;
   /**
@@ -247,10 +248,14 @@ export function answerStateFromRetrieval(input: AnswerStateInput): AnswerState {
   if (ungroundedReason) return { kind: "ungrounded", reason: ungroundedReason, sourceCount };
 
   if (input.answerQualityTier === "source_only") {
-    const marker = `${input.fallbackReason ?? ""} ${input.routingReason ?? ""}`;
+    const generationFailed = input.fallbackReasonCode
+      ? ["provider_auth", "provider_quota", "provider_rate_limit", "provider_timeout", "provider_failure"].includes(
+          input.fallbackReasonCode,
+        )
+      : generationFallbackMarker.test(`${input.fallbackReason ?? ""} ${input.routingReason ?? ""}`);
     return {
       kind: "source_only",
-      reason: generationFallbackMarker.test(marker) ? "generation_failed" : "quality_gate",
+      reason: generationFailed ? "generation_failed" : "quality_gate",
     };
   }
 

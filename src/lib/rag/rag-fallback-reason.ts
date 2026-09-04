@@ -1,3 +1,4 @@
+import type { ProviderFailureKind } from "@/lib/rag/rag-provider";
 import type { RagFallbackReasonCode, RagInsufficiencyReason } from "@/lib/types";
 
 const fallbackCodes = new Set<RagFallbackReasonCode>([
@@ -26,7 +27,7 @@ const fallbackCodes = new Set<RagFallbackReasonCode>([
 export type RagFallbackInput = {
   fallbackReasonCode?: RagFallbackReasonCode | null;
   insufficiencyReason?: RagInsufficiencyReason | null;
-  providerFailure?: "offline" | "missing_key" | "auth" | "quota" | "rate_limit" | "timeout" | "failure" | null;
+  providerFailure?: ProviderFailureKind | null;
   routingReason?: string | null;
 };
 
@@ -44,28 +45,29 @@ const insufficiencyFallback: Record<RagInsufficiencyReason, RagFallbackReasonCod
   provider_failure: "provider_failure",
 };
 
-const providerFailureCodes: Record<string, RagFallbackReasonCode> = {
-  offline: "provider_offline",
+const providerFailureCodes: Record<ProviderFailureKind, RagFallbackReasonCode> = {
   missing_key: "provider_missing_key",
-  auth: "provider_auth",
-  quota: "provider_quota",
-  rate_limit: "provider_rate_limit",
+  auth_failed: "provider_auth",
+  quota_exhausted: "provider_quota",
+  rate_limited: "provider_rate_limit",
   timeout: "provider_timeout",
-  failure: "provider_failure",
+  provider_failed: "provider_failure",
 };
 
 function legacyFallbackReason(reason: string): RagFallbackReasonCode {
   const normalized = reason.toLowerCase();
-  if (/\b(?:generation_fallback|hybrid_error|provider_error|generation_error)\b/.test(normalized)) {
-    return "provider_failure";
-  }
+  if (/\bsource_only_offline_mode\b/.test(normalized)) return "provider_offline";
+  if (/\bsource_only_(?:no_api|missing_key)\b/.test(normalized)) return "provider_missing_key";
   if (/\b(?:missing|no)[_ -]?(?:api[_ -]?)?key\b/.test(normalized)) return "provider_missing_key";
+  if (/provider[_ -]?auth(?:[_ -]?failed)?/.test(normalized)) return "provider_auth";
+  if (/(?:provider[_ -]?quota|quota[_ -]?exhausted)/.test(normalized)) return "provider_quota";
+  if (/provider[_ -]?rate[_ -]?limit(?:ed)?/.test(normalized)) return "provider_rate_limit";
   if (/\b(?:unauthori[sz]ed|authentication|invalid[_ -]?key|\b401\b|\b403\b)\b/.test(normalized)) {
     return "provider_auth";
   }
   if (/\b(?:quota|insufficient[_ -]?credits?)\b/.test(normalized)) return "provider_quota";
   if (/\b(?:rate[_ -]?limit|too many requests|\b429\b)\b/.test(normalized)) return "provider_rate_limit";
-  if (/\b(?:timeout|timed out|etimedout|deadline exceeded)\b/.test(normalized)) return "provider_timeout";
+  if (/(?:^|[_\s-])(?:timeout|timed out|etimedout|deadline exceeded)\b/.test(normalized)) return "provider_timeout";
   if (/\b(?:provider[_ -]?offline|provider[_ -]?unavailable)\b/.test(normalized)) return "provider_offline";
   if (/\b(?:retrieval[_ -]?degraded|vector[_ -]?fallback|hybrid[_ -]?fallback)\b/.test(normalized)) {
     return "retrieval_degraded";
@@ -82,15 +84,62 @@ function legacyFallbackReason(reason: string): RagFallbackReasonCode {
   if (/\bsite[_ -]?content[_ -]?stale\b/.test(normalized)) return "site_content_stale";
   if (/\bsite[_ -]?content[_ -]?unavailable\b/.test(normalized)) return "site_content_unavailable";
   if (/\b(?:citation|claim)[_ -]?(?:gate|failure|unsupported)\b/.test(normalized)) return "citation_or_claim_gate";
+  if (/(?:claim[_ -]?support|numeric[_ -]?faithfulness|generation[_ -]?quality)(?:[_ -]|$)/.test(normalized)) {
+    return "citation_or_claim_gate";
+  }
   if (/\bunsupported\b/.test(normalized)) return "unsupported";
+  if (/\b(?:generation_fallback|hybrid_error|provider_error|generation_error)\b/.test(normalized)) {
+    return "provider_failure";
+  }
   return "unknown";
 }
 
 export function classifyRagFallbackReason(input: RagFallbackInput): RagFallbackReasonCode {
   if (input.fallbackReasonCode && fallbackCodes.has(input.fallbackReasonCode)) return input.fallbackReasonCode;
   if (input.insufficiencyReason) return insufficiencyFallback[input.insufficiencyReason] ?? "unknown";
-  if (input.providerFailure) return providerFailureCodes[String(input.providerFailure).toLowerCase()] ?? "unknown";
+  if (input.providerFailure) return providerFailureCodes[input.providerFailure] ?? "unknown";
   return input.routingReason ? legacyFallbackReason(input.routingReason) : "unknown";
+}
+
+const legacyFallbackMarker =
+  /source_only_[a-z_]+|fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i;
+
+export function fallbackReasonFromRouting(input: RagFallbackInput | string): RagFallbackReasonCode | null;
+export function fallbackReasonFromRouting(input: null | undefined): null;
+export function fallbackReasonFromRouting(
+  input: RagFallbackInput | string | null | undefined,
+): RagFallbackReasonCode | null {
+  if (input == null) return null;
+  if (typeof input !== "string" && (input.fallbackReasonCode || input.insufficiencyReason || input.providerFailure)) {
+    return classifyRagFallbackReason(input);
+  }
+  const routingReason = typeof input === "string" ? input : input.routingReason;
+  return routingReason && legacyFallbackMarker.test(routingReason)
+    ? classifyRagFallbackReason({ routingReason })
+    : null;
+}
+
+const providerGenerationFallbackCodes = new Set<RagFallbackReasonCode>([
+  "provider_auth",
+  "provider_quota",
+  "provider_rate_limit",
+  "provider_timeout",
+  "provider_failure",
+]);
+
+export function isProviderGenerationFallbackCode(code?: RagFallbackReasonCode | null): boolean {
+  return code != null && providerGenerationFallbackCodes.has(code);
+}
+
+export function generationFallbackReasonCode(
+  providerFailure: NonNullable<RagFallbackInput["providerFailure"]>,
+  legacyReason: string,
+): RagFallbackReasonCode {
+  if (legacyReason === "provider_source_gap") return "coverage_gap";
+  if (/(?:generation_quality|source_backed_extractive_recovery|faithfulness)/.test(legacyReason)) {
+    return "citation_or_claim_gate";
+  }
+  return classifyRagFallbackReason({ providerFailure });
 }
 
 const publicReasons: Record<RagFallbackReasonCode, string> = {

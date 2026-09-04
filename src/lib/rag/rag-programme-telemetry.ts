@@ -11,8 +11,10 @@ import {
   type RagObservationContext,
 } from "@/lib/rag/rag-contracts";
 import { ragAnswerQueryPlanDiagnostics } from "@/lib/rag/rag-cache";
+import { classifyRagFallbackReason } from "@/lib/rag/rag-fallback-reason";
 import type {
   RagAnswer,
+  RagFallbackReasonCode,
   RagInsufficiencyReason,
   RetrievalDiagnostics,
   SiteContentDomain,
@@ -86,6 +88,28 @@ const RECONCILIATION_OUTCOMES = [
   "matched",
   "mismatch",
 ] as const satisfies readonly RagReconciliationOutcome[];
+const FALLBACK_REASON_CODES = [
+  "provider_offline",
+  "provider_missing_key",
+  "provider_auth",
+  "provider_quota",
+  "provider_rate_limit",
+  "provider_timeout",
+  "provider_failure",
+  "retrieval_degraded",
+  "no_candidates",
+  "low_signal",
+  "coverage_gap",
+  "source_role_mismatch",
+  "source_conflict",
+  "source_governance_block",
+  "site_content_updating",
+  "site_content_stale",
+  "site_content_unavailable",
+  "citation_or_claim_gate",
+  "unsupported",
+  "unknown",
+] as const satisfies readonly RagFallbackReasonCode[];
 
 type ProgrammeCounts = Record<SourceCorpusScope, number>;
 type CoverageCounts = { direct: number; partial: number; conflicting: number; absent: number };
@@ -111,6 +135,7 @@ export type RagProgrammeTelemetry = {
   augmentation_outcome: RagAugmentationOutcome;
   role_exclusion_count: number;
   insufficiency_reason: RagInsufficiencyReason | null;
+  fallback_reason_code: RagFallbackReasonCode | null;
   generation_outcome: RagGenerationOutcome;
   verified_units_emitted: number;
   verified_units_discarded: number;
@@ -136,6 +161,7 @@ export type RagProgrammeTelemetryInput = {
   augmentationOutcome: RagAugmentationOutcome;
   roleExclusionCount: number;
   insufficiencyReason: RagInsufficiencyReason | null;
+  fallbackReasonCode?: RagFallbackReasonCode | null;
   /** Future decomposed coverage owners can supply nested reasons; validate them even though v1 emits one aggregate reason. */
   nestedInsufficiencyReasons?: Array<RagInsufficiencyReason | null>;
   generationOutcome: RagGenerationOutcome;
@@ -241,6 +267,11 @@ export function buildRagProgrammeTelemetry(input: RagProgrammeTelemetryInput): R
     augmentation_outcome: enumValue("augmentationOutcome", input.augmentationOutcome, AUGMENTATION_OUTCOMES),
     role_exclusion_count: countValue("roleExclusionCount", input.roleExclusionCount),
     insufficiency_reason: nullableEnumValue("insufficiencyReason", input.insufficiencyReason, INSUFFICIENCY_REASONS),
+    fallback_reason_code: nullableEnumValue(
+      "fallbackReasonCode",
+      input.fallbackReasonCode ?? null,
+      FALLBACK_REASON_CODES,
+    ),
     generation_outcome: enumValue("generationOutcome", input.generationOutcome, GENERATION_OUTCOMES),
     verified_units_emitted: countValue("verifiedUnitsEmitted", input.verifiedUnitsEmitted),
     verified_units_discarded: countValue("verifiedUnitsDiscarded", input.verifiedUnitsDiscarded),
@@ -257,7 +288,26 @@ function emptyProgrammeCounts(): ProgrammeCounts {
   };
 }
 
+function fallbackReasonCodeForAnswer(answer: RagAnswer): RagFallbackReasonCode | null {
+  if (Object.prototype.hasOwnProperty.call(answer, "fallbackReasonCode")) return answer.fallbackReasonCode ?? null;
+  const legacyReason = [answer.fallbackReason, answer.degradedMode?.reason, answer.routingReason]
+    .filter(Boolean)
+    .join("; ");
+  return legacyReason ? classifyRagFallbackReason({ routingReason: legacyReason }) : null;
+}
+
 function insufficiencyReasonForAnswer(answer: RagAnswer): RagInsufficiencyReason | null {
+  const code = fallbackReasonCodeForAnswer(answer);
+  if (code === "provider_timeout") return "timeout";
+  if (code?.startsWith("provider_")) return "provider_failure";
+  if (code === "no_candidates" || code === "low_signal" || code === "retrieval_degraded") return "retrieval_miss";
+  if (code === "coverage_gap" || code === "citation_or_claim_gate") return "insufficient_claim_support";
+  if (code === "source_role_mismatch") return "source_role_mismatch";
+  if (code === "source_conflict") return "source_conflict";
+  if (code === "source_governance_block") return "governance_block";
+  if (code === "site_content_updating") return "site_content_updating";
+  if (code === "site_content_stale") return "site_content_stale";
+  if (code === "site_content_unavailable") return "site_content_unavailable";
   const reason = [answer.fallbackReason, answer.routingReason, answer.retrievalDiagnostics?.fallbackReason]
     .filter(Boolean)
     .join(" ")
@@ -329,6 +379,7 @@ function inputForAnswer(answer: RagAnswer, context: RagObservationContext): RagP
     augmentationOutcome: "disabled",
     roleExclusionCount: 0,
     insufficiencyReason: insufficiencyReasonForAnswer(answer),
+    fallbackReasonCode: fallbackReasonCodeForAnswer(answer),
     generationOutcome: generationOutcomeForAnswer(answer),
     verifiedUnitsEmitted: 0,
     verifiedUnitsDiscarded: 0,

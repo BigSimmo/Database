@@ -17,12 +17,11 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
-import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
 import {
-  answerDegradedModeSignal,
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
+  buildGovernedEmptyScopeAnswerClientResponse,
 } from "@/lib/answer-response";
 import { answerServerTimingEntries, buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -32,7 +31,6 @@ import * as serverAuth from "@/lib/supabase/auth";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
-import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -115,19 +113,8 @@ export async function POST(request: Request) {
     });
     const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
-      const emptyAnswer = observeRagAnswer(
-        {
-          answer: emptyScopeAnswer,
-          grounded: false,
-          confidence: "unsupported",
-          citations: [],
-          sources: [],
-          routingMode: "unsupported",
-          fallbackReason: "retrieval_miss",
-          responseMode: "evidence_gap",
-        } satisfies RagAnswer,
-        observationContext,
-      );
+      const governedEmptyResponse = buildGovernedEmptyScopeAnswerClientResponse(emptyScopeAnswer);
+      const emptyAnswer = observeRagAnswer(governedEmptyResponse.telemetryAnswer, observationContext);
       await persistAnswerDiagnostics({
         supabase,
         query: answerBody.query,
@@ -141,14 +128,8 @@ export async function POST(request: Request) {
       ]);
       return NextResponse.json(
         {
-          answer: emptyScopeAnswer,
-          grounded: false,
-          confidence: "unsupported",
-          citations: [],
-          sources: [],
-          degradedMode: answerDegradedModeSignal(),
+          ...governedEmptyResponse.payload,
           scope: { ...scope, queryMode: answerBody.queryMode },
-          sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
           ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
         },
         serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,

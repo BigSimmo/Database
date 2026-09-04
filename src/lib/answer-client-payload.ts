@@ -56,6 +56,59 @@ const sourceFieldPolicy = {
   images: "server",
 } as const satisfies Record<keyof SearchResult, "client" | "server">;
 
+const answerFieldPolicy = {
+  interactionId: "server",
+  feedbackToken: "server",
+  answer: "client",
+  grounded: "client",
+  confidence: "client",
+  citations: "client",
+  sources: "client",
+  supportedClaims: "server",
+  evidenceAssessments: "server",
+  retrievalDiagnostics: "server",
+  modelUsed: "server",
+  routingMode: "client",
+  routingReason: "server",
+  providerMode: "client",
+  answerQualityTier: "client",
+  fallbackReasonCode: "client",
+  fallbackReason: "server",
+  degradedMode: "server",
+  queryClass: "client",
+  queryAnalysis: "server",
+  responseMode: "client",
+  comparisonMatrix: "client",
+  comparisonEvaluationState: "client",
+  preformatted: "client",
+  latencyTimings: "server",
+  openAIRequestIds: "server",
+  openAIUsage: "server",
+  answerSections: "client",
+  evidenceSummary: "client",
+  conflictsOrGaps: "client",
+  sourceCoverage: "client",
+  quoteCards: "client",
+  visualEvidence: "client",
+  bestSource: "client",
+  documentBreakdown: "client",
+  smartPanel: "server",
+  relatedDocuments: "client",
+  relevance: "client",
+  memoryCardsUsed: "server",
+  indexingVersion: "server",
+  indexingQuality: "server",
+  smartApiPlan: "server",
+  scoreExplanations: "server",
+  scope: "client",
+  sourceGovernanceWarnings: "client",
+  safetyWarnings: "client",
+  truncated: "client",
+  truncationReason: "client",
+  unverifiedNumericTokens: "client",
+  faithfulnessWarning: "client",
+} as const satisfies Record<keyof RagAnswer, "client" | "server">;
+
 /** Exported for the verified evidence preview (#100), which must cross the route
  * boundary through the exact same trim as the final payload — never a copy of it. */
 export function trimSourceForClient(source: SearchResult): SearchResult {
@@ -77,6 +130,11 @@ export function trimSourceForClient(source: SearchResult): SearchResult {
 }
 
 export function toClientAnswerPayload<T extends Pick<RagAnswer, "sources">>(answer: T): T {
-  if (!answer.sources?.length) return answer;
-  return { ...answer, sources: answer.sources.map(trimSourceForClient) };
+  const payload = Object.fromEntries(
+    (Object.keys(answerFieldPolicy) as Array<keyof RagAnswer>)
+      .filter((key) => answerFieldPolicy[key] === "client" && key in answer)
+      .map((key) => [key, (answer as Partial<RagAnswer>)[key]]),
+  ) as T;
+  payload.sources = (answer.sources ?? []).map(trimSourceForClient);
+  return payload;
 }

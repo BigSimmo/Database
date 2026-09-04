@@ -86,6 +86,7 @@ describe("RAG programme telemetry projection", () => {
       "augmentation_outcome",
       "role_exclusion_count",
       "insufficiency_reason",
+      "fallback_reason_code",
       "generation_outcome",
       "verified_units_emitted",
       "verified_units_discarded",
@@ -364,6 +365,7 @@ describe("RAG programme telemetry projection", () => {
       selected_counts: { uploaded_local: 1 },
       coverage_counts: { direct: 0, partial: 0, conflicting: 0, absent: 1 },
       insufficiency_reason: "governance_block",
+      fallback_reason_code: "source_governance_block",
       generation_outcome: "failed",
     });
   });
