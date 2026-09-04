@@ -7,9 +7,42 @@ import type { EmergencyDepartment, Site, Unit } from "@/components/ward-manageme
 export const NOW_ANCHOR = 10 * 60 + 42;
 
 /**
+ * The synthetic day this demonstration is set on, and the jurisdiction it depicts.
+ *
+ * WHY IT LIVES HERE. Until 2026-08-30 the string "15 Aug 2026 · WA" was a literal inside
+ * `ward-management-modes.tsx`'s page header, rendered on every screen that has one, sitting
+ * immediately beside a LIVE `formatInstant(now)`. A frozen date next to a moving clock reads as
+ * the system knowing what day it is, and it would have been the same date at any future
+ * demonstration. It is also a changeable real-world fact stated inside a component, which
+ * `docs/ward-flow-changeable-data-rule.md` puts in exactly one authored place — the rule exists
+ * because the second component to need today's date is where the drift starts, and there was
+ * already a second concept of the demonstration day in `demoDayZero`.
+ *
+ * `DEMONSTRATION_DAY_LABEL` is deliberately worded as the day the SCENARIO is set on rather than
+ * as today's date. The prototype is a fixed synthetic day; saying so is the honest reading and it
+ * stops the header making a claim the clock cannot support.
+ */
+export const DEMONSTRATION_DAY_LABEL = "15 Aug 2026";
+export const JURISDICTION_LABEL = "WA";
+
+/**
  * The hospital network. Sites carry an emergency department, inpatient units, or both — that
  * asymmetry is real: Fremantle and Bentley run mental health units with no ED of their own;
  * Peel and Joondalup run EDs that feed patients elsewhere in the network.
+ */
+/**
+ * ⚠️ **BEFORE YOU REPLACE THESE FIGURES WITH REAL ONES — `held` IS NOT ONE OF THEM.**
+ *
+ * Every other number in this file reaches a screen. `held` does not. It is authored 23 times
+ * below and read NOWHERE: every "Held" figure the app shows is derived by `unitCapacity` from
+ * `empty` and `allocatable`, and that derivation never looks at this field.
+ *
+ * **So a real held-bed count typed here changes nothing, and produces no symptom** — not a wrong
+ * number on a screen, no number at all. The only way to notice is to have been told, which is why
+ * this warning is here rather than only in `ward-model.ts` beside the declaration.
+ *
+ * If held beds should be authored rather than derived, that is a model change and a decision, not
+ * a data edit. Until then, treat these 23 values as inert.
  */
 export const wardSites: Site[] = [
   {
@@ -32,6 +65,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 9, Male: 9 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "rph-older-adult",
@@ -47,6 +82,8 @@ export const wardSites: Site[] = [
         blocked: 1,
         sexMix: { Female: 6, Male: 6 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -76,6 +113,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 10, Male: 9 },
         speciallingCapacity: 3,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "scgh-older-adult",
@@ -91,6 +130,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 8, Male: 7 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -112,8 +153,28 @@ export const wardSites: Site[] = [
         allocatable: { value: 3, source: "ward", confirmedAt: NOW_ANCHOR - 10, staleAfterMinutes: 60 },
         held: 2,
         blocked: 1,
-        sexMix: { Female: 7, Male: 7 },
+        // Fix round B (review finding M1): the network's Male-only bed, moved here from
+        // `brm-adult-secure` — see that unit's own comment for why a designation living on the
+        // SAME unit as `forensic: true` can never be load-bearing. This unit is real, usable and
+        // non-forensic, so `sex_designation` actually excludes a Female patient here that every
+        // other gate would otherwise pass — mirroring `ger-adult-open`'s Female-only bed, which
+        // already proves the same shape for the other sex. sexMix kept internally consistent (no
+        // Female occupant on a Male-only bed), same discipline as `ger-adult-open` and (before
+        // this fix) `brm-adult-secure`.
+        //
+        // ON BOTH PATHS, and saying which is the point of this paragraph. The sentence above used
+        // to read "excludes a Female referral here", which named only `referralEligibility()`.
+        // That was true of the referral path and FALSE of the movement path: `eligibility()` had
+        // no `sex_designation` gate at all, so a Female Adult movement needing a Secure bed passed
+        // every gate it built and came back eligible for this bed — 13 such pairs on the standard
+        // night. The comment read as a statement about the unit while only ever describing one of
+        // the two functions that ask about it, which is why the gap could sit here in plain sight.
+        // Fixed 2026-09-02 by adding the gate to `eligibility()`; both paths now refuse, and both
+        // share `sexDesignationAccepts` so they cannot drift apart again.
+        sexMix: { Female: 0, Male: 14 },
         speciallingCapacity: 2,
+        sexDesignation: "Male only",
+        forensic: false,
       },
       {
         // Second unit sitting at zero allocatable — older-adult scarcity is the norm, not
@@ -131,6 +192,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 6, Male: 5 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -154,6 +217,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 8, Male: 8 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -181,6 +246,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 7, Male: 7 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -208,6 +275,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 7, Male: 6 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -248,6 +317,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 9, Male: 9 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "fre-older-adult",
@@ -263,6 +334,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 6, Male: 5 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -285,6 +358,8 @@ export const wardSites: Site[] = [
         blocked: 1,
         sexMix: { Female: 7, Male: 7 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "bty-older-adult",
@@ -300,6 +375,38 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 5, Male: 5 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
+      },
+      /**
+       * The East Metropolitan Youth Unit (EMyU) at Bentley Health Service — a real unit, supplied
+       * by the product owner on 2026-08-27, not an invention: use this name verbatim, capitalisation
+       * included, at this site (`BTY`), same as every other unit here. Without a Youth unit anywhere
+       * in the network, every youth referral (Phase 7's front door) would fail the cohort gate in
+       * `ward-eligibility.ts` against all 22 previously-seeded units for a structural reason, not an
+       * operational one — this unit is what makes a youth referral matchable at all.
+       *
+       * Its BED NUMBERS below (`beds`, `empty`, `allocatable`, `held`, `blocked`, `sexMix`,
+       * `speciallingCapacity`) are invented, exactly like every other numeric figure in this
+       * fixture — only the unit's name and placement at Bentley Health Service are the real,
+       * product-owner-supplied fact.
+       */
+      {
+        id: "bty-youth",
+        siteCode: "BTY",
+        name: "East Metropolitan Youth Unit (EMyU)",
+        cohort: "Youth",
+        security: "Open",
+        authorised: true,
+        beds: 8,
+        empty: { value: 1, source: "feed", confirmedAt: NOW_ANCHOR - 5, staleAfterMinutes: 15 },
+        allocatable: { value: 1, source: "ward", confirmedAt: NOW_ANCHOR - 18, staleAfterMinutes: 90 },
+        held: 0,
+        blocked: 0,
+        sexMix: { Female: 3, Male: 4 },
+        speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -322,6 +429,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 7, Male: 6 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         // Zero allocatable AND its ward confirmation is well past staleAfterMinutes — the
@@ -339,6 +448,8 @@ export const wardSites: Site[] = [
         blocked: 1,
         sexMix: { Female: 5, Male: 4 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -361,6 +472,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 3 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -383,6 +496,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 3 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -400,11 +515,29 @@ export const wardSites: Site[] = [
         authorised: true,
         beds: 6,
         empty: { value: 1, source: "feed", confirmedAt: NOW_ANCHOR - 10, staleAfterMinutes: 20 },
-        allocatable: { value: 0, source: "ward", confirmedAt: NOW_ANCHOR - 45, staleAfterMinutes: 150 },
+        // Fix round B (review finding M1, the forensic half): this was `allocatable: 0`, which
+        // made the `forensic` gate in `referralEligibility` (ward-eligibility.ts) vacuous —
+        // deleting that gate entirely would not have changed a single candidate list, because
+        // zero allocatable beds already excluded this unit on its own. `1` makes the forensic
+        // gate load-bearing: it is now the ONLY reason this otherwise-eligible Adult/Secure/
+        // authorised bed is never offered through Phase 7 front-door matching (D7).
+        allocatable: { value: 1, source: "ward", confirmedAt: NOW_ANCHOR - 45, staleAfterMinutes: 150 },
         held: 0,
         blocked: 0,
-        sexMix: { Female: 3, Male: 2 },
+        sexMix: { Female: 0, Male: 5 },
         speciallingCapacity: 0,
+        // Fix round B (review finding M1, the Male-only half): this unit used to ALSO carry
+        // `sexDesignation: "Male only"`, combined with `forensic: true` on the same bed — the
+        // forensic gate unconditionally excludes a forensic unit from every referral (D7), so a
+        // designation living on the SAME unit can never be load-bearing: deleting `sex_designation`
+        // here would never change a candidate list either, because `forensic` already excludes it
+        // regardless. Undesignated here; the network's Male-only bed moved to `fsh-adult-secure`
+        // below, a real, usable, non-forensic unit, where the designation actually excludes
+        // something. Fix round B's C1 also moved RF-006's acceptance off this unit for the same
+        // underlying reason: a forensic bed is never offered, so it can never be the unit a
+        // referral is recorded as accepted into.
+        sexDesignation: "Undesignated",
+        forensic: true,
       },
     ],
   },
@@ -425,8 +558,12 @@ export const wardSites: Site[] = [
         allocatable: { value: 1, source: "ward", confirmedAt: NOW_ANCHOR - 38, staleAfterMinutes: 120 },
         held: 0,
         blocked: 0,
-        sexMix: { Female: 3, Male: 3 },
+        // Female only, so every current occupant is Female — the one designated bed the seed
+        // deliberately keeps internally consistent with its own sexMix.
+        sexMix: { Female: 6, Male: 0 },
         speciallingCapacity: 0,
+        sexDesignation: "Female only",
+        forensic: false,
       },
     ],
   },
@@ -450,6 +587,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 3, Male: 2 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -474,6 +613,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 4 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "sjgs-adult-secure",
@@ -489,6 +630,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 3 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },

@@ -1,0 +1,34 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-daily-sheet.dom.test.tsx (48 tests | 1 failed) 3839ms
+     × says on its face that it does not advance, because every other screen now does 86ms
+Not implemented: navigation to another Document
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-daily-sheet.dom.test.tsx > the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot lie > says on its face that it does not advance, because every other screen now does
+AssertionError: expected 'This board is a fixed snapshot and do…' to match /does not change/i
+
+- Expected:
+/does not change/i
+
++ Received:
+"This board is a fixed snapshot and does not advance while you watch. Other screens follow the live clock, so the times will differ."
+
+ ❯ tests/ward-daily-sheet.dom.test.tsx:258:18
+    256|     const note = screen.getByTestId("ward-board-fixed-note").textConte…
+    257|
+    258|     expect(note).toMatch(/does not change/i);
+       |                  ^
+    259|     expect(note).toMatch(/other screens/i);
+    260|     /*
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 83 passed (84)
+      Tests  1 failed | 1248 passed (1249)
+   Start at  12:57:44
+   Duration  40.26s (transform 5.77s, setup 9.28s, import 18.54s, tests 78.45s, environment 36.07s)
+
