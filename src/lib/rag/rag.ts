@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
-import { answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
+import { answerEvidenceSelectionMetadata, answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -3091,7 +3091,10 @@ async function answerQuestionWithScopeUncoalesced(
         failClosedWithoutSourceBoundAnswer: isAdmissionDischargeRequirementsComparisonQuery(args.query, queryClass),
         timings: extractiveTimings,
       });
-    const extractiveBasePlan = buildCurrentSmartApiPlan("extractive", route.reason, extractiveContextResults);
+    const deliveredExtractiveResults = sourceSafeComparisonAnswer.sources;
+    const deliveredExtractiveArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, deliveredExtractiveResults);
+    relatedDocuments = retainRelatedDocumentsForResults(relatedDocuments, deliveredExtractiveResults);
+    const extractiveBasePlan = buildCurrentSmartApiPlan("extractive", route.reason, deliveredExtractiveResults);
     const extractiveSmartApiPlan = sourceBoundAdmissionDischargeAnswer
       ? {
           ...extractiveBasePlan,
@@ -3101,27 +3104,22 @@ async function answerQuestionWithScopeUncoalesced(
         }
       : extractiveBasePlan;
     const answer: RagAnswer = annotateAnswerWithDiagnostics(sourceSafeComparisonAnswer, retrievalDiagnostics);
-    answer.quoteCards ??= extractiveContextArtifacts.quoteCards;
-    answer.documentBreakdown ??= extractiveContextArtifacts.documentBreakdown;
-    answer.evidenceSummary ??= extractiveContextArtifacts.evidenceSummary;
-    answer.sourceCoverage ??= extractiveContextArtifacts.sourceCoverage;
-    answer.conflictsOrGaps ??= extractiveContextArtifacts.conflictsOrGaps;
-    answer.visualEvidence ??= extractiveContextArtifacts.visualEvidence;
-    answer.bestSource ??= extractiveContextArtifacts.bestSource;
-    answer.relatedDocuments ??= relatedDocuments;
-    answer.relevance = extractiveContextArtifacts.relevance;
+    applySelectedEvidenceArtifacts({
+      answer,
+      query: answerFocusQuery,
+      results: deliveredExtractiveResults,
+      relatedDocuments,
+      artifacts: deliveredExtractiveArtifacts,
+    });
+    answer.relevance = deliveredExtractiveArtifacts.relevance;
     answer.queryAnalysis = queryAnalysis;
-    // A source-bound comparison has cited sections, not matrix-attributed rows.
     answer.responseMode = extractiveSmartApiPlan.displayMode;
-    answer.smartPanel = answer.smartPanel
-      ? { ...answer.smartPanel, relevance: extractiveContextArtifacts.relevance }
-      : answer.smartPanel;
     answer.smartApiPlan = extractiveSmartApiPlan;
-    answer.scoreExplanations = extractiveContextArtifacts.scoreExplanations;
+    answer.scoreExplanations = deliveredExtractiveArtifacts.scoreExplanations;
     let finalizedAnswer = finalizeAnswer(answer);
     const extractiveReviewCitations = answer.citations.length
       ? answer.citations
-      : compactCitations(extractiveContextResults, 5, "deterministic_support");
+      : compactCitations(finalizedAnswer.sources, 5, "deterministic_support");
     const extractiveNeedsReviewFallback =
       !finalizedAnswer.grounded &&
       extractiveReviewCitations.length > 0 &&
@@ -3132,12 +3130,12 @@ async function answerQuestionWithScopeUncoalesced(
         finalizedAnswer.routingReason?.match(/\bfinal_quality_gate:([^;]+)/)?.[1] ??
         "ungrounded_extractive_answer";
       const reviewRouteReason = `${finalizedAnswer.routingReason ?? answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}; extractive_quality_gate:${extractiveQualityReason}`;
-      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason, extractiveContextResults);
+      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason, finalizedAnswer.sources);
       finalizedAnswer = finalizeAnswer({
         ...answer,
         answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
         grounded: true,
-        confidence: deriveConfidence(extractiveContextResults, extractiveReviewCitations),
+        confidence: deriveConfidence(finalizedAnswer.sources, extractiveReviewCitations),
         citations: extractiveReviewCitations,
         modelUsed: null,
         routingMode: "extractive",
@@ -3147,7 +3145,6 @@ async function answerQuestionWithScopeUncoalesced(
         answerSections: [],
       });
     }
-
     if (args.logQuery !== false)
       await recordQuery(finalizedAnswer, {
         owner_id: args.ownerId ?? null,
@@ -3168,15 +3165,16 @@ async function answerQuestionWithScopeUncoalesced(
           provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer.routingReason),
           model_used: null,
           retrieved_candidate_count: results.length,
-          ...smartApiLogMetadata(extractiveSmartApiPlan),
+          ...smartApiLogMetadata(finalizedAnswer.smartApiPlan ?? extractiveSmartApiPlan),
           ...answerRankMetadata,
+          ...answerEvidenceSelectionMetadata(answerFocusQuery, queryClass, finalizedAnswer.sources),
           ...memoryLogMetadata,
-          ...scoreLogMetadata,
+          ...scoreExplanationLogMetadata(finalizedAnswer.scoreExplanations ?? []),
           ...searchTelemetryDecisionMetadata(),
           cited_chunk_count: finalizedAnswer.citations.length,
           quote_count: finalizedAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: finalizedAnswer.visualEvidence?.length ?? 0,
-          related_document_count: relatedDocuments.length,
+          related_document_count: finalizedAnswer.relatedDocuments?.length ?? 0,
           ...retrievalLogMetadata(finalizedAnswer.retrievalDiagnostics ?? retrievalDiagnostics),
           search_cache_hit: search.telemetry.search_cache_hit,
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,

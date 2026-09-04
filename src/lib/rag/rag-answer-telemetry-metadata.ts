@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
-import type { RagAnswer } from "@/lib/types";
+import { rankAnswerEvidence } from "@/lib/answer-ranking";
+import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 type AnswerLatencyTimings = NonNullable<RagAnswer["latencyTimings"]>;
 
@@ -45,5 +46,18 @@ export function answerLatencyMetadata(
     generation_latency_ms: generationLatencyMs,
     total_latency_ms: timings?.total_latency_ms ?? Date.now() - startedAt,
     ...extendedAnswerTelemetryFields(timings),
+  };
+}
+
+/** Persist answer-scoped ranking counts from the evidence that survived final retention. */
+export function answerEvidenceSelectionMetadata(query: string, queryClass: RagQueryClass, sources: SearchResult[]) {
+  const ranking = rankAnswerEvidence(query, sources, queryClass);
+  const documentCount = new Set(sources.map((source) => source.document_id)).size;
+  return {
+    answer_rank_top_score: ranking.topScore,
+    answer_ranked_source_count: ranking.rankedSourceCount,
+    cross_document_count: documentCount,
+    cross_document_selected_count: documentCount,
+    cross_document_selected_source_count: sources.length,
   };
 }

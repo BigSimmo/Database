@@ -143,9 +143,12 @@ async function answerFromTextSources(
       index_generation_id?: string | null;
     }>;
     forceExtractiveResultIds?: string[];
+    forceExtractiveReasonMarker?: string;
+    forceEarlyRetentionResultIds?: string[];
     forceModelContextResultIds?: string[];
     forceGenerationFallbackResultIds?: string[];
     forceGenerationRoute?: boolean;
+    captureLoggedRow?: (row: { source_chunk_ids?: string[]; metadata?: Record<string, unknown> }) => void;
   } = {},
 ) {
   // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
@@ -154,12 +157,14 @@ async function answerFromTextSources(
   // the runner's offline snapshot and never exercises the mocked provider path.
   vi.resetModules();
   vi.doUnmock("@/lib/rag/rag-extractive-first");
+  vi.doUnmock("@/lib/rag/rag-extractive-answer");
   vi.doUnmock("@/lib/rag/rag-context-pack");
   vi.doUnmock("@/lib/rag/rag-routing");
   vi.stubEnv("OPENAI_API_KEY", options.sourceOnly ? "" : "test-key");
   vi.stubEnv("RAG_PROVIDER_MODE", options.sourceOnly ? "offline" : "auto");
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+  if (options.captureLoggedRow) vi.stubEnv("RAG_AWAIT_QUERY_LOGS", "true");
 
   const governedSources = sources.map((candidate) => ({
     ...candidate,
@@ -279,7 +284,18 @@ async function answerFromTextSources(
     createAdminClient: () => ({
       rpc,
       from: vi.fn((table: string) =>
-        table === "document_chunks" ? (options.governed ? admissionQuery() : adjacentQuery()) : new EmptyQuery(),
+        table === "document_chunks"
+          ? options.governed
+            ? admissionQuery()
+            : adjacentQuery()
+          : table === "rag_queries" && options.captureLoggedRow
+            ? {
+                insert: vi.fn(async (row) => {
+                  options.captureLoggedRow?.(row);
+                  return { error: null };
+                }),
+              }
+            : new EmptyQuery(),
       ),
     }),
   }));
@@ -336,9 +352,25 @@ async function answerFromTextSources(
           options.forceGenerationRoute
             ? null
             : {
-                reasonMarker: "validated_test_extractive_first",
+                reasonMarker: options.forceExtractiveReasonMarker ?? "validated_test_extractive_first",
                 resultIds: options.forceExtractiveResultIds,
               },
+      };
+    });
+  }
+  if (options.forceEarlyRetentionResultIds) {
+    const retainedIds = new Set(options.forceEarlyRetentionResultIds);
+    vi.doMock("@/lib/rag/rag-extractive-answer", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/rag/rag-extractive-answer")>(
+        "../src/lib/rag/rag-extractive-answer",
+      );
+      return {
+        ...actual,
+        retainCitedExtractiveFallbackEvidence: <T extends RagAnswer>(candidate: T) =>
+          actual.retainCitedExtractiveFallbackEvidence({
+            ...candidate,
+            citations: candidate.citations.filter((citation) => retainedIds.has(citation.chunk_id)),
+          }),
       };
     });
   }
@@ -400,7 +432,7 @@ async function answerFromTextSources(
   return answerQuestionWithScope({
     query,
     ownerId: undefined,
-    logQuery: false,
+    logQuery: Boolean(options.captureLoggedRow),
     skipCache: true,
     sourcePolicyConflicts: options.sourcePolicyConflicts,
     onProgress: options.captureProgress,
@@ -2444,6 +2476,100 @@ describe("RAG structured-output fallback", () => {
     expect(answer.smartApiPlan?.answerPlan.sourceSelection.selectedCount).toBe(1);
     expect(JSON.stringify(answer.smartApiPlan)).not.toMatch(
       /SUCCESSFUL_EXTRACTIVE_SENTINEL|successful-extractive-sentinel/,
+    );
+  });
+
+  it("builds validated agitation route artifacts and telemetry from post-retention delivered evidence", async () => {
+    const delivered = source({
+      id: "agitation-post-retention-delivered",
+      document_id: "agitation-post-retention-document",
+      title: "Mental Health Pharmacological Management Of Agitation And Arousal Guideline(EMHS)",
+      file_name: "Mental Health Pharmacological Management of Agitation and Arousal Guideline (EMHS).pdf",
+      page_number: 5,
+      section_heading:
+        "Agitation and arousal scores must be documented on the WA Agitation and Arousal PRN Medication Chart",
+      content: [
+        "Agitation and arousal scores must be documented before each PRN dose and reviewed after administration.",
+        "Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the first dose if required.",
+        "Total of 3 doses or 30mg maximum in 24 hours (10mg maximum in 24 hours for older adults over 65 years) whichever occurs first.",
+      ].join("\n"),
+      similarity: 0.98,
+      hybrid_score: 0.98,
+      text_rank: 1.1,
+    });
+    const removedBeforePlan = source({
+      id: "agitation-pre-plan-retention-sentinel",
+      document_id: "agitation-pre-plan-retention-sentinel-document",
+      title: "AGITATION_PRE_PLAN_RETENTION_SENTINEL_TITLE Zuclopenthixol(AKG)",
+      file_name: "agitation-pre-plan-retention-sentinel.pdf",
+      page_number: 3,
+      section_heading: "Adjacent medication guidance",
+      content:
+        "AGITATION_PRE_PLAN_RETENTION_SENTINEL_SNIPPET After short acting medication has been given to manage agitation and arousal, allow 60 minutes after IM administration before considering zuclopenthixol acetate. Withhold other PRN sedatives for 24 hours when zuclopenthixol acetate is administered.",
+      similarity: 0.95,
+      hybrid_score: 0.95,
+      text_rank: 0.8,
+    });
+    const query = "What agitaton and arousl dosing guidance applies to psychiatric inpatients?";
+    const routeWideLogs: Array<{ source_chunk_ids?: string[]; metadata?: Record<string, unknown> }> = [];
+    const deliveredOnlyLogs: Array<{ source_chunk_ids?: string[]; metadata?: Record<string, unknown> }> = [];
+    const routeOptions = {
+      forceExtractiveReasonMarker: "validated_agitation_arousal_typo_dosing_extractive_first",
+    };
+
+    const answer = await answerFromTextSources(query, [removedBeforePlan, delivered], undefined, {
+      ...routeOptions,
+      forceExtractiveResultIds: [removedBeforePlan.id, delivered.id],
+      forceEarlyRetentionResultIds: [delivered.id],
+      captureLoggedRow: (row) => routeWideLogs.push(row),
+    });
+    const deliveredOnly = await answerFromTextSources(query, [delivered], undefined, {
+      ...routeOptions,
+      forceExtractiveResultIds: [delivered.id],
+      forceEarlyRetentionResultIds: [delivered.id],
+      captureLoggedRow: (row) => deliveredOnlyLogs.push(row),
+    });
+
+    expect(answer.sources.map((result) => result.id)).toEqual([delivered.id]);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([delivered.id]);
+    expect(answer.smartApiPlan).toEqual(deliveredOnly.smartApiPlan);
+    expect(answer.quoteCards).toEqual(deliveredOnly.quoteCards);
+    expect(answer.documentBreakdown).toEqual(deliveredOnly.documentBreakdown);
+    expect(answer.evidenceSummary).toEqual(deliveredOnly.evidenceSummary);
+    expect(answer.sourceCoverage).toEqual(deliveredOnly.sourceCoverage);
+    expect(answer.conflictsOrGaps).toEqual(deliveredOnly.conflictsOrGaps);
+    expect(answer.visualEvidence).toEqual(deliveredOnly.visualEvidence);
+    expect(answer.bestSource).toEqual(deliveredOnly.bestSource);
+    expect(answer.relatedDocuments).toEqual(deliveredOnly.relatedDocuments);
+    expect(answer.relevance).toEqual(deliveredOnly.relevance);
+    expect(answer.scoreExplanations?.map((item) => item.chunk_id)).toEqual([delivered.id]);
+    expect(answer.smartPanel).toEqual(deliveredOnly.smartPanel);
+    expect(routeWideLogs).toHaveLength(1);
+    expect(deliveredOnlyLogs).toHaveLength(1);
+    expect(routeWideLogs[0]?.source_chunk_ids).toEqual([delivered.id]);
+    const loggedEvidenceKeys = [
+      "smart_api_source_link_count",
+      "smart_api_retrieval_quality",
+      "smart_api_source_policy",
+      "smart_api_source_selection",
+      "answer_rank_top_score",
+      "answer_ranked_source_count",
+      "cross_document_count",
+      "cross_document_selected_count",
+      "cross_document_selected_source_count",
+      "score_explanation_count",
+      "top_cited_score_explanations",
+      "evidence_summary",
+      "source_coverage",
+      "quote_count",
+      "visual_evidence_count",
+      "related_document_count",
+    ];
+    expect(Object.fromEntries(loggedEvidenceKeys.map((key) => [key, routeWideLogs[0]?.metadata?.[key]]))).toEqual(
+      Object.fromEntries(loggedEvidenceKeys.map((key) => [key, deliveredOnlyLogs[0]?.metadata?.[key]])),
+    );
+    expect(JSON.stringify({ answer, log: routeWideLogs[0] })).not.toMatch(
+      /AGITATION_PRE_PLAN_RETENTION_SENTINEL|agitation-pre-plan-retention-sentinel/,
     );
   });
 
