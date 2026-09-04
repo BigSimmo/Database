@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { stripAllComments } from "./helpers/strip-source-comments";
+
 /**
  * 🔴 EVERY FIELD ON A REFERRAL MUST HAVE SOMETHING THAT CAN WRITE IT.
  *
@@ -85,10 +87,40 @@ describe("every Referral field has something that can write it", () => {
     const written = source.slice(start, source.indexOf("\n    case ", start + 10));
     expect(written.length, "the RECEIVE_REFERRAL slice is empty").toBeGreaterThan(200);
 
+    // ⚠️ Comments stripped before matching. This is the single most comment-dense block in the
+    // reducer, and a raw `written.includes(...)` is satisfied by a COMMENTED-OUT write line just
+    // as readily as a real one — proved live: deleting `triagedAt: event.triagedAt,` failed this
+    // check, and re-adding it only as `// triagedAt: event.triagedAt, -- ...` made it pass again
+    // while the field was still genuinely unproduced. `stripSourceComments` (see the helper's own
+    // doc comment) removes a line comment only when the line begins with `//`, so a TRAILING
+    // `code, // field: event.field` comment on the same line as real code is not stripped and
+    // would still satisfy this check falsely. That narrows the hole rather than closing it: it is
+    // pinned, not fixed, because widening the helper risks eating a `//` inside a URL or regex
+    // elsewhere. Measured: a trailing-comment mutant of this exact shape still passes after this
+    // fix (not asserted here, to avoid hard-coding a bypass recipe into the suite itself).
+    // Narrowed, not closed: a TRAILING `//` comment still survives stripping.
+    // Pinned executably in tests/ward-guard-comment-blindness.test.ts (CHARACTERISATION).
+    /*
+     * ⚠️ `stripAllComments`, THE WIDER SCAN, BECAUSE THIS GUARD WATCHES A CODE WRITE. The realistic
+     * way it gets disarmed is the watched line COMMENTED OUT with a note saying why — an ordinary,
+     * careful act — and a trailing `urgency: event.urgency, // triagedAt: event.triagedAt` survives
+     * the narrower `stripSourceComments`, which keeps trailing comments on purpose.
+     *
+     * The mechanism is borrowed from `tests/ward-statistics-claims.test.ts`, which had already
+     * solved a sharper version of this: its `isEntirelyComment` distinguishes prose from
+     * commented-out CODE by looking for a code token inside the comment. This repository knew
+     * before we did.
+     *
+     * Widening is safe here only because the scan is STRING-AWARE — a `"https://x"` is copied
+     * through untouched, so the `//` in a URL is never read as a comment. The rationale against
+     * widening applies to a regex, not to this scanner.
+     */
+    const strippedWritten = stripAllComments(written);
+
     for (const field of fields) {
       if (WRITTEN_ELSEWHERE[field]) continue;
       expect(
-        written.includes(`${field}: event.${field}`),
+        strippedWritten.includes(`${field}: event.${field}`),
         `Referral.${field} has no producer: RECEIVE_REFERRAL never writes it, so the only way a ` +
           "referral can carry it is a hand-authored fixture. Add it to the event, or list it in " +
           "WRITTEN_ELSEWHERE with the event that does write it.",

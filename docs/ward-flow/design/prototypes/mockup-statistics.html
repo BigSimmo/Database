@@ -1,0 +1,1826 @@
+<title>Ward Flow — Statistics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     Statistics dashboard — additions.
+     Charts exist on the owner's explicit 2026-09-03 reversal of the earlier
+     "no bar, no fill, no colour that changes with the count" rule recorded
+     in this screen's history. Built by hand in CSS (bars, grid, axis) — no
+     charting library, and no colour is ever the only carrier of an answer:
+     every bar is named, ordered worst-first, and the peak carries a word
+     ("longest" / "most common") as well as a colour.
+     ═══════════════════════════════════════════════════════════════════════ -->
+<style>
+  .decision-note {
+    display: flex;
+    gap: var(--sp-2);
+    align-items: flex-start;
+    margin: 0 0 var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid color-mix(in oklab, var(--signal) 40%, var(--rule));
+    background: var(--signal-wash);
+    border-radius: 3px;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .decision-note b {
+    color: var(--signal);
+    font-weight: 600;
+  }
+
+  .chart-panel {
+    grid-column: 1 / -1;
+  }
+  @media (min-width: 60rem) {
+    .chart-panel.half {
+      grid-column: auto;
+    }
+  }
+
+  .chart-text {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+  .chart-text b {
+    font-weight: 600;
+  }
+
+  .sub-title {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 var(--sp-2);
+  }
+
+  .barchart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-4);
+  }
+  .barchart-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .barchart-group + .barchart-group {
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-3);
+    border-top: 1px dashed var(--rule);
+  }
+
+  .barrow {
+    display: grid;
+    grid-template-columns: minmax(10.5rem, 15rem) 1fr auto;
+    gap: var(--sp-3);
+    align-items: center;
+  }
+  .barrow .barlabel {
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+    line-height: 1.3;
+  }
+  .barrow .barlabel .type {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .bartrack {
+    position: relative;
+    height: 1rem;
+    border-radius: 2px;
+    background: var(--sunken);
+    background-image: repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 25%);
+  }
+  .barfill {
+    position: absolute;
+    inset: 0;
+    width: var(--w-count);
+    height: 100%;
+    background: var(--cool);
+    border-radius: 2px 0 0 2px;
+  }
+  .barchart[data-mode="pct"] .barfill {
+    width: var(--w-pct);
+  }
+  .barfill[data-peak="true"] {
+    background: var(--signal);
+  }
+  .barvalue {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .barvalue .peak-note {
+    color: var(--signal);
+    font-weight: 600;
+    text-transform: none;
+    font-family: "Archivo", sans-serif;
+    margin-left: 0.35rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.03em;
+  }
+
+  .baraxis {
+    display: grid;
+    grid-template-columns: minmax(10.5rem, 15rem) 1fr auto;
+    gap: var(--sp-3);
+    margin-top: var(--sp-1);
+  }
+  .baraxis .ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6875rem;
+    color: var(--faint);
+  }
+  .baraxis .axis-unit {
+    grid-column: 1 / -1;
+    font-size: 0.6875rem;
+    color: var(--faint);
+    margin-top: var(--sp-1);
+  }
+
+  .chart-foot-link {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+    font-size: 0.8125rem;
+  }
+  .chart-foot-link a {
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .league-eyebrow {
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* Generic zero-as-word styling — the canonical block only defines this inside
+     .teams, but the figures strip needs the same "none, not 0" treatment. */
+  .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  /* ─── this screen only ─── */
+  .identity--end {
+    align-items: flex-end;
+  }
+  /* Moved out of the copied block, where these two had been added in breach of the
+     design language’s own rule. Same rendering, correct home. */
+  .teams .open {
+    text-decoration: none;
+    display: inline-block;
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Every figure invented — listed at the foot</span>
+  </p>
+
+  <p class="decision-note">
+    <span aria-hidden="true">&#9888;</span
+    ><span
+      ><b>These charts exist on the owner's decision.</b> The statistics screen previously carried no charts at all, on
+      purpose. The owner has overturned that on 2026-09-03 and asked for graphs, charts and interactivity alongside the
+      figures. Every number drawn on every chart below is invented.</span
+    >
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow">Coordinator</span>
+      <h1>Statistics — wait, decline and discharge</h1>
+      <p class="covers">
+        Across <b>9 wards</b> in 6 hospitals, <b>16 community teams</b> and <b>6 emergency departments</b>
+      </p>
+    </div>
+    <div class="identity identity--end">
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span><span>Live<span class="sr"> — data is current</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September, updated 2 minutes ago</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════ FIGURES STRIP ══════════════ -->
+  <dl class="totals">
+    <div class="total">
+      <dt>Median wait for a bed, wards</dt>
+      <dd><span class="figure">26</span><span class="unit">h</span></dd>
+      <div class="volume" aria-hidden="true">
+        <span style="height: 58%"></span><span style="height: 64%"></span><span style="height: 49%"></span
+        ><span style="height: 72%"></span><span style="height: 66%"></span><span style="height: 80%"></span
+        ><span style="height: 100%" data-peak="true"></span>
+      </div>
+      <span class="caption">Middle of the nine wards</span>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Longest wait for first contact right now</dt>
+      <dd>
+        <span class="figure">3</span><span class="unit">d</span><span class="figure">2</span><span class="unit">h</span>
+      </dd>
+      <span class="sub">RF-140 &middot; Bunbury community team</span>
+    </div>
+    <div class="total">
+      <dt>Declines recorded, last 30 days</dt>
+      <dd><span class="figure">102</span></dd>
+      <div class="volume" aria-hidden="true">
+        <span style="height: 70%"></span><span style="height: 55%"></span><span style="height: 62%"></span
+        ><span style="height: 48%"></span><span style="height: 75%"></span><span style="height: 58%"></span
+        ><span style="height: 90%" data-peak="true"></span>
+      </div>
+      <span class="caption">Last 7 days</span>
+    </div>
+    <div class="total" data-flag="true">
+      <dt>Discharge-blocked right now</dt>
+      <dd><span class="figure">86</span></dd>
+      <span class="sub">Largest cause: awaiting NDIS or accommodation</span>
+    </div>
+    <div class="total">
+      <dt>Wards with zero declines this month</dt>
+      <dd>
+        <span class="figure"><span class="zero">none</span></span>
+      </dd>
+      <span class="sub">All 9 wards declined at least once</span>
+    </div>
+  </dl>
+
+  <!-- ══════════════ THREE CHART PANELS ══════════════ -->
+  <div class="grid">
+    <!-- Chart 1 — wait -->
+    <section class="panel chart-panel" aria-labelledby="ch-wait" style="grid-column: 1/-1">
+      <header>
+        <h2 class="panel-title" id="ch-wait">How long people wait — three different quantities</h2>
+        <span class="n">median hours, each measured differently</span>
+      </header>
+      <p class="chart-text">
+        <b
+          >These three groups do not measure the same thing, so they are summarised separately and never ranked against
+          each other.</b
+        >
+      </p>
+      <p class="chart-text">
+        <b>Wards — time from accepting a referral to the bed being ready.</b> Longest 58 hours (2 days 10 hours) at FSH
+        Adult Secure; shortest 15 hours at Rockingham General.
+      </p>
+      <p class="chart-text">
+        <b>Community teams — time from referral to first face-to-face contact.</b> No bed is involved. Longest 62 hours
+        (2 days 14 hours) at Bunbury; shortest 18 hours at Bentley.
+      </p>
+      <p class="chart-text">
+        <b>Emergency departments — time a person is held in the department awaiting an inpatient bed.</b> Longest 26
+        hours at Royal Perth Hospital ED; shortest 12 hours at St John of God Midland Public Hospital ED.
+      </p>
+      <p class="blurb" style="padding-top: var(--sp-2)">
+        Filter to one kind of unit, or leave all three showing. Every bar is named and each group is ordered
+        longest-first, so the top row of a group is its own longest — there is no page-wide longest, because the three
+        groups measure different things. The shared hour scale lets you read each bar’s own value; it is not an
+        invitation to compare a bar in one group against a bar in another.
+      </p>
+      <div class="picker" id="wait-picker" style="padding: 0 var(--sp-4) 0; margin-top: var(--sp-2)">
+        <button type="button" data-which="all" aria-pressed="true">All units</button>
+        <button type="button" data-which="ward" aria-pressed="false">Wards</button>
+        <button type="button" data-which="team" aria-pressed="false">Community teams</button>
+        <button type="button" data-which="ed" aria-pressed="false">Emergency departments</button>
+      </div>
+
+      <div class="barchart" data-mode="count">
+        <div class="barchart-group" id="wait-wards">
+          <h3 class="sub-title">By ward — time from accepting a referral to the bed being ready</h3>
+          <div class="barrow" title="FSH Adult Secure — ward — 58 hours median wait">
+            <span class="barlabel">FSH Adult Secure<span class="type">Fiona Stanley Hospital</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 90.6%"></div></div>
+            <span class="barvalue num">58h</span>
+          </div>
+          <div class="barrow" title="RPH Adult Secure — ward — 44 hours median wait">
+            <span class="barlabel">RPH Adult Secure<span class="type">Royal Perth Hospital</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 68.75%"></div></div>
+            <span class="barvalue num">44h</span>
+          </div>
+          <div class="barrow" title="RPH Older Adult — ward — 33 hours median wait">
+            <span class="barlabel">RPH Older Adult<span class="type">Royal Perth Hospital</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 51.6%"></div></div>
+            <span class="barvalue num">33h</span>
+          </div>
+          <div class="barrow" title="SCGH Adult Open — ward — 30 hours median wait">
+            <span class="barlabel">SCGH Adult Open<span class="type">Sir Charles Gairdner Hospital</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 46.9%"></div></div>
+            <span class="barvalue num">30h</span>
+          </div>
+          <div class="barrow" title="ARM Adult Open — ward — 26 hours median wait">
+            <span class="barlabel">ARM Adult Open<span class="type">Armadale Health Service</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 40.6%"></div></div>
+            <span class="barvalue num">26h</span>
+          </div>
+          <div class="barrow" title="FSH Older Adult — ward — 22 hours median wait">
+            <span class="barlabel">FSH Older Adult<span class="type">Fiona Stanley Hospital</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 34.4%"></div></div>
+            <span class="barvalue num">22h</span>
+          </div>
+          <div class="barrow" title="SJGM Adult Open — ward — 20 hours median wait">
+            <span class="barlabel"
+              >SJGM Adult Open<span class="type">St John of God Midland Public Hospital</span></span
+            >
+            <div class="bartrack"><div class="barfill" style="--w-count: 31.25%"></div></div>
+            <span class="barvalue num">20h</span>
+          </div>
+          <div class="barrow" title="SCGH Older Adult — ward — 19 hours median wait">
+            <span class="barlabel">SCGH Older Adult<span class="type">Sir Charles Gairdner Hospital</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 29.7%"></div></div>
+            <span class="barvalue num">19h</span>
+          </div>
+          <div class="barrow" title="Rockingham General — ward — 15 hours median wait">
+            <span class="barlabel">Rockingham General<span class="type">Rockingham General Hospital</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 23.4%"></div></div>
+            <span class="barvalue num">15h</span>
+          </div>
+        </div>
+
+        <div class="barchart-group" id="wait-teams">
+          <h3 class="sub-title">
+            By community team — time from referral to first face-to-face contact (no bed involved)
+          </h3>
+          <div
+            class="barrow"
+            title="Bunbury — community team — 62 hours median time from referral to first contact, the longest among community teams"
+          >
+            <span class="barlabel">Bunbury<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 96.9%"></div></div>
+            <span class="barvalue num">62h</span>
+          </div>
+          <div class="barrow" title="Midland — community team — 40 hours median wait">
+            <span class="barlabel">Midland<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 62.5%"></div></div>
+            <span class="barvalue num">40h</span>
+          </div>
+          <div class="barrow" title="Inner City — community team — 38 hours median wait">
+            <span class="barlabel">Inner City<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 59.4%"></div></div>
+            <span class="barvalue num">38h</span>
+          </div>
+          <div class="barrow" title="Peel — community team — 34 hours median wait">
+            <span class="barlabel">Peel<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 53.1%"></div></div>
+            <span class="barvalue num">34h</span>
+          </div>
+          <div class="barrow" title="Rockingham — community team — 28 hours median wait">
+            <span class="barlabel">Rockingham<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 43.75%"></div></div>
+            <span class="barvalue num">28h</span>
+          </div>
+          <div class="barrow" title="Joondalup — community team — 24 hours median wait">
+            <span class="barlabel">Joondalup<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 37.5%"></div></div>
+            <span class="barvalue num">24h</span>
+          </div>
+          <div class="barrow" title="Osborne — community team — 21 hours median wait">
+            <span class="barlabel">Osborne<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 32.8%"></div></div>
+            <span class="barvalue num">21h</span>
+          </div>
+          <div class="barrow" title="Bentley — community team — 18 hours median wait">
+            <span class="barlabel">Bentley<span class="type">Community team</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 28.1%"></div></div>
+            <span class="barvalue num">18h</span>
+          </div>
+        </div>
+
+        <div class="barchart-group" id="wait-eds">
+          <h3 class="sub-title">By emergency department — time held in the department awaiting an inpatient bed</h3>
+          <div class="barrow" title="Royal Perth Hospital ED — 26 hours median wait">
+            <span class="barlabel">Royal Perth Hospital ED<span class="type">Emergency department</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 40.6%"></div></div>
+            <span class="barvalue num">26h</span>
+          </div>
+          <div class="barrow" title="Rockingham General ED — 24 hours median wait">
+            <span class="barlabel">Rockingham General ED<span class="type">Emergency department</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 37.5%"></div></div>
+            <span class="barvalue num">24h</span>
+          </div>
+          <div class="barrow" title="Fiona Stanley Hospital ED — 21 hours median wait">
+            <span class="barlabel">Fiona Stanley Hospital ED<span class="type">Emergency department</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 32.8%"></div></div>
+            <span class="barvalue num">21h</span>
+          </div>
+          <div class="barrow" title="Sir Charles Gairdner Hospital ED — 18 hours median wait">
+            <span class="barlabel">Sir Charles Gairdner Hospital ED<span class="type">Emergency department</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 28.1%"></div></div>
+            <span class="barvalue num">18h</span>
+          </div>
+          <div class="barrow" title="Armadale Health Service ED — 15 hours median wait">
+            <span class="barlabel">Armadale Health Service ED<span class="type">Emergency department</span></span>
+            <div class="bartrack"><div class="barfill" style="--w-count: 23.4%"></div></div>
+            <span class="barvalue num">15h</span>
+          </div>
+          <div
+            class="barrow"
+            title="St John of God Midland Public Hospital ED — 12 hours median time held in the department, the shortest among emergency departments"
+          >
+            <span class="barlabel"
+              >St John of God Midland Public Hospital ED<span class="type">Emergency department</span></span
+            >
+            <div class="bartrack"><div class="barfill" style="--w-count: 18.75%"></div></div>
+            <span class="barvalue num">12h</span>
+          </div>
+        </div>
+      </div>
+      <div class="baraxis" style="padding: 0 var(--sp-4) var(--sp-4)">
+        <span aria-hidden="true"></span>
+        <div class="ticks">
+          <span class="num">0</span><span class="num">16</span><span class="num">32</span><span class="num">48</span
+          ><span class="num">64h</span>
+        </div>
+        <span aria-hidden="true"></span>
+      </div>
+    </section>
+
+    <!-- Chart 2 — decline reasons -->
+    <section class="panel chart-panel half" aria-labelledby="ch-decline">
+      <header>
+        <h2 class="panel-title" id="ch-decline">Why wards decline referrals</h2>
+        <span class="n">count of declines</span>
+      </header>
+      <p class="chart-text">
+        <b>102</b> referrals were declined in the last 30 days. The most common reason, at 34 declines, is that
+        <b>no bed was available</b>.
+      </p>
+      <div class="picker" id="decline-picker" style="padding: 0 var(--sp-4) 0; margin-top: var(--sp-2)">
+        <button type="button" data-mode="count" aria-pressed="true">Count</button>
+        <button type="button" data-mode="pct" aria-pressed="false">Share of declines</button>
+      </div>
+      <div class="barchart" data-mode="count" id="decline-chart">
+        <div class="barrow" title="No bed available — 34 declines, 33 percent">
+          <span class="barlabel">No bed available</span>
+          <div class="bartrack"><div class="barfill" data-peak="true" style="--w-count: 85%; --w-pct: 83%"></div></div>
+          <span class="barvalue"
+            ><span class="num val-count">34</span><span class="num val-pct" hidden>33%</span
+            ><span class="peak-note">most common</span></span
+          >
+        </div>
+        <div class="barrow" title="Ward's admission criteria not met — 21 declines, 21 percent">
+          <span class="barlabel">Admission criteria not met<span class="type">age, sex or catchment</span></span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 52.5%; --w-pct: 52%"></div></div>
+          <span class="barvalue"><span class="num val-count">21</span><span class="num val-pct" hidden>21%</span></span>
+        </div>
+        <div class="barrow" title="Behavioural or risk needs exceed the ward's capability — 18 declines, 18 percent">
+          <span class="barlabel">Risk needs exceed capability</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 45%; --w-pct: 44%"></div></div>
+          <span class="barvalue"><span class="num val-count">18</span><span class="num val-pct" hidden>18%</span></span>
+        </div>
+        <div class="barrow" title="Awaiting more clinical information — 14 declines, 14 percent">
+          <span class="barlabel">Awaiting more information</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 35%; --w-pct: 34%"></div></div>
+          <span class="barvalue"><span class="num val-count">14</span><span class="num val-pct" hidden>14%</span></span>
+        </div>
+        <div class="barrow" title="Physical health needs cannot be met on this ward — 9 declines, 9 percent">
+          <span class="barlabel">Physical health needs unmet</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 22.5%; --w-pct: 22%"></div></div>
+          <span class="barvalue"><span class="num val-count">9</span><span class="num val-pct" hidden>9%</span></span>
+        </div>
+        <div class="barrow" title="Substance use complicates safe admission — 6 declines, 6 percent">
+          <span class="barlabel">Substance use complicates</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 15%; --w-pct: 15%"></div></div>
+          <span class="barvalue"><span class="num val-count">6</span><span class="num val-pct" hidden>6%</span></span>
+        </div>
+      </div>
+      <div class="baraxis" style="padding: 0 var(--sp-4) 0">
+        <span aria-hidden="true"></span>
+        <div class="ticks" id="decline-axis-count">
+          <span class="num">0</span><span class="num">10</span><span class="num">20</span><span class="num">30</span
+          ><span class="num">40</span>
+        </div>
+        <div class="ticks" id="decline-axis-pct" hidden>
+          <span class="num">0%</span><span class="num">10%</span><span class="num">20%</span><span class="num">30%</span
+          ><span class="num">40%</span>
+        </div>
+        <span aria-hidden="true"></span>
+        <p class="axis-unit" id="decline-unit-count">Unit: count of declines, last 30 days</p>
+        <p class="axis-unit" id="decline-unit-pct" hidden>Unit: share of all declines (%)</p>
+      </div>
+      <p class="chart-foot-link">
+        This chart does not rank which ward declines the most on purpose.
+        <a href="#ward-decline-league">See that ranking further down the page →</a>
+      </p>
+    </section>
+
+    <!-- Chart 3 — discharge blockers -->
+    <section class="panel chart-panel half" aria-labelledby="ch-block">
+      <header>
+        <h2 class="panel-title" id="ch-block">What is blocking discharges</h2>
+        <span class="n">86 patients blocked</span>
+      </header>
+      <p class="chart-text">
+        <b>86</b> patients ready for discharge are currently blocked. The largest blocker, at 27 patients, is
+        <b>awaiting an NDIS or accommodation plan</b>.
+      </p>
+      <div class="barchart" style="margin-top: var(--sp-2)">
+        <div class="barrow" title="Awaiting NDIS or accommodation plan — 27 patients, the largest blocker">
+          <span class="barlabel">Awaiting NDIS or accommodation</span>
+          <div class="bartrack"><div class="barfill" data-peak="true" style="--w-count: 90%"></div></div>
+          <span class="barvalue num">27<span class="peak-note">most common</span></span>
+        </div>
+        <div class="barrow" title="Awaiting family or carer to collect or accept — 19 patients">
+          <span class="barlabel">Awaiting family or carer</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 63.3%"></div></div>
+          <span class="barvalue num">19</span>
+        </div>
+        <div class="barrow" title="Awaiting the community team to accept handover — 16 patients">
+          <span class="barlabel">Community team not yet accepted</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 53.3%"></div></div>
+          <span class="barvalue num">16</span>
+        </div>
+        <div class="barrow" title="Transport not yet booked — 11 patients">
+          <span class="barlabel">Transport not booked</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 36.7%"></div></div>
+          <span class="barvalue num">11</span>
+        </div>
+        <div class="barrow" title="Awaiting medication supply or reconciliation — 8 patients">
+          <span class="barlabel">Medication not reconciled</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 26.7%"></div></div>
+          <span class="barvalue num">8</span>
+        </div>
+        <div class="barrow" title="Guardianship or consent process pending — 5 patients">
+          <span class="barlabel">Guardianship or consent pending</span>
+          <div class="bartrack"><div class="barfill" style="--w-count: 16.7%"></div></div>
+          <span class="barvalue num">5</span>
+        </div>
+      </div>
+      <div class="baraxis" style="padding: 0 var(--sp-4) var(--sp-4)">
+        <span aria-hidden="true"></span>
+        <div class="ticks">
+          <span class="num">0</span><span class="num">10</span><span class="num">20</span><span class="num">30</span>
+        </div>
+        <span aria-hidden="true"></span>
+        <p class="axis-unit">Unit: patients currently blocked</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══════════════ BREAKDOWN TABLES — clickable through to each unit ══════════════ -->
+  <div class="band">
+    <section class="panel" aria-labelledby="bt-ward">
+      <header>
+        <h2 class="panel-title" id="bt-ward">By ward</h2>
+        <span class="n">9 wards</span>
+      </header>
+      <div class="table-wrap">
+        <table class="teams">
+          <caption>
+            Ward and hospital names are real. Wait and blocked-discharge counts are invented. Sorted by median wait,
+            longest first.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Ward</th>
+              <th scope="col">Hospital</th>
+              <th scope="col">Median wait</th>
+              <th scope="col">Blocked now</th>
+              <th scope="col"><span class="sr">Open</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-flag="true">
+              <td>FSH Adult Secure</td>
+              <td>Fiona Stanley Hospital</td>
+              <td class="n">58h</td>
+              <td class="n">16</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr data-flag="true">
+              <td>RPH Adult Secure</td>
+              <td>Royal Perth Hospital</td>
+              <td class="n">44h</td>
+              <td class="n">12</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr>
+              <td>RPH Older Adult</td>
+              <td>Royal Perth Hospital</td>
+              <td class="n">33h</td>
+              <td class="n">13</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr>
+              <td>SCGH Adult Open</td>
+              <td>Sir Charles Gairdner Hospital</td>
+              <td class="n">30h</td>
+              <td class="n">10</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr>
+              <td>ARM Adult Open</td>
+              <td>Armadale Health Service</td>
+              <td class="n">26h</td>
+              <td class="n">9</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr>
+              <td>FSH Older Adult</td>
+              <td>Fiona Stanley Hospital</td>
+              <td class="n">22h</td>
+              <td class="n">6</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr>
+              <td>SJGM Adult Open</td>
+              <td>St John of God Midland Public Hospital</td>
+              <td class="n">20h</td>
+              <td class="n">9</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr>
+              <td>SCGH Older Adult</td>
+              <td>Sir Charles Gairdner Hospital</td>
+              <td class="n">19h</td>
+              <td class="n">7</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+            <tr>
+              <td>Rockingham General</td>
+              <td>Rockingham General Hospital</td>
+              <td class="n">15h</td>
+              <td class="n">4</td>
+              <td><a class="open" href="#">Open ward</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="bt-team">
+      <header>
+        <h2 class="panel-title" id="bt-team">By community team</h2>
+        <span class="n">8 of 16 teams</span>
+      </header>
+      <div class="table-wrap">
+        <table class="teams">
+          <caption>
+            Team names and suburb counts are real, from the catchment table. Wait, decline and blocked counts are
+            invented. Sorted by median wait, longest first.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Team</th>
+              <th scope="col">Suburbs</th>
+              <th scope="col">Median wait</th>
+              <th scope="col">Declined</th>
+              <th scope="col">Blocked now</th>
+              <th scope="col"><span class="sr">Open</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-flag="true">
+              <td><a href="#">Bunbury</a></td>
+              <td class="n">48</td>
+              <td class="n">62h</td>
+              <td class="n">12</td>
+              <td class="n">15</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+            <tr>
+              <td>Midland</td>
+              <td class="n">68</td>
+              <td class="n">40h</td>
+              <td class="n">14</td>
+              <td class="n">18</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+            <tr>
+              <td>Inner City</td>
+              <td class="n">16</td>
+              <td class="n">38h</td>
+              <td class="n">19</td>
+              <td class="n">13</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+            <tr>
+              <td>Peel</td>
+              <td class="n">27</td>
+              <td class="n">34h</td>
+              <td class="n">16</td>
+              <td class="n">12</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+            <tr>
+              <td>Rockingham</td>
+              <td class="n">23</td>
+              <td class="n">28h</td>
+              <td class="n">9</td>
+              <td class="n">9</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+            <tr>
+              <td>Joondalup</td>
+              <td class="n">36</td>
+              <td class="n">24h</td>
+              <td class="n">7</td>
+              <td class="n">10</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+            <tr>
+              <td>Osborne</td>
+              <td class="n">19</td>
+              <td class="n">21h</td>
+              <td class="n">5</td>
+              <td class="n">5</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+            <tr>
+              <td>Bentley</td>
+              <td class="n">32</td>
+              <td class="n">18h</td>
+              <td class="n">4</td>
+              <td class="n">4</td>
+              <td><a class="open" href="#">Open hub</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="bt-ed">
+      <header>
+        <h2 class="panel-title" id="bt-ed">By emergency department</h2>
+        <span class="n">6 EDs</span>
+      </header>
+      <div class="table-wrap">
+        <table class="teams">
+          <caption>
+            ED and hospital names are real. Wait, decline and review counts are invented. A zero reads as "none", not 0.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">ED</th>
+              <th scope="col">Hospital</th>
+              <th scope="col">Median wait</th>
+              <th scope="col">Declined</th>
+              <th scope="col">Held for review</th>
+              <th scope="col"><span class="sr">Open</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-flag="true">
+              <td>Royal Perth Hospital ED</td>
+              <td>Royal Perth Hospital</td>
+              <td class="n">26h</td>
+              <td class="n">22</td>
+              <td class="n">3</td>
+              <td><a class="open" href="#">Open ED</a></td>
+            </tr>
+            <tr>
+              <td>Rockingham General ED</td>
+              <td>Rockingham General Hospital</td>
+              <td class="n">24h</td>
+              <td class="n">13</td>
+              <td class="n">2</td>
+              <td><a class="open" href="#">Open ED</a></td>
+            </tr>
+            <tr>
+              <td>Fiona Stanley Hospital ED</td>
+              <td>Fiona Stanley Hospital</td>
+              <td class="n">21h</td>
+              <td class="n">17</td>
+              <td class="n">2</td>
+              <td><a class="open" href="#">Open ED</a></td>
+            </tr>
+            <tr>
+              <td>Sir Charles Gairdner Hospital ED</td>
+              <td>Sir Charles Gairdner Hospital</td>
+              <td class="n">18h</td>
+              <td class="n">11</td>
+              <td class="n">1</td>
+              <td><a class="open" href="#">Open ED</a></td>
+            </tr>
+            <tr>
+              <td>Armadale Health Service ED</td>
+              <td>Armadale Health Service</td>
+              <td class="n">15h</td>
+              <td class="n">8</td>
+              <td class="n"><span class="zero">none</span></td>
+              <td><a class="open" href="#">Open ED</a></td>
+            </tr>
+            <tr>
+              <td>St John of God Midland Public Hospital ED</td>
+              <td>St John of God Midland Public Hospital</td>
+              <td class="n">12h</td>
+              <td class="n">5</td>
+              <td class="n"><span class="zero">none</span></td>
+              <td><a class="open" href="#">Open ED</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══════════════ THE LEAGUE TABLE, DELIBERATELY LOWER ══════════════ -->
+  <section class="panel" id="ward-decline-league" style="margin-top: var(--sp-6)" aria-labelledby="ld-title">
+    <header>
+      <div>
+        <span class="league-eyebrow">Reference, not the headline</span><br />
+        <h2 class="panel-title" id="ld-title" style="margin-top: 0.15rem">Which wards decline the most</h2>
+      </div>
+      <span class="n">102 declines, 30 days</span>
+    </header>
+    <p class="blurb">
+      This ranks wards against each other and reads as a performance table for people other than the coordinator, so it
+      is kept off the front of the page — reachable, not the first thing seen. Every count below is invented.
+    </p>
+    <div class="table-wrap">
+      <table class="teams">
+        <caption>
+          Sorted by declines given, most first.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Ward</th>
+            <th scope="col">Hospital</th>
+            <th scope="col">Declines given</th>
+            <th scope="col">Most common reason</th>
+            <th scope="col"><span class="sr">Open</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-flag="true">
+            <td class="n">1</td>
+            <td>FSH Adult Secure</td>
+            <td>Fiona Stanley Hospital</td>
+            <td class="n">28</td>
+            <td>No bed available</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr data-flag="true">
+            <td class="n">2</td>
+            <td>RPH Adult Secure</td>
+            <td>Royal Perth Hospital</td>
+            <td class="n">22</td>
+            <td>Risk needs exceed capability</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr>
+            <td class="n">3</td>
+            <td>SCGH Adult Open</td>
+            <td>Sir Charles Gairdner Hospital</td>
+            <td class="n">15</td>
+            <td>Admission criteria not met</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr>
+            <td class="n">4</td>
+            <td>ARM Adult Open</td>
+            <td>Armadale Health Service</td>
+            <td class="n">11</td>
+            <td>No bed available</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr>
+            <td class="n">5</td>
+            <td>RPH Older Adult</td>
+            <td>Royal Perth Hospital</td>
+            <td class="n">8</td>
+            <td>Awaiting more information</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr>
+            <td class="n">6</td>
+            <td>SJGM Adult Open</td>
+            <td>St John of God Midland Public Hospital</td>
+            <td class="n">6</td>
+            <td>Admission criteria not met</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr>
+            <td class="n">7</td>
+            <td>SCGH Older Adult</td>
+            <td>Sir Charles Gairdner Hospital</td>
+            <td class="n">5</td>
+            <td>Physical health needs unmet</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr>
+            <td class="n">8</td>
+            <td>FSH Older Adult</td>
+            <td>Fiona Stanley Hospital</td>
+            <td class="n">4</td>
+            <td>Awaiting more information</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+          <tr>
+            <td class="n">9</td>
+            <td>Rockingham General</td>
+            <td>Rockingham General Hospital</td>
+            <td class="n">3</td>
+            <td>No bed available</td>
+            <td><a class="open" href="#">Open ward</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="footnote">
+    <h2>Correction: three quantities were being called one thing</h2>
+    <p>
+      The wait chart previously carried a single sentence naming a page-wide longest and shortest
+      <b>"wait for a bed"</b>, ranking all three groups against each other. It was wrong, and not only in wording: the
+      62-hour figure it called the longest wait for a bed belongs to <b>Bunbury community team</b>, and a community team
+      has no beds. The page’s own chart label already called that same column <b>"waiting for first contact"</b>. The
+      12-hour figure it called the shortest wait for a bed is time a person was held in an emergency department.
+    </p>
+    <p>
+      <b>Why this was a safety correction rather than a phrasing one.</b> This system already holds the rule that a
+      referral must show what it is <i>for</i>, because a row with no stated purpose is indistinguishable from a bed
+      request — recorded in <code>ward-referrals.ts</code> as "a safety rule rather than a presentational preference".
+      Collapsing three purposes under one name is that same conflation one level up, in a chart: a reader comparing 62
+      hours against 12 hours believes they are seeing the same thing measured at two places, and they are not.
+      <b>Nothing this system measures has a shortest bed-wait of 12 hours.</b>
+    </p>
+    <p>
+      The three quantities are now named separately, summarised separately, and never ranked against one another:
+      <b>time from accepting a referral to the bed being ready</b> (wards),
+      <b>time from referral to first face-to-face contact</b> (community teams, no bed involved), and
+      <b>time held in the department awaiting an inpatient bed</b> (emergency departments). The page-wide "longest" and
+      "shortest" markers are gone, including the two inside hover text, where a superlative is easy to leave behind.
+    </p>
+    <p>
+      <b>The headline figures strip carried the same defect and is corrected too.</b> One tile read "Median wait,
+      referral to a bed — 27h" — a single number averaging all three quantities. ⚠️
+      <b>No label could make that true</b>, so it was not relabelled: it is now
+      <b>"Median wait for a bed, wards — 26h"</b>, recomputed from the nine ward figures on this page alone. A second
+      tile called a <b>community team’s</b> figure the "longest wait" while the tile beside it defined a wait as
+      "referral to a bed"; it now says "longest wait for first contact".
+    </p>
+    <p>
+      ⚠️ <b>One limit on the 26h, stated rather than glossed:</b> it is the median of nine per-ward medians, not the
+      median across patients. Those are different statistics and can differ. The tile says "middle of the nine wards"
+      for that reason, and the caption no longer claims a seven-day window the figure cannot support.
+    </p>
+    <h2>Every figure here is invented</h2>
+    <ul>
+      <li>
+        <b>Every number on every chart:</b> all median wait times (58h, 44h, 33h, 30h, 26h, 22h, 20h, 19h, 15h by ward;
+        62h, 40h, 38h, 34h, 28h, 24h, 21h, 18h by community team; 26h, 24h, 21h, 18h, 15h, 12h by ED), the 26h ward-only
+        median in the figures strip, and the 3d 2h "longest wait for first contact right now".
+        <b>The 26h is not an independent invention:</b> it is the median of the nine invented ward figures above (15,
+        19, 20, 22, 26, 30, 33, 44, 58), so replacing those replaces it.
+      </li>
+      <li>
+        <b>Every decline count:</b> the 102 total, all six reason counts (34, 21, 18, 14, 9, 6) and every percentage
+        share, and every ward/team/ED decline count in both breakdown tables and the league table.
+      </li>
+      <li>
+        <b>Every discharge-blocker count:</b> the 86 total, all six blocker counts (27, 19, 16, 11, 8, 5), and every
+        ward/team/ED breakdown of it, including the "held for review" ED counts.
+      </li>
+      <li>
+        <b>"Wards with zero declines this month: none.</b>" All nine wards are invented as having declined at least
+        once.
+      </li>
+      <li>
+        <b>"Updated 2 minutes ago"</b> and the "Live" marker, and the RF-140 referral reference. Nothing here refreshes.
+      </li>
+      <li><b>Every "most common reason" and every reason label</b> attached to a ward in the league table.</li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>9 wards across 6 hospitals</b> &mdash; RPH Adult Secure, RPH Older Adult, SCGH Adult Open, SCGH Older Adult,
+        FSH Adult Secure, FSH Older Adult, ARM Adult Open, SJGM Adult Open, Rockingham General &mdash; and 6 of the
+        <b>8</b> named emergency departments in this repository&rsquo;s ward model. &#9888;
+        <b>The screen omits Joondalup Health Campus ED and Peel Health Campus ED.</b> Neither has an inpatient ward, so
+        both vanish from a list built by walking hospitals &mdash; which is how this panel was built. A panel headed
+        &ldquo;by emergency department&rdquo; that shows six of eight without saying so reads as complete and is not.
+        <b>The rebuilt screen must cover all eight or state the exclusion on the screen itself.</b>
+      </li>
+      <li>
+        <b>16 community team names and every suburb count</b> shown &mdash; Midland 68, Bunbury 48, Joondalup 36,
+        Bentley 32, Peel 27, Rockingham 23, Osborne 19 &mdash; counted from the catchment table built from five WA
+        Health documents covering 537 suburbs.
+      </li>
+      <li><b>The hospital a ward or ED belongs to.</b></li>
+    </ul>
+    <h2>Decisions this mockup made</h2>
+    <ul>
+      <li>
+        <b>The charts are built in CSS, not SVG</b> &mdash; bars, a faint repeating grid line and a labelled axis, all
+        using the copied colour tokens. This avoids the SVG dark-mode risk (a hard-coded stroke disappearing) entirely,
+        since every colour resolves through the same custom properties the rest of the page uses.
+      </li>
+      <li>
+        <b>"Which wards decline the most" is the only ranking kept off the front page</b>, per the owner's ruling. The
+        ward breakdown table earlier on the page carries wait and blocked-discharge counts only, deliberately not a
+        decline count, so it cannot double as the same league table under a different heading.
+      </li>
+      <li>
+        <b>The emergency-department column on the discharge-blockers chart</b> is read as "held for a medical review in
+        the ED before going home" &mdash; a real but minor blocker category, distinct from the community and
+        accommodation blockers that dominate the total. This is a judgement call the brief did not spell out; flag it if
+        a different reading is wanted.
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var buttons = Array.prototype.slice.call(document.querySelectorAll("#wait-picker button"));
+    var groups = {
+      ward: document.getElementById("wait-wards"),
+      team: document.getElementById("wait-teams"),
+      ed: document.getElementById("wait-eds"),
+    };
+    function show(which) {
+      Object.keys(groups).forEach(function (key) {
+        groups[key].hidden = !(which === "all" || which === key);
+      });
+      buttons.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-which") === which));
+      });
+    }
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        show(b.getAttribute("data-which"));
+      });
+    });
+  })();
+
+  (function () {
+    var buttons = Array.prototype.slice.call(document.querySelectorAll("#decline-picker button"));
+    var chart = document.getElementById("decline-chart");
+    var axisCount = document.getElementById("decline-axis-count");
+    var axisPct = document.getElementById("decline-axis-pct");
+    var unitCount = document.getElementById("decline-unit-count");
+    var unitPct = document.getElementById("decline-unit-pct");
+    function setMode(mode) {
+      chart.setAttribute("data-mode", mode);
+      axisCount.hidden = mode !== "count";
+      axisPct.hidden = mode !== "pct";
+      unitCount.hidden = mode !== "count";
+      unitPct.hidden = mode !== "pct";
+      buttons.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.getAttribute("data-mode") === mode));
+      });
+      Array.prototype.forEach.call(chart.querySelectorAll(".barrow"), function (row) {
+        var count = row.querySelector(".val-count");
+        var pct = row.querySelector(".val-pct");
+        if (count) {
+          count.hidden = mode !== "count";
+        }
+        if (pct) {
+          pct.hidden = mode !== "pct";
+        }
+      });
+    }
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        setMode(b.getAttribute("data-mode"));
+      });
+    });
+  })();
+</script>

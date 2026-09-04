@@ -1,4 +1,5 @@
-import { normalizeSearchText } from "@/lib/catalog-search";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
+import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 
 import { domainLabels, type CalculatorDomain, type CalculatorFixture } from "./calculator-fixtures";
 import type { DerivedCalculator } from "./calculator-ui";
@@ -22,23 +23,30 @@ export function normalizeCalculatorQuery(query: string) {
 }
 
 export function calculatorMatchesQuery(calc: CalculatorFixture, query: string, expansions: readonly string[] = []) {
+  return calculatorQueryScore(calc, query, expansions) > 0;
+}
+
+function calculatorQueryScore(calc: CalculatorFixture, query: string, expansions: readonly string[] = []) {
   const normalized = normalizeCalculatorQuery(query);
-  if (!normalized) return true;
-  const haystack = normalizeSearchText(
-    [
-      calc.abbrev,
-      calc.name,
-      calc.indication,
-      calc.summary,
-      domainLabels[calc.domain],
-      ...calc.items.map((item) => item.text),
-    ].join(" "),
+  if (!normalized) return 1;
+  if (calculatorIdentityMatchesQuery(calc, normalized)) return 1_000;
+
+  const primaryText = normalizeSearchText(
+    [calc.abbrev, calc.name, calc.indication, calc.summary, domainLabels[calc.domain]].join(" "),
   );
-  return (
-    calculatorIdentityMatchesQuery(calc, normalized) ||
-    haystack.includes(normalized) ||
-    expansions.some((term) => haystack.includes(normalizeSearchText(term)))
-  );
+  const itemText = normalizeSearchText(calc.items.map((item) => item.text).join(" "));
+  const haystack = `${primaryText} ${itemText}`;
+  if (haystack.includes(normalized)) return 500;
+
+  const terms = Array.from(new Set([...expansions, ...smartSearchContentTerms("calculators", query)]))
+    .map(normalizeSearchText)
+    .filter(Boolean);
+  return terms.reduce((score, term) => {
+    const specificity = term.includes(" ") ? term.split(" ").length : 1;
+    if (includesWholeTerm(primaryText, term)) return score + 10 * specificity;
+    if (includesWholeTerm(itemText, term)) return score + 2 * specificity;
+    return score;
+  }, 0);
 }
 
 function calculatorIdentityMatchesQuery(calc: CalculatorFixture, normalizedQuery: string) {
@@ -94,8 +102,7 @@ export function filterCalculatorRecords(
   if (!normalizedQuery) return matchingRecords;
   return matchingRecords.sort(
     (left, right) =>
-      Number(calculatorIdentityMatchesQuery(right.calc, normalizedQuery)) -
-      Number(calculatorIdentityMatchesQuery(left.calc, normalizedQuery)),
+      calculatorQueryScore(right.calc, query, expansions) - calculatorQueryScore(left.calc, query, expansions),
   );
 }
 

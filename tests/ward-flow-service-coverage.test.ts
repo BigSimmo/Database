@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+
+import { stripSourceComments } from "./helpers/strip-source-comments";
 import { describe, expect, it } from "vitest";
 
 import { wardServiceOrder } from "@/components/ward-management/ward-derivations";
@@ -75,7 +77,26 @@ describe("no health service can go missing from the screens that group by it", (
 
   it("keeps every grouping surface deriving from that one list rather than holding its own", () => {
     const offenders = [...SERVICE_GROUPING_SURFACES.keys()].filter(
-      (file) => !readFileSync(file, "utf8").includes("wardServiceOrder"),
+      /*
+       * ⚠️ COMMENTS STRIPPED FIRST, AND THIS GUARD WAS PROVED DEFEATED WITHOUT IT. Two-step
+       * mutation on 2026-09-04: rename every real `wardServiceOrder` use in `wards/ward-index.tsx`
+       * away and this test correctly goes red (3 collected, 1 failed). Then add ONE comment line
+       * mentioning `wardServiceOrder` — changing nothing about the broken code — and it passes,
+       * 3 of 3. The single assertion this file exists for was fully satisfied by prose.
+       *
+       * 🔴 THAT IS THE SILENT DIRECTION. A comment that BREAKS a guard is loud and gets fixed
+       * within the hour. A comment that SATISFIES one is a check that cannot fail, and the screen
+       * it was watching can revert to a hand-typed service list — the exact regression this file
+       * was written for, which had already happened once — with nothing to say so.
+       */
+      (file) => !stripSourceComments(readFileSync(file, "utf8")).includes("wardServiceOrder"),
+      // 🔴 STILL DEFEATED BY A TRAILING `// wardServiceOrder`, and that is measured, not feared.
+      // `stripSourceComments` strips a line comment ONLY when the line begins with `//` — a
+      // deliberate choice recorded in the helper, because widening it would eat the `//` in a URL
+      // or a regex. Verified 2026-09-04: broken code plus `const x = 1; // wardServiceOrder`
+      // passes 3 of 3. The realistic shape — a comment on its own line — IS caught. Do not read
+      // this guard as closed; read it as narrowed from "any mention" to "a mention on a code line".
+      // Pinned executably in tests/ward-guard-comment-blindness.test.ts (CHARACTERISATION).
     );
 
     expect(
