@@ -19,8 +19,16 @@ import type {
 
 export { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails, splitCatalogClauses };
 
+// The trailing `[^|]*` (not `.*`) matters: these clauses must not cross a `|`
+// clause boundary. Catalogue fields like referral_pathway are pipe-joined
+// blobs of several source paraphrases — one placeholder clause ("Not
+// publicly stated on summary page | ... | Referral must come from public or
+// private mental health service") must not make the WHOLE field look
+// unknown when a later clause is concrete. Per-clause placeholder filtering
+// already happens downstream in compactCatalogField/splitCatalogParts; this
+// gate only short-circuits a field that is unknown in its entirety.
 const UNKNOWN_VALUES =
-  /^(?:not publicly stated(?:\s+(?:in|by|on)\b.*)?|not applicable|none|n\/a|unknown|does not specify\b.*)$/i;
+  /^(?:not publicly stated(?:\s+(?:in|by|on)\b[^|]*)?|not applicable|none|n\/a|unknown|does not specify\b[^|]*)$/i;
 
 const CARD_MAX = 120;
 const ROW_MAX = 160;
