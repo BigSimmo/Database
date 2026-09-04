@@ -131,7 +131,7 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "routes",
     name: "Routes and modes",
-    summary: "Every page and all 16 modes",
+    summary: "Every page and every app mode",
     group: "reference",
     phase: 1,
     href: "/mockups/development/routes",

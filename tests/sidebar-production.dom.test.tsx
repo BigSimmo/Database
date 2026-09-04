@@ -45,7 +45,7 @@ afterEach(() => {
   document.documentElement.classList.remove("dark", "theme-transitioning");
 });
 
-describe("production Clinical Guide sidebar", () => {
+describe("production PsychSift sidebar", () => {
   it("prefetches Applications only when its Tools shortcut receives pointer or focus intent", () => {
     const onPrefetchApplications = vi.fn();
     renderSidebar({ onPrefetchApplications });
@@ -88,7 +88,7 @@ describe("production Clinical Guide sidebar", () => {
     expect(navigation.getByRole("link", { name: "Medication" })).toHaveAttribute("href", "/?mode=prescribing");
     expect(navigation.getAllByRole("button").at(-1)).toHaveAccessibleName("More modes");
 
-    await user.click(screen.getByRole("button", { name: "Search Clinical Guide" }));
+    await user.click(screen.getByRole("button", { name: "Search PsychSift" }));
     await waitFor(() => expect(props.onOpenSearch).toHaveBeenCalledOnce());
   });
 
