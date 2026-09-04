@@ -110,6 +110,7 @@ function harness() {
             status: "indexed",
             index_generation_id: "generation-1",
             metadata: {
+              corpus_scope: id,
               publication_manifest_version: 2,
               source_policy_version: "source-policy-v1",
               publication_source_policy_version: "source-policy-v1",
@@ -225,7 +226,7 @@ describe("governed public corpus retrieval", () => {
     expect(calls).toEqual(["match_document_chunks_text_v3"]);
   });
 
-  it("admits an uploaded-local row returned by the receipt-gated SQL boundary", async () => {
+  it("issues document admission only for current australian-public rows", async () => {
     const { supabase } = harness();
     const results = await searchGovernedCorpora({
       supabase,
@@ -238,18 +239,24 @@ describe("governed public corpus retrieval", () => {
       signal: new AbortController().signal,
     });
 
-    const uploaded = results.find((candidate) => candidate.corpus_scope === "uploaded_local");
-    expect(uploaded?.source_metadata).toMatchObject({
-      corpus_scope: "uploaded_local",
+    const australian = results.find((candidate) => candidate.corpus_scope === "australian_public");
+    expect(australian?.source_metadata).toMatchObject({
+      corpus_scope: "australian_public",
       source_kind: "document",
       uploaded_by: null,
     });
-    expect(uploaded?.context_pack_admission).toMatchObject({
+    expect(australian?.context_pack_admission).toMatchObject({
       ownerId: null,
       sourcePolicyVersion: "source-policy-v1",
       indexGeneration: "generation-1",
       siteContent: null,
     });
+    expect(
+      results.find((candidate) => candidate.corpus_scope === "uploaded_local")?.context_pack_admission,
+    ).toBeUndefined();
+    expect(
+      results.find((candidate) => candidate.corpus_scope === "international_supplementary")?.context_pack_admission,
+    ).toBeUndefined();
   });
 
   it("fails closed when a governed scope carries the wrong canonical source kind", async () => {

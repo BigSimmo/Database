@@ -6,6 +6,7 @@ import type {
   RagSubquestionPurpose,
   SiteContentDomain,
 } from "@/lib/types";
+import { hasClinicalPopulationSignal } from "@/lib/rag/rag-clinical-language-signals";
 
 const broadPurposeOrder = [
   "primary",
@@ -27,8 +28,6 @@ const siteDomainSignals: ReadonlyArray<readonly [SiteContentDomain, RegExp]> = [
   ["calculators", /\bcalculators?|scores?\b/i],
   ["tools", /\btools?\b/i],
 ];
-const populationSignal =
-  /\b(?:adolescents?|children|child|paediatric|pediatric|adult|older adults?|elderly|pregnan\w*|perinatal)\b/i;
 const jurisdictionSignal =
   /\b(?:WA|Western Australia|Australia|Australian|NSW|Victoria|Queensland|Tasmania|ACT|NT|SA)\b/i;
 const settingSignal = /\b(?:inpatient|outpatient|community|hospital|ward|emergency department|ED|clinic)\b/i;
@@ -78,7 +77,7 @@ function dimensionReasons(query: string, analysis: ClinicalQueryAnalysis) {
 
   if (hasDocumentSignal) reasons.push("document_explicit");
   if (hasMedicineSignal) reasons.push("medicine_explicit");
-  if (populationSignal.test(query)) {
+  if (hasClinicalPopulationSignal(query)) {
     reasons.push("population_explicit");
   }
   if (jurisdictionSignal.test(query)) {
@@ -110,7 +109,7 @@ function materialAmbiguity(query: string, analysis: ClinicalQueryAnalysis): Clin
   );
   const hasClinicalTarget =
     analysis.medications.length > 0 ||
-    populationSignal.test(query) ||
+    hasClinicalPopulationSignal(query) ||
     /\b(?:monitoring|treatment|assessment|admission|discharge)\b/i.test(query);
   const hasContextAnchor = jurisdictionSignal.test(query) || settingSignal.test(query);
   if (requiredObject && !(hasClinicalTarget && hasContextAnchor)) {
@@ -142,7 +141,7 @@ function identifiableComparisonSide(side: string, analysis: ClinicalQueryAnalysi
     return false;
   }
   if (analysis.medications.some((medicine) => side.toLowerCase().includes(medicine.toLowerCase()))) return true;
-  if (populationSignal.test(side) || jurisdictionSignal.test(side) || settingSignal.test(side)) return true;
+  if (hasClinicalPopulationSignal(side) || jurisdictionSignal.test(side) || settingSignal.test(side)) return true;
   if (/\b(?:guideline|policy|procedure|protocol|form|service|therapy|medication)\b/i.test(side)) return true;
   return /^[A-Z][A-Z0-9-]{1,}$/.test(side.trim());
 }

@@ -391,6 +391,30 @@ describe("claim-oriented context packing", () => {
     expect(packedEvidenceResults(pack).map((member) => member.id)).toEqual(["primary", "adjacent"]);
   });
 
+  it("joins safe same-document adjacency even when another document is interleaved in ranking", () => {
+    const first = evidence("same-doc-5", "Assess the current presentation before treatment.", {
+      chunk_index: 5,
+    });
+    const interleaved = evidence("other-doc", "Record the unrelated administrative note.", {
+      document_id: "doc-other",
+      chunk_index: 2,
+    });
+    const second = evidence("same-doc-6", "Titrate treatment for elderly patients only after review.", {
+      chunk_index: 6,
+    });
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("treatment", [first, interleaved, second])],
+      coverage: coverage(["treatment"]),
+      tokenBudget: 360,
+    });
+
+    const sameDocumentGroup = pack.groups.find((group) => group.members.some((member) => member.id === "same-doc-5"));
+    expect(sameDocumentGroup?.members.map((member) => member.id)).toEqual(["same-doc-5", "same-doc-6"]);
+    expect(packedEvidenceResults(pack).map((member) => member.id)).toEqual(["same-doc-5", "same-doc-6", "other-doc"]);
+    expect(pack.usedTokens).toBeLessThanOrEqual(360);
+  });
+
   it("deduplicates evidence families and gives every required subquestion a bounded first group", () => {
     const monitoring = evidence("monitoring", "Check lithium levels after dose changes.", {
       contentHash: "family-monitoring",
@@ -592,6 +616,44 @@ describe("claim-oriented context packing", () => {
     );
   });
 
+  it("partitions governed cache identity by required lanes and verified conflicts", () => {
+    const local = evidence("cache-local", "Use the local monitoring schedule.");
+    const australian = evidence("cache-au", "Use the Australian monitoring schedule.", {
+      corpusScope: "australian_public",
+      sourceRole: "clinical_guideline",
+      document_id: "doc-cache-au",
+    });
+    const requiredCoverage = coverage(["monitoring"]);
+    const optionalCoverage: AnswerCoveragePlan = {
+      ...requiredCoverage,
+      subquestions: requiredCoverage.subquestions.map((subquestion) => ({ ...subquestion, required: false })),
+    };
+    const plainSelection = selection("monitoring", [local, australian], "dose_or_monitoring");
+    const conflictedSelection = selection("monitoring", [local, australian], "dose_or_monitoring", [
+      conflict(local, australian, "dose_or_monitoring"),
+    ]);
+    const identity = {
+      coverage: requiredCoverage,
+      selections: [plainSelection],
+      planVersion: "rag-query-plan-v1",
+      ...trustedAdmission(),
+    };
+    const requiredKey = packedContextCacheKey([local, australian], "medication_dose_risk", identity);
+
+    expect(
+      packedContextCacheKey([local, australian], "medication_dose_risk", {
+        ...identity,
+        coverage: optionalCoverage,
+      }),
+    ).not.toBe(requiredKey);
+    expect(
+      packedContextCacheKey([local, australian], "medication_dose_risk", {
+        ...identity,
+        selections: [conflictedSelection],
+      }),
+    ).not.toBe(requiredKey);
+  });
+
   it("fails closed when authoritative owner or generation admission is absent", () => {
     const missingOwner = evidence("missing-owner", "Private candidate without a verified owner.", {
       ownerId: "owner-a",
@@ -662,6 +724,66 @@ describe("claim-oriented context packing", () => {
     const pack = packClaimOrientedContext({
       ...trustedAdmission(),
       selections: [selection("instruction", [source], "dose_or_monitoring")],
+      coverage: coverage(["instruction"]),
+      tokenBudget: 2_000,
+    });
+
+    expect(packedEvidenceResults(pack)).toEqual([]);
+  });
+
+  it.each([
+    {
+      field: "retrieval synopsis",
+      overrides: {
+        retrieval_synopsis: `${"Background without a clinical directive. ".repeat(30)} Titrate treatment for elderly patients.`,
+      },
+    },
+    {
+      field: "adjacent context",
+      overrides: {
+        adjacent_context: `${"Background without a clinical directive. ".repeat(38)} Hold treatment for perinatal patients.`,
+      },
+    },
+    {
+      field: "memory card",
+      overrides: {
+        memory_cards: [
+          {
+            document_id: "doc-guideline",
+            card_type: "workflow" as const,
+            title: "Workflow",
+            content: `${"Background without a clinical directive. ".repeat(14)} Titrate treatment for elderly patients.`,
+            normalized_terms: [],
+            page_number: 1,
+            source_chunk_ids: ["serialized-field-instruction"],
+            source_image_ids: [],
+            confidence: 1,
+          },
+        ],
+      },
+    },
+    {
+      field: "clinical image table text",
+      overrides: {
+        images: [
+          {
+            id: "clinical-table-image",
+            page_number: 1,
+            storage_path: "clinical-table.png",
+            caption: "Treatment table",
+            image_type: "table",
+            searchable: true,
+            clinical_relevance_score: 1,
+            tableTextSnippet: `${"Background without a clinical directive. ".repeat(15)} Give 4 puffs for perinatal patients.`,
+          },
+        ],
+      },
+    },
+  ])("omits action and population atoms truncated from $field", ({ overrides }) => {
+    const source = evidence("serialized-field-instruction", "Current contextual evidence.", overrides);
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("instruction", [source], "treatment")],
       coverage: coverage(["instruction"]),
       tokenBudget: 2_000,
     });

@@ -98,23 +98,27 @@ function sourceGovernanceLine(result: SearchResult) {
   ].join("; ");
 }
 
-function tableSnippetForFact(
-  result: SearchResult,
-  fact: NonNullable<SearchResult["table_facts"]>[number],
-  limit = 420,
-) {
+function tableSnippetTextForFact(result: SearchResult, fact: NonNullable<SearchResult["table_facts"]>[number]) {
   const image = fact.source_image_id ? result.images?.find((candidate) => candidate.id === fact.source_image_id) : null;
   const factMetadata = safeRecord(fact.metadata);
   const metadataCells = Array.isArray(factMetadata.cells)
     ? (factMetadata.cells as unknown[]).map(String).filter(Boolean).join(" | ")
     : "";
-  const snippet =
+  return (
     image?.accessibleTableMarkdown ??
     image?.tableTextSnippet ??
     metadataText(factMetadata, "accessible_table_markdown") ??
     metadataText(factMetadata, "table_text_snippet") ??
-    metadataCells;
-  return compactEvidenceText(snippet, limit);
+    metadataCells
+  );
+}
+
+function tableSnippetForFact(
+  result: SearchResult,
+  fact: NonNullable<SearchResult["table_facts"]>[number],
+  limit = 420,
+) {
+  return compactEvidenceText(tableSnippetTextForFact(result, fact), limit);
 }
 
 function formatTableFactForSourceBlock(
@@ -155,6 +159,27 @@ function compactEvidenceFieldIsLossless(text: string | null | undefined, limit: 
   return compactEvidenceText(text, limit) === compactEvidenceText(text, Number.MAX_SAFE_INTEGER);
 }
 
+/** Every clinical-prose field serialized into the model source block. */
+export function ragSerializedClinicalEvidenceText(result: SearchResult) {
+  return [
+    result.content,
+    result.retrieval_synopsis,
+    result.adjacent_context,
+    ...(result.table_facts ?? []).flatMap((fact) => [
+      fact.table_title,
+      fact.row_label,
+      fact.clinical_parameter,
+      fact.threshold_value,
+      fact.action,
+      tableSnippetTextForFact(result, fact),
+    ]),
+    ...(result.memory_cards ?? []).map((card) => card.content),
+    ...(result.images ?? []).filter((image) => isClinicalImageEvidence(image)).map((image) => image.tableTextSnippet),
+  ]
+    .filter((text): text is string => Boolean(text))
+    .join(" ");
+}
+
 export function ragSourceSerializationPreservesAtomicEvidence(result: SearchResult, options?: RagSourceBlockOptions) {
   if (!compactEvidenceFieldIsLossless(result.content, 1_800)) return false;
   if (!compactEvidenceFieldIsLossless(result.retrieval_synopsis, 700)) return false;
@@ -163,11 +188,20 @@ export function ragSourceSerializationPreservesAtomicEvidence(result: SearchResu
   const rich = richTableSourceContextEnabled(options);
   const facts = result.table_facts ?? [];
   if (facts.length > (rich ? 3 : 4)) return false;
-  return facts.every(
-    (fact) =>
-      formatTableFactForSourceBlock(result, fact, rich) ===
-      formatTableFactForSourceBlock(result, fact, rich, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER),
-  );
+  if (
+    !facts.every(
+      (fact) =>
+        formatTableFactForSourceBlock(result, fact, rich) ===
+        formatTableFactForSourceBlock(result, fact, rich, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER),
+    )
+  )
+    return false;
+  const memoryCards = result.memory_cards ?? [];
+  if (memoryCards.length > 3 || memoryCards.some((card) => !compactEvidenceFieldIsLossless(card.content, 300)))
+    return false;
+  return (result.images ?? [])
+    .filter((image) => isClinicalImageEvidence(image))
+    .every((image) => compactEvidenceFieldIsLossless(image.tableTextSnippet, 320));
 }
 
 export function buildRagSourceBlock(results: SearchResult[], options?: RagSourceBlockOptions) {

@@ -4,6 +4,7 @@ import { retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-
 import { hasClinicalValueOrSchedule } from "@/lib/answer-verification";
 import { buildCrossDocumentFusionBrief } from "@/lib/cross-document-synthesis";
 import { contextPackAdmissionMatches } from "@/lib/rag/rag-context-admission";
+import { hasClinicalActionSignal, hasClinicalPopulationSignal } from "@/lib/rag/rag-clinical-language-signals";
 import { ragContextSnapshotCacheKey } from "@/lib/rag/rag-context-snapshot";
 import type { ModelContextEvidenceSelection } from "@/lib/rag/rag-context-selection";
 import {
@@ -17,6 +18,7 @@ import {
   buildPackedRagSourceBlock,
   compactContextText,
   estimatePackedRagSourceBlockTokens,
+  ragSerializedClinicalEvidenceText,
   ragSourceSerializationPreservesAtomicEvidence,
 } from "@/lib/rag/rag-source-block";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
@@ -91,11 +93,7 @@ const knownSiteDomains = new Set([
   "calculators",
   "tools",
 ]);
-const populationPattern =
-  /\b(?:adult|child|adolescent|older adult|over \d+ years|under \d+ years|pregnan|renal|hepatic|paediatric|geriatric)\b/i;
 const exceptionPattern = /\b(?:except|unless|however|but|instead|contraindicat|do not|must not|avoid|withhold)\b/i;
-const actionPattern =
-  /\b(?:administer|arrange|cease|check|contact|continue|discontinue|escalate|give|monitor|prescribe|refer|repeat|review|start|stop|use|withhold)\b/i;
 const unitOrQualifierPattern =
   /\b(?:\d+(?:\.\d+)?\s*(?:mg|mcg|microg|g|kg|mL|L|IU|units?|mmol|%|x10\^?\d+\/L)|daily|nightly|weekly|hourly|maximum|minimum|above|below|at least|no more than)\b/i;
 const packedGroupsByResultSet = new WeakMap<SearchResult[], PackedEvidenceGroup[]>();
@@ -160,40 +158,14 @@ function eligibleResult(
 }
 
 function atomicFeatures(members: readonly SearchResult[]) {
-  const text = members
-    .flatMap((member) => [
-      member.content,
-      member.retrieval_synopsis,
-      ...(member.table_facts ?? []).flatMap((fact) => [
-        fact.row_label,
-        fact.clinical_parameter,
-        fact.threshold_value,
-        fact.action,
-      ]),
-    ])
-    .filter(Boolean)
-    .join(" ");
+  const text = members.map(ragSerializedClinicalEvidenceText).join(" ");
   return {
-    hasPopulation: populationPattern.test(text),
+    hasPopulation: hasClinicalPopulationSignal(text),
     hasException: exceptionPattern.test(text),
-    hasAction: actionPattern.test(text),
-    hasUnitsOrQualifier: unitOrQualifierPattern.test(text),
+    hasAction: hasClinicalActionSignal(text),
+    hasUnitsOrQualifier: unitOrQualifierPattern.test(text) || hasClinicalValueOrSchedule(text),
     hasStructuredTableContext: members.some((member) => Boolean(member.table_facts?.length)),
   };
-}
-
-function canJoinAdjacent(group: PackedEvidenceGroup, result: SearchResult, claimRole: ClinicalClaimRole) {
-  const last = group.members[group.members.length - 1];
-  if (!last || group.claimRole !== claimRole || group.corpusScope !== result.corpus_scope) return false;
-  const identity = resultIdentity(result);
-  return (
-    group.accessIdentity === "public" &&
-    identity.accessIdentity === "public" &&
-    group.generationIdentity === identity.generationIdentity &&
-    group.releaseIdentity === identity.releaseIdentity &&
-    last.document_id === result.document_id &&
-    Math.abs(last.chunk_index - result.chunk_index) === 1
-  );
 }
 
 function groupIdPayload(group: Omit<PackedEvidenceGroup, "id" | "atomicFeatures">) {
@@ -220,6 +192,71 @@ function groupIdPayload(group: Omit<PackedEvidenceGroup, "id" | "atomicFeatures"
       ),
     })),
   };
+}
+
+function coalesceAdjacentGroups(groups: PackedEvidenceGroup[]) {
+  const ordinary = groups
+    .map((group, encounter) => ({ group, encounter }))
+    .filter(({ group }) => !group.admissionUnitId);
+  const buckets = new Map<string, typeof ordinary>();
+  for (const item of ordinary) {
+    const first = item.group.members[0];
+    if (!first) continue;
+    const key = JSON.stringify([
+      item.group.claimRole,
+      item.group.corpusScope,
+      item.group.accessIdentity,
+      item.group.generationIdentity,
+      item.group.releaseIdentity,
+      first.document_id,
+    ]);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(item);
+    else buckets.set(key, [item]);
+  }
+  const replacements = new Map<PackedEvidenceGroup, { encounter: number; group: PackedEvidenceGroup }>();
+  const consumed = new Set<PackedEvidenceGroup>();
+  for (const bucket of buckets.values()) {
+    const sorted = [...bucket].sort(
+      (left, right) =>
+        (left.group.members[0]?.chunk_index ?? 0) - (right.group.members[0]?.chunk_index ?? 0) ||
+        left.encounter - right.encounter ||
+        left.group.id.localeCompare(right.group.id),
+    );
+    let component: typeof sorted = [];
+    const flush = () => {
+      if (component.length < 2) {
+        component = [];
+        return;
+      }
+      const firstEncounter = Math.min(...component.map(({ encounter }) => encounter));
+      const merged = refreshGroup({
+        ...component[0].group,
+        subquestionIds: component.flatMap(({ group }) => group.subquestionIds),
+        required: component.some(({ group }) => group.required),
+        evidenceFamilyIds: component.flatMap(({ group }) => group.evidenceFamilyIds),
+        members: component.flatMap(({ group }) => group.members),
+      });
+      replacements.set(component[0].group, { encounter: firstEncounter, group: merged });
+      component.slice(1).forEach(({ group }) => consumed.add(group));
+      component = [];
+    };
+    for (const item of sorted) {
+      const previous = component[component.length - 1]?.group.members.at(-1);
+      const current = item.group.members[0];
+      if (previous && current && current.chunk_index - previous.chunk_index !== 1) flush();
+      component.push(item);
+    }
+    flush();
+  }
+  return groups
+    .flatMap((group, encounter) => {
+      if (consumed.has(group)) return [];
+      const replacement = replacements.get(group);
+      return [{ encounter: replacement?.encounter ?? encounter, group: replacement?.group ?? group }];
+    })
+    .sort((left, right) => left.encounter - right.encounter)
+    .map(({ group }) => group);
 }
 
 function refreshGroup(group: PackedEvidenceGroup): PackedEvidenceGroup {
@@ -274,19 +311,6 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
         duplicate.required ||= requiredBySubquestion.get(selection.subquestionId) === true;
         continue;
       }
-      const previous = groups[groups.length - 1];
-      if (
-        previous &&
-        !admissionUnitId &&
-        !previous.admissionUnitId &&
-        canJoinAdjacent(previous, result, selection.claimRole)
-      ) {
-        previous.members.push(result);
-        previous.subquestionIds.push(selection.subquestionId);
-        previous.evidenceFamilyIds.push(...evidenceFamilyIds);
-        groupByDedupeKey.set(dedupeKey, previous);
-        continue;
-      }
       const identity = resultIdentity(result);
       const group = refreshGroup({
         id: "",
@@ -305,7 +329,7 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
     }
   }
 
-  const candidates = groups.map(refreshGroup);
+  const candidates = coalesceAdjacentGroups(groups.map(refreshGroup));
   const units: PackedEvidenceGroup[][] = [];
   const unitById = new Map<string, PackedEvidenceGroup[]>();
   for (const candidate of candidates) {
@@ -335,7 +359,7 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
         group.atomicFeatures.hasAction ||
         group.atomicFeatures.hasUnitsOrQualifier ||
         group.atomicFeatures.hasStructuredTableContext ||
-        group.members.some((member) => hasClinicalValueOrSchedule(member.content)),
+        group.members.some((member) => hasClinicalValueOrSchedule(ragSerializedClinicalEvidenceText(member))),
     );
     if (
       truncationSensitive &&
@@ -452,16 +476,27 @@ function reconcilePackedSelection(
   };
 }
 
+export function governedContextPackingApplies(selection: ModelContextEvidenceSelection) {
+  return Boolean(selection.coverage && selection.coverageSelections.length);
+}
+
+/** Reconcile one governed selection to the exact pack before it can own response artifacts. */
+export async function packModelContextEvidence(
+  selection: ModelContextEvidenceSelection,
+  pack: (selection: ModelContextEvidenceSelection) => Promise<SearchResult[]>,
+) {
+  if (!governedContextPackingApplies(selection)) return selection as PackedModelContextEvidenceSelection;
+  return reconcilePackedSelection(selection, await pack(selection));
+}
+
 /** Pack served and retry selections through the same authority before any generation-visible use. */
 export async function packModelContextEvidencePair(
   pair: { served: ModelContextEvidenceSelection; strongRetry: ModelContextEvidenceSelection },
   pack: (selection: ModelContextEvidenceSelection) => Promise<SearchResult[]>,
 ) {
-  const servedResults = await pack(pair.served);
-  const strongRetryResults = await pack(pair.strongRetry);
   return {
-    served: reconcilePackedSelection(pair.served, servedResults),
-    strongRetry: reconcilePackedSelection(pair.strongRetry, strongRetryResults),
+    served: await packModelContextEvidence(pair.served, pack),
+    strongRetry: await packModelContextEvidence(pair.strongRetry, pack),
   };
 }
 
@@ -538,12 +573,31 @@ export function packedContextCacheKey(
     snapshotIdentity: ragContextSnapshotCacheKey(options.snapshot),
     accessScope: stableHash(retrievalAccessScopeKey(options.accessScope)),
     coverage: options.coverage
-      ? options.coverage.coverage.map((item) => [item.subquestionId, item.status, item.chunkIds, item.reasonCodes])
+      ? {
+          subquestions: options.coverage.subquestions.map((item) => [item.id, item.required]),
+          states: options.coverage.coverage.map((item) => [
+            item.subquestionId,
+            item.status,
+            item.chunkIds,
+            item.reasonCodes,
+          ]),
+        }
       : null,
     selections: options.selections?.map((selection) => [
       selection.subquestionId,
       selection.claimRole,
       selection.coverageReason,
+      selection.sourcePolicyReview,
+      selection.sourcePolicyConflictOmitted,
+      selection.conflicts.map((conflict) => [
+        conflict.id,
+        conflict.claimRole,
+        conflict.topicKey,
+        conflict.localPrimaryDecision.selected,
+        conflict.localPrimaryDecision.reason,
+        [...conflict.local.supportingChunkIds].sort(),
+        [...conflict.australian.supportingChunkIds].sort(),
+      ]),
       selection.orderedEvidence.map(governedResultIdentity),
     ]),
     results: results.map(governedResultIdentity),

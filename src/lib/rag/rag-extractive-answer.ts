@@ -7,6 +7,7 @@ import {
   LABELLED_NUMERIC_BAND_CONFLICT_NOTE,
   textReferencesAdjacentBandConflict,
 } from "@/lib/answer-verification";
+import { hasClinicalActionSignal } from "@/lib/rag/rag-clinical-language-signals";
 export { labelledNumericBandConflictChunkIds } from "@/lib/answer-verification";
 import { citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
 import {
@@ -1429,11 +1430,6 @@ function upperFirst(value: string) {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
-// A clinical action clause: an imperative/directive verb that turns a bare conditional
-// ("if INR is high") into a complete, self-contained sentence ("if INR is high, withhold warfarin").
-const extractiveActionClausePattern =
-  /\b(?:withhold|cease|stop|discontinue|hold|monitor|check|repeat|review|refer|arrange|contact|escalate|seek|avoid|continue|commence|start|initiate|titrate|prescribe|administer|give|reduce|increase|document|consider|recheck|admit|transfer)\b/i;
-
 /** Complete extractive sentence. */
 export function completeExtractiveSentence(value: string, query: string) {
   const cleaned = sanitizeAnswerText(value)
@@ -1452,7 +1448,7 @@ export function completeExtractiveSentence(value: string, query: string) {
     const conditionalAsSentence = `${upperFirst(cleaned)}.`;
     if (
       /,\s*\S/.test(cleaned) &&
-      extractiveActionClausePattern.test(cleaned) &&
+      hasClinicalActionSignal(cleaned) &&
       !isFragmentLikeClinicalAnswer(conditionalAsSentence, query)
     ) {
       return conditionalAsSentence;

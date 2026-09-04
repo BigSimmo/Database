@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
+import { issueContextPackAdmissionReceipt } from "@/lib/rag/rag-context-admission";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 function fullSource(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -20,6 +21,16 @@ function fullSource(overrides: Partial<SearchResult> = {}): SearchResult {
     similarity: 0.82,
     corpus_scope: "clinical_kb_site",
     site_content_domain: "medications",
+    context_pack_admission: issueContextPackAdmissionReceipt({
+      ownerId: null,
+      sourcePolicyVersion: "source-policy-v1",
+      indexGeneration: null,
+      siteContent: {
+        releaseId: "12345678-1234-5678-9234-123456789abc",
+        releaseDigest: "a".repeat(64),
+        changeEpoch: "7",
+      },
+    }),
     source_metadata: { document_status: "current" } as SearchResult["source_metadata"],
     adjacent_context: "Preceding paragraph context. ".repeat(20),
     document_summary: "A long document summary. ".repeat(30),
@@ -61,6 +72,7 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.document_summary).toBeUndefined();
     expect(trimmed.corpus_scope).toBeUndefined();
     expect(trimmed.site_content_domain).toBeUndefined();
+    expect(trimmed.context_pack_admission).toBeUndefined();
     expect(trimmed.images).toEqual([]);
   });
 

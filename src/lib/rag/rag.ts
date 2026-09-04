@@ -151,6 +151,8 @@ export {
 import {
   buildContextSourceBlock,
   createGenerationContextPacker,
+  governedContextPackingApplies,
+  packModelContextEvidence,
   packModelContextEvidencePair,
   packAdjacentSourceContext,
 } from "@/lib/rag/rag-context-pack";
@@ -2609,8 +2611,26 @@ async function answerQuestionWithScopeUncoalesced(
     siteContentState: args.ragRequestContext?.snapshot.publicSiteContent.state,
     sourcePolicyConflicts: args.sourcePolicyConflicts,
   });
-  const answerInputResults = routeSelection.results;
-  let coverageSelections: CoverageEvidenceSelection[] = routeSelection.coverageSelections;
+  let contextPackLatencyMs = 0,
+    contextPackCacheHits = 0;
+  const contextPackAccessScope = retrievalAccessScopeForArgs(args);
+  const contextPackerOptions = {
+    queryClass,
+    crossDocument: crossDocumentPlan.enabled,
+    documentIds: args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : undefined,
+    planVersion: args.ragQueryPlanVersion,
+    snapshot: args.ragRequestContext!.snapshot,
+    accessScope: contextPackAccessScope,
+    onCacheHit: () => void (contextPackCacheHits += 1),
+    onDuration: (durationMs: number) => void (contextPackLatencyMs += durationMs),
+  };
+  const packGovernedContext = createGenerationContextPacker({
+    ...contextPackerOptions,
+    loadLegacy: async (legacyResults) => legacyResults,
+  });
+  const packedRouteSelection = await packModelContextEvidence(routeSelection, packGovernedContext);
+  const answerInputResults = packedRouteSelection.results;
+  let coverageSelections: CoverageEvidenceSelection[] = packedRouteSelection.coverageSelections;
   const crossDocumentFusionBrief = crossDocumentPlan.enabled
     ? buildCrossDocumentFusionBrief(answerFocusQuery, answerInputResults)
     : null;
@@ -2674,11 +2694,11 @@ async function answerQuestionWithScopeUncoalesced(
   const explicitlySelectedComparisonDocuments = Array.from(
     new Set([...(args.documentIds ?? []), ...(args.documentId ? [args.documentId] : [])]),
   );
-  const comparisonEvaluation =
+  const comparisonFor = (comparisonResults: SearchResult[]) =>
     queryClass === "comparison"
       ? buildComparisonMatrix({
           query: args.query,
-          results: answerInputResults,
+          results: comparisonResults,
           selectedDocuments: explicitlySelectedComparisonDocuments,
         })
       : null;
@@ -2707,10 +2727,7 @@ async function answerQuestionWithScopeUncoalesced(
   const gatedRoute = validatedExtractiveShortCircuit
     ? { route: routeBeforeConfidenceGate }
     : applyConfidenceGate(routeBeforeConfidenceGate, queryClass, initialRetrievalDiagnostics);
-  // In source-only mode (offline, or auto with no usable key) we never call the model. Route to
-  // the deterministic extractive path when evidence is usable, but preserve the confidence gate's
-  // "unsupported" decision so weak evidence still fails closed to a source-gap answer rather than
-  // producing a low-confidence source-only answer that looks authoritative.
+  // Source-only requests stay deterministic while preserving unsupported confidence gates.
   const sourceOnlyAnswer = isSourceOnlyMode();
   const route =
     sourceOnlyAnswer && gatedRoute.route.mode !== "unsupported"
@@ -2813,8 +2830,6 @@ async function answerQuestionWithScopeUncoalesced(
     callerSignal: args.signal,
     startedAt,
   });
-  // True exactly when pre-answer work (dominated by retrieval) consumed the whole route
-  // budget before generation could start. Additive telemetry; deadlineExceeded unchanged.
   const routeBudgetExhaustedByRetrieval = routeDeadline.budgetMs > 0 && routeDeadline.remainingMs() <= 0;
   const routeTimingDiagnostics = () => ({
     pre_retrieval_latency_ms: preRetrievalLatencyMs,
@@ -2854,6 +2869,7 @@ async function answerQuestionWithScopeUncoalesced(
   if (route.mode === "unsupported") {
     const relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
     const unsupportedWithNearbySources = answerInputResults.length > 0;
+    const comparisonEvaluation = comparisonFor(answerInputResults);
     const answer: RagAnswer = annotateAnswerWithDiagnostics(
       {
         answer: finalQualityGapAnswer(args.query, queryClass),
@@ -2889,7 +2905,8 @@ async function answerQuestionWithScopeUncoalesced(
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
           second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
-          context_pack_latency_ms: 0,
+          context_pack_latency_ms: contextPackLatencyMs,
+          context_pack_cache_hits: contextPackCacheHits,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
           ...routeTimingDiagnostics(),
@@ -3020,7 +3037,8 @@ async function answerQuestionWithScopeUncoalesced(
       rerank_latency_ms: search.telemetry.rerank_latency_ms,
       second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
       second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
-      context_pack_latency_ms: 0,
+      context_pack_latency_ms: contextPackLatencyMs,
+      context_pack_cache_hits: contextPackCacheHits,
       search_latency_ms: searchLatencyMs,
       generation_latency_ms: 0,
       ...routeTimingDiagnostics(),
@@ -3087,9 +3105,7 @@ async function answerQuestionWithScopeUncoalesced(
     answer.relatedDocuments ??= relatedDocuments;
     answer.relevance = extractiveContextArtifacts.relevance;
     answer.queryAnalysis = queryAnalysis;
-    // The source-bound comparison is already formatted as two directly cited sections and
-    // intentionally has no matrix rows. Labelling it as comparison_matrix would make the
-    // matrix-only attribution validator reject those section-scoped claims.
+    // A source-bound comparison has cited sections, not matrix-attributed rows.
     answer.responseMode = extractiveSmartApiPlan.displayMode;
     answer.smartPanel = answer.smartPanel
       ? { ...answer.smartPanel, relevance: extractiveContextArtifacts.relevance }
@@ -3261,24 +3277,19 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
   let retriedWithStrong = false;
   let openAIUsage: OpenAITokenUsage = {};
   const openAIRequestIds: string[] = [];
-  let contextPackLatencyMs = 0;
-  let contextPackCacheHits = 0;
   let answerRetryCount = 0;
   const answerRetryReasons: string[] = [];
-  const contextPackAccessScope = retrievalAccessScopeForArgs(args);
-  const contextPackOptions = { crossDocument: crossDocumentPlan.enabled, accessScope: contextPackAccessScope };
-  const packContextForGeneration = createGenerationContextPacker({
-    queryClass,
-    crossDocument: contextPackOptions.crossDocument,
-    documentIds: args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : undefined,
-    planVersion: args.ragQueryPlanVersion,
-    snapshot: args.ragRequestContext!.snapshot,
-    accessScope: contextPackAccessScope,
-    loadLegacy: (results) =>
-      routeDeadline.race(packAdjacentSourceContext(createAdminClient(), results, queryClass, contextPackOptions)),
-    onCacheHit: () => void (contextPackCacheHits += 1),
-    onDuration: (durationMs) => void (contextPackLatencyMs += durationMs),
-  });
+  const packContextForGeneration = governedContextPackingApplies(routeSelection)
+    ? packGovernedContext
+    : createGenerationContextPacker({
+        ...contextPackerOptions,
+        loadLegacy: (legacyResults) =>
+          routeDeadline.race(
+            packAdjacentSourceContext(createAdminClient(), legacyResults, queryClass, {
+              crossDocument: crossDocumentPlan.enabled,
+            }),
+          ),
+      });
 
   async function generateWithModel(
     model: string,
@@ -3286,8 +3297,7 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     options?: { strong?: boolean; qualityRetryInstruction?: string; maxOutputTokensOverride?: number },
   ): Promise<OpenAITextResult> {
     const qualityRetryInstruction = options?.qualityRetryInstruction;
-    // Fast vs strong is differentiated by reasoning effort, not model identity, so the
-    // fast->strong escalation still works when both tiers share a model (e.g. both gpt-5.5).
+    // Effort, rather than model identity, differentiates fast from strong generation.
     const useStrongReasoning = options?.strong ?? false;
     const input = qualityRetryInstruction
       ? `${buildAnswerInput(contextResults)}
@@ -3305,7 +3315,6 @@ ${qualityRetryInstruction}`
           schemaName: "clinical_rag_answer",
           instructions: answerInstructions,
           promptCacheKey: ragAnswerPromptVersion,
-          // Reserve-aware: never spend the recovery path's share of the route budget.
           timeoutMs: routeDeadline.generationRequestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS),
           maxRetries: 0,
           reasoningEffort: useStrongReasoning
@@ -3323,16 +3332,9 @@ ${qualityRetryInstruction}`
     }
   }
 
-  // Truncation self-heal budget: a max_output_tokens truncation means reasoning+answer
-  // exhausted the cap, not that the model failed. The strong retries below spend MORE
-  // reasoning than the first attempt, so they get a boosted cap — escalating to strong on
-  // the SAME budget is what previously burned a second full generation and still fell
-  // through to "unsupported". Billed per token actually used, so this is free unless hit.
+  // A truncated first attempt gets a larger bounded retry budget.
   const strongRetryMaxOutputTokens = Math.max(env.OPENAI_MAX_OUTPUT_TOKENS * 2, 24000);
-  // Cap cumulative generation wall-clock so a fast -> strong -> quality-repair chain can't
-  // stack three ~timeout-length calls into a ~90s tail. The quality-repair is a polish pass
-  // over an already-valid, cited strong answer, so once this budget is spent we keep the
-  // strong answer rather than risk a third generation (and a truncation -> unsupported tail).
+  // Keep the source-backed recovery reserve out of a multi-attempt generation tail.
   const generationTotalBudgetMs = env.OPENAI_ANSWER_TIMEOUT_MS * 2;
 
   function generationIncompleteReason(result: OpenAITextResult) {
@@ -3814,6 +3816,7 @@ ${qualityRetryInstruction}`
     answer.indexingQuality = responseContextArtifacts.indexingQuality;
     answer.smartApiPlan = buildCurrentSmartApiPlan(answer.routingMode, answer.routingReason, responseContextResults);
     answer.responseMode = answer.smartApiPlan.displayMode;
+    const comparisonEvaluation = comparisonFor(responseContextResults);
     answer.comparisonMatrix = comparisonEvaluation?.matrix;
     answer.comparisonEvaluationState = comparisonEvaluation?.evaluationState;
     answer.scoreExplanations = responseContextArtifacts.scoreExplanations;
@@ -3828,11 +3831,7 @@ ${qualityRetryInstruction}`
     });
     answer = finalizeAnswer(answer, numericVerificationSources);
 
-    // A provider response can be schema-valid yet still fail the deterministic claim/numeric
-    // provenance gates after its citations are scoped to individual claims. Reuse the existing
-    // source-safe comparison/extractive recovery path instead of returning an empty unsupported
-    // model answer. The fallback is finalized through the same gates in the catch block, so weak
-    // or unsafe source evidence still fails closed.
+    // Recover a schema-valid answer that fails deterministic provenance through the same final gates.
     const sourceSafeFallbackReason = answer.routingReason?.includes("claim_support_high_risk_gap")
       ? "claim_support_high_risk_gap"
       : answer.routingReason?.includes("material_source_governance_gap")

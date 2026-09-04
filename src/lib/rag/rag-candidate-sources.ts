@@ -251,7 +251,7 @@ async function attachDocumentContextPackAdmission(args: {
   results: SearchResult[];
   snapshot: RagContextSnapshot;
 }) {
-  const documentResults = args.results.filter((result) => result.corpus_scope !== "clinical_kb_site");
+  const documentResults = args.results.filter((result) => result.corpus_scope === "australian_public");
   if (!documentResults.length) return args.results;
   const client = args.supabase as unknown as {
     from?: (table: string) => {
@@ -279,6 +279,7 @@ async function attachDocumentContextPackAdmission(args: {
           : null;
       if (
         !metadata ||
+        metadata.corpus_scope !== "australian_public" ||
         metadata.publication_manifest_version !== 2 ||
         metadata.source_policy_version !== args.snapshot.sourcePolicyVersion ||
         metadata.publication_source_policy_version !== args.snapshot.sourcePolicyVersion ||
@@ -298,7 +299,7 @@ async function attachDocumentContextPackAdmission(args: {
       );
     }
     return args.results.map((result) => {
-      if (result.corpus_scope === "clinical_kb_site") return result;
+      if (result.corpus_scope !== "australian_public") return result;
       const receipt = receiptByChunkId.get(result.id);
       return receipt ? { ...result, context_pack_admission: receipt } : result;
     });
