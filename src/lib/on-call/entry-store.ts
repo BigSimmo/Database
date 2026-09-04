@@ -4,7 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 
 import { createBrowserStore } from "@/lib/client-store-factory";
+// The key, its event and the clear function live in a module that imports
+// nothing, so the auth provider can clear this cache without pulling the On
+// Call domain model into every page's bundle. Re-exported here so existing
+// call sites are unchanged.
+import {
+  clearOnCallEntryCache,
+  onCallEntryCacheChangedEvent,
+  onCallEntryCacheStorageKey,
+} from "@/lib/on-call/entry-cache-keys";
 import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
+
+export { clearOnCallEntryCache, onCallEntryCacheChangedEvent, onCallEntryCacheStorageKey };
 
 /**
  * On-device offline cache for On Call entries (`src/lib/on-call/entry-model.ts`).
@@ -16,9 +27,6 @@ import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
  * `src/components/clinical-dashboard/use-sidebar-pins.ts` for wiring a
  * `localStorage`-backed value through `createBrowserStore`.
  */
-
-export const onCallEntryCacheStorageKey = "clinical-kb-on-call-entries-cache";
-export const onCallEntryCacheChangedEvent = "clinical-kb-on-call-entries-cache-changed";
 
 export type CachedOnCallEntries = {
   entries: OnCallEntry[];
@@ -75,23 +83,6 @@ export function cacheOnCallEntries(entries: OnCallEntry[]): boolean {
     // Quota exceeded, private mode, or blocked storage: the caller already has
     // the entries in memory for this render, so there is nothing more to do.
     return false;
-  }
-}
-
-/**
- * Sign-out / session-expiry boundary. These are a hospital's internal numbers
- * and some are marked personal, so they must not outlive the session on a
- * shared machine. Called from the existing sign-out and session-expiry paths
- * in `src/lib/supabase/client.tsx` — do not invent a second sign-out path.
- */
-export function clearOnCallEntryCache(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(onCallEntryCacheStorageKey);
-    window.dispatchEvent(new Event(onCallEntryCacheChangedEvent));
-  } catch {
-    // Nothing further to do if storage itself is unavailable; there is then
-    // nothing on the device to clear.
   }
 }
 
