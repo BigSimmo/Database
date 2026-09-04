@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   deriveTopicBrowseSummaries,
@@ -9,6 +9,7 @@ import {
   totalSourceCount,
 } from "@/lib/sources/browse-facets";
 import { SOURCE_RATING_WEIGHTS, type ClinicalSourceCatalogueEntry } from "@/lib/sources/catalogue-types";
+import { formatCatalogueMonth } from "@/lib/sources/catalogue-view";
 
 function sourceEntry(
   overrides: Partial<ClinicalSourceCatalogueEntry> & Pick<ClinicalSourceCatalogueEntry, "id" | "title">,
@@ -214,6 +215,27 @@ describe("matchesBrowseQuery", () => {
     expect(matchesBrowseQuery(perinatal!, "mental health guideline")).toBe(true);
   });
 
+  it("matches a member that is not the group's lead", () => {
+    // The catalogue finds "Legacy perinatal reference"; the heading it sits
+    // under has to be findable by the same query, or the browse tab reports
+    // zero for a source the catalogue can show.
+    expect(matchesBrowseQuery(perinatal!, "legacy perinatal reference")).toBe(true);
+  });
+
+  it("matches a member through its aliases", () => {
+    const aliased = deriveTopicBrowseSummaries([
+      sourceEntry({ id: "src_alias", title: "Written bodily restraint order", aliases: ["Form 10B"] }),
+      sourceEntry({ id: "src_lead", title: "Bodily restraint order", aliases: ["Form 10A"] }),
+    ])[0];
+    expect(matchesBrowseQuery(aliased, "form 10b")).toBe(true);
+  });
+
+  it("does not match a needle only formed by joining two separate fields", () => {
+    // Fields are newline-joined, and a normalised needle can never contain a
+    // newline, so adjacency in the blob cannot manufacture a match.
+    expect(matchesBrowseQuery(perinatal!, "guideline legacy")).toBe(false);
+  });
+
   it("excludes a row nothing in the group matches", () => {
     expect(matchesBrowseQuery(perinatal!, "electroconvulsive")).toBe(false);
   });
@@ -259,5 +281,25 @@ describe("sortBrowseSummaries", () => {
 describe("totalSourceCount", () => {
   it("adds the group counts a filtered browse list is standing behind", () => {
     expect(totalSourceCount(deriveTopicBrowseSummaries(entries))).toBe(4);
+  });
+});
+
+describe("formatCatalogueMonth", () => {
+  const originalTimeZone = process.env.TZ;
+  afterEach(() => {
+    process.env.TZ = originalTimeZone;
+  });
+
+  it("keeps a recorded calendar date in its own month regardless of timezone", () => {
+    // `Date.parse("2026-01-01")` is UTC midnight; formatting that instant west
+    // of UTC renders "Dec 2025", and differently in the browser than on the
+    // server that rendered it.
+    expect(formatCatalogueMonth("2026-01-01")).toBe("Jan 2026");
+    expect(formatCatalogueMonth("2025-12-31")).toBe("Dec 2025");
+  });
+
+  it("returns null rather than a fabricated month for absent or malformed dates", () => {
+    expect(formatCatalogueMonth(null)).toBeNull();
+    expect(formatCatalogueMonth("not-a-date")).toBeNull();
   });
 });

@@ -297,6 +297,18 @@ describe("Sources browse tabs", () => {
     expect(routerReplace).toHaveBeenLastCalledWith("/sources/topics?jurisdiction=international", { scroll: false });
   });
 
+  it("clears the query without silently discarding the filters beside it", async () => {
+    currentPathname = "/sources/topics";
+    currentSearchParams = new URLSearchParams("q=electroconvulsive&jurisdiction=international");
+    render(await SourcesTopicsPage());
+
+    // The empty state offers filter removal as its own control, so a
+    // "Clear search" that also wiped the jurisdiction would make one of the two
+    // controls a lie about what it does.
+    fireEvent.click(screen.getByTestId("search-results-empty-clear-search"));
+    expect(routerPush).toHaveBeenLastCalledWith("/sources/topics?jurisdiction=international");
+  });
+
   it("tells both browse tabs that their counts are incomplete when documents cannot be reached", async () => {
     currentPathname = "/sources/topics";
     const topics = render(await SourcesTopicsPage());

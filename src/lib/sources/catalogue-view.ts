@@ -163,6 +163,23 @@ function countValues(values: readonly string[]) {
     .sort((left, right) => compareText(left.value, right.value));
 }
 
+/**
+ * A catalogue date rendered as its own month.
+ *
+ * A recorded date here is a calendar date, not an instant, and `Date.parse`
+ * reads a bare `YYYY-MM-DD` as UTC midnight. Formatting that in a timezone west
+ * of UTC moves it back a day — `2026-01-01` renders as "Dec 2025" in
+ * America/Los_Angeles, and differently in the browser than on the server that
+ * rendered it. Parsing it as local midnight keeps the recorded month stable
+ * wherever it is read.
+ */
+export function formatCatalogueMonth(value: string | null): string | null {
+  if (!value) return null;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric" }).format(date);
+}
+
 export function deriveSourceCatalogueFacets(entries: readonly ClinicalSourceCatalogueEntry[]) {
   return {
     total: entries.length,

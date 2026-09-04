@@ -53,6 +53,18 @@ export type SourceBrowseSummary = {
   latestDateLabel: "reviewed" | "published" | null;
   /** The member the catalogue would list first. */
   leadEntry: { id: string; title: string } | null;
+  /**
+   * Every searchable term in the group, pre-normalised, one field per line.
+   *
+   * Separate from the display fields above, which are capped at three entries
+   * and carry only the lead member's title: a query matching a non-lead title
+   * or any alias found the source in the catalogue but reported zero headings
+   * here, which is the exact mismatch this browse surface exists to close.
+   * Newline-joined because `normalizeSearchValue` collapses whitespace, so a
+   * needle can never contain one and therefore can never match across two
+   * fields that are only adjacent by concatenation.
+   */
+  searchText: string;
 };
 
 export type SourceBrowseOrder = "coverage" | "alpha" | "attention";
@@ -169,6 +181,18 @@ function summarise(params: {
     usedByModes: rankedValues(entries.flatMap((entry) => entry.usedBy.map((usage) => usage.modeId))),
     jurisdictions,
     scope: params.scope ?? jurisdictions[0] ?? "unknown",
+    searchText: [
+      label,
+      value,
+      ...entries.map((entry) => entry.title),
+      ...entries.flatMap((entry) => entry.aliases),
+      ...entries.map((entry) => entry.publisher ?? ""),
+      ...entries.flatMap((entry) => entry.topics.map(sourceTopicLabel)),
+      ...entries.map((entry) => sourceTopicLabel(entry.sourceType)),
+    ]
+      .map(normalizeSearchValue)
+      .filter(Boolean)
+      .join("\n"),
     latestDate: latest?.date ?? null,
     latestDateLabel: latest?.label ?? null,
     leadEntry: lead ? { id: lead.id, title: lead.title } : null,
@@ -222,25 +246,17 @@ export function derivePublisherBrowseSummaries(
 /**
  * Whether a browse row survives the composer's query.
  *
- * Matched against the same normalised terms `filterAndSortSourceCatalogue` uses,
- * plus the group's own supporting detail, so a query that would find a source in
- * the catalogue also finds the heading that source sits under. Without this the
- * two tabs listed everything while the composer displayed a query — a browse
- * result asserted for a search that never ran.
+ * Matched against `searchText`, which carries the same terms
+ * `filterAndSortSourceCatalogue` matches — every member's title and aliases, its
+ * publisher and topics — so a query that finds a source in the catalogue also
+ * finds the heading that source sits under. Without this the two tabs listed
+ * everything while the composer displayed a query — a browse result asserted
+ * for a search that never ran.
  */
 export function matchesBrowseQuery(summary: SourceBrowseSummary, query: string) {
   const needle = normalizeSearchValue(query);
   if (!needle) return true;
-  return [
-    summary.label,
-    summary.value,
-    summary.leadEntry?.title ?? "",
-    ...summary.publishers,
-    ...summary.topics.map(sourceTopicLabel),
-    ...summary.sourceTypes.map(sourceTopicLabel),
-  ]
-    .map(normalizeSearchValue)
-    .some((candidate) => candidate.includes(needle));
+  return summary.searchText.includes(needle);
 }
 
 export function sortBrowseSummaries(

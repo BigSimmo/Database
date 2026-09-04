@@ -29,6 +29,7 @@ import {
   type SourceBrowseSummary,
 } from "@/lib/sources/browse-facets";
 import type { SourceGeographyScope, SourceQualityBand } from "@/lib/sources/catalogue-types";
+import { formatCatalogueMonth } from "@/lib/sources/catalogue-view";
 
 /**
  * Topics and Publishers, on the chrome the Catalogue already uses.
@@ -128,13 +129,6 @@ const orderOptions: ReadonlyArray<{ value: SourceBrowseOrder; label: string }> =
   { value: "attention", label: "Needs review first" },
 ];
 
-function monthYear(value: string | null) {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric" }).format(date);
-}
-
 function readOrder(value: string | null): SourceBrowseOrder {
   return value === "coverage" || value === "attention" ? value : "alpha";
 }
@@ -147,7 +141,7 @@ function qualityPhrase(summary: SourceBrowseSummary) {
 
 function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: SourceBrowseSummary; href: string }) {
   const Icon = kindCopy[kind].icon;
-  const latest = monthYear(summary.latestDate);
+  const latest = formatCatalogueMonth(summary.latestDate);
   const detail = kind === "topic" ? summary.publishers : summary.topics.map(sourceTopicLabel);
   const usage = summary.usedByModes.slice(0, 2).map((modeId) => appModeDefinition(modeId).label);
   const bands = SOURCE_BAND_ORDER.filter((band) => summary.bandCounts[band] > 0);
@@ -312,6 +306,19 @@ export function SourcesBrowseClient({
   const toggleFacet = (key: FacetKey, value: string) => {
     const current = selected[key];
     setParamValues(key, current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+  };
+
+  // Drops the query and keeps every filter — the mirror of `clearFilters`, which
+  // keeps the query. The empty state offers both as separate controls, so a
+  // "Clear search" that also silently wiped band, jurisdiction and usage would
+  // make one of those controls a lie.
+  const clearQuery = () => {
+    const next = new URLSearchParams();
+    for (const [candidateKey, candidateValue] of searchParams.entries()) {
+      if (candidateKey !== "q") next.append(candidateKey, candidateValue);
+    }
+    const suffix = next.toString();
+    router.push(`${pathname}${suffix ? `?${suffix}` : ""}`);
   };
 
   const clearFilters = () => {
@@ -491,7 +498,7 @@ export function SourcesBrowseClient({
           query={query}
           appliedFilters={appliedFilters}
           onClearFilters={appliedFilters.length > 0 ? clearFilters : undefined}
-          onClearSearch={query ? () => router.push(`${pathname}`) : undefined}
+          onClearSearch={query ? clearQuery : undefined}
           onBrowseAll={() => router.push("/sources/search")}
           browseAllLabel="Browse every source"
         />

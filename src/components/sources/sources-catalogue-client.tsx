@@ -25,7 +25,11 @@ import type {
   SourceCatalogueFilters,
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
-import { filterAndSortSourceCatalogue, parseSourceCatalogueFilters } from "@/lib/sources/catalogue-view";
+import {
+  filterAndSortSourceCatalogue,
+  formatCatalogueMonth,
+  parseSourceCatalogueFilters,
+} from "@/lib/sources/catalogue-view";
 import { sourceAttentionFlags } from "@/lib/sources/source-status-presentation";
 import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation";
 
@@ -98,6 +102,12 @@ function uniqueSorted(values: readonly string[]) {
  * current, and reading a future expiry as recency is the inference the Method
  * page forbids. Absent dates return null and the tile says nothing rather than
  * inventing a currency claim.
+ *
+ * The comparison still uses `Date.parse`, which reads a bare `YYYY-MM-DD` as UTC
+ * midnight — every candidate shifts by the same amount, so the ordering is
+ * unaffected. Rendering is not: `formatCatalogueMonth` parses the winner as a
+ * local calendar date, because a UTC instant formatted west of UTC shows the
+ * previous month.
  */
 function latestKnownDate(entry: ClinicalSourceCatalogueEntry) {
   const candidates = [entry.reviewDate, entry.publicationDate].filter((value): value is string => Boolean(value));
@@ -105,11 +115,9 @@ function latestKnownDate(entry: ClinicalSourceCatalogueEntry) {
     .map((value) => ({ value, time: Date.parse(value) }))
     .filter((candidate) => !Number.isNaN(candidate.time))
     .sort((left, right) => right.time - left.time);
-  if (!parsed[0]) return null;
-  return {
-    label: entry.reviewDate === parsed[0].value ? "reviewed" : "published",
-    text: new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric" }).format(new Date(parsed[0].time)),
-  };
+  const text = formatCatalogueMonth(parsed[0]?.value ?? null);
+  if (!parsed[0] || !text) return null;
+  return { label: entry.reviewDate === parsed[0].value ? "reviewed" : "published", text };
 }
 
 function SourceTile({ entry }: { entry: ClinicalSourceCatalogueEntry }) {
