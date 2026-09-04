@@ -1,12 +1,13 @@
 "use client";
 
-import { MapPinned, Phone } from "lucide-react";
+import { MapPinned, Pencil, Phone } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
-import { cn, eyebrowText, metadataPillDensity } from "@/components/ui-primitives";
+import { cn, eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 export interface OnCallLogisticsSectionProps {
@@ -14,6 +15,10 @@ export interface OnCallLogisticsSectionProps {
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
+  /** Opens the entry editor for this row. Omitted when the viewer cannot edit. */
+  onEditEntry?: (entry: OnCallEntry) => void;
+  /** One-tap "still correct today"; shown only on a stale entry. */
+  onVerified?: (entry: OnCallEntry) => void;
 }
 
 interface OnCallLogisticsDetails {
@@ -50,28 +55,62 @@ function slugifyCategory(category: string): string {
   return slug || "group";
 }
 
-function LogisticsRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
+function LogisticsRow({
+  entry,
+  now,
+  onEditEntry,
+  onVerified,
+}: {
+  entry: OnCallEntry;
+  now: Date;
+  onEditEntry?: (entry: OnCallEntry) => void;
+  onVerified?: (entry: OnCallEntry) => void;
+}) {
   const details = parseLogisticsDetails(entry.details);
   const freshness = onCallEntryFreshness(entry, now);
   const href = telHref(details?.phone);
+  const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
     <div className="grid gap-1.5">
-      <OnCallEntryRow
-        icon={href ? Phone : MapPinned}
-        title={entry.title}
-        subtitle={details?.location}
-        href={href}
-        testId={`on-call-logistics-row-${entry.slug}`}
-      >
-        {details?.hours ? (
-          <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.hours}</span>
+      <div className="flex items-stretch gap-2">
+        <div className="min-w-0 flex-1">
+          <OnCallEntryRow
+            icon={href ? Phone : MapPinned}
+            title={entry.title}
+            subtitle={details?.location}
+            href={href}
+            testId={`on-call-logistics-row-${entry.slug}`}
+          >
+            {details?.hours ? (
+              <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.hours}</span>
+            ) : null}
+            {details?.phone && !href ? (
+              <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.phone}</span>
+            ) : null}
+            <OnCallFreshnessBadge freshness={freshness} />
+          </OnCallEntryRow>
+        </div>
+        {/* Sibling to the row, never nested inside it: the row above can
+            itself be a `tel:` link, and a `<button>` inside an `<a>` is
+            invalid, duplicate-interactive markup. */}
+        {onEditEntry || showVerify ? (
+          <div className="flex shrink-0 flex-col items-stretch justify-center gap-1.5">
+            {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+            {onEditEntry ? (
+              <button
+                type="button"
+                onClick={() => onEditEntry(entry)}
+                aria-label={`Edit ${entry.title}`}
+                data-testid={`on-call-logistics-edit-${entry.slug}`}
+                className={cn(toolbarButton, "shrink-0")}
+              >
+                <Pencil aria-hidden className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
         ) : null}
-        {details?.phone && !href ? (
-          <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.phone}</span>
-        ) : null}
-        <OnCallFreshnessBadge freshness={freshness} />
-      </OnCallEntryRow>
+      </div>
       {details?.url ? (
         // Rendered as a sibling, never nested inside the row above: when the
         // row itself is a `tel:` anchor, an interactive link inside it would
@@ -95,6 +134,8 @@ export function OnCallLogisticsSection({
   entries,
   now = new Date(),
   testId = "on-call-logistics-section",
+  onEditEntry,
+  onVerified,
 }: OnCallLogisticsSectionProps) {
   const logisticsEntries = entries.filter((entry) => entry.section === "logistics");
 
@@ -136,7 +177,13 @@ export function OnCallLogisticsSection({
             </h3>
             <div className="grid gap-2" data-testid={`on-call-logistics-group-${slug}`}>
               {group.entries.map((entry) => (
-                <LogisticsRow key={entry.id} entry={entry} now={now} />
+                <LogisticsRow
+                  key={entry.id}
+                  entry={entry}
+                  now={now}
+                  onEditEntry={onEditEntry}
+                  onVerified={onVerified}
+                />
               ))}
             </div>
           </section>

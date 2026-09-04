@@ -1,14 +1,20 @@
 "use client";
 
-import { FileText, ListChecks, Phone, Search } from "lucide-react";
+import { FileText, ListChecks, Pencil, Phone, Search } from "lucide-react";
 import Link from "next/link";
 
-import { cardInteractive } from "@/components/card-recipes";
+import { cardInteractive, cardSurface } from "@/components/card-recipes";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  type OnCallLinkedDocument,
+} from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 export interface OnCallPlaybookSectionProps {
@@ -25,15 +31,16 @@ export interface OnCallPlaybookSectionProps {
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
+  /** Opens the entry editor for this row. Omitted when the viewer cannot edit. */
+  onEditEntry?: (entry: OnCallEntry) => void;
+  /** One-tap "still correct today"; shown only on a stale entry. */
+  onVerified?: (entry: OnCallEntry) => void;
 }
 
 /** The one fact the Playbook may state about a linked document: its title and date. */
-export interface OnCallLinkedDocument {
-  id: string;
-  title: string;
-  /** ISO date string (publication or review date, whichever the caller prefers to surface), or null if unknown. */
-  date: string | null;
-}
+// Re-exported so the existing import sites keep working; the declaration lives
+// in the domain layer (see `src/lib/on-call/entry-model.ts`).
+export type { OnCallLinkedDocument };
 
 interface OnCallPlaybookDetails {
   trigger: string;
@@ -108,18 +115,26 @@ function PlaybookCard({
   entry,
   documents,
   now,
+  onEditEntry,
+  onVerified,
 }: {
   entry: OnCallEntry;
   documents: Readonly<Record<string, OnCallLinkedDocument>>;
   now: Date;
+  onEditEntry?: (entry: OnCallEntry) => void;
+  onVerified?: (entry: OnCallEntry) => void;
 }) {
   const details = parsePlaybookDetails(entry.details);
   const freshness = onCallEntryFreshness(entry, now);
   const steps = details ? [...details.escalationSteps].sort((a, b) => a.order - b.order) : [];
+  const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
     <article
-      className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e1)]"
+      // The shared recipe, not a hand-rolled copy of it: these three had every
+      // class right except `forced-colors:border`, so in Windows High Contrast
+      // the card edge disappeared.
+      className={cn(cardSurface, "grid gap-3 p-4")}
       data-testid={`on-call-playbook-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -127,7 +142,27 @@ function PlaybookCard({
           <h3 className="truncate text-sm font-semibold text-[color:var(--text)]">{entry.title}</h3>
           {details?.trigger ? <p className={cn("mt-0.5 text-xs", textMuted)}>{details.trigger}</p> : null}
         </div>
-        <OnCallFreshnessBadge freshness={freshness} />
+        {/* Sibling to the card, never nested inside a link: the escalation
+            steps below are individually `tel:` rows, and a `<button>` inside
+            an `<a>` is invalid, duplicate-interactive markup — this header is
+            not itself a link, but the same edit/verify controls stay a
+            sibling of the row content for consistency with every other
+            section. */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <OnCallFreshnessBadge freshness={freshness} />
+          {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+          {onEditEntry ? (
+            <button
+              type="button"
+              onClick={() => onEditEntry(entry)}
+              aria-label={`Edit ${entry.title}`}
+              data-testid={`on-call-playbook-edit-${entry.slug}`}
+              className={cn(toolbarButton, "shrink-0")}
+            >
+              <Pencil aria-hidden className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <div className="grid gap-2">
@@ -173,6 +208,8 @@ export function OnCallPlaybookSection({
   documents = {},
   now = new Date(),
   testId = "on-call-playbook-section",
+  onEditEntry,
+  onVerified,
 }: OnCallPlaybookSectionProps) {
   const playbookEntries = entries.filter((entry) => entry.section === "playbook");
 
@@ -192,7 +229,14 @@ export function OnCallPlaybookSection({
   return (
     <div data-testid={testId} className="grid gap-3">
       {sorted.map((entry) => (
-        <PlaybookCard key={entry.id} entry={entry} documents={documents} now={now} />
+        <PlaybookCard
+          key={entry.id}
+          entry={entry}
+          documents={documents}
+          now={now}
+          onEditEntry={onEditEntry}
+          onVerified={onVerified}
+        />
       ))}
     </div>
   );

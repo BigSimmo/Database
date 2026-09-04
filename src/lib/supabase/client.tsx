@@ -266,6 +266,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearPersistedAnswerThread();
         clearRecentQueries();
         clearSignedUrlCache();
+        // On Call entries are the owner's own ward numbers, escalation contacts
+        // and personal lines. A shared ward computer switches accounts without
+        // ever signing out, and the sign-out path below is the only other place
+        // this cache is cleared — so without this, the previous user's private
+        // entries render for the next one.
+        clearOnCallEntryCache();
       }
       publishedUserIdRef.current = nextUserId;
       setSession(nextSession);

@@ -154,6 +154,13 @@ export function useOnCallEntries(): OnCallEntriesState {
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
+  // What the fetch returned, held in memory. The cache is the live source once
+  // it works — edits write there and must be seen — but a browser blocking
+  // site data makes every write a silent no-op, and reading only the cache
+  // then reported an empty hub after a perfectly successful fetch: search said
+  // "nothing to search", the card said "nothing is flagged". This is the
+  // fallback for that browser, not a second source of truth.
+  const [fetched, setFetched] = useState<OnCallEntry[] | null>(null);
 
   useEffect(() => {
     // Runs once on mount only (empty deps): `loading` already starts `true`,
@@ -178,6 +185,7 @@ export function useOnCallEntries(): OnCallEntriesState {
         if (cancelled) return;
         setIsOffline(false);
         setSignedOut(parsedResponse.data.signedOut);
+        setFetched(entries);
         // Never write a signed-out (always-empty) response over a good cache:
         // a session expiring mid-shift must not erase numbers that were
         // readable a moment earlier.
@@ -200,7 +208,7 @@ export function useOnCallEntries(): OnCallEntriesState {
   }, []);
 
   return {
-    entries: cached?.entries ?? [],
+    entries: cached?.entries ?? fetched ?? [],
     cachedAt: cached?.savedAt ?? null,
     loading,
     isOffline,

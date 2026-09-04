@@ -1,11 +1,13 @@
 "use client";
 
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Pencil } from "lucide-react";
 
+import { cardSurface } from "@/components/card-recipes";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
-import { cn, eyebrowText, metadataPillDensity, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 export interface OnCallEducationSectionProps {
@@ -13,6 +15,10 @@ export interface OnCallEducationSectionProps {
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
+  /** Opens the entry editor for this row. Omitted when the viewer cannot edit. */
+  onEditEntry?: (entry: OnCallEntry) => void;
+  /** One-tap "still correct today"; shown only on a stale entry. */
+  onVerified?: (entry: OnCallEntry) => void;
 }
 
 interface OnCallEducationDetails {
@@ -41,13 +47,27 @@ function occurrenceSortKey(value: string | undefined): number {
   return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
 }
 
-function EducationCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
+function EducationCard({
+  entry,
+  now,
+  onEditEntry,
+  onVerified,
+}: {
+  entry: OnCallEntry;
+  now: Date;
+  onEditEntry?: (entry: OnCallEntry) => void;
+  onVerified?: (entry: OnCallEntry) => void;
+}) {
   const details = parseEducationDetails(entry.details);
   const freshness = onCallEntryFreshness(entry, now);
+  const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
     <article
-      className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e1)]"
+      // The shared recipe, not a hand-rolled copy of it: these three had every
+      // class right except `forced-colors:border`, so in Windows High Contrast
+      // the card edge disappeared.
+      className={cn(cardSurface, "grid gap-3 p-4")}
       data-testid={`on-call-education-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -55,7 +75,24 @@ function EducationCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
           <h3 className="truncate text-sm font-semibold text-[color:var(--text)]">{entry.title}</h3>
           {details?.presenter ? <p className={cn("mt-0.5 text-xs", textMuted)}>{details.presenter}</p> : null}
         </div>
-        <OnCallFreshnessBadge freshness={freshness} />
+        {/* Sibling to the card content, never inside a link: the recording
+            link below is its own `<a>`, and a `<button>` inside an `<a>` is
+            invalid, duplicate-interactive markup. */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <OnCallFreshnessBadge freshness={freshness} />
+          {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+          {onEditEntry ? (
+            <button
+              type="button"
+              onClick={() => onEditEntry(entry)}
+              aria-label={`Edit ${entry.title}`}
+              data-testid={`on-call-education-edit-${entry.slug}`}
+              className={cn(toolbarButton, "shrink-0")}
+            >
+              <Pencil aria-hidden className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-1.5">
@@ -98,6 +135,8 @@ export function OnCallEducationSection({
   entries,
   now = new Date(),
   testId = "on-call-education-section",
+  onEditEntry,
+  onVerified,
 }: OnCallEducationSectionProps) {
   const educationEntries = entries.filter((entry) => entry.section === "education");
 
@@ -124,7 +163,7 @@ export function OnCallEducationSection({
     <div data-testid={testId} className="grid gap-3">
       <h3 className={eyebrowText}>Next occurrence first</h3>
       {sorted.map((entry) => (
-        <EducationCard key={entry.id} entry={entry} now={now} />
+        <EducationCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
       ))}
     </div>
   );

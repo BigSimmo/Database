@@ -255,3 +255,14 @@ describe("OnCallSearchPage", () => {
     expect(row).toHaveAttribute("href", "/on-call/contacts");
   });
 });
+
+describe("before the first fetch lands", () => {
+  it("does not claim the owner has nothing while still loading", () => {
+    onCallEntriesState.entries = [];
+    onCallEntriesState.loading = true;
+    render(<OnCallSearchPage initialQuery="clozapine" />);
+    expect(screen.getByTestId("on-call-search-loading")).toBeTruthy();
+    expect(screen.queryByTestId("on-call-search-no-entries")).toBeNull();
+    onCallEntriesState.loading = false;
+  });
+});

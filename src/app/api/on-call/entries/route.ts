@@ -8,6 +8,9 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
+// One declaration of the request shapes, shared with the [id] route: create and
+// update must not be able to drift apart.
+import { createOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import {
   ON_CALL_SECTIONS,
@@ -27,11 +30,6 @@ export const runtime = "nodejs";
 const onCallListQuerySchema = z.object({
   section: z.enum(ON_CALL_SECTIONS).optional(),
 });
-
-// A create body has no id — the server generates one. Validate everything else against the
-// full entry contract, and validate `details` separately below because its shape depends on
-// the section the caller chose.
-const createOnCallEntrySchema = onCallEntrySchema.omit({ id: true });
 
 /**
  * Obviously synthetic, non-clinical fixture entries shown only in demo mode. No real hospital

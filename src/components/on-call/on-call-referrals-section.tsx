@@ -1,13 +1,14 @@
 "use client";
 
-import { Phone, Repeat } from "lucide-react";
+import { Pencil, Phone, Repeat } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { Disclosure } from "@/components/ui/disclosure";
-import { cn, textMuted } from "@/components/ui-primitives";
+import { cn, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 export interface OnCallReferralsSectionProps {
@@ -15,6 +16,10 @@ export interface OnCallReferralsSectionProps {
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
+  /** Opens the entry editor for this row. Omitted when the viewer cannot edit. */
+  onEditEntry?: (entry: OnCallEntry) => void;
+  /** One-tap "still correct today"; shown only on a stale entry. */
+  onVerified?: (entry: OnCallEntry) => void;
 }
 
 interface OnCallReferralsDetails {
@@ -107,6 +112,8 @@ export function OnCallReferralsSection({
   entries,
   now = new Date(),
   testId = "on-call-referrals-section",
+  onEditEntry,
+  onVerified,
 }: OnCallReferralsSectionProps) {
   const referralEntries = entries.filter((entry) => entry.section === "referrals");
 
@@ -128,10 +135,40 @@ export function OnCallReferralsSection({
       {sorted.map((entry) => {
         const details = parseReferralsDetails(entry.details);
         const freshness = onCallEntryFreshness(entry, now);
+        const showVerify = freshness.state === "stale" && Boolean(onVerified);
         return (
-          <Disclosure key={entry.id} title={entry.title} description={entry.subtitle ?? undefined}>
+          <Disclosure
+            key={entry.id}
+            title={entry.title}
+            description={entry.subtitle ?? undefined}
+            // The badge belongs in the collapsed header, not the panel. It sat
+            // inside the body, so a referral nobody had confirmed in over a
+            // year looked current until someone expanded it — the one surface
+            // in the mode where staleness was hidden by default.
+            meta={<OnCallFreshnessBadge freshness={freshness} />}
+          >
             <div className="grid gap-3">
-              <OnCallFreshnessBadge freshness={freshness} />
+              {/* Sibling to the panel content, never inside the disclosure's
+                  own trigger `<button>` above: a button nested inside another
+                  button is invalid, duplicate-interactive markup. */}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {showVerify || onEditEntry ? (
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+                    {onEditEntry ? (
+                      <button
+                        type="button"
+                        onClick={() => onEditEntry(entry)}
+                        aria-label={`Edit ${entry.title}`}
+                        data-testid={`on-call-referrals-edit-${entry.slug}`}
+                        className={cn(toolbarButton, "shrink-0")}
+                      >
+                        <Pencil aria-hidden className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
               {details ? (
                 <ReferralPanel entry={entry} details={details} />
               ) : (

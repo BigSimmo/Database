@@ -4,6 +4,7 @@ import {
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
 } from "@/lib/on-call/entry-model";
+import { selectCardEntries } from "@/lib/on-call/card-selection";
 
 const NOW = new Date("2026-09-04T00:00:00.000Z");
 
@@ -67,5 +68,37 @@ describe("onCallDetailsSchemaFor", () => {
       escalationSteps: [{ order: 1, whoToCall: "In-house registrar", when: "Immediately" }],
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe("a date we cannot read", () => {
+  // Fails to stale, never to fresh. `new Date("not-a-date").getTime()` is NaN,
+  // and every comparison against NaN is false — so the overdue branch would
+  // fall through and report a corrupt entry as freshly checked.
+  it("treats an unparseable last-verified date as never verified", () => {
+    const freshness = onCallEntryFreshness({ lastVerifiedAt: "not-a-date" }, new Date("2026-09-04T00:00:00.000Z"));
+    expect(freshness.state).toBe("stale");
+    expect(freshness.state === "stale" && freshness.reason).toBe("never-verified");
+  });
+
+  it("keeps an entry with an unreadable date off the printable card", () => {
+    const entries = [
+      {
+        id: "a",
+        slug: "corrupt",
+        section: "contacts" as const,
+        title: "Corrupt date",
+        subtitle: null,
+        body: null,
+        details: { role: "Switchboard" },
+        linkedDocumentIds: [],
+        tags: [],
+        isPersonal: false,
+        includeOnCard: true,
+        sortOrder: 0,
+        lastVerifiedAt: "2026-13-45T99:99:99Z",
+      },
+    ];
+    expect(selectCardEntries(entries, new Date("2026-09-04T00:00:00.000Z"))).toEqual([]);
   });
 });

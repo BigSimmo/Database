@@ -20,6 +20,26 @@ vi.mock("@/components/account-data-provider", () => ({
   }),
 }));
 
+const storeState = vi.hoisted(() => ({
+  entries: [] as unknown[],
+  loading: false,
+  isOffline: false,
+  signedOut: false,
+  cachedAt: null as string | null,
+}));
+
+// A settled, empty hub. Without this the store starts `loading: true` and every
+// section correctly renders its loading state instead of its empty one — which
+// is the behaviour under test here.
+vi.mock("@/lib/on-call/entry-store", () => ({
+  useOnCallEntries: () => storeState,
+  cacheOnCallEntries: vi.fn(),
+}));
+
+vi.mock("@/lib/on-call/linked-documents", () => ({
+  useOnCallLinkedDocuments: () => ({}),
+}));
+
 // The dialog's own contract (fields, submit, error/notice) is covered by its own
 // tests; this file only needs to know whether the "Sign in" action opens it.
 vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
@@ -107,13 +127,17 @@ describe("on-call section routes", () => {
   );
 
   it.each(routes.filter((route) => route.section !== "contacts").map((route) => [route.title, route] as const))(
-    "%s shows a genuine next action for a signed-in reader with no entries yet",
+    "%s shows its own empty state and a way to add to it",
     (_title, route) => {
       accountState.isAuthenticated = true;
       render(<route.Route />);
 
-      const empty = screen.getByTestId(`on-call-${route.section}-empty`);
-      expect(within(empty).getByRole("link", { name: "Search On Call" })).toHaveAttribute("href", "/on-call/search");
+      // These five once shared a placeholder "search the hub" empty state,
+      // because only Contacts was wired to the store — so the pages could not
+      // show entries and offered no way to create one. Each now renders its
+      // own section component and its own add control.
+      expect(screen.getByTestId(`on-call-${route.section}-empty`)).toBeTruthy();
+      expect(screen.getByTestId(`on-call-${route.section}-add`)).toBeTruthy();
       expect(screen.queryByTestId(`on-call-${route.section}-signed-out`)).toBeNull();
     },
   );

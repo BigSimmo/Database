@@ -69,13 +69,17 @@ const ACUTE_AGITATION = entry("playbook", {
   linkedDocumentIds: [AGITATION_GUIDELINE.id],
 });
 
-const SUSPECTED_OVERDOSE = entry("playbook", {
+// Deliberately content-free, like the search fixtures. What this case tests is
+// the ABSENCE of a linked document, not any clinical situation — so it states
+// no threshold and no escalation rule of its own. A fixture is how such content
+// usually enters a repository: it gets copied into a seed, then a demo.
+const UNLINKED_SCENARIO = entry("playbook", {
   id: "bbbbbbbb-0000-0000-0000-000000000002",
-  slug: "suspected-overdose",
-  title: "Suspected overdose",
+  slug: "scenario-with-no-linked-guideline",
+  title: "Scenario with no linked guideline",
   details: {
-    trigger: "Patient found unresponsive or reporting an overdose",
-    escalationSteps: [{ order: 1, whoToCall: "MET call", when: "Immediately" }],
+    trigger: "Owner-written trigger text",
+    escalationSteps: [{ order: 1, whoToCall: "On-call registrar", when: "As the owner recorded it" }],
   },
   linkedDocumentIds: [],
 });
@@ -125,9 +129,9 @@ describe("OnCallPlaybookSection", () => {
   });
 
   it("renders a real EmptyState offering a Documents search when no guideline is linked, with no clinical text at all", () => {
-    render(<OnCallPlaybookSection entries={[SUSPECTED_OVERDOSE]} now={NOW} />);
-    const card = screen.getByTestId("on-call-playbook-card-suspected-overdose");
-    const emptyState = within(card).getByTestId(`on-call-playbook-no-guideline-${SUSPECTED_OVERDOSE.slug}`);
+    render(<OnCallPlaybookSection entries={[UNLINKED_SCENARIO]} now={NOW} />);
+    const card = screen.getByTestId("on-call-playbook-card-scenario-with-no-linked-guideline");
+    const emptyState = within(card).getByTestId(`on-call-playbook-no-guideline-${UNLINKED_SCENARIO.slug}`);
     expect(emptyState).toHaveTextContent(/no local guideline linked/i);
 
     const searchAction = within(emptyState).getByRole("link", { name: /search documents/i });

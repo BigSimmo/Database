@@ -219,7 +219,17 @@ export function OnCallSearchPage({ initialQuery = "", now: nowProp }: { initialQ
           }
         />
         {!faulted ? (
-          entries.length === 0 ? (
+          loading && entries.length === 0 ? (
+            // Still fetching, nothing cached. "Nothing to search yet" is a
+            // claim about the owner's data that this page cannot make until
+            // the fetch lands — the card gets this right one file over.
+            <EmptyState
+              icon={Phone}
+              title="Loading your On Call information"
+              body="Fetching the entries you have added."
+              testId="on-call-search-loading"
+            />
+          ) : entries.length === 0 ? (
             // Nothing to search is not a failed search. Sending an owner who
             // has not added anything yet to "check the spelling" blames them
             // for a typo they did not make, and hides the one action that

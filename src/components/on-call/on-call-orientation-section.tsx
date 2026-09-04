@@ -1,13 +1,14 @@
 "use client";
 
-import { BookOpen, FileText, User } from "lucide-react";
+import { BookOpen, FileText, Pencil, User } from "lucide-react";
 import Link from "next/link";
 
-import { cardInteractive } from "@/components/card-recipes";
+import { cardInteractive, cardSurface } from "@/components/card-recipes";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import type { OnCallLinkedDocument } from "@/components/on-call/on-call-playbook-section";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
@@ -18,6 +19,10 @@ export interface OnCallOrientationSectionProps {
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
+  /** Opens the entry editor for this row. Omitted when the viewer cannot edit. */
+  onEditEntry?: (entry: OnCallEntry) => void;
+  /** One-tap "still correct today"; shown only on a stale entry. */
+  onVerified?: (entry: OnCallEntry) => void;
 }
 
 const documentLinkRow = cn(cardInteractive, "flex min-h-tap w-full items-center gap-3 rounded-lg p-3 text-left");
@@ -26,19 +31,27 @@ function OrientationCard({
   entry,
   documents,
   now,
+  onEditEntry,
+  onVerified,
 }: {
   entry: OnCallEntry;
   documents: Readonly<Record<string, OnCallLinkedDocument>>;
   now: Date;
+  onEditEntry?: (entry: OnCallEntry) => void;
+  onVerified?: (entry: OnCallEntry) => void;
 }) {
   const freshness = onCallEntryFreshness(entry, now);
   const linkedDocs = entry.linkedDocumentIds
     .map((id) => documents[id])
     .filter((doc): doc is OnCallLinkedDocument => Boolean(doc));
+  const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
     <article
-      className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e1)]"
+      // The shared recipe, not a hand-rolled copy of it: these three had every
+      // class right except `forced-colors:border`, so in Windows High Contrast
+      // the card edge disappeared.
+      className={cn(cardSurface, "grid gap-3 p-4")}
       data-testid={`on-call-orientation-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -46,7 +59,24 @@ function OrientationCard({
           <h3 className="truncate text-sm font-semibold text-[color:var(--text)]">{entry.title}</h3>
           {entry.subtitle ? <p className={cn("mt-0.5 text-xs", textMuted)}>{entry.subtitle}</p> : null}
         </div>
-        <OnCallFreshnessBadge freshness={freshness} />
+        {/* Sibling to the card content, never inside a link: the document
+            link below is its own `<a>`, and a `<button>` inside an `<a>` is
+            invalid, duplicate-interactive markup. */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <OnCallFreshnessBadge freshness={freshness} />
+          {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+          {onEditEntry ? (
+            <button
+              type="button"
+              onClick={() => onEditEntry(entry)}
+              aria-label={`Edit ${entry.title}`}
+              data-testid={`on-call-orientation-edit-${entry.slug}`}
+              className={cn(toolbarButton, "shrink-0")}
+            >
+              <Pencil aria-hidden className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {entry.body ? (
@@ -98,6 +128,8 @@ export function OnCallOrientationSection({
   documents = {},
   now = new Date(),
   testId = "on-call-orientation-section",
+  onEditEntry,
+  onVerified,
 }: OnCallOrientationSectionProps) {
   const orientationEntries = entries.filter((entry) => entry.section === "orientation");
 
@@ -117,7 +149,14 @@ export function OnCallOrientationSection({
   return (
     <div data-testid={testId} className="grid gap-3">
       {sorted.map((entry) => (
-        <OrientationCard key={entry.id} entry={entry} documents={documents} now={now} />
+        <OrientationCard
+          key={entry.id}
+          entry={entry}
+          documents={documents}
+          now={now}
+          onEditEntry={onEditEntry}
+          onVerified={onVerified}
+        />
       ))}
     </div>
   );

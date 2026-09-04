@@ -19,6 +19,13 @@ export function onCallEntryFreshness(
 ): OnCallFreshness {
   if (!entry.lastVerifiedAt) return { state: "stale", reason: "never-verified", lastVerifiedAt: null };
   const due = new Date(entry.lastVerifiedAt);
+  // An unparseable date makes every comparison below false, which would return
+  // "fresh" — the one wrong answer. A date we cannot read is not evidence that
+  // anyone checked this entry, so it fails to stale and stays off the printed
+  // card, exactly like an entry nobody has ever verified.
+  if (Number.isNaN(due.getTime())) {
+    return { state: "stale", reason: "never-verified", lastVerifiedAt: null };
+  }
   const dayOfMonth = due.getUTCDate();
   due.setUTCMonth(due.getUTCMonth() + ON_CALL_REVIEW_INTERVAL_MONTHS);
   // A leap-day anniversary has no 29 February to land on, and setUTCMonth silently
@@ -132,3 +139,17 @@ export const onCallEntrySchema = z
   .strict();
 
 export type OnCallEntry = z.infer<typeof onCallEntrySchema>;
+
+/**
+ * The one fact an On Call surface may state about a document it links to: its
+ * title and its date. Declared here in the domain layer rather than beside the
+ * Playbook that renders it, because `src/lib` may not import from
+ * `src/components` (tests/lib-layering.test.ts) and the resolver that builds
+ * these lives in `src/lib/on-call/linked-documents.ts`.
+ */
+export interface OnCallLinkedDocument {
+  id: string;
+  title: string;
+  /** ISO date string (publication or review date), or null if unknown. */
+  date: string | null;
+}

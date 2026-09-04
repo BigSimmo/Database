@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { Plus } from "lucide-react";
+
 import { useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
@@ -8,6 +9,11 @@ import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setu
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
 import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
+import { OnCallEducationSection } from "@/components/on-call/on-call-education-section";
+import { OnCallLogisticsSection } from "@/components/on-call/on-call-logistics-section";
+import { OnCallOrientationSection } from "@/components/on-call/on-call-orientation-section";
+import { OnCallPlaybookSection } from "@/components/on-call/on-call-playbook-section";
+import { OnCallReferralsSection } from "@/components/on-call/on-call-referrals-section";
 import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
 import {
   ON_CALL_SECTION_ICONS,
@@ -16,8 +22,10 @@ import {
 } from "@/components/on-call/on-call-nav-header";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
+import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
 import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 
 /**
@@ -38,6 +46,16 @@ const ON_CALL_SECTION_DESCRIPTIONS: Record<OnCallSection, string> = {
   logistics: "Parking, after-hours food, call rooms, IT, rostering, payroll and leave.",
 };
 
+/** What one entry in each section is called, for the add control's label. */
+const ON_CALL_ADD_NOUN: Record<OnCallSection, string> = {
+  contacts: "contact",
+  playbook: "scenario",
+  referrals: "service",
+  orientation: "manual",
+  education: "session",
+  logistics: "note",
+};
+
 const ON_CALL_SIGNED_OUT_BODY: Record<OnCallSection, string> = {
   contacts: "Sign in to see your on-call contacts.",
   playbook: "Sign in to see your escalation playbook.",
@@ -52,11 +70,16 @@ const ON_CALL_SIGNED_OUT_BODY: Record<OnCallSection, string> = {
  * `src/components/sources/sources-pages.tsx`'s factoring: peer surfaces off one
  * shared shape, so six sections cannot drift into six divergent shells.
  *
- * Contacts is the one section wired to real entries and the add/edit/delete
- * editor (task 11) — it is the section Task 9 built as the template, and the
- * only one the editor is reachable from today. The remaining five keep the
- * placeholder empty state below until they adopt the same wiring in a later
- * pass; nothing here stops that adoption from being a per-section addition.
+ * All six sections render their own entries through their own list component
+ * and share one editor, which already carries per-section fields.
+ *
+ * They did not, briefly: only Contacts was wired, so the other five list
+ * components were reachable from their tests and from nothing else, and five
+ * of the mode's six pages said "no entries yet" no matter what the owner had
+ * saved — including the Playbook, whose "no local guideline" safety state was
+ * therefore unreachable. Adding a seventh section means adding one arm to
+ * `renderSectionList` and one entry to the editor's field map, and nothing
+ * else.
  */
 export function OnCallSectionPage({ section }: { section: OnCallSection }) {
   const { isAuthenticated } = useAccountData();
@@ -67,13 +90,14 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
   });
   const title = ON_CALL_SECTION_TITLES[section];
   const Icon = ON_CALL_SECTION_ICONS[section];
-  const isContacts = section === "contacts";
-
-  // Hooks run unconditionally; only the contacts branch below actually reads
-  // this. Harmless (and cheap — one fetch, then cache reads) for the other
-  // five sections until they adopt it too.
-  const { entries, isOffline, cachedAt } = useOnCallEntries();
-  const contactEntries = entries.filter((entry) => entry.section === "contacts");
+  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  // Each list component filters `entries` to its own section itself, so the
+  // page hands over the whole set rather than six near-identical slices.
+  const sectionEntries = entries.filter((entry) => entry.section === section);
+  // Only Playbook and Orientation display linked documents; the hook is cheap
+  // and returns an empty map on any failure, so it runs unconditionally rather
+  // than behind a section check that would break the rules of hooks.
+  const linkedDocuments = useOnCallLinkedDocuments();
 
   function upsertCachedEntry(entry: OnCallEntry) {
     const next = entries.some((existing) => existing.id === entry.id)
@@ -84,6 +108,35 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
 
   function removeCachedEntry(id: string) {
     cacheOnCallEntries(entries.filter((existing) => existing.id !== id));
+  }
+
+  const listProps = {
+    entries: sectionEntries,
+    onEditEntry: (entry: OnCallEntry) => setEditorState({ open: true, entry }),
+    onVerified: upsertCachedEntry,
+  };
+
+  /**
+   * The one place a section id becomes a list component. The switch has no
+   * `default`, so `OnCallSection` gaining a seventh member is a compile error
+   * here rather than a page that silently renders nothing — which is exactly
+   * how five of these six went unmounted in the first place.
+   */
+  function renderSectionList() {
+    switch (section) {
+      case "contacts":
+        return <OnCallContactsSection {...listProps} onAddEntry={() => setEditorState({ open: true, entry: null })} />;
+      case "playbook":
+        return <OnCallPlaybookSection {...listProps} documents={linkedDocuments} />;
+      case "referrals":
+        return <OnCallReferralsSection {...listProps} />;
+      case "orientation":
+        return <OnCallOrientationSection {...listProps} documents={linkedDocuments} />;
+      case "education":
+        return <OnCallEducationSection {...listProps} />;
+      case "logistics":
+        return <OnCallLogisticsSection {...listProps} />;
+    }
   }
 
   return (
@@ -107,34 +160,43 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
           className={cn(inPageAnchor, "grid gap-3")}
           aria-labelledby={`on-call-${section}-entries-heading`}
         >
-          <h2 id={`on-call-${section}-entries-heading`} className="text-xl font-semibold">
-            {title}
-          </h2>
-          {isContacts && isAuthenticated ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id={`on-call-${section}-entries-heading`} className="text-xl font-semibold">
+              {title}
+            </h2>
+            {/* Contacts carries its own add button inside its list component
+                (it also appears in that section's empty state). The other five
+                get it here, because without one an owner can reach an empty
+                Playbook or Logistics page with no way to put anything on it. */}
+            {isAuthenticated && section !== "contacts" ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={Plus}
+                onClick={() => setEditorState({ open: true, entry: null })}
+                testId={`on-call-${section}-add`}
+              >
+                {`Add ${ON_CALL_ADD_NOUN[section]}`}
+              </Button>
+            ) : null}
+          </div>
+          {isAuthenticated ? (
             <>
               {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
-              <OnCallContactsSection
-                entries={contactEntries}
-                onAddEntry={() => setEditorState({ open: true, entry: null })}
-                onEditEntry={(entry) => setEditorState({ open: true, entry })}
-                onVerified={upsertCachedEntry}
-              />
+              {loading && sectionEntries.length === 0 ? (
+                // Nothing cached and the first fetch still running. An empty
+                // state here would assert the owner has no entries before
+                // anything has been read.
+                <EmptyState
+                  icon={Icon}
+                  title={`Loading your ${title.toLowerCase()}`}
+                  body="Fetching the entries you have saved."
+                  testId={`on-call-${section}-loading`}
+                />
+              ) : (
+                renderSectionList()
+              )}
             </>
-          ) : isAuthenticated ? (
-            <EmptyState
-              icon={Icon}
-              title={`No ${title.toLowerCase()} entries yet`}
-              body="Entries you add will appear here. In the meantime, search across every On Call section."
-              actions={
-                <Link
-                  href="/on-call/search"
-                  className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
-                >
-                  Search On Call
-                </Link>
-              }
-              testId={`on-call-${section}-empty`}
-            />
           ) : (
             <EmptyState
               icon={Icon}
@@ -155,16 +217,16 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
         </section>
       </InformationPageShell>
       <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
-      {isContacts ? (
-        <OnCallEntryEditor
-          open={editorState.open}
-          onClose={() => setEditorState({ open: false, entry: null })}
-          section="contacts"
-          entry={editorState.entry}
-          onSaved={upsertCachedEntry}
-          onDeleted={removeCachedEntry}
-        />
-      ) : null}
+      {/* One editor for every section: its field map is already keyed by
+          section, so there is nothing per-section to add here. */}
+      <OnCallEntryEditor
+        open={editorState.open}
+        onClose={() => setEditorState({ open: false, entry: null })}
+        section={section}
+        entry={editorState.entry}
+        onSaved={upsertCachedEntry}
+        onDeleted={removeCachedEntry}
+      />
     </>
   );
 }

@@ -291,6 +291,7 @@
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-section-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -318,6 +319,7 @@
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-section-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -661,6 +663,7 @@
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx",
         "src/components/therapy-compass/record/source-provenance.tsx"
       ],
       "designSync": {
@@ -926,7 +929,11 @@
         "src/components/on-call/on-call-logistics-section.tsx",
         "src/components/on-call/on-call-referrals-section.tsx"
       ],
-      "productImportFiles": [],
+      "productImportFiles": [
+        "src/components/on-call/on-call-education-section.tsx",
+        "src/components/on-call/on-call-logistics-section.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -942,8 +949,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -4313,7 +4320,7 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 39,
+    "productImportedComponentCount": 40,
     "rootCount": 99,
     "productionRouteCount": 91,
     "nextUiEntryCount": 154
