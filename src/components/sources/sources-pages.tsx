@@ -186,7 +186,7 @@ export function SourcesMethodPage(): ReactNode {
             <Link
               key={band}
               href={`/sources/search?band=${band}`}
-              className="inline-flex min-h-8 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-semibold text-[color:var(--primary)] hover:border-[color:var(--border-strong)]"
+              className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-semibold text-[color:var(--primary)] hover:border-[color:var(--border-strong)] sm:min-h-compact-meta"
             >
               {bandLabels[band]}
             </Link>
@@ -430,7 +430,7 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
                 <Link
                   key={topic}
                   href={`/sources/search?topic=${encodeURIComponent(topic)}`}
-                  className="inline-flex min-h-8 items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
+                  className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-compact-meta"
                 >
                   {titleCase(topic)}
                 </Link>

@@ -139,24 +139,6 @@ function readOrder(value: string | null): SourceBrowseOrder {
   return value === "coverage" || value === "attention" ? value : "alpha";
 }
 
-/**
- * The quality mix, as a bar and as a sentence.
- *
- * The bar is `aria-hidden` and the sentence beside it is the statement of
- * record: band is a clinical signal, so it must not be carried by hue alone —
- * under forced colors every fill collapses to the same system colour.
- */
-function QualityMeter({ summary }: { summary: SourceBrowseSummary }) {
-  const segments = SOURCE_BAND_ORDER.filter((band) => summary.bandCounts[band] > 0);
-  return (
-    <span aria-hidden className="mt-1.5 flex h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
-      {segments.map((band) => (
-        <span key={band} className={cn("h-full", bandFill[band])} style={{ flexGrow: summary.bandCounts[band] }} />
-      ))}
-    </span>
-  );
-}
-
 function qualityPhrase(summary: SourceBrowseSummary) {
   return SOURCE_BAND_ORDER.filter((band) => summary.bandCounts[band] > 0)
     .map((band) => `${summary.bandCounts[band]} ${bandNouns[band]}`)
@@ -188,7 +170,23 @@ function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: 
           <span className="block truncate text-sm-minus font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
             {summary.label}
           </span>
-          <QualityMeter summary={summary} />
+          {/* The quality mix as a bar, drawn inside the row's labelled link and
+              always accompanied by the sentence below it. Band is a clinical
+              signal, so it is never carried by hue alone — under forced colors
+              every fill collapses to the same system colour, and the tally in
+              words is what survives. */}
+          <span
+            aria-hidden
+            className="mt-1.5 flex h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+          >
+            {SOURCE_BAND_ORDER.filter((band) => summary.bandCounts[band] > 0).map((band) => (
+              <span
+                key={band}
+                className={cn("h-full", bandFill[band])}
+                style={{ flexGrow: summary.bandCounts[band] }}
+              />
+            ))}
+          </span>
           <span className="mt-1 block text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
             {qualityPhrase(summary)}
             {summary.attentionCount > 0 ? (
@@ -209,7 +207,7 @@ function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: 
         </span>
         <span className="flex shrink-0 items-center gap-1.5 self-center">
           <span className="text-right">
-            <span className="block text-sm font-extrabold leading-4 text-[color:var(--text-heading)]">
+            <span className="block text-sm-minus font-extrabold leading-4 text-[color:var(--text-heading)]">
               {summary.count}
             </span>
             <span className="block text-3xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
