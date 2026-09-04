@@ -60,14 +60,19 @@ const CLOZAPINE_CLINIC = entry({
   details: { accepts: [], exclusions: [], phone: "9346 1234" },
 });
 
-const NEUTROPENIA_PLAYBOOK = entry({
+// Deliberately content-free. This mode carries no app-authored clinical
+// content, and a fixture is where such content usually enters a repository —
+// it gets copied into a seed, then a demo, then a screenshot. The test needs a
+// playbook entry whose text contains the query term; it does not need a
+// threshold or an escalation rule, so it states neither.
+const PLAYBOOK_ENTRY = entry({
   id: "33333333-3333-3333-3333-333333333333",
-  slug: "neutropenia",
+  slug: "clozapine-cover",
   section: "playbook",
-  title: "Fever on clozapine",
+  title: "Clozapine cover — who to call",
   details: {
-    trigger: "Temp > 38 in a patient on clozapine",
-    escalationSteps: [{ order: 1, whoToCall: "On-call consultant", when: "Immediately" }],
+    trigger: "Owner-written trigger text mentioning clozapine",
+    escalationSteps: [{ order: 1, whoToCall: "On-call registrar", when: "As the owner recorded it" }],
   },
 });
 
@@ -102,12 +107,12 @@ afterEach(() => {
 
 describe("OnCallSearchPage", () => {
   it("matches one query across every section at once, each result naming its own section", () => {
-    onCallEntriesState.entries = [HAEMATOLOGY_CONTACT, CLOZAPINE_CLINIC, NEUTROPENIA_PLAYBOOK, CAR_PARK_LOGISTICS];
+    onCallEntriesState.entries = [HAEMATOLOGY_CONTACT, CLOZAPINE_CLINIC, PLAYBOOK_ENTRY, CAR_PARK_LOGISTICS];
     render(<OnCallSearchPage initialQuery="clozapine" />);
 
     const contactRow = screen.getByTestId(`on-call-search-result-${HAEMATOLOGY_CONTACT.id}`);
     const referralRow = screen.getByTestId(`on-call-search-result-${CLOZAPINE_CLINIC.id}`);
-    const playbookRow = screen.getByTestId(`on-call-search-result-${NEUTROPENIA_PLAYBOOK.id}`);
+    const playbookRow = screen.getByTestId(`on-call-search-result-${PLAYBOOK_ENTRY.id}`);
     expect(screen.queryByTestId(`on-call-search-result-${CAR_PARK_LOGISTICS.id}`)).toBeNull();
 
     expect(within(contactRow).getByTestId("on-call-search-result-section")).toHaveTextContent("Contacts");
@@ -119,7 +124,25 @@ describe("OnCallSearchPage", () => {
     expect(within(contactRow).getByText(/9224 8888/)).toBeInTheDocument();
     expect(within(referralRow).getByText(/9346 1234/)).toBeInTheDocument();
 
-    expect(screen.getByRole("status")).toHaveTextContent("3");
+    // The digit alone passed while the line read "3 on Call" — the band
+    // lower-cases the mode label when no `resultNoun` is given. Assert the
+    // whole phrase, so the noun cannot silently become the mode's name again.
+    expect(screen.getByRole("status")).toHaveTextContent("3 entries");
+  });
+
+  it("names what it counted, not the mode it counted in", () => {
+    onCallEntriesState.entries = [HAEMATOLOGY_CONTACT];
+    render(<OnCallSearchPage initialQuery="haematology" />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("1 entry");
+    expect(status.textContent).not.toContain("on Call");
+  });
+
+  it("shows an owner with no entries what to do instead of blaming a typo", () => {
+    onCallEntriesState.entries = [];
+    render(<OnCallSearchPage initialQuery="clozapine" />);
+    expect(screen.getByTestId("on-call-search-no-entries")).toBeTruthy();
+    expect(screen.queryByText(/check the spelling/i)).toBeNull();
   });
 
   it("matches a section-specific detail field (a presenter), not just the title", () => {

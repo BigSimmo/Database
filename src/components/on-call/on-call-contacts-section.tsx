@@ -198,7 +198,16 @@ export function OnCallContactsSection({
         icon={Phone}
         title="No contacts yet"
         body="Contacts you add will appear here, grouped by area, with the whole row set up to ring the number."
-        actions={addButton}
+        actions={
+          // The card link belongs here too. It is the only route to
+          // `/on-call/card`, and the card can already hold flagged playbook,
+          // referral or logistics entries while Contacts is still empty —
+          // dropping the link with the list stranded that page.
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {addButton}
+            {cardLink}
+          </div>
+        }
         testId="on-call-contacts-empty"
       />
     );

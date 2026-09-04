@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Phone } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import {
@@ -13,10 +14,17 @@ import {
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { cardInteractive, cardPadding } from "@/components/card-recipes";
+import { EmptyState } from "@/components/primitive-recipes/feedback";
+import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { ON_CALL_SECTION_ICONS, ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-nav-header";
 import { cn, iconTilePremium, metadataPillDensity, pageContainer, searchPageCanvas } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
-import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import {
+  ON_CALL_SECTIONS,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  type OnCallSection,
+} from "@/lib/on-call/entry-model";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { onCallEntryDetailChips, onCallSearchStatus, rankOnCallEntries } from "@/lib/on-call/search";
 import { sortResultItems } from "@/lib/result-sort";
@@ -26,7 +34,7 @@ type SectionFilterValue = "all" | OnCallSection;
 const SECTION_FILTER_OPTIONS: ReadonlyArray<{ value: SectionFilterValue; label: string }> = [
   { value: "all", label: "All sections" },
   ...ON_CALL_SECTIONS.map((section) => ({
-    value: section as SectionFilterValue,
+    value: section,
     label: ON_CALL_SECTION_TITLES[section],
   })),
 ];
@@ -42,9 +50,13 @@ const SECTION_FILTER_OPTIONS: ReadonlyArray<{ value: SectionFilterValue; label: 
  * entry inline on its own section page), so the whole row is internal
  * navigation to that section — `<Link>`, never a raw `<a href="/…">`.
  */
-function OnCallSearchResultRow({ entry }: { entry: OnCallEntry }) {
+function OnCallSearchResultRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
   const Icon = ON_CALL_SECTION_ICONS[entry.section];
   const chips = onCallEntryDetailChips(entry);
+  // A result row shows the same numbers a section row shows, so it carries the
+  // same freshness marker. Without it, search becomes the one surface in the
+  // mode where a number nobody has confirmed in over a year looks current.
+  const freshness = onCallEntryFreshness(entry, now);
 
   return (
     <Link
@@ -75,6 +87,7 @@ function OnCallSearchResultRow({ entry }: { entry: OnCallEntry }) {
               {`${chip.label}: ${chip.value}`}
             </span>
           ))}
+          <OnCallFreshnessBadge freshness={freshness} />
         </span>
       </span>
     </Link>
@@ -94,8 +107,13 @@ function OnCallSearchResultRow({ entry }: { entry: OnCallEntry }) {
  * `sm`-and-up only; section is the phone-idiom badged trigger opening a
  * sheet, never a native `<select>`.
  */
-export function OnCallSearchPage({ initialQuery = "" }: { initialQuery?: string }) {
+export function OnCallSearchPage({ initialQuery = "", now: nowProp }: { initialQuery?: string; now?: Date }) {
   const { entries, loading, isOffline, signedOut } = useOnCallEntries();
+  // Read the clock once per mount, not once per render: freshness must not
+  // change between two renders of the same result list, and a bare
+  // `new Date()` in the render body is a new value on every pass.
+  const mountedAt = useMemo(() => new Date(), []);
+  const now = nowProp ?? mountedAt;
   const [sortValue, setSortValue] = useResultSort();
   const [sectionFilter, setSectionFilter] = useState<SectionFilterValue>("all");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -156,6 +174,10 @@ export function OnCallSearchPage({ initialQuery = "" }: { initialQuery?: string 
         <SearchResultsHeaderBand
           modeId="on-call"
           query={initialQuery}
+          // Without this the band lower-cases the registry label and the count
+          // line reads "3 on Call". The mode's own name is not the noun for
+          // what it found; the noun is an entry.
+          resultNoun={displayed.length === 1 ? "entry" : "entries"}
           matchCount={displayed.length}
           status={status}
           headingLevel={1}
@@ -188,13 +210,38 @@ export function OnCallSearchPage({ initialQuery = "" }: { initialQuery?: string 
             }),
           ]}
           onClearAll={activeFilterCount > 0 ? clearSectionFilter : undefined}
-          summary={{ count: displayed.length, noun: displayed.length === 1 ? "result" : "results" }}
+          // No count while the search is faulted. The band deliberately shows
+          // no number in that state — a count of 0 read as "nothing matched"
+          // when the truth is "the search could not run" — and a count here
+          // would reintroduce exactly that claim one layer down.
+          summary={
+            faulted ? undefined : { count: displayed.length, noun: displayed.length === 1 ? "result" : "results" }
+          }
         />
         {!faulted ? (
-          displayed.length > 0 ? (
+          entries.length === 0 ? (
+            // Nothing to search is not a failed search. Sending an owner who
+            // has not added anything yet to "check the spelling" blames them
+            // for a typo they did not make, and hides the one action that
+            // helps: adding a first entry.
+            <EmptyState
+              icon={Phone}
+              title="Nothing to search yet"
+              body="On Call searches the entries you have added — contacts, playbook steps, referrals, orientation notes, teaching times and logistics. Add your first one and it will turn up here."
+              actions={
+                <Link
+                  href="/on-call/contacts"
+                  className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
+                >
+                  Go to contacts
+                </Link>
+              }
+              testId="on-call-search-no-entries"
+            />
+          ) : displayed.length > 0 ? (
             <section aria-label="On Call search results" className="grid gap-2.5">
               {displayed.map((match) => (
-                <OnCallSearchResultRow key={match.entry.id} entry={match.entry} />
+                <OnCallSearchResultRow key={match.entry.id} entry={match.entry} now={now} />
               ))}
             </section>
           ) : (

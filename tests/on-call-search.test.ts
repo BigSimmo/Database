@@ -42,14 +42,19 @@ const CLOZAPINE_CLINIC = entry({
   details: { accepts: [], exclusions: [], phone: "9346 1234", hours: "Mon-Fri 9-5" },
 });
 
-const NEUTROPENIA_PLAYBOOK = entry({
+// Deliberately content-free. This mode carries no app-authored clinical
+// content, and a fixture is where such content usually enters a repository —
+// it gets copied into a seed, then a demo, then a screenshot. The test needs a
+// playbook entry whose text contains the query term; it does not need a
+// threshold or an escalation rule, so it states neither.
+const PLAYBOOK_ENTRY = entry({
   id: "33333333-3333-3333-3333-333333333333",
-  slug: "neutropenia",
+  slug: "clozapine-cover",
   section: "playbook",
-  title: "Fever on clozapine",
+  title: "Clozapine cover — who to call",
   details: {
-    trigger: "Temp > 38 in a patient on clozapine",
-    escalationSteps: [{ order: 1, whoToCall: "On-call consultant", when: "Immediately" }],
+    trigger: "Owner-written trigger text mentioning clozapine",
+    escalationSteps: [{ order: 1, whoToCall: "On-call registrar", when: "As the owner recorded it" }],
   },
 });
 
@@ -72,14 +77,14 @@ const PRESENTER_TEACHING = entry({
 describe("rankOnCallEntries", () => {
   it("matches one query across every section at once", () => {
     const results = rankOnCallEntries(
-      [HAEMATOLOGY_CONTACT, CLOZAPINE_CLINIC, NEUTROPENIA_PLAYBOOK, UNRELATED_LOGISTICS],
+      [HAEMATOLOGY_CONTACT, CLOZAPINE_CLINIC, PLAYBOOK_ENTRY, UNRELATED_LOGISTICS],
       "clozapine",
     );
     const matchedIds = results.map((match) => match.entry.id);
 
     expect(matchedIds).toContain(HAEMATOLOGY_CONTACT.id);
     expect(matchedIds).toContain(CLOZAPINE_CLINIC.id);
-    expect(matchedIds).toContain(NEUTROPENIA_PLAYBOOK.id);
+    expect(matchedIds).toContain(PLAYBOOK_ENTRY.id);
     expect(matchedIds).not.toContain(UNRELATED_LOGISTICS.id);
 
     // Each match names its own section rather than a shared one — the whole
@@ -172,5 +177,47 @@ describe("onCallSearchStatus", () => {
 
   it("is ready once loaded, online, and signed in", () => {
     expect(onCallSearchStatus({ loading: false, isOffline: false, signedOut: false, entryCount: 5 })).toBe("ready");
+  });
+});
+
+describe("case and body coverage", () => {
+  // Regression: every haystack handed to `rankCatalogRecords` must already be
+  // normalized, because matching runs against lower-cased query terms. Raw
+  // text made search case-sensitive, and Orientation — whose content lives in
+  // `body` alone — answered almost nothing.
+  const cased: OnCallEntry[] = [
+    entry({
+      id: "cased-title",
+      slug: "clozapine-clinic",
+      section: "contacts",
+      title: "Clozapine Clinic",
+      details: { phone: "9111 2222" },
+    }),
+    entry({
+      id: "body-only",
+      slug: "ward-folder",
+      section: "orientation",
+      title: "Ward folder",
+      body: "The Clozapine protocol lives in the blue folder at the nurses' station.",
+      details: {},
+    }),
+  ];
+
+  it("ranks an exact title match above a body-only mention", () => {
+    // A cased title alone is not proof of normalization — the fuzzy fallback
+    // finds it either way. What it cannot do is score it as an exact
+    // whole-word field hit, so the ORDER is what the normalization buys.
+    const ids = rankOnCallEntries(cased, "clozapine").map((match) => match.entry.id);
+    expect(ids[0]).toBe("cased-title");
+  });
+
+  it("matches body text, which is the only content an orientation entry has", () => {
+    const ids = rankOnCallEntries(cased, "clozapine").map((match) => match.entry.id);
+    expect(ids).toContain("body-only");
+  });
+
+  it("still matches when the query itself is upper-case", () => {
+    const ids = rankOnCallEntries(cased, "CLOZAPINE").map((match) => match.entry.id);
+    expect(ids).toEqual(expect.arrayContaining(["cased-title", "body-only"]));
   });
 });

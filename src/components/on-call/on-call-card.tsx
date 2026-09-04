@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Phone } from "lucide-react";
 
 import { useAccountData } from "@/components/account-data-provider";
@@ -82,10 +82,15 @@ function formatPrintedAt(now: Date): string {
  * is where this mode registers its claim on the phone header's addon slot,
  * and `tests/mode-nav-addon-slot.dom.test.tsx` holds it to one claimant.
  */
-export function OnCallCard({ now = new Date() }: { now?: Date } = {}) {
+export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
   const { isAuthenticated } = useAccountData();
   const [signInOpen, setSignInOpen] = useState(false);
-  const { entries, isOffline, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  // Read the clock once per mount. A `new Date()` default parameter re-reads it
+  // on every render, so the printed timestamp and the staleness cut-off could
+  // both move underneath a page the owner is in the middle of printing.
+  const mountedAt = useMemo(() => new Date(), []);
+  const now = nowProp ?? mountedAt;
 
   const cardEntries = selectCardEntries(entries, now);
   const groups = ON_CALL_SECTIONS.map((section) => ({
@@ -120,6 +125,16 @@ export function OnCallCard({ now = new Date() }: { now?: Date } = {}) {
               </button>
             }
             testId="on-call-card-signed-out"
+          />
+        ) : loading && entries.length === 0 ? (
+          // Nothing cached yet and the first fetch still in flight. Asserting
+          // "nothing is flagged" here would be a claim about the owner's data
+          // that this component cannot yet make.
+          <EmptyState
+            icon={Phone}
+            title="Loading your card"
+            body="Fetching the entries flagged for this card."
+            testId="on-call-card-loading"
           />
         ) : groups.length === 0 ? (
           <EmptyState
@@ -181,9 +196,14 @@ export function OnCallCard({ now = new Date() }: { now?: Date } = {}) {
                                 );
                               })}
                             </ul>
-                          ) : (
-                            <p className="mt-1 text-sm text-[color:var(--text-muted)]">No number on file</p>
-                          )}
+                          ) : entry.body ? (
+                            // A playbook step, an orientation note or a
+                            // teaching time has no phone number by design, and
+                            // its content is the body. Printing "No number on
+                            // file" against those read as a fault in the card
+                            // rather than the shape of the entry.
+                            <p className="mt-1 whitespace-pre-line text-sm text-[color:var(--text)]">{entry.body}</p>
+                          ) : null}
                         </li>
                       );
                     })}

@@ -1,4 +1,4 @@
-import { rankCatalogRecords } from "@/lib/catalog-search";
+import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { onCallDetailsSchemaFor, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 /**
@@ -148,9 +148,9 @@ export function onCallEntryDetailChips(entry: OnCallEntry): OnCallDetailChip[] {
       if (details.hours) chips.push({ label: "Hours", value: details.hours });
       return chips;
     }
-    default:
-      return [];
   }
+  // No `default`: `entry.section` is an exhaustive union, so a seventh section
+  // becomes a compile error here rather than silently rendering no chips.
 }
 
 /** Every section-specific detail field, flattened to one searchable string —
@@ -210,9 +210,9 @@ function onCallEntryDetailSearchText(entry: OnCallEntry): string {
       if (!details) return "";
       return [details.category, details.location, details.hours, details.phone].filter(Boolean).join(" ");
     }
-    default:
-      return "";
   }
+  // No `default`, for the same reason as above: a new section must be made
+  // searchable deliberately, not default to unsearchable.
 }
 
 /**
@@ -228,17 +228,26 @@ export function rankOnCallEntries(entries: readonly OnCallEntry[], query: string
     return entries.map((entry) => ({ entry, score: 0 }));
   }
 
+  // Every haystack handed to `rankCatalogRecords` must already be normalized:
+  // it matches with `includesWholeTerm`/`text.includes(term)` against terms
+  // taken from `normalizeSearchText(query)`, which lower-cases. Returning raw
+  // text here made matching case-sensitive, so an entry titled "Clozapine
+  // Clinic" did not answer "clozapine" — and Orientation, which carries its
+  // content in `body` alone, was effectively unsearchable. Every peer ranker
+  // (e.g. `src/lib/form-ranker.ts`) normalizes for the same reason.
   const ranked = rankCatalogRecords([...entries], trimmedQuery, {
     fields: [
-      { id: "title", weight: 10, text: (entry) => entry.title },
-      { id: "subtitle", weight: 5, text: (entry) => entry.subtitle ?? "" },
-      { id: "tags", weight: 6, text: (entry) => entry.tags.join(" ") },
-      { id: "detail", weight: 8, text: onCallEntryDetailSearchText },
+      { id: "title", weight: 10, text: (entry) => normalizeSearchText(entry.title) },
+      { id: "subtitle", weight: 5, text: (entry) => normalizeSearchText(entry.subtitle ?? "") },
+      { id: "tags", weight: 6, text: (entry) => normalizeSearchText(entry.tags.join(" ")) },
+      { id: "detail", weight: 8, text: (entry) => normalizeSearchText(onCallEntryDetailSearchText(entry)) },
     ],
     fullText: (entry) =>
-      [entry.title, entry.subtitle ?? "", entry.body ?? "", entry.tags.join(" "), onCallEntryDetailSearchText(entry)]
-        .filter(Boolean)
-        .join(" "),
+      normalizeSearchText(
+        [entry.title, entry.subtitle ?? "", entry.body ?? "", entry.tags.join(" "), onCallEntryDetailSearchText(entry)]
+          .filter(Boolean)
+          .join(" "),
+      ),
     contentWeight: 2,
     phraseBonus: 4,
     exactBonus: 10,

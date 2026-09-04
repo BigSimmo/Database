@@ -8,7 +8,10 @@ export const metadata: Metadata = {
 };
 
 type OnCallSearchRouteProps = {
-  searchParams?: Promise<{ q?: string | string[]; query?: string | string[]; run?: string | string[] }>;
+  // No `run`: this page renders results for whatever query it is given, so
+  // there is no idle state for `run=1` to trigger. A deep link carrying it
+  // still works; the parameter simply has nothing to do here.
+  searchParams?: Promise<{ q?: string | string[]; query?: string | string[] }>;
 };
 
 function firstSearchParam(value?: string | string[]) {
