@@ -819,6 +819,19 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(dsmModeButton).toBeFocused();
 
     // Submitting is the only thing that leaves home.
+    //
+    // Click the input before filling it (not just `.fill()`, which focuses
+    // programmatically without moving the pointer). The new searchable mode
+    // dialog is taller/wider than the old flat menu it replaced, so the "DSM"
+    // option now renders at a different on-screen position; leaving the
+    // pointer stranded there after `dsmMode.click()` puts it exactly over a
+    // command-dropdown suggestion once that dropdown opens on focus, and
+    // Chromium fires a hover on whatever now sits under a stationary pointer.
+    // That hover sets the dropdown's active item, which hijacks Enter to
+    // select the suggestion instead of submitting the search. A real mouse
+    // user has to move the pointer to the input to focus it, so this pointer
+    // relocation is what an actual click already gives them for free.
+    await visibleGlobalSearchInput(page).click();
     await visibleGlobalSearchInput(page).fill("bipolar");
     await visibleGlobalSearchInput(page).press("Enter");
     await expect(page).toHaveURL(/\/dsm\/search\?.*q=bipolar/, { timeout: 20_000 });
