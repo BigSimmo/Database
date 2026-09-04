@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "aea34323-2559-4a04-890c-f35581246a21",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The property ward-referral-matching.test.ts protects has no backstop anywhere in the suite",
+    "issueUlid": "01M1G4PS8EC0CARSXX9BK4768S"
+  }
+}

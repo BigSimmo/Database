@@ -28,3 +28,26 @@ export function prefersReducedMotion(): boolean {
 export function resolveScrollBehavior(): ScrollBehavior {
   return prefersReducedMotion() ? "auto" : "smooth";
 }
+
+/**
+ * The same question, answered against the app's THREE-state Motion preference.
+ *
+ * {@link prefersReducedMotion} above deliberately does not honour the in-app
+ * `data-motion="full"` opt-in — scroll animation is suppressed under an OS request either
+ * way, and `settings-dialog.tsx` documents that divergence at its own local copy. But the
+ * app's CSS animations use the three-state form (`html[data-motion="reduced"]` always
+ * suppressed, `html:not([data-motion="full"])` + the media query otherwise), so anything
+ * gating a JS-driven animation must resolve it the same way or it will freeze an animation
+ * the surrounding interface is still running.
+ *
+ * Mirrors that CSS exactly: an explicit in-app choice wins in both directions, and the OS
+ * request decides only when the reader has expressed none. Safe on the server (returns
+ * `false`).
+ */
+export function motionIsSuppressed(): boolean {
+  if (typeof document === "undefined") return false;
+  const preference = document.documentElement.getAttribute("data-motion");
+  if (preference === "reduced") return true;
+  if (preference === "full") return false;
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+}
