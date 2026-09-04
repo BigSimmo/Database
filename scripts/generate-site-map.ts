@@ -82,6 +82,13 @@ const documentedRedirectTargets: Record<string, string> = {
   "/dictionary/browse": "/dictionary/search",
   "/dictionary/sources": "/sources/search?usedBy=dictionary",
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
+  // Medication is consolidated like the modes in `consolidatedRedirectTargets`
+  // above, but deliberately kept out of that shared map — there is no
+  // `/medications/search` route, so its own bespoke redirect (medications/page.tsx,
+  // mirrored in src/proxy.ts) handles both branches instead. Pinned here by hand
+  // for the same reason as the entries above it: the target is computed, not a
+  // string literal the `redirect("…")` regex can read.
+  "/medications": "/?mode=prescribing",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -150,7 +157,7 @@ const routeDescriptions: Record<string, string> = {
   "/formulation/builder": "Structured clinical formulation builder.",
   "/formulation/compare": "Side-by-side mechanism comparison.",
   "/formulation/map": "Formulation mechanism domain map.",
-  "/medications": "Medication mode home.",
+  "/medications": "Compatibility redirect to the shared Medication (prescribing) home.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Public privacy and data-processing transparency notice; governance approval pending.",
   "/reference/colour-coding": "Clinical domain and category colour-coding palette reference.",
@@ -554,7 +561,7 @@ function renderModePageIndex() {
 
 function renderDocumentFlowIndex() {
   return [
-    bullet(DOCUMENTS_MODE_HOME_ROUTE, "Documents mode home. Stays as the no-query home surface for document mode."),
+    bullet(DOCUMENTS_MODE_HOME_ROUTE, "Redirects to the shared home with Documents preselected (consolidated mode)."),
     bullet(
       documentsSearchHref({ query: "clozapine monitoring table", focus: true, run: true }),
       "Documents search command centre used after submitting a search in Documents mode.",
