@@ -203,6 +203,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Tracks the user id last published into context so onAuthStateChange can
   // clear identity-bound caches *before* setSession on account switch.
   const publishedUserIdRef = useRef<string | null>(null);
+  // Whether `initializeSession` has decided the initial state yet. Until it has,
+  // `publishedUserIdRef` is still null even in a signed-in tab, so a boot-time
+  // SIGNED_IN replay would read as null -> user, i.e. an account switch. See the
+  // guard in onAuthStateChange below.
+  const initialSessionPublishedRef = useRef(false);
   const [authEpoch, setAuthEpoch] = useState(0);
 
   const invalidateAuthRequests = useCallback(() => {
@@ -230,6 +235,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
         if (shouldFailInitialAuthVerification(userResult.error)) {
+          // Nothing is published, so `publishedUserIdRef` stays null and a later
+          // SIGNED_IN still clears — the conservative pre-existing behaviour for
+          // a boot that could not be verified.
+          initialSessionPublishedRef.current = true;
           setSession(null);
           setStatus("error");
           setNotice(null);
@@ -246,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           verificationUnavailable,
         });
         publishedUserIdRef.current = resolved.session?.user?.id ?? null;
+        initialSessionPublishedRef.current = true;
         setSession(resolved.session);
         setStatus(resolved.status);
         if (resolved.status === "authenticated") {
@@ -265,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         if (!active) return;
+        initialSessionPublishedRef.current = true;
         setStatus("error");
         setError("Session could not be loaded.");
       }
@@ -287,7 +298,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // effects run before the parent fingerprint effect; without this, an
       // account-switch SIGNED_IN can let mounted signed-image hooks re-paint
       // the previous user's still-cached URL via requestAnimationFrame.
-      if (publishedUserIdRef.current !== nextUserId) {
+      //
+      // A PAGE RELOAD IS NOT AN ACCOUNT TRANSITION. auth-js emits SIGNED_IN for
+      // a valid *stored* session while recovering it during boot
+      // (`_recoverAndRefresh`), and `initialize()` flushes that queued event to
+      // subscribers as soon as `initializePromise` settles — before this
+      // provider's own `getUser()` round-trip returns, so `publishedUserIdRef`
+      // is still null and the event would read as null -> user. Clearing there
+      // destroys exactly the stores whose contract is to survive a refresh (the
+      // Caring Contacts draft, the patient profile, the favourites keys), and
+      // whether it happened at all depended on when React registered this
+      // listener, so the loss was intermittent. Wait until `initializeSession`
+      // has published the initial state before treating a difference as a
+      // switch; sign-out and expiry null the ref themselves, so a later sign-in
+      // as a different user still clears.
+      if (initialSessionPublishedRef.current && publishedUserIdRef.current !== nextUserId) {
         clearAccountScopedBrowserState();
       }
       publishedUserIdRef.current = nextUserId;

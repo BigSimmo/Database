@@ -558,4 +558,36 @@ describe("the boot-time SIGNED_IN replay is not an account transition (M4, L2, L
     expect(loadFavouritePinnedIds().has("clozapine-initiation")).toBe(false);
     expect(planDraftSnapshot()).toBeNull();
   });
+
+  // The gate is "has the initial state been decided yet", not "did verification
+  // succeed". A boot that could not be verified publishes nothing, so the ref
+  // holding the last published user id stays null — and the next SIGNED_IN must
+  // still clear, exactly as it did before the gate existed. Without this the
+  // gate would open a leak path on the error branch.
+  it("still clears when the boot could not be verified and someone then signs in", async () => {
+    seedEveryRefreshSurvivingStore();
+
+    // Indeterminate (not a definitive rejection, not a retryable fetch failure):
+    // `shouldFailInitialAuthVerification` takes the early-return error branch.
+    authApi.getUser.mockImplementationOnce(
+      async () =>
+        ({
+          data: { user: null },
+          error: { status: 500, message: "internal server error" },
+        }) as unknown as Awaited<ReturnType<typeof authApi.getUser>>,
+    );
+
+    render(
+      <AuthProvider>
+        <AuthActions />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("error"));
+    expectEveryRefreshSurvivingStoreIntact();
+
+    await emitAuthStateChange("SIGNED_IN", USER_B_SESSION);
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+
+    expectEveryRefreshSurvivingStoreCleared();
+  });
 });
