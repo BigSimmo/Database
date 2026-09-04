@@ -436,6 +436,13 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:owner-scope
 
+      # Fails if a calculator's evidence source is missing access/review dates, an
+      # active calculator lacks a verified rights record, or the golden-vector
+      # registry is missing or out of sync with the pinned response-anchor IDs.
+      - name: Calculator content guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:calculator-content
+
       - name: Lint
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run lint

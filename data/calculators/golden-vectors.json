@@ -1,0 +1,131 @@
+{
+  "$schemaNote": "Each vector pins one scored administration (answers -> score/band) verified against the live deriveCalculator implementation in src/components/calculators/calculator-ui.tsx as of the responseAnchorSetId below. Regenerate the vectors for a calculator whenever its responseAnchorSetId changes.",
+  "calculators": [
+    {
+      "calculatorId": "phq9",
+      "responseAnchorSetId": "rax-b9f706a1a226d782",
+      "vectors": [
+        {
+          "name": "all items minimum (Not at all)",
+          "answers": { "p1": 0, "p2": 0, "p3": 0, "p4": 0, "p5": 0, "p6": 0, "p7": 0, "p8": 0, "p9": 0 },
+          "expectedScore": 0,
+          "expectedBand": "Minimal"
+        },
+        {
+          "name": "all items maximum (Nearly every day)",
+          "answers": { "p1": 3, "p2": 3, "p3": 3, "p4": 3, "p5": 3, "p6": 3, "p7": 3, "p8": 3, "p9": 3 },
+          "expectedScore": 27,
+          "expectedBand": "Severe"
+        },
+        {
+          "name": "mixed moderate (3 items at 2, 6 items at 1)",
+          "answers": { "p1": 2, "p2": 2, "p3": 2, "p4": 1, "p5": 1, "p6": 1, "p7": 1, "p8": 1, "p9": 1 },
+          "expectedScore": 12,
+          "expectedBand": "Moderate"
+        }
+      ]
+    },
+    {
+      "calculatorId": "gad7",
+      "responseAnchorSetId": "rax-761ef68846c9a4d2",
+      "vectors": [
+        {
+          "name": "all items minimum (Not at all)",
+          "answers": { "g1": 0, "g2": 0, "g3": 0, "g4": 0, "g5": 0, "g6": 0, "g7": 0 },
+          "expectedScore": 0,
+          "expectedBand": "Minimal"
+        },
+        {
+          "name": "all items maximum (Nearly every day)",
+          "answers": { "g1": 3, "g2": 3, "g3": 3, "g4": 3, "g5": 3, "g6": 3, "g7": 3 },
+          "expectedScore": 21,
+          "expectedBand": "Severe"
+        },
+        {
+          "name": "mixed moderate (3 items at 2, 4 items at 1)",
+          "answers": { "g1": 2, "g2": 2, "g3": 2, "g4": 1, "g5": 1, "g6": 1, "g7": 1 },
+          "expectedScore": 10,
+          "expectedBand": "Moderate"
+        }
+      ]
+    },
+    {
+      "calculatorId": "k10",
+      "responseAnchorSetId": "rax-f16ed6eed3763e0d",
+      "vectors": [
+        {
+          "name": "all items minimum (None of the time, 1 point each)",
+          "answers": {
+            "k1": 0, "k2": 0, "k3": 0, "k4": 0, "k5": 0, "k6": 0, "k7": 0, "k8": 0, "k9": 0, "k10": 0
+          },
+          "expectedScore": 10,
+          "expectedBand": "Low"
+        },
+        {
+          "name": "all items maximum (All of the time, 5 points each)",
+          "answers": {
+            "k1": 4, "k2": 4, "k3": 4, "k4": 4, "k5": 4, "k6": 4, "k7": 4, "k8": 4, "k9": 4, "k10": 4
+          },
+          "expectedScore": 50,
+          "expectedBand": "Very high"
+        },
+        {
+          "name": "mixed moderate (A little of the time, 2 points each)",
+          "answers": {
+            "k1": 1, "k2": 1, "k3": 1, "k4": 1, "k5": 1, "k6": 1, "k7": 1, "k8": 1, "k9": 1, "k10": 1
+          },
+          "expectedScore": 20,
+          "expectedBand": "Moderate"
+        }
+      ]
+    },
+    {
+      "calculatorId": "cage",
+      "responseAnchorSetId": "rax-a9efad27e70f3351",
+      "vectors": [
+        {
+          "name": "all four negative",
+          "answers": { "c1": 0, "c2": 0, "c3": 0, "c4": 0 },
+          "expectedScore": 0,
+          "expectedBand": "Screen negative"
+        },
+        {
+          "name": "all four positive",
+          "answers": { "c1": 1, "c2": 1, "c3": 1, "c4": 1 },
+          "expectedScore": 4,
+          "expectedBand": "Clinically significant"
+        },
+        {
+          "name": "two positive (Cut down, Annoyed)",
+          "answers": { "c1": 1, "c2": 1, "c3": 0, "c4": 0 },
+          "expectedScore": 2,
+          "expectedBand": "Clinically significant"
+        }
+      ]
+    },
+    {
+      "calculatorId": "auditc",
+      "responseAnchorSetId": "rax-2542f10c0cd037e1",
+      "vectors": [
+        {
+          "name": "all items minimum (Never / 1-2 drinks)",
+          "answers": { "a1": 0, "a2": 0, "a3": 0 },
+          "expectedScore": 0,
+          "expectedBand": "Lower risk"
+        },
+        {
+          "name": "all items maximum",
+          "answers": { "a1": 4, "a2": 4, "a3": 4 },
+          "expectedScore": 12,
+          "expectedBand": "Higher risk"
+        },
+        {
+          "name": "at threshold (each item scores 1)",
+          "answers": { "a1": 1, "a2": 1, "a3": 1 },
+          "expectedScore": 3,
+          "expectedBand": "At threshold"
+        }
+      ]
+    }
+  ]
+}

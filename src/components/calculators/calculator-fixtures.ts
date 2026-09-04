@@ -86,7 +86,22 @@ export type CalculatorFixture = {
   interpretationPolicy: string;
   sourceIds: string[];
   claimIds: string[];
-  rights: { status: "available" | "permission_review_required" | "unknown" };
+  /**
+   * Reproduction/use rights for the instrument itself, distinct from the review-workflow
+   * `rights.status` used elsewhere to gate release. `holder`, `digitalUseAllowed`,
+   * `modificationAllowed`, `attributionRequired` and `verifiedAt` are populated only for
+   * instruments whose rights position has actually been checked against a public source —
+   * see `rightsInfo` below.
+   */
+  rights: CalculatorRights;
+  /**
+   * SHA-256 fingerprint (see `computeResponseAnchorFingerprint`-equivalent generation) of
+   * this fixture's response anchors — every item's kind plus its option labels and point
+   * values, or its checkbox point value, in item order. Pinned by hand at authoring time so
+   * an anchor edited without updating this ID goes red in
+   * `tests/calculators-governance-hardening.test.ts`, rather than silently drifting.
+   */
+  responseAnchorSetId: string;
   jurisdiction: string;
   lastReviewed: string;
   nextReview: string;
@@ -98,6 +113,26 @@ export type CalculatorFixture = {
   releaseStatus: "available" | "quarantined";
   limitations: string[];
   unresolvedIssues: string[];
+};
+
+/**
+ * Reproduction/use rights for an instrument. `status` mirrors the release-gating union used
+ * elsewhere (`available` | `permission_review_required` | `unknown`); the remaining fields
+ * are populated only once a source stating the position has actually been checked — see
+ * `rightsInfo` below and the calculator governance hardening PR notes for what was verified.
+ */
+export type CalculatorRights = {
+  status: "available" | "permission_review_required" | "unknown";
+  /** Copyright/rights holder, or "Public domain" plus the originating author when applicable. */
+  holder?: string;
+  /** Whether the holder's stated policy covers reproducing the instrument in a digital tool. */
+  digitalUseAllowed?: boolean;
+  /** Whether wording/item changes are permitted — false unless a source explicitly allows it. */
+  modificationAllowed?: boolean;
+  /** Whether the holder's policy (or ordinary academic practice) requires citing the source. */
+  attributionRequired?: boolean;
+  /** Date (YYYY-MM-DD) this rights position was last checked against a public source. */
+  verifiedAt?: string;
 };
 
 type RawScoreBand = Omit<ScoreBand, "interpretation"> & { guidance: string };
@@ -113,6 +148,7 @@ type RawCalculatorFixture = Omit<
   | "sourceIds"
   | "claimIds"
   | "rights"
+  | "responseAnchorSetId"
   | "jurisdiction"
   | "lastReviewed"
   | "nextReview"
@@ -731,6 +767,88 @@ const calculatorFixtures: RawCalculatorFixture[] = [
 
 const activeCalculatorIds = new Set(["phq9", "gad7", "k10", "cage", "auditc"]);
 
+/**
+ * SHA-256 response-anchor fingerprints, pinned by hand from each fixture's current items
+ * (kind, options label+points, or checkbox point value, in item order). Regenerate a value
+ * here — do not hand-edit the hex — whenever the corresponding fixture's items change; the
+ * governance test recomputes the fingerprint from the live items and fails on any mismatch.
+ */
+const responseAnchorSetIds: Record<string, string> = {
+  phq9: "rax-b9f706a1a226d782",
+  gad7: "rax-761ef68846c9a4d2",
+  k10: "rax-f16ed6eed3763e0d",
+  mdq: "rax-22ff4ff2e31ba1b2",
+  cage: "rax-a9efad27e70f3351",
+  auditc: "rax-2542f10c0cd037e1",
+  sadpersons: "rax-d3e9691eb7b40e58",
+  ybocs: "rax-127633983e754a29",
+};
+
+/**
+ * Rights positions checked against a public statement from the rights holder (or, for
+ * public-domain instruments, the absence of any restriction in the literature). Every value
+ * below reflects what is publicly documented as of the `verifiedAt` date, not an assumption:
+ *
+ * - PHQ-9 / GAD-7: the official Pfizer instrument sheets state "No permission required to
+ *   reproduce, translate, display or distribute" for clinical, educational and research use.
+ * - K10: the Kessler Psychological Distress Scale is public domain (developed with U.S. NIH
+ *   support) and is reproduced without restriction by the Australian Bureau of Statistics and
+ *   AIHW.
+ * - CAGE: Ewing's 1984 questionnaire is public domain and freely reproduced throughout
+ *   clinical screening literature with no license or permission requirement.
+ * - AUDIT-C: derived from the WHO AUDIT instrument; WHO permits free reproduction and use for
+ *   non-commercial clinical, training and research purposes.
+ *
+ * `modificationAllowed` is conservatively `false` for every instrument here: none of the
+ * above sources grants permission to alter item wording or scoring, and altering a validated
+ * instrument's wording invalidates its psychometrics regardless of the rights position.
+ */
+const rightsInfo: Record<string, CalculatorRights> = {
+  phq9: {
+    status: "available",
+    holder: "Pfizer Inc.",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+  },
+  gad7: {
+    status: "available",
+    holder: "Pfizer Inc.",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+  },
+  k10: {
+    status: "available",
+    holder: "Public domain (Ronald C. Kessler; developed with U.S. National Institutes of Health support)",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+  },
+  cage: {
+    status: "available",
+    holder: "Public domain (John A. Ewing, 1984)",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+  },
+  auditc: {
+    status: "available",
+    holder: "World Health Organization (WHO) — derived from the AUDIT instrument",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+  },
+  mdq: { status: "permission_review_required" },
+  sadpersons: { status: "unknown" },
+  ybocs: { status: "unknown" },
+};
+
 function sourceIdFor(id: string) {
   return `source:${id}`;
 }
@@ -741,7 +859,6 @@ function claimIdFor(id: string) {
 
 function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFixture | "bands"> {
   const active = activeCalculatorIds.has(id);
-  const rightsStatus = id === "mdq" ? "permission_review_required" : active ? "available" : "unknown";
 
   return {
     instrumentVersion: `${id.toUpperCase()} catalogue fixture v1`,
@@ -754,7 +871,8 @@ function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFix
       "Interpretation describes the completed instrument result only and does not determine management.",
     sourceIds: [sourceIdFor(id), "source:governance"],
     claimIds: [claimIdFor(id), ...(id === "phq9" ? ["claim:phq9:safety-flag"] : [])],
-    rights: { status: rightsStatus },
+    rights: rightsInfo[id] ?? { status: "unknown" },
+    responseAnchorSetId: responseAnchorSetIds[id] ?? "",
     jurisdiction:
       id === "k10" || id === "auditc" ? "Australia" : "International instrument with Australian use context",
     lastReviewed: "2026-09-01",
