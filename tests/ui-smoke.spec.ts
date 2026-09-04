@@ -2089,15 +2089,36 @@ test.describe("PsychSift UI smoke coverage", () => {
     // when safetyFindings.length > 0, see answer-result-surface.tsx) must FAIL this
     // @critical smoke, not pass silently on an absent trigger (audit F3 / C6). Asserting
     // the trigger is visible unconditionally enforces "safety findings present".
+    const clinicalPointsRail = page.getByTestId("answer-clinical-points");
+    await expect(clinicalPointsRail).toBeVisible();
     const safetyFindingsTrigger = page.getByTestId("answer-safety-findings-trigger");
     await expect(safetyFindingsTrigger).toBeVisible();
     await expectMinTouchTarget(safetyFindingsTrigger);
+
+    // The rail sits at the seam: after the prose, before the cited sources.
+    const pointsBox = await clinicalPointsRail.boundingBox();
+    const proseSeamBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const sourceRailBox = await page.getByTestId("answer-source-rail").boundingBox();
+    expect(pointsBox).not.toBeNull();
+    expect(proseSeamBox).not.toBeNull();
+    expect(sourceRailBox).not.toBeNull();
+    expect(pointsBox!.y).toBeGreaterThanOrEqual(proseSeamBox!.y + proseSeamBox!.height - 1);
+    expect(sourceRailBox!.y).toBeGreaterThanOrEqual(pointsBox!.y + pointsBox!.height - 1);
+
     await safetyFindingsTrigger.click();
-    const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
+    const safetyFindingsSheet = page.getByRole("dialog", { name: "Clinical points" });
     await expect(safetyFindingsSheet).toBeVisible();
     await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
     expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
-    await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
+    // Severity order inside the sheet: a stop-tier row never follows a know-tier
+    // one, so the list always reads in the same direction.
+    const sheetTones = await safetyFindingsSheet
+      .getByTestId("safety-finding-row")
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-tone")));
+    const toneRank = { stop: 0, act: 1, know: 2 } as Record<string, number>;
+    const sheetRanks = sheetTones.map((tone) => toneRank[tone ?? "know"] ?? 2);
+    expect(sheetRanks).toEqual([...sheetRanks].sort((left, right) => left - right));
+    await safetyFindingsSheet.getByRole("button", { name: "Close clinical points" }).click();
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
 

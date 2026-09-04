@@ -203,18 +203,26 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     expect(report).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("routes the safety sheet from the header chip now that the support card is gone", () => {
+  it("routes the clinical-points sheet from the points rail now that the support card is gone", () => {
     const surface = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
       "utf8",
     );
     expect(surface).toContain("<AnswerUtilityActions");
-    // The support card was removed on 2026-08-31 with the owner's decision that
-    // the header chip carries safety instead. The chip is therefore the ONLY
-    // route to the safety-critical findings sheet, so it must stay a button.
+    // The support card was removed on 2026-08-31. The header chip that replaced
+    // it became the Clinical points rail on 2026-09-03, moved to the seam
+    // between the answer and its sources. The rail is therefore the ONLY route
+    // to the findings sheet, so every pill must stay a button.
     expect(surface).not.toContain("<AnswerSupportSummaryCard");
-    expect(surface).toContain('data-testid="answer-safety-findings-trigger"');
+    expect(surface).toContain('data-testid="answer-clinical-points"');
+    expect(surface).toContain('"answer-safety-findings-trigger"');
     expect(surface).toContain("onClick={openSafetyFindings}");
+    // Grouped by kind, in severity order, because a finding carries no short
+    // title — only a label and the whole passage.
+    expect(surface).toContain("groupSafetyFindingsByKind");
+    // The rail renders at the seam, not in the status chip row.
+    expect(surface).toContain("clinicalPoints={clinicalPointsRail}");
+    expect(surface).toContain("const answerMetaChips = null;");
     // The governed verification wording moved below the answer with it, and the
     // surface must render it itself once it takes placement from the card.
     expect(surface).toContain('verificationPlacement="content"');

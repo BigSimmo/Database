@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, memo } from "react";
+import { Fragment, memo, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -379,6 +379,7 @@ export function NaturalLanguageAnswer({
   text,
   query,
   preformatted = false,
+  clinicalPoints,
   bestSource,
   sources,
   sourceLinks,
@@ -396,7 +397,13 @@ export function NaturalLanguageAnswer({
   text: string;
   query?: string;
   preformatted?: boolean;
-  /** The answer-level state shown beside Source-only when source currency is degraded. */
+  /**
+   * The Clinical points rail, rendered at the seam between the answer and its
+   * sources. Passed in rather than derived here because the surface owns the
+   * findings and the sheet they open; this component owns only where the seam
+   * is.
+   */
+  clinicalPoints?: ReactNode;
   /** Direct route used by expanded source-currency detail. */
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
@@ -508,6 +515,7 @@ export function NaturalLanguageAnswer({
             `hidden print:flex` on a source-only answer, so the limitations
             chip's own label is what carries `Source-only` and `Review due`
             there. Do not shorten that label to a bare count. */}
+        {clinicalPoints}
         <AnswerSourceRail
           sources={railSources}
           query={query}
