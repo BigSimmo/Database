@@ -4,6 +4,8 @@
 // removed token/revising shapes, governance refusal emitting zero units, owner-boundary
 // trimming, and byte-identical preview/final reconciliation at the trim layer.
 
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { toClientAnswerPayload, trimSourceForClient } from "../src/lib/answer-client-payload";
@@ -355,6 +357,26 @@ describe("evidence preview emission (#100 — why a wait shows no sources)", () 
     const fields = buildCachedEvidencePreviewProgress({ results: [makeSource()] });
     expect(fields.previewReason).toBe("ok");
     expect(fields.verifiedUnit?.sources).toHaveLength(1);
+  });
+
+  // The wiring, not just the helper. A unit test of `buildCachedEvidencePreviewProgress` alone
+  // passed happily while production emitted nothing on a cache hit — the same shape of gap that
+  // made this bug survive two rounds of "verified". Every cached progress event that has the
+  // sources in hand (it reports `resultCount`) must actually attach the preview. The
+  // inflight-coalesced event is deliberately excluded: it is waiting on another request and has
+  // no sources to offer yet.
+  it("attaches the preview at every cached progress event that has sources in hand", () => {
+    const ragSource = readFileSync(new URL("../src/lib/rag/rag.ts", import.meta.url), "utf8");
+    const cachedEvents = [...ragSource.matchAll(/stage: "cached",[\s\S]{0,1200}?\n    \}\);/g)].map(
+      (match) => match[0],
+    );
+    expect(cachedEvents.length).toBeGreaterThanOrEqual(2);
+
+    const withSources = cachedEvents.filter((event) => event.includes("resultCount:"));
+    expect(withSources.length).toBeGreaterThanOrEqual(2);
+    for (const event of withSources) {
+      expect(event).toContain("buildCachedEvidencePreviewProgress");
+    }
   });
 
   it("falls back to the generation context when the retry intersection is empty", () => {
