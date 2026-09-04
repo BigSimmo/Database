@@ -121,7 +121,7 @@ async function mockDifferentialSearch(page: Page) {
 }
 
 async function expectDashboardUsable(page: Page) {
-  await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
+  await expect(page.getByRole("heading", { level: 1, name: "PsychSift" })).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
   await expect(page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')).toBeVisible();
   await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible();
@@ -224,7 +224,7 @@ test.describe("PsychSift accessibility coverage", () => {
     // collapsed-by-default the expanded panel is unmounted, so scope to the
     // rail rather than relying on .first() (same hazard the forced-colors
     // journey below guards against).
-    const railNewChat = page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "New chat" });
+    const railNewChat = page.getByLabel("PsychSift collapsed sidebar").getByRole("button", { name: "New chat" });
 
     // Reduced motion → every scripted scroll must be an instant "auto" jump.
     await page.emulateMedia({ reducedMotion: "reduce" });

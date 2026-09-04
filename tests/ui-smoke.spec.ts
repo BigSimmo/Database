@@ -12,6 +12,7 @@ import {
 } from "./playwright-scroll";
 import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
+import { BRAND_NAME } from "../src/lib/brand";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { formRecords } from "../src/lib/forms";
@@ -771,18 +772,18 @@ async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
 }
 
 async function openMobileClinicalGuideMenu(page: Page) {
-  const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
+  const trigger = page.getByRole("button", { name: "Open PsychSift menu" });
   await expect(trigger).toBeVisible();
   await waitForReactEventHandler(trigger, "onClick");
   await trigger.click();
 
-  const menu = page.getByRole("dialog", { name: "Clinical Guide" });
+  const menu = page.getByRole("dialog", { name: "PsychSift" });
   await expect(menu).toBeVisible();
   const menuBox = await menu.boundingBox();
   expect(menuBox).not.toBeNull();
   expect(menuBox!.x).toBeGreaterThanOrEqual(0);
   await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Search Clinical Guide" })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Search PsychSift" })).toBeVisible();
   await expect(menu.getByText("Recent chats", { exact: true })).toHaveCount(0);
   await expect(menu.getByText("Shortcuts", { exact: true })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Edit" })).toBeVisible();
@@ -866,13 +867,13 @@ async function openGuide(page: Page) {
         // The swallowed click leaves the phone menu OPEN, so a retry that always
         // reopens would toggle it shut and then fail to find Settings inside it.
         // Reuse the open menu; only summon one when there is none.
-        const openMenu = page.getByRole("dialog", { name: "Clinical Guide" });
+        const openMenu = page.getByRole("dialog", { name: "PsychSift" });
         const menu = (await openMenu.isVisible().catch(() => false))
           ? openMenu
           : await openMobileClinicalGuideMenu(page);
         await menu.getByRole("button", { name: "Settings", exact: true }).click();
       } else if (viewport && viewport.width < 1024) {
-        const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+        const rail = page.getByLabel("PsychSift collapsed sidebar");
         const railSettings = rail.getByRole("button", { name: "Settings", exact: true });
         await expect(railSettings).toBeVisible();
         await railSettings.click();
@@ -880,7 +881,7 @@ async function openGuide(page: Page) {
         const sidebar = page.locator("#clinical-tools-sidebar");
         const settingsTrigger = (await sidebar.isVisible().catch(() => false))
           ? sidebar.getByRole("button", { name: "Settings", exact: true })
-          : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
+          : page.getByLabel("PsychSift collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
         await expect(settingsTrigger).toBeVisible();
         await settingsTrigger.click();
       }
@@ -1120,7 +1121,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       await gotoApp(page, "/");
       await waitForDemoDashboardReady(page);
 
-      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
+      await expect(page.getByRole("heading", { level: 1, name: "PsychSift" })).toHaveCount(1);
       await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
       await expect(visibleQuestionInput(page)).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
@@ -1159,7 +1160,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
+    await expect(page.getByText("Create your PsychSift account")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
@@ -1173,7 +1174,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
+    await expect(page.getByText("Create your PsychSift account")).toHaveCount(0);
     await expect(page.getByText("Service unavailable")).toHaveCount(0);
     await expect(page.getByText("API unavailable")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
@@ -1227,7 +1228,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(universalFocus.pillShadow).not.toBe("none");
 
     const menu = await openMobileClinicalGuideMenu(page);
-    const closeMenu = menu.getByRole("button", { name: "Close Clinical Guide menu" });
+    const closeMenu = menu.getByRole("button", { name: "Close PsychSift menu" });
     const newChat = menu.getByRole("button", { name: "New chat" });
     const restingButtonShadow = await newChat.evaluate((element) => getComputedStyle(element).boxShadow);
     await closeMenu.focus();
@@ -1248,7 +1249,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(buttonFocus.outlineStyle).toBe("solid");
     expect(buttonFocus.boxShadow).toBe(restingButtonShadow);
 
-    const guideSearch = menu.getByRole("button", { name: "Search Clinical Guide" });
+    const guideSearch = menu.getByRole("button", { name: "Search PsychSift" });
     await guideSearch.focus();
     const fieldFocus = await guideSearch.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -1289,7 +1290,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     // so first-run desktop shows the collapsed rail, not the labelled panel;
     // expanding is remembered. #clinical-tools-sidebar only mounts when
     // expanded, so its absence (not just hidden) is the collapsed signal.
-    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+    await expect(page.getByLabel("PsychSift collapsed sidebar")).toBeVisible();
     await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toHaveCount(0);
@@ -1327,7 +1328,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     );
 
     const collapseSidebar = page.getByRole("button", { name: "Collapse sidebar" });
-    const guideSearch = sidebar.getByRole("button", { name: "Search Clinical Guide" });
+    const guideSearch = sidebar.getByRole("button", { name: "Search PsychSift" });
     await expect(guideSearch).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
     await guideSearch.click();
     await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
@@ -1361,12 +1362,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
-    await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open PsychSift menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
     await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
-    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+    await expect(page.getByLabel("PsychSift collapsed sidebar")).toBeVisible();
 
-    const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+    const rail = page.getByLabel("PsychSift collapsed sidebar");
     const scrollRegion = rail.getByTestId("collapsed-sidebar-scroll-region");
     const navigation = rail.getByRole("navigation", { name: "Pinned shortcuts" });
     const library = rail.getByRole("navigation", { name: "Your library" });
@@ -1466,7 +1467,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const llms = await page.request.get("/llms.txt");
     expect(llms.status()).toBe(200);
     const llmsText = await llms.text();
-    expect(llmsText).toContain("Clinical Guide");
+    expect(llmsText).toContain(BRAND_NAME);
     expect(llmsText).toContain("rely on cited source evidence");
 
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -1744,7 +1745,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(submitAnswer).toBeDisabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
-    await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "PsychSift" })).toBeVisible();
     await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: false });
     await expectNoPageHorizontalOverflow(page);
   });
@@ -4221,7 +4222,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
 
     // Desktop hides the header New chat when the sidebar already owns it.
-    await page.getByRole("complementary", { name: "Clinical Guide" }).getByRole("button", { name: "New chat" }).click();
+    await page.getByRole("complementary", { name: "PsychSift" }).getByRole("button", { name: "New chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
@@ -4340,7 +4341,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
     await expect(modeSearch).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(16);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(17);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
@@ -4355,7 +4356,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(16);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(17);
 
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();
@@ -4387,7 +4388,13 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await appModeButton.click();
     await expect(appModeMenu).toBeVisible();
-    await appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ }).focus();
+    // Opening schedules the search autofocus in a requestAnimationFrame. Focusing an
+    // option before that frame runs lets the autofocus steal focus back into the search
+    // box, where Tab is not a dismiss key, so the menu stays open and this fails.
+    await expect(modeSearch).toBeFocused();
+    const reopenedAnswerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
+    await reopenedAnswerMode.focus();
+    await expect(reopenedAnswerMode).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(appModeMenu).toBeHidden();
   });

@@ -20,7 +20,8 @@ export type InformationPageMode =
   | "differentials"
   | "dsm"
   | "documents"
-  | "sources";
+  | "sources"
+  | "on-call";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -71,6 +72,12 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/factsheets", ["search", "topics"])) return true;
   if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
   if (isSlugDetail(pathname, "/sources", ["topics", "publishers", "method"])) return true;
+  // The six on-call section routes (contacts, playbook, referrals, orientation,
+  // education, logistics) each portal their own `InPageNavHeader` — unlike
+  // Sources' browse tabs, which keep the shared mode-nav bar instead. `search`
+  // is excluded by the shared `TOOL_SUFFIXES` set above, so this line alone
+  // covers exactly the six section routes and nothing else on `/on-call/*`.
+  if (isSlugDetail(pathname, "/on-call")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -110,4 +117,5 @@ export const informationPageShellModes = [
   "sources",
   "therapy-compass",
   "dsm",
+  "on-call",
 ] as const satisfies readonly InformationPageMode[];
