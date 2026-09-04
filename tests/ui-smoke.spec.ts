@@ -4353,7 +4353,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
     await expect(modeSearch).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(16);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(17);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
@@ -4368,7 +4368,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(16);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(17);
 
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();

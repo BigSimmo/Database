@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { useState } from "react";
@@ -26,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
-import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 
 /**
  * Generic, non-owner-specific framing for each section. Shown regardless of
@@ -64,6 +65,122 @@ const ON_CALL_SIGNED_OUT_BODY: Record<OnCallSection, string> = {
   education: "Sign in to see your teaching calendar.",
   logistics: "Sign in to see your logistics notes.",
 };
+
+/**
+ * Cross-section navigation, in flow.
+ *
+ * The six sections had no way to reach each other: the mode registered
+ * destinations in the shared header bar, but every one of these routes is an
+ * information page, so `PageSecondaryNavigation` returned null and the bar was
+ * never drawn. Five of the six pages were reachable only by typing the URL or
+ * arriving from a search result — `tests/route-reachability.test.ts` records
+ * that as orphaned routes.
+ *
+ * This is deliberately an in-flow strip and NOT a second sticky header:
+ * `OnCallNavHeader` is this mode's single phone-header collapse owner, and
+ * AGENTS.md "Search chrome behaviour" forbids stacking another fixed bar under
+ * it. It scrolls inside its own container so the page body never scrolls
+ * sideways.
+ */
+function sectionLinkClass(isCurrent: boolean) {
+  return cn(
+    "inline-flex min-h-tap items-center rounded-full border px-3 text-sm font-semibold transition",
+    isCurrent
+      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
+  );
+}
+
+/**
+ * Cross-section navigation, in flow.
+ *
+ * The six sections had no way to reach each other. The mode registered
+ * destinations in the shared header bar, but every one of these routes is an
+ * information page, so `PageSecondaryNavigation` returned null and the bar was
+ * never drawn — five of the six pages were reachable only by typing the URL or
+ * arriving from a search result, which `tests/route-reachability.test.ts`
+ * records as orphaned routes.
+ *
+ * Deliberately an in-flow strip and NOT a second sticky header:
+ * `OnCallNavHeader` is this mode's single phone-header collapse owner, and
+ * AGENTS.md "Search chrome behaviour" forbids stacking another fixed bar under
+ * it. It scrolls inside its own container so the page body never scrolls
+ * sideways.
+ *
+ * The six links are written out one by one, rather than mapped over
+ * `ON_CALL_SECTIONS`, because the reachability guard resolves `<Link>` targets
+ * statically: a path built by interpolation — or passed down through a wrapper
+ * component's prop — leaves these five routes reading as orphans, which is
+ * precisely the failure this strip exists to fix.
+ */
+function OnCallSectionSwitcher({ current }: { current: OnCallSection }) {
+  return (
+    <nav aria-label="On Call sections" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <ul className="flex w-max gap-1.5">
+        <li>
+          <Link
+            href="/on-call/contacts"
+            aria-current={current === "contacts" ? "page" : undefined}
+            data-testid="on-call-section-link-contacts"
+            className={sectionLinkClass(current === "contacts")}
+          >
+            {ON_CALL_SECTION_TITLES.contacts}
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/on-call/playbook"
+            aria-current={current === "playbook" ? "page" : undefined}
+            data-testid="on-call-section-link-playbook"
+            className={sectionLinkClass(current === "playbook")}
+          >
+            {ON_CALL_SECTION_TITLES.playbook}
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/on-call/referrals"
+            aria-current={current === "referrals" ? "page" : undefined}
+            data-testid="on-call-section-link-referrals"
+            className={sectionLinkClass(current === "referrals")}
+          >
+            {ON_CALL_SECTION_TITLES.referrals}
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/on-call/orientation"
+            aria-current={current === "orientation" ? "page" : undefined}
+            data-testid="on-call-section-link-orientation"
+            className={sectionLinkClass(current === "orientation")}
+          >
+            {ON_CALL_SECTION_TITLES.orientation}
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/on-call/education"
+            aria-current={current === "education" ? "page" : undefined}
+            data-testid="on-call-section-link-education"
+            className={sectionLinkClass(current === "education")}
+          >
+            {ON_CALL_SECTION_TITLES.education}
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/on-call/logistics"
+            aria-current={current === "logistics" ? "page" : undefined}
+            data-testid="on-call-section-link-logistics"
+            className={sectionLinkClass(current === "logistics")}
+          >
+            {ON_CALL_SECTION_TITLES.logistics}
+          </Link>
+        </li>
+      </ul>
+    </nav>
+  );
+}
 
 /**
  * The one module all six on-call section routes render, following
@@ -153,6 +270,7 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
             subtitle={ON_CALL_SECTION_DESCRIPTIONS[section]}
             icon={Icon}
           />
+          <OnCallSectionSwitcher current={section} />
         </section>
 
         <section

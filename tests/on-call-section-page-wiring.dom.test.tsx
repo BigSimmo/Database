@@ -95,3 +95,26 @@ describe("every section renders its own entries", () => {
     });
   }
 });
+
+describe("the sections can reach each other", () => {
+  // Before this strip existed, five of the six pages were orphans: the mode
+  // registered destinations in the shared header bar, but every section route
+  // is an information page, so the bar was never drawn. A reader could open
+  // Contacts and have no way to reach Playbook.
+  it("links every section from every section, marking the current one", () => {
+    storeState.entries = [];
+    render(<OnCallSectionPage section="playbook" />);
+
+    for (const section of ON_CALL_SECTIONS) {
+      const link = screen.getByTestId(`on-call-section-link-${section}`);
+      expect(link.getAttribute("href")).toBe(`/on-call/${section}`);
+      expect(link.getAttribute("aria-current")).toBe(section === "playbook" ? "page" : null);
+    }
+  });
+
+  it("gives the strip its own landmark so it is not read as page content", () => {
+    storeState.entries = [];
+    render(<OnCallSectionPage section="contacts" />);
+    expect(screen.getByRole("navigation", { name: "On Call sections" })).toBeTruthy();
+  });
+});

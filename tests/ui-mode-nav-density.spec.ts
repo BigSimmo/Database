@@ -88,11 +88,12 @@ const MODES = [
   { modeId: "differentials", route: "/differentials/diagnoses", items: 4, profile: "balanced-four" },
   { modeId: "factsheets", route: "/factsheets/search", items: 2, profile: "two-item" },
   { modeId: "dictionary", route: "/dictionary/search?q=MSE", items: 4, profile: "balanced-four" },
-  // Six destinations, one more than any other adopted mode, so this row is the
-  // widest label family the `extended` profile carries. It is measured here rather
-  // than assumed: if six labels clip at a boundary, this spec fails and the mode
-  // drops to four destinations with the other two reached from the home and search.
-  { modeId: "on-call", route: "/on-call/contacts", items: 6, profile: "extended" },
+  // On Call is deliberately absent. Its six section routes are information
+  // pages, so `PageSecondaryNavigation` returns null on every one of them and
+  // the shared bar never renders — this spec failed at all nine width points
+  // not because labels clipped but because there was no bar to measure. The
+  // mode navigates with `OnCallNavHeader` instead, and its own density is
+  // covered by the phone-chrome suite.
 ] as const;
 
 function densityPoints(profile: DensityProfile) {
