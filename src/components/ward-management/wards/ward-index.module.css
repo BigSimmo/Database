@@ -28,7 +28,15 @@
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /* ⚠️ NO `background` HERE, DELIBERATELY. This was painting `var(--surface)` straight over
+     `--ward-ground` (`WardGround`, `ward-shell.module.css`), a real DOM ancestor of this page's
+     `<main>` — the exact defect `tests/ward-design-language-contract.test.ts`'s
+     `COVERING_THE_GROUND` backlog names this file for. Removed 2026-09-04. On grey: this page's
+     `.section` panels (background: var(--surface-subtle)) and `.wardLink` cards (background:
+     var(--surface-raised)) already paint their own surface, so the space between and around them
+     now shows the shell's ground instead of a second, redundant white layer — no other visual
+     change. See that test's own comment for why the pin is a two-way list — this file must be
+     REMOVED from it, not just left passing. */
   color: var(--text);
 }
 
@@ -226,5 +234,81 @@
 @media (forced-colors: active) {
   .screen {
     --wf-border: var(--border);
+  }
+}
+
+/*
+ * ⚠️ `color: CanvasText` IS THE LOAD-BEARING LINE HERE, NOT `color-scheme: light`.
+ *
+ * This root sets `color: var(--text)` ON ITSELF. The dark ramp is scoped by the CLASS
+ * `.ckb-v2.dark.ckb-v2` rather than by a media query, so `color-scheme: light` cannot make it
+ * re-resolve; and `globals.css` resets print colour on `html, body`, which cannot reach an
+ * element that declares the property itself. Printing from dark mode therefore put pale text on
+ * white paper — and because the background above was deliberately deleted, the page came out
+ * nearly BLANK rather than as a dark band. Blank is the worse failure: a dark band gets reported.
+ *
+ * An ancestor cannot override a property an element sets on itself, so the reset has to live in
+ * the file that made the declaration.
+ *
+ * ⚠️ THIS FILE WAS MISSED BY MY OWN SWEEP FOR THIS EXACT DEFECT, AND THE REASON IS THE POINT.
+ * The scanner matched `background:` against the rule body without stripping comments, and the
+ * comment above says the words "painting `var(--surface)`" and "background: var(--surface-subtle)"
+ * while explaining why the background was removed. **The prose describing the deletion was read as
+ * the declaration still being there.** A comment satisfied a check for the third time in this
+ * programme, and this time it was mine.
+ *
+ * ⚠️ THE RESET NOW COVERS EVERY DESCENDANT, NOT JUST THIS ROOT. An ancestor cannot override a
+ * property an element sets on itself, which is exactly why this reset had to live here — but the
+ * same sentence is just as true one level down: rules like `.governanceBanner p { color:
+ * var(--text-muted) }` set colour on themselves too, and `.screen { color: CanvasText }` cannot
+ * reach past them either. `board.module.css` tried to fix this by enumerating every coloured
+ * selector — 56 of them across a 250-line print block — and still missed five content selectors.
+ * An enumerated list is the defect regenerating: any new coloured selector re-opens it, silently,
+ * forever. The wildcard `.screen *` cannot drift, and it flattens nothing anybody wanted — a
+ * sweep of every existing print block across these seven files found zero non-`CanvasText`
+ * colour declarations inside any of them.
+ *
+ * ⚠️ `!important` IS REQUIRED ON `color` HERE, AND THE WILDCARD ALONE IS NOT ENOUGH — measured
+ * through an actual cascade (jsdom's computed-style engine), not read off the CSS. Specificity is
+ * resolved before source order, so sitting at the end of the file buys nothing: `.screen *` is one
+ * class plus the universal selector (specificity 0,1,0; the universal contributes zero), and any
+ * rule combining a class with a type, pseudo-class or attribute selector outranks it — this file's
+ * own `.wardLink:hover` (0,2,0) and `.governanceBanner p` (0,1,1) both do. Confirmed on an
+ * equivalent-shaped selector: it computed `rgb(244, 246, 248)` — still near-white — with the
+ * wildcard alone, and `rgb(0, 0, 0)` once `!important` was added. `color-scheme` needs no
+ * `!important`: nothing competes for it. `coordinator.module.css` already carries `color:
+ * CanvasText !important` in its own print blocks — this file now matches that precedent rather
+ * than re-deriving it.
+ *
+ * ⚠️ THE WILDCARD ALONE WOULD HAVE LOOKED FIXED. It corrects every plain element, so a spot-check
+ * on any single-class element prints black and the fix reads as confirmed, while elements that
+ * declare their own colour with a compound selector stay invisible. Fix one instance, verify on the
+ * instance in front of you, never revisit the siblings: the same defect recurring at a third level,
+ * after file and after selector.
+ *
+ * NOT VERIFIED ON PAPER. This is a jsdom cascade resolution, not an observation of a printout —
+ * `!important` winning over specificity is spec behaviour common to every rendering engine,
+ * including the one that will actually print the page, so the result should carry over.
+ */
+@media print {
+  .screen,
+  .screen * {
+    color-scheme: light;
+    color: CanvasText !important;
+    /*
+     * 🔴 THE MISSING HALF, AND WITHOUT IT THE LINE ABOVE MAKES THE PAGE WORSE. Measured in
+     * Chromium 151 under print + dark: a themed card kept `rgb(23, 26, 29)` because nothing
+     * resets backgrounds, while the reset forced its text to `rgb(0, 0, 0)`. **Black on a dark
+     * card — gone.** Before the text reset that same text was near-white on the dark card:
+     * wasteful, and READABLE. The fix and the untouched background are each defensible alone
+     * and strictly worse together, and nothing either of us checked would have caught it,
+     * because we were both looking at text colour on a white page.
+     *
+     * ⚠️ `background-color`, NEVER the `background` shorthand. `board.module.css` hatches its
+     * blocked, held and past-date bed states with `background-image: repeating-linear-gradient`.
+     * The shorthand wipes `background-image` and would silently erase the pattern that
+     * distinguishes a blocked bed from an empty one — a state distinction, not decoration.
+     */
+    background-color: Canvas !important;
   }
 }

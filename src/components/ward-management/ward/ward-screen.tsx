@@ -35,10 +35,12 @@ import {
   unitCapacity,
 } from "@/components/ward-management/ward-derivations";
 import { OverrideRegister } from "@/components/ward-management/override-register";
+import { WardChip } from "@/components/ward-management/ward-chip";
 import { OVERRIDE_REASON_REQUIRED } from "@/components/ward-management/ward-flow-reducer";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
+import { WardPanel } from "@/components/ward-management/ward-panel";
 import {
   BED_RELEASE_WAITING_ON,
   DECLINE_REASONS,
@@ -199,6 +201,45 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // above, this is about this ward's own bed stock, so one form per screen is enough.
   const [leaveUsable, setLeaveUsable] = useState(false);
   const [leaveExpectedReturn, setLeaveExpectedReturn] = useState<string>("");
+
+  /**
+   * Rebuild to `mockup-ward-entry.html` (2026-09-04): the "Confirm today's numbers" panel.
+   *
+   * ⚠️ ALL THREE QUESTIONS ARE TRACKED HERE, LOCALLY, RATHER THAN DERIVED FROM `unit.allocatable`
+   * OR `unit.empty` DIRECTLY. Two reasons, one per field:
+   *
+   * - `unit.empty.source` is DOCUMENTED AS ALWAYS `"feed"` (`ward-model.ts`: "Physically empty
+   *   beds, per the feed") — this model has no ward-side event that confirms it, so there is no
+   *   real state to read a "confirmed today" flag from. Inventing one on `Unit` is a model change
+   *   this task's file scope (`ward/` and `wards/` only) does not reach.
+   * - There is no "anything limiting intake" field on `Unit` at all.
+   *
+   * So this panel's confirmed-count is session-local bookkeeping, seeded to 0 on every mount —
+   * which is also what makes "0 of 3 confirmed today" a state this screen can always reach, the
+   * exact state the bed-list CTA below must remain available through. The "allocatable" question
+   * is the one REAL exception: confirming it also dispatches the same `CONFIRM_CAPACITY` event
+   * the capacity form further down the page already sends, so pressing it has a genuine effect on
+   * `unit.allocatable`, not only on this panel's own count.
+   */
+  /*
+   * ⚠️ **SESSION STATE, AND EVERY CHIP READING IT NOW SAYS SO.** This set is `useState(() => new
+   * Set())` — it resets on every mount. The three chips it drives used to read
+   * "Not yet confirmed today" (twice) and "Never answered on this ward", which are claims about the
+   * DAY and about the WARD'S HISTORY. Neither is knowable from here: a ward that answered a minute
+   * ago, navigated away and came back, was told it had never answered at all.
+   *
+   * ⚠️ **AND FOR THE CONSTRAINTS ANSWER THERE IS NO FIELD TO READ.** `Unit` records nothing about
+   * whether the ward has ever answered it, so the wording is the whole of the available fix — the
+   * real repair is a model field and an event that writes it, which is not this component's to make.
+   * `empty` and `allocatable` DO have real provenance (`CapacityFigure.confirmedAt`), and it is
+   * shown by `WardFreshness` beneath each chip; what these chips report is only whether somebody
+   * re-confirmed in THIS session, which is now what they say.
+   */
+  const [confirmedToday, setConfirmedToday] = useState<ReadonlySet<"empty" | "allocatable" | "constraints">>(
+    () => new Set(),
+  );
+  const [constraintsAnswer, setConstraintsAnswer] = useState<string>("");
+  const [constraintsDraft, setConstraintsDraft] = useState<string>("");
 
   /*
    * THE WARD'S OWN REFUSAL SURFACE for `ACCEPT_IN_PRINCIPLE` and `PULL_PATIENT` — until now this
@@ -466,6 +507,50 @@ export function WardScreen({ unitId }: WardScreenProps) {
     });
   }
 
+  /** "Beds empty right now" — local acknowledgment only; see the state doc comment above for why. */
+  function confirmEmptyToday() {
+    setConfirmedToday((current) => new Set([...current, "empty"]));
+  }
+
+  /** "Of those, how many can you actually allocate" — the one question with a real backing event:
+   *  this dispatches the same `CONFIRM_CAPACITY` the capacity form below sends, re-affirming the
+   *  currently-displayed value, and separately marks the panel row confirmed for today.
+   *
+   *  `currentAllocatable` closes over a plain number rather than `unit.allocatable.value` — same
+   *  reason `wardUnitId` above closes over a plain string rather than `unit.id`: TypeScript's
+   *  narrowing of `unit` from the not-found check earlier in this component does not reach into a
+   *  nested function closure, so `unit.allocatable` inside one still types as possibly `undefined`. */
+  const currentAllocatable = unit.allocatable.value;
+  function confirmAllocatableToday() {
+    dispatch({
+      type: "CONFIRM_CAPACITY",
+      role: "ward",
+      now,
+      unitId: wardUnitId,
+      actingUnitId: unitId,
+      value: currentAllocatable,
+    });
+    setConfirmedToday((current) => new Set([...current, "allocatable"]));
+  }
+
+  /** The mockup's single-tap "nothing has changed" button — both bed-count questions at once. */
+  function confirmBothBedCounts() {
+    confirmEmptyToday();
+    confirmAllocatableToday();
+  }
+
+  /**
+   * "Anything limiting who can come in right now." Blank is a valid, recorded answer — the
+   * mockup's own note says so ("Leaving this blank does not stop you opening the ward below") —
+   * so this never refuses the submit on empty text the way `submitDecline`/`submitCapacity` above
+   * refuse an incomplete form; there is no wrong answer here to guard against.
+   */
+  function saveConstraints(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setConstraintsAnswer(constraintsDraft.trim());
+    setConfirmedToday((current) => new Set([...current, "constraints"]));
+  }
+
   function submitBedRelease(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!bedReleaseWaitingOn) return;
@@ -681,7 +766,194 @@ export function WardScreen({ unitId }: WardScreenProps) {
           </Link>
         </header>
 
-        <section aria-label="Bed capacity" className={styles.bedSection}>
+        {/*
+         * ══════════ THE WAY IN — rebuilt to mockup-ward-entry.html, always here, never gated ══════════
+         *
+         * ⚠️ THE DECISION THIS SECTION EXISTS TO PROTECT: `.heroCta` below carries neither
+         * `disabled` nor `aria-disabled`, under any value of `confirmedToday`. The prototype says
+         * so in words, and the words are pinned exactly as much as the missing attributes are —
+         * see `tests/ward-screen-overview-and-entry.dom.test.tsx`'s two independent assertions.
+         * This follows the standing Ward Flow rule: a coordinator decision is never blocked, only
+         * recorded. The confirm panel just below is where it gets recorded; it is never what
+         * decides whether the link above works.
+         */}
+        <section className={styles.entryHero} aria-labelledby="ward-hero-title" data-testid="ward-hero">
+          <div className={styles.entryHeroFigures}>
+            <div className={styles.heroFigureMain}>
+              <span className={styles.heroFigureValue} data-testid="ward-hero-free">
+                {capacity.available}
+              </span>
+              <span className={styles.heroFigureLabel} id="ward-hero-title">
+                free bed{capacity.available === 1 ? "" : "s"} on this ward right now
+              </span>
+            </div>
+            <p className={styles.heroCost}>
+              <WardFreshness confirmedAt={unit.allocatable.confirmedAt} now={now} /> &mdash; the coordinator is matching
+              referrals to a bed here using this number right now.
+            </p>
+          </div>
+          <div className={styles.heroAction}>
+            <Link className={styles.heroCta} href="#bed-capacity" data-testid="ward-hero-open-bed-list">
+              <span>Open bed list</span>
+              <span className={styles.heroCtaSub}>
+                {unit.beds} beds &middot; {capacity.available} free
+              </span>
+            </Link>
+            <p className={styles.heroAvailability} data-testid="ward-hero-availability">
+              Always available &mdash; an unanswered question below never blocks this.
+            </p>
+          </div>
+        </section>
+
+        <WardPanel
+          title="Confirm today's numbers"
+          count={`${confirmedToday.size} of 3 confirmed today`}
+          blurb="If nothing has changed, confirm with one tap — you do not need to re-enter anything."
+        >
+          <button
+            type="button"
+            className={styles.confirmAllButton}
+            onClick={confirmBothBedCounts}
+            data-testid="ward-confirm-all"
+          >
+            Confirm both bed counts &mdash; nothing has changed
+          </button>
+
+          <ul className={styles.confirmRows}>
+            <li
+              className={styles.confirmRow}
+              data-fresh={confirmedToday.has("empty") ? "confirmed" : "waiting"}
+              data-testid="ward-confirm-row-empty"
+            >
+              <div className={styles.confirmRowHead}>
+                <span className={styles.confirmRowLabel}>Beds empty right now</span>
+                <span className={styles.confirmRowValue}>{unit.empty.value}</span>
+              </div>
+              <div className={styles.confirmRowMeta}>
+                <WardChip level={confirmedToday.has("empty") ? "accepted" : "stalled"}>
+                  {/*
+                    ⚠️ BOTH HALVES SCOPED TO THE SESSION, NOT ONLY THE NEGATIVE ONE. This chip read
+                    "Confirmed just now" while its own negative already said "since this page
+                    opened" — and nothing here writes `unit.empty.confirmedAt`, so `WardFreshness`
+                    directly beneath it went on showing the old feed time. One row saying both
+                    "Confirmed just now" and "last confirmed three hours ago", with the false half
+                    in the louder position.
+
+                    ⚠️ A reviewer asked for this to be recorded through reducer state "as the
+                    allocatable confirmation does". There is no such event to send: CONFIRM_CAPACITY
+                    is specifically the allocatable count, and the only writes to `empty.confirmedAt`
+                    are side effects of pulling, releasing and discharging a bed. Recording it needs
+                    a new event and a model decision about what a ward confirming an empty count
+                    MEANS — not this component's to make, the same reason the constraints answer
+                    below carries no field. The wording is the whole of the available fix, and
+                    saying so is better than a silent narrower change.
+                  */}
+                  {confirmedToday.has("empty")
+                    ? "Confirmed since this page opened"
+                    : "Not confirmed since this page opened"}
+                </WardChip>
+                {/*
+                 * ⚠️ THIS SAID "Confirmed 07:26" FOR A FIGURE NOBODY CONFIRMED. `unit.empty` is a
+                 * `CapacityFigure` carrying `source: "feed" | "ward"`, and all 23 seeded units are
+                 * `"feed"` — so with neither `derived` nor `confirmedByRole` passed, `WardFreshness`
+                 * rendered a feed timestamp in the grammar of a human confirmation.
+                 *
+                 * The allocatable figure 91 lines below already did this correctly, under a comment
+                 * reading "never as though a human had confirmed it". Same type, same rule, same
+                 * props — the file knew; this call site had simply not been given them.
+                 */}
+                <WardFreshness
+                  confirmedAt={unit.empty.confirmedAt}
+                  confirmedByRole={unit.empty.source === "ward" ? `NUM ${unit.name}` : undefined}
+                  now={now}
+                  derived={unit.empty.source !== "ward"}
+                />
+              </div>
+              <button
+                type="button"
+                className={styles.confirmRowButton}
+                onClick={confirmEmptyToday}
+                data-testid="ward-confirm-empty"
+              >
+                Confirm &mdash; nothing has changed
+              </button>
+            </li>
+
+            <li
+              className={styles.confirmRow}
+              data-fresh={confirmedToday.has("allocatable") ? "confirmed" : "waiting"}
+              data-testid="ward-confirm-row-allocatable"
+            >
+              <div className={styles.confirmRowHead}>
+                <span className={styles.confirmRowLabel}>Of those, how many can you actually allocate</span>
+                <span className={styles.confirmRowValue}>{unit.allocatable.value}</span>
+              </div>
+              <div className={styles.confirmRowMeta}>
+                <WardChip level={confirmedToday.has("allocatable") ? "accepted" : "stalled"}>
+                  {confirmedToday.has("allocatable") ? "Confirmed just now" : "Not confirmed since this page opened"}
+                </WardChip>
+                <WardFreshness
+                  confirmedAt={unit.allocatable.confirmedAt}
+                  confirmedByRole={unit.allocatable.source === "ward" ? `NUM ${unit.name}` : undefined}
+                  now={now}
+                />
+              </div>
+              <button
+                type="button"
+                className={styles.confirmRowButton}
+                onClick={confirmAllocatableToday}
+                data-testid="ward-confirm-allocatable"
+              >
+                Confirm &mdash; nothing has changed
+              </button>
+            </li>
+
+            <li
+              className={styles.confirmRow}
+              data-fresh={confirmedToday.has("constraints") ? "confirmed" : "waiting"}
+              data-testid="ward-confirm-row-constraints"
+            >
+              <div className={styles.confirmRowHead}>
+                <span className={styles.confirmRowLabel}>Anything limiting who can come in right now</span>
+              </div>
+              <div className={styles.confirmRowMeta}>
+                <WardChip level={confirmedToday.has("constraints") ? "accepted" : "stalled"}>
+                  {/* Same asymmetry as the empty-bed chip above, and `Unit` records nothing about
+                      this answer at all — so session scope is not a compromise here, it is the
+                      only true thing available. */}
+                  {confirmedToday.has("constraints")
+                    ? "Answered since this page opened"
+                    : "Not answered since this page opened"}
+                </WardChip>
+              </div>
+              {confirmedToday.has("constraints") ? (
+                <p className={styles.confirmSkipNote} data-testid="ward-confirm-constraints-answer">
+                  {constraintsAnswer || "None recorded."}
+                </p>
+              ) : null}
+              <form className={styles.confirmAnswerRow} onSubmit={saveConstraints}>
+                <input
+                  type="text"
+                  className={styles.confirmAnswerInput}
+                  value={constraintsDraft}
+                  onChange={(event) => setConstraintsDraft(event.target.value)}
+                  placeholder="e.g. male-only bay today — or leave blank if nothing is limiting intake"
+                  aria-label="Anything limiting who can come in right now"
+                  data-testid="ward-confirm-constraints-input"
+                />
+                <button type="submit" className={styles.confirmRowButton} data-testid="ward-confirm-constraints-save">
+                  Save answer
+                </button>
+              </form>
+              <p className={styles.confirmSkipNote}>
+                Leaving this blank does not stop you opening the ward above &mdash; it just means the coordinator will
+                not see any constraint recorded against this bed.
+              </p>
+            </li>
+          </ul>
+        </WardPanel>
+
+        <section aria-label="Bed capacity" id="bed-capacity" className={styles.bedSection}>
           <h2 className={styles.sectionHeading}>Bed capacity</h2>
           {/* Task 5, spec D7/D12: when this unit's own allocatable count was last confirmed, and
               (when one exists) the mark that a coordinator has since asked for it to be restated.

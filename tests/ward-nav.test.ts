@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COMMUNITY_TEAM_PAGES } from "../src/components/ward-management/community/community-derivations";
 import { CommunityScreen } from "../src/components/ward-management/community/community-screen";
 import { CommunityIndex } from "../src/components/ward-management/community/community-index";
+import { stripSourceComments } from "./helpers/strip-source-comments";
 
 /**
  * Task 7 (D8). Same "SSR-string component test" pattern tests/ward-landmarks.test.ts uses (see
@@ -292,7 +293,14 @@ function scanDynamicRoute(route: string): DynamicRouteScan {
   const scan: DynamicRouteScan = { concreteInstances: new Set(), concreteSites: [], builtSites: [] };
   for (const file of sourceFiles) {
     if (file.startsWith(ownDir)) continue;
-    const text = readFileSync(file, "utf8");
+    // Comments are stripped before this scan: a mutation proved on 2026-09-04 that renaming the
+    // board route's one real seeded href away in ward-nav.ts, and leaving a `//` comment
+    // containing the same quoted string, restored every downstream D8 assertion to green —
+    // including "Ward Flow route/render-map coverage" and the exampleOnly pin — with no real
+    // link anywhere. This is the primary orphan-route mechanism for every Ward Flow dynamic
+    // route (WARD_DYNAMIC_ROUTE_INSTANCES / WARD_DYNAMIC_ROUTE_ORPHANS both read from this scan),
+    // so leaving it unstripped defeated the whole D8 dynamic-route safety net with a comment.
+    const text = stripSourceComments(readFileSync(file, "utf8"));
     const relative = path.relative(REPO_ROOT, file).split(path.sep).join("/");
     concrete.lastIndex = 0;
     let found = false;
@@ -838,13 +846,21 @@ describe("ClinicalRail's aria-label is honest for a sandboxed prototype (D11)", 
   ]
     .map((file) => readFileSync(path.join(REPO_ROOT, file), "utf8"))
     .join("\n");
+  // A comment-stripped view of the same three files, for the assertions below that check a real
+  // attribute or literal is present — `source` itself stays raw for the two negative checks
+  // further down, where an unstripped read is the conservative direction (a stray comment
+  // mentioning forbidden text should still fail loudly, not be stripped into a silent pass).
+  const strippedSource = stripSourceComments(source);
 
   it("no longer claims Ward Flow is a clinical application", () => {
     expect(source).not.toContain("Clinical applications");
   });
 
   it("labels the rail's own nav for Ward Flow, not for a set of applications", () => {
-    expect(source).toContain('aria-label="Ward Flow"');
+    // Comments are stripped before this check: a mutation proved on 2026-09-04 that removing the
+    // real `aria-label="Ward Flow"` attribute and leaving only a `//` comment with the same text
+    // satisfied the unstripped check.
+    expect(strippedSource).toContain('aria-label="Ward Flow"');
   });
 
   /**
@@ -874,7 +890,10 @@ describe("ClinicalRail's aria-label is honest for a sandboxed prototype (D11)", 
     // drawer, so both its value and its use are asserted.
     expect(WARD_DEVELOPER_HUB_HREF).toBe("/mockups/development");
     expect(source).toContain("WARD_DEVELOPER_HUB_HREF");
-    expect(source).toContain('"/mockups/development"');
+    // Comments are stripped before this one: a mutation proved on 2026-09-04 that splitting the
+    // real literal into a concatenation (`"/mockups/" + "development"`, same runtime value) and
+    // leaving a `//` comment with the whole literal satisfied the unstripped check.
+    expect(strippedSource).toContain('"/mockups/development"');
   });
 });
 

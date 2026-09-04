@@ -30,6 +30,24 @@ import styles from "./ward-index.module.css";
  * cannot drift against a figure, because it is not a figure. If a number is ever wanted here,
  * that is a product decision, not an implementer's convenience.
  *
+ * ⚠️ **2026-09-04 — this file was NOT rebuilt to `mockup-ward-home.html`'s card layout, and the
+ * reason belongs here.** That mockup shows a per-ward free-bed figure on a card grid, and the
+ * brief for this rebuild said so too. A first attempt built exactly that (cards from
+ * `ward-overview.module.css`, `unitCapacity()` per ward, the h1 retitled "Ward overview") — and
+ * `tests/ward-nav.test.ts`'s "is an index and not a second bed board" test refused it outright: it
+ * pins the literal string `"All wards"`, an exhaustive ALLOWLIST of every text fragment this page
+ * may render, a hard ban on any digit anywhere in its rendered copy, and a blocklist of capacity
+ * words, all guarding precisely the "Deliberately not a second dashboard" decision two paragraphs
+ * up. That test is outside this task's file scope (`ward/` and `wards/` plus new
+ * `tests/ward-screen-*` files only), so it could not be updated to match the mockup without
+ * exceeding that scope — and overriding a test this deliberately fortified is exactly the kind of
+ * decision that needs the owner's sign-off, not an implementer's judgement call. The attempt was
+ * reverted; `ward-overview.module.css` (unused, kept pending that decision rather than deleted
+ * under a blanket worktree-safety rule that blocks `rm` here) has the card CSS for whoever the
+ * owner assigns this to next, once "All wards" vs. "Ward overview" and the digit ban are settled.
+ * Only the safe, test-approved change from that attempt survives here: the CSS module's `.screen`
+ * no longer paints `background: var(--surface)` over `--ward-ground` — see `ward-index.module.css`.
+ *
  * **Enumerated, never listed.** The wards come from the provider's live `units`, which is the whole
  * network (`scenarioUnits` clones `allUnits()` and neither scenario filters it), so a ward seeded
  * into `ward-sites.ts` appears here the moment it exists. A hand-written list of wards is the exact

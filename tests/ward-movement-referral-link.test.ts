@@ -17,7 +17,7 @@
 // then raises the journey. The only objects here are the ones the reducer made.
 import { describe, expect, it } from "vitest";
 
-import { referralForMovement } from "../src/components/ward-management/ward-derivations";
+import { movementReferralLink, referralForMovement } from "../src/components/ward-management/ward-derivations";
 import {
   seedWardFlowState,
   wardFlowReducer,
@@ -27,6 +27,18 @@ import type { Movement, Referral } from "../src/components/ward-management/ward-
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
+
+/**
+ * ⚠️ **THE EXACT SET, NOT A COUNT AND NOT "AT LEAST ONE".** Owner ruling R-2026-09-04-D's own
+ * warning is that seeding a link makes today's fixture look right while hiding the general
+ * problem; an assertion that "some movement links" would pass on one link and hide nineteen gaps
+ * just as happily. Both the ids and their number are pinned below, so removing a link, adding a
+ * third, or silently backfilling the fixture each fail by name.
+ */
+const SEEDED_LINKED_MOVEMENT_IDS = ["WF-002", "WF-009"];
+
+/** The movements the fixture ASSERTS nobody referred — the clinical arm, also pinned exactly. */
+const SEEDED_NONE_RAISED_MOVEMENT_IDS = ["WF-001", "WF-013", "WF-019"];
 
 /** The department the referral is addressed to and the patient then attends. */
 const ATTENDED_ED = "jhc-ed";
@@ -171,12 +183,13 @@ describe("a journey with no referral", () => {
     expect(raised.referrals.length).toBeGreaterThan(0);
   });
 
-  it("resolves to undefined for every hand-authored movement in the seed", () => {
-    // The field is never backfilled onto the fixture. Its absence there is real, and this is the
-    // assertion that stops a later change quietly manufacturing values for it.
+  it("resolves to undefined for every seeded movement that is not one of the two authored pairs", () => {
+    // ⚠️ THIS TEST USED TO ASSERT THE FIELD WAS UNSET ON EVERY SEEDED MOVEMENT, AND IT WAS RIGHT
+    // UNTIL OWNER RULING R-2026-09-04-D. Two movements now carry a link; the point that survives
+    // is that NOTHING ELSE quietly acquired one, which is what a backfill would look like.
     const seeded = seedWardFlowState();
     expect(seeded.movements.length).toBeGreaterThan(0);
-    for (const movement of seeded.movements) {
+    for (const movement of seeded.movements.filter((candidate) => !SEEDED_LINKED_MOVEMENT_IDS.includes(candidate.id))) {
       expect(movement.referralId, `${movement.id} carries a referral id nothing raised it from`).toBeUndefined();
       expect(referralForMovement(movement, seeded.referrals)).toBeUndefined();
     }
@@ -231,5 +244,253 @@ describe("RAISE_REFERRAL refuses a link it cannot resolve", () => {
     expect(after.rejections).toEqual([]);
     expect(after.movements).toHaveLength(referred.movements.length + 1);
     expect(referralForMovement(newestMovement(after), after.referrals)).toBe(referral);
+  });
+});
+
+/**
+ * OWNER RULING R-2026-09-04-D, FIRST HALF — the seeded links themselves.
+ *
+ * The ruling asks the fixture to show real data rather than a uniform absence. These tests are
+ * about the SEED, so they read `seedWardFlowState()` rather than dispatching: a hand-authored link
+ * meets no reducer, so the three conditions `RAISE_REFERRAL` enforces at runtime — the id
+ * resolves, the referral was addressed to the department that raised the journey, and the referral
+ * came first — have to be asserted over the fixture directly or nothing checks them at all.
+ */
+describe("the seeded front-door links", () => {
+  it("links exactly WF-002 and WF-009, by name and by count", () => {
+    const seeded = seedWardFlowState();
+    const linked = seeded.movements.filter((movement) => movement.referralId !== undefined);
+
+    // The ids, in fixture order, and then the number as its own assertion: an array comparison
+    // written against a shortened expectation would still pass the first check alone.
+    expect(linked.map((movement) => movement.id)).toEqual(SEEDED_LINKED_MOVEMENT_IDS);
+    expect(linked).toHaveLength(2);
+    // And the fixture it is two OUT OF — so "two link" is a statement about a populated fixture
+    // rather than about a fixture that lost forty-eight records.
+    expect(seeded.movements).toHaveLength(50);
+  });
+
+  it("gives each linked movement a referral that resolves, names its own department, and predates it", () => {
+    const seeded = seedWardFlowState();
+    const linked = seeded.movements.filter((movement) => movement.referralId !== undefined);
+    expect(linked).toHaveLength(2);
+
+    for (const movement of linked) {
+      // 1. RESOLVES — the `Admission.referralId` defect stated as an assertion. Match count first:
+      //    `find` returning undefined and `find` matching one look identical downstream.
+      const matches = seeded.referrals.filter((candidate) => candidate.id === movement.referralId);
+      expect(matches, `${movement.id} referral ${movement.referralId} resolves to exactly one referral`).toHaveLength(
+        1,
+      );
+      const referral = referralForMovement(movement, seeded.referrals);
+      expect(referral).toBe(matches[0]);
+
+      // 2. ADDRESSED TO THIS DEPARTMENT — the false join that wears a real id. The same rule
+      //    `RAISE_REFERRAL` refuses at runtime, applied to data no reducer ever saw.
+      const addressedHere = referral!.destinations.some(
+        (addressing) =>
+          addressing.destination.kind === "emergency_department" && addressing.destination.edId === movement.originEdId,
+      );
+      expect(addressedHere, `${referral!.id} is not addressed to ${movement.originEdId}, ${movement.id} own ED`).toBe(
+        true,
+      );
+
+      // 3. CAME FIRST — a journey cannot precede the referral that produced it. This is the
+      //    condition no existing seeded referral could satisfy, and the reason RF-012 and RF-013
+      //    were authored rather than picked.
+      expect(
+        referral!.raisedAt,
+        `${referral!.id} was raised after ${movement.id} opened, so it cannot be what produced it`,
+      ).toBeLessThan(movement.openedAt);
+    }
+  });
+
+  it("is not satisfied by an id substituted from the movement own id", () => {
+    // The `Admission.referralId` shape: `WF-002` substitutes to `RF-002`, a real referral in this
+    // fixture, so that defect here would RESOLVE and pass every check above except this one.
+    const seeded = seedWardFlowState();
+    for (const movement of seeded.movements.filter((candidate) => candidate.referralId !== undefined)) {
+      const substituted = movement.id.replace(/^WF-/, "RF-");
+      expect(seeded.referrals.some((candidate) => candidate.id === substituted)).toBe(true);
+      expect(
+        movement.referralId,
+        `${movement.id} link is the string substitution of its own id, not a real join`,
+      ).not.toBe(substituted);
+    }
+  });
+});
+
+/**
+ * OWNER RULING R-2026-09-04-D, SECOND HALF — the three causes, made distinguishable.
+ *
+ * `referralForMovement` answers `undefined` for all three. `movementReferralLink` names them:
+ * `none_raised` (clinical), `not_asked` and `not_recorded` (both record-keeping).
+ */
+describe("movementReferralLink separates the three causes of an absent referral", () => {
+  it("classifies every seeded movement into exactly the expected buckets, by name and by count", () => {
+    const seeded = seedWardFlowState();
+    const byKind = (kind: string) =>
+      seeded.movements
+        .filter((movement) => movementReferralLink(movement, seeded.referrals).kind === kind)
+        .map((movement) => movement.id);
+
+    expect(byKind("referral")).toEqual(SEEDED_LINKED_MOVEMENT_IDS);
+    expect(byKind("none_raised")).toEqual(SEEDED_NONE_RAISED_MOVEMENT_IDS);
+    // The record-keeping remainder: fifty movements, two linked, three asserted, forty-five with
+    // nothing recorded either way.
+    expect(byKind("not_recorded")).toHaveLength(45);
+    // ⚠️ TWO ABSENCE CLAIMS, EACH WITH ITS POSITIVE CONTROL BELOW. Neither state is producible by
+    // the seed: `not_asked` is written only by `RAISE_REFERRAL` at runtime, and `unresolved` only
+    // by a hand-authored dangling id. The two tests immediately after this one produce each of
+    // them, so a zero here means "the seed has none" and not "the classifier cannot return it".
+    expect(byKind("not_asked")).toEqual([]);
+    expect(byKind("unresolved")).toEqual([]);
+    // And the buckets account for every movement — no record fell outside the classification.
+    expect(byKind("referral").length + byKind("none_raised").length + byKind("not_recorded").length).toBe(
+      seeded.movements.length,
+    );
+  });
+
+  it("POSITIVE CONTROL: a runtime movement raised without naming a referral is not_asked, never not_recorded", () => {
+    // The record-keeping cause the seed cannot hold. There is a referral in state addressed to
+    // this very department and the raiser did not name it — nobody was asked, and that is what the
+    // classification says. Distinguishing this from the fixture's `not_recorded` is the point:
+    // both are record-keeping, but only one of them is a record somebody could have made.
+    const referred = communityRefersToEmergencyDepartment(seedWardFlowState());
+    const raised = departmentRaisesJourney(referred);
+    expect(raised.rejections).toEqual([]);
+    const movement = newestMovement(raised);
+
+    expect(movement.referralId).toBeUndefined();
+    expect(movement.referralAbsence).toEqual({ reason: "not_asked", at: NOW });
+    expect(movementReferralLink(movement, raised.referrals)).toEqual({ kind: "not_asked", at: NOW });
+  });
+
+  it("POSITIVE CONTROL: a dangling id is unresolved — never quietly re-read as nobody having referred them", () => {
+    // Unreachable through the reducer, reachable by hand. The dangerous reading is "no referral",
+    // because that is one step from the clinical assertion; `unresolved` says the record is
+    // broken, which is what it is.
+    const seeded = seedWardFlowState();
+    const dangling: Movement = { ...seeded.movements[0], referralId: "RF-DOES-NOT-EXIST" };
+    expect(movementReferralLink(dangling, seeded.referrals)).toEqual({
+      kind: "unresolved",
+      referralId: "RF-DOES-NOT-EXIST",
+    });
+  });
+
+  it("prefers a resolved referral over a contradicting absence record", () => {
+    // The reducer refuses to create this pair (`RECORD_NO_REFERRAL` rejects a movement that names
+    // a referral), so it can only be hand-authored. Reporting "nobody referred this person" beside
+    // a referral that resolves is the fabrication this ruling exists to prevent.
+    const seeded = seedWardFlowState();
+    const linked = seeded.movements.find((movement) => movement.referralId !== undefined)!;
+    const contradictory: Movement = { ...linked, referralAbsence: { reason: "none_raised", at: NOW } };
+    const link = movementReferralLink(contradictory, seeded.referrals);
+    expect(link.kind).toBe("referral");
+    expect(link.kind === "referral" && link.referral.id).toBe(linked.referralId);
+  });
+
+  it("carries the recorded instant on the clinical arm, so a screen can say WHEN it was answered", () => {
+    const seeded = seedWardFlowState();
+    const asserted = seeded.movements.find((movement) => movement.id === "WF-019")!;
+    expect(movementReferralLink(asserted, seeded.referrals)).toEqual({ kind: "none_raised", at: NOW_ANCHOR - 600 });
+    // And every authored instant is AFTER its movement opened — an answer recorded before the
+    // question existed would be incoherent, and nothing else checks these three.
+    for (const id of SEEDED_NONE_RAISED_MOVEMENT_IDS) {
+      const movement = seeded.movements.find((candidate) => candidate.id === id)!;
+      expect(movement.referralAbsence!.at, `${id} absence was recorded before the movement opened`).toBeGreaterThan(
+        movement.openedAt,
+      );
+    }
+  });
+});
+
+/**
+ * `RECORD_NO_REFERRAL` — the producer of the clinical arm. Without it `none_raised` would be a
+ * field only a fixture can write, which is the `Admission.referralId` class of defect one layer up.
+ */
+describe("RECORD_NO_REFERRAL records that nobody referred this patient", () => {
+  /** A movement raised at runtime with nobody named — `not_asked` until somebody answers. */
+  function runtimeMovement(): { state: WardFlowState; movement: Movement } {
+    const raised = departmentRaisesJourney(seedWardFlowState());
+    return { state: raised, movement: newestMovement(raised) };
+  }
+
+  it("upgrades not_asked to the recorded answer", () => {
+    const { state, movement } = runtimeMovement();
+    expect(movementReferralLink(movement, state.referrals).kind).toBe("not_asked");
+
+    const after = wardFlowReducer(state, {
+      type: "RECORD_NO_REFERRAL",
+      role: "ed",
+      now: NOW + 10,
+      movementId: movement.id,
+    });
+    expect(after.rejections).toEqual([]);
+    const updated = after.movements.find((candidate) => candidate.id === movement.id)!;
+    expect(updated.referralAbsence).toEqual({ reason: "none_raised", at: NOW + 10 });
+    expect(movementReferralLink(updated, after.referrals)).toEqual({ kind: "none_raised", at: NOW + 10 });
+  });
+
+  it("refuses a movement that was raised from a referral, rather than storing the contradiction", () => {
+    const referred = communityRefersToEmergencyDepartment(seedWardFlowState());
+    const referral = newestReferral(referred);
+    const raised = departmentRaisesJourney(referred, { referralId: referral.id });
+    const movement = newestMovement(raised);
+
+    const after = wardFlowReducer(raised, {
+      type: "RECORD_NO_REFERRAL",
+      role: "ed",
+      now: NOW + 10,
+      movementId: movement.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].attempted).toBe("RECORD_NO_REFERRAL");
+    expect(after.rejections[0].reason).toContain(referral.id);
+    // Visibly refused AND unchanged — a rejection that still wrote the field would pass the line
+    // above on its own.
+    expect(after.movements.find((candidate) => candidate.id === movement.id)!.referralAbsence).toBeUndefined();
+  });
+
+  it("refuses an unknown movement id rather than defaulting to one", () => {
+    const seeded = seedWardFlowState();
+    const after = wardFlowReducer(seeded, {
+      type: "RECORD_NO_REFERRAL",
+      role: "ed",
+      now: NOW,
+      movementId: "WF-DOES-NOT-EXIST",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("WF-DOES-NOT-EXIST");
+    expect(after.movements).toEqual(seeded.movements);
+  });
+
+  it("refuses a closed movement — the question is meaningless once the journey ended", () => {
+    const seeded = seedWardFlowState();
+    const closed = seeded.movements.find((movement) => movement.closure !== undefined)!;
+    const after = wardFlowReducer(seeded, {
+      type: "RECORD_NO_REFERRAL",
+      role: "ed",
+      now: NOW,
+      movementId: closed.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("closed movement");
+  });
+
+  it("refuses a coordinator, which cannot observe the front door", () => {
+    const { state, movement } = runtimeMovement();
+    const after = wardFlowReducer(state, {
+      type: "RECORD_NO_REFERRAL",
+      role: "coordinator",
+      now: NOW + 10,
+      movementId: movement.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    // Still `not_asked`: the refusal left the record alone rather than half-writing it.
+    expect(after.movements.find((candidate) => candidate.id === movement.id)!.referralAbsence).toEqual({
+      reason: "not_asked",
+      at: NOW,
+    });
   });
 });

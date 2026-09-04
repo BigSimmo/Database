@@ -393,7 +393,7 @@ function groupConstructionSites(sites: ConstructionSite[]): SurfaceGroup[] {
 
 const WARD_MANAGEMENT_DIR = path.join(REPO_ROOT, "src/components/ward-management");
 
-type DispatchCallSite = { file: string; line: number; literalType: string | null };
+type DispatchCallSite = { file: string; line: number; literalType: string | null; expression: string };
 
 /**
  * COVERAGE, not compliance. Everything above answers "of the dispatch sites this scan can see,
@@ -449,10 +449,38 @@ function findWardManagementDispatchCalls(): DispatchCallSite[] {
           literalType = valueNode.value;
         }
       }
-      calls.push({ file: relFile, line, literalType });
+      // The argument's own source text, comments removed and whitespace collapsed. This is what
+      // the coverage guard below keys on instead of the line number — see its comment for why.
+      const start = typeof arg0?.start === "number" ? (arg0.start as number) : -1;
+      const end = typeof arg0?.end === "number" ? (arg0.end as number) : -1;
+      const expression =
+        start >= 0 && end > start ? withoutComments(source.slice(start, end)).replace(/\s+/gu, " ").trim() : "";
+      calls.push({ file: relFile, line, literalType, expression });
     });
   }
   return calls;
+}
+
+/**
+ * Blanks comments out of a source fragment — a space per character, newlines kept — so the
+ * whitespace collapse that follows erases them without moving anything else.
+ *
+ * ⚠️ WHY THIS EXISTS: the coverage guard below keys on a dispatch call's own source text so that
+ * the key survives the call moving. A comment INSIDE the call defeats that: rewording the comment
+ * changes the key and the guard goes red over prose. The first version of this rekey shipped
+ * without the strip and was immediately churned by exactly that.
+ *
+ * ⚠️ KNOWN NARROWING, pinned as a test rather than described in prose: a `//` that does not begin
+ * a line — `movementId: id, // why` — is left in place, because stripping it would need to know
+ * whether the `//` is inside a string. Nothing in the scanned tree has that shape today. The
+ * characterisation test below going red means somebody closed the hole and should delete it.
+ */
+function withoutComments(fragment: string): string {
+  const blockless = fragment.replace(/\/\*[\s\S]*?\*\//gu, (m) => " ".repeat(m.length));
+  return blockless
+    .split(/\n/u)
+    .map((l) => (l.trimStart().startsWith("//") ? " ".repeat(l.length) : l))
+    .join("\n");
 }
 
 /**
@@ -462,22 +490,33 @@ function findWardManagementDispatchCalls(): DispatchCallSite[] {
  * has been added and a human must read it before this guard can go green again.
  */
 const DISPATCH_CALLS_WITHOUT_A_LITERAL_TYPE: Record<string, string> = {
-  "src/components/ward-management/ward-management-console.tsx:482":
-    'type: patient.flaggedUrgent ? "CLEAR_MOVEMENT_URGENT_FLAG" : "FLAG_MOVEMENT_URGENT" — a computed ' +
+  // ⚠️ KEYED BY THE CALL'S OWN SOURCE TEXT, NOT BY ITS LINE NUMBER, AS OF 2026-09-04.
+  // This entry's line moved twice in one evening — 482 -> 1367 -> 1567 — as the workspace was
+  // redesigned, and each move turned this guard red for a reason that was not a defect. A guard
+  // whose maintenance is a countdown stops being read: a red that is never a defect is how a real
+  // one gets waved through. The dispatch's MEANING did not change through either move, which is
+  // exactly why the line number was the wrong thing to pin.
+  //
+  // The key is the call's argument with comments stripped and whitespace collapsed, so it still
+  // churns when the payload itself changes — as it did here when the workspace rebuild renamed
+  // `patient` to `movement` and added `now`. That churn is wanted: a changed payload deserves a
+  // fresh read. A moved call, or a reworded comment inside it, does not.
+  'src/components/ward-management/ward-management-console.tsx :: { type: movement.flaggedUrgent ? "CLEAR_MOVEMENT_URGENT_FLAG" : "FLAG_MOVEMENT_URGENT", role: "coordinator", now, movementId: movement.id, }':
+    'type: movement.flaggedUrgent ? "CLEAR_MOVEMENT_URGENT_FLAG" : "FLAG_MOVEMENT_URGENT" — a computed ' +
     "ternary between two literal event names. Harmless today only because NEITHER branch is " +
-    "override-gated (neither event's WardFlowEvent member declares overrideReason) — if either ever " +
-    "becomes overridable, this stated reason is false and the entry must be re-examined, not carried " +
-    "forward unread.",
-  "src/components/ward-management/morning/morning-tour.tsx:284":
+    "override-gated: re-read in ward-flow-events.ts on 2026-09-04, and both members declare only " +
+    "role/now/movementId, no overrideReason. If either ever becomes overridable, this stated reason " +
+    "is false and the entry must be re-examined, not carried forward unread.",
+  "src/components/ward-management/morning/morning-tour.tsx :: pending.event":
     "dispatch(pending.event) — the event object was already built as a literal inside this same " +
     "file's tourBeatEvents() (the REFER_TO_UNITS/ACCEPT_IN_PRINCIPLE literals the compliance guard " +
     "above already finds at its own construction sites); this call only forwards a reference to it, " +
     "so the literal scan is not blind here, only indirected.",
-  "src/components/ward-management/morning/morning-tour.tsx:319":
-    "dispatch(events[0]) — same tourBeatEvents() indirection as line 284, same reasoning.",
-  "src/components/ward-management/morning/morning-tour.tsx:324":
-    "dispatch(event) inside a for-of loop over tourBeatEvents()'s result — same indirection as line " +
-    "284, same reasoning.",
+  "src/components/ward-management/morning/morning-tour.tsx :: events[0]":
+    "dispatch(events[0]) — same tourBeatEvents() indirection as dispatch(pending.event) above, same " + "reasoning.",
+  "src/components/ward-management/morning/morning-tour.tsx :: event":
+    "dispatch(event) inside a for-of loop over tourBeatEvents()'s result — same tourBeatEvents() " +
+    "indirection as dispatch(pending.event) above, same reasoning.",
 };
 
 const wardManagementDispatchCalls = findWardManagementDispatchCalls();
@@ -486,6 +525,22 @@ const nonLiteralDispatchCalls = wardManagementDispatchCalls.filter((c) => c.lite
 describe("ward override-surface guard", () => {
   // --- Anti-vacuity guards. Without these, a broken parse silently returning [] would make every
   //     assertion below pass trivially, and the guard would prove nothing while looking green. ---
+
+  it("strips comments out of a dispatch key, and does not silently strip a trailing one", () => {
+    // Fed synthetic input on purpose. Whether the real tree happens to contain a comment inside a
+    // dispatch call today is not something this guard should depend on — it did on 2026-09-04 and
+    // may not tomorrow, and a matcher proved only by the tree stops being proved the moment the
+    // tree changes.
+    const collapse = (s: string) => withoutComments(s).replace(/\s+/gu, " ").trim();
+
+    expect(collapse("{ /* why this role */ type: X, role: 'coordinator' }")).toBe("{ type: X, role: 'coordinator' }");
+    expect(collapse(["{", "  // why this role", "  type: X,", "}"].join("\n"))).toBe("{ type: X, }");
+
+    // ⚠️ CHARACTERISATION, NOT A DESIRED PROPERTY. A `//` that does not begin a line survives,
+    // because stripping it safely would need to know whether the `//` sits inside a string. This
+    // going red means somebody closed the hole — delete this assertion rather than restore it.
+    expect(collapse(["{", "  type: X, // why", "}"].join("\n"))).toBe("{ type: X, // why }");
+  });
 
   it("derives a non-empty set of overridable event types from the WardFlowEvent union", () => {
     expect(overridableEventTypes.length).toBeGreaterThan(0);
@@ -746,8 +801,24 @@ describe("ward override-surface guard", () => {
   });
 
   it("every dispatch(...) call with a non-literal type is named in DISPATCH_CALLS_WITHOUT_A_LITERAL_TYPE", () => {
-    const found = Array.from(new Set(nonLiteralDispatchCalls.map((c) => `${c.file}:${c.line}`))).sort();
+    const keyOf = (c: { file: string; expression: string }) => `${c.file} :: ${c.expression}`;
+    const found = Array.from(new Set(nonLiteralDispatchCalls.map(keyOf))).sort();
     const named = Object.keys(DISPATCH_CALLS_WITHOUT_A_LITERAL_TYPE).sort();
+
+    // ⚠️ A LINE NUMBER IS UNIQUE BY CONSTRUCTION; A SOURCE EXPRESSION IS NOT. Keying by the call's
+    // own text buys stability across every edit that moves it — this entry's line moved twice in
+    // one evening — but it gives up the uniqueness the line number provided for free. Two identical
+    // dispatch calls in one file would collapse to a single key, SHRINKING `found` and satisfying
+    // the comparison below while one of them went unreviewed. Narrowing is the silent direction, so
+    // it is asserted rather than assumed.
+    expect(
+      found.length,
+      `two dispatch calls in one file share a source expression, so one of them is unreviewed: ${nonLiteralDispatchCalls
+        .map(keyOf)
+        .sort()
+        .join(" | ")}`,
+    ).toBe(nonLiteralDispatchCalls.length);
+
     expect(found).toEqual(named);
   });
 });

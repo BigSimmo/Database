@@ -1,0 +1,1595 @@
+<title>Community Referrals Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  /* ─── this screen only ─── */
+  .identity--end {
+    align-items: flex-end;
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Every figure invented — listed at the foot</span>
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow" id="eyebrow">Coordinator</span>
+      <h1 id="headline">All community teams</h1>
+      <p class="covers" id="covers"><b>16 teams</b> across the metropolitan and south west services, 537 suburbs</p>
+    </div>
+    <div class="identity identity--end">
+      <div class="picker">
+        <button type="button" id="scope-all" aria-pressed="true">All teams</button>
+        <label for="team-select">or open a team</label>
+        <select id="team-select">
+          <option value="">Choose a team…</option>
+          <option>Alma Street (Central)</option>
+          <option>Alma Street (Cockburn)</option>
+          <option>Alma Street (Melville)</option>
+          <option>Bentley</option>
+          <option>Bunbury</option>
+          <option>Clarkson</option>
+          <option selected>Inner City</option>
+          <option>Joondalup</option>
+          <option>Kwinana</option>
+          <option>Mead Centre (Kelmscott)</option>
+          <option>Midland</option>
+          <option>Mirrabooka</option>
+          <option>Osborne</option>
+          <option>Peel</option>
+          <option>Rockingham</option>
+          <option>Subiaco</option>
+        </select>
+      </div>
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span><span>Live<span class="sr"> — data is current</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September, updated 2 minutes ago</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════ ALL-TEAMS SCOPE ══════════════ -->
+  <div id="view-all">
+    <dl class="totals">
+      <div class="total">
+        <dt>Coming in, awaiting first contact</dt>
+        <dd><span class="figure">61</span></dd>
+        <div class="volume" aria-hidden="true">
+          <span style="height: 52%"></span><span style="height: 61%"></span><span style="height: 44%"></span
+          ><span style="height: 73%"></span><span style="height: 68%"></span><span style="height: 88%"></span
+          ><span style="height: 100%" data-peak="true"></span>
+        </div>
+        <span class="caption">Last 7 days</span>
+      </div>
+      <div class="total">
+        <dt>Going out, awaiting a bed</dt>
+        <dd><span class="figure">38</span></dd>
+        <div class="volume" aria-hidden="true">
+          <span style="height: 66%"></span><span style="height: 49%"></span><span style="height: 81%"></span
+          ><span style="height: 57%"></span><span style="height: 70%"></span><span style="height: 62%"></span
+          ><span style="height: 64%"></span>
+        </div>
+        <span class="caption">Last 7 days</span>
+      </div>
+      <div class="total" data-flag="true">
+        <dt>Longest wait for contact</dt>
+        <dd>
+          <span class="figure">5</span><span class="unit">d</span><span class="figure">2</span
+          ><span class="unit">h</span>
+        </dd>
+        <span class="sub">RF-072 &middot; Bunbury</span>
+      </div>
+      <div class="total" data-flag="true">
+        <dt>Nobody now looking for a bed</dt>
+        <dd><span class="figure">7</span></dd>
+        <span class="sub">All wards asked have declined</span>
+      </div>
+      <div class="total">
+        <dt>Teams with nothing waiting</dt>
+        <dd><span class="figure">3</span><span class="unit">of 16</span></dd>
+      </div>
+    </dl>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="ah-in">
+        <header>
+          <h2 class="panel-title" id="ah-in">Coming in &mdash; longest waits first</h2>
+          <span class="n">61 waiting</span>
+        </header>
+        <p class="blurb">Every team's inbound referrals, worst wait at the top. The team is named on each row.</p>
+        <ul class="rows">
+          <li data-level="stalled">
+            <a class="row" href="#"
+              ><span class="id">RF-072</span
+              ><span class="path">Australind<span class="arrow" aria-hidden="true">&larr;</span>Bunbury Hospital</span
+              ><span class="wait">5d 2h</span><span class="chip" data-level="stalled">No contact 5 days</span
+              ><span class="meta"><span class="team">Bunbury</span><span>No attempt recorded</span></span></a
+            >
+          </li>
+          <li data-level="stalled">
+            <a class="row" href="#"
+              ><span class="id">RF-101</span
+              ><span class="path">Highgate<span class="arrow" aria-hidden="true">&larr;</span>FSH Adult Secure</span
+              ><span class="wait">3d 4h</span><span class="chip" data-level="stalled">No contact 3 days</span
+              ><span class="meta"><span class="team">Inner City</span><span>No attempt recorded</span></span></a
+            >
+          </li>
+          <li data-level="urgent">
+            <a class="row" href="#"
+              ><span class="id">RF-088</span
+              ><span class="path"
+                >Baldivis<span class="arrow" aria-hidden="true">&larr;</span>Rockingham General ED</span
+              ><span class="wait">2d 19h</span><span class="chip" data-level="urgent">Urgent</span
+              ><span class="meta"><span class="team">Rockingham</span><span>Needed contact within 24h</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-104</span
+              ><span class="path">Carine<span class="arrow" aria-hidden="true">&larr;</span>SCGH Older Adult</span
+              ><span class="wait">2d 6h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span class="team">Osborne</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-113</span
+              ><span class="path">Ashfield<span class="arrow" aria-hidden="true">&larr;</span>SJGM Adult Open</span
+              ><span class="wait">1d 9h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span class="team">Midland</span></span></a
+            >
+          </li>
+          <li data-level="urgent">
+            <a class="row" href="#"
+              ><span class="id">RF-118</span
+              ><span class="path">East Perth<span class="arrow" aria-hidden="true">&larr;</span>RPH Adult Secure</span
+              ><span class="wait">4h</span><span class="chip" data-level="urgent">Urgent</span
+              ><span class="meta"><span class="team">Inner City</span><span>Needs contact within 24h</span></span></a
+            >
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel" aria-labelledby="ah-out">
+        <header>
+          <h2 class="panel-title" id="ah-out">Going out &mdash; longest open first</h2>
+          <span class="n">38 open</span>
+        </header>
+        <p class="blurb">Every team's outbound referrals asking a ward or department to take the patient.</p>
+        <ul class="rows">
+          <li data-level="stalled">
+            <a class="row" href="#"
+              ><span class="id">RF-076</span
+              ><span class="path">Coolup<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span
+              ><span class="wait">3d 6h</span><span class="chip" data-level="stalled">4 declined, none pending</span
+              ><span class="meta"><span class="team">Peel</span><span>Nobody is now looking</span></span></a
+            >
+          </li>
+          <li data-level="stalled">
+            <a class="row" href="#"
+              ><span class="id">RF-115</span
+              ><span class="path">Highgate<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span
+              ><span class="wait">1d 1h</span><span class="chip" data-level="stalled">3 declined, none pending</span
+              ><span class="meta"><span class="team">Inner City</span><span>Nobody is now looking</span></span></a
+            >
+          </li>
+          <li data-level="urgent">
+            <a class="row" href="#"
+              ><span class="id">RF-121</span
+              ><span class="path">East Perth<span class="arrow" aria-hidden="true">&rarr;</span>RPH Adult Secure</span
+              ><span class="wait">2h</span><span class="chip" data-level="urgent">Urgent</span
+              ><span class="meta"
+                ><span class="team">Inner City</span><span>Involuntary, secure bed needed</span></span
+              ></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-112</span
+              ><span class="path">Aveley<span class="arrow" aria-hidden="true">&rarr;</span>SJGM Adult Open</span
+              ><span class="wait">1d 5h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span class="team">Midland</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-117</span
+              ><span class="path">Coolbinia<span class="arrow" aria-hidden="true">&rarr;</span>SCGH Adult Open</span
+              ><span class="wait">8h</span><span class="chip" data-level="accepted">Accepted</span
+              ><span class="meta"><span class="team">Inner City</span><span>Transport not yet booked</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-120</span
+              ><span class="path"
+                >Cooloongup<span class="arrow" aria-hidden="true">&rarr;</span>Rockingham General ED</span
+              ><span class="wait">3h</span><span class="chip" data-level="accepted">Accepted</span
+              ><span class="meta"><span class="team">Kwinana</span></span></a
+            >
+          </li>
+        </ul>
+      </section>
+
+      <aside class="rail" aria-label="Attention and shortcuts">
+        <section class="panel" aria-labelledby="ah-att">
+          <header>
+            <h2 class="panel-title" id="ah-att">Needs a decision</h2>
+            <span class="n">4</span>
+          </header>
+          <ul class="attention">
+            <li>
+              <span class="who">7 referrals</span>Every ward asked has declined and nothing is pending. Nobody is
+              looking for these beds.
+            </li>
+            <li>
+              <span class="who">RF-072 &middot; Bunbury</span>Discharged five days ago with no contact attempt recorded.
+            </li>
+            <li>
+              <span class="who">RF-088 &middot; Rockingham</span>Urgent, still in an emergency department since Tuesday.
+            </li>
+            <li>
+              <span class="who">3 teams</span>Nothing waiting at all &mdash; worth checking the referrals reached them.
+            </li>
+          </ul>
+        </section>
+        <section class="panel" aria-labelledby="ah-go">
+          <header><h2 class="panel-title" id="ah-go">Go to</h2></header>
+          <ul class="links">
+            <li>
+              <a href="#">Refer a patient<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">Referral board<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">All wards<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">Transport<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">Statistics<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">Patient search<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <section class="panel" style="margin-top: var(--sp-3)" aria-labelledby="ah-teams">
+      <header>
+        <h2 class="panel-title" id="ah-teams">All 16 teams</h2>
+        <span class="n">537 suburbs</span>
+      </header>
+      <div class="table-wrap">
+        <table class="teams">
+          <caption>
+            Ordered by inbound waiting. An amber edge marks a team with somebody waiting more than three days. Suburb
+            counts are real; everything else is invented.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Team</th>
+              <th scope="col">Suburbs</th>
+              <th scope="col">Coming in</th>
+              <th scope="col">Going out</th>
+              <th scope="col">Longest wait</th>
+              <th scope="col">In hospital</th>
+              <th scope="col"><span class="sr">Open</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-flag="true">
+              <td>Bunbury</td>
+              <td class="n">48</td>
+              <td class="n">9</td>
+              <td class="n">4</td>
+              <td class="n">5d 2h</td>
+              <td class="n">7</td>
+              <td><button type="button" class="open" data-team="Bunbury">Open hub</button></td>
+            </tr>
+            <tr data-flag="true">
+              <td>Midland</td>
+              <td class="n">68</td>
+              <td class="n">8</td>
+              <td class="n">6</td>
+              <td class="n">3d 6h</td>
+              <td class="n">11</td>
+              <td><button type="button" class="open" data-team="Midland">Open hub</button></td>
+            </tr>
+            <tr data-flag="true">
+              <td><a href="#" data-team-link="Inner City">Inner City</a></td>
+              <td class="n">16</td>
+              <td class="n">6</td>
+              <td class="n">4</td>
+              <td class="n">3d 4h</td>
+              <td class="n">5</td>
+              <td><button type="button" class="open" data-team="Inner City">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Joondalup</td>
+              <td class="n">36</td>
+              <td class="n">6</td>
+              <td class="n">3</td>
+              <td class="n">2d 8h</td>
+              <td class="n">6</td>
+              <td><button type="button" class="open" data-team="Joondalup">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Rockingham</td>
+              <td class="n">23</td>
+              <td class="n">5</td>
+              <td class="n">4</td>
+              <td class="n">2d 19h</td>
+              <td class="n">4</td>
+              <td><button type="button" class="open" data-team="Rockingham">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Bentley</td>
+              <td class="n">32</td>
+              <td class="n">5</td>
+              <td class="n">3</td>
+              <td class="n">2d 1h</td>
+              <td class="n">5</td>
+              <td><button type="button" class="open" data-team="Bentley">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Peel</td>
+              <td class="n">27</td>
+              <td class="n">4</td>
+              <td class="n">5</td>
+              <td class="n">1d 22h</td>
+              <td class="n">3</td>
+              <td><button type="button" class="open" data-team="Peel">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Mirrabooka</td>
+              <td class="n">15</td>
+              <td class="n">4</td>
+              <td class="n">2</td>
+              <td class="n">1d 14h</td>
+              <td class="n">2</td>
+              <td><button type="button" class="open" data-team="Mirrabooka">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Osborne</td>
+              <td class="n">19</td>
+              <td class="n">3</td>
+              <td class="n">1</td>
+              <td class="n">2d 6h</td>
+              <td class="n">3</td>
+              <td><button type="button" class="open" data-team="Osborne">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Kwinana</td>
+              <td class="n">16</td>
+              <td class="n">3</td>
+              <td class="n">2</td>
+              <td class="n">1d 3h</td>
+              <td class="n">2</td>
+              <td><button type="button" class="open" data-team="Kwinana">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Mead Centre (Kelmscott)</td>
+              <td class="n">17</td>
+              <td class="n">3</td>
+              <td class="n">1</td>
+              <td class="n">18h</td>
+              <td class="n">4</td>
+              <td><button type="button" class="open" data-team="Mead Centre (Kelmscott)">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Subiaco</td>
+              <td class="n">17</td>
+              <td class="n">2</td>
+              <td class="n">2</td>
+              <td class="n">11h</td>
+              <td class="n">1</td>
+              <td><button type="button" class="open" data-team="Subiaco">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Clarkson</td>
+              <td class="n">13</td>
+              <td class="n">2</td>
+              <td class="n">1</td>
+              <td class="n">9h</td>
+              <td class="n">2</td>
+              <td><button type="button" class="open" data-team="Clarkson">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Alma Street (Cockburn)</td>
+              <td class="n">15</td>
+              <td class="n"><span class="zero">none</span></td>
+              <td class="n">2</td>
+              <td class="n"><span class="zero">&mdash;</span></td>
+              <td class="n">2</td>
+              <td><button type="button" class="open" data-team="Alma Street (Cockburn)">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Alma Street (Melville)</td>
+              <td class="n">13</td>
+              <td class="n"><span class="zero">none</span></td>
+              <td class="n">1</td>
+              <td class="n"><span class="zero">&mdash;</span></td>
+              <td class="n">1</td>
+              <td><button type="button" class="open" data-team="Alma Street (Melville)">Open hub</button></td>
+            </tr>
+            <tr>
+              <td>Alma Street (Central)</td>
+              <td class="n">12</td>
+              <td class="n"><span class="zero">none</span></td>
+              <td class="n"><span class="zero">none</span></td>
+              <td class="n"><span class="zero">&mdash;</span></td>
+              <td class="n"><span class="zero">none</span></td>
+              <td><button type="button" class="open" data-team="Alma Street (Central)">Open hub</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ══════════════ SINGLE-TEAM SCOPE ══════════════ -->
+  <div id="view-team" hidden>
+    <dl class="totals">
+      <div class="total">
+        <dt>Coming in, awaiting first contact</dt>
+        <dd><span class="figure">6</span></dd>
+        <div class="volume" aria-hidden="true">
+          <span style="height: 40%"></span><span style="height: 55%"></span><span style="height: 35%"></span
+          ><span style="height: 70%"></span><span style="height: 60%"></span><span style="height: 85%"></span
+          ><span style="height: 100%" data-peak="true"></span>
+        </div>
+        <span class="caption">Last 7 days</span>
+      </div>
+      <div class="total">
+        <dt>Going out, awaiting a bed</dt>
+        <dd><span class="figure">4</span></dd>
+        <div class="volume" aria-hidden="true">
+          <span style="height: 70%"></span><span style="height: 45%"></span><span style="height: 80%"></span
+          ><span style="height: 50%"></span><span style="height: 65%"></span><span style="height: 55%"></span
+          ><span style="height: 60%"></span>
+        </div>
+        <span class="caption">Last 7 days</span>
+      </div>
+      <div class="total" data-flag="true">
+        <dt>Longest wait for contact</dt>
+        <dd>
+          <span class="figure">3</span><span class="unit">d</span><span class="figure">4</span
+          ><span class="unit">h</span>
+        </dd>
+        <span class="sub">RF-101 &middot; from FSH Adult Secure</span>
+      </div>
+      <div class="total" data-flag="true">
+        <dt>Urgent, nothing done yet</dt>
+        <dd><span class="figure">2</span></dd>
+        <span class="sub">RF-118 and RF-121</span>
+      </div>
+      <div class="total">
+        <dt>On this team's books, in hospital</dt>
+        <dd><span class="figure">5</span></dd>
+        <span class="sub">2 expected back this week</span>
+      </div>
+    </dl>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="th-in">
+        <header>
+          <h2 class="panel-title" id="th-in">Coming in &mdash; to this team</h2>
+          <span class="n">6 waiting</span>
+        </header>
+        <p class="blurb">Discharged or referred on from a hospital, waiting for this team to make contact.</p>
+        <ul class="rows">
+          <li data-level="urgent">
+            <a class="row" href="#"
+              ><span class="id">RF-118</span
+              ><span class="path">East Perth<span class="arrow" aria-hidden="true">&larr;</span>RPH Adult Secure</span
+              ><span class="wait">4h</span><span class="chip" data-level="urgent">Urgent</span
+              ><span class="meta"
+                ><span>Discharged yesterday, 18:40</span><span>Needs contact within 24h</span></span
+              ></a
+            >
+          </li>
+          <li data-level="stalled">
+            <a class="row" href="#"
+              ><span class="id">RF-101</span
+              ><span class="path">Highgate<span class="arrow" aria-hidden="true">&larr;</span>FSH Adult Secure</span
+              ><span class="wait">3d 4h</span><span class="chip" data-level="stalled">No contact 3 days</span
+              ><span class="meta"><span>Discharged Monday</span><span>No attempt recorded</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-116</span
+              ><span class="path">Coolbinia<span class="arrow" aria-hidden="true">&larr;</span>SCGH Adult Open</span
+              ><span class="wait">1d 2h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span>First contact booked Friday</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-113</span
+              ><span class="path">Mount Lawley<span class="arrow" aria-hidden="true">&larr;</span>RPH Older Adult</span
+              ><span class="wait">1d 9h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span>Awaiting allocation</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-104</span
+              ><span class="path"
+                >Northbridge<span class="arrow" aria-hidden="true">&larr;</span>Royal Perth Hospital ED</span
+              ><span class="wait">2d 6h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span>Not admitted, referred from department</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-098</span
+              ><span class="path">Perth<span class="arrow" aria-hidden="true">&larr;</span>SJGM Adult Open</span
+              ><span class="wait">2d 11h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span>First contact booked Thursday</span></span></a
+            >
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel" aria-labelledby="th-out">
+        <header>
+          <h2 class="panel-title" id="th-out">Going out &mdash; to a bed or an ED</h2>
+          <span class="n">4 open</span>
+        </header>
+        <p class="blurb">Raised by this team, asking a ward or emergency department to take the patient.</p>
+        <ul class="rows">
+          <li data-level="urgent">
+            <a class="row" href="#"
+              ><span class="id">RF-121</span
+              ><span class="path">East Perth<span class="arrow" aria-hidden="true">&rarr;</span>RPH Adult Secure</span
+              ><span class="wait">2h</span><span class="chip" data-level="urgent">Urgent</span
+              ><span class="meta"><span>2 wards declined</span><span>Involuntary, secure bed needed</span></span></a
+            >
+          </li>
+          <li data-level="stalled">
+            <a class="row" href="#"
+              ><span class="id">RF-115</span
+              ><span class="path">Highgate<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span
+              ><span class="wait">1d 1h</span><span class="chip" data-level="stalled">3 declined, none pending</span
+              ><span class="meta"><span>Nobody is now looking for this bed</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-117</span
+              ><span class="path">Coolbinia<span class="arrow" aria-hidden="true">&rarr;</span>SCGH Adult Open</span
+              ><span class="wait">8h</span><span class="chip" data-level="accepted">Accepted</span
+              ><span class="meta"><span>Bed offered, transport not yet booked</span></span></a
+            >
+          </li>
+          <li data-level="routine">
+            <a class="row" href="#"
+              ><span class="id">RF-112</span
+              ><span class="path"
+                >Northbridge<span class="arrow" aria-hidden="true">&rarr;</span>Royal Perth Hospital ED</span
+              ><span class="wait">1d 5h</span><span class="chip" data-level="routine">Routine</span
+              ><span class="meta"><span>Awaiting review in department</span></span></a
+            >
+          </li>
+        </ul>
+      </section>
+
+      <aside class="rail" aria-label="Attention and shortcuts">
+        <section class="panel" aria-labelledby="th-att">
+          <header>
+            <h2 class="panel-title" id="th-att">Needs a decision</h2>
+            <span class="n">3</span>
+          </header>
+          <ul class="attention">
+            <li>
+              <span class="who">RF-115</span>Three wards have declined and nothing is pending. Nobody is now looking for
+              this bed.
+            </li>
+            <li><span class="who">RF-101</span>Discharged three days ago with no contact attempt recorded.</li>
+            <li>
+              <span class="who">RF-121</span>Urgent and involuntary, and the two nearest secure wards have both
+              declined.
+            </li>
+          </ul>
+        </section>
+        <section class="panel" aria-labelledby="th-go">
+          <header><h2 class="panel-title" id="th-go">Go to</h2></header>
+          <ul class="links">
+            <li>
+              <a href="#">Refer a patient from this team<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">Referral board<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">All wards<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">Transport<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+            <li>
+              <a href="#">This team's statistics<span class="arr" aria-hidden="true">&rarr;</span></a>
+            </li>
+          </ul>
+        </section>
+        <section class="panel" aria-labelledby="th-team">
+          <header><h2 class="panel-title" id="th-team">This team</h2></header>
+          <dl class="facts">
+            <div>
+              <dt>Suburbs covered</dt>
+              <dd class="num" id="fact-suburbs">16</dd>
+            </div>
+            <div>
+              <dt>Health service</dt>
+              <dd id="fact-service">Royal Perth Bentley Group</dd>
+            </div>
+          </dl>
+          <p class="absent">
+            <b>No phone number is held.</b> The catchment source documents carry phone and fax for metropolitan teams,
+            but the model stores only suburb and clinic &mdash; so a hub cannot yet offer the one thing you would most
+            want to click.
+          </p>
+        </section>
+      </aside>
+    </div>
+
+    <div class="band">
+      <section class="panel" aria-labelledby="th-hosp">
+        <header>
+          <h2 class="panel-title" id="th-hosp">In hospital now</h2>
+          <span class="n">5</span>
+        </header>
+        <ul class="people">
+          <li>
+            <a class="person" href="#"
+              ><span class="name">L. Whitmore</span><span class="when">Day 12</span
+              ><span class="where">RPH Adult Secure &middot; involuntary &middot; no discharge date set</span></a
+            >
+          </li>
+          <li>
+            <a class="person" href="#"
+              ><span class="name">D. Okonkwo</span><span class="when">Day 8</span
+              ><span class="where">SCGH Adult Open &middot; voluntary</span></a
+            >
+          </li>
+          <li>
+            <a class="person" href="#"
+              ><span class="name">R. Fairbairn</span><span class="when">Day 6</span
+              ><span class="where">RPH Older Adult &middot; voluntary</span></a
+            >
+          </li>
+          <li>
+            <a class="person" href="#"
+              ><span class="name">M. Castellano</span><span class="when">Day 3</span
+              ><span class="where">FSH Adult Secure &middot; involuntary</span></a
+            >
+          </li>
+          <li>
+            <a class="person" href="#"
+              ><span class="name">J. Beaumont</span><span class="when">Day 1</span
+              ><span class="where">SJGM Adult Open &middot; voluntary</span></a
+            >
+          </li>
+        </ul>
+      </section>
+      <section class="panel" aria-labelledby="th-back">
+        <header>
+          <h2 class="panel-title" id="th-back">Expected back</h2>
+          <span class="n">2</span>
+        </header>
+        <ul class="people">
+          <li>
+            <a class="person" href="#"
+              ><span class="name">R. Fairbairn</span><span class="when">Fri</span
+              ><span class="where">From RPH Older Adult &middot; discharge planned</span></a
+            >
+          </li>
+          <li>
+            <a class="person" href="#"
+              ><span class="name">J. Beaumont</span><span class="when">Mon</span
+              ><span class="where">From SJGM Adult Open &middot; discharge planned</span></a
+            >
+          </li>
+        </ul>
+        <p class="absent">
+          Two more admissions have no discharge date recorded, so they cannot appear here.
+          <b>Absence here means nothing has been planned, not that nobody is coming home.</b>
+        </p>
+      </section>
+      <section class="panel" aria-labelledby="th-home">
+        <header>
+          <h2 class="panel-title" id="th-home">Recently home</h2>
+          <span class="n">3</span>
+        </header>
+        <ul class="people">
+          <li>
+            <a class="person" href="#"
+              ><span class="name">A. Nurredin</span><span class="when">2d ago</span
+              ><span class="where">Home to East Perth &middot; first contact made</span></a
+            >
+          </li>
+          <li>
+            <a class="person" href="#"
+              ><span class="name">S. Petrakis</span><span class="when">4d ago</span
+              ><span class="where">Home to Mount Lawley &middot; first contact made</span></a
+            >
+          </li>
+          <li>
+            <a class="person" href="#"
+              ><span class="name">T. Rahimi</span><span class="when">6d ago</span
+              ><span class="where">Home to Perth &middot; no contact recorded</span></a
+            >
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <h2>Every figure and every name here is invented</h2>
+    <ul>
+      <li>
+        <b>All-teams counts:</b> 61 coming in, 38 going out, 7 with nobody looking, 3 idle teams, the 5d 2h longest
+        wait, and every row of the teams table except the suburb column.
+      </li>
+      <li><b>Team counts:</b> 6 coming in, 4 going out, 2 urgent, 5 in hospital, 2 expected back, 3 recently home.</li>
+      <li><b>All waiting times, referral numbers, decline counts, day counts and volume bars.</b></li>
+      <li><b>“Updated 2 minutes ago”</b> and the “Live” marker. Nothing here refreshes.</li>
+      <li><b>All patient names</b> are invented and deliberately unlike any real list.</li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>All sixteen team names and every suburb count</b> &mdash; Midland 68, Bunbury 48, Joondalup 36, Bentley 32,
+        Peel 27, Rockingham 23, Osborne 19, Subiaco 17, Mead Centre 17, Kwinana 16, Inner City 16, Mirrabooka 15, Alma
+        Street Cockburn 15, Clarkson 13, Alma Street Melville 13, Alma Street Central 12. Counted from this repository's
+        catchment table, built from five WA Health documents covering 537 suburbs.
+      </li>
+      <li><b>Every suburb-to-team pairing</b> shown on a row is verified in that table.</li>
+      <li><b>The wards and departments</b> are the ones named in the ward model.</li>
+      <li>
+        <b>The missing phone number is real.</b> The model does not store one, and the panel says so rather than
+        inventing a number somebody might ring.
+      </li>
+    </ul>
+    <h2>How the two scopes work</h2>
+    <ul>
+      <li>
+        <b>All teams is the coordinator's landing.</b> Both columns are sorted worst-wait-first rather than by team,
+        because a coordinator's question is "what is going wrong", not "show me a list". The team is named on every row.
+      </li>
+      <li>
+        <b>The teams table at the foot is the filter</b> &mdash; and it earns its place by carrying the counts, so you
+        can see which team to open before you open it. An amber edge marks any team with somebody waiting over three
+        days. "Open hub" switches the whole screen to that team.
+      </li>
+      <li><b>The team select at the top does the same thing</b> for when you already know where you are going.</li>
+      <li>
+        <b>Three teams show "none" rather than 0.</b> A nought reads as a measurement; "none" reads as a state, and the
+        attention panel flags idle teams as worth checking rather than as good news.
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var viewAll = document.getElementById("view-all");
+    var viewTeam = document.getElementById("view-team");
+    var scopeAll = document.getElementById("scope-all");
+    var select = document.getElementById("team-select");
+    var eyebrow = document.getElementById("eyebrow");
+    var headline = document.getElementById("headline");
+    var covers = document.getElementById("covers");
+    var factSuburbs = document.getElementById("fact-suburbs");
+    var factService = document.getElementById("fact-service");
+
+    // Real figures: suburb count per team, and the health service that runs it.
+    var TEAMS = {
+      Midland: [68, "East Metropolitan Health Service"],
+      Bunbury: [48, "WA Country Health Service — South West"],
+      Joondalup: [36, "North Metropolitan Health Service"],
+      Bentley: [32, "Royal Perth Bentley Group"],
+      Peel: [27, "South Metropolitan Health Service"],
+      Rockingham: [23, "South Metropolitan Health Service"],
+      Osborne: [19, "North Metropolitan Health Service"],
+      Subiaco: [17, "North Metropolitan Health Service"],
+      "Mead Centre (Kelmscott)": [17, "East Metropolitan Health Service"],
+      Kwinana: [16, "South Metropolitan Health Service"],
+      "Inner City": [16, "Royal Perth Bentley Group"],
+      Mirrabooka: [15, "North Metropolitan Health Service"],
+      "Alma Street (Cockburn)": [15, "South Metropolitan Health Service"],
+      Clarkson: [13, "North Metropolitan Health Service"],
+      "Alma Street (Melville)": [13, "South Metropolitan Health Service"],
+      "Alma Street (Central)": [12, "South Metropolitan Health Service"],
+    };
+
+    function showAll() {
+      viewAll.hidden = false;
+      viewTeam.hidden = true;
+      scopeAll.setAttribute("aria-pressed", "true");
+      eyebrow.textContent = "Coordinator";
+      headline.textContent = "All community teams";
+      covers.innerHTML = "<b>16 teams</b> across the metropolitan and south west services, 537 suburbs";
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+
+    function showTeam(name) {
+      if (!TEAMS[name]) return;
+      viewAll.hidden = true;
+      viewTeam.hidden = false;
+      scopeAll.setAttribute("aria-pressed", "false");
+      eyebrow.textContent = "Community team hub";
+      headline.textContent = name;
+      covers.innerHTML = "Follow-up clinic for <b>" + TEAMS[name][0] + " suburbs</b>";
+      factSuburbs.textContent = String(TEAMS[name][0]);
+      factService.textContent = TEAMS[name][1];
+      if (select.value !== name) {
+        select.value = name;
+      }
+      window.scrollTo({ top: 0, behavior: "auto" });
+      // Move focus to the new heading. Without this a keyboard or screen-reader
+      // user presses "Open hub", the whole page changes, and nothing announces
+      // it — focus stays on a button that no longer exists in this view.
+      headline.setAttribute("tabindex", "-1");
+      headline.focus({ preventScroll: true });
+    }
+
+    scopeAll.addEventListener("click", showAll);
+    select.addEventListener("change", function () {
+      if (select.value) {
+        showTeam(select.value);
+      } else {
+        showAll();
+      }
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".teams .open"), function (button) {
+      button.addEventListener("click", function () {
+        showTeam(button.getAttribute("data-team"));
+      });
+    });
+    // The team name is a link as well as the button, so the row behaves like
+    // every other row on the page rather than having one small hit area.
+    Array.prototype.forEach.call(document.querySelectorAll("[data-team-link]"), function (link) {
+      link.addEventListener("click", function (event) {
+        event.preventDefault();
+        showTeam(link.getAttribute("data-team-link"));
+      });
+    });
+  })();
+</script>
