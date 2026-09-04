@@ -3052,6 +3052,7 @@ async function answerQuestionWithScopeUncoalesced(
       results: deliveredExtractiveResults,
       relatedDocuments,
       artifacts: deliveredExtractiveArtifacts,
+      preserveBestSource: true,
     });
     answer.relevance = deliveredExtractiveArtifacts.relevance;
     answer.queryAnalysis = queryAnalysis;

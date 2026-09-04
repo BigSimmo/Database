@@ -56,6 +56,7 @@ import {
 } from "@/lib/rag/rag-answer-text";
 import { cloneAnswer } from "@/lib/rag/rag-cache";
 import { ragProviderMode } from "@/lib/rag/rag-provider";
+import { retainRelatedDocumentsForResults } from "@/lib/retrieval-selection";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import {
   isLowYieldClinicalText,
@@ -2403,32 +2404,15 @@ function resultContainsProceduralFlowEdgeArtifact(result: SearchResult) {
 
 function filterRelatedDocumentsForProceduralArtifacts(
   relatedDocuments: RagAnswer["relatedDocuments"],
-  originalResults: SearchResult[],
   retainedResults: SearchResult[],
 ) {
-  const retainedChunkIds = new Set(retainedResults.map((result) => result.id));
-  const removedChunkIds = new Set(
-    originalResults.filter((result) => !retainedChunkIds.has(result.id)).map((result) => result.id),
-  );
-  const retainedDocumentIds = new Set(retainedResults.map((result) => result.document_id));
-  const fullyRemovedDocumentIds = new Set(
-    originalResults
-      .filter((result) => !retainedDocumentIds.has(result.document_id))
-      .map((result) => result.document_id),
-  );
-
-  return (relatedDocuments ?? []).flatMap((document) => {
-    if (
-      containsDanglingProceduralComparatorStepArtifact(
+  const cleanDocuments = (relatedDocuments ?? []).filter(
+    (document) =>
+      !containsDanglingProceduralComparatorStepArtifact(
         [document.title, document.file_name, document.summary, document.match_reason].filter(Boolean).join(" "),
-      )
-    ) {
-      return [];
-    }
-    const bestChunkIds = document.best_chunk_ids.filter((chunkId) => !removedChunkIds.has(chunkId));
-    if (fullyRemovedDocumentIds.has(document.document_id) && bestChunkIds.length === 0) return [];
-    return [{ ...document, best_chunk_ids: bestChunkIds }];
-  });
+      ),
+  );
+  return retainRelatedDocumentsForResults(cleanDocuments, retainedResults);
 }
 
 function derivedArtifactsContainProceduralFlowEdge(value: unknown) {
@@ -2832,7 +2816,7 @@ export function buildExtractiveAnswer(args: {
       }
     : args.smartPanel;
   const rebuiltRelatedDocuments = rebuildDerivedArtifacts
-    ? filterRelatedDocumentsForProceduralArtifacts(args.relatedDocuments, args.results, answerSources)
+    ? filterRelatedDocumentsForProceduralArtifacts(args.relatedDocuments, answerSources)
     : args.relatedDocuments;
   const deliveredNaturalText = [
     naturalAnswer.answer,
@@ -3449,15 +3433,7 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
   const safetyWarnings = (candidate.safetyWarnings ?? []).filter((warning) =>
     citedChunkIds.has(warning.citation.chunk_id),
   );
-  const relatedDocuments = filterRelatedDocumentsForProceduralArtifacts(
-    candidate.relatedDocuments,
-    candidate.sources,
-    sources,
-  ).flatMap((document) => {
-    if (!retainedDocumentIds.has(document.document_id)) return [];
-    const bestChunkIds = document.best_chunk_ids.filter((chunkId) => citedChunkIds.has(chunkId));
-    return bestChunkIds.length ? [{ ...document, best_chunk_ids: bestChunkIds }] : [];
-  });
+  const relatedDocuments = filterRelatedDocumentsForProceduralArtifacts(candidate.relatedDocuments, sources);
   const smartPanelBase =
     refreshResultDerivedArtifacts && artifactQuery
       ? buildSmartPanel(artifactQuery, sources, { relevance, visualEvidence })

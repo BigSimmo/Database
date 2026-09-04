@@ -80,7 +80,7 @@ export function retainRelatedDocumentsForResults(documents: RelatedDocument[], r
   const retainedByDocument = new Map<string, SearchResult[]>();
   for (const result of results) {
     const document = documentsById.get(result.document_id);
-    if (!document?.best_chunk_ids.includes(result.id)) continue;
+    if (!document) continue;
     retainedByDocument.set(result.document_id, [...(retainedByDocument.get(result.document_id) ?? []), result]);
   }
   return documents
@@ -120,8 +120,9 @@ export function applySelectedEvidenceArtifacts(args: {
   results: SearchResult[];
   relatedDocuments: RelatedDocument[];
   artifacts: ReturnType<typeof buildSelectedEvidenceArtifacts>;
+  preserveBestSource?: boolean;
 }) {
-  const { answer, query, results, relatedDocuments, artifacts } = args;
+  const { answer, query, results, relatedDocuments, artifacts, preserveBestSource = false } = args;
   answer.sources = results;
   answer.quoteCards = reconcileQuoteCards(answer.quoteCards, results, query);
   answer.documentBreakdown = artifacts.documentBreakdown;
@@ -129,10 +130,9 @@ export function applySelectedEvidenceArtifacts(args: {
   answer.sourceCoverage = artifacts.sourceCoverage;
   answer.conflictsOrGaps = answer.conflictsOrGaps?.length ? answer.conflictsOrGaps : artifacts.conflictsOrGaps;
   answer.visualEvidence = artifacts.visualEvidence;
-  answer.bestSource =
-    answer.bestSource === null
-      ? null
-      : (selectBestSourceRecommendation(results, answer.quoteCards) ?? artifacts.bestSource);
+  answer.bestSource = preserveBestSource
+    ? answer.bestSource
+    : (selectBestSourceRecommendation(results, answer.quoteCards) ?? artifacts.bestSource);
   answer.relatedDocuments = relatedDocuments;
   answer.smartPanel = {
     ...artifacts.smartPanel,

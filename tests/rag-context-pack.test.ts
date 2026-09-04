@@ -1204,7 +1204,7 @@ describe("claim-oriented context packing", () => {
           ],
           summary: "Document-level summary.",
           best_pages: [9, 3],
-          best_chunk_ids: [removed.id, retained.id],
+          best_chunk_ids: [removed.id],
           image_count: 1,
           table_count: 2,
           cover_image_id: "cover-image",
@@ -1241,7 +1241,7 @@ describe("claim-oriented context packing", () => {
     expect(JSON.stringify(rebuilt)).not.toMatch(/related-removed|removed-clinical-image|0\.99/);
   });
 
-  it("preserves an authoritative null best-source recommendation while rebuilding route artifacts", () => {
+  it("derives a best-source recommendation for a successful generated answer", () => {
     const survivor = evidence("best-source-survivor", "Retained current clinical guidance.", {
       similarity: 0.98,
       hybrid_score: 0.98,
@@ -1263,6 +1263,35 @@ describe("claim-oriented context packing", () => {
       results: [survivor],
       relatedDocuments: [],
       artifacts,
+    });
+
+    expect(answer.bestSource).toEqual(artifacts.bestSource);
+    expect(answer.smartPanel?.bestSource).toEqual(artifacts.bestSource);
+  });
+
+  it("preserves an authoritative null best-source recommendation for an extractive answer", () => {
+    const survivor = evidence("best-source-extractive-survivor", "Retained current clinical guidance.", {
+      similarity: 0.98,
+      hybrid_score: 0.98,
+    });
+    const artifacts = buildSelectedEvidenceArtifacts("What guidance applies?", [survivor]);
+    expect(artifacts.bestSource).not.toBeNull();
+    const answer: RagAnswer = {
+      answer: "Use the retained guidance.",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [survivor],
+      bestSource: null,
+    };
+
+    applySelectedEvidenceArtifacts({
+      answer,
+      query: "What guidance applies?",
+      results: [survivor],
+      relatedDocuments: [],
+      artifacts,
+      preserveBestSource: true,
     });
 
     expect(answer.bestSource).toBeNull();

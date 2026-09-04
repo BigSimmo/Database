@@ -4011,6 +4011,8 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).not.toContain("structured_output_fallback");
     expect(answer.openAIRequestIds).toEqual(["req_valid"]);
     expect(answer.quoteCards?.length).toBe(1);
+    expect(answer.bestSource?.chunk_id).toBe("agitation-chunk-1");
+    expect(answer.smartPanel?.bestSource).toEqual(answer.bestSource);
   });
 
   it("does not cache or coalesce anonymous answers despite legacy skipCache input", async () => {

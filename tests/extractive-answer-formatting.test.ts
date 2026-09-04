@@ -18,7 +18,7 @@ import {
   splitClinicalEvidenceSentences,
 } from "../src/lib/rag/rag-extractive-answer";
 import { classifyRagQuery } from "../src/lib/clinical-search";
-import { buildSelectedEvidenceArtifacts } from "../src/lib/retrieval-selection";
+import { buildSelectedEvidenceArtifacts, retainRelatedDocumentsForResults } from "../src/lib/retrieval-selection";
 import { buildSmartRagApiPlan } from "../src/lib/smart-rag-api";
 import type { RagAnswer, RagQueryClass, SearchResult } from "../src/lib/types";
 
@@ -1507,9 +1507,33 @@ describe("escalation fallback intent", () => {
     expect(answer.smartPanel?.relatedDocuments).toEqual(answer.relatedDocuments);
   });
 
-  it("drops a related-document row when only an uncited chunk from the retained document is referenced", () => {
-    const kept = figureChunk({ id: "kept-same-document-source", document_id: "shared-related-document" });
-    const removed = figureChunk({ id: "removed-same-document-source", document_id: "shared-related-document" });
+  it("rebuilds late related-document metadata from only the cited same-document source", () => {
+    const kept = figureChunk({
+      id: "kept-same-document-source",
+      document_id: "shared-related-document",
+      page_number: 3,
+      similarity: 0.61,
+      hybrid_score: 0.63,
+      images: [],
+    });
+    const removed = figureChunk({
+      id: "removed-same-document-source",
+      document_id: "shared-related-document",
+      page_number: 9,
+      similarity: 0.98,
+      hybrid_score: 0.99,
+      images: [
+        {
+          id: "removed-related-image",
+          page_number: 9,
+          storage_path: "removed-related-image.png",
+          caption: "Removed clinical table",
+          image_type: "clinical_table",
+          searchable: true,
+          clinical_relevance_score: 1,
+        },
+      ],
+    });
     const relatedDocuments = [
       {
         document_id: kept.document_id,
@@ -1517,13 +1541,14 @@ describe("escalation fallback intent", () => {
         file_name: kept.file_name,
         labels: [],
         summary: null,
-        best_pages: [removed.page_number ?? 1],
+        best_pages: [removed.page_number ?? 1, kept.page_number ?? 1],
         best_chunk_ids: [removed.id],
-        image_count: 0,
-        match_reason: "Matched the uncited passage",
-        score: removed.hybrid_score,
+        image_count: 1,
+        match_reason: "Matched 2 indexed passages",
+        score: removed.hybrid_score ?? removed.similarity,
       },
     ];
+    const expectedRelatedDocuments = retainRelatedDocumentsForResults(relatedDocuments, [kept]);
     const answer = retainCitedExtractiveFallbackEvidence({
       answer: "Keep the cited passage only.",
       grounded: true,
@@ -1534,8 +1559,20 @@ describe("escalation fallback intent", () => {
       smartPanel: { relatedDocuments },
     } as unknown as RagAnswer);
 
-    expect(answer.relatedDocuments).toEqual([]);
-    expect(answer.smartPanel?.relatedDocuments).toEqual([]);
+    expect(answer.relatedDocuments).toEqual(expectedRelatedDocuments);
+    expect(answer.smartPanel?.relatedDocuments).toEqual(expectedRelatedDocuments);
+    expect(answer.relatedDocuments).toEqual([
+      expect.objectContaining({
+        best_pages: [3],
+        best_chunk_ids: [kept.id],
+        image_count: 0,
+        match_reason: "Matched 1 indexed passage",
+        score: kept.hybrid_score ?? kept.similarity,
+      }),
+    ]);
+    expect(JSON.stringify(answer.relatedDocuments)).not.toMatch(
+      /removed-same-document-source|removed-related-image|0\.99/,
+    );
   });
 
   it("retains the correctly bound escalation clause from a mixed-medication chunk", () => {
