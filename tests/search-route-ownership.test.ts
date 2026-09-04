@@ -75,9 +75,11 @@ describe("shared-search route ownership", () => {
   });
 
   it("classifies standalone mode homes from pathname alone", () => {
-    for (const pathname of ["/favourites", "/tools", "/medications", "/documents", "/sources"]) {
+    // Documents joined the consolidated modes and no longer owns a standalone home.
+    for (const pathname of ["/favourites", "/tools", "/medications", "/sources"]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
+    expect(isStandaloneModeHomePath("/documents")).toBe(false);
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
@@ -113,21 +115,25 @@ describe("shared-search route ownership", () => {
   });
 
   /*
-   * A dashboard-owned mode home names its mode through the pathname, not `?mode=`.
-   * ClinicalDashboard's `?mode=` sync returns early without that parameter, and the
-   * dashboard stays mounted across a client navigation onto `/documents` (unlike
-   * /tools, /favourites and /medications, which are always-standalone and remount).
-   * So the pathname is the only thing that can tell it which mode it is now — with
-   * it missing, clicking Documents in the sidebar moved the URL while the header
-   * and highlight stayed on the previous mode.
+   * `dashboardOwnedModeHomePaths` is intentionally empty now that Documents has
+   * joined the consolidated modes (see `src/lib/search-route-ownership.ts`) — the
+   * map and its two accessors stay in place, permanently inert, because
+   * `global-search-shell.tsx` and `use-home-mode-seed.ts` still call them. Nothing
+   * should resolve through this mechanism any more.
    */
-  it("names the mode behind a dashboard-owned mode home", () => {
-    expect(dashboardOwnedModeHomeModeId("/documents")).toBe("documents");
-    for (const pathname of ["/", "/tools", "/favourites", "/medications", "/documents/search", "/?mode=documents"]) {
+  it("names no mode through the now-empty dashboard-owned-home map", () => {
+    for (const pathname of [
+      "/",
+      "/tools",
+      "/favourites",
+      "/medications",
+      "/documents",
+      "/documents/search",
+      "/?mode=documents",
+    ]) {
       expect(dashboardOwnedModeHomeModeId(pathname), pathname).toBeNull();
+      expect(isDashboardOwnedModeHomePath(pathname), pathname).toBe(false);
     }
-    // Every path it names must also be one the dashboard actually renders.
-    expect(isDashboardOwnedModeHomePath("/documents")).toBe(true);
   });
 
   it("marks route-owned namespaced paths as always-standalone shell (no searchParams gate)", () => {
@@ -137,9 +143,16 @@ describe("shared-search route ownership", () => {
     expect(isAlwaysStandaloneShellPath("/medications/acamprosate")).toBe(true);
     expect(isAlwaysStandaloneShellPath("/tools")).toBe(true);
     expect(isAlwaysStandaloneShellPath("/sources")).toBe(true);
-    // `/` and Documents still need searchParams for the dashboard gate.
+    // Documents' bare path is exact-match-only (`alwaysStandaloneShellExactPaths`),
+    // not prefix-matched like every other entry here: it redirects and renders
+    // nothing, so it needs the same Suspense-boundary protection as the rest of
+    // this list, but its sub-routes (`/documents/search`, `/documents/[id]`) must
+    // keep mounting ClinicalDashboard — a bare prefix entry would swallow those too.
+    expect(isAlwaysStandaloneShellPath("/documents")).toBe(true);
+    // `/` and Documents' sub-routes still need searchParams for the dashboard gate.
     expect(isAlwaysStandaloneShellPath("/")).toBe(false);
     expect(isAlwaysStandaloneShellPath("/documents/search")).toBe(false);
+    expect(isAlwaysStandaloneShellPath("/documents/some-document-id")).toBe(false);
   });
 
   it("preserves the deliberate compact-hub and standalone Favourites workspace distinction", () => {
@@ -473,33 +486,39 @@ describe("shared-search route ownership", () => {
     expect(shellSource).not.toMatch(/pathname\.startsWith\("\/services\/"\) && pathname !== "\/services"/);
   });
 
-  it("keeps unsubmitted dashboard-owned mode homes from auto-running composer drafts", () => {
+  it("keeps the auto-run gate unaffected by the now-empty dashboard-owned-home map", () => {
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
     );
-    // `/documents` mounts ClinicalDashboard with nothing submitted. autoRunSearch
-    // must stay gated on run=1 there — otherwise every keystroke fires search.
+    // The gate still checks isDashboardOwnedModeHomePath as a defensive OR — it is
+    // permanently false now, but removing the check would be a behavior change with
+    // no test coverage, so the source keeps it and this test keeps proving why.
     expect(shellSource).toMatch(
       /autoRunSearch=\{\s*pathname === "\/" \|\| isDashboardOwnedModeHomePath\(pathname\) \? hasSubmittedModeSearch : true\s*\}/,
     );
-    expect(isDashboardOwnedModeHomePath("/documents")).toBe(true);
+    expect(isDashboardOwnedModeHomePath("/documents")).toBe(false);
     expect(isDashboardOwnedModeHomePath("/medications")).toBe(false);
     expect(isDashboardOwnedModeHomePath("/")).toBe(false);
+    // Documents no longer mounts the dashboard at its own bare path at all —
+    // it redirects before anything renders.
     expect(
       shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "documents", pathname: "/documents" }),
-    ).toBe(true);
-    // `/medications` is always-standalone; the dashboard gate never sees it.
+    ).toBe(false);
+    // `/medications` and `/documents` are both always-standalone now; the dashboard
+    // gate never sees either bare path.
     expect(isAlwaysStandaloneShellPath("/medications")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/documents")).toBe(true);
   });
 
-  it("sends settings landing views to real mode homes, not bare /?mode=", () => {
+  it("sends the Documents settings landing view to the shared home, not the retired route", () => {
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
     );
-    expect(shellSource).toContain('router.replace("/documents", { scroll: false })');
+    expect(shellSource).toContain('router.replace(appModeSelectionHref("documents"), { scroll: false })');
     expect(shellSource).toContain('router.replace("/tools", { scroll: false })');
+    expect(shellSource).not.toContain('router.replace("/documents", { scroll: false })');
     expect(shellSource).not.toContain("router.replace(`/?mode=${landingMode}`");
   });
 
@@ -537,6 +556,13 @@ describe("shared-search route ownership", () => {
   });
 
   it("resets composer, submission and result state when a dashboard-owned home is reached", () => {
+    // `dashboardOwnedModeHomeModeId` always returns null now (the map it reads,
+    // `dashboardOwnedModeHomePaths`, is empty since Documents joined the
+    // consolidated modes), so `pathMode` below is permanently null and this effect
+    // is currently unreachable via normal navigation. It stays — safe, harmless
+    // dead code — in case a future mode needs this dashboard-owned-home shape
+    // again; this test keeps proving the reset logic itself is still correct.
+    expect(dashboardOwnedModeHomeModeId("/documents")).toBeNull();
     const source = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/use-home-mode-seed.ts"),
       "utf8",
