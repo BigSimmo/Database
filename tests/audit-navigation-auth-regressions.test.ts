@@ -109,11 +109,44 @@ describe("audit navigation and auth regressions", () => {
       new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=1&extra=drop"),
       "GET",
     );
-    expect(differentials?.toString()).toBe("https://clinical-kb.test/differentials?q=acute+confusion&run=1");
-    expect(favouritesSubmitted?.toString()).toBe("https://clinical-kb.test/favourites?q=lithium&focus=1&run=1");
+    // `q` is trimmed, a duplicated `run` collapses to one, `mode` is consumed by the
+    // pathname — and every other parameter rides along (see the case below).
+    expect(differentials?.toString()).toBe("https://clinical-kb.test/differentials?q=acute+confusion&run=1&extra=drop");
+    expect(favouritesSubmitted?.toString()).toBe(
+      "https://clinical-kb.test/favourites?q=lithium&focus=1&run=1&extra=drop",
+    );
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=favourites"), "POST")).toBeNull();
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=answer"), "GET")).toBeNull();
     expect(source("src/proxy.ts")).toContain("legacyHomeRedirectUrl(request.nextUrl, request.method)");
+  });
+
+  // This redirect used to rebuild the destination from scratch (`destination.search = ""`,
+  // then only q/focus/run re-added), so `queryMode` and the scope filters were already gone
+  // one hop before `consolidatedModeHomeTarget` — whose own doc promises "every other query
+  // parameter rides along untouched" — ran for differentials/specifiers. The clinician saw
+  // unscoped, auto-mode results for a link they had scoped, with no error (2026-09-02 audit,
+  // L9).
+  it("carries queryMode and scope filters through the legacy /?mode= redirect", () => {
+    const scoped = legacyHomeRedirectUrl(
+      new URL(
+        "https://clinical-kb.test/?mode=specifiers&q=+mixed+features+&run=1&queryMode=compare_guidance&scope.source=raanzcp&scopeRef=doc-42&focus=0",
+      ),
+      "GET",
+    );
+
+    expect(scoped).not.toBeNull();
+    const destination = new URL(scoped!.toString());
+    expect(destination.pathname).toBe("/specifiers");
+    expect(destination.searchParams.get("q")).toBe("mixed features");
+    expect(destination.searchParams.get("run")).toBe("1");
+    expect(destination.searchParams.get("queryMode")).toBe("compare_guidance");
+    expect(destination.searchParams.get("scope.source")).toBe("raanzcp");
+    expect(destination.searchParams.get("scopeRef")).toBe("doc-42");
+    // `mode` is consumed by the destination pathname and must not travel: forwarding it would
+    // let `/?mode=specifiers&…` arrive at the consolidated redirect claiming another mode.
+    expect(destination.searchParams.has("mode")).toBe(false);
+    // `focus` is a flag, not a value: anything but "1" is absence, as before.
+    expect(destination.searchParams.has("focus")).toBe(false);
   });
 
   it("closes the master mode menu when focus leaves its wrapper", () => {
