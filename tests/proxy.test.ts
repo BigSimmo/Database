@@ -61,7 +61,10 @@ describe("proxy content-security-policy", () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co;");
-    expect(csp).toContain("connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io");
+    // No browser Sentry SDK exists, so connect-src carries no third-party telemetry
+    // origin (2026-09-02 audit, L34).
+    expect(csp).toContain("connect-src 'self' https://*.supabase.co;");
+    expect(csp).not.toContain("sentry.io");
     // OpenAI calls are server-side only; the browser must not be allowed to
     // reach the provider origin (2026-07-13 audit, finding 12).
     expect(csp).not.toContain("api.openai.com");
