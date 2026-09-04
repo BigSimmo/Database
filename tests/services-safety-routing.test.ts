@@ -19,9 +19,7 @@ describe("services safety routing", () => {
       "suicide_aftercare",
     );
     expect(detectServiceUrgentIntents("bereaved after my brother died by suicide")).toContain("suicide_postvention");
-    expect(detectServiceUrgentIntents("bereaved after my brother died by suicide")).not.toContain(
-      "suicide_aftercare",
-    );
+    expect(detectServiceUrgentIntents("bereaved after my brother died by suicide")).not.toContain("suicide_aftercare");
   });
 
   it("pins the immediate emergency, CAMHS crisis and regional after-hours routes for a clear youth crisis", () => {
@@ -32,7 +30,13 @@ describe("services safety routing", () => {
   });
 
   it("never pins planned, closed, superseded or legacy-unverified services as an immediate route", () => {
-    const matches = rankServiceRecords(serviceRecords, "15-year-old actively suicidal in Bunbury tonight", 12, [], true);
+    const matches = rankServiceRecords(
+      serviceRecords,
+      "15-year-old actively suicidal in Bunbury tonight",
+      12,
+      [],
+      true,
+    );
     const pinned = matches.filter(({ reasons }) => reasons.includes("urgent route"));
     expect(pinned.length).toBeGreaterThan(0);
     for (const { service } of pinned) {
@@ -57,7 +61,9 @@ describe("services provenance presentation", () => {
 
   it("does not label non-active or overdue records as source checked", () => {
     const snapshot = loadServicesSnapshot();
-    const nonActive = snapshot.services.find((service) => service.availability_status && service.availability_status !== "active");
+    const nonActive = snapshot.services.find(
+      (service) => service.availability_status && service.availability_status !== "active",
+    );
     expect(nonActive).toBeTruthy();
     const record = catalogToServiceRecord(nonActive!);
     expect(record.source?.status).not.toBe("Source checked");

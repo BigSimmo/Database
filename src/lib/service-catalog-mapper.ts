@@ -197,7 +197,10 @@ function buildStatusChips(service: CatalogService): ServiceStatusChip[] {
   const chips: ServiceStatusChip[] = [];
 
   if (service.availability_status) {
-    chips.push({ label: availabilityLabel(service.availability_status), tone: availabilityTone(service.availability_status) });
+    chips.push({
+      label: availabilityLabel(service.availability_status),
+      tone: availabilityTone(service.availability_status),
+    });
   }
 
   for (const flag of service.tags.acuity_flags) {
@@ -335,16 +338,20 @@ function buildCriteria(service: CatalogService): ServiceCriterion[] {
   addMeet(service.referral_pathway, "Referral: ");
 
   for (const clause of splitCatalogClauses(service.eligibility_referral_criteria, CARD_MAX)) addMeet(clause);
-  for (const clause of splitCatalogClauses(service.exclusion_rejection_criteria, CARD_MAX)) addCriterion(clause, "reject");
+  for (const clause of splitCatalogClauses(service.exclusion_rejection_criteria, CARD_MAX))
+    addCriterion(clause, "reject");
   for (const clause of service.not_for ?? []) addCriterion(clause, "reject");
 
   const availability = service.availability_status;
   if (availability === "planned") addCriterion("Planned service — not currently referable", "reject");
-  if (availability === "temporarily_unavailable") addCriterion("Temporarily unavailable — use an alternative pathway", "reject");
+  if (availability === "temporarily_unavailable")
+    addCriterion("Temporarily unavailable — use an alternative pathway", "reject");
   if (availability === "closed") addCriterion("Closed service — do not refer", "reject");
   if (availability === "superseded") {
     addCriterion(
-      service.superseded_by ? `Superseded — use ${service.superseded_by}` : "Superseded service — use the replacement pathway",
+      service.superseded_by
+        ? `Superseded — use ${service.superseded_by}`
+        : "Superseded service — use the replacement pathway",
       "reject",
     );
   }
@@ -458,7 +465,8 @@ export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
     tags: flattenTags(service),
     catchments: buildCatchments(service),
     catalogueLabel: service.sections[0] ?? "Catalogue service",
-    navigatorQuery: cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
+    navigatorQuery:
+      cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
     source: buildSource(service),
     catalogPayload: {
       tags: service.tags,
