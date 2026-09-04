@@ -39,6 +39,30 @@ export type Database = {
   };
   public: {
     Tables: {
+      api_rate_limit_subjects: {
+        Row: {
+          bucket: string;
+          request_count: number;
+          subject_key: string;
+          updated_at: string;
+          window_start: string;
+        };
+        Insert: {
+          bucket: string;
+          request_count?: number;
+          subject_key: string;
+          updated_at?: string;
+          window_start?: string;
+        };
+        Update: {
+          bucket?: string;
+          request_count?: number;
+          subject_key?: string;
+          updated_at?: string;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
       api_rate_limits: {
         Row: {
           bucket: string;
@@ -443,6 +467,72 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      document_corpus_access_snapshots: {
+        Row: {
+          activation_id: string;
+          captured_at: string;
+          document_id: string;
+          owner_id: string | null;
+          public_corpus_present: boolean;
+          public_corpus_value: Json | null;
+        };
+        Insert: {
+          activation_id: string;
+          captured_at?: string;
+          document_id: string;
+          owner_id?: string | null;
+          public_corpus_present: boolean;
+          public_corpus_value?: Json | null;
+        };
+        Update: {
+          activation_id?: string;
+          captured_at?: string;
+          document_id?: string;
+          owner_id?: string | null;
+          public_corpus_present?: boolean;
+          public_corpus_value?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "document_corpus_access_snapshots_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "document_strict_gate_status";
+            referencedColumns: ["document_id"];
+          },
+          {
+            foreignKeyName: "document_corpus_access_snapshots_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      document_corpus_access_state: {
+        Row: {
+          activated_at: string | null;
+          activation_id: string | null;
+          mode: string;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          activated_at?: string | null;
+          activation_id?: string | null;
+          mode: string;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          activated_at?: string | null;
+          activation_id?: string | null;
+          mode?: string;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       document_embedding_fields: {
         Row: {
@@ -1230,6 +1320,36 @@ export type Database = {
           },
         ];
       };
+      document_title_words: {
+        Row: {
+          document_id: string;
+          word: string;
+        };
+        Insert: {
+          document_id: string;
+          word: string;
+        };
+        Update: {
+          document_id?: string;
+          word?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "document_title_words_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "document_strict_gate_status";
+            referencedColumns: ["document_id"];
+          },
+          {
+            foreignKeyName: "document_title_words_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       documents: {
         Row: {
           chunk_count: number;
@@ -1402,6 +1522,72 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      indexing_v3_agent_jobs: {
+        Row: {
+          attempt_count: number;
+          created_at: string;
+          document_id: string;
+          enrichment_status: string;
+          id: string;
+          last_error: string | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          max_attempts: number;
+          metadata: Json;
+          next_run_at: string | null;
+          status: string;
+          updated_at: string;
+          version: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          created_at?: string;
+          document_id: string;
+          enrichment_status?: string;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          metadata?: Json;
+          next_run_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          version?: string;
+        };
+        Update: {
+          attempt_count?: number;
+          created_at?: string;
+          document_id?: string;
+          enrichment_status?: string;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          metadata?: Json;
+          next_run_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          version?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "indexing_v3_agent_jobs_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "document_strict_gate_status";
+            referencedColumns: ["document_id"];
+          },
+          {
+            foreignKeyName: "indexing_v3_agent_jobs_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       ingestion_job_stages: {
         Row: {
@@ -2389,6 +2575,10 @@ export type Database = {
           reset_at: string;
         }[];
       };
+      backfill_legacy_index_health_batch: {
+        Args: { p_limit?: number };
+        Returns: Json;
+      };
       chunk_image_metadata: {
         Args: { chunk_image_ids: string[] };
         Returns: Json;
@@ -2413,6 +2603,15 @@ export type Database = {
           stage: string;
           status: string;
         }[];
+      };
+      update_indexing_v3_agent_job_status: {
+        Args: {
+          p_document_id: string;
+          p_error?: string | null;
+          p_next_run_at?: string | null;
+          p_status: string;
+        };
+        Returns: Json;
       };
       claim_ingestion_jobs: {
         Args: {
@@ -2823,6 +3022,35 @@ export type Database = {
           title: string;
         }[];
       };
+      match_document_chunks_text_scoped: {
+        Args: {
+          document_filters: string[] | null;
+          include_public: boolean;
+          match_count: number;
+          owner_filter: string | null;
+          query_text: string;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          document_id: string;
+          document_labels: Json;
+          document_summary: string;
+          file_name: string;
+          hybrid_score: number;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          lexical_score: number;
+          page_number: number;
+          retrieval_synopsis: string;
+          section_heading: string;
+          similarity: number;
+          source_metadata: Json;
+          text_rank: number;
+          title: string;
+        }[];
+      };
       match_document_embedding_fields_hybrid: {
         Args: {
           document_filters?: string[] | null;
@@ -2889,6 +3117,18 @@ export type Database = {
           title: string;
           unit_type: string;
         }[];
+      };
+      match_document_index_units_hybrid_scoped: {
+        Args: {
+          document_filters: string[] | null;
+          include_public: boolean;
+          match_count: number;
+          min_similarity: number;
+          owner_filter: string | null;
+          query_embedding: Vector;
+          query_text: string;
+        };
+        Returns: Database["public"]["Functions"]["match_document_index_units_hybrid"]["Returns"];
       };
       match_document_lookup_chunks_text: {
         Args: {
@@ -3025,6 +3265,10 @@ export type Database = {
           title: string;
         }[];
       };
+      retrieval_owner_matches: {
+        Args: { owner_filter: string; row_owner_id: string | null };
+        Returns: boolean;
+      };
       retrieval_owner_matches_v2: {
         Args: { owner_filter: string; row_owner_id: string | null; include_public?: boolean };
         Returns: boolean;
@@ -3042,6 +3286,10 @@ export type Database = {
         Returns: Json;
       };
       purge_expired_rag_queries: {
+        Args: { p_retention_days?: number };
+        Returns: number;
+      };
+      purge_expired_rag_query_misses: {
         Args: { p_retention_days?: number };
         Returns: number;
       };
@@ -3091,7 +3339,13 @@ export type Database = {
           trigram_score: number;
         }[];
       };
+      migration_history_versions: { Args: never; Returns: Json };
+      schema_drift_snapshot: { Args: never; Returns: Json };
       search_schema_health: { Args: never; Returns: Json };
+      set_document_corpus_access_mode: {
+        Args: { p_mode: string };
+        Returns: Json;
+      };
       stamp_document_deep_memory_version: {
         Args: { p_document_id: string; p_version: string };
         Returns: undefined;
