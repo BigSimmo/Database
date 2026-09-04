@@ -64,29 +64,35 @@ describe("GovernanceView", () => {
   // statusChanges entry; no movement carries a hand-authored urgencyChanges or unwinds entry.
   // So the board starts with exactly one row, and dispatching a real change grows the list —
   // newest first — rather than the row count being frozen or the new entry landing at the end.
-  it("shows the real fixture's one hand-authored change (WF-010) and grows, newest first, once a new change is dispatched", () => {
+  it("shows the real fixture's two hand-authored changes (WF-010, WF-009) and grows, newest first, once a new change is dispatched", () => {
     renderGovernance();
 
     const listBefore = screen.getByTestId("ward-governance-change-audit");
     expect(listBefore).toHaveTextContent("WF-010");
+    // WF-009's own hand-authored legal-status change, added 2026-09-04 (Task 6 seed fix — WF-009
+    // carried an examination and an "Involuntary inpatient" legalStatus with no statusChanges
+    // entry recording how it got there).
+    expect(listBefore).toHaveTextContent("WF-009");
     // The explicit empty state must not render while at least one entry exists — both
     // directions of the same guard ward-capacity-view.dom.test.tsx checks for its own rows.
     expect(screen.queryByTestId("ward-governance-change-audit-empty")).not.toBeInTheDocument();
-    expect(listBefore.querySelectorAll("li")).toHaveLength(1);
+    expect(listBefore.querySelectorAll("li")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: "raise urgency change" }));
 
     const listAfter = screen.getByTestId("ward-governance-change-audit");
     const itemsAfter = listAfter.querySelectorAll("li");
-    expect(itemsAfter).toHaveLength(2);
+    expect(itemsAfter).toHaveLength(3);
     // Newest first: the just-dispatched urgency change is recorded at `now` (NOW_ANCHOR), which
-    // sorts ahead of the fixture's own WF-010 entry, timestamped NOW_ANCHOR - 40. Checked as one
-    // ordered pair per row (id + kind together), not two independent substring checks that a
-    // swapped-row mutation could still satisfy.
+    // sorts ahead of the fixture's own WF-010 entry (NOW_ANCHOR - 40), which in turn sorts ahead
+    // of WF-009's (NOW_ANCHOR - 95). Checked as one ordered pair per row (id + kind together), not
+    // independent substring checks a swapped-row mutation could still satisfy.
     expect(itemsAfter[0]).toHaveTextContent("WF-002");
     expect(itemsAfter[0]).toHaveTextContent("Urgency change");
     expect(itemsAfter[1]).toHaveTextContent("WF-010");
     expect(itemsAfter[1]).toHaveTextContent("Legal status change");
+    expect(itemsAfter[2]).toHaveTextContent("WF-009");
+    expect(itemsAfter[2]).toHaveTextContent("Legal status change");
   });
 
   it("renders the two effectiveness numbers, the synthetic-scenario caveat, and the dropped third measure", () => {

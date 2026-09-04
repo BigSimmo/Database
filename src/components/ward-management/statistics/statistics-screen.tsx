@@ -271,15 +271,15 @@ export function StatisticsScreen({
                 How long a bed takes to go from being made ready to being open cannot be measured here, and the reason
                 is not that nobody writes a time down.
               </strong>{" "}
-              Bed readiness is recorded as <code className={styles.field}>BedRelease.preparing</code>, a boolean, and
-              setting it does stamp an instant — but into <code className={styles.field}>BedRelease.confirmedAt</code>,
-              the single shared field every other act on the same release also writes. Confirming the discharge,
-              flagging the bed as stuck, clearing that flag, releasing the bed and turning preparation off again all
-              overwrite it. So the record can hold when preparation started or when it ended, never both: the start is
-              destroyed by the act that ends it. There is no pair of instants to subtract, rather than a pair whose
-              values were never filled in — so no amount of data entry against today&apos;s model would produce this
-              figure. Measuring it needs the record to gain instants of its own, which is a change to the bed model, not
-              to this page.
+              Bed readiness is recorded as <code className={styles.fieldName}>BedRelease.preparing</code>, a boolean,
+              and setting it does stamp an instant — but into{" "}
+              <code className={styles.fieldName}>BedRelease.confirmedAt</code>, the single shared field every other act
+              on the same release also writes. Confirming the discharge, flagging the bed as stuck, clearing that flag,
+              releasing the bed and turning preparation off again all overwrite it. So the record can hold when
+              preparation started or when it ended, never both: the start is destroyed by the act that ends it. There is
+              no pair of instants to subtract, rather than a pair whose values were never filled in — so no amount of
+              data entry against today&apos;s model would produce this figure. Measuring it needs the record to gain
+              instants of its own, which is a change to the bed model, not to this page.
             </p>
           </article>
 
@@ -311,16 +311,16 @@ export function StatisticsScreen({
                 Nothing in this prototype records an offer, so this figure cannot be produced at all — and no number on
                 this page is standing in for it.
               </strong>{" "}
-              A ward record carries <code className={styles.field}>Unit.empty</code>, the beds that are physically empty
-              per the feed, and <code className={styles.field}>Unit.allocatable</code>, the beds the ward says it can
-              actually allocate. Both are aggregate counts for the whole ward. What the model derives from the pair is a
-              ward-side readiness gap — the part of a ward&apos;s empty capacity the ward has not yet said it can
-              allocate, summed across every bed it has. That is a statement about one ward&apos;s own readiness at one
-              moment. It is not a record of a bed being offered to, or held back from, any particular person or request,
-              and it could not become one: neither a bed nor a request appears in it to be named. Answering the question
-              as it was asked needs the model to gain a record per bed or per offer — a change to the bed model, not a
-              change to this page. Until that exists this heading carries no figure, deliberately, because a number
-              published under it would be quoted as the thing it is not.
+              A ward record carries <code className={styles.fieldName}>Unit.empty</code>, the beds that are physically
+              empty per the feed, and <code className={styles.fieldName}>Unit.allocatable</code>, the beds the ward says
+              it can actually allocate. Both are aggregate counts for the whole ward. What the model derives from the
+              pair is a ward-side readiness gap — the part of a ward&apos;s empty capacity the ward has not yet said it
+              can allocate, summed across every bed it has. That is a statement about one ward&apos;s own readiness at
+              one moment. It is not a record of a bed being offered to, or held back from, any particular person or
+              request, and it could not become one: neither a bed nor a request appears in it to be named. Answering the
+              question as it was asked needs the model to gain a record per bed or per offer — a change to the bed
+              model, not a change to this page. Until that exists this heading carries no figure, deliberately, because
+              a number published under it would be quoted as the thing it is not.
             </p>
           </article>
 
@@ -416,17 +416,17 @@ export function StatisticsScreen({
                 go unrecorded — both happen, and both are in the data right now.
               </strong>{" "}
               The model holds declines in two places that mean different things, and only one of them can name a ward. A
-              referral decline sits on <code className={styles.field}>ReferralAddressing</code>, whose ward destination
-              records the bed&apos;s criteria — the sex it must suit, whether it must be secure, whether it must be able
-              to hold somebody involuntarily — and never a unit. That record does have a field that can name a ward,{" "}
-              <code className={styles.field}>acceptedUnitId</code>, and it is set only when a ward ACCEPTS. So an
-              acceptance is attributable to a named ward and a decline is not, from the same record: the field that
-              would name the ward is populated by the outcome that is not a decline. A movement decline sits on{" "}
-              <code className={styles.field}>Movement.declines</code>, which does name a unit, but describes a ward
-              refusing somebody who is already inside an emergency department, drawn from a different list of reasons.
-              Publishing one of them under this heading would quietly decide what &ldquo;declines per ward&rdquo; means,
-              and that is the owner&apos;s decision rather than an implementer&apos;s. Until it is taken, this page
-              shows no decline figure at all — deliberately, and never as a nought.
+              referral decline sits on <code className={styles.fieldName}>ReferralAddressing</code>, whose ward
+              destination records the bed&apos;s criteria — the sex it must suit, whether it must be secure, whether it
+              must be able to hold somebody involuntarily — and never a unit. That record does have a field that can
+              name a ward, <code className={styles.fieldName}>acceptedUnitId</code>, and it is set only when a ward
+              ACCEPTS. So an acceptance is attributable to a named ward and a decline is not, from the same record: the
+              field that would name the ward is populated by the outcome that is not a decline. A movement decline sits
+              on <code className={styles.fieldName}>Movement.declines</code>, which does name a unit, but describes a
+              ward refusing somebody who is already inside an emergency department, drawn from a different list of
+              reasons. Publishing one of them under this heading would quietly decide what &ldquo;declines per
+              ward&rdquo; means, and that is the owner&apos;s decision rather than an implementer&apos;s. Until it is
+              taken, this page shows no decline figure at all — deliberately, and never as a nought.
             </p>
           </article>
 
@@ -543,8 +543,8 @@ export function StatisticsScreen({
             <h3 className={styles.figureHeading}>Blocked discharges by blocker</h3>
             <p className={styles.figureBlurb}>
               Everyone still on the ward whose bed will not yet let them go, counted against the reason recorded for it.
-              This is <code className={styles.field}>Admission.blockReason</code>, not{" "}
-              <code className={styles.field}>Movement.blocker</code> — a referral still finding a placement is a
+              This is <code className={styles.fieldName}>Admission.blockReason</code>, not{" "}
+              <code className={styles.fieldName}>Movement.blocker</code> — a referral still finding a placement is a
               different fact from a bed that will not yet release its occupant.
             </p>
 
@@ -773,8 +773,8 @@ export function StatisticsScreen({
                 This page publishes no referral-to-bed duration, and the reason is not that the join finds nothing. It
                 is that a matching id does not establish that the two records are the two ends of one wait.
               </strong>{" "}
-              An admission carries <code className={styles.field}>Admission.referralId</code>, typed{" "}
-              <code className={styles.field}>string | null</code> — a real null is an ordinary state, meaning that
+              An admission carries <code className={styles.fieldName}>Admission.referralId</code>, typed{" "}
+              <code className={styles.fieldName}>string | null</code> — a real null is an ordinary state, meaning that
               admission came from a movement rather than from a referral. Matching it against the referrals on record is
               exact, so a pair either exists or it does not, and the counts below are that measurement taken on this
               render. What a matched pair cannot say for itself is whether the referral it names is the request that

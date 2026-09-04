@@ -38,6 +38,18 @@ import { describe, expect, it } from "vitest";
  *   nurse carries into the morning meeting". It has no route of its own and is reached only through
  *   the board, but it is listed as an entry point in its own right because it is the surface that
  *   goes on PAPER: a leak here leaves the building.
+ * - **`community/community-team-hub.tsx`** — added 2026-09-04, the day this list went stale within
+ *   hours of a plan being written against it. Owner ruling the same day: community becomes its own
+ *   first-class role, alongside ED, coordinator and the wards, and a community team may NOT see
+ *   that a patient was referred anywhere else — the identical restriction FD-23 already gives a
+ *   ward. `CommunityScopedReferral` (`ward-referral-visibility.ts`, `66b10a439`) is the projection
+ *   this component must read; `tests/ward-community-viewer-assumption.test.ts` pins that
+ *   projection's own shape. It is the community role's OWN landing for one team and is a different
+ *   screen from the coordinator's drill-down into the same team (`community/community-home.tsx`,
+ *   in `SEES_EVERYTHING` below) even though the two can render the same team at the same moment —
+ *   see the build plan's Task 3b on why that visual resemblance is exactly the reason the two must
+ *   never share a component or a data type, and why a shared component would fall OUTSIDE this very
+ *   guarded set by construction (section 2 below).
  *
  * **Considered and deliberately NOT ward-facing**, so the reasoning is recoverable rather than
  * inferred from an absence: `wards/ward-index.tsx` is the statewide index of every ward, not one
@@ -108,11 +120,13 @@ import { describe, expect, it } from "vitest";
 const SRC_ROOT = resolve(process.cwd(), "src");
 const WARD_DIR = resolve(SRC_ROOT, "components/ward-management");
 
-/** The three single-ward surfaces. See section 1 of this file's doc comment for why each. */
+/** The single-ward and single-community-team surfaces. See section 1 of this file's doc comment
+ *  for why each. */
 const WARD_FACING: readonly string[] = [
   "ward/ward-screen.tsx",
   "board/ward-board.tsx",
   "board/ward-daily-sheet.tsx",
+  "community/community-team-hub.tsx",
 ].map((file) => resolve(WARD_DIR, file));
 
 /**
@@ -123,6 +137,13 @@ const SEES_EVERYTHING: ReadonlyArray<{ file: string; reason: string }> = [
   {
     file: "coordinator/coordinator-screen.tsx",
     reason: "the coordinator's own screen — 'the coordinator may see everything'",
+  },
+  {
+    file: "community/community-home.tsx",
+    reason:
+      "the coordinator's all-teams overview and drill-down into one team — coordinator entitlement " +
+      "on both scopes, never the community role's own view (community/community-team-hub.tsx, in " +
+      "WARD_FACING above); added 2026-09-04 alongside that entry, same day as the owner's ruling",
   },
   {
     file: "coordinator/shortlist-panel.tsx",
@@ -221,6 +242,22 @@ const FULL_REFERRAL_VOCABULARY =
  * `Referral`. An exemption whose reason nothing checks is how a guard rots.
  */
 const BUILDS_BUT_NEVER_RECEIVES = resolve(WARD_DIR, "ward-board-derivations.ts");
+
+/**
+ * `ward-referral-visibility.ts` IS the FD-23 projection module — the file this whole guard exists
+ * to make sure ward and community code routes THROUGH. It legitimately imports `Referral`,
+ * `ReferralAddressing` and `WardAddressing` at its own top, because it is what BUILDS
+ * `WardScopedReferral`, `CommunityScopedReferral` and `CoordinatorScopedReferral` out of the full
+ * record — a module that defines a boundary must be able to name the type on the far side of it.
+ *
+ * It entered the guarded set for the first time the day `community-team-hub.tsx` became its first
+ * production importer (its own doc comment: "zero production importers is expected"). Exempting it
+ * from the vocabulary check is bounded, not blanket: `tests/ward-community-viewer-assumption.test.ts`
+ * separately pins that none of its exports takes a role, viewer or scope argument (the shape a
+ * converter would need), and the test below re-checks that same property here, so the exemption
+ * fails the moment either guard would have caught a real leak.
+ */
+const IS_THE_PROJECTION_MODULE_ITSELF = resolve(WARD_DIR, "ward-referral-visibility.ts");
 
 // ---------------------------------------------------------------------------------------------
 // Module-graph machinery, lifted from `tests/ward-referral-matching.test.ts`'s D15 contract along
@@ -481,16 +518,17 @@ function contextBindingsOf(source: string): string[][] {
 const shortPath = (file: string) => relative(process.cwd(), file).replace(/\\/g, "/");
 
 describe("FD-23 at the screen boundary", () => {
-  it("guards a ward-facing list that is exactly the three single-ward surfaces", () => {
+  it("guards a ward-facing list that is exactly the single-ward and single-community-team surfaces", () => {
     // NON-VACUITY, and the first thing to fail if this guard is ever emptied. An import-graph
     // check over an empty entry list passes forever and reads as coverage — which is the failure
     // mode this whole file was written to avoid, so it is asserted before anything else.
-    expect(WARD_FACING.length, "the ward-facing list changed size — re-read section 1 above").toBe(3);
+    expect(WARD_FACING.length, "the ward-facing list changed size — re-read section 1 above").toBe(4);
     for (const file of WARD_FACING) {
       expect(existsSync(file), `${shortPath(file)} is named ward-facing but does not exist`).toBe(true);
     }
     // The named list, not just its length: a swap that kept the count would otherwise pass.
     expect(WARD_FACING.map((file) => basename(file)).sort()).toEqual([
+      "community-team-hub.tsx",
       "ward-board.tsx",
       "ward-daily-sheet.tsx",
       "ward-screen.tsx",
@@ -501,7 +539,7 @@ describe("FD-23 at the screen boundary", () => {
     // A stale entry is an exemption for nothing, and — because this list is also the subtraction
     // set — a stale entry silently WIDENS the guarded set rather than narrowing it. Either way it
     // must not sit here unnoticed.
-    expect(SEES_EVERYTHING.length, "the allowed-surface list changed size — re-read section 3 above").toBe(23);
+    expect(SEES_EVERYTHING.length, "the allowed-surface list changed size — re-read section 3 above").toBe(24);
     for (const { file, reason } of SEES_EVERYTHING) {
       expect(existsSync(file), `${shortPath(file)} is allow-listed but does not exist`).toBe(true);
       expect(reason.length, `${shortPath(file)} is allow-listed with no reason beside it`).toBeGreaterThan(10);
@@ -654,19 +692,33 @@ describe("FD-23 at the screen boundary", () => {
     expect(wardOnly).toContain("ward-board.tsx");
     expect(wardOnly).toContain("ward-daily-sheet.tsx");
     expect(wardOnly).toContain("ward-board-derivations.ts");
+    expect(wardOnly).toContain("community-team-hub.tsx");
+    // `ward-referral-visibility.ts` is NOT asserted either way here, deliberately. It happens to be
+    // excluded from `wardOnly` today because `community-home.tsx` (SEES_EVERYTHING) also imports it
+    // — genuinely shared infrastructure by construction, same as `ward-model.ts` below. But that is
+    // incidental to community-home.tsx's own implementation, not a property this guard should rely
+    // on: if that import ever moved, the module would fall INTO `wardOnly` and would need the
+    // bounded exemption (`IS_THE_PROJECTION_MODULE_ITSELF`) below to stay green rather than flag its
+    // own legitimate `Referral`/`ReferralAddressing` imports as a leak. The exemption and its
+    // dedicated bounding test exist for exactly that reason and are checked unconditionally, not
+    // only when this module happens to land in `wardOnly`.
     // Shared infrastructure must be OUT of it, or the guard is red on day one and gets neutered.
     expect(wardOnly).not.toContain("ward-model.ts");
     expect(wardOnly).not.toContain("ward-flow-provider.tsx");
+    expect(wardOnly, "the coordinator's own community view leaked into the restricted set").not.toContain(
+      "community-home.tsx",
+    );
   });
 
   it("lets no ward-only module reach a referral's other destinations", () => {
     const offenders = [...wardOnlyModules().entries()]
-      .filter(([file]) => file !== BUILDS_BUT_NEVER_RECEIVES)
+      .filter(([file]) => file !== BUILDS_BUT_NEVER_RECEIVES && file !== IS_THE_PROJECTION_MODULE_ITSELF)
       .filter(([, source]) => importsMention(source, FULL_REFERRAL_VOCABULARY))
       .map(([file]) => shortPath(file));
     expect(
       offenders,
-      "a ward-facing surface reaches the full referral record — route it through wardScopedReferral()",
+      "a ward-facing surface reaches the full referral record — route it through wardScopedReferral() " +
+        "or communityScopedReferral()",
     ).toEqual([]);
   });
 
@@ -682,6 +734,29 @@ describe("FD-23 at the screen boundary", () => {
     expect(source, "the exempted module no longer builds the local probe the exemption names").toMatch(
       /const\s+probe:\s*Referral\s*=/,
     );
+  });
+
+  it("keeps the projection module's own exemption bounded: no export takes a role, viewer or scope", () => {
+    // The second exemption's whole reason. `ward-referral-visibility.ts` is allowed to import the
+    // full record because it BUILDS the ward/community/coordinator projections from it — it must
+    // never itself become a converter that takes a viewer argument and hands back whichever
+    // projection that viewer is entitled to, because that IS the leak this whole file exists to
+    // prevent, just one level further in. `tests/ward-community-viewer-assumption.test.ts` pins
+    // the identical property directly against this file's exported function signatures; this is
+    // the same check run from the boundary-guard side, so the exemption cannot rot unnoticed here
+    // even if that other file is ever deleted.
+    const source = withoutComments(readFileSync(IS_THE_PROJECTION_MODULE_ITSELF, "utf8"));
+    const signatures = [...source.matchAll(/export function \w+\(([^)]*)\)/g)].map((match) => match[1]);
+    expect(signatures.length, "no exported function found — the extractor is broken, not the module").toBeGreaterThan(
+      0,
+    );
+    for (const signature of signatures) {
+      expect(
+        signature,
+        "an exported function in the projection module now takes a role/viewer/scope argument — " +
+          "that is the converter FD-23 forbids, arriving inside the trusted module itself",
+      ).not.toMatch(/\b(role|viewer|scope)\s*:/);
+    }
   });
 
   it("lets no ward-ONLY module take referral data from the shared provider", () => {

@@ -16,6 +16,7 @@ import type {
   DeclineReason,
   HomeRegion,
   LegalStatus,
+  MovementStage,
   ReferralDeclineReason,
   ReferralDestination,
   ReferralDestinationKind,
@@ -23,6 +24,7 @@ import type {
   ReferralSuburb,
   Security,
   Sex,
+  StepBackReason,
   TransportProvider,
 } from "@/components/ward-management/ward-model";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
@@ -126,6 +128,36 @@ export type WardFlowEvent =
       now: Instant;
       referralId: string;
       cleared: boolean;
+    }
+  | {
+      /**
+       * The sending team records whether this patient needs transport at all — owner ruling
+       * R-2026-09-04-C, the third state.
+       *
+       * `needed: false` is a stated answer ("this patient needs no transport"), NOT the same thing
+       * as `Movement.transportNeed` being absent, which means nobody has said. No event ever
+       * writes the absence back, exactly as no event un-records a medical clearance.
+       */
+      type: "RECORD_TRANSPORT_NEED";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      needed: boolean;
+    }
+  | {
+      /**
+       * The department holding the patient records that NOBODY referred them — owner ruling
+       * R-2026-09-04-D, the clinical one of the three causes an absent `Movement.referralId` had.
+       *
+       * ⚠️ **THIS IS THE ASSERTION, NOT THE ABSENCE.** Before it, "nobody raised a referral for
+       * this person" and "this record predates the link" and "the raiser was never asked" were one
+       * indistinguishable empty field. Refused for a movement that already names a referral: the
+       * two answers contradict each other, and a stored contradiction is worse than a refusal.
+       */
+      type: "RECORD_NO_REFERRAL";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
     }
   | {
       type: "REFER_TO_UNITS";
@@ -850,6 +882,68 @@ export type WardFlowEvent =
       role: WardFlowRole;
       now: Instant;
       movementId: string;
+    }
+  | {
+      /**
+       * THE COORDINATOR'S OWN RECORD CORRECTION — Task 5 (ward-flow movement step-track plan,
+       * 2026-09-04), owner rulings E and F. Moves `movement.stage` strictly BACKWARDS, appends one
+       * `stageChanges` entry and one `unwinds` entry (`kind: "stage_corrected"`), and touches
+       * NOTHING else — no bed is released, no transport is cancelled, no timestamp elsewhere on the
+       * movement moves. F3's whole content in one sentence: stepping back past Accepted does not
+       * un-accept, and stepping back past Bed pulled does not un-pull. See the reducer's own case
+       * for the full list of fields this deliberately never writes.
+       *
+       * ⚠️ **NOT `WITHDRAW_ACCEPTANCE` below.** This event corrects a RECORD; that one tells a WARD
+       * its earlier "yes" no longer holds. They read as the same English verb ("undo") and are
+       * unrelated acts on unrelated actors' decisions.
+       *
+       * Coordinator-only (`EVENT_ROLE.STEP_BACK_STAGE` below) — F1's entire enforcement, since the
+       * generic role check in `wardFlowReducer`'s switch preamble already rejects every other role
+       * before this event's payload is even inspected, exactly as it does for every other
+       * role-gated event in this file.
+       */
+      type: "STEP_BACK_STAGE";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      /** Must be strictly earlier than `movement.stage` in `MOVEMENT_STAGES` array order — covers
+       *  both a same-stage attempt and a forward "skip a step", which is explicitly OUT OF SCOPE
+       *  for this event (owner ruling 4 of 2026-09-04: authorised by ruling E's own words but
+       *  unspecced by ruling F, and recorded as owed rather than built). */
+      to: MovementStage;
+      reason: StepBackReason;
+    }
+  | {
+      /**
+       * THE COORDINATOR UNDOES A WARD'S "YES" — Task 5, same plan and rulings as `STEP_BACK_STAGE`
+       * above. Clears `movement.acceptedUnitId` and `acceptedAt`, reverts `stage` to
+       * `"destination_review"`, and appends one `stageChanges` entry and one `unwinds` entry
+       * (`kind: "acceptance_withdrawn"`, carrying the withdrawn unit's id — see `UnwindRecord`'s
+       * own doc comment).
+       *
+       * ⚠️ **GATED TO `movement.stage === "accepted_awaiting_bed"` ONLY** (owner ruling 2 of
+       * 2026-09-04, deliberately narrow: a withdrawal from `pulled` or later is a bigger act with
+       * different consequences — a bed is physically held and, past `handover_ready`, a patient
+       * may be moving — and the owner recorded this as an OPEN QUESTION for himself, not a settled
+       * boundary: "the bed was lost" is exactly the reason that would arise at `pulled`, so the
+       * narrow gate probably excludes a real case. Widening it later is his call, not this build's).
+       *
+       * ⚠️ **DOES NOT RE-ADD THE WITHDRAWN UNIT TO `referredUnitIds`** (owner ruling 3 of
+       * 2026-09-04): withdrawing an acceptance is not the same act as re-referring, and reviving a
+       * "live referral" the ward never re-received would be a false claim on that ward's own
+       * screen. `REFER_TO_UNITS` is the existing path if the coordinator wants to re-approach.
+       *
+       * ⚠️ **REUSES `StepBackReason`/`STEP_BACK_REASONS`, not a reason list of its own** (owner
+       * ruling 1 of 2026-09-04) — see that list's own doc comment in `ward-model.ts` for why, and
+       * for the note that the WARD reads these reasons while `STEP_BACK_STAGE`'s reader does not.
+       *
+       * Coordinator-only, same enforcement shape as `STEP_BACK_STAGE` above.
+       */
+      type: "WITHDRAW_ACCEPTANCE";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      reason: StepBackReason;
     };
 
 /**
@@ -898,6 +992,22 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   RAISE_REFERRAL: ["ed", "community", "ward"],
   RECORD_EXAMINATION: ["ed"],
   RECORD_MEDICAL_CLEARANCE: ["ed"],
+  /*
+   * MIRRORS `BOOK_TRANSPORT` BELOW, INCLUDING ITS EXCLUSION — the sending team, and not the
+   * coordinator. `TR-D1` rejects the coordinator from booking BY NAME because "it owns the bed
+   * search and does not know whether this patient needs an escort or is settled enough to travel".
+   * Whether transport is needed at all is the same knowledge one step earlier, so the same three
+   * senders may answer it and the same role may not. A coordinator who could record "no transport
+   * needed" would be answering a question about a patient it has never seen.
+   */
+  RECORD_TRANSPORT_NEED: ["ed", "ward", "community"],
+  /*
+   * `ed` ALONE, on `RECORD_MEDICAL_CLEARANCE`'s reasoning exactly: the department physically
+   * holding the patient is the only party that can say nobody referred them. A coordinator sees
+   * the referral list and would be inferring the absence from its own empty search — which is the
+   * inference ruling R-2026-09-04-D exists to replace with a recorded answer.
+   */
+  RECORD_NO_REFERRAL: ["ed"],
   REFER_TO_UNITS: ["coordinator"],
   ACCEPT_IN_PRINCIPLE: ["ward"],
   /* Owner ruling 2026-09-01: a pull is always a person's act — *"only a person can do this who is
@@ -1081,4 +1191,12 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   // is plausibly who actually rang round for a local bed); adding it is a product decision, not
   // an implementer's, so it is flagged rather than taken.
   RECORD_LOCAL_BED_SOUGHT: ["coordinator"],
+  /**
+   * F1 (Task 5, 2026-09-04): only the coordinator may raise either event. This table entry is the
+   * ENTIRE enforcement — the generic role check in `wardFlowReducer`'s switch preamble rejects any
+   * other role before either event's payload is inspected at all, exactly as it does for every
+   * other role-gated event above.
+   */
+  STEP_BACK_STAGE: ["coordinator"],
+  WITHDRAW_ACCEPTANCE: ["coordinator"],
 };

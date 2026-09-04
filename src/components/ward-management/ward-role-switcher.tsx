@@ -39,6 +39,26 @@ const OFFICER_HREF = "/mockups/ward-flow/transport/officer";
  * than guessing — `aria-disabled` plus `title` plus an `ignoreUnavailableActivation` handler,
  * the same pattern `ed-screen.tsx`'s `examinationBlockedReason`/`handoverBlockedReason` and
  * every other conditionally-available control in this phase already use.
+ *
+ * ⚠️ **EVERY DESTINATION BELOW IS THAT ROLE'S OWN HOME, NEVER THE REFERRAL YOU WERE JUST LOOKING
+ * AT — AND THAT IS FORCED, NOT A SIMPLIFICATION.** Ward Flow navigation-shell plan
+ * (`docs/superpowers/plans/2026-09-04-ward-flow-navigation-shell.md`, Decision 2). `ward-referral-
+ * visibility.ts` (FD-23) states this as an ARCHITECTURE, not a rule a component could relax: the
+ * two projections are two TYPES, `WardScopedReferral` has no `destinations` field at all, nothing
+ * converts one into the other, and no function there takes a role, a scope or a viewer argument.
+ * "Keep the coordinator on this referral, only showing less of it, once they switch to Ward" would
+ * need either a converter (does not exist, by design) or a viewer flag (forbidden, by name, in
+ * that module's own doc comment — "a flag is a thing that can be passed the other way"). A
+ * coordinator's view of a referral and a ward's are different SHAPES, not the same shape with
+ * fields hidden, so there is no projection this control could hand a ward screen that would let it
+ * land on "the same referral, ward-scoped" instead of its own home.
+ *
+ * If "switching role loses my place" is ever filed as a bug against this file, the fix is not
+ * here: it is a product decision about whether FD-23 itself should be relaxed, made in
+ * `ward-referral-visibility.ts` and proved by widening its own allowlisted field sets — never by
+ * threading a role/scope/viewer parameter through this component to reach across the boundary.
+ * `tests/ward-role-switch-architecture.test.ts` pins the architectural facts above so that a
+ * change attempting the shortcut fails a test instead of quietly reopening the leak.
  */
 export function WardRoleSwitcher() {
   const { movements, units, focusMovementId } = useWardFlow();

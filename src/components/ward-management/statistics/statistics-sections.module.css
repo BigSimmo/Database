@@ -16,28 +16,20 @@
  * unbuilt section is a sentence, in ordinary body text, saying so.
  */
 .screen {
-  --wf-border: var(--neutral-500);
-  --wf-border-strong: var(--text-muted);
-  --ss-space-4: 0.25rem;
-  --ss-space-6: 0.375rem;
-  --ss-space-8: 0.5rem;
-  --ss-space-10: 0.625rem;
-  --ss-space-12: 0.75rem;
-  --ss-space-14: 0.875rem;
-  --ss-space-16: 1rem;
-  --ss-space-20: 1.25rem;
-  --ss-space-24: 1.5rem;
-  /* The production tap target, 3rem / 48px, via the shared token. Never `min-h-11` — that is the
-     value that reintroduced a known `ui-smoke` flake elsewhere in this repository. */
-  --ss-tap: var(--spacing-tap);
-  --ss-leading-body: 1.45;
+  composes: wardTokens from "../ward-tokens.module.css";
   --ss-column: 18rem;
 
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
-  color: var(--text);
+  /* ⚠️ NO background HERE, DELIBERATELY. `ward-shell.module.css` is the only Ward Flow stylesheet
+     that paints `--ward-ground`, and a screen root painting anything covers it. Do not reintroduce
+     one in ANY spelling — `--surface`, `--ward-canvas` and `--ward-ground` are all the same
+     mistake, and the middle two look like the adoption rather than a reversal of it. Verified in a
+     browser 2026-09-04: every content block here is a bordered `.section` or `.notice` with its
+     own surface, and only the back link and page header sit on the ground, which is where a
+     masthead belongs. */
+  color: var(--ward-text);
 }
 
 .main {
@@ -45,21 +37,28 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--ss-space-16);
+  gap: var(--ward-space-16);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--ss-space-16) var(--ss-space-20) var(--ss-space-24);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
 }
 
+/* ⚠️ `var(--spacing-tap)` IS THE PRODUCTION TAP TARGET — 3rem / 48px — AND IT IS NOT AN ARBITRARY
+   NUMBER TO TIDY. Never "correct" it down to `min-h-11`: that is the value that reintroduced a
+   known `ui-smoke` flake elsewhere in this repository, and the rule is in `CLAUDE.md`.
+   This reminder was carried by the `--ss-tap` alias that the token adoption deleted on
+   2026-09-04. The alias is gone and correctly so — it had no `--ward-*` equivalent — but the
+   warning travelled with it, which left a repo-wide rule with no local trace on the three uses
+   here. Restored beside the first of them. */
 .governanceBanner {
   display: flex;
-  min-height: var(--ss-tap);
+  min-height: var(--spacing-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--ss-space-12);
-  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-border);
   background: var(--surface-chrome);
-  padding: var(--ss-space-8) var(--ss-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -68,7 +67,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--ss-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .prototypeBadge {
@@ -76,7 +75,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--ss-space-4) var(--ss-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -88,7 +87,7 @@
    phone this is the only way back out of a section that has nothing else to click. */
 .backLink {
   display: inline-flex;
-  min-height: var(--ss-tap);
+  min-height: var(--spacing-tap);
   align-items: center;
   align-self: flex-start;
   color: var(--text-muted);
@@ -109,7 +108,7 @@
 .pageHeader {
   display: flex;
   flex-direction: column;
-  gap: var(--ss-space-4);
+  gap: var(--ward-space-4);
 }
 
 /* Which section of the statistics screen this page belongs to. Quiet, above the title, so a reader
@@ -144,19 +143,19 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
   background: var(--warning-bg);
-  padding: var(--ss-space-10) var(--ss-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--warning-text);
   font-size: var(--text-xs);
-  line-height: var(--ss-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .section {
   display: grid;
-  gap: var(--ss-space-12);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-12);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--ss-space-12) var(--ss-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }
 
 .sectionHeading {
@@ -185,7 +184,7 @@
   margin: 0;
   color: var(--text);
   font-size: var(--text-xs);
-  line-height: var(--ss-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 /*
@@ -198,26 +197,29 @@
  */
 .notBuilt {
   margin: 0;
-  border-left: 0.125rem solid var(--wf-border-strong, var(--text-muted));
-  padding-left: var(--ss-space-10);
+  border-left: 0.125rem solid var(--ward-border-strong);
+  padding-left: var(--ward-space-10);
   color: var(--text);
   font-size: var(--text-xs);
-  line-height: var(--ss-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .note {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--ss-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 /* A field name from the model, quoted so a reader can go and look at the record the sentence is
-   about rather than taking the page's word for it. Matches `statistics.module.css`'s `.field`. */
-.field {
+   about rather than taking the page's word for it. Matches `statistics.module.css`'s `.field`.
+   Named `.fieldName` (not `.field`) because this is an inline monospace badge wrapping a model
+   field name inside a `<code>` element — not a form field, and unrelated in shape to the flex
+   form-field wrapper `ward-shared.module.css` declares under the plain name `.field`. */
+.fieldName {
   border-radius: var(--radius-xs);
   background: var(--surface-inset);
-  padding: 0 var(--ss-space-4);
+  padding: 0 var(--ward-space-4);
   font-family: var(--font-mono, monospace);
   font-size: var(--text-3xs);
 }
@@ -230,7 +232,7 @@
  */
 .unitList {
   display: grid;
-  gap: var(--ss-space-8);
+  gap: var(--ward-space-8);
   margin: 0;
   padding: 0;
   grid-template-columns: repeat(auto-fill, minmax(var(--ss-column), 1fr));
@@ -246,15 +248,15 @@
 .unitLink {
   display: flex;
   min-width: 0;
-  min-height: var(--ss-tap);
+  min-height: var(--spacing-tap);
   flex: 1 1 auto;
   flex-direction: column;
   justify-content: center;
-  gap: var(--ss-space-4);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-4);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  padding: var(--ss-space-10) var(--ss-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--text);
   text-decoration: none;
 }
@@ -303,16 +305,16 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
   background: var(--warning-bg);
-  padding: var(--ss-space-10) var(--ss-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--warning-text);
   font-size: var(--text-xs);
-  line-height: var(--ss-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .unresolvedId {
   border-radius: var(--radius-xs);
   background: var(--surface-inset);
-  padding: 0 var(--ss-space-6);
+  padding: 0 var(--ward-space-6);
   color: var(--text);
   font-family: var(--font-mono, monospace);
   font-size: var(--text-3xs);
@@ -350,7 +352,78 @@
  */
 @media (forced-colors: active) {
   .screen {
-    --wf-border: var(--border);
-    --wf-border-strong: var(--border-strong);
+    --ward-border: var(--border);
+    --ward-border-strong: var(--border-strong);
+  }
+}
+
+/*
+ * ⚠️ WITHOUT THIS THE PAGE PRINTS BLANK, AND ONLY BECAUSE OF THE ADOPTION ABOVE.
+ *
+ * `.screen` sets `color: var(--ward-text)` — i.e. `var(--text)` — ON ITSELF, and no longer paints a
+ * background (see the root rule's own comment: `ward-shell.module.css` owns the ground). In dark
+ * mode `--text` is a light ink, print drops the unpainted ground to white, and light ink on white
+ * paper is nothing at all. Deleting the background is right; deleting it without this is not.
+ *
+ * ⚠️ `color: CanvasText` IS THE LOAD-BEARING LINE, NOT `color-scheme: light`. The dark ramp is
+ * scoped by the class `.ckb-v2.dark.ckb-v2`, not by `prefers-color-scheme`, so nothing about the
+ * print color-scheme makes `--text` re-resolve. `CanvasText` sidesteps the variable entirely.
+ *
+ * ⚠️ AND IT HAS TO LIVE IN THIS FILE. An ancestor cannot override a property an element declares on
+ * itself, so a reset on the shell would not reach `.screen`. The reset belongs wherever the
+ * declaration was made.
+ */
+@media print {
+  /*
+   * WHY `.screen *` AND `!important`, AND BOTH ARE LOAD-BEARING - measured, not assumed.
+   *
+   * `.screen` alone never reaches a descendant that declares its OWN colour: an ancestor cannot
+   * override a property an element sets on itself. So headings that declare nothing inherited the
+   * reset and printed black while `.table td` kept its near-white - visible headings, visible
+   * borders, invisible rows. A blank page gets reported as broken; a table that looks printed and
+   * empty gets believed.
+   *
+   * AND THE WILDCARD ALONE IS NOT ENOUGH EITHER. `.screen *` is one class plus the universal
+   * selector, which contributes nothing - specificity (0,1,0). `.table td` is (0,1,1) and wins,
+   * because specificity resolves BEFORE source order, so putting this block last buys nothing.
+   * Measured through a real cascade: wildcard on a plain span gives black; wildcard on `.table td`
+   * stays near-white; with `!important` it is black. `coordinator.module.css` already had this.
+   *
+   * DO NOT SWAP THIS FOR AN ENUMERATED SELECTOR LIST. `board.module.css` enumerates 56 selectors
+   * across a 250-line print block and still misses five. The enumeration IS the defect
+   * regenerating: every new element is a new omission, and the omission is silent.
+   *
+   * WHAT THIS DELIBERATELY FLATTENS, checked before it landed. This screen's meaning-bearing
+   * colours all sit on elements whose own TEXT states the same fact - the leg badges print the
+   * word "Cancelled"/"Collected", the prototype badge prints "Synthetic prototype", the notices
+   * print their notice. So the cost is emphasis, never information, and black on white is more
+   * legible on paper than a tinted ink. If a future element carries a colour that is the ONLY
+   * statement of a fact, this rule will erase it silently - give that element a word, not an
+   * exemption.
+   */
+  .screen,
+  .screen * {
+    color-scheme: light;
+    color: CanvasText !important;
+    /*
+     * FORCING THE TEXT WITHOUT FORCING THE BACKGROUND IS STRICTLY WORSE THAN DOING NEITHER, and
+     * that is not a stylistic judgement - it is the measured result. Dark mode is a CLASS, so it
+     * survives printing and themed fills stay dark. Chromium 151, print media, dark scheme:
+     * card background rgb(23, 26, 29), card text forced to rgb(0, 0, 0) - black on dark, gone.
+     * BEFORE the colour fix that same text was near-white on the dark card: ugly and wasteful,
+     * but readable. So the colour half alone turns a bad printout into an empty one.
+     *
+     * `.vehicleRow` here carries `background: var(--surface-subtle)` and CONTAINS
+     * `.vehicleDetailRow dt` and `dd` - the rows that say where a patient is, which provider and
+     * which leg. Those are the same rows whose specificity made `!important` load-bearing, so
+     * without this line the fix would have erased exactly the content it was written to save.
+     *
+     * `background-color`, NEVER the `background` shorthand: the shorthand also wipes
+     * `background-image`, and `board.module.css` hatches blocked and held beds with a
+     * `repeating-linear-gradient` that distinguishes a blocked bed from an empty one. These three
+     * files carry no gradients today (measured: zero `linear-gradient` declarations in each), but
+     * the long form is the rule so that a future patterned fill survives it.
+     */
+    background-color: Canvas !important;
   }
 }
