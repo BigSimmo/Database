@@ -34,7 +34,7 @@ async function mockDemoDashboard(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical Guide",
+        appName: "PsychSift",
         projectId: "test-project",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -156,7 +156,7 @@ test.describe("Header element overlap coverage", () => {
       await mockDemoDashboard(page);
       await gotoHome(page);
 
-      const menu = page.getByRole("button", { name: "Open Clinical Guide menu" });
+      const menu = page.getByRole("button", { name: "Open PsychSift menu" });
       const newChat = page.getByRole("button", { name: "Start a new chat" });
       await expect(menu).toBeVisible();
       await expect(newChat).toBeVisible();

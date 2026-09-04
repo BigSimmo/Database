@@ -5,6 +5,7 @@ import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@s
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
@@ -265,6 +266,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearPersistedAnswerThread();
         clearRecentQueries();
         clearSignedUrlCache();
+        // On Call entries are the owner's own ward numbers, escalation contacts
+        // and personal lines. A shared ward computer switches accounts without
+        // ever signing out, and the sign-out path below is the only other place
+        // this cache is cleared — so without this, the previous user's private
+        // entries render for the next one.
+        clearOnCallEntryCache();
       }
       publishedUserIdRef.current = nextUserId;
       setSession(nextSession);
@@ -389,6 +396,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    clearOnCallEntryCache();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
@@ -401,6 +409,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    clearOnCallEntryCache();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");
