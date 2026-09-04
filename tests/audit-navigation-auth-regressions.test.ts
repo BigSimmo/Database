@@ -135,18 +135,25 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain('testId="app-mode-menu-sheet"');
     expect(masterSearchHeaderSource).toContain("enabled: modeMenuOpen && !usesPhoneSearchLayout");
     expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
-    expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
+    // The desktop trigger now opens a searchable grouped dialog (not a plain
+    // menu), so it always announces `dialog` regardless of phone layout.
+    expect(masterSearchHeaderSource).toContain('aria-haspopup="dialog"');
     expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
     expect(masterSearchHeaderSource).toContain(
       'contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"',
     );
-    expect(masterSearchHeaderSource).toMatch(/usesPhoneSearchLayout\s*\?\s*"min-h-14\b[\s\S]*:\s*"min-h-\[3\.25rem\]/);
+    expect(masterSearchHeaderSource).toMatch(/usesPhoneSearchLayout\s*\?\s*"min-h-14\b[\s\S]*:\s*"min-h-11\b/);
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
     // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
     expect(masterSearchHeaderSource).toContain(
       "const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);",
     );
-    expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
+    // The searchable desktop dialog reuses this same live matchMedia read to
+    // decide whether to reset `modeMenuQuery` before the rAF-scheduled focus
+    // (see `openModeMenuWithFocus`/`toggleModeMenu`), so it is now bound to a
+    // local first and passed to the setter rather than called inline twice.
+    expect(masterSearchHeaderSource).toContain("const phoneLayout = currentUsesPhoneSearchLayout();");
+    expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(phoneLayout);");
   });
 
   it("prefetches only the mode a user focuses or points at", () => {

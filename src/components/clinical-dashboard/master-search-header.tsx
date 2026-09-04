@@ -1063,8 +1063,24 @@ export function MasterSearchHeader({
     setModeMenuOpen(true);
     // Phone sheet owns initial focus via data-sheet-autofocus; desktop still
     // needs an rAF focus into the absolute menu after it mounts.
+    //
+    // Deliberately not `focusModeOption(nextIndex)` here: that helper
+    // re-derives its own bounds from `activeModeMenuOptions`, which is a
+    // value closed over from *this* render — before the `setModeMenuQuery("")`
+    // above has taken effect. If the menu was last dismissed while filtered
+    // to zero or one match, that stale, filtered length either divides by
+    // zero (leaving focus stuck on the trigger) or wraps every index to 0
+    // (focusing whatever renders first in the *next* render's full list,
+    // not the mode this call actually targets). `nextIndex` above is already
+    // a valid position in the unfiltered `visibleAppModeOptions`, which is
+    // exactly what the query reset guarantees `activeModeMenuOptions` will
+    // equal once React commits it — so focus directly by that index instead
+    // of re-deriving it against a list that hasn't caught up yet.
     if (!phoneLayout) {
-      window.requestAnimationFrame(() => focusModeOption(nextIndex));
+      window.requestAnimationFrame(() => {
+        setModeMenuFocusIndex(nextIndex);
+        modeOptionRefs.current[nextIndex]?.focus();
+      });
     }
   }
 
