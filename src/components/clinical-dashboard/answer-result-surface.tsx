@@ -22,7 +22,7 @@ import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-ev
 import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-card";
-import { VerificationNotice } from "@/components/ui/verification-notice";
+import { compactVerificationWordingFor, VerificationNotice } from "@/components/ui/verification-notice";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn } from "@/components/ui-primitives";
 import { isCurrencyReviewWarning, type AnswerRenderModel } from "@/lib/answer-render-policy";
@@ -261,41 +261,43 @@ function StagedAnswerResultSurfaceImpl({
   const answerGapWarningCount = renderModel.warnings.filter((warning) => !isCurrencyReviewWarning(warning)).length;
   /**
    * The chip is the ONLY place the default view states that a cited source is
-   * overdue on a source-only answer: `VerificationNotice` is `hidden print:flex`
-   * there (its wording moves into the Source-only disclosure), and that
-   * disclosure's collapsed pill reads "Source-only · verify passages", which
-   * says nothing about currency. So `Review due` must survive the presence of
-   * warnings rather than being replaced by their count — dropping it was a
-   * genuine regression in the first cut of this change, and the combination that
-   * exposes it (source-only + stale + warnings) is the common one, because the
-   * same overdue assessment that sets the stale state also adds a warning.
+   * overdue on a source-only answer, and since the Source-only pill was folded
+   * into this disclosure it is also the only place the default view states that
+   * no model wrote the answer. `VerificationNotice` is `hidden print:flex`
+   * there, so if the label drops either fact, nothing on screen carries it.
+   *
+   * That is why `Source-only` and `Review due` are prefixes rather than
+   * alternatives to the count: dropping `Review due` for a warning count was a
+   * genuine regression in an earlier cut, and the combination that exposes it
+   * (source-only + stale + warnings) is the common one, because the same overdue
+   * assessment that sets the stale state also adds a warning.
    */
-  const answerEvidenceChipLabel = [
+  const answerLimitationsChipLabel = [
+    sourceOnly ? "Source-only" : null,
     answerReviewDue || (answerGapWarningCount === 0 && renderModel.warnings.length > 0) ? "Review due" : null,
-    answerGapWarningCount > 0
-      ? `${answerGapWarningCount} evidence ${answerGapWarningCount === 1 ? "gap" : "gaps"}`
-      : null,
+    answerGapWarningCount > 0 ? `${answerGapWarningCount} limitation${answerGapWarningCount === 1 ? "" : "s"}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
   const answerMetaChipsWithGaps =
-    renderModel.warnings.length > 0 || answerReviewDue ? (
+    renderModel.warnings.length > 0 || answerReviewDue || sourceOnly ? (
       <>
         {answerMetaChips}
         <button
-          id="answer-evidence-gaps-trigger"
-          data-testid="answer-evidence-gaps-trigger"
+          id="answer-limitations-trigger"
+          data-testid="answer-limitations-trigger"
           type="button"
           onClick={() => setEvidenceGapsOpen((current) => !current)}
           className={cn("group", chipButton)}
           aria-expanded={evidenceGapsOpen}
+          aria-label={`Answer limitations — ${answerLimitationsChipLabel}`}
           // Unconditional, because the panel below is mounted whether or not it
           // is open. The conditional attribute this replaces was well formed —
           // attribute and target appeared and disappeared together, which is
           // what the feedback trigger in `evidence-panels.tsx` still does, and
           // correctly. It is only redundant here now that the target is always
           // present.
-          aria-controls="answer-evidence-gaps-detail"
+          aria-controls="answer-limitations-detail"
         >
           <span
             className={cn(
@@ -308,7 +310,7 @@ function StagedAnswerResultSurfaceImpl({
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
-            {answerEvidenceChipLabel}
+            {answerLimitationsChipLabel}
             {/* The chip looked identical open and closed, so on a phone the only
                 way to tell was to find the panel. */}
             <ChevronDown
@@ -350,17 +352,39 @@ function StagedAnswerResultSurfaceImpl({
    *
    * It exists for an overdue-sources banner alone, not only for warnings —
    * otherwise moving the banner in here would delete it outright on an answer
-   * whose only evidence qualification is that a source is overdue.
+   * whose only evidence qualification is that a source is overdue. It exists for
+   * `sourceOnly` alone for the same reason: that is the answer with the most to
+   * disclose and the one most likely to carry no other warning.
+   *
+   * Order is severity, not source: provenance first, then which sources are
+   * overdue, then the rest.
    */
   const answerEvidenceGapsDetail =
-    renderModel.warnings.length > 0 || overdueSourcesBanner ? (
+    renderModel.warnings.length > 0 || overdueSourcesBanner || sourceOnly ? (
       <div
-        id="answer-evidence-gaps-detail"
+        id="answer-limitations-detail"
         hidden={!evidenceGapsOpen}
         // Display comes from the class only while open, so the `hidden`
         // attribute is never fighting a `grid` display it cannot override.
         className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
       >
+        <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Answer limitations
+        </p>
+        {/* The governed extractive wording, verbatim from the same lookup the
+            Source-only pill used before it was folded in here. Never reworded at
+            this call site. */}
+        {sourceOnly ? (
+          <p
+            data-testid="answer-limitation-source-only"
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/70 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            <span className="mb-0.5 block text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--warning)]">
+              Source-only
+            </span>
+            {compactVerificationWordingFor(answerState.kind, "extractive")}
+          </p>
+        ) : null}
         {overdueSourcesBanner}
         {renderModel.warnings.map((warning, index) => (
           <p
@@ -383,8 +407,6 @@ function StagedAnswerResultSurfaceImpl({
       text={answer.answer}
       query={query}
       preformatted={isPreformattedGroundedAnswer(answer)}
-      sourceOnly={sourceOnly}
-      sourceOnlyVerificationState={answerState.kind}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}

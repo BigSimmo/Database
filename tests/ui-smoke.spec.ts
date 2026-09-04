@@ -2120,7 +2120,7 @@ test.describe("PsychSift UI smoke coverage", () => {
         };
         const chips = [
           box('[data-testid="answer-safety-findings-trigger"]'),
-          box('[data-testid="answer-evidence-gaps-trigger"]'),
+          box('[data-testid="answer-limitations-trigger"]'),
         ].filter((entry) => entry !== null);
         const neighbours = [
           box('[data-testid="answer-card-support"]'),
@@ -3329,72 +3329,70 @@ test.describe("PsychSift UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium");
     await visibleAnswerSubmitButton(page).click();
 
-    // Source-only owns the one on-screen warning. The complete verification
-    // notice remains print-only, while its governed compact wording is folded
-    // into this disclosure instead of repeating above the prose.
+    // Owner decision (2026-09-03): the Source-only pill that used to sit below
+    // the prose is gone. Its governed wording leads the Answer limitations
+    // disclosure, and the chip that opens it carries the word "Source-only" so
+    // the provenance fact still reaches the default view — `VerificationNotice`
+    // stays print-only on this answer, so if the chip loses that word nothing
+    // on screen says no model wrote the answer.
     await expect(page.getByTestId("verification-notice")).toBeHidden();
-    const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
-    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
-    const sourceOnlyRail = page.getByTestId("answer-source-rail");
-    await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyRail).toBeVisible();
-    await expect(sourceOnlyDisclosure).toContainText("Source-only");
-    await expect(sourceOnlyDisclosure).toContainText("verify passages");
-    await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
+    await expect(page.getByTestId("source-only-disclosure")).toHaveCount(0);
+    await expect(page.getByTestId("answer-source-status-row")).toHaveCount(0);
 
+    const limitationsChip = page.getByTestId("answer-limitations-trigger");
+    const limitationsDetail = page.locator("#answer-limitations-detail");
+    const sourceOnlyRail = page.getByTestId("answer-source-rail");
+    await expect(limitationsChip).toBeVisible();
+    await expect(sourceOnlyRail).toBeVisible();
+    await expect(limitationsChip).toContainText("Source-only");
+    await expect(limitationsChip).toHaveAttribute("aria-controls", "answer-limitations-detail");
+    await expect(limitationsDetail).toBeHidden();
+
+    // The chip is a full-size button carrying a small pill, so it keeps the
+    // 48px tap region rather than the pill's own height.
+    await expectMinTouchTarget(limitationsChip);
+
+    // The prose runs straight into the source rail now that nothing sits between
+    // them.
     const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
-    const disclosureButtonBox = await sourceOnlyButton.boundingBox();
-    const disclosureBox = await sourceOnlyDisclosure.boundingBox();
     const railBox = await sourceOnlyRail.boundingBox();
     expect(proseBox).not.toBeNull();
-    expect(disclosureButtonBox).not.toBeNull();
-    expect(disclosureBox).not.toBeNull();
     expect(railBox).not.toBeNull();
-    // The compact disclosure now deliberately carries the 40px compact-meta
-    // interaction floor. Its bordered container is 42px high in Chromium, so
-    // preserve both the usable target and the compact one-row layout.
-    // Tolerate sub-pixel rounding (CI saw 39.999969482421875 for a 40px target).
-    expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(39.5);
-    expect(disclosureBox!.height).toBeLessThanOrEqual(42);
-    expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
-    const disclosureToRailGap = railBox!.y - (disclosureBox!.y + disclosureBox!.height);
-    expect(disclosureToRailGap).toBeGreaterThanOrEqual(3);
-    expect(disclosureToRailGap).toBeLessThanOrEqual(6);
+    expect(railBox!.y).toBeGreaterThanOrEqual(proseBox!.y + proseBox!.height);
 
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await sourceOnlyButton.focus();
-    await expect(sourceOnlyButton).toBeFocused();
+    await limitationsChip.focus();
+    await expect(limitationsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(sourceOnlyDisclosure).toContainText(
+    await expect(limitationsChip).toHaveAttribute("aria-expanded", "true");
+    await expect(limitationsDetail).toBeVisible();
+    await expect(limitationsDetail).toContainText("Answer limitations");
+    // The governed extractive wording, verbatim, as the first row of the panel.
+    await expect(limitationsDetail.getByTestId("answer-limitation-source-only")).toContainText(
       "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     );
-    const sourceOnlyDetailId = await sourceOnlyButton.getAttribute("aria-controls");
-    expect(sourceOnlyDetailId).toBeTruthy();
-    await expect(page.locator(`[id="${sourceOnlyDetailId}"]`)).toHaveCSS("animation-name", "none");
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-    await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyButton).toBeFocused();
-    expect(await sourceOnlyDisclosure.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("solid");
+    await expect(limitationsChip).toBeVisible();
+    await expect(limitationsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+    await expect(limitationsChip).toHaveAttribute("aria-expanded", "false");
     await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
-      await expect(sourceOnlyDisclosure).toBeVisible();
-      const responsiveDisclosureButtonBox = await sourceOnlyButton.boundingBox();
-      expect(responsiveDisclosureButtonBox).not.toBeNull();
-      // Same 40px compact-meta floor with sub-pixel tolerance as above.
-      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(39.5);
+      await expect(limitationsChip).toBeVisible();
+      // The label grew a "Source-only" prefix, so the narrow widths are the ones
+      // that matter here.
+      await expectMinTouchTarget(limitationsChip);
       await expectNoPageHorizontalOverflow(page);
     }
 
     // The "Review source match" card is gone with the support card. The caution
-    // it restated is not: the source-only disclosure above already carries the
-    // governed wording ("verify passages", asserted earlier in this test), and
-    // the chip states the degraded support level rather than reading like a
-    // fully supported answer.
+    // it restated is not: the limitations chip carries "Source-only" on the
+    // default view and its panel carries the governed wording, and the support
+    // chip states the degraded support level rather than reading like a fully
+    // supported answer.
     const sourceOnlySupportChip = page.getByTestId("answer-card-support");
     await expect(sourceOnlySupportChip).toBeVisible();
     await expect(sourceOnlySupportChip).toHaveAttribute("data-support", /limited|unassessed/);
@@ -3454,28 +3452,25 @@ test.describe("PsychSift UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
     await visibleAnswerSubmitButton(page).click();
 
-    const statusRow = page.getByTestId("answer-source-status-row");
-    const sourceOnlyDisclosure = statusRow.getByTestId("source-only-disclosure");
-    await expect(statusRow).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await expect(sourceOnlyDisclosure).toBeVisible();
+    // Owner decision (2026-09-03): the answer body owns no status row at all.
+    // Both the Source-only wording and the per-source overdue detail are
+    // statements about this answer's evidence, so both live behind the
+    // limitations chip with the other such statements.
+    await expect(page.getByTestId("answer-source-status-row")).toHaveCount(0);
+    await expect(page.getByTestId("source-only-disclosure")).toHaveCount(0);
 
-    // Owner decision (2026-09-01): the per-source overdue detail is a statement
-    // about this answer's evidence, so it lives with the other such statements
-    // behind the evidence-gaps chip, not as a second control in the answer body.
-    // The worded caution stays on the default view — only the detail is a tap
-    // away — so the status row must now carry the Source-only disclosure alone.
-    await expect(statusRow.getByTestId("retrieval-state-stale-toggle")).toHaveCount(0);
-
-    const gapsChip = page.getByTestId("answer-evidence-gaps-trigger");
+    const gapsChip = page.getByTestId("answer-limitations-trigger");
     await expect(gapsChip).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    // Both halves, not one: the gap count does not displace "Review due". On a
-    // source-only answer this chip is the only thing on the default view that
-    // says a cited source is overdue, so losing that word here loses the fact.
+    // All three parts, not one. This chip is the only thing on the default view
+    // that says no model wrote the answer AND that a cited source is overdue —
+    // `VerificationNotice` is print-only here — so a limitation count must never
+    // displace either prefix.
+    await expect(gapsChip).toContainText("Source-only");
     await expect(gapsChip).toContainText("Review due");
-    await expect(gapsChip).toContainText(/\d+ evidence gaps?/);
-    await expect(gapsChip).toHaveAttribute("aria-controls", "answer-evidence-gaps-detail");
+    await expect(gapsChip).toContainText(/\d+ limitations?/);
+    await expect(gapsChip).toHaveAttribute("aria-controls", "answer-limitations-detail");
     await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
-    const gapsDetail = page.locator("#answer-evidence-gaps-detail");
+    const gapsDetail = page.locator("#answer-limitations-detail");
     await expect(gapsDetail).toBeHidden();
 
     const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
@@ -3491,10 +3486,17 @@ test.describe("PsychSift UI smoke coverage", () => {
     // both overstate the gaps and report one fact twice under the wrong name.
     // Derived from what the panel actually renders, so the assertion holds when
     // the demo corpus changes how many warnings it produces.
-    const panelWarnings = await gapsDetail.locator("> p").allInnerTexts();
+    // The panel's own rows, excluding the heading and the source-only row that
+    // leads it — neither is a counted limitation.
+    const sourceOnlyRow = gapsDetail.getByTestId("answer-limitation-source-only");
+    await expect(sourceOnlyRow).toBeVisible();
+    await expect(sourceOnlyRow).toContainText("Copied from cited sources without model synthesis");
+    const panelWarnings = (await gapsDetail.locator("> p").allInnerTexts()).filter(
+      (text) => !/^Answer limitations$/i.test(text.trim()) && !/^Source-only\b/.test(text.trim()),
+    );
     const gapWarnings = panelWarnings.filter((text) => !/\bdue for review\.$/.test(text.trim()));
     expect(panelWarnings.length).toBeGreaterThan(0);
-    await expect(gapsChip).toContainText(`${gapWarnings.length} evidence ${gapWarnings.length === 1 ? "gap" : "gaps"}`);
+    await expect(gapsChip).toContainText(`${gapWarnings.length} limitation${gapWarnings.length === 1 ? "" : "s"}`);
     // The banner is inside the disclosure, not merely somewhere on the page.
     await expect(gapsDetail.getByTestId("retrieval-state-stale-toggle")).toBeVisible();
     await expect(reviewDueTab).toContainText("Review due");
@@ -3518,17 +3520,11 @@ test.describe("PsychSift UI smoke coverage", () => {
       await page.evaluate(
         () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
       );
-      const statusBox = await statusRow.boundingBox();
-      const sourceOnlyBox = await sourceOnlyDisclosure.boundingBox();
-      expect(statusBox).toBeTruthy();
-      expect(sourceOnlyBox).toBeTruthy();
-      // The status row is a single compact line holding the one disclosure, at
-      // every width — it must not grow a second line or a second control.
-      const statusBottom = statusBox!.y + statusBox!.height;
-      expect(sourceOnlyBox!.y).toBeGreaterThanOrEqual(statusBox!.y - 1);
-      expect(sourceOnlyBox!.y + sourceOnlyBox!.height).toBeLessThanOrEqual(statusBottom + 1);
-      expect(statusBox!.height).toBeLessThanOrEqual(42);
-      expect(sourceOnlyBox!.height).toBeLessThanOrEqual(42);
+      // The chip keeps its full tap region at every width, and the longer
+      // three-part label must not push the page into horizontal overflow.
+      await expect(gapsChip).toBeVisible();
+      await expectMinTouchTarget(gapsChip);
+      await expectNoPageHorizontalOverflow(page);
       // The overdue detail stays reachable and inside the disclosure, however
       // narrow the viewport gets.
       const gapsDetailBox = await gapsDetail.boundingBox();
@@ -3549,13 +3545,6 @@ test.describe("PsychSift UI smoke coverage", () => {
     });
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
-    await sourceOnlyButton.focus();
-    await expect(sourceOnlyButton).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "true");
-    await page.keyboard.press("Enter");
-    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
 
     // Both disclosures — the chip and the banner inside it — stay operable from
     // the keyboard in forced colors with motion reduced.

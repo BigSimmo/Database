@@ -221,7 +221,7 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     expect(surface).toContain("<VerificationNotice {...answerVerification} />");
   });
 
-  it("keeps the overdue-sources control inside the evidence-gaps disclosure", () => {
+  it("keeps the overdue-sources control inside the answer-limitations disclosure", () => {
     // Owner decision, 2026-09-01: the control that names WHICH cited sources are
     // past their review date moved out of the answer body and into the
     // disclosure, with the other statements about this answer's evidence.
@@ -241,31 +241,43 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     // Present in the disclosure, and rendered before the warnings so the
     // governed caution leads what the reader sees on opening it.
     expect(surface).toContain("<RetrievalStateBanner");
-    const detailStart = surface.indexOf('id="answer-evidence-gaps-detail"');
+    const detailStart = surface.indexOf('id="answer-limitations-detail"');
+    const sourceOnlyInDetail = surface.indexOf('data-testid="answer-limitation-source-only"');
     const bannerInDetail = surface.indexOf("{overdueSourcesBanner}");
     const warningsInDetail = surface.indexOf("renderModel.warnings.map");
     expect(detailStart).toBeGreaterThan(-1);
-    expect(bannerInDetail).toBeGreaterThan(detailStart);
+    // Severity order inside the panel: provenance, then which sources are
+    // overdue, then the rest.
+    expect(sourceOnlyInDetail).toBeGreaterThan(detailStart);
+    expect(bannerInDetail).toBeGreaterThan(sourceOnlyInDetail);
     expect(warningsInDetail).toBeGreaterThan(bannerInDetail);
 
-    // The disclosure must survive on an overdue-only answer, or moving the
-    // banner in here would delete it outright rather than relocate it.
-    expect(surface).toContain("renderModel.warnings.length > 0 || overdueSourcesBanner");
-    // And the chip that opens it must exist for that answer too.
-    expect(surface).toContain('const answerReviewDue = answerState.kind === "stale_evidence";');
-    expect(surface).toContain("renderModel.warnings.length > 0 || answerReviewDue");
+    // The governed extractive wording is looked up, never reworded at the call
+    // site. The strings themselves are pinned in answer-source-marks.dom.test.tsx.
+    expect(surface).toContain('compactVerificationWordingFor(answerState.kind, "extractive")');
 
-    // The chip's label must keep BOTH halves. On a source-only answer it is the
-    // only thing on the default view that says a cited source is overdue —
-    // `VerificationNotice` is `hidden print:flex` there and the collapsed
-    // Source-only pill reads "Source-only · verify passages" — so a warning
-    // count must never replace "Review due", and a currency warning must never
-    // be counted as one of the gaps.
+    // The disclosure must survive on an overdue-only answer, or moving the
+    // banner in here would delete it outright rather than relocate it — and on a
+    // source-only answer carrying no other warning, or folding the Source-only
+    // pill in here would delete that notice outright.
+    expect(surface).toContain("renderModel.warnings.length > 0 || overdueSourcesBanner || sourceOnly");
+    // And the chip that opens it must exist for both of those answers too.
+    expect(surface).toContain('const answerReviewDue = answerState.kind === "stale_evidence";');
+    expect(surface).toContain("renderModel.warnings.length > 0 || answerReviewDue || sourceOnly");
+
+    // The chip's label must keep ALL THREE parts. Since the Source-only pill was
+    // folded into this disclosure the label is the only thing on the default
+    // view that says no model wrote the answer AND that a cited source is
+    // overdue — `VerificationNotice` is `hidden print:flex` on a source-only
+    // answer — so a warning count must never replace either prefix, and a
+    // currency warning must never be counted as one of the limitations.
+    expect(surface).toContain('"Source-only"');
     expect(surface).toContain('"Review due"');
     expect(surface).toContain("isCurrencyReviewWarning");
-    const labelStart = surface.indexOf("const answerEvidenceChipLabel");
+    const labelStart = surface.indexOf("const answerLimitationsChipLabel");
     expect(labelStart).toBeGreaterThan(-1);
     const label = surface.slice(labelStart, labelStart + 400);
+    expect(label).toContain('"Source-only"');
     expect(label).toContain('"Review due"');
     expect(label).toContain("answerGapWarningCount");
   });
