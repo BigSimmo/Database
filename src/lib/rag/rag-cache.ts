@@ -33,6 +33,24 @@ const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 /**
+ * The two corpus-staleness stamps that carry no information about the corpus.
+ *
+ * Audit L21: a PostgREST `error` on the `documents` stamp query used to be
+ * folded into INDEXING_STAMP_EMPTY_CORPUS, making a failed read indistinguishable
+ * from "nothing is indexed". Both constants are stable across requests, so two
+ * stamp failures bracketing a worker-side reindex (which cannot call this
+ * process's in-process invalidation) let a pre-reindex answer be served with
+ * `answer_cache_hit` — the exact staleness this stamp exists to prevent. An
+ * error now produces the distinct UNAVAILABLE stamp, and neither read nor write
+ * trusts it.
+ */
+const INDEXING_STAMP_UNAVAILABLE = "index-stamp-unavailable";
+const INDEXING_STAMP_EMPTY_CORPUS = "no-indexed-documents";
+
+function isUnavailableIndexingStamp(indexingVersion: string) {
+  return indexingVersion.endsWith(`:${INDEXING_STAMP_UNAVAILABLE}`);
+}
+/**
  * Invalidation generations for deferred `setCachedAnswer` promotions. Review /
  * table-fact mutations do not change the documents indexing stamp, so the
  * mid-request staleness guard alone cannot catch them. Epochs are owner-scoped
@@ -264,6 +282,9 @@ export async function setCachedAnswer(
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
   if (invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) return;
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
+  // An unavailable stamp cannot vouch for the corpus, so a write under it would
+  // be matched later by another failed read and served as fresh (audit L21).
+  if (isUnavailableIndexingStamp(indexingVersion)) return;
   const key = scopedAnswerCacheKey(args);
   answerCache.set(key, {
     expiresAt: Date.now() + env.RAG_ANSWER_CACHE_TTL_MS,
@@ -420,6 +441,7 @@ export async function setCachedSearch(
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
   throwIfAborted(args.signal);
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
+  if (isUnavailableIndexingStamp(indexingVersion)) return;
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
@@ -485,7 +507,7 @@ export async function cacheIndexingVersion(
   const cached = readExpiringCacheEntry(cacheIndexingVersionCache, cacheKey);
   if (cached) return cached.value;
 
-  let value = `${ragDeepMemoryVersion}:index-stamp-unavailable`;
+  let value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_UNAVAILABLE}`;
   try {
     const supabase = createAdminClient();
     const documentFilters = args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : null;
@@ -507,8 +529,11 @@ export async function cacheIndexingVersion(
     if (args.signal) query = query.abortSignal(args.signal);
     const { data, error } = await query;
     throwIfAborted(args.signal);
-    if (error || !data?.length) {
-      value = `${ragDeepMemoryVersion}:no-indexed-documents`;
+    if (error) {
+      // A failed read is NOT an empty corpus (audit L21).
+      value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_UNAVAILABLE}`;
+    } else if (!data?.length) {
+      value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_EMPTY_CORPUS}`;
     } else {
       const latest = data[0] as { id?: string; updated_at?: string | null; metadata?: unknown };
       const metadata = normalizeSourceMetadata(latest.metadata);
@@ -521,7 +546,7 @@ export async function cacheIndexingVersion(
     }
   } catch {
     if (args.signal?.aborted) throw abortReason(args.signal);
-    value = `${ragDeepMemoryVersion}:index-stamp-unavailable`;
+    value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_UNAVAILABLE}`;
   }
   throwIfAborted(args.signal);
   writeBoundedExpiringCacheEntry(
