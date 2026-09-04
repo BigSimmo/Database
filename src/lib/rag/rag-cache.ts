@@ -233,6 +233,12 @@ export async function getCachedAnswer(
     return null;
   }
 
+  // LRU recency bump (audit L134): a Map preserves insertion order, so without
+  // the re-insert a repeatedly-read hot answer still ages out in insertion order
+  // and is evicted before answers nobody has asked for since.
+  answerCache.delete(key);
+  answerCache.set(key, cached);
+
   const answer = cloneAnswer(cached.answer);
   answer.routingReason = answer.routingReason ? `${answer.routingReason}; answer_cache_hit` : "answer_cache_hit";
   answer.latencyTimings = {
@@ -286,6 +292,9 @@ export async function setCachedAnswer(
   // be matched later by another failed read and served as fresh (audit L21).
   if (isUnavailableIndexingStamp(indexingVersion)) return;
   const key = scopedAnswerCacheKey(args);
+  // Delete before set so a refreshed answer moves to the most-recent position
+  // rather than keeping its original insertion slot (audit L134).
+  answerCache.delete(key);
   answerCache.set(key, {
     expiresAt: Date.now() + env.RAG_ANSWER_CACHE_TTL_MS,
     answer: cloneAnswer(answer),
@@ -443,6 +452,7 @@ export async function setCachedSearch(
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   if (isUnavailableIndexingStamp(indexingVersion)) return;
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
+  searchCache.delete(key);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
     results: clonedResults,
