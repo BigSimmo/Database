@@ -7,7 +7,12 @@
 import { describe, expect, it } from "vitest";
 
 import { toClientAnswerPayload, trimSourceForClient } from "../src/lib/answer-client-payload";
-import { buildEvidencePreviewUnit } from "../src/lib/answer-preview";
+import {
+  buildCachedEvidencePreviewProgress,
+  buildEvidencePreviewProgress,
+  readLastEvidencePreviewReason,
+  buildEvidencePreviewUnit,
+} from "../src/lib/answer-preview";
 import { toPublicAnswerProgressEvent } from "../src/lib/answer-progress-public";
 import {
   isAnswerStreamEventName,
@@ -339,5 +344,69 @@ describe("public progress DTO passthrough", () => {
   it("emits no verified unit by default (flag off end-to-end)", () => {
     const event = toPublicAnswerProgressEvent({ stage: "retrieved", resultCount: 3 });
     expect(event?.verifiedUnit).toBeUndefined();
+  });
+});
+
+describe("evidence preview emission (#100 — why a wait shows no sources)", () => {
+  it("shows the rail on a cached answer instead of returning nothing", () => {
+    // A cache hit returns before the ranking event, so until this every repeated question
+    // showed a wait with no sources while a first-time question showed them. Repeats are the
+    // common case here: the same question comes up on the next patient.
+    const fields = buildCachedEvidencePreviewProgress({ results: [makeSource()] });
+    expect(fields.previewReason).toBe("ok");
+    expect(fields.verifiedUnit?.sources).toHaveLength(1);
+  });
+
+  it("falls back to the generation context when the retry intersection is empty", () => {
+    // The two context sets apply the per-document cap to different input lists, so the
+    // intersection can empty out while retrieval and ranking are perfectly healthy.
+    const normal = makeSource({ id: "chunk-normal" });
+    const fallback = makeSource({ id: "chunk-strong", document_id: "doc-strong" });
+
+    const fields = buildEvidencePreviewProgress({ normalResults: [normal], fallbackResults: [fallback] });
+    expect(fields.previewReason).toBe("empty_intersection_relaxed");
+    expect(fields.verifiedUnit?.sources.map((source) => source.id)).toEqual(["chunk-normal"]);
+  });
+
+  it("keeps the stable intersection when there is one", () => {
+    const shared = makeSource();
+    const fields = buildEvidencePreviewProgress({ normalResults: [shared], fallbackResults: [shared] });
+    expect(fields.previewReason).toBe("ok");
+    expect(fields.verifiedUnit?.sources).toHaveLength(1);
+  });
+
+  it("names why it withheld, rather than returning a bare absence", () => {
+    expect(buildEvidencePreviewProgress({ normalResults: [], fallbackResults: [] }).previewReason).toBe(
+      "no_candidates",
+    );
+    expect(
+      buildCachedEvidencePreviewProgress({
+        results: [makeSource()],
+        relevance: { isSourceBacked: false, verdict: "none" } as never,
+      }).previewReason,
+    ).toBe("answer_level_danger");
+    expect(
+      buildCachedEvidencePreviewProgress({
+        results: [makeSource({ source_metadata: { document_status: "outdated" } as SearchResult["source_metadata"] })],
+      }).previewReason,
+    ).toBe("all_sources_danger");
+  });
+
+  it("records a contract rejection at the route boundary, which had no upstream reason", () => {
+    // The builder says "ok" and the boundary then discards the unit — the one preview failure
+    // that used to vanish without trace.
+    const event = toPublicAnswerProgressEvent({
+      stage: "ranking",
+      previewReason: "ok",
+      verifiedUnit: { schemaVersion: 1, kind: "evidence_preview", sequence: 0, sources: [], selectedContextCount: 0 },
+    });
+    expect(event?.previewReason).toBe("contract_rejected");
+    expect(event?.verifiedUnit).toBeUndefined();
+    expect(readLastEvidencePreviewReason()?.reason).toBe("contract_rejected");
+  });
+
+  it("passes a genuine absence through without calling it a rejection", () => {
+    const event = toPublicAnswerProgressEvent({ stage: "ranking", previewReason: "all_sources_danger" });
+    expect(event?.previewReason).toBe("all_sources_danger");
   });
 });

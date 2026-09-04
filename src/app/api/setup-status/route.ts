@@ -8,12 +8,13 @@ import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/au
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 import { assertSearchSchemaHealth } from "@/lib/validation/row-contracts";
+import { readLastEvidencePreviewReason } from "@/lib/answer-preview";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
-type SetupCheckId = "env" | "project" | "schema" | "search" | "openai" | "worker";
+type SetupCheckId = "env" | "project" | "schema" | "search" | "openai" | "worker" | "answerPreview";
 
 type SetupCheck = {
   id: SetupCheckId;
@@ -309,6 +310,34 @@ function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPaylo
   };
 }
 
+/** Why the answer wait did or did not show its sources.
+ *
+ * Diagnostic, not setup: it reports `ready` whenever the feature is enabled, so a withheld
+ * preview never reads as a broken installation. It exists because the preview is discarded at
+ * several points that recorded nothing, and a clinician reporting "the sources never appear"
+ * could not be answered without guessing — three rounds of guessing, in the case that prompted
+ * it. One enum and a timestamp; no query, document, owner, or clinical text ever reaches here.
+ */
+function answerPreviewCheck(): SetupCheck {
+  if (!env.RAG_INCREMENTAL_EVIDENCE_PREVIEW) {
+    return check(
+      "answerPreview",
+      "Answer wait shows sources",
+      "needs_setup",
+      "Disabled by RAG_INCREMENTAL_EVIDENCE_PREVIEW=false; the answer wait will never show source cards.",
+    );
+  }
+  const last = readLastEvidencePreviewReason();
+  if (!last) {
+    return check("answerPreview", "Answer wait shows sources", "ready", "Enabled. No answer has been served yet.");
+  }
+  const detail =
+    last.reason === "ok"
+      ? `Enabled. The last answer showed its sources (${last.at}).`
+      : `Enabled. The last answer withheld its sources: ${last.reason} (${last.at}).`;
+  return check("answerPreview", "Answer wait shows sources", "ready", detail);
+}
+
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
   const supabase = supabaseProjectCanBeQueried ? createAdminClient() : null;
   const unavailable = await readSupabaseAvailability(supabase);
@@ -396,6 +425,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
         : "Set OPENAI_API_KEY before real indexing or answers.",
     ),
     worker.check,
+    answerPreviewCheck(),
   ];
   const setupSettled = checks.every((item) => item.status === "ready");
   const pollAfterMs = worker.activeWork ? ACTIVE_INDEXING_POLL_MS : setupSettled ? null : SETUP_RECHECK_POLL_MS;
