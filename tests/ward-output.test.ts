@@ -5,6 +5,7 @@ import {
   buildHighYieldClinicalOutputSections,
   createQuoteFollowUp,
   formatAnswerForClipboard,
+  formatDisplayedVisualEvidenceForClipboard,
   formatQuotesForClipboard,
   formatWardNote,
   shouldPollForUpdates,
@@ -328,6 +329,62 @@ describe("ward output helpers", () => {
     // header; the trailing cell merges into the nearest named column.
     expect(copy).not.toContain("| 1.5-2.0 | increase monitoring | contact prescriber daily |");
     expect(copy).toContain("increase monitoring contact prescriber daily");
+  });
+
+  // Audit M1: the on-screen table shows a "Showing 6 of N rows" line and an
+  // expand control, but the pasted artefact dropped rows 7+ with no marker and
+  // read as complete — a titration/threshold table can lose its highest rows.
+  it("marks a table truncated by the clipboard copy (M1)", () => {
+    const titrationRows = [
+      ["Below 1.0", "Cease clozapine"],
+      ["1.0-1.4", "Withhold and repeat FBC daily"],
+      ["1.5-1.9", "Repeat FBC twice weekly"],
+      ["2.0-2.4", "Repeat FBC weekly"],
+      ["2.5-2.9", "Continue weekly monitoring"],
+      ["3.0-3.4", "Continue routine monitoring"],
+      ["3.5-3.9", "Continue routine monitoring"],
+      ["4.0 or above", "Continue routine monitoring"],
+    ];
+    const thresholdAnswer: RagAnswer = {
+      ...answer,
+      answer: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+      answerSections: [
+        {
+          heading: "Threshold",
+          body: "Withhold clozapine if ANC is below the required threshold and urgently review.",
+          citation_chunk_ids: ["chunk-1"],
+        },
+      ],
+      visualEvidence: [
+        {
+          id: "image-1",
+          image_id: "image-1",
+          signed_url_endpoint: "/api/images/image-1/signed-url",
+          caption: "FBC/ANC monitoring thresholds",
+          document_id: "doc-1",
+          title: "Clozapine source",
+          file_name: "clozapine.pdf",
+          page_number: 2,
+          source_chunk_id: "chunk-1",
+          chunk_index: 0,
+          viewer_href: "/documents/doc-1?page=2&chunk=chunk-1",
+          tableLabel: "Table 1",
+          tableTitle: "FBC/ANC thresholds",
+          tableRows: titrationRows,
+          tableColumns: ["ANC level", "Action"],
+        },
+      ],
+    };
+
+    const copy = formatAnswerForClipboard(thresholdAnswer);
+    expect(copy).toContain("| Below 1.0 | Cease clozapine |");
+    expect(copy).not.toContain("| 4.0 or above | Continue routine monitoring |");
+    expect(copy).toContain("Showing 6 of 8 rows");
+
+    const evidenceCopy = formatDisplayedVisualEvidenceForClipboard(thresholdAnswer.visualEvidence ?? []).join("\n");
+    expect(evidenceCopy).toContain("| Below 1.0 | Cease clozapine |");
+    expect(evidenceCopy).not.toContain("| 4.0 or above | Continue routine monitoring |");
+    expect(evidenceCopy).toContain("Showing 6 of 8 rows");
   });
 
   it("does not promote nearby table evidence for unsupported answers", () => {

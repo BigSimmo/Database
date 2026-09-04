@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "847aa0f0-aebf-4980-bb03-e2cb1250f5a8",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Four design-system rules fail on the colours that actually paint; the tests were checking the dead layer",
+    "detail": "tests/design-token-contract.test.ts builds its light/dark maps from the globals.css :root and .dark blocks, but .ckb-v2.ckb-v2 (0,2,0) outranks :root (0,1,0) on <html>, so those are the DEAD values. Repointing the maps at the effective cascade (globals overlaid by ckb-v2-tokens.css) turns 4 of 48 tests red on values that paint today: (1) light --surface and --surface-raised are both #ffffff, so the raised plane does not exist in light mode; (2) the dark ladder is out of order and collapsed - --surface #12161a (L=0.00777) sits BELOW --surface-subtle #1c2126 (L=0.01474), and --surface-raised is byte-identical to --surface-subtle; (3) light --border #e6ebf2 on --surface #ffffff is 1.1979 against a 1.2 floor; (4) light --disabled #9aa5b5 on --surface #ffffff is 2.4931 against a 3.0 floor, and that rule exists so a clinician can read that an action is unavailable. The dead globals palette passes all four (1.2090 and 3.0184 respectively), which is why nothing has flagged it. No colour was changed - the repoint was reverted and the patch kept. This BLOCKS the token-layer collapse: deleting the dead globals declarations forces the tests onto the real values, so all four must be decided first.",
+    "source": "Token-layer collapse, branch claude/token-layer-collapse-itskb0, measured on main at 0f85b91",
+    "issueUlid": "01M1NSB154QAKV4N5XKJHS3P39"
+  }
+}

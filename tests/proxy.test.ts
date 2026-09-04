@@ -257,6 +257,42 @@ describe("document-source fallback redirects", () => {
   });
 });
 
+describe("medications redirect", () => {
+  it("forwards focus and scope context on an unsubmitted draft link instead of dropping them", async () => {
+    // Regression: the unsubmitted branch of medicationsHomeTarget() once called
+    // appModeSelectionHref("prescribing") with no options, silently erasing every
+    // incoming param (the PWA manifest shortcut's ?focus=1, a draft ?q=...
+    // &queryMode=... link) on the way to /?mode=prescribing.
+    const response = await proxy(requestFor("/medications?focus=1&q=lithium&queryMode=compare_guidance"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/");
+    expect(location.searchParams.get("mode")).toBe("prescribing");
+    expect(location.searchParams.get("focus")).toBe("1");
+    expect(location.searchParams.get("q")).toBe("lithium");
+    expect(location.searchParams.get("queryMode")).toBe("compare_guidance");
+    expect(location.searchParams.get("run")).toBeNull();
+  });
+
+  it("still redirects a bare, param-free visit to the plain shared home", async () => {
+    const response = await proxy(requestFor("/medications"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/");
+    expect(location.search).toBe("?mode=prescribing");
+  });
+
+  it("still resolves a submitted search straight to the dashboard-owned results surface", async () => {
+    const response = await proxy(requestFor("/medications?q=lithium&run=1"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/");
+    expect(location.searchParams.get("mode")).toBe("prescribing");
+    expect(location.searchParams.get("q")).toBe("lithium");
+    expect(location.searchParams.get("run")).toBe("1");
+  });
+});
+
 describe("cross-site mutation blocking", () => {
   it("blocks cross-site POST requests to API routes with 403", async () => {
     const request = new NextRequest(new URL("http://localhost/api/documents"), {
