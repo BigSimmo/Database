@@ -726,23 +726,39 @@ describe("caring-contact migrations", () => {
     });
 
     it("REFUSES an unaudited retention clearance record (0009)", async () => {
+      // A retention record belongs to an episode that has ENDED, so it is written against a
+      // completed plan rather than the active PLAN-N the neighbouring cases depend on.
+      await seedPlan(pool, {
+        teamId: TEAM_NORTH,
+        planId: "PLAN-N-DONE",
+        patientId: "PATIENT-N-DONE",
+        state: "completed",
+      });
+
       await expect(
         runInTeamSession(pool, { teamId: TEAM_NORTH }, (client) =>
           client.query(
             `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at, cleared_at)
-             values ('PLAN-N', $1, now(), now())`,
+             values ('PLAN-N-DONE', $1, now(), now())`,
             [TEAM_NORTH],
           ),
         ),
       ).rejects.toThrow(/caring-contacts-audit-required/);
 
       const { rows } = await pool.query<{ count: string }>(
-        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N'",
+        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N-DONE'",
       );
       expect(Number(rows[0].count)).toBe(0);
     });
 
     it("still accepts the audited writes the repository makes to both governance tables (0009)", async () => {
+      await seedPlan(pool, {
+        teamId: TEAM_NORTH,
+        planId: "PLAN-N-DONE",
+        patientId: "PATIENT-N-DONE",
+        state: "completed",
+      });
+
       await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
         await insertAuditEvent(client, {
           teamId: TEAM_NORTH,
@@ -759,7 +775,7 @@ describe("caring-contact migrations", () => {
         );
         await client.query(
           `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at, cleared_at)
-             values ('PLAN-N', $1, now(), now())`,
+             values ('PLAN-N-DONE', $1, now(), now())`,
           [TEAM_NORTH],
         );
       });
@@ -769,7 +785,7 @@ describe("caring-contact migrations", () => {
       );
       expect(pathwayRows[0].state).toBe("retired");
       const { rows: retentionRows } = await pool.query<{ count: string }>(
-        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N'",
+        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N-DONE'",
       );
       expect(Number(retentionRows[0].count)).toBe(1);
     });
