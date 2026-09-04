@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "61fdc9a1-56f0-4697-a413-99bc63a2b6ee",
+  "createdOn": "2026-09-04",
+  "action": "done",
+  "payload": {
+    "id": "#TK9GH7",
+    "outcome": "Closed as a duplicate record, not as a fixed defect. #1M0J6D describes the same problem and stays open as the live tracking row. Two sessions hit the shallow-clone failure independently and each filed an add request (4478f605 -> this row at P3; b11bdfdd -> #1M0J6D at P2); both name the same two specs (tests/clinical-hazard-controls.test.ts, tests/rag-plan-package-parity.test.ts) and the same two commits (883f1007, f3d1a3cc) as the truncated-history cause. add requests carry no baseRowFingerprint and so cannot conflict, which is why both landed as separate rows. The P2 is kept because it carries the fuller reproduction and the more accurate severity. THE UNDERLYING DEFECT REMAINS OPEN under #1M0J6D: web-container sessions still start on a shallow clone and still see two spurious test failures. Raised by Codex review on PR #2575; an earlier cancel request against 4478f605 could not work because that request had already been applied by an intervening reconciliation.",
+    "baseRowFingerprint": "34bcd4274dda7d262874445480ad86d370e06e5ba03c47879925d39b0c9d43ae"
+  }
+}
