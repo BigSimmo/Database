@@ -476,9 +476,29 @@ describe("Ward Flow compact chat control", () => {
      * would make this test pass against a validator that only calls `cat-file -e` — the precise
      * weakening a SHA of forty 2s could not detect, recorded below.
      */
+    /*
+     * ⚠️ THE IDENTITY IS SUPPLIED, NOT INHERITED — AND THIS IS THE SECOND ENVIRONMENT DEPENDENCY
+     * THIS ONE FIXTURE HAS HAD. Scavenging a branch head failed on a single-branch CI checkout;
+     * the replacement then failed on a CI runner for a different reason entirely:
+     *
+     *     Error: Command failed: git commit-tree HEAD^{tree} -m ward-flow ancestry fixture
+     *     Author identity unknown ... fatal: empty ident name (for <runner@...>) not allowed
+     *
+     * `commit-tree` writes a commit, and a commit needs an author. A development machine has one
+     * configured globally and a fresh runner does not. Passing all four variables explicitly makes
+     * the fixture depend on nothing outside this call — no global config, no repo config, no
+     * ambient branch topology.
+     */
     const offBranch = execFileSync("git", ["commit-tree", `${branch}^{tree}`, "-m", "ward-flow ancestry fixture"], {
       cwd: projectRoot,
       encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "ward-flow ancestry fixture",
+        GIT_AUTHOR_EMAIL: "ward-flow-fixture@invalid",
+        GIT_COMMITTER_NAME: "ward-flow ancestry fixture",
+        GIT_COMMITTER_EMAIL: "ward-flow-fixture@invalid",
+      },
     }).trim();
 
     expect(offBranch, "commit-tree produced no object, so there is no fixture to test with").toMatch(/^[0-9a-f]{40}$/u);
