@@ -131,6 +131,10 @@ describe("factsheet library", () => {
     expect(filterFactsheets(query).map((sheet) => sheet.slug)[0]).toBe("depression");
   });
 
+  it("does not invent factsheet matches from question boilerplate alone", () => {
+    expect(filterFactsheets("Can you give me information?")).toEqual([]);
+  });
+
   it("places direct factsheet matches ahead of expansion-only matches in catalogue order", () => {
     const matches = filterFactsheets("Zoloft", undefined, ["generalised anxiety disorder"]);
     expect(matches.map((sheet) => sheet.slug)).toEqual(["sertraline", "gad"]);

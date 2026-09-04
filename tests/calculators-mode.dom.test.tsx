@@ -250,6 +250,13 @@ describe("calculator filter predicates", () => {
     expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)[0]).toBe("phq9");
   });
 
+  it("does not invent calculator matches from question boilerplate alone", () => {
+    const records = recordsWithProgress();
+
+    expect(filterCalculatorRecords(records, "Which calculator should I use?", emptyFilters())).toEqual([]);
+    expect(filterCalculatorRecords(records, "Can you help me choose a score?", emptyFilters())).toEqual([]);
+  });
+
   it("matches calculator identities with spaced or unicode-dash separators", () => {
     const phq9 = calculators.find((calculator) => calculator.id === "phq9")!;
 
