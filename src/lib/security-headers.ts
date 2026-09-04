@@ -101,7 +101,10 @@ export function buildSecurityHeaders(flags: SecurityHeaderFlags): SecurityHeader
     { key: "Cross-Origin-Resource-Policy", value: "same-site" },
     { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
     // No Cross-Origin-Embedder-Policy — see module header note.
-    { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), payment=()" },
+    // Microphone stays denied while Clinical Ask dictation has no user entry point
+    // (PR #2360 removed the composer controls; CLINICAL_ASK_ENABLED defaults to
+    // false). Re-grant `(self)` only together with a governed dictation surface.
+    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
     { key: "Origin-Agent-Cluster", value: "?1" },
     { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
     ...(flags.isLocalHttpRuntime

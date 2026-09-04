@@ -10,6 +10,12 @@ const mocks = vi.hoisted(() => ({
   externalSearchEnabled: vi.fn(),
   retrieveExternal: vi.fn(),
   modeEnabled: vi.fn(),
+  enabled: vi.fn(),
+  logWarn: vi.fn(),
+  logError: vi.fn(),
+}));
+vi.mock("@/lib/logger", () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: mocks.logWarn, error: mocks.logError },
 }));
 vi.mock("@/lib/public-api-access", () => ({ publicAccessContext: mocks.access }));
 vi.mock("@/lib/api-rate-limit", () => ({
@@ -23,6 +29,7 @@ vi.mock("@/lib/clinical-ask/authority-registry", () => ({
   authorityDomainsForProfile: mocks.authorityDomainsForProfile,
   clinicalAskExternalSearchEnabled: mocks.externalSearchEnabled,
   clinicalAskModeEnabled: mocks.modeEnabled,
+  clinicalAskEnabled: mocks.enabled,
 }));
 vi.mock("@/lib/clinical-ask/external-evidence", () => ({ retrieveExternalEvidence: mocks.retrieveExternal }));
 vi.mock("@/lib/openai", () => ({ createOpenAIClient: mocks.openAI }));
@@ -68,6 +75,7 @@ beforeEach(() => {
   mocks.externalSearchEnabled.mockReturnValue(false);
   mocks.retrieveExternal.mockResolvedValue([]);
   mocks.modeEnabled.mockReturnValue(true);
+  mocks.enabled.mockReturnValue(true);
   mocks.run.mockResolvedValue({
     state: "failed",
     mode: "services",
@@ -169,6 +177,31 @@ describe("POST /api/clinical-ask/stream", () => {
     expect(mocks.resolveScope).not.toHaveBeenCalled();
     expect(mocks.run).not.toHaveBeenCalled();
     expect(mocks.openAI).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 before authentication or the durable rate limiter when the master flag is off", async () => {
+    mocks.enabled.mockReturnValue(false);
+    const response = await POST(post());
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).not.toContain("text/event-stream");
+    expect(await response.text()).not.toContain("mode_unavailable");
+    expect(mocks.access).not.toHaveBeenCalled();
+    expect(mocks.rate).not.toHaveBeenCalled();
+    expect(mocks.modeEnabled).not.toHaveBeenCalled();
+    expect(mocks.resolveScope).not.toHaveBeenCalled();
+    expect(mocks.run).not.toHaveBeenCalled();
+    // A designed 404 is not a server fault: it must not write an error-level
+    // log line (which the Sentry Logs allowlist would forward) per probe.
+    expect(mocks.logError).not.toHaveBeenCalled();
+    expect(mocks.logWarn).not.toHaveBeenCalled();
+  });
+
+  it("keeps the SSE mode_unavailable frame for a mode on the emergency denylist", async () => {
+    mocks.modeEnabled.mockReturnValue(false);
+    const response = await POST(post());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(await response.text()).toContain("mode_unavailable");
   });
 
   it("returns the explicit dormant-mode error without starting retrieval", async () => {

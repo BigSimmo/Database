@@ -60,8 +60,12 @@ describe("security headers", () => {
         expect(byKey.get("Cross-Origin-Opener-Policy")).toBe("same-origin");
       });
 
-      it("allows microphone capture only from this origin without widening provider access", () => {
-        expect(byKey.get("Permissions-Policy")).toContain("microphone=(self)");
+      it("keeps microphone capture disabled while Clinical Ask dictation has no user entry point", () => {
+        // Clinical Ask is dormant (CLINICAL_ASK_ENABLED defaults to false) and PR #2360
+        // removed its composer controls, so nothing in the product records audio.
+        // Grant the microphone again only with a governed dictation surface (M16).
+        expect(byKey.get("Permissions-Policy")).toContain("microphone=()");
+        expect(byKey.get("Permissions-Policy")).not.toContain("microphone=(self)");
         expect(byKey.get("Permissions-Policy")).not.toContain("https:");
         expect(csp).not.toContain("api.openai.com");
       });
