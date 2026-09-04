@@ -148,9 +148,23 @@ export function CaringContactShellFrame({
     return CARING_CONTACT_MOCKUP_ROUTES.systemStates;
   }
 
+  /**
+   * `text-left` is doing real work here, because half these rows are links and half are buttons.
+   *
+   * A browser's own stylesheet centres the text inside a `<button>` and leaves it at the start
+   * inside an `<a>`. This one class string dresses both, so with no `text-align` of its own the
+   * expanded rail read: Today, Patients, Schedule and Templates (links) hard against their icons,
+   * then More (a button) with its label floating in the middle of the row — and the same split
+   * again lower down, where Help and guidance is a link and Settings is a button. Identical
+   * classes, visibly different rows. The label span is `lg:flex-1`, so it is the full width of the
+   * remaining space and the centring had somewhere to go.
+   *
+   * Below `lg:` every label is `sr-only` and this class does nothing, so the collapsed icon rail
+   * keeps centring its icons via `justify-center` exactly as before.
+   */
   const navigationItemClass = (selected: boolean) =>
     cn(
-      "group flex min-h-tap min-w-0 items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
+      "group flex min-h-tap min-w-0 items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-left text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
       selected
         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--rule-accent)]"
         : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -242,7 +256,7 @@ export function CaringContactShellFrame({
             <Link
               href={CARING_CONTACT_MOCKUP_ROUTES.guidance}
               aria-label="Help and guidance"
-              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-left text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <CircleHelp aria-hidden="true" className="size-icon-lg shrink-0" />
               <span className="truncate sr-only lg:not-sr-only lg:flex-1">Help and guidance</span>
@@ -251,7 +265,7 @@ export function CaringContactShellFrame({
             <button
               type="button"
               onClick={() => selectDestination("Guidance")}
-              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-left text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <CircleHelp aria-hidden="true" className="size-icon-lg shrink-0" />
               <span className="truncate sr-only lg:not-sr-only lg:flex-1">Help and guidance</span>
@@ -260,7 +274,7 @@ export function CaringContactShellFrame({
           <button
             type="button"
             onClick={() => setAnnouncement("Settings are outside this synthetic prototype")}
-            className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="flex min-h-tap w-full items-center justify-center gap-3 rounded-[var(--radius-md)] px-3 text-left text-sm font-medium text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Settings aria-hidden="true" className="size-icon-lg shrink-0" />
             <span className="truncate sr-only lg:not-sr-only lg:flex-1">Settings</span>
@@ -344,20 +358,22 @@ export function CaringContactShellFrame({
         </header>
 
         {/*
-          The phone reserve stays a PLAIN utility, and that is a constraint rather than a preference.
+          The phone reserve stays a PLAIN utility, and the reason has changed since it was written.
 
-          `globals.css` excludes this tree from Tailwind's scan with an `@source not` rule covering
-          any component path containing "mockup", so an arbitrary utility written only inside a
-          mockup component is never emitted — the class lands on the element and no rule ever matches it.
-          Verified against the built sheet: `min-h-[var(--space-10)]` on the dock below has no rule
-          at all (which is why the dock measures 41px rather than 64px), while `pb-24` does
-          (`padding-bottom:calc(var(--spacing) * 24)`), because production code generates it.
+          It used to be a hard constraint. `globals.css` keeps this tree out of Tailwind's scan with
+          an `@source not` rule covering any component path named for a mockup, and the sheet that
+          was supposed to re-admit it inherited that exclusion, so an arbitrary utility written only
+          inside a mockup component produced no rule at all — the class landed on the element and
+          nothing matched it. A derived `pb-[calc(var(--space-10)+var(--safe-area-bottom)+2rem)]`
+          therefore computed to 0px rather than the 96px it reads as, and the phone dock covered the
+          end of every long page; `ui-caring-contact-mockup.spec.ts` caught it at 390px on both the
+          activation journey and the 24-overlay sweep.
 
-          A derived `pb-[calc(var(--space-10)+var(--safe-area-bottom)+2rem)]` here therefore computed
-          to 0px, not the 96px it reads as, and the phone dock covered the end of every long page —
-          `ui-caring-contact-mockup.spec.ts` caught it at 390px on both the activation journey and
-          the 24-overlay sweep. The production workspace shell may derive its reserve, and does; this
-          prototype may not.
+          `src/app/mockups/mockups.css` now re-includes this directory, so an arbitrary utility here
+          IS emitted and the derived form would work. It stays plain anyway, for two smaller reasons
+          that outlast the bug: `pb-24` is legible at a glance as the 96px it is, and the reserve has
+          to clear the dock's own `min-h-[var(--space-10)]` (64px) plus its safe-area padding, which
+          a reader can check against one number more easily than against a nested `calc`.
         */}
         <main className="min-w-0 px-4 pb-24 pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
           <div className="mx-auto w-full max-w-6xl">
