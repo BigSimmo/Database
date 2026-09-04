@@ -1777,7 +1777,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       await appModeTrigger.click();
       await expect(appModeMenu).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: uiAssertionTimeoutMs });
-    await page.mouse.click(640, 430);
+    await dismissOverlayByHeaderClick(page);
     await expect(appModeMenu).toBeHidden();
 
     await appModeTrigger.click();
@@ -1800,7 +1800,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await expect(dailyActionsMenu).toHaveCount(0);
     await expect(appModeMenu).toBeVisible();
-    await page.mouse.click(640, 430);
+    await dismissOverlayByHeaderClick(page);
     await expect(appModeMenu).toBeHidden();
     await expect(page.getByTestId("app-mode-menu-sheet")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
@@ -4339,8 +4339,29 @@ test.describe("PsychSift UI smoke coverage", () => {
     const appModeButton = page.getByRole("button", { name: "Mode Answer" });
     await waitForReactEventHandler(appModeButton, "onClick");
     await appModeButton.click();
-    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
+    const modeDialog = page.getByRole("dialog", { name: "Choose app mode" });
+    const appModeMenu = modeDialog.getByRole("menu", { name: "Choose app mode" });
+    const modeSearch = modeDialog.getByRole("textbox", { name: "Find a mode" });
+    await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
+    await expect(modeSearch).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(16);
+    await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
+
+    await modeSearch.fill("d");
+    await expect(modeDialog.getByRole("status")).toHaveText("5 matches");
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(5);
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
+    await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(16);
+
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();
     await expect(answerMode).toBeFocused();
