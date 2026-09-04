@@ -15,16 +15,6 @@ export type SearchShellPathProps = {
  * when navigating between namespaced modes).
  */
 export function searchShellPropsForPathname(pathname: string): SearchShellPathProps {
-  // Exact `/documents` is the Documents mode home — it matches neither
-  // `/documents/search` nor the `/documents/` prefix below, so it needs its own
-  // case. ClinicalDashboard owns the body here (see `dashboardOwnedModeHomePaths`),
-  // so it also owns composer placement, exactly as it does on `/`. Declaring a
-  // shell hero on top of that gives the route two hero owners, and the shell's one
-  // then overlaps the Documents home actions.
-  if (pathname === "/documents") {
-    return { initialMode: "documents" };
-  }
-
   if (pathname === "/documents/search" || pathname.startsWith("/documents/")) {
     const isDocumentSearchRoute = pathname === "/documents/search";
     const documentFlowOwnsMobileChrome = pathname.startsWith("/documents/source");
