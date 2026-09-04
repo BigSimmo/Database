@@ -114,6 +114,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/medications",
   "/calculators",
   "/tools",
+  "/on-call",
 ] as const;
 
 /**

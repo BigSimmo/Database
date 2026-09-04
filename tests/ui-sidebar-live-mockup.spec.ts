@@ -61,10 +61,10 @@ test.describe("Perfected live sidebar mockup @mockup", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
 
     await page.keyboard.press("Control+k");
-    const search = page.getByRole("dialog", { name: "Search Clinical Guide" });
+    const search = page.getByRole("dialog", { name: "Search PsychSift" });
     await expect(search.getByRole("searchbox", { name: "Search everything" })).toBeFocused();
     await page.keyboard.press("Escape");
-    await expect(mockup.getByRole("button", { name: /Search Clinical Guide/ })).toBeFocused();
+    await expect(mockup.getByRole("button", { name: /Search PsychSift/ })).toBeFocused();
 
     await mockup
       .getByRole("navigation", { name: "Pinned shortcuts" })
@@ -110,7 +110,7 @@ test.describe("Perfected live sidebar mockup @mockup", () => {
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-testid="sidebar-live-rail"]:visible')).toBeVisible();
-    await expect(page.getByRole("button", { name: /Search Clinical Guide/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Search PsychSift/ })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 });

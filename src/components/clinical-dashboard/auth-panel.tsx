@@ -159,7 +159,7 @@ export function AuthPanel() {
           </span>
           <div className="min-w-0">
             <p className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
-              {isExpired ? "Sign-in link expired" : "Create your Clinical Guide account"}
+              {isExpired ? "Sign-in link expired" : "Create your PsychSift account"}
             </p>
             <p className={cn("mt-1 text-sm leading-5", textMuted)}>
               {isExpired
