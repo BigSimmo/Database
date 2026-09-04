@@ -24,11 +24,15 @@ import { expect, test, type Browser } from "playwright/test";
  * What is pinned, and why only this. `getPropertyValue` on a custom property returns the
  * value AFTER `var()` substitution (`--text: var(--neutral-900)` reads back as the
  * resolved `#1b2533`), so one string per role captures the whole resolution chain. It is
- * also a plain token stream rather than a rasterised or numerically-resolved colour, so
- * it does not move with the Chromium build. Painted `rgb()` values deliberately are NOT
- * pinned: `color-mix()` rounding and forced-colors system keywords are build-dependent
- * (this container's Chromium resolves `GrayText` to `rgb(96, 0, 0)`), which would make
- * the pin fail on a browser bump for a reason unrelated to the tokens.
+ * a token stream rather than a rasterised colour, so it is stable across Chromium builds.
+ * Painted `rgb()` values deliberately are NOT pinned: `color-mix()` rounding and
+ * forced-colors system keywords are build-dependent (this container's Chromium resolves
+ * `GrayText` to `rgb(96, 0, 0)`), which would make the pin fail on a browser bump for a
+ * reason unrelated to the tokens.
+ *
+ * Stable across Chromium BUILDS is not stable across ENGINES, and this spec is matched by
+ * `productionSpecPattern`, so it is offered to firefox, webkit and the two mobile projects
+ * as well. See the `test.skip` below for why it takes only Chromium.
  *
  * Regenerate with `UPDATE_TOKEN_RESOLUTION_PIN=1`. Do that ONLY to record a deliberate,
  * reviewed change — regenerating to clear a failure is how this stops proving anything.
@@ -158,6 +162,29 @@ async function resolveRoles(
 }
 
 test.describe("token layer resolution", () => {
+  /**
+   * Chromium only, for two independent reasons — neither of them convenience.
+   *
+   * 1. Half the captured states need forced-colors emulation, which is Chromium-only in
+   *    Playwright (this repo says so in a dozen places, e.g.
+   *    `tests/ui-caring-contacts-workspace.spec.ts:484`). On another engine the
+   *    `forced-colors` states would silently capture ordinary values and could never
+   *    match a pin taken under forced colours.
+   * 2. Engines serialise a substituted custom property differently. Chromium rewrites
+   *    `rgb(13 40 71 / 4%)` to `#0d28470a` and `cubic-bezier(0.4, 0, 0.2, 1)` to
+   *    `cubic-bezier(.4,0,.2,1)`; other engines keep their own spacing and colour
+   *    notation. Ten pinned roles carry such values, so one pin cannot describe all five
+   *    projects, and normalising whitespace alone would not be enough — the colour
+   *    notation differs too.
+   *
+   * Nothing is lost. This proves how the CASCADE resolves, which is spec-defined rather
+   * than engine-defined; per-engine pins would record serialisation trivia, not tokens.
+   */
+  test.skip(
+    ({ browserName }) => browserName !== "chromium",
+    "token serialisation and forced-colors emulation are Chromium-specific",
+  );
+
   test("every divergent role resolves to its pinned value", async ({ browser, baseURL }) => {
     test.slow();
     expect(baseURL, "baseURL must be configured").toBeTruthy();
