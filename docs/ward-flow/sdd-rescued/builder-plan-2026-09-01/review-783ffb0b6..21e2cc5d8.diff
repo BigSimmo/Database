@@ -1,0 +1,353 @@
+# Review package: 783ffb0b6..21e2cc5d8
+
+## Commits
+21e2cc5d8 chore(ward-flow): regenerate the repo-awareness snapshot
+10378f264 fix(ward-flow): review round 2 — stale test title and an overclaimed invariant
+
+## Files changed
+ data/repo-awareness-snapshot.json            | 77 ++++++++++++++++++++++++----
+ src/components/ward-management/ward-model.ts |  4 +-
+ tests/ward-patient-search.dom.test.tsx       |  2 +-
+ 3 files changed, 69 insertions(+), 14 deletions(-)
+
+## Diff
+diff --git a/data/repo-awareness-snapshot.json b/data/repo-awareness-snapshot.json
+index d34c8e27b..01877db63 100644
+--- a/data/repo-awareness-snapshot.json
++++ b/data/repo-awareness-snapshot.json
+@@ -1,15 +1,15 @@
+ {
+   "version": "repo-awareness-snapshot-v1",
+   "captured_revision": {
+-    "sha": "5db2f02fc6f0d04eed3425bc74b0adad438b7ea7",
+-    "committed_at": "2026-08-31T03:50:43+08:00"
++    "sha": "b2b7089f2e2d3fbfdc43919869cf40d65b26fbac",
++    "committed_at": "2026-09-01T13:59:20+08:00"
+   },
+   "routes": {
+     "modes": [
+       {
+         "id": "answer",
+         "label": "Answer",
+         "home": "/?mode=answer",
+         "dev_only": false
+       },
+       {
+@@ -896,20 +896,25 @@
+       {
+         "path": "/mockups/ward-flow/board/[unitId]",
+         "file": "src/app/mockups/ward-flow/board/[unitId]/page.tsx",
+         "area": "mockup"
+       },
+       {
+         "path": "/mockups/ward-flow/capacity",
+         "file": "src/app/mockups/ward-flow/capacity/page.tsx",
+         "area": "mockup"
+       },
++      {
++        "path": "/mockups/ward-flow/community/[teamId]",
++        "file": "src/app/mockups/ward-flow/community/[teamId]/page.tsx",
++        "area": "mockup"
++      },
+       {
+         "path": "/mockups/ward-flow/discharges",
+         "file": "src/app/mockups/ward-flow/discharges/page.tsx",
+         "area": "mockup"
+       },
+       {
+         "path": "/mockups/ward-flow/ed/[edId]",
+         "file": "src/app/mockups/ward-flow/ed/[edId]/page.tsx",
+         "area": "mockup"
+       },
+@@ -936,35 +941,35 @@
+       {
+         "path": "/mockups/ward-flow/morning",
+         "file": "src/app/mockups/ward-flow/morning/page.tsx",
+         "area": "mockup"
+       },
+       {
+         "path": "/mockups/ward-flow/movements",
+         "file": "src/app/mockups/ward-flow/movements/page.tsx",
+         "area": "mockup"
+       },
++      {
++        "path": "/mockups/ward-flow/movements/[movementId]",
++        "file": "src/app/mockups/ward-flow/movements/[movementId]/page.tsx",
++        "area": "mockup"
++      },
+       {
+         "path": "/mockups/ward-flow/network",
+         "file": "src/app/mockups/ward-flow/network/page.tsx",
+         "area": "mockup"
+       },
+       {
+         "path": "/mockups/ward-flow/out-of-area",
+         "file": "src/app/mockups/ward-flow/out-of-area/page.tsx",
+         "area": "mockup"
+       },
+-      {
+-        "path": "/mockups/ward-flow/patients/[patientId]",
+-        "file": "src/app/mockups/ward-flow/patients/[patientId]/page.tsx",
+-        "area": "mockup"
+-      },
+       {
+         "path": "/mockups/ward-flow/people/[patientId]",
+         "file": "src/app/mockups/ward-flow/people/[patientId]/page.tsx",
+         "area": "mockup"
+       },
+       {
+         "path": "/mockups/ward-flow/queue",
+         "file": "src/app/mockups/ward-flow/queue/page.tsx",
+         "area": "mockup"
+       },
+@@ -1425,23 +1430,23 @@
+         "path": "/api/webhooks/railway",
+         "file": "src/app/api/webhooks/railway/route.ts"
+       },
+       {
+         "path": "/api/webhooks/supabase/document-change",
+         "file": "src/app/api/webhooks/supabase/document-change/route.ts"
+       }
+     ],
+     "counts": {
+       "modes": 15,
+-      "pages": 202,
++      "pages": 203,
+       "product_pages": 55,
+-      "mockup_pages": 147,
++      "mockup_pages": 148,
+       "redirects": 17,
+       "api": 58
+     }
+   },
+   "documentation": {
+     "documents": [
+       {
+         "path": "docs/adr/0001-use-a-shared-local-first-clinical-ask-orchestrator.md",
+         "section": "adr",
+         "catalogued": false
+@@ -3709,20 +3714,35 @@
+       {
+         "path": "docs/ward-flow-orchestrator-handover.md",
+         "section": "root",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow-orchestrator.md",
+         "section": "root",
+         "catalogued": false
+       },
++      {
++        "path": "docs/ward-flow-owner-rulings-2026-08-31-community.md",
++        "section": "root",
++        "catalogued": false
++      },
++      {
++        "path": "docs/ward-flow-owner-rulings-2026-08-31.md",
++        "section": "root",
++        "catalogued": false
++      },
++      {
++        "path": "docs/ward-flow-owner-rulings-2026-09-01.md",
++        "section": "root",
++        "catalogued": false
++      },
+       {
+         "path": "docs/ward-flow-phase-2-kickoff.md",
+         "section": "root",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow-phase-3-handover.md",
+         "section": "root",
+         "catalogued": false
+       },
+@@ -4029,20 +4049,25 @@
+       {
+         "path": "docs/ward-flow-phase-handoff.md",
+         "section": "root",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow-pinned-clock-handover.md",
+         "section": "root",
+         "catalogued": false
+       },
++      {
++        "path": "docs/ward-flow-plan.md",
++        "section": "root",
++        "catalogued": false
++      },
+       {
+         "path": "docs/ward-flow-pr-body.md",
+         "section": "root",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow-process-review-prompt.md",
+         "section": "root",
+         "catalogued": false
+       },
+@@ -4094,50 +4119,80 @@
+       {
+         "path": "docs/ward-flow-ward-board-plan-corrections-2026-08-29.md",
+         "section": "root",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow-what-this-is-not.md",
+         "section": "root",
+         "catalogued": false
+       },
++      {
++        "path": "docs/ward-flow/builder-plan-2026-09-01.md",
++        "section": "ward-flow",
++        "catalogued": false
++      },
++      {
++        "path": "docs/ward-flow/control/BUILDER-ACTIVATION-RECEIPTS.md",
++        "section": "ward-flow",
++        "catalogued": false
++      },
+       {
+         "path": "docs/ward-flow/control/prompts/builder.md",
+         "section": "ward-flow",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow/control/prompts/lead.md",
+         "section": "ward-flow",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow/control/prompts/verifier.md",
+         "section": "ward-flow",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-flow/control/README.md",
+         "section": "ward-flow",
+         "catalogued": false
+       },
++      {
++        "path": "docs/ward-flow/how-to-write-to-the-owner.md",
++        "section": "ward-flow",
++        "catalogued": false
++      },
+       {
+         "path": "docs/ward-flow/README.md",
+         "section": "ward-flow",
+         "catalogued": false
+       },
++      {
++        "path": "docs/ward-flow/stale-claims.md",
++        "section": "ward-flow",
++        "catalogued": false
++      },
+       {
+         "path": "docs/ward-flow/START-LOCAL-CHAT.md",
+         "section": "ward-flow",
+         "catalogued": false
+       },
++      {
++        "path": "docs/ward-flow/three-chat-working-agreement.md",
++        "section": "ward-flow",
++        "catalogued": false
++      },
++      {
++        "path": "docs/ward-flow/who-is-who.md",
++        "section": "ward-flow",
++        "catalogued": false
++      },
+       {
+         "path": "docs/ward-management-context.md",
+         "section": "root",
+         "catalogued": false
+       },
+       {
+         "path": "docs/ward-management-decisions.md",
+         "section": "root",
+         "catalogued": false
+       },
+@@ -4218,23 +4273,23 @@
+         "name": "superpowers"
+       },
+       {
+         "name": "ward-flow"
+       },
+       {
+         "name": "ward-flow-phase-3-workspace"
+       }
+     ],
+     "counts": {
+-      "documents": 544,
++      "documents": 554,
+       "catalogued": 106,
+-      "uncatalogued": 438,
++      "uncatalogued": 448,
+       "sections": 20
+     }
+   },
+   "test_health": {
+     "note": "Only reproduced @quarantine Playwright tests belong here. Entries use an exact title and expire within 30 days. The ledger is intentionally empty after stale, non-reproducible entries were removed.",
+     "quarantined": [],
+     "counts": {
+       "quarantined": 0
+     }
+   },
+diff --git a/src/components/ward-management/ward-model.ts b/src/components/ward-management/ward-model.ts
+index 9a5cef63d..d5253b598 100644
+--- a/src/components/ward-management/ward-model.ts
++++ b/src/components/ward-management/ward-model.ts
+@@ -356,22 +356,22 @@ export type TransportJob = {
+    * `tests/ward-legal-figure-guard.test.ts`, the Mental Health Act figure guard the owner has said
+    * must never be disturbed. Widening a type there is a deliberate change with that guard in front
+    * of it, not a side effect of removing two organisation names from a different field.
+    *
+    * Nothing writes a bad code today: the only populated `formRequired` comes from the seed.
+    */
+   formRequired?: string;
+   acceptedAt?: Instant;
+   enRouteAt?: Instant;
+   /**
+-   * ⚠️ THESE THREE READ AS INDEPENDENT AND ARE NOT — `closure` on `Movement` (below) is the
+-   * invariant that keeps them apart, and it is NOT stated anywhere in this type.
++   * ⚠️ `arrivedAt` AND `cancelledAt` READ AS INDEPENDENT AND ARE NOT — `closure` on `Movement`
++   * (below) is the invariant that keeps them apart, and it is NOT stated anywhere in this type.
+    *
+    * Nothing here stops a hand-built `TransportJob` from carrying both `arrivedAt` and
+    * `cancelledAt`, but the reducer can never produce one. In `ward-flow-reducer.ts`,
+    * `PATIENT_ARRIVED` sets `arrivedAt` and the movement's own `closure` in the same update, and
+    * refuses to run at all once `movement.closure` is already set. `RECORD_EXAMINATION`'s
+    * `community_order`/`revoked` branch — the one that closes a movement without an admission —
+    * sets `cancelledAt` the same way, guarded by the identical `movement.closure` check.
+    * Whichever of the two runs first sets `closure`, and that is what makes the second one
+    * impossible; nothing on `TransportJob` itself does the excluding.
+    *
+diff --git a/tests/ward-patient-search.dom.test.tsx b/tests/ward-patient-search.dom.test.tsx
+index c204701ab..ebf3b3491 100644
+--- a/tests/ward-patient-search.dom.test.tsx
++++ b/tests/ward-patient-search.dom.test.tsx
+@@ -84,21 +84,21 @@ describe("PatientSearchPage", () => {
+      *
+      * Stated as a sum with both halves named rather than re-baselined to whatever the page now
+      * prints. A number copied out of a failing test is a screenshot of the current behaviour, and
+      * it agrees with a defect exactly as readily as with a fix.
+      */
+     const queuedReferralCount = queuedReferrals.length;
+     expect(queuedReferralCount, "no queued referral seeded — this assertion would prove nothing").toBeGreaterThan(0);
+     expect(screen.getByRole("heading", { name: `${openCount + queuedReferralCount} matches` })).toBeInTheDocument();
+   });
+ 
+-  it("narrows to the matching movement when searching by id, and links to its patient page", () => {
++  it("narrows to the matching movement when searching by id, and links to its movement page", () => {
+     renderSearch();
+ 
+     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "wf-003" } });
+ 
+     const results = screen.getByTestId("ward-patient-search-results");
+     expect(within(results).getByText("WF-003")).toBeInTheDocument();
+     expect(screen.getByRole("heading", { name: "1 match" })).toBeInTheDocument();
+ 
+     const link = within(results).getByRole("link", { name: "Open" });
+     expect(link).toHaveAttribute("href", "/mockups/ward-flow/movements/WF-003");

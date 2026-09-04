@@ -22,8 +22,9 @@ describe("unit bed-state reconciliation", () => {
     expect(units.length).toBeGreaterThan(0);
     // Pinned to the fixture's known unit count so a unit silently dropping out of `allUnits()`
     // (e.g. a broken `siteByCode` lookup) shrinks this count and fails here, not just silently
-    // reduces how many units the identity check below actually covers.
-    expect(units.length).toBe(22);
+    // reduces how many units the identity check below actually covers. Was 22 before Phase 7
+    // (spec "The front door") added `bty-youth` (East Metropolitan Youth Unit) to the fixture.
+    expect(units.length).toBe(23);
   });
 
   it.each(units.map((unit) => [unit.id, unit] as const))(

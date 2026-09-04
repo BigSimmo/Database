@@ -623,12 +623,7 @@ export function PwaLifecycle() {
   return (
     <div className="pwa-notice-stack">
       {showOffline ? (
-        <section
-          className={`${cardClassName} pwa-lifecycle-card`}
-          role="region"
-          aria-labelledby="pwa-offline-title"
-          aria-live="polite"
-        >
+        <section className={`${cardClassName} pwa-lifecycle-card`} role="region" aria-labelledby="pwa-offline-title">
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -668,12 +663,7 @@ export function PwaLifecycle() {
       ) : null}
 
       {showUpdate ? (
-        <section
-          className={`${cardClassName} pwa-lifecycle-card`}
-          role="region"
-          aria-labelledby="pwa-update-title"
-          aria-live="polite"
-        >
+        <section className={`${cardClassName} pwa-lifecycle-card`} role="region" aria-labelledby="pwa-update-title">
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -706,12 +696,7 @@ export function PwaLifecycle() {
       ) : null}
 
       {showIosInstallHint ? (
-        <section
-          className={`${cardClassName} pwa-install-sheet`}
-          role="region"
-          aria-labelledby="pwa-ios-install-title"
-          aria-live="polite"
-        >
+        <section className={`${cardClassName} pwa-install-sheet`} role="region" aria-labelledby="pwa-ios-install-title">
           <InstallSheetGrip />
           <InstallHeader
             title={`Install ${BRAND_NAME}`}
@@ -738,7 +723,6 @@ export function PwaLifecycle() {
           className={`${cardClassName} pwa-install-sheet pwa-install-native-sheet`}
           role="region"
           aria-labelledby="pwa-install-title"
-          aria-live="polite"
         >
           <InstallSheetGrip />
           <InstallHeader

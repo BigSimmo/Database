@@ -43,6 +43,31 @@ const TEXT_SOFT_CONSUMER = new RegExp(
 export const LEGACY_TAP_CLASS = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`, "g");
 const LEGACY_TAP_CLASS_TEST = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`);
 
+/**
+ * Whole-file text backstop for `disabledOpacityUses` (COMPONENTS.md §9.33),
+ * the same shape as `LEGACY_TAP_CLASS` above and for the same reason: it must
+ * see every occurrence the AST class-root pass can miss (unresolved
+ * identifiers, odd expression shapes), so a regression there fails closed
+ * instead of silently shrinking the ratchet. Any run of variant prefixes is
+ * admitted before the `disabled:` one, so `sm:disabled:opacity-40` still
+ * counts — but the token boundary means the prefix group can only consume
+ * whole `variant:` segments, so it can never eat past the `-` in
+ * `aria-disabled:opacity-<n>` and land on a bare `disabled:` match: the
+ * greedy prefix run either swallows all of `aria-disabled:` as one segment
+ * (leaving `opacity-<n>`, which does not match) or matches zero segments
+ * (leaving `aria-disabled:...`, which does not start with `disabled:`
+ * either). `aria-disabled:opacity-<n>` is a different, not-yet-covered
+ * surface and must stay invisible to this ratchet. The opacity value itself
+ * accepts a bare number, a Tailwind v4 arbitrary value (`opacity-[0.4]`), or
+ * the v4 CSS-variable shorthand (`opacity-(--my-opacity)`) — a digit-only
+ * pattern let exactly those two forms bypass `controlDisabled` invisibly.
+ */
+const DISABLED_OPACITY_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*disabled:opacity-(?:\d+|\[[^\]]+\]|\([^)]+\))`;
+export const DISABLED_OPACITY_CLASS = new RegExp(
+  `(?:^|[\\s\"'\\x60])${DISABLED_OPACITY_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`,
+  "g",
+);
+
 export const RAW_COLOR_EXEMPTIONS = [
   // Both files are the theme-token layer itself — the one place raw colour values
   // are *defined* rather than consumed. `ckb-v2-tokens.css` is the opt-in `.ckb-v2`
@@ -280,7 +305,20 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
  * widening to those is a separate question with its own false-positive surface,
  * and no interactive control in `src` currently carries one.
  */
-const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea"]);
+/**
+ * `Link` (from `next/link`) is admitted alongside the native tags. It is the
+ * single most common interactive component-tag pattern in this codebase —
+ * document-search-results.tsx's service-title `<Link>` carried a sub-floor
+ * `sm:min-h-7` invisibly past this gate before this addition, exactly the
+ * kind of miss TOKENS.md §2 exists to catch. Deliberately narrow: this does
+ * NOT resolve arbitrary component identifiers or a `className` passed down
+ * from a caller (`docs/design-system/sweep-fix-tap-floors-round-2.md` §9 —
+ * that is its own piece of work with its own false-positive surface), so a
+ * wrapper component that only forwards `className` to its own `<Link>` (for
+ * example `DiagnosisTermChip`) is still invisible to this walker unless the
+ * violation sits directly on a literal class fragment inside this file.
+ */
+const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea", "Link"]);
 const MAX_CLASS_ALTERNATIVES = 128;
 
 function combineClassAlternatives(left, right) {
@@ -561,6 +599,24 @@ export function findInteractiveTapFloorDeclarationsInSource(relativePath, source
   return findings;
 }
 
+/**
+ * COMPONENTS.md §9.33 — `controlBase` (via `controlDisabled` in
+ * `src/components/primitive-recipes/recipes.ts`) owns the disabled-state
+ * encoding: token-based colour, cursor and shadow, deliberately with NO
+ * opacity dimming (a disabled primary must not simply read as an available
+ * control at 50% strength — see the comment above `controlDisabled` itself).
+ * A hand-rolled `disabled:opacity-<n>` is a component re-inventing that
+ * encoding instead of composing the shared recipe. Scoped to the NATIVE
+ * `disabled:` variant only — `aria-disabled:opacity-<n>` is a different,
+ * not-yet-covered surface, and `variants.includes("disabled")` already
+ * excludes it: `aria-disabled` is one whole variant string, not a `disabled`
+ * variant with an `aria-` prefix run together, so it never matches here.
+ *
+ * Ratcheted (DEBT), not hard-zero: COMPONENTS.md §9.33's own migration plan
+ * (PR 3) is the paydown, which this gate deliberately does not execute — it
+ * only stops the count from growing past its pinned baseline.
+ */
+const DISABLED_OPACITY_UTILITY = /^opacity-(?:\d+|\[[^\]]+\]|\([^)]+\))$/;
 const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 // The status-colour family declared in `globals.css` (`--success`/`--warning`/
@@ -733,10 +789,26 @@ const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|a
 const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:[a-z%]+)?$/i;
 const ARBITRARY_PROPERTY_UTILITY = /^\[([a-z-]+):([^\]]+)\]$/i;
 
+/**
+ * ⚠️ A CSS-WIDE KEYWORD WAS ALLOWED FOR THE WHOLE VALUE BUT NOT FOR A PART OF ONE.
+ *
+ * `CSS_WIDE_KEYWORD` was tested only against the trimmed value, so `margin: auto` passed and
+ * `margin: 0 auto` — the ordinary horizontal-centring shorthand — was reported as a raw scale
+ * literal. Every part of it is either zero or a keyword; there is no scale value anywhere in it.
+ * Found 2026-09-04 on `ed-home.module.css:16`.
+ *
+ * 🔴 THE CHEAP REPAIR WAS TO REWRITE THE CSS, AND IT WOULD HAVE BEEN THE WRONG ONE. The ratchet
+ * only moves down, so the pressure is to make the count fall by any means — and splitting a
+ * correct `margin: 0 auto` into two declarations to satisfy a predicate makes the stylesheet worse
+ * and leaves the next `0 auto` for somebody else to hit.
+ *
+ * The per-part test now accepts zero, a CSS-wide keyword, or a `var()`. It does NOT accept a
+ * length: `margin: 10px auto` is still flagged, which is the case this check exists for.
+ */
 function isRawScaleLiteralValue(value) {
   const trimmed = value.trim();
   if (!trimmed || /\w\(/.test(trimmed) || CSS_WIDE_KEYWORD.test(trimmed)) return false;
-  return !trimmed.split(/\s+/).every((part) => CSS_ZERO_VALUE.test(part));
+  return !trimmed.split(/\s+/).every((part) => CSS_ZERO_VALUE.test(part) || CSS_WIDE_KEYWORD.test(part));
 }
 
 function recordRawScaleLiteralProperty(result, relativePath, line, prop, value, token) {
@@ -1435,6 +1507,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     colourOnlyStatusIndicators: [],
     darkColorOverrides: [],
     densityOverrides: [],
+    disabledOpacityUses: [],
     edgeOwnershipConflicts: [],
     hardcodedMotionClasses: [],
     imageInversions: [],
@@ -1577,6 +1650,9 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (variants.includes("dark") && isColorUtility(base)) {
       result.darkColorOverrides.push(`${relativePath}:${line} (${token})`);
     }
+    if (variants.includes("disabled") && DISABLED_OPACITY_UTILITY.test(base)) {
+      result.disabledOpacityUses.push(`${relativePath}:${line} (${token})`);
+    }
   }
 
   result.edgeOwnershipConflicts = [...new Set(result.edgeOwnershipConflicts)];
@@ -1596,6 +1672,10 @@ export function findColourOnlyStatusIndicatorsInSource(relativePath, sourceText)
 
 export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).edgeOwnershipConflicts;
+}
+
+export function findDisabledOpacityUsesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).disabledOpacityUses;
 }
 
 const COMMAND_FILL = "bg-[color:var(--command)]";
@@ -1731,6 +1811,110 @@ export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
       if (hay.includes(COMMAND_FILL) && !/\bprimaryControl\b/.test(hay)) {
         const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
         findings.push(`${relativePath}:${line}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
+/**
+ * SPEC.md §9.2 — "Live regions are never visible content." Any JSX element
+ * carrying an explicit `aria-live` attribute (other than a literal, always-off
+ * `aria-live="off"`, which never announces) whose resolved class list does not
+ * include `sr-only` is visible content wearing a live region. The compliant
+ * shape is a visible, non-live node plus a separate `sr-only` announcer twin —
+ * see `DocumentSearchHome`'s footer in `document-search-results.tsx` for the
+ * adopted pattern.
+ *
+ * One narrow, principled exception: `aria-relevant="additions …"` marks a
+ * container whose live behaviour is "announce children as they are inserted"
+ * (the toast-region shape in `ui/toast.tsx`, where the visible toast cards
+ * ARE the announcement) — architecturally different from a single visible
+ * node whose own text mutates in place, which is the failure mode this rule
+ * exists to catch. `role="status"` / `role="alert"` is not, on its own, a
+ * reason to exempt a node that also carries `aria-live`: `LoadingPanel`'s
+ * spinner variant originally carried both on a visible node, and having
+ * `role="status"` did not save it from being a violation — the role already
+ * implies the live semantics the explicit attribute duplicated, which is why
+ * the fix removed the attribute rather than adding `sr-only`.
+ *
+ * Scope, stated plainly so it cannot be misread as broader than it is: this
+ * scanner only inspects elements that carry an explicit `aria-live`
+ * attribute. A visible `role="status"`/`role="alert"` node with NO
+ * `aria-live` at all (the shape `LoadingPanel`'s spinner variant has today,
+ * after the fix above) is outside this function's scope, not exempted by
+ * it — the two are different guarantees. Widening the scanner to also flag
+ * bare `role="status"`/`role="alert"` would require triaging every such role
+ * in `src/**` for whether it is already a compliant static-content pattern,
+ * which this change does not attempt.
+ *
+ * `sr-only` is checked per resolved className *alternative*
+ * (`jsxClassAlternatives`), not against one combined blob of source text. A
+ * node whose className is `notice ? "visible classes" : "sr-only"` is a real
+ * violation the moment `notice` is truthy — the only time the node has
+ * anything to announce — even though the string "sr-only" appears somewhere
+ * in the attribute's source text. Only a node whose EVERY resolved
+ * alternative is sr-only is genuinely never visible.
+ */
+export function findVisibleLiveRegionsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function attributeStringValue(attribute) {
+    const initializer = attribute?.initializer;
+    if (!initializer) return null;
+    if (ts.isStringLiteral(initializer)) return initializer.text;
+    if (ts.isJsxExpression(initializer) && initializer.expression && ts.isStringLiteralLike(initializer.expression)) {
+      return initializer.expression.text;
+    }
+    return null;
+  }
+
+  function visit(node) {
+    const opening = jsxOpening(node);
+    if (opening && opening === node) {
+      const attributes = opening.attributes.properties;
+      const liveAttribute = attributes.find(
+        (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "aria-live",
+      );
+      if (liveAttribute && ts.isJsxAttribute(liveAttribute)) {
+        // A statically-known "off" literal never announces, so it is not live
+        // content. A dynamic value (e.g. `faulted ? "off" : "polite"`) can
+        // still resolve to a real live setting at runtime, so it stays in
+        // scope — matching how the rest of this file treats unresolved
+        // expressions as in-scope rather than silently exempt.
+        const literalValue = attributeStringValue(liveAttribute);
+        const isAlwaysOff = literalValue === "off";
+        const relevantAttribute = attributes.find(
+          (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "aria-relevant",
+        );
+        const relevantValue =
+          relevantAttribute && ts.isJsxAttribute(relevantAttribute)
+            ? (attributeStringValue(relevantAttribute) ?? "")
+            : "";
+        const isAdditionsContainer = /\badditions\b/.test(relevantValue);
+        const classAttribute = attributes.find(
+          (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+        );
+        const classAlternatives =
+          classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassAlternatives(classAttribute) : [];
+        // Every possible resolved value must be sr-only for the node to be
+        // genuinely never-visible; an unresolvable className (e.g. a bare
+        // identifier) falls back to the combined-text heuristic so a truly
+        // opaque expression stays in scope rather than silently exempt.
+        const isSrOnly =
+          classAlternatives.length > 0
+            ? classAlternatives.every((alternative) => /\bsr-only\b/.test(alternative))
+            : /\bsr-only\b/.test(jsxClassNameText(opening, source));
+        if (!isAlwaysOff && !isSrOnly && !isAdditionsContainer) {
+          const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+          findings.push(`${relativePath}:${line}`);
+        }
       }
     }
     ts.forEachChild(node, visit);
@@ -2224,7 +2408,36 @@ function medicationAccentDefaultRanges(source) {
   return ranges;
 }
 
+/**
+ * ⚠️ AN IN-PAGE LINK TARGET IS NOT A COLOUR, AND `RAW_COLOR` CANNOT TELL THE DIFFERENCE.
+ *
+ * `RAW_COLOR` is `/#[0-9a-f]{3,8}\b.../i`, so any fragment href whose first three-to-eight
+ * characters are hex digits counts as a raw colour literal. Found 2026-09-04 on
+ * `href="#bed-capacity"` — `bed` is three valid hex digits and the `-` supplies the word
+ * boundary. `#face`, `#added`, `#dec`, `#cafe`, `#feed`, `#deface` all do the same.
+ *
+ * 🔴 THIS IS THE FAILURE MODE WORTH NAMING: THE GATE WENT RED ON CORRECT CODE, AND THE CHEAP
+ * REPAIR IS TO RENAME A WORKING ANCHOR. The ratchet only ever moves up, so the pressure is to
+ * make the count go down by any means — and renaming `#bed-capacity` would have satisfied it
+ * while making the page worse and leaving the next `#face` to be found by somebody else.
+ *
+ * Masked rather than exempted: a per-file exemption would blind the whole file to real colour
+ * literals, which is exactly the over-broad silencing the exemption list exists to avoid.
+ * A colour literal can never appear as the value of an `href`, so this loses no coverage —
+ * proved by injecting `color: #bed` into the same file and confirming the count still rises.
+ */
+function maskFragmentHrefs(source) {
+  const ranges = [];
+  const pattern = /\bhref\s*=\s*(?:"#[^"]*"|'#[^']*'|\{\s*`#[^`]*`\s*\})/g;
+  for (const match of source.matchAll(pattern)) {
+    const start = match.index ?? -1;
+    if (start >= 0) ranges.push({ start, end: start + match[0].length });
+  }
+  return ranges.length === 0 ? source : maskRanges(source, ranges);
+}
+
 export function rawColorContractSource(relativePath, source, reportFailure = () => {}) {
+  source = maskFragmentHrefs(source);
   const exemption = RAW_COLOR_EXEMPTIONS.find(({ pattern }) => pattern.test(relativePath));
   if (!exemption) return source;
   if (exemption.scope === "whole-file") return "";

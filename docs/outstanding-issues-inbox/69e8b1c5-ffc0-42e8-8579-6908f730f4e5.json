@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "69e8b1c5-ffc0-42e8-8579-6908f730f4e5",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "dc1eb1e9-2315-43ba-af6b-9169704e8f51",
+    "reason": "Superseded on the same branch by a single consolidated #100 update. Its detail carried a wrong provider-backed claim about the danger-level governance suppression proof (raised in review on PR #2545), and records are immutable, so the correct resolution is one self-contained replacement rather than a delta layered on a record that is itself wrong."
+  }
+}

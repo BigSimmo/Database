@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "2c2960c2-11d0-4825-aebf-cada162843db",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "39f2278e-ced4-4c70-8b41-c3c163564817",
+    "reason": "Replaced by a self-contained consolidated update in the same push. This record was written as a delta referencing the superseded dc1eb1e9 record; with that one cancelled the reference would dangle, and an update's detail replaces the field wholesale rather than appending to it."
+  }
+}
