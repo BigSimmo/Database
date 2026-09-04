@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarDays,
-  Check,
   CheckCircle2,
   ChevronDown,
   CircleAlert,
@@ -27,7 +26,9 @@ import {
 import { useMemo, useState } from "react";
 
 import { eligibility } from "@/components/ward-management/ward-eligibility";
+import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 import {
+  BED_RELEASE_BLOCKED_FIGURE_LABEL,
   buildActionInbox,
   candidateReason,
   changeAudit,
@@ -40,7 +41,9 @@ import {
   movementTimeline,
   roleLabels,
   roleTaskLabel,
+  MINIMUM_EFFECTIVENESS_SAMPLE,
   stageSummaries,
+  transportLeg,
   unitCapacity,
   type ChangeAuditEntry,
   type EffectivenessMeasure,
@@ -52,10 +55,10 @@ import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
-import { formatInstant } from "@/components/ward-management/ward-clock";
+import { formatInstant, formatInstantWithDay } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
-import { siteByCode } from "@/components/ward-management/ward-sites";
+import { DEMONSTRATION_DAY_LABEL, JURISDICTION_LABEL, siteByCode } from "@/components/ward-management/ward-sites";
 import { WARD_NAV } from "@/components/ward-management/ward-nav";
 
 import styles from "./ward-management-modes.module.css";
@@ -63,7 +66,7 @@ import styles from "./ward-management-modes.module.css";
 const roleFocusCopy: Record<WardRole, { title: string; detail: string }> = {
   flow: {
     title: "Statewide coordination focus",
-    detail: "Review matches, cross-catchment escalation, holds and owned exceptions.",
+    detail: "Review matches, cross-catchment escalation, pulls and owned exceptions.",
   },
   ed: {
     title: "ED readiness focus",
@@ -71,7 +74,7 @@ const roleFocusCopy: Record<WardRole, { title: string; detail: string }> = {
   },
   ward: {
     title: "Ward capacity focus",
-    detail: "Prioritise capacity freshness, suitability response, acceptance and time-limited holds.",
+    detail: "Prioritise capacity freshness, suitability response, acceptance and time-limited pulls.",
   },
 };
 
@@ -93,8 +96,14 @@ const modeCopy: Record<WardMode, { title: string; description: string }> = {
 const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
   urgency: "Urgency change",
   legal_status: "Legal status change",
-  hold_released: "Hold released",
+  pull_released: "Pull released",
   transport_cancelled: "Transport cancelled",
+  // Task 5 (ward-flow movement step-track plan, 2026-09-04). Kept as generic as the `detail`
+  // field `changeAudit` currently produces for these two (`ward-derivations.ts`) — a
+  // per-reason label needs `STEP_BACK_REASONS` to gain a `changeReasonLabels` entry first, which
+  // is outside this build's scope. Widen both together, not this one alone.
+  stage_corrected: "Stage corrected",
+  acceptance_withdrawn: "Acceptance withdrawn",
 };
 
 /** Same role-ordering rule as the command console: human urgency order stays, role just re-sorts by owner. */
@@ -117,7 +126,7 @@ function inboxAction(item: InboxItem) {
   if (item.id.startsWith("legal-")) return "Escalate legal timing";
   if (item.id.startsWith("declines-")) return "Expand destination search";
   if (item.id.startsWith("transport-")) return "Follow up transport provider";
-  if (item.id.startsWith("bed-hold-")) return "Reconfirm or release bed hold";
+  if (item.id.startsWith("bed-pull-")) return "Reconfirm or release bed pull";
   return "Review movement";
 }
 
@@ -167,7 +176,13 @@ function ModeHeader({
       <div className={styles.headerMeta}>
         <span className={styles.prototypeBadge}>Synthetic prototype</span>
         <span>Updated {formatInstant(now)}</span>
-        <span>15 Aug 2026 · WA</span>
+        {/* The day and jurisdiction are authored once in ward-sites.ts. This was the literal
+            "15 Aug 2026 · WA" until 2026-08-30 — a frozen date beside a live clock, on every
+            screen with a header, reading as though the system knew today's date. It is worded
+            as the day the scenario is SET ON because that is what it is. */}
+        <span>
+          Scenario set on {DEMONSTRATION_DAY_LABEL} · {JURISDICTION_LABEL}
+        </span>
       </div>
     </header>
   );
@@ -184,7 +199,6 @@ function DecisionPanel({
   selectedId: string | undefined;
   onSelectId: (id: string) => void;
 }) {
-  const [confirmed, setConfirmed] = useState(false);
   const { units, now } = useWardFlow();
   const candidates = useMemo(() => eligibleCandidatesAmong(patient, units, now, 3), [patient, units, now]);
   // Never fall back to candidates[0] when the id in play isn't one of this movement's own
@@ -193,8 +207,21 @@ function DecisionPanel({
   // Whole-branch review Critical 1: resolved from the live `units`, not `unitById`.
   const offShortlistUnit = !selected && selectedId ? units.find((unit) => unit.id === selectedId) : undefined;
   const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, now) : undefined;
-  const recordedDestination = destinationUnit(patient, units);
-  const isSuggested = selected !== undefined && selected.unit.id !== recordedDestination?.id;
+  /*
+   * ⚠️ NOT ACCEPTED-ONLY HERE, AND THAT IS THE OPPOSITE OF THE OTHER SITES — this asks whether the
+   * selected ward is something a PERSON RECORDED or something the shortlist COMPUTED, and a
+   * referral is recorded. Narrowing to `acceptedUnitId` would label every referred ward
+   * "Suggested destination", which is the fabrication the badge exists to prevent.
+   *
+   * ⚠️ THE DEFECT IS THE `[0]`, NOT THE FALLBACK. `destinationUnit` is
+   * `acceptedUnitId ?? referredUnitIds[0]`, so it recognises only the FIRST referred ward. On a
+   * movement referred to two wards in parallel, selecting the SECOND one compared unequal and the
+   * panel announced a real, recorded referral as the system's own suggestion. Membership is the
+   * question being asked, so membership is what is tested.
+   */
+  const isRecordedDestination = (unitId: string) =>
+    unitId === patient.acceptedUnitId || patient.referredUnitIds.includes(unitId);
+  const isSuggested = selected !== undefined && !isRecordedDestination(selected.unit.id);
 
   return (
     <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label={`AI best-fit review for ${patient.id}`}>
@@ -239,7 +266,6 @@ function DecisionPanel({
             key={candidate.unit.id}
             onClick={() => {
               onSelectId(candidate.unit.id);
-              setConfirmed(false);
             }}
             aria-pressed={selected?.unit.id === candidate.unit.id}
             className={selected?.unit.id === candidate.unit.id ? styles.candidateRowSelected : styles.candidateRow}
@@ -286,11 +312,45 @@ function DecisionPanel({
       ) : null}
 
       <div className={styles.buttonRow}>
-        <button type="button" onClick={() => setConfirmed(true)} className={styles.primaryButton} disabled={!selected}>
-          {confirmed ? <Check aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
-          {confirmed ? "Match confirmed" : roleTaskLabel[role]}
+        {/*
+         * ⚠️ THIS BUTTON USED TO SAY "Match confirmed" AND RECORD NOTHING - the same defect as the
+         * confirm control in `ward-management-console.tsx`, and found in the same triage. It flipped a
+         * local flag and relabelled itself; nothing was dispatched. See that file's comment for why the
+         * placeholder contract is used here rather than native `disabled`.
+         *
+         * ⚠️ **THE REASON IS "NOT WIRED HERE", NOT "NOT BUILT" — and for two of the three roles the
+         * second is false.** `roleTaskLabel.ward` ("Accept and pull bed") is `ACCEPT_IN_PRINCIPLE`
+         * and `PULL_PATIENT`, both live and dispatched on `ward/ward-screen.tsx`;
+         * `roleTaskLabel.ed` ("Confirm ED readiness") is `HANDOVER_READY`, live and dispatched on
+         * `ed/ed-screen.tsx`. Only `roleTaskLabel.flow` ("Review & confirm") has no event behind it
+         * anywhere — `EVENT_ROLE` carries no confirm event a coordinator may raise. What is missing
+         * on THIS screen is the wiring, not the capability.
+         *
+         * The `title` and the `sr-only` note below must keep saying the same thing: two sentences
+         * about one control that disagree are worse than either alone, and the `sr-only` note was
+         * already the more accurate of the two.
+         */}
+        <button
+          type="button"
+          aria-disabled="true"
+          aria-describedby="ward-modes-confirm-unavailable"
+          title="Confirming a match is not wired into this view — coming soon."
+          className={styles.primaryButton}
+          onClick={ignoreUnavailableActivation}
+        >
+          <ShieldCheck aria-hidden="true" />
+          {roleTaskLabel[role]}
         </button>
-        <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
+        <span id="ward-modes-confirm-unavailable" className="sr-only">
+          Confirming a match is not wired into this view. Nothing is recorded when this control is activated.
+        </span>
+        {/*
+         * Merge resolution 2026-09-01: BOTH sides were wanted and neither was a mistake. Ward Lead
+         * added the screen-reader note when the confirm button became an honest placeholder; Ward
+         * Builder repointed this link from /patients/ to /movements/ because the page renders a
+         * MOVEMENT and the address said patient. Taking one would have silently discarded the other.
+         */}
+        <Link className={styles.secondaryButton} href={`/mockups/ward-flow/movements/${patient.id}`}>
           Full record <ArrowRight aria-hidden="true" />
         </Link>
       </div>
@@ -365,6 +425,13 @@ function QueueView({ role }: { role: WardRole }) {
         <DecisionPanel
           patient={selected}
           role={role}
+          // ⚠️ `destinationUnit` IS CORRECT HERE AND MUST NOT BE NARROWED. This picks which
+          // candidate is PRESELECTED; it asserts nothing. **A fallback is only a lie where
+          // something reads it as a statement** — and nothing on this panel says the
+          // preselected ward is the destination. Accepted, then first referred, then first
+          // candidate is the right precedence for a default. The sibling call twenty lines
+          // above WAS a claim and was changed; this one was not, and a sweep replacing every
+          // call site would have broken it.
           selectedId={destinationUnit(selected, units)?.id ?? eligibleCandidatesAmong(selected, units, now)[0]?.unit.id}
           onSelectId={() => undefined}
         />
@@ -387,7 +454,7 @@ function CapacityView() {
   // (`tests/ward-capacity-reconciliation.test.ts` asserts that identity). Its own raw `potential`
   // field is no longer rendered here (defect fix, visual pass): it counted every bed release for
   // the unit regardless of state or timing, which duplicated and contradicted the headline's own
-  // careful `confirmedToday`/`predictedToday` split. The row now sources Confirmed/Predicted from
+  // careful `confirmedToday`/`expectedToday` split. The row now sources Confirmed/Expected from
   // the same per-unit `breakdown` the headline already computes below, rather than calling
   // `unitCapacity` a second time for a figure it does not distinguish. See `unitCapacity`'s own
   // `potential` field doc comment in ward-derivations.ts for why the field itself is untouched.
@@ -398,13 +465,14 @@ function CapacityView() {
   // — and only those five are ever shown as a card. `availableNow` is never added to anything:
   // that is the one rule this whole task exists to protect (see the file-level rule in
   // ward-bed-availability.ts). The per-unit `breakdown` computed here also feeds the per-unit
-  // row's Confirmed/Predicted chips below, so both places read the same figures.
+  // row's Confirmed/Expected chips below, so both places read the same figures.
   const breakdowns = units.map((unit) => ({ unit, breakdown: capacityBreakdown(unit, bedReleases, leaveBeds, now) }));
   const breakdownByUnitId = new Map(breakdowns.map((entry) => [entry.unit.id, entry.breakdown]));
   const headline = {
     availableNow: breakdowns.reduce((sum, entry) => sum + entry.breakdown.availableNow, 0),
     confirmedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.confirmedToday, 0),
-    predictedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.predictedToday, 0),
+    expectedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.expectedToday, 0),
+    blockedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.blockedToday, 0),
     held: breakdowns.reduce((sum, entry) => sum + entry.breakdown.held, 0),
     leaveUsable: breakdowns.reduce((sum, entry) => sum + entry.breakdown.leaveUsable, 0),
   };
@@ -425,11 +493,12 @@ function CapacityView() {
       href: dischargeHref,
     },
     {
-      key: "predicted-today",
-      label: "Predicted today",
-      value: headline.predictedToday,
+      key: "expected-today",
+      label: "Expected today",
+      value: headline.expectedToday,
       href: dischargeHref,
     },
+    { key: "blocked-releases", label: BED_RELEASE_BLOCKED_FIGURE_LABEL, value: headline.blockedToday },
     { key: "held", label: "Held", value: headline.held },
     { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
   ];
@@ -440,7 +509,7 @@ function CapacityView() {
         <div>
           <h2>Ward-confirmed capacity</h2>
           <p>
-            Availability is not suitability. Available now is never softened by a predicted, confirmed-but-unreleased or
+            Availability is not suitability. Available now is never softened by a expected, confirmed-but-unreleased or
             on-leave bed.
           </p>
         </div>
@@ -477,8 +546,8 @@ function CapacityView() {
       </div>
       {excludedBeyondToday > 0 && (
         <p className={styles.excludedNotice} data-testid="ward-capacity-excluded-beyond-today">
-          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected after tonight (22:00) — excluded
-          from every figure above, counted here rather than silently dropped.
+          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected beyond tomorrow — excluded from
+          every figure above, counted here rather than silently dropped.
         </p>
       )}
       <table className={styles.dataTable}>
@@ -520,7 +589,7 @@ function CapacityView() {
                       <strong>{breakdown?.confirmedToday ?? 0}</strong>Confirmed
                     </span>
                     <span>
-                      <strong>{breakdown?.predictedToday ?? 0}</strong>Predicted
+                      <strong>{breakdown?.expectedToday ?? 0}</strong>Expected
                     </span>
                     <span>
                       <strong>{capacity.blocked}</strong>Blocked
@@ -611,7 +680,7 @@ function MovementsView() {
               .map((patient) => (
                 <Link
                   className={styles.movementCard}
-                  href={`/mockups/ward-flow/patients/${patient.id}`}
+                  href={`/mockups/ward-flow/movements/${patient.id}`}
                   key={patient.id}
                 >
                   <span className={styles.rowTop}>
@@ -666,7 +735,7 @@ function ExceptionsView() {
                 <span className={toneClass(item.tone)}>{item.detail}</span>
                 <small>{item.owner}</small>
               </div>
-              <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${item.movementId}`}>
+              <Link className={styles.secondaryButton} href={`/mockups/ward-flow/movements/${item.movementId}`}>
                 Open <ArrowRight aria-hidden="true" />
               </Link>
             </article>
@@ -694,9 +763,44 @@ function ExceptionsView() {
   );
 }
 
+/**
+ * The tone for a transport row's status word.
+ *
+ * ⚠️ **A CANCELLED JOURNEY MUST NOT RENDER GREEN, WHICH IS WHAT IT DID.** `statusGood` was the
+ * fallback for everything that was not `stalled`, and `stalled` only fires on an accepted job that
+ * has not left — so a cancelled job took the green branch and told the coordinator it was fine.
+ * Cancellation is the one leg that means the journey is not happening, so it takes `statusDanger`.
+ *
+ * Reads the leg through `transportLeg` rather than the raw stamps, so this can never disagree with
+ * the word printed beside it about what state the job is in.
+ */
+function legStatusClass(transport: Movement["transport"], stalled: boolean): string {
+  if (transportLeg(transport) === "Cancelled") return styles.statusDanger;
+  return stalled ? styles.statusWarning : styles.statusGood;
+}
+
 function TransportView() {
   const { movements } = useWardFlow();
-  const transportPatients = movements.filter((patient) => patient.stage !== "arrived" && patient.transport).slice(0, 8);
+  /*
+   * ⚠️ `isOpen`, NOT `stage !== "arrived"` — owner ruling relayed 2026-09-04. A transport job on a
+   * CLOSED movement has nothing anyone can act on, and it sat here accruing elapsed time forever.
+   * `stage !== "arrived"` excludes only the arrival closure; a movement closed as `did_not_proceed`
+   * keeps whatever stage it stopped at, so it stayed on this board indefinitely.
+   *
+   * ⚠️ `isOpen` HERE IS CLOSURE **AND** NOT-ARRIVED, AND THE OFFICER SCREEN DELIBERATELY DIFFERS.
+   * `officer/officer-screen.tsx` filters on `transport.arrivedAt === undefined` plus closure, and
+   * does NOT exclude by stage. The two screens agree on CLOSURE - a job on a closed movement is
+   * actionable by nobody - and differ on STAGE because they answer different questions: this board
+   * asks "what is in flight", the officer's phone asks "what have I not yet delivered". That
+   * asymmetry is a ruling, not drift; do not align them.
+   *
+   * ⚠️ A CANCELLED JOB ON AN OPEN MOVEMENT STAYS, DELIBERATELY. The ruling was explicit: a cancelled
+   * journey nobody has re-arranged is precisely what this board is for, and hiding it would make the
+   * cancellation invisible — worse than showing it. What was wrong was the LABEL (a hand-rolled copy
+   * missing its cancelled branch) and the TONE (green), both fixed above. Do not add a cancellation
+   * filter here; that would re-hide what the label now states.
+   */
+  const transportPatients = movements.filter((patient) => isOpen(patient) && patient.transport).slice(0, 8);
   return (
     <div className={styles.pageGrid} data-testid="ward-transport-view">
       <section className={styles.panel}>
@@ -723,19 +827,30 @@ function TransportView() {
                   </small>
                 </div>
                 <div>
-                  <span className={stalled ? styles.statusWarning : styles.statusGood}>
+                  {/*
+                   * ⚠️ `transportLeg`, NOT A LOCAL TERNARY. What stood here was a hand-rolled copy of
+                   * the shared precedence with its top TWO branches missing: no `cancelledAt` and no
+                   * `collectedAt`. Both shared helpers in `ward-derivations.ts` test `cancelledAt`
+                   * FIRST, precisely because a cancellation overrides every other stamp — so a
+                   * cancelled job still carrying `acceptedAt` read here as "Accepted, awaiting
+                   * departure", in `statusGood` green, on the board a coordinator uses to see who is
+                   * moving. The row filter is `stage !== "arrived" && patient.transport`, which does
+                   * not exclude a cancelled job or a closed movement, so nothing else caught it.
+                   *
+                   * `transportLeg` returns the leg ALONE — `transportStatusLabel` would have been
+                   * wrong here, because two of its seven outputs embed the provider name and this row
+                   * already prints the provider itself, which would have read "St John: St John
+                   * requested".
+                   */}
+                  <span className={legStatusClass(patient.transport, stalled)}>
                     {patient.transport ? `${patient.transport.provider}: ` : ""}
-                    {patient.transport?.enRouteAt !== undefined
-                      ? "En route"
-                      : patient.transport?.acceptedAt !== undefined
-                        ? "Accepted, awaiting departure"
-                        : "Requested"}
+                    {transportLeg(patient.transport) ?? "Not yet requested"}
                   </span>
                   <small>
                     {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
                   </small>
                 </div>
-                <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
+                <Link className={styles.secondaryButton} href={`/mockups/ward-flow/movements/${patient.id}`}>
                   Review <ArrowRight aria-hidden="true" />
                 </Link>
               </article>
@@ -796,6 +911,17 @@ export function NotAMedicalDeviceStatement() {
  * measure computed from a thin sample must say so in the same breath as the figure, not in a
  * tooltip or a footnote — a median of one, rendered bare, is a guess wearing the clothes of a
  * measurement, and this board's rule is to say nothing rather than guess.
+ *
+ * ⚠️ **THE TWO `data-testid`s BELOW EXIST SO A TEST CAN ASSERT THE FIGURE RATHER THAN THE LINE, AND
+ * THEY ARE DELIBERATELY NOT UNIQUE ON THE PAGE.** Both governance measures render through this one
+ * component, so each testid appears once per measure. The wrapper `<div>` around each `<dt>`/`<dd>`
+ * pair already carries a unique testid (`…-acceptance`, `…-units-contacted`), and that wrapper is
+ * the scope a test must query inside. It matters because the basis line ("from 32 of 50 movements")
+ * always contains digits: a check made against the wrapper's `textContent` is satisfied by the
+ * basis alone and cannot see a `NaN` where the published figure should be — reproduced 2026-09-01,
+ * and the reason these two hooks were added. Do not "fix" the duplication by making the ids unique
+ * per measure; scope with `within(wrapper)` instead. A bare `getByTestId` across the whole screen
+ * throws on the two matches, which fails loudly rather than silently picking one.
  */
 function EffectivenessValue({
   measure,
@@ -811,10 +937,33 @@ function EffectivenessValue({
       from {measure.sampleSize} of {measure.population} {basisNoun}
     </span>
   );
-  if (measure.value === undefined) {
+  /*
+   * ⚠️ THE FLOOR (owner ruling, 2026-08-30). Below `MINIMUM_EFFECTIVENESS_SAMPLE` the figure is not
+   * published at all. The board was rendering "30 min — from 1 of 27 recorded acceptances", and the
+   * argument he approved is that **the word "Median" means "a typical case" to a clinician, and no
+   * caveat printed beside it undoes that** — on the one page whose entire purpose is being trusted
+   * about its own limits.
+   *
+   * ⚠️ **THIS ADDS A FLOOR BENEATH THE DISCLOSURE RULE ABOVE, IT DOES NOT REPLACE IT**, and that
+   * distinction was nearly lost. This comment's own tail clause — "say nothing rather than guess" —
+   * was read by one session as meaning suppress, and a question framed as "your code disagrees with
+   * its own rule, shall I fix it?" would have got a yes from anybody and deleted a repair somebody
+   * deliberately made. The clause attaches to a median RENDERED BARE. So `basis` still renders
+   * beneath the suppression: the screen says "from 1 of 27" beside "Not enough data to compute",
+   * which is what makes the absence informative rather than merely blank.
+   *
+   * It is decided HERE and not in `effectivenessNumbers`, deliberately. Suppressing in the
+   * derivation gutted five unit tests that exist to prove the median arithmetic and the
+   * `acceptedAt`-over-fallback preference — they feed it two and three movements on purpose. A
+   * publishing rule enforced inside the calculation stops the calculation being testable at the
+   * sizes it is interesting at. The derivation computes; this decides what a reader is shown.
+   */
+  if (measure.value === undefined || measure.sampleSize < MINIMUM_EFFECTIVENESS_SAMPLE) {
     return (
       <span className={styles.effectivenessLine}>
-        <span className={styles.effectivenessUnknown}>Not enough data to compute</span>
+        <span className={styles.effectivenessUnknown} data-testid="ward-governance-effectiveness-suppressed">
+          Not enough data to compute
+        </span>
         {basis}
       </span>
     );
@@ -822,7 +971,7 @@ function EffectivenessValue({
   const rounded = Math.round(measure.value * 10) / 10;
   return (
     <span className={styles.effectivenessLine}>
-      <span className={styles.effectivenessValue}>
+      <span className={styles.effectivenessValue} data-testid="ward-governance-effectiveness-figure">
         {rounded}
         <small> {unit}</small>
       </span>
@@ -832,7 +981,9 @@ function EffectivenessValue({
 }
 
 function GovernanceView() {
-  const { movements } = useWardFlow();
+  // `now` is read so the audit timeline can say WHICH DAY an entry falls on. A bare clock face on a
+  // history list silently asserts today, and an audit trail is the one surface where that is worst.
+  const { movements, now } = useWardFlow();
   const sources = [
     ["WA Health System Flow Centre", "https://www.health.wa.gov.au/Improving-WA-Health/System-Flow-Centre"],
     [
@@ -883,7 +1034,20 @@ function GovernanceView() {
         <article className={styles.governanceCard}>
           <Scale aria-hidden="true" />
           <h2>Contestable outcome</h2>
-          <p>Users can select an alternative, record an override reason and see which gate changed the ordering.</p>
+          {/* This card said "record an override reason" as present fact until 2026-08-30. It was
+           * false: `shortlist-panel.tsx` collects the reason, renders it back to the coordinator who
+           * typed it, and holds it in `useState` — no ward-flow event carries it, so it never
+           * reaches the log, the overridden service never sees it, and it dies on navigation. The
+           * sentence rendered there has the exact FORM of an audit entry (actor, targets, time,
+           * reason, assurance) while holding the only copy, which is why nobody caught it by
+           * reading the screen. Reworded to match the "Immutable ownership" card below, which
+           * already says "the production concept requires" rather than claiming the thing exists.
+           * On a governance screen, under a heading reading "Contestable outcome", contestability
+           * is precisely what a reviewing health service would test first. */}
+          <p>
+            Users can select an alternative and see which gate changed the ordering. The production concept requires the
+            override reason to be recorded and shown to the service that was overridden.
+          </p>
         </article>
         <article className={styles.governanceCard}>
           <Fingerprint aria-hidden="true" />
@@ -920,7 +1084,7 @@ function GovernanceView() {
                 ) : (
                   <CalendarDays aria-hidden="true" />
                 )}{" "}
-                {formatInstant(event.at)} · {event.label}
+                {formatInstantWithDay(event.at, now)} · {event.label}
               </li>
             ))}
           </ol>
@@ -949,26 +1113,26 @@ function GovernanceView() {
           <header className={styles.panelHeader}>
             <div>
               <h2>Change audit</h2>
-              <p>Every urgency change, legal status change, hold release and transport cancellation, newest first</p>
+              <p>Every urgency change, legal status change, pull release and transport cancellation, newest first</p>
             </div>
           </header>
           {audit.length > 0 ? (
             <ol className={styles.auditList}>
               {audit.map((entry, index) => (
                 <li key={`${entry.movementId}-${entry.kind}-${entry.at}-${index}`}>
-                  {entry.kind === "hold_released" || entry.kind === "transport_cancelled" ? (
+                  {entry.kind === "pull_released" || entry.kind === "transport_cancelled" ? (
                     <History aria-hidden="true" />
                   ) : (
                     <Clock3 aria-hidden="true" />
                   )}{" "}
-                  {formatInstant(entry.at)} · {entry.movementId} · {auditKindLabels[entry.kind]} · {entry.detail} · by{" "}
-                  {entry.by}
+                  {formatInstantWithDay(entry.at, now)} · {entry.movementId} · {auditKindLabels[entry.kind]} ·{" "}
+                  {entry.detail} · by {entry.by}
                 </li>
               ))}
             </ol>
           ) : (
             <p className={styles.emptyNote} data-testid="ward-governance-change-audit-empty">
-              None — no urgency change, legal status change, hold release or transport cancellation has been recorded
+              None — no urgency change, legal status change, pull release or transport cancellation has been recorded
               yet.
             </p>
           )}
@@ -1031,6 +1195,25 @@ function RoleFocus({ role }: { role: WardRole }) {
   );
 }
 
+/**
+ * ⚠️ **`governance` IS NAMED, AND THE TAIL IS A `never` CHECK. IT USED TO BE NEITHER.**
+ *
+ * This chain checked six of the seven modes by name and reached `governance` by falling off the
+ * end. **A ninth mode added to `WardMode` would have silently rendered the governance screen** — no
+ * compile error, no runtime error, and a user looking at the wrong page with nothing to tell them.
+ *
+ * 🔴 THE FINDING WAS NOT THE FALLTHROUGH. It was that this same file enforces totality TWICE
+ * elsewhere: `modeCopy` and `WARD_VIEW_ICONS` are total `Record`s over the same union and break at
+ * compile time when a member is added. **So the one construct that failed soft was the screen
+ * router — the only one whose failure a user actually sees** — and an author reading this file sees
+ * exhaustiveness enforced twice and reasonably assumes the third is too.
+ *
+ * Found by a switch-ladder sweep across 62 ladders in 32 files. ⚠️ **Its own stated limit is worth
+ * carrying: its member-name search list was hand-picked, so a chain over a union whose member names
+ * it did not guess is invisible to it — and this is an if-chain, not a `switch`, found by accident
+ * rather than by method.** The `never` tail below is what makes the next one a compile error
+ * instead of a sweep's lucky day.
+ */
 function ModeBody({ mode, role }: { mode: Exclude<WardMode, "command">; role: WardRole }) {
   if (mode === "network") return <WardNetworkWorkspace />;
   if (mode === "queue") return <QueueView role={role} />;
@@ -1038,7 +1221,19 @@ function ModeBody({ mode, role }: { mode: Exclude<WardMode, "command">; role: Wa
   if (mode === "movements") return <MovementsView />;
   if (mode === "exceptions") return <ExceptionsView />;
   if (mode === "transport") return <TransportView />;
-  return <GovernanceView />;
+  if (mode === "governance") return <GovernanceView />;
+  return assertEveryModeIsRouted(mode);
+}
+
+/**
+ * The tail of `ModeBody`. A new `WardMode` member reaches here, fails to be assignable to `never`,
+ * and breaks the build — which is the entire point. The runtime return exists only because this
+ * function has to return something if the union is ever widened by a cast rather than by an edit;
+ * it renders nothing rather than guessing a screen, because guessing a screen is the defect.
+ */
+function assertEveryModeIsRouted(mode: never): null {
+  void mode;
+  return null;
 }
 
 export function WardModeWorkspace({ mode }: { mode: Exclude<WardMode, "command"> }) {

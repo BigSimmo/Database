@@ -1,0 +1,203 @@
+/* src/components/ward-management/ward-tokens.module.css
+ *
+ * The single declaration of Ward Flow's token layer. It was previously declared three times —
+ * `.patientWorkspace` and a second block (`.clinicalRail`) in ward-management.module.css, and
+ * `.modeShell` in ward-management-modes.module.css — which is how two of them drifted apart:
+ * `.modeShell` disagreed with the other two on `--ward-leading-compact` (1 vs 1.1),
+ * `--ward-leading-tight` (1.2 vs 1.15) and `--ward-leading-prose` (1.5 vs 1.55). This file adopts
+ * the `.patientWorkspace`/`.clinicalRail` values, which agreed with each other everywhere they
+ * overlapped.
+ *
+ * ⚠️ EVERY VALUE RESOLVES THROUGH A PsychSift TOKEN. Ward Flow is a scoped layer over the app's
+ * v2 palette, not a second palette. A raw hex here is the start of a fork.
+ */
+.wardTokens {
+  --ward-blue: var(--clinical-accent);
+  --ward-blue-soft: var(--clinical-accent-soft);
+  --ward-blue-border: var(--clinical-accent-border);
+
+  /* Surfaces. `--ward-ground` is the one genuinely new role the Board direction needs: panels
+   * sit ON something rather than being white on white, and that separation is what makes each
+   * panel read as a discrete instrument. */
+  --ward-ground: var(--surface-inset);
+  --ward-canvas: var(--surface);
+  --ward-chrome: var(--surface-chrome);
+  --ward-subtle: var(--surface-subtle);
+
+  /* Two border weights, deliberately. A panel edge is a real boundary and takes the darker
+   * value this line already adopted for accessibility. A rule INSIDE a panel should be barely
+   * there; one token doing both jobs was the original defect. */
+  --ward-border: var(--neutral-500);
+  --ward-border-strong: var(--text-muted);
+
+  /* ⚠️ WAS var(--border), WHICH IS NOT A FAINT LINE — IT IS NO LINE. Measured 2026-09-04 against
+   * every surface it sits on: 1.11:1 on the ground, 1.20:1 on canvas and chrome, 1.17:1 on subtle.
+   * `--border` is the same token that was replaced across 27 ward stylesheets on 2026-09-03 for
+   * being invisible, and it came straight back in as the divider hours later.
+   *
+   * `--neutral-400` was the first repair and it was only half of one: 2.40 / 2.58 / 2.58 / 2.51 in
+   * LIGHT, but 2.00 / 1.85 / 1.92 / 1.65 in DARK — below the 2:1 floor the repair itself argued
+   * for, on three of four surfaces. ⚠️ THE GUARD DID NOT CATCH THAT BECAUSE IT USED `.exec()`,
+   * WHICH RETURNS THE FIRST MATCH — the light declaration. It measured one theme and certified a
+   * value that failed its own rule in the other.
+   *
+   * ⚠️ SO THE TWO-WEIGHT DISTINCTION IS ABANDONED, DELIBERATELY, AND THIS RECORDS WHAT THAT COSTS.
+   * The dark ramp has nothing between `--neutral-400`, which is invisible there, and
+   * `--neutral-500`, which is `--ward-border`: 1.65–2.00 against 4.33–5.23, with no step between.
+   * A rule a reader cannot see is worse than a rule that matches the panel edge, so visibility
+   * wins and the divider becomes the border weight in BOTH themes rather than being right in one.
+   *
+   * What survives is the distinction that actually holds: `--ward-border` against
+   * `--ward-border-strong`. If a lighter rule is ever wanted again, it needs a new ramp value
+   * designed for the dark surfaces — not another position on this one. */
+  --ward-divider: var(--neutral-500);
+
+  --ward-text: var(--text);
+  --ward-heading: var(--text-heading);
+  --ward-muted: var(--text-muted);
+
+  --ward-success: var(--success-text);
+  --ward-success-soft: var(--success-bg);
+  --ward-warning: var(--warning-text);
+  --ward-warning-soft: var(--warning-bg);
+  --ward-danger: var(--danger-text);
+  --ward-danger-soft: var(--danger-bg);
+
+  --ward-space-1: 0.0625rem;
+  --ward-space-2: 0.125rem;
+  --ward-space-3: 0.1875rem;
+  --ward-space-4: 0.25rem;
+  --ward-space-5: 0.3125rem;
+  --ward-space-6: 0.375rem;
+  --ward-space-7: 0.4375rem;
+  --ward-space-8: 0.5rem;
+  --ward-space-10: 0.625rem;
+  --ward-space-12: 0.75rem;
+  --ward-space-14: 0.875rem;
+  --ward-space-16: 1rem;
+  --ward-space-20: 1.25rem;
+  --ward-space-24: 1.5rem;
+  --ward-space-32: 2rem;
+
+  /* The production tap target, 3rem / 48px. NOT a member of the space scale above — it is a
+   * minimum a control must reach, not a gap you may choose, and naming it `--ward-space-48` (as
+   * five screens did) invited exactly that misuse.
+   *
+   * ⚠️ Never `min-h-11` / 2.75rem. That value reintroduced a known `ui-smoke` flake elsewhere in
+   * this repository, and generic WCAG guidance recommends it — so the pressure to "fix" this
+   * downward is real and recurring. 3rem clears both the AA minimum (2.5.8, 24px) and the AAA
+   * enhanced criterion (2.5.5, 44px).
+   *
+   * Hoisted 2026-09-04. Eight ward stylesheets aliased `var(--spacing-tap)` under eight different
+   * names — `--wb-tap`, `--cti-tap`, `--cm-tap`, `--co-space-48`, `--dc-space-48`, `--ed-space-48`,
+   * `--es-space-48`, `--ho-space-48` — which is the definition of a missing shared token. */
+  --ward-tap: var(--spacing-tap);
+
+  /* The bottom rung, added 2026-09-04. A display numeral set at 2.5rem wants no leading at all;
+     the tightest rung was 1.1, which is 4px of extra box on a hero figure — a visible change,
+     not a rounding. Added rather than snapping the figure to `compact`, because substituting a
+     near value to satisfy a token gate is how a design gets quietly altered by a lint rule. */
+  --ward-leading-none: 1;
+  --ward-leading-compact: 1.1;
+  --ward-leading-tight: 1.15;
+  --ward-leading-dense: 1.25;
+  --ward-leading-ui: 1.3;
+  --ward-leading-copy: 1.35;
+  --ward-leading-body: 1.4;
+  --ward-leading-relaxed: 1.45;
+  --ward-leading-prose: 1.55;
+
+  --ward-z-base: 1;
+  --ward-z-raised: 2;
+  --ward-z-sticky: 3;
+
+  /* Two phone-layer tokens, not one. `.phoneBar` (ward-sidebar.module.css) is `position: fixed`
+   * at the top of the viewport and must sit ABOVE the sticky sub-headers that tuck underneath it
+   * as the page scrolls (`.workspaceHeader` in ward-management.module.css, `.modeHeader` in
+   * ward-management-modes.module.css). Collapsing these to one shared z-index would make all
+   * three layers equal, and paint order would then decide — the sticky header, later in the DOM,
+   * could cover the fixed bar it is supposed to sit beneath. Keep `-bar` above `-header`. */
+  --ward-z-phone-header: 20;
+  --ward-z-phone-bar: 30;
+
+  --ward-radius-pixel: 0.0625rem;
+}
+
+/*
+ * 🔴 THE PRINT RESET BELONGS HERE, AND TEN COMMITS ACROSS FOUR BRANCHES PUT IT SOMEWHERE ELSE.
+ *
+ * Printing a ward screen from dark mode put near-white text on white paper. The dark ramp is scoped
+ * by the CLASS `.ckb-v2.dark.ckb-v2`, not a media query, so `color-scheme: light` cannot make it
+ * re-resolve; and `globals.css` resets print colour on `html, body`, which cannot reach an element
+ * that declares `color` on itself. It was patched screen by screen, on disjoint files, which is
+ * exactly why nothing ever conflicted and every session believed it had fixed "the" defect.
+ *
+ * ⚠️ AND THE COMMENT THAT STOPPED ANYBODY LOOKING FOR A CENTRAL FIX WAS ENTIRELY CORRECT. Several
+ * files record: "not fixable centrally at `.shell` — a colour set on an ANCESTOR cannot beat
+ * `.screen`'s own declaration." True, every word, and it is about an ancestor. **`composes` is not
+ * an ancestor.** The compiled root carries BOTH class names, so a rule written here lands on the
+ * very element that declares the colour — the one position from which it can win. A correct comment
+ * closed a question it had no business closing, for the third time in one night.
+ *
+ * PROVED IN CHROMIUM 151, this rule alone, on a screen file with no print block of its own:
+ *
+ *     root's own text   rgb(0, 0, 0)        the element that DECLARES the colour
+ *     deep .table td    rgb(0, 0, 0)        the compound selector that defeats a bare wildcard
+ *     card background   rgb(255, 255, 255)
+ *     control PASSED — screen-media values were themed, so dark mode was genuinely active
+ *
+ * ⚠️ THREE THINGS THAT LOOK LIKE STYLE AND ARE NOT.
+ *   `!important`      `.screen *` is one class plus the universal selector, and the universal
+ *                     contributes ZERO — so `.table td` (0,1,1) outranks it and source order never
+ *                     enters. Without this, every plain element prints black and every table row
+ *                     stays invisible, so a spot-check confirms a fix that changed nothing where it
+ *                     mattered.
+ *   `background-color` NEVER the `background` shorthand. `board.module.css` hatches its blocked,
+ *                     held and past-date bed states with `background-image:
+ *                     repeating-linear-gradient(...)`. The shorthand wipes it and erases the pattern
+ *                     that distinguishes a blocked bed from an empty one — a state distinction.
+ *   both halves       Forcing text to CanvasText while leaving themed backgrounds alone is STRICTLY
+ *                     WORSE than doing neither: measured at rgb(0,0,0) on rgb(23,26,29). Before the
+ *                     colour reset that text was pale-on-dark — wasteful, and readable.
+ *
+ * ⚠️ WHAT THIS DOES NOT REACH: a screen that does not compose this layer.
+ *
+ * 🔴 CORRECTED. The first version of this comment named `handover`, `morning` and
+ * `ward-management-network` as the three that do not compose. TWO OF THE THREE WERE FALSE:
+ *
+ *     handover.module.css:12   composes: wardTokens from "../ward-tokens.module.css";
+ *     morning.module.css:11    composes: wardTokens from "../ward-tokens.module.css";
+ *
+ * Both were read directly from the files. Only `ward-management-network` is genuinely outside —
+ * it composes `descendantKill` from the reduced-motion layer and nothing else, and keeps its own
+ * print block at line 1026. The other three outside the layer are `morning-tour`,
+ * `override-register`, `ward-shared` and `wards/ward-overview`.
+ *
+ * ⚠️ THE FALSE SENTENCE WAS MORE DANGEROUS THAN NO SENTENCE, because it named the two screens a
+ * reader would go and patch by hand — sending somebody to add a redundant per-file reset to a file
+ * this block already covers. It was written from a list carried between sessions rather than from
+ * the files, which is the whole failure: a claim about which files do something is one grep away
+ * and was never grepped.
+ *
+ * ⚠️ AND THE GUARD CANNOT SEE `composes` EITHER, which is a live problem rather than an untidy
+ * one. `tests/ward-management-print-coverage.test.ts` asks "does THIS FILE carry a reset that
+ * wins?" — the question worth asking after this commit is "is this file's content covered by a
+ * reset that wins, from anywhere, including a composed class?". So the guard reports a composing
+ * screen as uncovered, stays green while `KNOWN_UNFIXED` lists files that are already fixed, and
+ * will report the NEXT screen that adopts this layer as broken on the day it adopts. The tempting
+ * repairs at that moment are both wrong: a redundant per-file print block, or a `KNOWN_UNFIXED`
+ * row for a file that was never broken. Teaching the guard to resolve `composes` is owed and
+ * assigned.
+ *
+ * The per-file resets on the composing screens are now belt-and-braces rather than the mechanism,
+ * and are deliberately left in place: removing thirteen files' worth of working code to prove a
+ * point is not worth the risk of proving it wrong.
+ */
+@media print {
+  .wardTokens,
+  .wardTokens * {
+    color-scheme: light;
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+}

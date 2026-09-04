@@ -1,0 +1,70 @@
+The ward page stops telling a ward where else its patient went
+
+Two live FD-23 leaks on the ward's own screen, both visible on the seeded fixture
+without dispatching anything, both confirmed in a browser and not only in jsdom.
+
+THE ONE THAT MATTERS: the withdrawal reason named the ward that won.
+
+`ward-flow-reducer.ts` writes `reason: "withdrawn — placed at <accepting unit>"`, the
+seed carries the same shape, and this page rendered `entry.reason` raw. At
+`/mockups/ward-flow/ward/fsh-adult-secure`, verbatim on screen:
+
+    Referral withdrawn once RGH Adult Secure confirmed the bed
+
+FSH was told RGH took the patient. The owner's ruling is that a ward cannot see where
+else a patient has been referred.
+
+THE LEAK WAS INSIDE THE SAFEGUARD, which is why it survived. `withdrawnReferrals`
+exists so a ward is TOLD its referral ended rather than watching `referredUnitIds` go
+quiet — its own doc comment says "a shrinking `referredUnitIds` tells nobody". That
+mechanism is what makes ward-blindness affordable at no clinical cost. The field that
+pays for the rule is the field that broke it.
+
+AND NO STRUCTURAL GUARD COULD EVER HAVE CAUGHT IT. `reason` is a permitted field of
+type `string`; every field-set allowlist in the visibility projection passes it. The
+forbidden thing was a VALUE in a legal place, so only reading values finds it. Three
+sessions reasoned about this field within an hour — one predicted this exact shape from
+the declaration, one described the permitted-field-forbidden-value class in the
+abstract — and it was still found by opening the file rather than by any check.
+
+The fix here is a CONTAINMENT and says so at the site: this page declines to render a
+string it does not own. Any other ward-facing surface rendering `reason` leaks again and
+nothing goes red. The durable fix is a structured cause on the record so a coordinator
+can say WHERE and a ward cannot — handed to Ward Core, whose file writes it.
+
+I CORRECTED MY OWN REPLACEMENT WORDING BEFORE IT SHIPPED, and it is the more useful half.
+My first draft read "the patient was placed elsewhere. This ward's bed is free." Both
+clauses were new false statements on a page whose entire job here is to stop making them.
+`ACCEPT_IN_PRINCIPLE` leaves the patient `accepted_awaiting_bed` — accepted, not moved,
+so "placed" overstates it, and the reducer's own string is wrong about that too. And this
+ward may never have held a bed; whether one is free is the capacity section's question,
+answered from bed state, not an inference from a withdrawal. It now reads "Withdrawn —
+another unit accepted this patient." Measured, not assumed: `ACCEPT_IN_PRINCIPLE` is the
+only writer of `withdrawnReferrals`, so that sentence is true of every entry that can
+exist — and true CONDITIONALLY, which the comment says, because a second withdrawal path
+would make it quietly wrong.
+
+THE SECOND LEAK, and it is deliberately recorded as UNSETTLED rather than fixed. A
+"Parallel referral" badge rendered `referredUnitIds.length > 1` — the bare fact that
+co-addressees exist, naming none. Removed, with the CSS rule deleted rather than orphaned,
+because a dead rule with an inviting name is how a removed disclosure comes back.
+
+But I first wrote the code comment stating "the count is as forbidden as the list" as the
+owner's rule. IT IS NOT. That is an implementer's reading, written one line below the
+owner's words in the same voice, and its author has since corrected me. The owner's
+ruling is only that a ward cannot see WHERE — and a badge naming nowhere does not break
+that sentence. Two readings now point opposite ways: a badge invites a ward to wait out
+the competition, so four wards could each deprioritise one patient; while the owner's own
+stated reason — "so a ward does not spend its time on a patient who is being placed
+elsewhere" — argues for telling it.
+
+So strict is here because it is REVERSIBLE, not because it is right. Adding the flag
+later is one edit; removing a disclosure wards have been reading is not. The comment and
+the test both say so, the test separates the settled assertion from the provisional one
+with its own failure message, and both list every place the owner's answer lands.
+
+Verified: the affected set discovered from disk, 20 files handed in, 20 ran, 235 passed,
+exit 0; eslint clean; prettier clean. On screen after the fix: FSH reads "Withdrawn —
+another unit accepted this patient", BTY Older Adult carries no parallel badge.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

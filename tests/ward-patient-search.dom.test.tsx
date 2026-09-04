@@ -1,3 +1,4 @@
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -18,7 +19,8 @@ import { PatientSearchPage } from "@/components/ward-management/search/patient-s
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { isOpen } from "@/components/ward-management/ward-derivations";
 import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits } from "@/components/ward-management/ward-sites";
+import { wardMovements } from "@/components/ward-management/ward-movements";
 
 /** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch, so this suite can
  * move the shared clock without reaching into the reducer directly — mirrors `ClockAdvancer` in
@@ -43,6 +45,9 @@ function renderSearch() {
 
 const { movements } = seedWardFlowState();
 const openCount = movements.filter(isOpen).length;
+/** The waiting referrals the search now also covers — see the heading assertion below for why the
+ *  heading counts these and the table does not. */
+const queuedReferrals = seedWardFlowState().referrals.filter((referral) => referralState(referral) === "queued");
 
 describe("PatientSearchPage", () => {
   it("renders the root, the three labelled fields, and the results section", () => {
@@ -53,6 +58,20 @@ describe("PatientSearchPage", () => {
     expect(screen.getByLabelText("Stage")).toBeInTheDocument();
     expect(screen.getByLabelText("Department")).toBeInTheDocument();
     expect(screen.getByTestId("ward-patient-search-results")).toBeInTheDocument();
+  });
+
+  // THE DEFECT this guards against: the page is titled "Patient search" but, before this fix, its
+  // own subtitle and placeholder described only a movement lookup ("Find an open movement by id,
+  // department, destination, stage or owner." / "Movement id, destination, owner…") even though the
+  // same box also finds a PERSON by name or record number (see the "search finds PEOPLE" suite
+  // below — that capability already worked). A working feature that describes itself as something
+  // else is indistinguishable, to a reader, from a missing one. This test pins that the on-screen
+  // copy names the person-finding half of what the box does, not just the movement half.
+  it("tells the reader the search finds a person, not only a movement", () => {
+    renderSearch();
+
+    expect(screen.getByText(/Find a person by name or record number/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", expect.stringMatching(/name/i));
   });
 
   // This page owns its own single search field, a stage select and a department select — never a
@@ -69,10 +88,25 @@ describe("PatientSearchPage", () => {
     const rows = within(screen.getByTestId("ward-patient-search-results")).getAllByRole("row");
     // One header row plus one row per open movement.
     expect(rows.length - 1).toBe(openCount);
-    expect(screen.getByRole("heading", { name: `${openCount} matches` })).toBeInTheDocument();
+
+    /*
+     * The heading counts BOTH records and the table counts one, and that is deliberate rather than
+     * an inconsistency to reconcile. As of 2026-08-30 the search covers waiting referrals as well
+     * as open movements — a person referred and not yet accepted has no movement at all, and the
+     * owner's requirement is that they show up. The table above is movement-shaped (stage,
+     * department, destination, time since arrival) and referrals have none of those, so they are
+     * listed separately; the heading is the count of everything found.
+     *
+     * Stated as a sum with both halves named rather than re-baselined to whatever the page now
+     * prints. A number copied out of a failing test is a screenshot of the current behaviour, and
+     * it agrees with a defect exactly as readily as with a fix.
+     */
+    const queuedReferralCount = queuedReferrals.length;
+    expect(queuedReferralCount, "no queued referral seeded — this assertion would prove nothing").toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: `${openCount + queuedReferralCount} matches` })).toBeInTheDocument();
   });
 
-  it("narrows to the matching movement when searching by id, and links to its patient page", () => {
+  it("narrows to the matching movement when searching by id, and links to its movement page", () => {
     renderSearch();
 
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "wf-003" } });
@@ -82,7 +116,7 @@ describe("PatientSearchPage", () => {
     expect(screen.getByRole("heading", { name: "1 match" })).toBeInTheDocument();
 
     const link = within(results).getByRole("link", { name: "Open" });
-    expect(link).toHaveAttribute("href", "/mockups/ward-flow/patients/WF-003");
+    expect(link).toHaveAttribute("href", "/mockups/ward-flow/movements/WF-003");
   });
 
   it('renders the explicit "No matches" note — never a bare empty table — for a query nothing fits', () => {
@@ -111,12 +145,12 @@ describe("PatientSearchPage", () => {
   it("narrows by the stage select alone", () => {
     renderSearch();
 
-    fireEvent.change(screen.getByLabelText("Stage"), { target: { value: "bed_held" } });
+    fireEvent.change(screen.getByLabelText("Stage"), { target: { value: "pulled" } });
 
-    // Measured (tests/ward-patient-search.test.ts): exactly seven OPEN movements are "bed_held".
+    // Measured (tests/ward-patient-search.test.ts): exactly seven OPEN movements are "pulled".
     expect(screen.getByRole("heading", { name: "7 matches" })).toBeInTheDocument();
     const results = screen.getByTestId("ward-patient-search-results");
-    expect(within(results).getAllByText("Bed held").length).toBe(7);
+    expect(within(results).getAllByText("Bed pulled").length).toBe(7);
   });
 
   it("narrows by the department select alone", () => {
@@ -139,5 +173,194 @@ describe("PatientSearchPage", () => {
     const after = screen.getByTestId("ward-patient-search-results").textContent ?? "";
 
     expect(after).not.toBe(before);
+  });
+});
+
+describe("search finds PEOPLE, including ones the movement search structurally cannot", () => {
+  /*
+   * WHY THIS IS A DIFFERENT CLAIM FROM THE TESTS ABOVE. `searchMovements` applies `isOpen` first and
+   * unconditionally, so it can only ever return somebody mid-journey. A patient who has been
+   * referred but not moved, one who has arrived on a ward, and one who has just been added and has
+   * nothing attached at all are all invisible to it.
+   *
+   * The last is the case the owner's flow turns on: "search a patient, and if nobody comes up, ADD
+   * them." You cannot know that nobody came up if the search can only see people already in transit
+   * — it would report "no match" for somebody sitting in the system, and the clinician would add a
+   * duplicate.
+   */
+  it("finds a person by record number even though they have no movement at all", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "UM100001" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(
+      within(people).getByText(/Halloway/),
+      "a seeded patient with no open movement must still be findable. If this fails, search is still " +
+        "looking at journeys rather than people, and 'if nobody comes up, add them' cannot be trusted.",
+    ).toBeInTheDocument();
+  });
+
+  // FIX 2: before this fix, `findPatients` matched `umrn` with `===`, so a bare, partial record
+  // number found nobody even though the identical partial NAME already worked two tests up. A
+  // clinician remembers the digits, not the "UM" prefix — searching just the digits must find the
+  // same person the full record number does.
+  it("finds the same person by a bare, partial record number — no 'UM' prefix, no full match", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "100001" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(within(people).getByText(/Halloway/)).toBeInTheDocument();
+  });
+
+  it("finds related spellings, not just exact ones", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "hallow" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(within(people).getByText(/Talia Halloway/)).toBeInTheDocument();
+    expect(
+      within(people).getByText(/Marcus Hallowin/),
+      "the near-miss pair is seeded for exactly this. A search that returned only the exact spelling " +
+        "would look correct on this fixture and hide the person a clinician was actually looking for.",
+    ).toBeInTheDocument();
+  });
+
+  it("says plainly that nobody is known, rather than showing an empty list", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzzznobody" } });
+
+    expect(
+      screen.getByTestId("ward-patient-search-people-empty"),
+      "an empty result must SAY nobody is known and what that means. A blank space reads as a page " +
+        "that has not loaded, and the decision resting on it is whether to add a person.",
+    ).toHaveTextContent("need adding before they can be referred");
+  });
+
+  it("prompts rather than listing everybody before anything is typed", () => {
+    // A search that returned every patient on an empty query would make the "nobody came up" signal
+    // meaningless — and would put the whole synthetic patient list on screen unasked.
+    renderSearch();
+    expect(screen.getByTestId("ward-patient-search-people-idle")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-patient-search-people-list")).toBeNull();
+  });
+});
+
+/*
+ * 🔴 WHAT THIS SCREEN ASSERTS ABOUT A BED, AND WHAT THE RECORD ACTUALLY HOLDS.
+ *
+ * Both defects below shipped green through fifty-nine passing DOM assertions, because every one of
+ * those asserted that a cell RENDERED rather than that it was TRUE. These two assert the property
+ * over the fixture and name the row that would break them.
+ */
+describe("the results table never claims more than the record holds", () => {
+  /*
+   * ⚠️ THE POPULATION IS FLOORED, NOT THE FINDING. This walks every open movement with live
+   * referrals and no acceptance — the only rows that can exhibit the defect. If the fixture stops
+   * containing any, this test would pass by walking nothing, so the floor below fails FIRST and
+   * says so. Flooring the population walked is the check; flooring the number of violations would
+   * be an assertion that the defect exists, which is the opposite of what is wanted.
+   */
+  it("shows no destination for a patient no ward has accepted, however many wards were asked", () => {
+    const referredNotAccepted = wardMovements
+      .filter(isOpen)
+      .filter((movement) => movement.referredUnitIds.length > 0 && movement.acceptedUnitId === undefined);
+
+    expect(
+      referredNotAccepted.length,
+      "no open movement has live referrals and no acceptance, so this test walks nothing and proves " +
+        "nothing. Do not delete it — find out what changed in the fixture and re-point it.",
+    ).toBeGreaterThan(0);
+
+    renderSearch();
+    const results = screen.getByTestId("ward-patient-search-results");
+
+    for (const movement of referredNotAccepted) {
+      const row = within(results).getByText(movement.id).closest("tr");
+      expect(row, `movement ${movement.id} is missing from the results table entirely`).not.toBeNull();
+      const cells = [...(row as HTMLTableRowElement).cells].map((cell) => cell.textContent ?? "");
+
+      /*
+       * 🔴 THE PROPERTY, WITH NO VOCABULARY IN IT. Rewritten twice on 2026-09-04, and the two
+       * discarded versions are why this one is shaped the way it is.
+       *
+       * v1 asserted that NO referred ward's name may appear anywhere on the row. That was an EXACT
+       * proxy while the only way such a name could appear was as the destination, and it caught the
+       * real defect — the cell printing the first ward ASKED as though it were the destination. It
+       * stopped being exact when the cell began naming the wards asked ALONGSIDE an explicit denial
+       * ("2 wards asked, none has accepted — Ward A, Ward B"), which exists because the search
+       * haystack matches on a ward's name: without it the coordinator types a ward and the ward
+       * vanishes from the row, leaving a result with no visible reason.
+       *
+       * ⚠️ v2 REPLACED ONE ALLOWED PHRASE WITH THREE AND CALLED IT A PROPERTY. A reviewer listed
+       * the truthful denials it would have gone RED on — "not yet accepted by any ward", "awaiting
+       * acceptance", "No acceptance recorded", "0 wards have accepted", "Nobody has accepted this
+       * patient" — and noted that the movement workspace masthead already says "No ward has
+       * accepted this patient", so harmonising the two screens would have turned this red on the
+       * harmonisation. It was the same defect as v1, occurring three times less often, sitting
+       * under a comment that described it as the property.
+       *
+       * v3, below, names no wording at all. The population is chosen from the MODEL — referred,
+       * never accepted — and the assertion is that this movement's DESTINATION CELL says something
+       * beyond ward names. A cell that is nothing but ward names reads as "this is where they are
+       * going", which is the false claim; a cell that is empty says nothing at all, which was the
+       * other half of the original defect. Both now fail here, and every rewording above passes.
+       *
+       * ⚠️ Cell-scoped, not row-scoped. v2 tested the joined row, so a denial in any OTHER column
+       * satisfied a claim about the destination. Latent today (only this column can carry that
+       * text) and live the day anyone adds a column.
+       *
+       * The column is found from the table's own header rather than by index, so inserting a
+       * column ahead of it cannot silently re-point this at the wrong cell.
+       */
+      const headerTexts = [...results.querySelectorAll("thead th")].map((th) => th.textContent ?? "");
+      const destinationColumn = headerTexts.findIndex((text) => /destination/i.test(text));
+      expect(
+        destinationColumn,
+        `the results table has no column whose header matches /destination/i — headers read ` +
+          `${JSON.stringify(headerTexts)}. This test cannot locate the cell it is about.`,
+      ).toBeGreaterThanOrEqual(0);
+
+      const destinationCellText = (cells[destinationColumn] ?? "").trim();
+      let residue = destinationCellText;
+      for (const unit of allUnits()) residue = residue.split(unit.name).join("");
+      residue = residue.replace(/[\s,;.—–-]+/gu, "");
+
+      expect(
+        residue.length,
+        `${movement.id} has NOT been accepted anywhere, yet its Destination cell reads ` +
+          `${JSON.stringify(destinationCellText)} — which is nothing but ward names` +
+          `${destinationCellText === "" ? " (in fact it is empty)" : ""}. A cell containing only ` +
+          `the wards that were ASKED reads as the ward they are GOING to, and a coordinator would ` +
+          `believe a bed exists. Say something: name the wards if it helps, but say that none has ` +
+          `accepted.`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  /*
+   * `elapsedLabel` measures from `openedAt`, and `Movement` carries no arrival instant — `arrivedAt`
+   * was deliberately deleted. `Referral.triagedAt`'s doc comment forbids the wording in terms.
+   *
+   * ⚠️ This asserts over the HEADER ROW ONLY, deliberately. "Since arrival" is CORRECT on the
+   * out-of-area ledger, where it is fed by a real admission, so a repo-wide text ban would be wrong
+   * and would go red on truthful copy.
+   */
+  it("does not word an opened-at clock as an arrival", () => {
+    renderSearch();
+    const headers = [...screen.getByTestId("ward-patient-search-results").querySelectorAll("thead th")].map(
+      (cell) => cell.textContent ?? "",
+    );
+
+    expect(headers.length, "the results table has no header row to check").toBeGreaterThan(0);
+    expect(
+      headers.some((text) => /arriv/i.test(text)),
+      "a column here is worded as arrival, but every time on this table is measured from `openedAt` " +
+        "and this model records no arrival instant. Triage is not arrival and no screen may word it " +
+        "as one (see `Referral.triagedAt`).",
+    ).toBe(false);
   });
 });

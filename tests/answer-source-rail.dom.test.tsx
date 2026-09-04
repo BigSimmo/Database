@@ -411,8 +411,8 @@ describe("evidence gaps stay answer-level", () => {
       resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
       "utf8",
     );
-    expect(surface).toContain('data-testid="answer-evidence-gaps-trigger"');
-    expect(surface).toContain('id="answer-evidence-gaps-detail"');
+    expect(surface).toContain('data-testid="answer-limitations-trigger"');
+    expect(surface).toContain('id="answer-limitations-detail"');
     expect(surface).toContain("renderModel.warnings");
 
     const rail = readFileSync(
@@ -428,7 +428,7 @@ describe("evidence gaps stay answer-level", () => {
     expect(screen.getByRole("button", { name: "Copy answer with source status" })).toBeInTheDocument();
     expect(screen.getByTestId("answer-feedback-useful")).toBeInTheDocument();
     expect(screen.getByTestId("answer-feedback-trigger")).toBeInTheDocument();
-    expect(screen.queryByTestId("answer-evidence-gaps-trigger")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-limitations-trigger")).not.toBeInTheDocument();
   });
 });
 

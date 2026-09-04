@@ -1,0 +1,115 @@
+# Review package: e810ef589..b2b7089f2
+
+## Commits
+b2b7089f2 fix(ward-flow): review round 1 — stale comment assertions and an unverified precedent
+
+## Files changed
+ src/app/mockups/ward-flow/movements/[movementId]/page.tsx | 12 +++++++-----
+ src/components/ward-management/ward-model.ts              | 12 +++++++-----
+ tests/ward-nav.test.ts                                    |  4 ++--
+ 3 files changed, 16 insertions(+), 12 deletions(-)
+
+## Diff
+diff --git a/src/app/mockups/ward-flow/movements/[movementId]/page.tsx b/src/app/mockups/ward-flow/movements/[movementId]/page.tsx
+index d5be5fe06..435828fa4 100644
+--- a/src/app/mockups/ward-flow/movements/[movementId]/page.tsx
++++ b/src/app/mockups/ward-flow/movements/[movementId]/page.tsx
+@@ -3,25 +3,27 @@ import type { Metadata } from "next";
+ import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
+ import type { MovementId } from "@/components/ward-management/ward-model";
+ 
+ export const metadata: Metadata = {
+   title: "Patient movement workspace - Ward Flow",
+   description: "Synthetic patient movement review for the Ward Flow prototype.",
+ };
+ 
+ /**
+  * Nested under the static `/mockups/ward-flow/movements` mode page — Next.js accepts a static
+- * `page.tsx` and a dynamic `[movementId]` child in the same segment (the same pattern
+- * `community/page.tsx` + `community/[teamId]/page.tsx` already uses in this tree), so this is not
+- * a new top-level segment. Moved here from the old `patients/[patientId]` address, which shared
+- * this workspace's own doc comment's complaint: the folder said `patientId` and the value was
+- * always a movement id. The parameter now matches what it holds.
++ * `page.tsx` and a dynamic child in the same segment, the same shape already proven elsewhere in
++ * this app: `src/app/(search-app)/documents/page.tsx` sits beside `documents/[id]/page.tsx` (and
++ * `forms/page.tsx` beside `forms/[slug]/page.tsx`, `mockups/care-plan/patients/page.tsx` beside
++ * `patients/[patientId]/page.tsx`), so this is not a new top-level segment. Moved here from the
++ * old `patients/[patientId]` address, which shared this workspace's own doc comment's complaint:
++ * the folder said `patientId` and the value was always a movement id. The parameter now matches
++ * what it holds.
+  *
+  * A URL segment is always just text, so this is the one place a cast is right: the shape is
+  * CHECKED and then asserted. An id that is not a movement id now renders the workspace's own
+  * not-found state deliberately, rather than arriving as a `string` nothing had ever validated.
+  */
+ export default async function WardMovementPage({ params }: { params: Promise<{ movementId: string }> }) {
+   const { movementId } = await params;
+   const id = decodeURIComponent(movementId);
+   if (!id.startsWith("WF-")) {
+     // Not a movement id at all — most likely a person id, which this screen has never been able to
+diff --git a/src/components/ward-management/ward-model.ts b/src/components/ward-management/ward-model.ts
+index c268ebce4..e808e53b4 100644
+--- a/src/components/ward-management/ward-model.ts
++++ b/src/components/ward-management/ward-model.ts
+@@ -390,25 +390,27 @@ export type UnwindRecord = {
+   by: string;
+   reason: string;
+   /** The cancelled job retained in the audit trail when a replacement becomes active. */
+   transportId?: string;
+ };
+ 
+ /**
+  * A MOVEMENT's id — one person's journey through the system, never the person.
+  *
+  * ⚠️ **A TEMPLATE LITERAL TYPE RATHER THAN `string`, AND IT IS A DEFECT FIX RATHER THAN
+- * TIDINESS.** The route `/mockups/ward-flow/movements/[movementId]` renders a MOVEMENT workspace: its
+- * parameter is called `patientId`, its component prop is called `patientId`, and inside it a
+- * variable named `patient` is typed `Movement`. Every identifier involved was a bare `string`, so
+- * nothing stopped a real patient id being passed to it — and the name openly invites exactly that.
+- * It worked only because every existing call site happened to pass a movement.
++ * TIDINESS.** The route was `/patients/[patientId]` (now
++ * `/mockups/ward-flow/movements/[movementId]`) and rendered a MOVEMENT workspace: its parameter
++ * was called `patientId` (now `movementId`), its component prop was called `patientId` (now
++ * `movementId`), and inside it a variable named `patient` is still typed `Movement`. Every
++ * identifier involved was a bare `string`, so nothing stopped a real patient id being passed to it
++ * — and the names openly invited exactly that. It worked only because every existing call site
++ * happened to pass a movement.
+  *
+  * With `MovementId` and `PatientId` as distinct types the mistake the name invites now fails to
+  * COMPILE instead of rendering a dead-end "no movement matches" page. Every movement id in the
+  * fixture is already `WF-###`, so no literal needed changing.
+  */
+ export type MovementId = `WF-${string}`;
+ 
+ export type Movement = {
+   id: MovementId;
+   /** Where the patient physically is. Detention here is lawful even when unauthorised. */
+diff --git a/tests/ward-nav.test.ts b/tests/ward-nav.test.ts
+index 692e77b5f..54a7b9840 100644
+--- a/tests/ward-nav.test.ts
++++ b/tests/ward-nav.test.ts
+@@ -109,22 +109,22 @@ const staticRoutes = wardFlowRoutes.filter((entry) => !entry.dynamic).map((entry
+ const dynamicRoutes = wardFlowRoutes.filter((entry) => entry.dynamic).map((entry) => entry.route);
+ const dynamicPatterns = wardFlowRoutes.filter((entry) => entry.dynamic).map((entry) => routeToPattern(entry.route));
+ 
+ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => {
+   it("finds every known page.tsx under src/app/mockups/ward-flow, both static and dynamic", () => {
+     // 22 page.tsx files measured on the merged tree: 18 static + 4 dynamic. Both branches added a
+     // route independently and both moved this number to 21 for different routes — Phase 8 for the
+     // out-of-area ledger, the ward board branch for board/[unitId] — so 22 is the merged truth and
+     // neither side's copy held it. Resolved by hand at the fold, taking both nav entries; the count
+     // moved only after both routes were confirmed reachable from the rail.
+-    // (ed/[edId], patients/[patientId], ward/[unitId], board/[unitId]) — Task 6 added the
+-    // discharges board,
++    // (ed/[edId], patients/[patientId] — since moved to movements/[movementId] — ward/[unitId],
++    // board/[unitId]) — Task 6 added the discharges board,
+     // Phase 6 Task 2 added the morning bed state page, Phase 7 Task 4 added the referral intake
+     // form's route (referrals/new), Phase 7 Task 5 added the referral board's route (referrals),
+     // Phase 8 Task 5 added the out-of-area ledger's route (out-of-area), and the ward board
+     // branch added the board's route (board/[unitId]).
+     // A silently broken scan (e.g. resolving the wrong directory) would collapse this to 0 or a
+     // handful, and every assertion below would then vacuously pass — so this is checked before
+     // trusting any of them.
+     // 23, not 22: Phase 8 added `/wards` (`WardIndex`), the ward index — one page listing every
+     // ward in the network, grouped by health service, each linking to its own ward screen. It is
+     // the answer to the `Owner decision pending on where a full ward index belongs` line that
