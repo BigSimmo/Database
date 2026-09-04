@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "030033b87c2c333787e899a52785f4138ed9644a",
-    "committed_at": "2026-09-04T13:01:23+00:00"
+    "sha": "43984ad802b2507c40505b2fe54abcd1088ac1d0",
+    "committed_at": "2026-09-04T13:46:50+00:00"
   },
   "routes": {
     "modes": [
@@ -2844,16 +2844,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/codebase-index.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/codebase-index.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
         "path": "docs/codex-cloud.md",
         "section": "root",
         "catalogued": true
@@ -3607,16 +3597,6 @@
         "path": "docs/services-mode-governance.md",
         "section": "root",
         "catalogued": false
-      },
-      {
-        "path": "docs/site-map.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/site-map.md",
-        "section": "root",
-        "catalogued": true
       },
       {
         "path": "docs/site-map.md",
@@ -5943,8 +5923,8 @@
       }
     ],
     "counts": {
-      "documents": 859,
-      "catalogued": 119,
+      "documents": 855,
+      "catalogued": 115,
       "uncatalogued": 740,
       "sections": 22
     }
