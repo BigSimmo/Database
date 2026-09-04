@@ -6,9 +6,11 @@ import type { ReactNode } from "react";
 
 /**
  * `DeveloperAreaGate`'s administrator check is a Server Component that runs
- * once, at the first render of the shared layout it sits in
- * (`/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`,
- * `/mockups/ward-flow`). The App Router preserves that layout instance across
+ * once, at the first render of the shared layout it sits in — the layout
+ * covering every prefix in `DEVELOPER_GATED_PATH_PREFIXES`
+ * (`src/lib/developer-area/headers.ts`), which is where those paths are
+ * written down rather than repeated here. The App Router preserves that
+ * layout instance across
  * a soft client-side navigation between its own sibling pages — the hub to
  * `/ledger`, `/routes`, `/review-state`, ... — so the check is NOT re-run for
  * those navigations, only for a hard reload or a fresh top-level visit

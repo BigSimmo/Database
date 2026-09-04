@@ -9,11 +9,13 @@ import { DeveloperGateScreen } from "./developer-gate-screen";
 
 /**
  * Wraps every prefix in `DEVELOPER_GATED_PATH_PREFIXES`
- * (`src/lib/developer-area/headers.ts`) — the subtrees `src/proxy.ts` carves
- * out of the blanket `/mockups` production gate: `/mockups/development`,
- * `/mockups/caring-contacts/**`, `/mockups/care-plan/**` and
- * `/mockups/ward-flow/**`. Outside production this is a no-op, matching every
- * other /mockups/* route. In production it requires a signed-in administrator
+ * (`src/lib/developer-area/headers.ts`) and its subtree — the exact list
+ * `src/proxy.ts` carves out of the blanket `/mockups` production gate. That
+ * constant is the single place those paths are written down; re-listing them
+ * here would be a second copy to keep in step, and one of them is Ward Flow's,
+ * whose seam guard (`tests/ward-flow-seam.test.ts`) counts every file outside
+ * Ward Flow that spells its route out. Outside production this gate is a no-op,
+ * matching every other /mockups/* route. In production it requires a signed-in administrator
  * (see `resolveDeveloperAccessState`), showing a sign-in screen or an
  * access-denied screen instead of the real content — UNLESS
  * `developerGateBypassAllowed()` reports the exact double-flag exception the
