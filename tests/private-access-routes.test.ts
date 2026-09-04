@@ -1219,14 +1219,28 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
   });
 
-  it("allows legacy image signed URLs when parent document generation metadata is missing", async () => {
+  /*
+   * Audit L11. This case previously asserted 200 and named itself "legacy", but its
+   * fixture is not a legacy image: the image CARRIES a generation while its parent
+   * document carries none. The SQL predicate excludes exactly that shape —
+   * `is_committed_artifact_generation` (supabase/schema.sql) is
+   * `row_generation is null or row_generation = document_generation`, and
+   * `'generation-a' = NULL` is NULL, not true. So the old expectation pinned the
+   * TypeScript predicate being MORE permissive than the database, which is the
+   * defect L11 exists to remove.
+   *
+   * The genuinely legacy shape (image with no generation) is pinned by the sibling
+   * case above and still returns 200, so no legacy document loses its images.
+   * This case now pins the staged/abandoned shape the SQL refuses.
+   */
+  it("refuses a stamped image whose parent document has no committed generation", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "document_images") {
         return ok({
           document_id: documentId,
           storage_path: `${userId}/images/${imageId}.png`,
           mime_type: "image/png",
-          caption: "Legacy indexed image",
+          caption: "Staged image from an uncommitted generation",
           metadata: { index_generation_id: "generation-a" },
         });
       }
@@ -1241,11 +1255,9 @@ describe("private document API access", () => {
     const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
       params: Promise.resolve({ id: imageId }),
     });
-    const body = await payload(response);
 
-    expect(response.status).toBe(200);
-    expect(body.mimeType).toBe("image/png");
-    expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
+    expect(response.status).toBe(404);
+    expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
   it("rejects image signed URLs for uncommitted replacement generations", async () => {
