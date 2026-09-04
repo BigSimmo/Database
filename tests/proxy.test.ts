@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy, shouldBlockProductionMockups } from "../src/proxy";
@@ -357,5 +359,24 @@ describe("API CSRF guard beyond Sec-Fetch-Site: cross-site (L28)", () => {
     });
     const response = await proxy(request);
     expect(response.status).not.toBe(403);
+  });
+});
+
+// The developer-gated area grew from two prefixes to four, and three comments went on
+// describing "the two prototypes" / "the two developer-gated subtrees" — under-describing
+// the authorization surface on the files that implement it (2026-09-02 audit, L76/L82).
+// The durable fix is that a comment names the constant instead of counting, so this guard
+// checks the naming rather than any particular wording.
+describe("developer-gated area comments name the constant instead of counting (L76/L82)", () => {
+  const commented = ["src/proxy.ts", "src/app/mockups/layout.tsx"] as const;
+
+  it("points every gated-area comment at DEVELOPER_GATED_PATH_PREFIXES", () => {
+    for (const relativePath of commented) {
+      const source = readFileSync(resolve(process.cwd(), relativePath), "utf8");
+      expect(source).toContain("DEVELOPER_GATED_PATH_PREFIXES");
+      // Any wording that fixes the number is what went stale before.
+      expect(source).not.toMatch(/\btwo (?:prototypes|developer-gated|subtrees)/i);
+      expect(source).not.toMatch(/\bthe two (?:subtrees|prefixes)\b/i);
+    }
   });
 });
