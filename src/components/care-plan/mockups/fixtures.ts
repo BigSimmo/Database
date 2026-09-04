@@ -243,6 +243,13 @@ export const syntheticCmhtContacts = [
  * The only non-fictional contact details in the prototype. Verified against the
  * public sources below on 20 August 2026. If a number or an availability window
  * has changed since, correct it here rather than anywhere it is displayed.
+ *
+ * VERIFICATION RECORD: `docs/care-plan/crisis-lines-verification.md`. It holds, per
+ * number, the source used to check it, the `verifiedOn` date below, every other place
+ * in this file the same number is printed, and the six-monthly re-verification cadence
+ * and procedure. Nothing in this repository ages `verifiedOn`, so that document is the
+ * only thing that says when these are next due to be checked -- update it in the same
+ * change as any correction here.
  */
 export const publicCrisisContacts = [
   {

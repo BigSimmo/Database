@@ -67,6 +67,12 @@
         "dev_only": false
       },
       {
+        "id": "on-call",
+        "label": "On Call",
+        "home": "/?mode=on-call",
+        "dev_only": false
+      },
+      {
         "id": "prescribing",
         "label": "Medication",
         "home": "/medications",
@@ -1035,6 +1041,46 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/card",
+        "file": "src/app/(search-app)/on-call/card/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/contacts",
+        "file": "src/app/(search-app)/on-call/contacts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/education",
+        "file": "src/app/(search-app)/on-call/education/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/logistics",
+        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/orientation",
+        "file": "src/app/(search-app)/on-call/orientation/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/playbook",
+        "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/referrals",
+        "file": "src/app/(search-app)/on-call/referrals/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/search",
+        "file": "src/app/(search-app)/on-call/search/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/privacy",
         "file": "src/app/privacy/page.tsx",
         "area": "product"
@@ -1245,6 +1291,11 @@
         "path": "/mockups/ward-flow/constellation",
         "file": "src/app/mockups/ward-flow/constellation/page.tsx",
         "target": "/mockups/ward-flow/network"
+      },
+      {
+        "path": "/on-call",
+        "file": "src/app/(search-app)/on-call/page.tsx",
+        "target": "/?mode=on-call"
       },
       {
         "path": "/services",
@@ -1464,6 +1515,18 @@
         "file": "src/app/api/medications/[slug]/route.ts"
       },
       {
+        "path": "/api/on-call/entries",
+        "file": "src/app/api/on-call/entries/route.ts"
+      },
+      {
+        "path": "/api/on-call/entries/[id]",
+        "file": "src/app/api/on-call/entries/[id]/route.ts"
+      },
+      {
+        "path": "/api/on-call/entries/[id]/verify",
+        "file": "src/app/api/on-call/entries/[id]/verify/route.ts"
+      },
+      {
         "path": "/api/registry/records",
         "file": "src/app/api/registry/records/route.ts"
       },
@@ -1505,12 +1568,12 @@
       }
     ],
     "counts": {
-      "modes": 16,
-      "pages": 211,
-      "product_pages": 66,
+      "modes": 17,
+      "pages": 219,
+      "product_pages": 74,
       "mockup_pages": 145,
-      "redirects": 20,
-      "api": 60
+      "redirects": 21,
+      "api": 63
     }
   },
   "documentation": {
@@ -1961,6 +2024,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/care-plan/crisis-lines-verification.md",
+        "section": "care-plan",
+        "catalogued": true
+      },
+      {
         "path": "docs/care-plan/HANDOFF-2026-08-24-SUPERSEDED.md",
         "section": "care-plan",
         "catalogued": true
@@ -2121,12 +2189,22 @@
         "catalogued": true
       },
       {
+        "path": "docs/caring-contacts/hazard-log.md",
+        "section": "caring-contacts",
+        "catalogued": true
+      },
+      {
         "path": "docs/caring-contacts/interaction-matrix.md",
         "section": "caring-contacts",
         "catalogued": true
       },
       {
         "path": "docs/caring-contacts/linked-prototype-handoff.md",
+        "section": "caring-contacts",
+        "catalogued": true
+      },
+      {
+        "path": "docs/caring-contacts/message-review-pack.md",
         "section": "caring-contacts",
         "catalogued": true
       },
@@ -3826,6 +3904,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-04-on-call-mode.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",
         "section": "superpowers",
         "catalogued": false
@@ -4249,6 +4332,11 @@
         "path": "docs/superpowers/specs/2026-09-01-sources-mode-design.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/specs/2026-09-04-ward-flow-design-language-design.md",
@@ -5850,9 +5938,9 @@
       }
     ],
     "counts": {
-      "documents": 853,
-      "catalogued": 587,
-      "uncatalogued": 266,
+      "documents": 858,
+      "catalogued": 590,
+      "uncatalogued": 268,
       "sections": 22
     }
   },

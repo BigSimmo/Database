@@ -407,6 +407,26 @@ Rules:
 - `npm run check:supabase-project` runs after any Supabase env change (repo
   rule), and the eval canary runs it before every scheduled eval.
 
+**`CARING_CONTACTS_DATABASE_URL` — the Caring Contacts workspace's own database.** The
+synthetic Caring Contacts prototype (`src/lib/caring-contacts-server/`) reads exactly one
+variable, in `config.ts`, and it is **not** in `src/lib/env.ts`: unset or blank means the
+in-memory demo store (what the demo and the offline suites use); set means every workspace
+read and write goes to that Postgres database. Only the app tier reads it — Railway service
+`Database` in production, `app` in staging — and the `worker` never does. It is set on no
+deployment today and is absent from the Railway expectations in `scripts/check-env-parity.mjs`,
+because the workspace is locked in production until enterprise sign-on exists
+(`isCaringContactsDemoEnabled`, `src/lib/caring-contacts-server/session.ts`). Two guards make
+misconfiguration fail closed rather than reach the clinical database: the process refuses a
+URL that names the pinned PsychSift project ref, and one that is byte-identical to
+`SUPABASE_DB_URL` or `DATABASE_URL` (`assertNotClinicalKbProject`, run in both `store.ts` and
+`pool.ts`). One prerequisite is not enforced by code: the login role in the URL must be a
+member of `caring_contacts_app`, because migration `0001` grants that membership only to the
+role that ran the migration, and every transaction begins with `set local role
+caring_contacts_app` — a non-member role fails there and the workspace returns 500s. CI's
+`caring-contacts-db` job sets the variable to its throwaway container (`postgres@127.0.0.1:54329`),
+which is both migrator and login role, so it never meets that gap. `.env.example` carries the
+commented entry so `npm run check:env-parity` knows the name.
+
 ## 5. Staging environment
 
 - **A second, dedicated Supabase project** (same org, ap-southeast-2) — not a
