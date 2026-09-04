@@ -12,11 +12,15 @@ import type {
 type ReadableSearchParams = Pick<URLSearchParams, "get" | "getAll">;
 const BAND_ORDER = { A: 0, B: 1, C: 2, D: 3, excluded: 4 } as const;
 
-function compareText(left: string, right: string) {
+/** Shared with `browse-facets.ts` so a facet list cannot order itself differently
+    from the catalogue it links into. */
+export function compareText(left: string, right: string) {
   return left.localeCompare(right, "en-AU", { sensitivity: "base" }) || left.localeCompare(right, "en-AU");
 }
 
-function compareQuality(left: ClinicalSourceCatalogueEntry, right: ClinicalSourceCatalogueEntry) {
+/** The catalogue's own quality order. Exported so the browse summaries pick the
+    same lead source the catalogue would list first. */
+export function compareQuality(left: ClinicalSourceCatalogueEntry, right: ClinicalSourceCatalogueEntry) {
   return (
     BAND_ORDER[left.rating.band] - BAND_ORDER[right.rating.band] ||
     right.rating.score - left.rating.score ||
@@ -84,7 +88,8 @@ export function parseSourceCatalogueFilters(
   };
 }
 
-function normalizeSearchValue(value: string) {
+/** Exported so the browse surfaces narrow on exactly the terms the catalogue matches. */
+export function normalizeSearchValue(value: string) {
   return value.normalize("NFKC").trim().toLocaleLowerCase("en-AU").replace(/\s+/g, " ");
 }
 
