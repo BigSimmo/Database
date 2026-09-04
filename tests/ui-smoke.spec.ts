@@ -2106,7 +2106,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(sourceRailBox!.y).toBeGreaterThanOrEqual(pointsBox!.y + pointsBox!.height - 1);
 
     await safetyFindingsTrigger.click();
-    const safetyFindingsSheet = page.getByRole("dialog", { name: "Clinical points" });
+    const safetyFindingsSheet = page.getByRole("dialog", { name: "Pearls" });
     await expect(safetyFindingsSheet).toBeVisible();
     await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
     expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
@@ -2118,7 +2118,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const toneRank = { stop: 0, act: 1, know: 2 } as Record<string, number>;
     const sheetRanks = sheetTones.map((tone) => toneRank[tone ?? "know"] ?? 2);
     expect(sheetRanks).toEqual([...sheetRanks].sort((left, right) => left - right));
-    await safetyFindingsSheet.getByRole("button", { name: "Close clinical points" }).click();
+    await safetyFindingsSheet.getByRole("button", { name: "Close pearls" }).click();
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
 
@@ -2129,9 +2129,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     if ((await laterPills.count()) > 0) {
       const laterPill = laterPills.first();
       await laterPill.click();
-      await expect(page.getByRole("dialog", { name: "Clinical points" })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Pearls" })).toBeVisible();
       await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog", { name: "Clinical points" })).toHaveCount(0);
+      await expect(page.getByRole("dialog", { name: "Pearls" })).toHaveCount(0);
       await expect(laterPill).toBeFocused();
       await expect(safetyFindingsTrigger).not.toBeFocused();
     }
@@ -2179,6 +2179,28 @@ test.describe("PsychSift UI smoke coverage", () => {
       expect(collisions, `status chip hit regions overlap at ${statusWidth}px`).toEqual([]);
     }
     await page.setViewportSize({ width: 390, height: 820 });
+
+    // The support word and the limitations chip share one line at 390px. They used to be forced
+    // onto separate rows by a `w-full` on the chip container, on the reasoning that a 48px
+    // control cannot sit in a 24px line without a negative margin. True, and the row is now
+    // centre-aligned and 48px tall instead, so no negative margin is needed and the collision
+    // check above still passes. Asserted positively because "they do not overlap" is also
+    // satisfied by stacking them again, which is the regression this guards.
+    const statusRowShare = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
+      const support = rect('[data-testid="answer-card-support"]');
+      const chip = rect('[data-testid="answer-limitations-trigger"]');
+      if (!support || !chip) return null;
+      return {
+        verticalOverlap: Math.min(support.bottom, chip.bottom) - Math.max(support.top, chip.top),
+        horizontalGap: Math.max(support.left, chip.left) - Math.min(support.right, chip.right),
+      };
+    });
+    expect(statusRowShare, "support pill and limitations chip both render at 390px").not.toBeNull();
+    // Sharing a line: the shorter pill's full height sits within the taller chip's band.
+    expect(statusRowShare!.verticalOverlap).toBeGreaterThan(8);
+    // Side by side, not on top of each other.
+    expect(statusRowShare!.horizontalGap).toBeGreaterThan(0);
 
     // Decision 2 (2026-08-24): tables fold into the source drawer, so they are no
     // longer on the answer surface at all — reaching one goes through a rail row.
@@ -3380,8 +3402,15 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(limitationsChip).toBeVisible();
     await expect(sourceOnlyRail).toBeVisible();
     await expect(limitationsChip).toContainText("Source-only");
-    await expect(limitationsChip).toHaveAttribute("aria-controls", "answer-limitations-detail");
-    await expect(limitationsDetail).toBeHidden();
+    // Opens a dialog, so it announces `haspopup` rather than `expanded`/`controls`. The two are
+    // not interchangeable: `aria-expanded` promises a region revealed in place, which is the
+    // behaviour that was removed. Asserted as absent, not merely changed, so a half-finished
+    // revert that leaves both attributes on the trigger fails here.
+    await expect(limitationsChip).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(limitationsChip).not.toHaveAttribute("aria-expanded", /.*/);
+    await expect(limitationsChip).not.toHaveAttribute("aria-controls", /.*/);
+    // Not merely hidden — the sheet is not in the document until it is opened.
+    await expect(limitationsDetail).toHaveCount(0);
 
     // The chip is a full-size button carrying a small pill, so it keeps the
     // 48px tap region rather than the pill's own height.
@@ -3399,19 +3428,29 @@ test.describe("PsychSift UI smoke coverage", () => {
     await limitationsChip.focus();
     await expect(limitationsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(limitationsChip).toHaveAttribute("aria-expanded", "true");
+    const limitationsSheet = page.getByRole("dialog", { name: "Answer limitations" });
+    await expect(limitationsSheet).toBeVisible();
     await expect(limitationsDetail).toBeVisible();
-    await expect(limitationsDetail).toContainText("Answer limitations");
-    // The governed extractive wording, verbatim, as the first row of the panel.
+    // The governed extractive wording, verbatim, as the first row of the sheet. This is the
+    // assertion that matters most in this block: the wording must survive the move out of the
+    // in-flow panel unchanged, because it is the caution a source-only answer rests on.
     await expect(limitationsDetail.getByTestId("answer-limitation-source-only")).toContainText(
       "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     );
+
+    // Escape closes, and focus comes back to the chip that opened it — the trigger no longer
+    // toggles, so a second Enter would reopen rather than close.
+    await page.keyboard.press("Escape");
+    await expect(limitationsSheet).toHaveCount(0);
+    await expect(limitationsChip).toBeFocused();
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await expect(limitationsChip).toBeVisible();
     await expect(limitationsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(limitationsChip).toHaveAttribute("aria-expanded", "false");
+    await expect(limitationsSheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(limitationsSheet).toHaveCount(0);
     await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
@@ -3503,17 +3542,16 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(gapsChip).toContainText("Source-only");
     await expect(gapsChip).toContainText("Review due");
     await expect(gapsChip).toContainText(/\d+ limitations?/);
-    await expect(gapsChip).toHaveAttribute("aria-controls", "answer-limitations-detail");
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
+    await expect(gapsChip).toHaveAttribute("aria-haspopup", "dialog");
     const gapsDetail = page.locator("#answer-limitations-detail");
-    await expect(gapsDetail).toBeHidden();
+    await expect(gapsDetail).toHaveCount(0);
 
     const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
-    await expect(reviewDueTab).toBeHidden();
-    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+    await expect(reviewDueTab).toHaveCount(0);
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(0);
 
     await gapsChip.click();
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("dialog", { name: "Answer limitations" })).toBeVisible();
     await expect(gapsDetail).toBeVisible();
     // And the count is of gaps only. A source being due for review is a
     // statement about that source's currency, not a missing piece of evidence,
@@ -3534,6 +3572,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     // Excluded by ELEMENT, not by text. The source-only row's eyebrow is
     // `uppercase`, so `innerText` reports "SOURCE-ONLY" and a case-sensitive
     // text filter silently counted this row as a limitation.
+    //
+    // The "Answer limitations" filter below is now belt-and-braces: that heading became the
+    // sheet's own title and is no longer a `<p>` inside this container. It is kept so the
+    // count stays right if the heading is ever reinstated in the body.
     const panelWarnings = (
       await gapsDetail.locator('> p:not([data-testid="answer-limitation-source-only"])').allInnerTexts()
     ).filter((text) => !/^Answer limitations$/i.test(text.trim()));
@@ -3589,15 +3631,17 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
 
-    // Both disclosures — the chip and the banner inside it — stay operable from
+    // Both disclosures — the chip and the banner inside the sheet it opens — stay operable from
     // the keyboard in forced colors with motion reduced.
-    await gapsChip.focus();
+    //
+    // The sheet is still open from the click above, and it has to be closed before the chip can
+    // be driven again: while a sheet is open the trigger sits behind the overlay and focus is
+    // trapped inside the dialog. Escape closes and returns focus to the chip, which is the whole
+    // round trip this block is here to prove.
+    await page.keyboard.press("Escape");
+    await expect(gapsDetail).toHaveCount(0);
     await expect(gapsChip).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "false");
-    await expect(gapsDetail).toBeHidden();
-    await page.keyboard.press("Enter");
-    await expect(gapsChip).toHaveAttribute("aria-expanded", "true");
     await expect(gapsDetail).toBeVisible();
 
     await reviewDueTab.focus();

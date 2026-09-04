@@ -176,6 +176,44 @@ export function AnswerCard({
   const panelX = "px-[var(--pad-panel,1.5rem)]";
   const panelY = "py-3";
 
+  // Text, never colour alone — this must survive greyscale print and forced-colors the same way
+  // StatusMark does. The bare frame draws it as a chip so the support word, the surface's safety
+  // chip and the cited count read as one status line; the icon is decorative beside it rather
+  // than a second signal.
+  //
+  // Sentence case, not uppercase. SPEC.md §"Capitalisation" is explicit — sentence case
+  // everywhere, uppercase reserved for `eyebrowText` — and this is a status chip, not an eyebrow.
+  // The all-caps setting was the loudest thing on a screen whose actual warning is the wording,
+  // and shouting a caution is how a reader learns to skip it. The word, the colour, the border
+  // and the triangle are all unchanged: nothing about what this states has been softened.
+  const supportChip = (
+    <p
+      data-testid="answer-card-support"
+      data-support={support}
+      className={cn(
+        "font-semibold",
+        bare
+          ? cn(
+              "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs",
+              support === "strong" || support === "supported"
+                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
+            )
+          : "text-2xs uppercase tracking-wide text-[color:var(--text-muted)]",
+      )}
+    >
+      {bare ? (
+        support === "strong" || support === "supported" ? (
+          <ShieldCheck aria-hidden="true" className="size-icon-xs shrink-0" />
+        ) : (
+          <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
+        )
+      ) : null}
+      <span className="sr-only">Evidence support: </span>
+      {ANSWER_SUPPORT_WORDING[support]}
+    </p>
+  );
+
   return (
     <article
       data-testid="answer-card"
@@ -208,44 +246,26 @@ export function AnswerCard({
             and on print alike — unless the content owner has taken placement,
             in which case it renders the same notice below the answer. */}
         {verificationPlacement === "header" ? <VerificationNotice {...verification} /> : null}
-        {/* Text, never colour alone - this must survive greyscale print and
-            forced-colors the same way StatusMark does. The bare frame draws it
-            as a chip so the support word, the surface's safety chip and the
-            cited count read as one status line; the word itself is unchanged,
-            and the icon is decorative beside it rather than a second signal. */}
-        <p
-          data-testid="answer-card-support"
-          data-support={support}
-          className={cn(
-            "font-semibold",
-            bare
-              ? cn(
-                  "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs uppercase tracking-eyebrow",
-                  support === "strong" || support === "supported"
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
-                )
-              : "text-2xs uppercase tracking-wide text-[color:var(--text-muted)]",
-          )}
-        >
-          {bare ? (
-            support === "strong" || support === "supported" ? (
-              <ShieldCheck aria-hidden="true" className="size-icon-xs shrink-0" />
-            ) : (
-              <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
-            )
-          ) : null}
-          <span className="sr-only">Evidence support: </span>
-          {ANSWER_SUPPORT_WORDING[support]}
-        </p>
-        {/* The interactive chips take a full-width row of their own rather than
-            sharing the baseline-aligned status line. They carry a real 48px tap
-            target, and a 48px control inside a 24px line can only be bought with
-            a negative margin — which puts the hit region outside the element's
-            layout box, where it silently covers whatever sits beside or below
-            it. The row costs nothing: the status line already wrapped to two
-            lines on a phone, so the height is the same and the overlap is gone. */}
-        {bare && metaChips ? <div className="flex w-full flex-wrap items-center gap-x-2">{metaChips}</div> : null}
+        {/* One status row, not two. The support word and the interactive chips share a line and
+            wrap together only when they genuinely do not fit.
+
+            The row is still `w-full`, and that is what makes sharing a line safe. The earlier
+            note here was right that a 48px control cannot be bought inside a 24px baseline-
+            aligned line without a negative margin, and that a negative margin puts the hit
+            region outside the layout box where it silently covers its neighbours. The fix is
+            not to give the chips their own row — it is to stop asking a 24px line to hold
+            them. This row is centre-aligned and takes its height from the tallest child, so
+            the 48px chip sets the height honestly and the static support pill centres inside
+            it. Two stacked rows became one, which returns ~24px to the `#227` phone scroll
+            budget rather than spending it. */}
+        {bare ? (
+          <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1">
+            {supportChip}
+            {metaChips}
+          </div>
+        ) : (
+          supportChip
+        )}
         {/*
          * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
          * every degraded state, on the reasoning that an adoption failure here is
