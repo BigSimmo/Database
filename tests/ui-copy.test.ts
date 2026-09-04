@@ -110,6 +110,11 @@ const EXPECTED_MODE_TITLES: Record<
     standaloneTitle: "Sources",
     subtitle: "Clinical source catalogue.",
   },
+  "on-call": {
+    sharedTitle: "On Call",
+    standaloneTitle: "On Call",
+    subtitle: "Your service's numbers, escalation, orientation and teaching.",
+  },
 };
 
 describe("ui-copy", () => {
@@ -117,7 +122,7 @@ describe("ui-copy", () => {
     it("covers every declared app mode exactly once", () => {
       const definedModes = Object.keys(sharedHomePresentation) as AppModeId[];
       expect(definedModes.sort()).toEqual([...appModeIds].sort());
-      expect(definedModes).toHaveLength(16);
+      expect(definedModes).toHaveLength(17);
     });
 
     it.each(appModeIds)("provides non-empty title and subtitle for %s", (modeId) => {

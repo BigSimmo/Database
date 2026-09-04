@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "playwright/test";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 async function blockExternalRequests(page: Page) {
   await page.route("**/*", async (route) => {
@@ -37,7 +38,7 @@ test("a submitted link to the Sources home forwards to the catalogue", async ({ 
   // bookmark shape has to keep resolving to results rather than the new home.
   await page.goto("/sources?q=RANZCP&run=1", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/sources\/search\?q=RANZCP&run=1$/);
-  await expect(page.getByTestId("sources-catalogue-main")).toBeVisible();
+  await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
 });
 
 test("Sources home offers the catalogue surfaces and owns its composer in the hero", async ({ page }) => {
@@ -55,12 +56,12 @@ test("Sources home offers the catalogue surfaces and owns its composer in the he
 
   await page.getByTestId("sources-home-catalogue").click();
   await expect(page).toHaveURL(/\/sources\/search$/);
-  await expect(page.getByTestId("sources-catalogue-main")).toBeVisible();
+  await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
 });
 
 test("@critical Sources catalogue filters and opens traceability", async ({ page }) => {
   await page.goto("/sources/search?usedBy=dictionary", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("sources-catalogue-main")).toBeVisible();
+  await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
   await expect(page.getByRole("button", { name: "Remove Used in: Dictionary filter" })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("source");
 
@@ -89,8 +90,7 @@ test("@critical Sources browse tabs carry the results band and reach the filtere
   await page.setViewportSize({ width: 390, height: 820 });
   await page.goto("/sources/topics", { waitUntil: "domcontentloaded" });
 
-  const topics = page.getByTestId("sources-topics-main");
-  await expect(topics).toBeVisible();
+  const topics = await expectSingleSettledOwner(page.getByTestId("sources-topics-main"));
   // The same band the Catalogue shows, counting topics rather than sources.
   await expect(page.getByTestId("search-query-ribbon")).toBeVisible();
   await expect(page.getByRole("status")).toContainText("topic");
@@ -108,10 +108,10 @@ test("@critical Sources browse tabs carry the results band and reach the filtere
     .first()
     .click();
   await expect(page).toHaveURL(/\/sources\/search\?topic=/);
-  await expect(page.getByTestId("sources-catalogue-main")).toBeVisible();
+  await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
 
   await page.goto("/sources/publishers", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("sources-publishers-main")).toBeVisible();
+  await expectSingleSettledOwner(page.getByTestId("sources-publishers-main"));
   await expect(page.getByRole("status")).toContainText("publisher");
   await expectNoHorizontalOverflow(page);
 });
@@ -137,7 +137,7 @@ test("Sources remains operable at phone width and under accessibility media", as
 
   for (const [route, testId] of surfaces) {
     await page.goto(route);
-    await expect(page.getByTestId(testId)).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId(testId));
     await page.keyboard.press("Tab");
     await expect(page.locator(":focus-visible")).toHaveCount(1);
     await expectNoHorizontalOverflow(page);

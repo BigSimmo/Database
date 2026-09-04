@@ -364,7 +364,7 @@ export function CalculatorSearchHome({
             <div className="grid justify-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-6 text-center">
               <p className="text-sm font-bold text-[color:var(--text-heading)]">No calculator matches that.</p>
               <p className="text-sm-minus font-medium text-[color:var(--text-muted)]">
-                Try a symptom (“hopeless”, “drinking”) or ask Clinical Guide below.
+                Try a symptom (“hopeless”, “drinking”) or ask PsychSift below.
               </p>
             </div>
           ) : null}
