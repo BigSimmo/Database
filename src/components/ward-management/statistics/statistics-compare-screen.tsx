@@ -106,28 +106,28 @@ export function StatisticsCompareScreen({
             A measure can be set against a named ward only when the record it comes from carries a required unit id.
           </strong>{" "}
           That is the test every column here will have to pass, and it is a property of the record rather than a
-          judgement about the measure. An <code className={styles.field}>Admission</code> carries{" "}
-          <code className={styles.field}>unitId</code> and always has one, so anything derived from admissions
+          judgement about the measure. An <code className={styles.fieldName}>Admission</code> carries{" "}
+          <code className={styles.fieldName}>unitId</code> and always has one, so anything derived from admissions
           attributes cleanly. A unit id that is optional attributes only to the part of the population where it happens
           to be set — which is never the whole column, and never the part a reader assumes.
         </p>
 
         <p className={styles.body} data-testid="ward-statistics-compare-declines-example">
           <strong>Declines are the worked example, and the asymmetry in them is the thing to see.</strong> A referral
-          decline sits on <code className={styles.field}>ReferralAddressing</code>, whose ward destination records the
-          bed&apos;s criteria — the sex it must suit, whether it must be secure, whether it must be able to hold
+          decline sits on <code className={styles.fieldName}>ReferralAddressing</code>, whose ward destination records
+          the bed&apos;s criteria — the sex it must suit, whether it must be secure, whether it must be able to hold
           somebody involuntarily — and never a unit. The one field there that CAN name a ward is{" "}
-          <code className={styles.field}>acceptedUnitId</code>, and it is set only when a ward accepts. So from a single
-          record an acceptance is attributable to a named ward and a decline is not — and in a comparison table those
-          two would sit in adjacent columns looking equally solid, one of them counting the whole population and the
-          other counting only the part that said yes.
+          <code className={styles.fieldName}>acceptedUnitId</code>, and it is set only when a ward accepts. So from a
+          single record an acceptance is attributable to a named ward and a decline is not — and in a comparison table
+          those two would sit in adjacent columns looking equally solid, one of them counting the whole population and
+          the other counting only the part that said yes.
         </p>
 
         <p className={styles.body} data-testid="ward-statistics-compare-double-count-example">
           <strong>Referrals received is the other one, and it fails differently — it double-counts.</strong>{" "}
-          <code className={styles.field}>Movement.referredUnitIds</code> is a list, not a single id: one person&apos;s
-          referral can be live at several wards at once, capped by{" "}
-          <code className={styles.field}>PARALLEL_REFERRAL_CAP</code>. A per-ward column of referrals received would
+          <code className={styles.fieldName}>Movement.referredUnitIds</code> is a list, not a single id: one
+          person&apos;s referral can be live at several wards at once, capped by{" "}
+          <code className={styles.fieldName}>PARALLEL_REFERRAL_CAP</code>. A per-ward column of referrals received would
           therefore sum to more than the number of referrals that exist, and the more widely a referral is cast the
           wider the gap. It reconciles to nothing, and the arithmetic gets blamed.
         </p>

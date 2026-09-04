@@ -124,6 +124,53 @@ becomes load-bearing.**
 hand-written field list, in a module whose own doc comment says the coordinator "may see everything".
 **Anything the model gains from here fails to reach the coordinator the same way, silently.**
 
+## Addendum, 2026-09-04: two more unwired exports in `morning-page.tsx`, and why the print work needed to know
+
+Found while verifying DOM containment for the print-colour fix, not by re-running the audit.
+
+    NoHandoverYet   morning-page.tsx:268   exported. Only reference in src is its own definition.
+    ViewControl     morning-page.tsx:470   exported. Only references in src are THREE DOC COMMENTS
+                                           in its own file (166, 206, 209).
+    ViewButton      morning-page.tsx:509   called only by ViewControl -> unreachable transitively.
+
+Between them they own `noHandoverTitle`, `noHandoverButton`, `viewButton`, `viewButtonActive`,
+`viewActiveMark` and `viewExplainer` in `morning.module.css`.
+
+⚠️ **A NAME COLLISION MAKES THE NAIVE CHECK SAY "USED".** `grep -c '\bViewControl\b'` returns 6.
+Two of those are a **different, file-local `ViewControl`** in `search-band-directions-mockups.tsx`,
+and three are prose. **One symbol, two files, no relationship** — and the count reads as healthy.
+This is the same shape the audit already records for TEST_ONLY symbols: references are not consumers.
+
+**Why the print work cared, and the sentence worth keeping.** These classes were counted among
+`morning.module.css`'s 21 themed-colour declarers when its print coverage was assessed. Several of
+those "declarers" were never a live defect, because nothing renders them. **The raw declarer counts
+in that exercise measure CSS rules, not defects** — a distinction that had been quietly lost.
+
+⚠️ **AND A ROW THAT IS SAFE BECAUSE THE CODE IS DEAD IS NOT THE SAME AS A ROW THAT IS SAFE.** The
+containment verdict behind the print fix covers **the DOM as it exists today**. Anyone re-wiring the
+removed fixed/live toggle or the no-handover branch inherits an **unproven nesting assumption**, and
+nothing in either file will say so.
+
+**One genuine mitigation, and only for half of them.** `.viewControl` carries
+`display: none !important` inside `@media print`, and `PrintViewMeta` exists specifically to survive
+that hiding — so `viewButton`, `viewButtonActive`, `viewActiveMark` and `viewExplainer` could not
+print wrong even if `ViewControl` were wired tomorrow. **`noHandoverTitle` and `noHandoverButton`
+have no such protection**: they sit outside `.viewControl`, so re-wiring `NoHandoverYet` would put
+two unreset declarations into a live printable DOM.
+
+**⚠️ HOW THIS ADDENDUM WAS NEARLY WRONG, WHICH MATTERS MORE THAN ITS CONTENT.** Every claim above
+arrived as a subagent's summary and was going to be written down as received. It was plausible, it
+came from work that had been commissioned deliberately, and it agreed with what the commissioner
+already believed. **Checking it took four commands and changed the finding materially in BOTH
+directions** — one symbol called "unwired" is called; four classes called at-risk are protected by a
+real mechanism.
+
+**A document is where an unverified relay does the most damage, because it outlives the conversation
+that could have corrected it.** A reader in three months cannot tell which sentences were measured
+and which were carried. That is exactly the failure this audit exists to record — symbols that look
+healthy by every automated measure — so an unchecked claim appended here is the same defect in the
+same file, one level up. **Verify before appending, and mark what was measured.**
+
 ## Stated limits
 
 - Only symbols with four or fewer outside references were manually checked for prose-versus-code. A

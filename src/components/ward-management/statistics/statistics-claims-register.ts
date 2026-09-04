@@ -596,7 +596,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/bed-readiness/confirmed-at-is-one-shared-field",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "<code className={styles.field}>BedRelease.confirmedAt</code>",
+    rendered: "<code className={styles.fieldName}>BedRelease.confirmedAt</code>",
     claim: "`BedRelease` carries a single `confirmedAt`, not one instant per act on the release.",
     sourceFile: WARD_MODEL,
     evidence: BED_RELEASE_BODY,
@@ -759,7 +759,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/declines/movement-declines-name-a-unit",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "<code className={styles.field}>Movement.declines</code>, which does name a unit",
+    rendered: "<code className={styles.fieldName}>Movement.declines</code>, which does name a unit",
     claim: "A movement decline records a unit id, an instant and a reason.",
     sourceFile: WARD_MODEL,
     evidence: DECLINE_BODY,
@@ -1077,7 +1077,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/referral-to-bed/referral-id-is-nullable",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "<code className={styles.field}>Admission.referralId</code>",
+    rendered: "<code className={styles.fieldName}>Admission.referralId</code>",
     claim: "`Admission.referralId` is typed `string | null`, so a null is an ordinary state.",
     sourceFile: WARD_ADMISSIONS,
     evidence: "referralId: string | null;",
@@ -1266,7 +1266,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-compare-screen/double-count/the-parallel-referral-cap-exists",
     renderedIn: COMPARE_SCREEN,
-    rendered: "<code className={styles.field}>PARALLEL_REFERRAL_CAP</code>",
+    rendered: "<code className={styles.fieldName}>PARALLEL_REFERRAL_CAP</code>",
     claim: "A cap on how many wards one referral can be live at exists and is named `PARALLEL_REFERRAL_CAP`.",
     sourceFile: WARD_MODEL,
     evidence: "export const PARALLEL_REFERRAL_CAP = 3;",
@@ -1438,7 +1438,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ward-screen/blocked/the-nearest-equivalent-measures-from-referral-raised-at",
     renderedIn: WARD_STATS_SCREEN,
-    rendered: "<code className={styles.field}>Referral.raisedAt</code>",
+    rendered: "<code className={styles.fieldName}>Referral.raisedAt</code>",
     claim: "`Referral.raisedAt` exists on the referral record and is required.",
     sourceFile: WARD_MODEL,
     evidence: "source: ReferralSource; raisedAt: Instant;",
@@ -1474,7 +1474,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/origin-ed-id-is-required",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.field}>Movement.originEdId</code>",
+    rendered: "<code className={styles.fieldName}>Movement.originEdId</code>",
     claim: "`Movement.originEdId` is a required string, so it is never missing.",
     sourceFile: WARD_MODEL,
     evidence: "originEdId: string;",
@@ -1518,7 +1518,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/an-ed-destination-carries-an-ed-id",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.field}>edId</code> on its destination",
+    rendered: "<code className={styles.fieldName}>edId</code> on its destination",
     claim: "The emergency-department destination arm carries an `edId`.",
     sourceFile: WARD_MODEL,
     evidence: "edId: string; /** WHY. See `REFERRAL_PURPOSES` — a separate axis from `kind`, on purpose. */",
@@ -1531,7 +1531,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/raised-at-is-required",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.field}>raisedAt</code> is always there",
+    rendered: "<code className={styles.fieldName}>raisedAt</code> is always there",
     claim: "`Referral.raisedAt` is required.",
     sourceFile: WARD_MODEL,
     evidence: "source: ReferralSource; raisedAt: Instant;",
@@ -1540,7 +1540,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/triaged-at-is-optional",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.field}>triagedAt</code> is optional",
+    rendered: "<code className={styles.fieldName}>triagedAt</code> is optional",
     claim: "`Referral.triagedAt` is optional, so a referral may carry none.",
     sourceFile: WARD_MODEL,
     evidence: "triagedAt?: Instant;",
@@ -1553,7 +1553,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/near-miss/a-movement-can-close-as-did-not-proceed",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.field}>did_not_proceed</code>",
+    rendered: "<code className={styles.fieldName}>did_not_proceed</code>",
     claim: "A movement closure records an outcome, one of which is `did_not_proceed`.",
     sourceFile: WARD_MODEL,
     evidence: 'outcome: "arrived" | "did_not_proceed";',
