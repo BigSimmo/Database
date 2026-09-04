@@ -19,7 +19,12 @@ export function onCallEntryFreshness(
 ): OnCallFreshness {
   if (!entry.lastVerifiedAt) return { state: "stale", reason: "never-verified", lastVerifiedAt: null };
   const due = new Date(entry.lastVerifiedAt);
+  const dayOfMonth = due.getUTCDate();
   due.setUTCMonth(due.getUTCMonth() + ON_CALL_REVIEW_INTERVAL_MONTHS);
+  // A leap-day anniversary has no 29 February to land on, and setUTCMonth silently
+  // rolls it into 1 March. Clamp back to the last day of the intended month so a
+  // leap-day entry does not stay fresh a day longer than every other entry.
+  if (due.getUTCDate() !== dayOfMonth) due.setUTCDate(0);
   // On the boundary counts as overdue: a year-old number is not "still fine today".
   if (due.getTime() <= now.getTime()) {
     return { state: "stale", reason: "overdue", lastVerifiedAt: entry.lastVerifiedAt };

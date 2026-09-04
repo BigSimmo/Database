@@ -33,6 +33,14 @@ describe("onCallEntryFreshness", () => {
   it("uses a twelve-month interval", () => {
     expect(ON_CALL_REVIEW_INTERVAL_MONTHS).toBe(12);
   });
+
+  it("does not let a leap-day entry stay fresh past its anniversary", () => {
+    const leapDay = new Date("2024-02-29T00:00:00.000Z").toISOString();
+    const dayAfterDue = new Date("2025-03-01T00:00:00.000Z");
+    expect(onCallEntryFreshness({ lastVerifiedAt: leapDay }, dayAfterDue).state).toBe("stale");
+    const onDue = new Date("2025-02-28T00:00:00.000Z");
+    expect(onCallEntryFreshness({ lastVerifiedAt: leapDay }, onDue).state).toBe("stale");
+  });
 });
 
 describe("onCallDetailsSchemaFor", () => {
