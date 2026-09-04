@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
 import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
@@ -164,9 +164,28 @@ function StagedAnswerResultSurfaceImpl({
     onSubmitFeedback("wrong_source");
   }, [onSubmitFeedback]);
   const safetyTriggerRef = useRef<HTMLButtonElement>(null);
-  function openSafetyFindings() {
+  /**
+   * Which pill opened the sheet, so closing returns focus there rather than to
+   * the first pill in the rail.
+   *
+   * `safetyTriggerRef` alone cannot do this: the rail has one button per finding
+   * kind, so a ref bound to the first would drag focus back to the left edge
+   * after opening from any other pill — and because the rail scrolls
+   * horizontally, that also scrolls the row out from under the reader. `Sheet`
+   * consults this resolver before `returnFocusRef`, so the ref stays as the
+   * fallback for the case where the opener has since unmounted.
+   */
+  const safetyOpenerRef = useRef<HTMLButtonElement | null>(null);
+  function openSafetyFindings(event: MouseEvent<HTMLButtonElement>) {
+    safetyOpenerRef.current = event.currentTarget;
     setSafetyFindingsOpen(true);
   }
+  const resolveSafetyReturnFocus = useCallback(() => {
+    const opener = safetyOpenerRef.current;
+    // Only if it is still in the document — a re-rendered answer replaces these
+    // buttons, and focusing a detached node silently drops focus to <body>.
+    return opener?.isConnected ? opener : null;
+  }, []);
   function closeSafetyFindingsReview() {
     setSafetyFindingsOpen(false);
   }
@@ -645,6 +664,7 @@ function StagedAnswerResultSurfaceImpl({
             // so the gesture went to the page behind the sheet. A plain block
             // scrollport keeps the list at its natural height and scrolls it.
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            resolveReturnFocusTarget={resolveSafetyReturnFocus}
             returnFocusRef={safetyTriggerRef}
           >
             <SafetyFindingsListContent findings={safetyFindings} />

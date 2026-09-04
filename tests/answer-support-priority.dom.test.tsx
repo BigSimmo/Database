@@ -223,6 +223,13 @@ describe("AnswerUtilityActions · feedback on a clean answer", () => {
     // The rail renders at the seam, not in the status chip row.
     expect(surface).toContain("clinicalPoints={clinicalPointsRail}");
     expect(surface).toContain("const answerMetaChips = null;");
+    // Focus returns to the pill that opened the sheet, not to the first pill in
+    // the rail. `returnFocusRef` alone cannot express that when the rail has one
+    // button per kind, and getting it wrong also scrolls a horizontal rail out
+    // from under the reader.
+    expect(surface).toContain("resolveReturnFocusTarget={resolveSafetyReturnFocus}");
+    expect(surface).toContain("safetyOpenerRef.current = event.currentTarget;");
+    expect(surface).toContain("opener?.isConnected");
     // The governed verification wording moved below the answer with it, and the
     // surface must render it itself once it takes placement from the card.
     expect(surface).toContain('verificationPlacement="content"');

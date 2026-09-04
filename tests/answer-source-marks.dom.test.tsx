@@ -375,6 +375,17 @@ describe("answer body no longer owns a source-status row", () => {
     expect(compactVerificationWordingFor("source_only", "extractive")).toBe(
       "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
     );
+
+    // The panel takes whichever state won precedence, not always source_only:
+    // #207 lets stale, partial and ungrounded outrank it. Every extractive
+    // variant must therefore open with the same attribution and must never
+    // claim a model wrote the answer, or the panel would contradict the chip
+    // that opened it.
+    for (const state of ["ready", "stale_evidence", "partial_retrieval", "ungrounded", "source_only"] as const) {
+      const wording = compactVerificationWordingFor(state, "extractive");
+      expect(wording).toMatch(/^Copied from/);
+      expect(wording).not.toContain("AI-generated");
+    }
   });
 
   it("renders no status row at all when the answer is synthesized", () => {

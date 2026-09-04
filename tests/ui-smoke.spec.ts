@@ -2122,6 +2122,20 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
 
+    // Opening from a LATER pill must return focus to that pill, not to the first
+    // one. A ref bound to the first button satisfies every assertion above while
+    // dragging focus back to the left edge of a horizontally scrolling rail.
+    const laterPills = clinicalPointsRail.getByTestId("answer-clinical-point");
+    if ((await laterPills.count()) > 0) {
+      const laterPill = laterPills.first();
+      await laterPill.click();
+      await expect(page.getByRole("dialog", { name: "Clinical points" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Clinical points" })).toHaveCount(0);
+      await expect(laterPill).toBeFocused();
+      await expect(safetyFindingsTrigger).not.toBeFocused();
+    }
+
     // The status chips carry a real 48px tap target inside a 24px-tall pill. The
     // first shape did that with `-my-3`, which keeps `boundingBox()` honest while
     // moving the hit region outside the element's layout box — so the chip
@@ -3511,7 +3525,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     // leads it — neither is a counted limitation.
     const sourceOnlyRow = gapsDetail.getByTestId("answer-limitation-source-only");
     await expect(sourceOnlyRow).toBeVisible();
-    await expect(sourceOnlyRow).toContainText("Copied from cited sources without model synthesis");
+    // The wording is state-specific by design (#207 precedence lets stale
+    // outrank source_only), so this asserts the ATTRIBUTION rather than one
+    // state's sentence: every extractive variant opens "Copied from", and none
+    // of them may claim a model wrote the answer.
+    await expect(sourceOnlyRow).toContainText(/Copied from/);
+    await expect(sourceOnlyRow).not.toContainText("AI-generated");
     const panelWarnings = (await gapsDetail.locator("> p").allInnerTexts()).filter(
       (text) => !/^Answer limitations$/i.test(text.trim()) && !/^Source-only\b/.test(text.trim()),
     );
