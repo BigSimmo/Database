@@ -24,6 +24,7 @@ export const appModeIds = [
   "factsheets",
   "dictionary",
   "sources",
+  "on-call",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -302,9 +303,12 @@ export const appModeDefinitions = [
     id: "prescribing",
     label: "Medication",
     description: "Medication dosing, safety, and monitoring checks",
-    // Medication owns a real home at /medications (previously a 307 alias for
-    // /?mode=prescribing, which is now the shared home). A submitted search still
-    // resolves to /?mode=prescribing&q=…&run=1, which stays dashboard-owned.
+    // Like most other modes, /medications is a redirect: unsubmitted, it forwards
+    // to the shared home at /?mode=prescribing; a submitted search resolves to
+    // /?mode=prescribing&q=…&run=1, which stays dashboard-owned. It is deliberately
+    // NOT in consolidatedModeHomePaths (@/lib/consolidated-mode-home-redirect) —
+    // there is no /medications/search route, so its own bespoke redirect in
+    // medications/page.tsx (mirrored in src/proxy.ts) handles both branches instead.
     href: "/medications",
     search: {
       // Deliberately kind:"documents" (unlike forms): prescribing intentionally searches the
@@ -483,6 +487,33 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "on-call",
+    label: "On Call",
+    description: "Your service's contacts, escalation, orientation and teaching",
+    href: "/on-call",
+    search: {
+      // On Call searches the owner's own operational entries, which are already
+      // in the browser — a local catalogue, like Factsheets and Dictionary — so
+      // it borrows the benign "tools" command kind rather than adding a search
+      // kind that would have to be threaded through universal search.
+      kind: "tools",
+      placeholder: "Search a ward, a number, a service, a session...",
+      inputAriaLabel: "Search your on-call information",
+      submitIdleLabel: "On Call",
+      submitBusyLabel: "On Call",
+      submitAriaLabel: "Search your on-call information",
+      emptyTitle: "Search your on-call information",
+      readyTitle: "Find a number, a pathway or a session",
+      progressLabel: "Searching your on-call entries.",
+      resultKind: "tools",
+      resultHeading: "On Call",
+      resultsSurface: "results-band",
+      statusLabel: "On Call",
+      nextStep: "Open an entry",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -521,6 +552,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "sources",
   "tools",
   "calculators",
+  "on-call",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
@@ -621,24 +653,16 @@ export function appModeCanUseSourceLibraryShortcut(modeId: AppModeId) {
   return kind === "documents" || kind === "differentials";
 }
 
+/**
+ * Every declared mode is searchable through the dashboard composer:
+ * `SearchableAppModeId` is `AppModeId`, so this is `isAppModeId` under the name the
+ * composer reasons in. It once re-listed every `AppModeSearchKind` here, which read
+ * as a distinction the type does not allow and could never return false for a
+ * defined mode. If a non-searchable mode is ever introduced, narrow the type and
+ * this predicate together.
+ */
 export function isSearchableAppMode(modeId: string): modeId is SearchableAppModeId {
-  const mode = appModeDefinitions.find((definition) => definition.id === modeId);
-  if (!mode) return false;
-  const kind = mode.search.kind;
-  return (
-    kind === "answer" ||
-    kind === "documents" ||
-    kind === "services" ||
-    kind === "forms" ||
-    kind === "favourites" ||
-    kind === "differentials" ||
-    kind === "dsm" ||
-    kind === "specifiers" ||
-    kind === "formulation" ||
-    kind === "therapies" ||
-    kind === "calculators" ||
-    kind === "tools"
-  );
+  return isAppModeId(modeId);
 }
 
 /**

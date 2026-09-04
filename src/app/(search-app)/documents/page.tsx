@@ -1,25 +1,32 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { DocumentsHomeClient } from "./documents-home-client";
-
-export const metadata: Metadata = {
-  title: "Documents - PsychSift",
-  description: "Browse indexed clinical sources, recent documents, and source PDFs.",
-};
+import { appModeSelectionHref } from "@/lib/app-modes";
+import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 
 /**
- * The Documents mode home.
+ * Documents has no home page of its own any more.
  *
- * `/` is the single shared home for every other mode — the mode pill retargets
- * the composer rather than navigating — but Documents is a real workspace, not a
- * duplicate landing page: it has its own browse/recent-documents/open-a-source-PDF
- * affordances that don't exist anywhere else, the same way `/medications` has its
- * own prescribing workspace. Folding it into the generic shared home silently
- * deleted those affordances; this route keeps them. The body comes from
- * ClinicalDashboard, which the shared shell mounts for this pathname (see
- * `shouldRenderClinicalDashboard`); this route is the content slot, mirroring the
- * root `home-page-client.tsx`.
+ * Documents used to render its own idle view here — browse, recent documents
+ * and an "open a source PDF" tile row. The owner reviewed that view directly
+ * against the shared home and confirmed none of it held patient- or
+ * drug-specific clinical content, only navigational shortcuts he does not
+ * need — an informed, approved decision, not the earlier silent regression
+ * `consolidated-mode-home-redirect.ts` used to warn readers about. This route
+ * stays only so bookmarks and external deep links to `/documents` keep
+ * resolving, and forwards to the shared home at `/?mode=documents` instead of
+ * rendering a second one. `/documents/search`, `/documents/[id]` and the
+ * source-viewer routes are unaffected — they keep rendering exactly as they
+ * do today.
  */
-export default function DocumentsHomeRoute() {
-  return <DocumentsHomeClient />;
+type DocumentsHomeRouteProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function DocumentsHomeRoute({ searchParams }: DocumentsHomeRouteProps) {
+  // Resolved through the same helper the proxy uses, so a request that reaches
+  // this backstop lands where the proxy would have sent it — including a
+  // submitted `?q=…&run=1`, which goes on to /documents/search rather than
+  // arriving at the home with its query dropped.
+  const params = searchParams ? await searchParams : {};
+  redirect(consolidatedModeHomeTargetForSearchParams("/documents", params) ?? appModeSelectionHref("documents"));
 }
