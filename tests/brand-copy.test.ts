@@ -35,7 +35,12 @@ const SOURCE_FILES = execFileSync("git", ["ls-files", "src"], { encoding: "utf8"
   // The module that defines the strings is the one place they may appear as
   // literals, and design-scratch mockups are excluded for the same reason they
   // are excluded from the wiring and reachability gates: they are not product.
-  .filter((file) => file !== "src/lib/brand.ts" && !file.includes("mockups"));
+  .filter((file) => file !== "src/lib/brand.ts" && !file.includes("mockups"))
+  // `public/llms.txt` is the product's own description of itself to agents, and
+  // it is product copy in every sense except that it lives outside src — which
+  // is exactly how it sat on the retired name for two months after the rename
+  // while every gate scanned past it (full-repository audit 2026-09-02, L86).
+  .concat("public/llms.txt");
 
 /** Lines a surface must import rather than retype. */
 const OWNED_LINES: ReadonlyArray<readonly [name: string, value: string]> = [
@@ -108,6 +113,51 @@ describe("the catchphrase stays usable where it is shown", () => {
     expect(BRAND_CATCHPHRASE.toLowerCase()).not.toMatch(
       /\b(trust(ed|worthy)?|accurate|correct|safe|reliable|proven|verified|evidence-based)\b/,
     );
+  });
+});
+
+/**
+ * The product was called "Clinical Guide" before 2026-08-28. The rename to
+ * PsychSift moved the name in `src/lib/brand.ts` and the surfaces that read it,
+ * but every hand-typed occurrence stayed where it was — a sr-only page heading,
+ * five sidebar and drawer aria-labels, the sign-up title, the calculator empty
+ * state, and the agent-facing `llms.txt` — so for two months the product
+ * introduced itself by one name and labelled its own navigation with another.
+ * The 2026-09-02 audit found the llms.txt half of it (L86) only because a
+ * Playwright assertion had been written to pin the stale string.
+ *
+ * A name is not a line this module can own the way it owns the taglines above:
+ * "PsychSift" is written as a literal in over a hundred places and routing all
+ * of them through an import would be a migration, not a guard. So the guard runs
+ * the other way round — the retired name may not come back.
+ */
+describe("the retired product name stays retired", () => {
+  // "Clinical Guideline"/"Clinical Guidelines" are document titles in the corpus
+  // (the Lithium Clinical Guideline, for one) and have nothing to do with the
+  // product's own name, so the lookahead lets them through.
+  const RETIRED_NAME = /\bClinical Guide(?!lines?\b)/;
+
+  // Unlike the retyped-line scan above, this one has no exclusions: mockups are
+  // design scratch, but a prototype of the sidebar that still says the old name
+  // is exactly what a designer copies the next version from, so they are held to
+  // the product name too. `src/lib/brand.ts` is in scope for the same reason —
+  // it is the module that decides what the product is called.
+  const NAMED_SURFACES = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
+    .split("\n")
+    .filter((file) => /\.(ts|tsx)$/.test(file))
+    .concat("public/llms.txt");
+
+  it.each(NAMED_SURFACES)("%s does not call the product Clinical Guide", (file) => {
+    const offending = readFileSync(file, "utf8")
+      .split("\n")
+      .map((line, index) => ({ line, number: index + 1 }))
+      .filter(({ line }) => RETIRED_NAME.test(line));
+
+    expect(
+      offending.map(({ number, line }) => `${file}:${number}: ${line.trim()}`),
+      `${file} still calls the product "Clinical Guide". It is PsychSift (BRAND_NAME) — ` +
+        "a surface that keeps the old name labels the navigation differently from the header above it.",
+    ).toEqual([]);
   });
 });
 

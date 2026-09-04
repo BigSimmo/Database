@@ -716,12 +716,12 @@ export function ClinicalSidebarContent({
             onNavigate?.();
             window.requestAnimationFrame(onOpenSearch);
           }}
-          aria-label="Search Clinical Guide"
+          aria-label="Search PsychSift"
           aria-keyshortcuts="Control+K Meta+K"
           className="focus-ring-contained flex min-h-tap w-full shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition-colors hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
         >
           <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-left">Search Clinical Guide</span>
+          <span className="min-w-0 flex-1 truncate text-left">Search PsychSift</span>
           <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
             Ctrl K
           </kbd>
@@ -977,7 +977,7 @@ function ClinicalCollapsedRail({
 
   return (
     <aside
-      aria-label="Clinical Guide collapsed sidebar"
+      aria-label="PsychSift collapsed sidebar"
       className={cn(
         // One 12px gap owns every step in the column, so the brand, the rule
         // beneath it, New chat, the scrolling groups and the footer all sit on
@@ -1190,7 +1190,7 @@ export function ClinicalDesktopSidebar({
       {!collapsed ? (
         <aside
           id="clinical-tools-sidebar"
-          aria-label="Clinical Guide sidebar"
+          aria-label="PsychSift sidebar"
           className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] lg:flex lg:flex-col"
         >
           <ClinicalSidebarContent
@@ -1253,7 +1253,7 @@ export function ClinicalMobileSidebar({
       open={open}
       onClose={() => onOpenChange(false)}
       title={BRAND_NAME}
-      closeLabel="Close Clinical Guide menu"
+      closeLabel="Close PsychSift menu"
       placement="left"
       contentClassName={hiddenFrom === "lg" ? "lg:hidden" : "md:hidden"}
       headerLeading={<BrandMark tone="emphasis" optical="chrome" className="h-8 w-8" />}

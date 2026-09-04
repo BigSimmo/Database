@@ -2248,7 +2248,7 @@ export function MasterSearchHeader({
             type="button"
             onClick={onOpenMobileSidebar}
             className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:hidden"
-            aria-label="Open Clinical Guide menu"
+            aria-label="Open PsychSift menu"
           >
             <Menu aria-hidden="true" className="size-icon-lg" />
           </button>
