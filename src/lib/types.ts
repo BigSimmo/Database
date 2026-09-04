@@ -146,6 +146,19 @@ export type ClinicalSourceMetadataInput =
 export type SourceCorpusScope =
   "uploaded_local" | "clinical_kb_site" | "australian_public" | "international_supplementary";
 
+/** Server-issued, request-local provenance used only for context-pack admission. */
+export type ContextPackAdmissionReceipt = Readonly<{
+  version: "context-pack-admission-v1";
+  ownerId: string | null;
+  sourcePolicyVersion: string;
+  indexGeneration: string | null;
+  siteContent: Readonly<{
+    releaseId: string;
+    releaseDigest: string;
+    changeEpoch: string;
+  }> | null;
+}>;
+
 /** Canonical clinical/governance role of a source, independent of its corpus. */
 export type ClinicalSourceRole =
   | "local_guideline"
@@ -563,6 +576,8 @@ export type SearchResult = {
   corpus_scope?: SourceCorpusScope;
   /** Server-only first-party site partition, when this result belongs to that corpus. */
   site_content_domain?: SiteContentDomain | null;
+  /** Server-only, non-serializable authority. Untrusted retrieval rows are never allowed to provide it. */
+  context_pack_admission?: ContextPackAdmissionReceipt;
   // RC9 observability: "synthetic_text" marks a `similarity` fabricated from lexical/structural
   // signals (document-lookup, memory-card, table-facts fast paths) rather than a real cosine.
   // Coverage/threshold gates are calibrated for cosine values; this tag lets telemetry measure

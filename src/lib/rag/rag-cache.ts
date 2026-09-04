@@ -20,6 +20,7 @@ import {
 } from "@/lib/rag/rag-contracts";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer, RagQueryClass, SearchResult, SourcePolicyConflict } from "@/lib/types";
+import { restoreCachedContextPackAdmission } from "@/lib/rag/rag-context-admission";
 import {
   ragAnswerPromptVersion,
   ragAnswerSchemaVersion,
@@ -39,7 +40,7 @@ const searchCache = new Map<
   string,
   { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
 >();
-export const ragCacheDependencyVersion = "rag-cache-v21";
+export const ragCacheDependencyVersion = "rag-cache-v22";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
@@ -829,7 +830,7 @@ function createSiteAwareSearchWriteDescriptor(
 }
 
 function cloneSearchResults(results: SearchResult[]) {
-  return structuredClone(results);
+  return restoreCachedContextPackAdmission(structuredClone(results));
 }
 
 function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelemetry {

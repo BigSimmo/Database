@@ -360,7 +360,7 @@ function retainedSelectionConflicts(conflicts: SourcePolicyConflict[], results: 
   );
 }
 
-function conflictPairForResult(lane: CoverageBudgetLane, resultId: string) {
+export function conflictPairForEvidence(lane: CoverageBudgetLane, resultId: string) {
   const conflict = lane.conflicts.find((candidate) =>
     [...candidate.local.supportingChunkIds, ...candidate.australian.supportingChunkIds].includes(resultId),
   );
@@ -430,7 +430,7 @@ export function selectConflictAwareCoverageEvidence(
     for (const lane of lanes) {
       const result = lane.orderedEvidence[depth];
       if (!result || selectedIds().has(result.id)) continue;
-      const conflictPair = conflictPairForResult(lane, result.id);
+      const conflictPair = conflictPairForEvidence(lane, result.id);
       if (conflictPair) {
         addConflictPair(conflictPair, lane.subquestionId);
       } else if (

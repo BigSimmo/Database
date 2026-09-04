@@ -57,23 +57,8 @@ export type ModelContextEvidenceSelection = {
   results: SearchResult[];
   coverageSelections: CoverageEvidenceSelection[];
   coverage: AnswerCoveragePlan | null;
+  queryPlan?: RagQueryPlan | null;
 };
-
-function withContextPackAdmissionIdentity(result: SearchResult, args: ModelContextSelectionArgs): SearchResult {
-  if (!args.accessScope || !args.snapshot) return result;
-  const metadata = { ...(result.source_metadata ?? {}) } as Record<string, unknown>;
-  if (!("row_owner_id" in metadata)) metadata.row_owner_id = metadata.uploaded_by ?? null;
-  if (!("source_policy_version" in metadata)) metadata.source_policy_version = args.snapshot.sourcePolicyVersion;
-  if (result.corpus_scope === "clinical_kb_site") {
-    const site = args.snapshot.publicSiteContent;
-    if (!("site_content_release_id" in metadata)) metadata.site_content_release_id = site.releaseId;
-    if (!("site_content_release_digest" in metadata)) metadata.site_content_release_digest = site.releaseDigest;
-    if (!("site_content_change_epoch" in metadata)) metadata.site_content_change_epoch = site.changeEpoch;
-  } else if (!("index_generation_id" in metadata)) {
-    metadata.index_generation_id = args.snapshot.documentIndexGeneration;
-  }
-  return { ...result, source_metadata: metadata as SearchResult["source_metadata"] };
-}
 
 function selectLegacyModelContextResults(args: ModelContextSelectionArgs) {
   const highRiskNumericQuery = args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold";
@@ -121,7 +106,7 @@ function flattenCoverageSelections(selections: CoverageEvidenceSelection[], limi
 export function selectModelContextEvidence(args: ModelContextSelectionArgs): ModelContextEvidenceSelection {
   const legacyResults = selectLegacyModelContextResults(args);
   if (!args.queryPlan || !args.results.some((result) => result.corpus_scope)) {
-    return { results: legacyResults, coverageSelections: [], coverage: null };
+    return { results: legacyResults, coverageSelections: [], coverage: null, queryPlan: null };
   }
   const coverageSelections = mergeEvidenceByCoverageAndSourceRole({
     plan: args.queryPlan,
@@ -138,12 +123,10 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): Mod
   const highRiskNumericQuery = args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold";
   const limit = fastRoutineQuery ? fastRoutineModelContextLimit : highRiskNumericQuery ? 6 : args.results.length;
   const flattened = flattenCoverageSelections(coverageSelections, limit);
-  const results = flattened.results.map((result) => withContextPackAdmissionIdentity(result, args));
+  const results = flattened.results;
   const retainedIds = new Set(results.map((result) => result.id));
   const reconciledSelections = coverageSelections.map((selection) => {
-    const orderedEvidence = selection.orderedEvidence
-      .filter((result) => retainedIds.has(result.id))
-      .map((result) => withContextPackAdmissionIdentity(result, args));
+    const orderedEvidence = selection.orderedEvidence.filter((result) => retainedIds.has(result.id));
     const conflicts = selection.conflicts.filter(
       (conflict) =>
         conflict.local.supportingChunkIds.some((id) => retainedIds.has(id)) &&
@@ -177,6 +160,7 @@ export function selectModelContextEvidence(args: ModelContextSelectionArgs): Mod
       selectedEvidence: results,
       selections: reconciledSelections,
     }),
+    queryPlan: args.queryPlan,
   };
 }
 

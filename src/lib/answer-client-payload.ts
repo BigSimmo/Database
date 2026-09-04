@@ -34,6 +34,7 @@ const sourceFieldPolicy = {
   similarity: "client",
   corpus_scope: "server",
   site_content_domain: "server",
+  context_pack_admission: "server",
   similarity_origin: "client",
   text_rank: "client",
   hybrid_score: "client",

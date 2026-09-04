@@ -151,6 +151,7 @@ export {
 import {
   buildContextSourceBlock,
   createGenerationContextPacker,
+  packModelContextEvidencePair,
   packAdjacentSourceContext,
 } from "@/lib/rag/rag-context-pack";
 export { packedContextCacheKey } from "@/lib/rag/rag-context-pack";
@@ -3182,7 +3183,9 @@ async function answerQuestionWithScopeUncoalesced(
 
   function buildAnswerInput(contextResults: SearchResult[]) {
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
-    const fusedBrief = crossDocumentFusionBrief?.text ?? "";
+    const fusedBrief = crossDocumentPlan.enabled
+      ? buildCrossDocumentFusionBrief(answerFocusQuery, contextResults).text
+      : "";
     const comparisonGuide =
       queryClass === "comparison"
         ? `Source-attributed comparison matrix (MISSING means do not infer a value):\n${comparisonEvidenceGuide({
@@ -3352,7 +3355,7 @@ ${qualityRetryInstruction}`
     const eligibleForRoutineExtractiveRecovery =
       route.mode === "fast" &&
       route.reason === "strong_routine_retrieval" &&
-      answerInputResults.length > 0 &&
+      generationFallbackResults.length > 0 &&
       queryClass !== "comparison" &&
       queryClass !== "broad_summary" &&
       queryClass !== "medication_dose_risk" &&
@@ -3367,7 +3370,7 @@ ${qualityRetryInstruction}`
     return hasValidatedExtractiveCandidate({
       query: args.query,
       queryClass,
-      results: answerInputResults,
+      results: generationFallbackResults,
       routeReason: `${route.reason}; source_backed_extractive_recovery:${retryReason}`,
     });
   }
@@ -3478,7 +3481,7 @@ ${qualityRetryInstruction}`
     } satisfies RagAnswer;
   }
 
-  const { served: modelContextSelection, strongRetry: strongRetryContextSelection } = selectModelContextEvidencePair({
+  const selectedContextPair = selectModelContextEvidencePair({
     routeMode: route.mode,
     queryClass,
     crossDocument: crossDocumentPlan.enabled,
@@ -3489,6 +3492,8 @@ ${qualityRetryInstruction}`
     accessScope: contextPackAccessScope,
     snapshot: args.ragRequestContext?.snapshot,
   });
+  const { served: modelContextSelection, strongRetry: strongRetryContextSelection } =
+    await packModelContextEvidencePair(selectedContextPair, packContextForGeneration);
   const modelContextResults = modelContextSelection.results;
   const strongRetryContextResults = strongRetryContextSelection.results;
   coverageSelections = modelContextSelection.coverageSelections;
@@ -3520,7 +3525,7 @@ ${qualityRetryInstruction}`
       model: route.model,
       reason: route.reason,
     });
-    let packedContextResults = await packContextForGeneration(modelContextSelection);
+    let packedContextResults = modelContextResults;
     let generated = await generateWithModel(route.model!, packedContextResults, {
       strong: route.mode === "strong",
     });
@@ -3553,7 +3558,7 @@ ${qualityRetryInstruction}`
       coverageSelections = strongRetryContextSelection.coverageSelections;
       responseContextResults = strongRetryContextResults;
       responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
-      packedContextResults = await packContextForGeneration(strongRetryContextSelection);
+      packedContextResults = strongRetryContextResults;
       // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
       // reasoning (strong) just re-truncates. This is the truncation self-heal.
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
@@ -3582,7 +3587,7 @@ ${qualityRetryInstruction}`
       !fastAnswerHadInvalidEvidenceIds &&
       !fastSourceGap &&
       !fastAnswerWasTemplateLike &&
-      shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults });
+      shouldRetryWithStrongAfterFast({ route, answer, results: packedContextResults });
     const fastAnswerFailedQualityGate =
       route.mode === "fast" &&
       !fastAnswerWasUnusable &&
@@ -3644,7 +3649,7 @@ ${qualityRetryInstruction}`
       coverageSelections = strongRetryContextSelection.coverageSelections;
       responseContextResults = strongRetryContextResults;
       responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
-      packedContextResults = await packContextForGeneration(strongRetryContextSelection);
+      packedContextResults = strongRetryContextResults;
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         maxOutputTokensOverride: strongRetryMaxOutputTokens,
@@ -4043,7 +4048,7 @@ ${qualityRetryInstruction}`
         scoreExplanations: candidateArtifacts.scoreExplanations,
       } satisfies RagAnswer;
     };
-    const adjacentGenerationBandConflicts = adjacentLabelledNumericBandConflicts(answerInputResults);
+    const adjacentGenerationBandConflicts = adjacentLabelledNumericBandConflicts(generationFallbackResults);
     const referencesAdjacentGenerationBandConflict = (candidate: RagAnswer) => {
       const topLevelCitationIds = candidate.citations.map((citation) => citation.chunk_id);
       const scopedText = [

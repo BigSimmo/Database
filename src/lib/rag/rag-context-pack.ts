@@ -1,13 +1,17 @@
 import { createHash } from "node:crypto";
 
-import {
-  retrievalAccessScopeKey,
-  retrievalAccessScopeMatchesOwner,
-  type RetrievalAccessScope,
-} from "@/lib/owner-scope";
+import { retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
+import { hasClinicalValueOrSchedule } from "@/lib/answer-verification";
+import { buildCrossDocumentFusionBrief } from "@/lib/cross-document-synthesis";
+import { contextPackAdmissionMatches } from "@/lib/rag/rag-context-admission";
 import { ragContextSnapshotCacheKey } from "@/lib/rag/rag-context-snapshot";
 import type { ModelContextEvidenceSelection } from "@/lib/rag/rag-context-selection";
-import { evidenceFamilyIdsForResult, type CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
+import {
+  answerCoverageFromSelections,
+  conflictPairForEvidence,
+  evidenceFamilyIdsForResult,
+  type CoverageEvidenceSelection,
+} from "@/lib/rag/rag-coverage";
 import {
   buildRagSourceBlock,
   buildPackedRagSourceBlock,
@@ -39,6 +43,7 @@ export type PackedEvidenceGroup = {
   accessIdentity: string;
   generationIdentity: string;
   releaseIdentity: string;
+  admissionUnitId?: string;
   members: SearchResult[];
   atomicFeatures: {
     hasPopulation: boolean;
@@ -95,12 +100,6 @@ const unitOrQualifierPattern =
   /\b(?:\d+(?:\.\d+)?\s*(?:mg|mcg|microg|g|kg|mL|L|IU|units?|mmol|%|x10\^?\d+\/L)|daily|nightly|weekly|hourly|maximum|minimum|above|below|at least|no more than)\b/i;
 const packedGroupsByResultSet = new WeakMap<SearchResult[], PackedEvidenceGroup[]>();
 
-function metadataRecord(result: SearchResult) {
-  return result.source_metadata && typeof result.source_metadata === "object"
-    ? (result.source_metadata as unknown as Record<string, unknown>)
-    : {};
-}
-
 function stableHash(value: unknown) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
@@ -109,36 +108,15 @@ function legacyStableHash(value: string) {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
-function stringMetadata(metadata: Record<string, unknown>, ...keys: string[]) {
-  for (const key of keys) {
-    const value = metadata[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return null;
-}
-
-function ownerIdForResult(result: SearchResult) {
-  const metadata = metadataRecord(result);
-  const owner = metadata.row_owner_id;
-  return typeof owner === "string" && owner.trim() ? owner.trim() : null;
-}
-
 function resultIdentity(result: SearchResult) {
-  const metadata = metadataRecord(result);
-  const ownerId = ownerIdForResult(result);
+  const receipt = result.context_pack_admission;
+  const ownerId = receipt?.ownerId ?? null;
   return {
     accessIdentity: ownerId ? `owner:${stableHash(ownerId).slice(0, 16)}` : "public",
-    generationIdentity:
-      stringMetadata(metadata, "index_generation_id", "publication_reviewed_index_generation_id") ??
-      "legacy-current-generation",
-    releaseIdentity:
-      stringMetadata(
-        metadata,
-        "site_content_release_digest",
-        "site_content_release_id",
-        "site_content_change_epoch",
-        "release_digest",
-      ) ?? "no-site-release",
+    generationIdentity: receipt?.indexGeneration ?? "no-document-generation",
+    releaseIdentity: receipt?.siteContent
+      ? `${receipt.siteContent.releaseId}:${receipt.siteContent.releaseDigest}:${receipt.siteContent.changeEpoch}`
+      : "no-site-release",
   };
 }
 
@@ -165,25 +143,8 @@ function eligibleResult(
       : result.site_content_domain != null
   )
     return false;
-  const metadata = metadataRecord(result);
   if (result.source_metadata?.corpus_scope !== result.corpus_scope) return false;
-  if (!Object.hasOwn(metadata, "row_owner_id")) return false;
-  if (!retrievalAccessScopeMatchesOwner(expected.accessScope, ownerIdForResult(result))) return false;
-  if (stringMetadata(metadata, "source_policy_version") !== expected.snapshot.sourcePolicyVersion) return false;
-  if (result.corpus_scope === "clinical_kb_site") {
-    const site = expected.snapshot.publicSiteContent;
-    if (
-      stringMetadata(metadata, "site_content_release_id") !== site.releaseId ||
-      stringMetadata(metadata, "site_content_release_digest") !== site.releaseDigest ||
-      stringMetadata(metadata, "site_content_change_epoch") !== site.changeEpoch
-    )
-      return false;
-  } else if (
-    stringMetadata(metadata, "index_generation_id", "publication_reviewed_index_generation_id") !==
-    expected.snapshot.documentIndexGeneration
-  ) {
-    return false;
-  }
+  if (!contextPackAdmissionMatches(result, expected.accessScope, expected.snapshot)) return false;
   if (result.source_metadata?.source_kind === "registry_record") {
     return (
       result.corpus_scope === "clinical_kb_site" &&
@@ -246,6 +207,7 @@ function groupIdPayload(group: Omit<PackedEvidenceGroup, "id" | "atomicFeatures"
     accessIdentity: group.accessIdentity,
     generationIdentity: group.generationIdentity,
     releaseIdentity: group.releaseIdentity,
+    admissionUnitId: group.admissionUnitId ?? null,
     members: group.members.map((member) => ({
       id: member.id,
       documentId: member.document_id,
@@ -270,6 +232,7 @@ function refreshGroup(group: PackedEvidenceGroup): PackedEvidenceGroup {
     accessIdentity: group.accessIdentity,
     generationIdentity: group.generationIdentity,
     releaseIdentity: group.releaseIdentity,
+    admissionUnitId: group.admissionUnitId,
     members: group.members,
   };
   return {
@@ -288,25 +251,40 @@ export function contextPackTokenCeiling(queryClass: RagQueryClass, options: { cr
 export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): ClaimOrientedContextPack {
   const requiredBySubquestion = new Map(input.coverage.subquestions.map((item) => [item.id, item.required] as const));
   const groups: PackedEvidenceGroup[] = [];
-  const groupByFamily = new Map<string, PackedEvidenceGroup>();
+  const groupByDedupeKey = new Map<string, PackedEvidenceGroup>();
 
   for (const selection of input.selections) {
     for (const rawResult of selection.orderedEvidence) {
       if (!eligibleResult(rawResult, selection.claimRole, input)) continue;
       const result = sanitizeStructuredTableFacts(rawResult);
       const evidenceFamilyIds = evidenceFamilyIdsForResult(result);
-      const duplicate = evidenceFamilyIds.map((family) => groupByFamily.get(family)).find(Boolean);
+      const conflictPair = conflictPairForEvidence(selection, result.id);
+      const conflict = conflictPair
+        ? selection.conflicts.find((candidate) =>
+            [...candidate.local.supportingChunkIds, ...candidate.australian.supportingChunkIds].includes(result.id),
+          )
+        : null;
+      const admissionUnitId = conflict ? `conflict:${conflict.id}` : undefined;
+      const dedupeKey = admissionUnitId
+        ? `${admissionUnitId}:result:${result.id}`
+        : `${selection.claimRole}:${[...evidenceFamilyIds].sort().join("|")}`;
+      const duplicate = groupByDedupeKey.get(dedupeKey);
       if (duplicate) {
         duplicate.subquestionIds.push(selection.subquestionId);
         duplicate.required ||= requiredBySubquestion.get(selection.subquestionId) === true;
         continue;
       }
       const previous = groups[groups.length - 1];
-      if (previous && canJoinAdjacent(previous, result, selection.claimRole)) {
+      if (
+        previous &&
+        !admissionUnitId &&
+        !previous.admissionUnitId &&
+        canJoinAdjacent(previous, result, selection.claimRole)
+      ) {
         previous.members.push(result);
         previous.subquestionIds.push(selection.subquestionId);
         previous.evidenceFamilyIds.push(...evidenceFamilyIds);
-        evidenceFamilyIds.forEach((family) => groupByFamily.set(family, previous));
+        groupByDedupeKey.set(dedupeKey, previous);
         continue;
       }
       const identity = resultIdentity(result);
@@ -318,48 +296,75 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
         evidenceFamilyIds,
         corpusScope: result.corpus_scope!,
         ...identity,
+        admissionUnitId,
         members: [result],
         atomicFeatures: atomicFeatures([result]),
       });
       groups.push(group);
-      evidenceFamilyIds.forEach((family) => groupByFamily.set(family, group));
+      groupByDedupeKey.set(dedupeKey, group);
     }
   }
 
   const candidates = groups.map(refreshGroup);
+  const units: PackedEvidenceGroup[][] = [];
+  const unitById = new Map<string, PackedEvidenceGroup[]>();
+  for (const candidate of candidates) {
+    const unitId = candidate.admissionUnitId ?? candidate.id;
+    const unit = unitById.get(unitId);
+    if (unit) unit.push(candidate);
+    else {
+      const created = [candidate];
+      unitById.set(unitId, created);
+      units.push(created);
+    }
+  }
   const selected: PackedEvidenceGroup[] = [];
   const selectedIds = new Set<string>();
   const omittedIds = new Set<string>();
-  const tryAdd = (group: PackedEvidenceGroup, firstAllocationCeiling?: number) => {
-    if (selectedIds.has(group.id)) return true;
-    const truncationSensitive =
-      group.atomicFeatures.hasException ||
-      group.atomicFeatures.hasUnitsOrQualifier ||
-      group.atomicFeatures.hasStructuredTableContext;
+  const tryAdd = (unit: PackedEvidenceGroup[], firstAllocationCeiling?: number) => {
+    const missing = unit.filter((group) => !selectedIds.has(group.id));
+    if (!missing.length) return true;
+    if (unit[0]?.admissionUnitId && unit.length !== 2) {
+      unit.forEach((group) => omittedIds.add(group.id));
+      return false;
+    }
+    const truncationSensitive = unit.some(
+      (group) =>
+        group.atomicFeatures.hasPopulation ||
+        group.atomicFeatures.hasException ||
+        group.atomicFeatures.hasAction ||
+        group.atomicFeatures.hasUnitsOrQualifier ||
+        group.atomicFeatures.hasStructuredTableContext ||
+        group.members.some((member) => hasClinicalValueOrSchedule(member.content)),
+    );
     if (
       truncationSensitive &&
-      group.members.some(
-        (member) => !ragSourceSerializationPreservesAtomicEvidence(member, { queryClass: input.queryClass }),
+      unit.some((group) =>
+        group.members.some(
+          (member) => !ragSourceSerializationPreservesAtomicEvidence(member, { queryClass: input.queryClass }),
+        ),
       )
     ) {
-      omittedIds.add(group.id);
+      unit.forEach((group) => omittedIds.add(group.id));
       return false;
     }
     if (
       firstAllocationCeiling !== undefined &&
-      estimatePackedRagSourceBlockTokens([group], { queryClass: input.queryClass }) > firstAllocationCeiling
+      estimatePackedRagSourceBlockTokens(missing, { queryClass: input.queryClass }) > firstAllocationCeiling
     ) {
-      omittedIds.add(group.id);
+      unit.forEach((group) => omittedIds.add(group.id));
       return false;
     }
-    const trial = [...selected, group];
+    const trial = [...selected, ...missing];
     if (estimatePackedRagSourceBlockTokens(trial, { queryClass: input.queryClass }) > Math.max(0, input.tokenBudget)) {
-      omittedIds.add(group.id);
+      unit.forEach((group) => omittedIds.add(group.id));
       return false;
     }
-    selected.push(group);
-    selectedIds.add(group.id);
-    omittedIds.delete(group.id);
+    selected.push(...missing);
+    missing.forEach((group) => {
+      selectedIds.add(group.id);
+      omittedIds.delete(group.id);
+    });
     return true;
   };
 
@@ -367,11 +372,13 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
   const firstAllocationCeiling = Math.floor(Math.max(0, input.tokenBudget) / Math.max(1, requiredSubquestions.length));
   for (const subquestion of requiredSubquestions) {
     if (selected.some((group) => group.subquestionIds.includes(subquestion.id))) continue;
-    for (const candidate of candidates.filter((group) => group.subquestionIds.includes(subquestion.id))) {
-      if (tryAdd(candidate, firstAllocationCeiling)) break;
+    for (const unit of units.filter((candidate) =>
+      candidate.some((group) => group.subquestionIds.includes(subquestion.id)),
+    )) {
+      if (tryAdd(unit, firstAllocationCeiling)) break;
     }
   }
-  for (const group of candidates) tryAdd(group);
+  for (const unit of units) tryAdd(unit);
 
   const usedTokens = selected.length
     ? estimatePackedRagSourceBlockTokens(selected, { queryClass: input.queryClass })
@@ -400,6 +407,66 @@ export function packedEvidenceResults(pack: ClaimOrientedContextPack) {
   );
   packedGroupsByResultSet.set(results, pack.groups);
   return results;
+}
+
+export type PackedModelContextEvidenceSelection = ModelContextEvidenceSelection & { results: SearchResult[] };
+
+function reconcilePackedSelection(
+  selection: ModelContextEvidenceSelection,
+  results: SearchResult[],
+): PackedModelContextEvidenceSelection {
+  if (!selection.coverage || !selection.coverageSelections.length) return { ...selection, results };
+  const retainedIds = new Set(results.map((result) => result.id));
+  const coverageSelections = selection.coverageSelections.map((lane) => {
+    const orderedEvidence = lane.orderedEvidence.filter((result) => retainedIds.has(result.id));
+    const conflicts = lane.conflicts.filter(
+      (conflict) =>
+        conflict.local.supportingChunkIds.some((id) => retainedIds.has(id)) &&
+        conflict.australian.supportingChunkIds.some((id) => retainedIds.has(id)),
+    );
+    const sourcePolicyConflictOmitted =
+      lane.sourcePolicyConflictOmitted || (lane.conflicts.length > 0 && conflicts.length < lane.conflicts.length);
+    return {
+      ...lane,
+      orderedEvidence,
+      conflicts,
+      sourcePolicyConflictOmitted,
+      sourcePolicyReview: conflicts.length
+        ? ("verified_conflict" as const)
+        : sourcePolicyConflictOmitted || lane.sourcePolicyReview === "not_evaluated"
+          ? ("not_evaluated" as const)
+          : ("not_applicable" as const),
+    };
+  });
+  return {
+    ...selection,
+    results,
+    coverageSelections,
+    coverage: selection.queryPlan
+      ? answerCoverageFromSelections({
+          plan: selection.queryPlan,
+          selectedEvidence: results,
+          selections: coverageSelections,
+        })
+      : selection.coverage,
+  };
+}
+
+/** Pack served and retry selections through the same authority before any generation-visible use. */
+export async function packModelContextEvidencePair(
+  pair: { served: ModelContextEvidenceSelection; strongRetry: ModelContextEvidenceSelection },
+  pack: (selection: ModelContextEvidenceSelection) => Promise<SearchResult[]>,
+) {
+  const servedResults = await pack(pair.served);
+  const strongRetryResults = await pack(pair.strongRetry);
+  return {
+    served: reconcilePackedSelection(pair.served, servedResults),
+    strongRetry: reconcilePackedSelection(pair.strongRetry, strongRetryResults),
+  };
+}
+
+export function buildPackedCrossDocumentFusionBrief(query: string, selection: PackedModelContextEvidenceSelection) {
+  return buildCrossDocumentFusionBrief(query, selection.results);
 }
 
 export function buildContextSourceBlock(results: SearchResult[], options?: Parameters<typeof buildRagSourceBlock>[1]) {
@@ -438,6 +505,30 @@ export function packedContextCacheKey(
   }
   if (!options.snapshot || !options.accessScope)
     throw new Error("Governed context packing requires trusted admission.");
+  const governedResultIdentity = (result: SearchResult) => ({
+    id: result.id,
+    documentId: result.document_id,
+    chunkIndex: result.chunk_index,
+    pageNumber: result.page_number,
+    identity: resultIdentity(result),
+    role: result.source_metadata?.source_role ?? null,
+    currentness: result.source_metadata?.document_status ?? null,
+    serializedInputHash: stableHash(
+      buildPackedRagSourceBlock([
+        refreshGroup({
+          id: "",
+          subquestionIds: [],
+          required: false,
+          claimRole: "treatment",
+          evidenceFamilyIds: evidenceFamilyIdsForResult(result),
+          corpusScope: result.corpus_scope ?? "uploaded_local",
+          ...resultIdentity(result),
+          members: [sanitizeStructuredTableFacts(result)],
+          atomicFeatures: atomicFeatures([result]),
+        }),
+      ]),
+    ),
+  });
   return `${ragContextPackVersion}:${stableHash({
     queryClass,
     crossDocument: Boolean(options.crossDocument),
@@ -453,32 +544,9 @@ export function packedContextCacheKey(
       selection.subquestionId,
       selection.claimRole,
       selection.coverageReason,
-      selection.orderedEvidence.map((result) => result.id),
+      selection.orderedEvidence.map(governedResultIdentity),
     ]),
-    results: results.slice(0, contextLimit).map((result) => ({
-      id: result.id,
-      documentId: result.document_id,
-      chunkIndex: result.chunk_index,
-      pageNumber: result.page_number,
-      identity: resultIdentity(result),
-      role: result.source_metadata?.source_role ?? null,
-      currentness: result.source_metadata?.document_status ?? null,
-      serializedInputHash: stableHash(
-        buildPackedRagSourceBlock([
-          refreshGroup({
-            id: "",
-            subquestionIds: [],
-            required: false,
-            claimRole: "treatment",
-            evidenceFamilyIds: evidenceFamilyIdsForResult(result),
-            corpusScope: result.corpus_scope ?? "uploaded_local",
-            ...resultIdentity(result),
-            members: [sanitizeStructuredTableFacts(result)],
-            atomicFeatures: atomicFeatures([result]),
-          }),
-        ]),
-      ),
-    })),
+    results: results.map(governedResultIdentity),
   }).slice(0, 40)}`;
 }
 

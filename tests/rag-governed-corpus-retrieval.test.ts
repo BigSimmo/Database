@@ -99,7 +99,29 @@ function harness() {
       abortSignal: vi.fn(async () => ({ data, error: null })),
     };
   });
-  return { calls, supabase: { rpc } as never };
+  const from = vi.fn(() => ({
+    select: vi.fn(() => ({
+      in: vi.fn(async (_column: string, ids: string[]) => ({
+        data: ids.map((id) => ({
+          id,
+          index_generation_id: "generation-1",
+          documents: {
+            owner_id: null,
+            status: "indexed",
+            index_generation_id: "generation-1",
+            metadata: {
+              publication_manifest_version: 2,
+              source_policy_version: "source-policy-v1",
+              publication_source_policy_version: "source-policy-v1",
+              publication_reviewed_index_generation_id: "generation-1",
+            },
+          },
+        })),
+        error: null,
+      })),
+    })),
+  }));
+  return { calls, supabase: { rpc, from } as never };
 }
 
 describe("governed public corpus retrieval", () => {
@@ -221,6 +243,12 @@ describe("governed public corpus retrieval", () => {
       corpus_scope: "uploaded_local",
       source_kind: "document",
       uploaded_by: null,
+    });
+    expect(uploaded?.context_pack_admission).toMatchObject({
+      ownerId: null,
+      sourcePolicyVersion: "source-policy-v1",
+      indexGeneration: "generation-1",
+      siteContent: null,
     });
   });
 

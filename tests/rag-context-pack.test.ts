@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildPackedCrossDocumentFusionBrief,
   contextPackTokenCeiling,
   createGenerationContextPacker,
   packClaimOrientedContext,
+  packModelContextEvidencePair,
   packedEvidenceResults,
   packedContextCacheKey,
 } from "@/lib/rag/rag-context-pack";
+import { issueContextPackAdmissionReceipt, restoreCachedContextPackAdmission } from "@/lib/rag/rag-context-admission";
+import { selectModelContextEvidence } from "@/lib/rag/rag-context-selection";
+import { buildEvidencePreviewUnit } from "@/lib/answer-preview";
+import { parseAnswerJson } from "@/lib/rag/rag";
+import { retainRelatedDocumentsForResults } from "@/lib/retrieval-selection";
 import { buildPackedRagSourceBlock, estimatePackedRagSourceBlockTokens } from "@/lib/rag/rag-source-block";
 import type { CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
@@ -14,7 +21,9 @@ import type {
   AnswerCoveragePlan,
   ClinicalClaimRole,
   ClinicalSourceRole,
+  RagQueryPlan,
   SearchResult,
+  SourcePolicyConflict,
   SourceCorpusScope,
 } from "@/lib/types";
 
@@ -51,6 +60,25 @@ function evidence(
     images: [],
     corpus_scope: corpusScope,
     site_content_domain: corpusScope === "clinical_kb_site" ? "medications" : null,
+    context_pack_admission: issueContextPackAdmissionReceipt(
+      corpusScope === "clinical_kb_site"
+        ? {
+            ownerId,
+            sourcePolicyVersion: "source-policy-v1",
+            indexGeneration: null,
+            siteContent: {
+              releaseId: currentReleaseId,
+              releaseDigest: currentReleaseDigest,
+              changeEpoch: "7",
+            },
+          }
+        : {
+            ownerId,
+            sourcePolicyVersion: "source-policy-v1",
+            indexGeneration: generation,
+            siteContent: null,
+          },
+    ),
     source_metadata: {
       source_kind: corpusScope === "clinical_kb_site" ? "registry_record" : "document",
       source_title: "WA guideline",
@@ -101,15 +129,56 @@ function selection(
   subquestionId: string,
   orderedEvidence: SearchResult[],
   claimRole: ClinicalClaimRole = "treatment",
+  conflicts: SourcePolicyConflict[] = [],
 ): CoverageEvidenceSelection {
   return {
     subquestionId,
     claimRole,
     orderedEvidence,
     collapsedEvidenceFamilyIds: [],
-    conflicts: [],
+    conflicts,
     sourcePolicyReview: "not_applicable",
     coverageReason: "direct",
+  };
+}
+
+function queryPlan(ids: string[]): RagQueryPlan {
+  return {
+    version: "rag-query-plan-v1",
+    kind: ids.length > 1 ? "decomposed" : "single",
+    originalQuery: "private original query",
+    interpretation: "test plan",
+    subquestions: ids.map((id) => ({ id, question: `private wording for ${id}`, purpose: "primary", required: true })),
+    targetSiteDomains: [],
+    siteDomainDecision: "none",
+    reasonCodes: [],
+  };
+}
+
+function conflict(local: SearchResult, australian: SearchResult, claimRole: ClinicalClaimRole): SourcePolicyConflict {
+  const side = (result: SearchResult) => ({
+    documentId: result.document_id,
+    catalogueKey: String(result.source_metadata?.source_catalogue_key),
+    title: result.title,
+    publisher: result.source_metadata?.publisher ?? "publisher",
+    publicationDate: result.source_metadata?.publication_date ?? null,
+    effectiveFrom: result.source_metadata?.effective_date ?? null,
+    jurisdiction: result.source_metadata?.jurisdiction ?? "Australia",
+    sourceRole: result.source_metadata!.source_role!,
+    corpusScope: result.corpus_scope!,
+    supportingChunkIds: [result.id],
+  });
+  return {
+    version: "source-policy-conflict-v1",
+    id: `conflict:${local.id}:${australian.id}`,
+    claimRole,
+    topicKey: "shared-topic",
+    local: { ...side(local), corpusScope: "uploaded_local" },
+    australian: { ...side(australian), corpusScope: "australian_public" },
+    overlapReason: "same_claim",
+    materialDifferenceReason: "recommendation_differs",
+    localPrimaryDecision: { selected: "uploaded_local", reason: "current_valid_accessible_directly_supportive" },
+    reviewTargetDocumentId: local.document_id,
   };
 }
 
@@ -285,6 +354,16 @@ describe("claim-oriented context packing", () => {
       corpusScope: "clinical_kb_site",
       sourceRole: "clinical_reference",
       document_id: "site-doc",
+      context_pack_admission: issueContextPackAdmissionReceipt({
+        ownerId: null,
+        sourcePolicyVersion: "source-policy-v1",
+        indexGeneration: null,
+        siteContent: {
+          releaseId: "87654321-4321-5678-9234-cba987654321",
+          releaseDigest: "d".repeat(64),
+          changeEpoch: "8",
+        },
+      }),
       source_metadata: {
         ...evidence("site-template", "template", {
           corpusScope: "clinical_kb_site",
@@ -319,7 +398,7 @@ describe("claim-oriented context packing", () => {
     const derivedDuplicate = evidence("derived-summary", "Summary of lithium monitoring.", {
       corpusScope: "clinical_kb_site",
       sourceRole: "clinical_reference",
-      contentHash: "derived-summary-hash",
+      contentHash: "family-monitoring",
       source_metadata: {
         ...evidence("template", "template").source_metadata!,
         source_kind: "registry_record",
@@ -329,12 +408,10 @@ describe("claim-oriented context packing", () => {
         document_status: "current",
         clinical_validation_status: "approved",
         extraction_quality: "good",
+        content_hash: "family-monitoring",
         site_content_release_id: currentReleaseId,
         site_content_release_digest: currentReleaseDigest,
         site_content_change_epoch: "7",
-        site_content_lineage: [
-          { sourceId: monitoring.document_id, sourceHash: "family-monitoring", relationship: "derived_from" },
-        ],
       } as SearchResult["source_metadata"],
     });
     const escalation = evidence("escalation", "Escalate urgently for severe toxicity.", {
@@ -343,10 +420,7 @@ describe("claim-oriented context packing", () => {
     });
     const pack = packClaimOrientedContext({
       ...trustedAdmission(),
-      selections: [
-        selection("monitoring", [monitoring]),
-        selection("escalation", [derivedDuplicate, escalation], "safety"),
-      ],
+      selections: [selection("monitoring", [monitoring]), selection("escalation", [derivedDuplicate, escalation])],
       coverage: coverage(["monitoring", "escalation"]),
       tokenBudget: 1_500,
     });
@@ -357,6 +431,60 @@ describe("claim-oriented context packing", () => {
     expect(new Set(pack.groups.flatMap((group) => group.subquestionIds))).toEqual(
       new Set(["monitoring", "escalation"]),
     );
+  });
+
+  it("retains novel overlapping families and never reuses evidence across claim roles", () => {
+    const shared = evidence("shared", "Use the treatment pathway.", { contentHash: "family-x" });
+    const expanded = evidence("expanded", "Use the pathway and the legal safeguard.", {
+      contentHash: "family-z",
+      source_metadata: {
+        ...evidence("expanded-template", "template").source_metadata!,
+        content_hash: "family-z",
+        site_content_lineage: [{ sourceId: shared.document_id, sourceHash: "family-x", relationship: "references" }],
+      } as SearchResult["source_metadata"],
+    });
+    const legal = evidence("legal", "Confirm the legal authority before proceeding.", {
+      sourceRole: "legal",
+      contentHash: "family-x",
+    });
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("treatment", [shared, expanded]), selection("legal", [legal], "legal")],
+      coverage: coverage(["treatment", "legal"]),
+      tokenBudget: 1_500,
+    });
+
+    expect(new Set(packedEvidenceResults(pack).map((result) => result.id))).toEqual(
+      new Set(["shared", "expanded", "legal"]),
+    );
+    expect(pack.groups.find((group) => group.members.some((member) => member.id === "legal"))?.claimRole).toBe("legal");
+  });
+
+  it("admits both sides of a verified conflict atomically or omits both", () => {
+    const local = evidence("local-conflict", "Use the local action.", { contentHash: "same-family" });
+    const australian = evidence("au-conflict", "Use the national action.", {
+      corpusScope: "australian_public",
+      sourceRole: "clinical_guideline",
+      document_id: "doc-national",
+      contentHash: "same-family",
+    });
+    const lane = selection("treatment", [local, australian], "treatment", [conflict(local, australian, "treatment")]);
+    const oneSideTokens = estimatePackedRagSourceBlockTokens(
+      packClaimOrientedContext({
+        ...trustedAdmission(),
+        selections: [selection("treatment", [local])],
+        coverage: coverage(["treatment"]),
+        tokenBudget: 1_000,
+      }).groups,
+    );
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [lane],
+      coverage: coverage(["treatment"]),
+      tokenBudget: oneSideTokens,
+    });
+
+    expect(packedEvidenceResults(pack)).toEqual([]);
   });
 
   it("tries the next fitting group so one large first candidate cannot starve another required lane", () => {
@@ -431,6 +559,193 @@ describe("claim-oriented context packing", () => {
     expect(packedContextCacheKey([source], "broad_summary", { crossDocument: true })).toBe(
       "broad_summary|cross-document|scope:all-documents|8|legacy-key:legacy-document:4:9",
     );
+  });
+
+  it("hashes governed candidates beyond the predecessor context limit", () => {
+    const results = Array.from({ length: 9 }, (_, index) =>
+      evidence(`candidate-${index + 1}`, `Candidate ${index + 1} current content.`, {
+        document_id: `doc-${index + 1}`,
+      }),
+    );
+    const answerCoverage = coverage(["summary"]);
+    const selections = [selection("summary", results)];
+    const identity = {
+      crossDocument: true,
+      coverage: answerCoverage,
+      selections,
+      planVersion: "rag-query-plan-v1",
+      ...trustedAdmission(),
+    };
+    const changedNinth = { ...results[8]!, content: "Ninth candidate changed current content." };
+
+    expect(packedContextCacheKey(results, "broad_summary", identity)).not.toBe(
+      packedContextCacheKey([...results.slice(0, 8), changedNinth], "broad_summary", {
+        ...identity,
+        selections: [selection("summary", [...results.slice(0, 8), changedNinth])],
+      }),
+    );
+    expect(packedContextCacheKey(results, "broad_summary", { crossDocument: true })).toBe(
+      `broad_summary|cross-document|scope:all-documents|8|${results
+        .slice(0, 8)
+        .map((result) => `${result.id}:${result.document_id}:${result.chunk_index}:${result.page_number ?? "na"}`)
+        .join("|")}`,
+    );
+  });
+
+  it("fails closed when authoritative owner or generation admission is absent", () => {
+    const missingOwner = evidence("missing-owner", "Private candidate without a verified owner.", {
+      ownerId: "owner-a",
+    });
+    const nullGeneration = evidence("null-generation", "Public candidate without a committed generation.", {
+      generation: "",
+    });
+    const forgedOwner = { ...missingOwner, context_pack_admission: undefined };
+    const forgedGeneration = { ...nullGeneration, context_pack_admission: undefined };
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("owner", [forgedOwner]), selection("generation", [forgedGeneration])],
+      coverage: coverage(["owner", "generation"]),
+      tokenBudget: 1_500,
+    });
+
+    expect(packedEvidenceResults(pack)).toEqual([]);
+  });
+
+  it("restores opaque admission only at the validated cache boundary", () => {
+    const source = evidence("cached", "Cached current guidance.");
+    const cloned = structuredClone([source]);
+    const rejected = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("cached", cloned)],
+      coverage: coverage(["cached"]),
+      tokenBudget: 1_000,
+    });
+    const restored = restoreCachedContextPackAdmission(cloned);
+    const admitted = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("cached", restored)],
+      coverage: coverage(["cached"]),
+      tokenBudget: 1_000,
+    });
+
+    expect(packedEvidenceResults(rejected)).toEqual([]);
+    expect(packedEvidenceResults(admitted).map((result) => result.id)).toEqual(["cached"]);
+  });
+
+  it("does not synthesize trusted admission provenance during model-context selection", () => {
+    const candidate = { ...evidence("unreceipted", "Use the current treatment."), context_pack_admission: undefined };
+    const selected = selectModelContextEvidence({
+      routeMode: "strong",
+      queryClass: "document_lookup",
+      crossDocument: false,
+      results: [candidate],
+      queryPlan: queryPlan(["treatment"]),
+      ...trustedAdmission(),
+    });
+
+    expect(selected.results[0]?.context_pack_admission).toBeUndefined();
+  });
+
+  it.each([
+    "Keep systolic pressure below 80 mmHg.",
+    "Repeat the tracing after 120 ms.",
+    "Hold treatment above 0.5 ng/mL.",
+    "Administer 2 tablets.",
+    "Give 4 puffs.",
+    "Repeat the assessment every 4 hours.",
+    "For pregnant adults, contact the specialist immediately.",
+  ])("omits an overlong truncation-sensitive instruction: %s", (instruction) => {
+    const source = evidence(
+      "overlong-instruction",
+      `${"Background without an instruction. ".repeat(80)} ${instruction}`,
+    );
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("instruction", [source], "dose_or_monitoring")],
+      coverage: coverage(["instruction"]),
+      tokenBudget: 2_000,
+    });
+
+    expect(packedEvidenceResults(pack)).toEqual([]);
+  });
+
+  it("reconciles packed selections and downstream outputs to the exact admitted corpus", async () => {
+    const admitted = evidence("admitted", "Admitted treatment action.", { document_id: "doc-admitted" });
+    const omitted = evidence("omitted", `${"Large omitted background. ".repeat(180)} Stop for unique omitted claim.`, {
+      document_id: "doc-omitted",
+    });
+    const pair = {
+      served: {
+        results: [admitted, omitted],
+        coverageSelections: [selection("treatment", [admitted, omitted])],
+        coverage: coverage(["treatment"]),
+        queryPlan: queryPlan(["treatment"]),
+      },
+      strongRetry: {
+        results: [admitted, omitted],
+        coverageSelections: [selection("treatment", [admitted, omitted])],
+        coverage: coverage(["treatment"]),
+        queryPlan: queryPlan(["treatment"]),
+      },
+    };
+    const packForGeneration = createGenerationContextPacker({
+      queryClass: "document_lookup",
+      crossDocument: false,
+      ...trustedAdmission(),
+      loadLegacy: async (results) => results,
+    });
+    const packed = await packModelContextEvidencePair(pair, packForGeneration);
+    const servedIds = packed.served.results.map((result) => result.id);
+    const preview = buildEvidencePreviewUnit({ results: packed.served.results });
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer: "Use the admitted action.",
+        confidence: "high",
+        grounded: true,
+        citations: [
+          { chunk_id: admitted.id, document_id: admitted.document_id, title: admitted.title },
+          { chunk_id: omitted.id, document_id: omitted.document_id, title: omitted.title },
+        ],
+      }),
+      packed.served.results,
+    );
+    const related = retainRelatedDocumentsForResults(
+      [
+        {
+          document_id: admitted.document_id,
+          title: admitted.title,
+          file_name: admitted.file_name,
+          labels: [],
+          summary: null,
+          best_pages: [1],
+          best_chunk_ids: [admitted.id],
+          image_count: 0,
+          match_reason: "test",
+          score: 1,
+        },
+        {
+          document_id: omitted.document_id,
+          title: omitted.title,
+          file_name: omitted.file_name,
+          labels: [],
+          summary: null,
+          best_pages: [1],
+          best_chunk_ids: [omitted.id],
+          image_count: 0,
+          match_reason: "test",
+          score: 1,
+        },
+      ],
+      packed.served.results,
+    );
+    const fusion = buildPackedCrossDocumentFusionBrief("What should I do?", packed.served);
+
+    expect(servedIds).toEqual(["admitted"]);
+    expect(preview?.sources.map((source) => source.id)).toEqual(["admitted"]);
+    expect(parsed.citations.map((citation) => citation.chunk_id)).toEqual(["admitted"]);
+    expect(related.map((document) => document.document_id)).toEqual(["doc-admitted"]);
+    expect(fusion.text).not.toContain("unique omitted claim");
+    expect(packed.served.coverageSelections[0]?.orderedEvidence.map((result) => result.id)).toEqual(["admitted"]);
   });
 
   it("uses the predecessor loader unchanged when governed packing is inapplicable", async () => {

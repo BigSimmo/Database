@@ -681,7 +681,7 @@ describe("RAG request site-content snapshot", () => {
     expect(legacy.ragRequestContext.snapshot.publicSiteContent.state).toBe("disabled");
     expect(legacy.ragRequestContext.snapshotCacheKey).toBe("");
     expect(ragCacheModule.scopedAnswerCacheKey(legacy)).toBe(
-      `rag-cache-v21|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring|corpora`,
+      `rag-cache-v22|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring|corpora`,
     );
     expect(ragCacheModule.retrievalPlanCacheQuery(legacy, "table_threshold", ["clozapine anc"])).toBe(
       "redacted-cache:1de2f7b951c4ddf8ca480b93420c38820db35d9acb051c0a71c0364b2dba8188",
@@ -1180,7 +1180,7 @@ describe("site-aware RAG cache isolation", () => {
       scope_key: "public-only|document-original",
       normalized_query: expectedSharedQuery,
       indexing_version: "test-rag-version:document-original:2026-08-29T00:00:00.000Z:",
-      dependency_version: "rag-cache-v21",
+      dependency_version: "rag-cache-v22",
       payload: {
         results: [
           expect.objectContaining({

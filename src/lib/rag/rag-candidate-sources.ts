@@ -50,6 +50,7 @@ import type {
 import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
 import { uncoveredRagSubquestions } from "@/lib/rag/rag-coverage";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
+import { issueContextPackAdmissionReceipt } from "@/lib/rag/rag-context-admission";
 import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import { normalizeOptionalSourceMetadata, normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
@@ -201,12 +202,109 @@ function sanitizeGovernedCandidateRows(args: {
     } else if (row.source_metadata?.source_kind !== "document" || row.site_content_domain !== null) {
       return [];
     }
-    const { site_release_id, site_change_epoch, pending_exclusion_exact, ...publicRow } = row;
+    const { site_release_id, site_change_epoch, pending_exclusion_exact, context_pack_admission, ...publicRow } = row;
     void site_release_id;
     void site_change_epoch;
     void pending_exclusion_exact;
-    return [{ ...publicRow, source_metadata: publicGovernedSourceMetadata(publicRow.source_metadata) }];
+    void context_pack_admission;
+    const sanitized = { ...publicRow, source_metadata: publicGovernedSourceMetadata(publicRow.source_metadata) };
+    return [
+      row.corpus_scope === "clinical_kb_site"
+        ? {
+            ...sanitized,
+            context_pack_admission: issueContextPackAdmissionReceipt({
+              ownerId: null,
+              sourcePolicyVersion: args.snapshot.sourcePolicyVersion,
+              indexGeneration: null,
+              siteContent: {
+                releaseId: expectedReleaseId!,
+                releaseDigest: args.snapshot.publicSiteContent.releaseDigest!,
+                changeEpoch: expectedChangeEpoch!,
+              },
+            }),
+          }
+        : sanitized,
+    ];
   });
+}
+
+type AdmissionHydrationRow = {
+  id?: unknown;
+  index_generation_id?: unknown;
+  documents?:
+    | {
+        owner_id?: unknown;
+        status?: unknown;
+        index_generation_id?: unknown;
+        metadata?: unknown;
+      }
+    | Array<{
+        owner_id?: unknown;
+        status?: unknown;
+        index_generation_id?: unknown;
+        metadata?: unknown;
+      }>;
+};
+
+async function attachDocumentContextPackAdmission(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  results: SearchResult[];
+  snapshot: RagContextSnapshot;
+}) {
+  const documentResults = args.results.filter((result) => result.corpus_scope !== "clinical_kb_site");
+  if (!documentResults.length) return args.results;
+  const client = args.supabase as unknown as {
+    from?: (table: string) => {
+      select: (columns: string) => {
+        in: (column: string, values: string[]) => PromiseLike<{ data: unknown[] | null; error: unknown }>;
+      };
+    };
+  };
+  if (typeof client.from !== "function") return args.results;
+  try {
+    const { data, error } = await client
+      .from("document_chunks")
+      .select("id,index_generation_id,documents!inner(owner_id,status,index_generation_id,metadata)")
+      .in("id", [...new Set(documentResults.map((result) => result.id))]);
+    if (error || !Array.isArray(data)) return args.results;
+    const receiptByChunkId = new Map<string, ReturnType<typeof issueContextPackAdmissionReceipt>>();
+    for (const raw of data as AdmissionHydrationRow[]) {
+      if (typeof raw.id !== "string" || raw.index_generation_id !== args.snapshot.documentIndexGeneration) continue;
+      const document = Array.isArray(raw.documents) ? raw.documents[0] : raw.documents;
+      if (!document || document.status !== "indexed" || document.index_generation_id !== raw.index_generation_id)
+        continue;
+      const metadata =
+        document.metadata && typeof document.metadata === "object" && !Array.isArray(document.metadata)
+          ? (document.metadata as Record<string, unknown>)
+          : null;
+      if (
+        !metadata ||
+        metadata.publication_manifest_version !== 2 ||
+        metadata.source_policy_version !== args.snapshot.sourcePolicyVersion ||
+        metadata.publication_source_policy_version !== args.snapshot.sourcePolicyVersion ||
+        metadata.publication_reviewed_index_generation_id !== raw.index_generation_id
+      )
+        continue;
+      const ownerId =
+        typeof document.owner_id === "string" && document.owner_id.trim() ? document.owner_id.trim() : null;
+      receiptByChunkId.set(
+        raw.id,
+        issueContextPackAdmissionReceipt({
+          ownerId,
+          sourcePolicyVersion: args.snapshot.sourcePolicyVersion,
+          indexGeneration: raw.index_generation_id,
+          siteContent: null,
+        }),
+      );
+    }
+    return args.results.map((result) => {
+      if (result.corpus_scope === "clinical_kb_site") return result;
+      const receipt = receiptByChunkId.get(result.id);
+      return receipt ? { ...result, context_pack_admission: receipt } : result;
+    });
+  } catch {
+    return args.results;
+  }
 }
 
 /** Execute bounded candidate-only corpus retrieval under one shared public scope. */
@@ -369,7 +467,11 @@ export async function searchGovernedCorpora(args: {
     const subquestion = uncovered[0];
     if (subquestion) await runQuery(supplementary, buildClinicalTextSearchQuery(subquestion.question));
   }
-  return boundedRpcLaneResults(rpcLanes, results, Math.max(1, Math.min(args.matchCount, 96)));
+  return attachDocumentContextPackAdmission({
+    supabase: args.supabase,
+    results: boundedRpcLaneResults(rpcLanes, results, Math.max(1, Math.min(args.matchCount, 96))),
+    snapshot: args.snapshot,
+  });
 }
 
 function boundedRpcLaneResults(lanes: readonly SearchResult[][], pool: SearchResult[], limit: number) {
