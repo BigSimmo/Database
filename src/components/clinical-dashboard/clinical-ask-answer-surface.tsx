@@ -303,10 +303,6 @@ function Evidence({
             {item.retrievedAt
               ? ` · retrieved ${new Date(item.retrievedAt).toLocaleDateString("en-AU", { timeZone: "UTC" })}`
               : ""}
-            <details>
-              <summary>Review extract</summary>
-              <p>{item.extract}</p>
-            </details>
           </li>
         ))}
       </ol>
