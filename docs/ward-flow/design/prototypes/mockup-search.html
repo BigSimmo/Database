@@ -1,0 +1,1311 @@
+<title>Patient Search — Ward Flow (mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --panel: #f6f7f9;
+    --sunken: #e9ecf0;
+    /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+    --ink: #101724;
+    --ink-2: #38455a;
+    --muted: #5a6678;
+    --faint: #6b7684;
+    --rule: #d6dbe3;
+    --rule-2: #b9c1cd;
+    --signal: #8a5000;
+    --signal-wash: #fbf0df;
+    --crit: #a8351f;
+    --crit-wash: #fbeae6;
+    --good: #1a6349;
+    --cool: #1f4e79;
+    --bar: #c9d0da;
+    --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0c1015;
+      --surface: #151a21;
+      --panel: #1a2028;
+      --sunken: #10151b;
+      --ink: #e9edf2;
+      --ink-2: #c2cbd6;
+      --muted: #94a1b1;
+      --faint: #7f8c9c;
+      --rule: #242c36;
+      --rule-2: #38434f;
+      --signal: #e3a53a;
+      --signal-wash: #2a2113;
+      --crit: #ea6d51;
+      --crit-wash: #2b1712;
+      --good: #4cb98a;
+      --cool: #6fa8d6;
+      --bar: #2c3541;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1015;
+    --surface: #151a21;
+    --panel: #1a2028;
+    --sunken: #10151b;
+    --ink: #e9edf2;
+    --ink-2: #c2cbd6;
+    --muted: #94a1b1;
+    --faint: #7f8c9c;
+    --rule: #242c36;
+    --rule-2: #38434f;
+    --signal: #e3a53a;
+    --signal-wash: #2a2113;
+    --crit: #ea6d51;
+    --crit-wash: #2b1712;
+    --good: #4cb98a;
+    --cool: #6fa8d6;
+    --bar: #2c3541;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  .shell {
+    max-width: 102rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  @media (min-width: 48rem) {
+    .shell {
+      padding: var(--sp-5) var(--sp-5) var(--sp-7);
+    }
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+    letter-spacing: -0.024em;
+  }
+  .panel-title {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.085em;
+    color: var(--muted);
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    font-size: 0.6875rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-4);
+  }
+
+  /* ─── masthead + scope ──────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .covers {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .covers b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+  .pip {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .picker button {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .picker button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .picker label {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+  .picker select {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    max-width: 15rem;
+  }
+
+  /* ─── totals ────────────────────────────────────────────────────────── */
+  .totals {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 52rem) {
+    .totals {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 76rem) {
+    .totals {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+  .total {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .total dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+    margin: 0;
+  }
+  .total dd {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+  .figure {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 1.75rem;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .unit {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .total .sub {
+    font-size: 0.75rem;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .total[data-flag="true"] {
+    border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+    background: var(--signal-wash);
+  }
+  .total[data-flag="true"] .figure {
+    color: var(--signal);
+  }
+  .volume {
+    display: flex;
+    gap: 2px;
+    height: 1.5rem;
+    align-items: flex-end;
+  }
+  .volume span {
+    flex: 1;
+    background: var(--bar);
+    border-radius: 1px 1px 0 0;
+    min-height: 2px;
+  }
+  .volume span[data-peak="true"] {
+    background: var(--signal);
+  }
+  .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── grid + panels ─────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 84rem) {
+    .grid {
+      grid-template-columns: 1fr 1fr 19rem;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel > header .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .blurb {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .rows {
+    list-style: none;
+    margin: var(--sp-3) 0 0;
+    padding: 0;
+  }
+  .rows li {
+    border-top: 1px solid var(--rule);
+  }
+  .rows li:first-child {
+    border-top: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .row:hover {
+    background: var(--panel);
+  }
+  .row .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--faint);
+  }
+  .row .path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .row .path .arrow {
+    color: var(--faint);
+    padding: 0 0.3rem;
+  }
+  .row .wait {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .chip {
+    justify-self: end;
+  }
+  .row .meta {
+    grid-column: 2 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--sp-3);
+    line-height: 1.5;
+  }
+  .row .team {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .rows li[data-level="urgent"] .row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"] .row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"] .row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"] .row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  }
+  .chip[data-level="routine"] {
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+
+  /* ─── rail ──────────────────────────────────────────────────────────── */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  @media (min-width: 60rem) and (max-width: 83.99rem) {
+    .rail {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .rail > * {
+      flex: 1 1 20rem;
+    }
+  }
+  .attention {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .attention li {
+    border-left: 2px solid var(--signal);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--signal);
+    margin-bottom: 0.2rem;
+  }
+  .links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .links li + li a {
+    border-top: 1px solid var(--rule);
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .links a:hover {
+    background: var(--panel);
+  }
+  .links .arr {
+    color: var(--faint);
+    transition: transform 140ms ease;
+  }
+  .links a:hover .arr {
+    transform: translateX(2px);
+  }
+
+  /* ─── bands ────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+  @media (min-width: 60rem) {
+    .band {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .people {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .people li + li {
+    border-top: 1px solid var(--rule);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--sp-1) var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--sp-4);
+    text-decoration: none;
+    transition: background 120ms ease;
+  }
+  .person:hover {
+    background: var(--panel);
+  }
+  .person .name {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .person .where {
+    grid-column: 1 / -1;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .person .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .absent {
+    padding: var(--sp-4);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .absent b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .facts {
+    margin: 0;
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  }
+  .facts dt {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .facts dd {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* ─── the teams table (all-teams scope) ────────────────────────────── */
+  .teams {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .teams caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .teams th,
+  .teams td {
+    text-align: right;
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+  }
+  .teams th:first-child,
+  .teams td:first-child {
+    text-align: left;
+  }
+  .teams thead th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-top: 0;
+    white-space: nowrap;
+  }
+  .teams tbody tr:hover {
+    background: var(--panel);
+  }
+  .teams td.n {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .teams td .zero {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .teams .open {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .teams .open:hover {
+    background: var(--ink);
+    color: var(--ground);
+    border-color: var(--ink);
+  }
+  .teams tr[data-flag="true"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  /* ─── footnote ─────────────────────────────────────────────────────── */
+  .footnote {
+    border-top: 1px solid var(--rule);
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+  .footnote h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    margin-bottom: var(--sp-3);
+  }
+  .footnote ul {
+    margin: 0 0 var(--sp-5);
+    padding-left: 1.1rem;
+  }
+  .footnote li {
+    margin-bottom: var(--sp-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+</style>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — patient search screen. Added beneath the canonical block.
+     No new colour tokens: two new worded chip states (hospital / community)
+     are built from the existing --cool and --good tokens, and every new
+     shape below (composer, filter chips, state banners, suggestions,
+     overflow notice) uses only tokens already defined above. Four states —
+     empty, results, no matches, too many matches — are stacked on one page
+     and labelled with a state banner; the banners themselves are a mockup
+     device, not part of the live screen.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .state-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin: var(--sp-7) 0 var(--sp-3);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .state-banner:first-of-type {
+    margin-top: var(--sp-5);
+  }
+  .state-banner b {
+    color: var(--ink-2);
+  }
+  .state-banner::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+  }
+
+  /* ─── search composer: one field, filters become removable chips ────── */
+  .composer {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    padding: var(--sp-4);
+  }
+  .search-row {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  .search-row input[type="search"] {
+    flex: 1 1 16rem;
+    min-width: 12rem;
+    font: inherit;
+    font-size: 0.9375rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .search-row .go {
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 0.6rem 1.1rem;
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    background: var(--ink);
+    color: var(--ground);
+    cursor: pointer;
+  }
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+    margin-top: var(--sp-3);
+  }
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.3rem 0.35rem 0.3rem 0.6rem;
+    border-radius: 2px;
+    border: 1px solid var(--rule-2);
+    background: var(--panel);
+    color: var(--ink-2);
+  }
+  .filter-chip button {
+    font: inherit;
+    border: 0;
+    background: transparent;
+    color: var(--faint);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0.1rem 0.3rem;
+    border-radius: 2px;
+  }
+  .filter-chip button:hover {
+    background: var(--sunken);
+    color: var(--ink);
+  }
+  .add-filter {
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.3rem 0.65rem;
+    border: 1px dashed var(--rule-2);
+    border-radius: 2px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  /* ─── two more worded stages, built from existing tokens ─────────────── */
+  .chip[data-level="hospital"] {
+    color: var(--cool);
+    border-color: color-mix(in oklab, var(--cool) 45%, transparent);
+  }
+  .chip[data-level="community"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  }
+  .chip[data-level="discharged"] {
+    color: var(--faint);
+    border-color: var(--rule-2);
+  }
+
+  /* ─── two-destination rows ─────────────────────────────────────────────
+     A referral or movement row must open the referral or movement it
+     names — not the patient. So the row itself is no longer one anchor;
+     it is a grid container (the <li> reuses .row directly) holding a
+     full-row "stretched" anchor (.row-open, absolutely positioned, no
+     visible content) plus the person's name as a second, real, sibling
+     anchor (.person-link). Two real anchors, never nested — nesting an
+     <a> inside an <a> is invalid markup. The name sits at a higher
+     z-index so it stays independently clickable and visibly underlined,
+     while the stretched anchor still catches a click anywhere else on
+     the row. Person rows are unchanged: a person IS the destination, so
+     one whole-row anchor with no second link is already correct there. */
+  .row {
+    position: relative;
+  }
+  .row-open {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+  .row-open:focus-visible {
+    z-index: 2;
+  }
+  .person-link {
+    position: relative;
+    z-index: 1;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .rows li.row:hover {
+    background: var(--panel);
+  }
+  .rows li[data-level="urgent"].row {
+    background: var(--crit-wash);
+  }
+  .rows li[data-level="urgent"].row:hover {
+    background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+  }
+  .rows li[data-level="stalled"].row {
+    background: var(--signal-wash);
+  }
+  .rows li[data-level="stalled"].row:hover {
+    background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+  }
+
+  /* ─── no-matches guidance ──────────────────────────────────────────── */
+  .suggestions {
+    list-style: none;
+    margin: 0;
+    padding: var(--sp-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .suggestions li {
+    border-left: 2px solid var(--cool);
+    padding-left: var(--sp-3);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .suggestions a {
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ─── too-many-matches overflow notice ─────────────────────────────── */
+  .overflow-notice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--signal-wash);
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+  }
+  .overflow-notice .figure2 {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--signal);
+  }
+  .suppressed {
+    padding: var(--sp-4);
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--rule);
+  }
+</style>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">&middot;</span><span>No real patient data</span
+    ><span aria-hidden="true">&middot;</span><span>Four states shown below, stacked and labelled</span
+    ><span aria-hidden="true">&middot;</span><span>Every figure invented — listed at the foot</span>
+  </p>
+
+  <div class="masthead">
+    <div class="identity">
+      <span class="eyebrow">Patient search</span>
+      <h1>Search</h1>
+      <p class="covers">
+        Find anyone by name or record number, across the community and every ward. Add a stage or department once the
+        results need narrowing.
+      </p>
+      <p class="liveness">
+        <span class="pip" aria-hidden="true"></span><span>Live<span class="sr"> — data is current</span></span
+        ><span aria-hidden="true">&middot;</span><span>Friday 4 September, updated 2 minutes ago</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════ STATE 1 — EMPTY / RESTING ══════════════ -->
+  <p class="state-banner"><b>State 1</b> — Empty, before anything is typed</p>
+  <div class="composer">
+    <div class="search-row">
+      <label class="sr" for="q-empty">Search by name or record number</label>
+      <input type="search" id="q-empty" placeholder="Search by name or record number&hellip;" />
+      <button type="button" class="go">Search</button>
+    </div>
+    <div class="filters">
+      <button type="button" class="add-filter">+ Add a stage or department</button>
+    </div>
+    <p class="absent">
+      <b>Search across everyone Ward Flow currently knows about</b> &mdash; in the community, admitted to a ward, or
+      recently discharged. Type a full or partial name (for example &ldquo;Hall&rdquo;) or a record number (for example
+      &ldquo;PT-2077&rdquo;). A stage or department filter appears as a removable chip once you add one, so an empty
+      search stays a single plain box.
+    </p>
+  </div>
+
+  <div class="stack">
+    <section class="panel" aria-labelledby="recent-h">
+      <header><h2 class="panel-title" id="recent-h">Recent searches</h2></header>
+      <ul class="links">
+        <li>
+          <a href="#">Okonye, D.<span class="arr" aria-hidden="true">&rarr;</span></a>
+        </li>
+        <li>
+          <a href="#">PT-2041<span class="arr" aria-hidden="true">&rarr;</span></a>
+        </li>
+        <li>
+          <a href="#">Halloran<span class="arr" aria-hidden="true">&rarr;</span></a>
+        </li>
+        <li>
+          <a href="#">Awaiting bed &middot; Midland team<span class="arr" aria-hidden="true">&rarr;</span></a>
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- ══════════════ STATE 2 — RESULTS ══════════════ -->
+  <p class="state-banner"><b>State 2</b> — Results, for a query that matches</p>
+  <div class="composer">
+    <div class="search-row">
+      <label class="sr" for="q-results">Search by name or record number</label>
+      <input type="search" id="q-results" value="Okonye" />
+      <button type="button" class="go">Search</button>
+    </div>
+    <div class="filters">
+      <span class="filter-chip"
+        >Department: Inner City<button type="button" aria-label="Remove department filter">&times;</button></span
+      >
+      <button type="button" class="add-filter">+ Add another filter</button>
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="panel" aria-labelledby="res-people-h">
+      <header>
+        <h2 class="panel-title" id="res-people-h">People</h2>
+        <span class="n">1 match</span>
+      </header>
+      <p class="blurb">
+        The person &ldquo;Okonye&rdquo; matches. Every row below, in every list, is a record that names this same person
+        &mdash; and opens the same patient screen.
+      </p>
+      <ul class="rows">
+        <li>
+          <a class="row" href="#patient/PT-2077"
+            ><span class="id">PT-2077</span><span class="path">D. Okonye &mdash; SCGH Adult Open, Bed 6</span
+            ><span class="wait">Day 4</span><span class="chip" data-level="hospital">In hospital</span
+            ><span class="meta"><span class="team">Inner City</span><span>Admitted 30 Aug 2026</span></span></a
+          >
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel" aria-labelledby="res-ref-h">
+      <header>
+        <h2 class="panel-title" id="res-ref-h">Referrals</h2>
+        <span class="n">1 match</span>
+      </header>
+      <p class="blurb">Referral records that name this person.</p>
+      <ul class="rows">
+        <li data-level="routine" class="row">
+          <a
+            class="row-open"
+            href="#referral/RF-206"
+            aria-label="Open referral RF-206, to Inner City, routine, waiting 1 day 2 hours"
+          ></a>
+          <span class="id">RF-206</span>
+          <span class="path"
+            ><a class="person-link" href="#patient/PT-2077">D. Okonye</a
+            ><span class="arrow" aria-hidden="true">&rarr;</span>Inner City (community)</span
+          >
+          <span class="wait">1d 2h</span>
+          <span class="chip" data-level="routine">Routine</span>
+          <span class="meta"
+            ><span>Discharge referral back to the community team &middot; first contact not yet booked</span></span
+          >
+        </li>
+      </ul>
+    </section>
+
+    <section class="panel" aria-labelledby="res-mv-h">
+      <header>
+        <h2 class="panel-title" id="res-mv-h">Movements</h2>
+        <span class="n">1 match</span>
+      </header>
+      <p class="blurb">Admissions, transfers and discharges that name this person.</p>
+      <ul class="rows">
+        <li class="row">
+          <a
+            class="row-open"
+            href="#movement/MV-118"
+            aria-label="Open movement MV-118, an admission to SCGH Adult Open, Bed 6"
+          ></a>
+          <span class="id">MV-118</span>
+          <span class="path"
+            ><a class="person-link" href="#patient/PT-2077">D. Okonye</a
+            ><span class="arrow" aria-hidden="true">&rarr;</span>SCGH Adult Open, Bed 6</span
+          >
+          <span class="wait">30 Aug, 14:20</span>
+          <span class="chip" data-level="hospital">Admission</span>
+          <span class="meta"
+            ><span>From home &middot; self-presented to Sir Charles Gairdner Hospital ED, then admitted</span></span
+          >
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- ══════════════ STATE 3 — NO MATCHES ══════════════ -->
+  <p class="state-banner"><b>State 3</b> — No matches</p>
+  <div class="composer">
+    <div class="search-row">
+      <label class="sr" for="q-none">Search by name or record number</label>
+      <input type="search" id="q-none" value="Zhivkova" />
+      <button type="button" class="go">Search</button>
+    </div>
+    <div class="filters">
+      <span class="filter-chip"
+        >Stage: Community<button type="button" aria-label="Remove stage filter">&times;</button></span
+      >
+      <button type="button" class="add-filter">+ Add another filter</button>
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="panel" aria-labelledby="nm-h">
+      <header><h2 class="panel-title" id="nm-h">No matches</h2></header>
+      <p class="absent">
+        <b>Nobody matches &ldquo;Zhivkova&rdquo; with the Community filter applied.</b> No name or record number in Ward
+        Flow contains what you typed, among people currently marked as community.
+      </p>
+      <ul class="suggestions">
+        <li>
+          Check the spelling, or try fewer letters &mdash; a partial name such as &ldquo;Zhiv&rdquo; often finds more
+          than the whole surname.
+        </li>
+        <li>
+          Remove the <b>Community</b> filter. The person may currently be in hospital or recently discharged rather than
+          in the community.
+        </li>
+        <li>Search by record number instead, if you have one &mdash; for example &ldquo;PT-2077&rdquo;.</li>
+        <li>If the person genuinely is not in Ward Flow yet, <a href="#">start a new referral</a> for them instead.</li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- ══════════════ STATE 4 — TOO MANY MATCHES ══════════════ -->
+  <p class="state-banner"><b>State 4</b> — Too many matches</p>
+  <div class="composer">
+    <div class="search-row">
+      <label class="sr" for="q-many">Search by name or record number</label>
+      <input type="search" id="q-many" value="Smith" />
+      <button type="button" class="go">Search</button>
+    </div>
+    <div class="filters">
+      <button type="button" class="add-filter">+ Add a stage or department</button>
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="panel" aria-labelledby="tm-h">
+      <header>
+        <h2 class="panel-title" id="tm-h">People</h2>
+        <span class="n">42 matches</span>
+      </header>
+      <div class="overflow-notice">
+        <span><span class="figure2">42</span> people match &ldquo;Smith&rdquo;.</span
+        ><span>Showing the first 8, most recently active first.</span
+        ><span>Add a stage or department filter to narrow this down.</span>
+      </div>
+      <ul class="rows">
+        <li>
+          <a class="row" href="#patient/PT-1900"
+            ><span class="id">PT-1900</span><span class="path">S. Smith &mdash; community</span
+            ><span class="wait">2d ago</span><span class="chip" data-level="community">Community</span
+            ><span class="meta"><span class="team">Midland</span><span>Last contact</span></span></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#patient/PT-1901"
+            ><span class="id">PT-1901</span><span class="path">P. Smith &mdash; RPH Older Adult</span
+            ><span class="wait">Day 6</span><span class="chip" data-level="hospital">In hospital</span
+            ><span class="meta"><span>Royal Perth Hospital</span></span></a
+          >
+        </li>
+        <li data-level="stalled">
+          <a class="row" href="#patient/PT-1902"
+            ><span class="id">PT-1902</span
+            ><span class="path">E. Smith<span class="arrow" aria-hidden="true">&rarr;</span>FSH Adult Secure</span
+            ><span class="wait">1d 5h</span><span class="chip" data-level="stalled">3 declined, none pending</span
+            ><span class="meta"
+              ><span class="team">Bunbury</span><span>Nobody is now looking for this bed</span></span
+            ></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#patient/PT-1903"
+            ><span class="id">PT-1903</span><span class="path">R. Smith &mdash; discharged home</span
+            ><span class="wait">5d ago</span><span class="chip" data-level="discharged">Discharged</span
+            ><span class="meta"><span class="team">Joondalup</span></span></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#patient/PT-1904"
+            ><span class="id">PT-1904</span><span class="path">K. Smith &mdash; community</span
+            ><span class="wait">6d ago</span><span class="chip" data-level="community">Community</span
+            ><span class="meta"><span class="team">Rockingham</span><span>Last contact</span></span></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#patient/PT-1905"
+            ><span class="id">PT-1905</span><span class="path">M. Smith &mdash; FSH Adult Secure</span
+            ><span class="wait">Day 1</span><span class="chip" data-level="hospital">In hospital</span
+            ><span class="meta"><span>Fiona Stanley Hospital</span></span></a
+          >
+        </li>
+        <li>
+          <a class="row" href="#patient/PT-1906"
+            ><span class="id">PT-1906</span><span class="path">T. Smith &mdash; community</span
+            ><span class="wait">1d ago</span><span class="chip" data-level="community">Community</span
+            ><span class="meta"><span class="team">Bentley</span><span>Last contact</span></span></a
+          >
+        </li>
+        <li data-level="routine">
+          <a class="row" href="#patient/PT-1907"
+            ><span class="id">PT-1907</span
+            ><span class="path">V. Smith<span class="arrow" aria-hidden="true">&rarr;</span>SJGM Adult Open</span
+            ><span class="wait">9h</span><span class="chip" data-level="routine">Routine</span
+            ><span class="meta"><span class="team">Midland</span></span></a
+          >
+        </li>
+      </ul>
+      <p class="suppressed">
+        Referral and movement matches are hidden while a search matches this many people. Add a filter above to bring
+        them back.
+      </p>
+    </section>
+  </div>
+
+  <div class="footnote">
+    <h2>Every figure and every name here is invented</h2>
+    <ul>
+      <li>
+        <b>All patient names:</b> D. Okonye, the eight Smith rows (S., P., E., R., K., M., T. and V. Smith), and the
+        query &ldquo;Zhivkova&rdquo;. All deliberately unlike a real patient list.
+      </li>
+      <li><b>All record and event numbers:</b> PT-2077, PT-2041, PT-1900&ndash;PT-1907, RF-206, MV-118.</li>
+      <li>
+        <b>The recent-searches list</b> and every count, wait, day and timestamp shown &mdash; including the 42 matches
+        and the 1-match counts in the results state.
+      </li>
+      <li><b>Every stage, team assignment and admission date</b> attached to the invented people above.</li>
+    </ul>
+    <h2>What is real</h2>
+    <ul>
+      <li>
+        <b>The team names</b> &mdash; Inner City, Midland, Bunbury, Rockingham, Joondalup, Bentley &mdash; from this
+        repository's community catchment table.
+      </li>
+      <li>
+        <b>The hospitals and wards</b> &mdash; Sir Charles Gairdner Hospital (SCGH Adult Open), Royal Perth Hospital
+        (RPH Older Adult), Fiona Stanley Hospital (FSH Adult Secure), St John of God Midland Public Hospital (SJGM Adult
+        Open) &mdash; and their Emergency Departments, from the ward model.
+      </li>
+    </ul>
+    <h2>Design decisions</h2>
+    <ul>
+      <li>
+        <b>One field, filters as removable chips, not three controls.</b> Today's screen shows a text box, a stage
+        select and a department select at all times, even before anything is typed. Here the resting state (State 1) is
+        a single search box with a single &ldquo;+ Add a stage or department&rdquo; control; once a filter is chosen it
+        becomes a labelled chip with its own remove button (States 2 and 3), so an applied search reads as a sentence
+        &mdash; &ldquo;Okonye, in Inner City&rdquo; &mdash; rather than three boxes whose combination has to be
+        reconstructed by eye.
+      </li>
+      <li>
+        <b>One row shape for all three lists.</b> Today's people, referrals and movements are three differently shaped
+        lists (a form-fed list, run-on sentences, and a table). Here all three reuse the identical row &mdash; an id, a
+        path, a wait figure and a worded chip &mdash; so a reader learns the shape once. Only the id prefix (PT / RF /
+        MV) and the chip's meaning change between them.
+      </li>
+      <li>
+        <b>A row opens the thing it names, and the person is a second, separate link.</b> A person row's own destination
+        already is the person, so it stays one whole-row link. A referral or movement row's own destination is the
+        referral or movement it represents (clicking RF-206 or MV-118 opens that record) &mdash; but the person's name
+        inside the row is a second, independently clickable, underlined link straight to the patient screen. That is
+        what actually closes today's named defect (no route to the person at all): every result now has a route to the
+        person, without any row lying about what it opens. The two links are real sibling anchors, never one nested
+        inside the other, which is invalid markup; the row-wide link is an invisible layer placed under the name, so the
+        name stays clickable in its own right and the rest of the row still opens its own record.
+      </li>
+      <li>
+        <b>Too many matches hides referrals and movements rather than piling three long lists on top of each other.</b>
+        This also sidesteps the two-links-per-row pattern at exactly the volume where it would feel busiest: 42 people
+        are already shown 8-at-a-time with one link each, and adding their referral and movement matches underneath
+        &mdash; each carrying two links &mdash; would make the narrowing controls the least visible thing on the screen
+        instead of the most. The panel says plainly that they are hidden and why.
+      </li>
+    </ul>
+  </div>
+</div>
