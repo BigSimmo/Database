@@ -694,16 +694,19 @@ describe("ward bed release lifecycle", () => {
     expect(after).toEqual(before);
   });
 
-  // L66: every ward test above dispatches CONFIRM/BLOCK/RELEASE only against WR-001 (seeded
-  // confirmed) or WR-002 (seeded predicted), so predicted->confirmed, predicted->blocked and
-  // confirmed->released are proven but blocked->confirmed, confirmed->blocked, blocked->released
-  // and the three refusal branches on an already-blocked/released release are not. These cases
-  // close that gap and assert the exact refusal text so a future silent-transition regression on
-  // the ward capacity board's Blocked/Confirmed counts turns red.
-  it("9. a ward confirms a blocked release (blocked -> confirmed)", () => {
+  // L66: this model has only three `state` values (expected/confirmed/discharged, "Bed-model
+  // rework (2026-08-28)" above) — blocking is a separate flag, not a fourth state — so the
+  // untested refusal branches are CONFIRM_BED_RELEASE and RELEASE_BED on a release that is not
+  // in the state the event requires, and BLOCK_BED_RELEASE on a discharged release. Every ward
+  // test above only ever dispatches these against WR-001 (confirmed) or WR-002 (expected) and
+  // never asserts a refusal string, so these cases close that gap on WR-007 (confirmed, and
+  // already flagged blocked) and WR-008 (discharged) and pin the exact rejection text so a
+  // future silent-transition regression on the ward capacity board's counts turns red.
+  it("9. CONFIRM_BED_RELEASE on an already-confirmed release is refused with the exact text, state unchanged", () => {
     const state = seeded();
-    // WR-007 (fsh-adult-secure) is seeded blocked.
-    expect(release(state, "WR-007").state).toBe("blocked");
+    // WR-007 (fsh-adult-secure) is seeded confirmed and already flagged blocked.
+    const before = release(state, "WR-007");
+    expect(before.state).toBe("confirmed");
     const next = wardFlowReducer(state, {
       type: "CONFIRM_BED_RELEASE",
       role: "ward",
@@ -711,50 +714,16 @@ describe("ward bed release lifecycle", () => {
       releaseId: "WR-007",
       actingUnitId: "fsh-adult-secure",
     });
-    expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-007").state).toBe("confirmed");
-    expect(release(next, "WR-007").blocker).toBeNull();
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0]?.reason).toBe("cannot move release WR-007 from confirmed to confirmed");
+    expect(release(next, "WR-007")).toEqual(before);
   });
 
-  it("10. a ward blocks a confirmed release (confirmed -> blocked)", () => {
+  it("10. CONFIRM_BED_RELEASE on a discharged release is refused with the exact text, state unchanged", () => {
     const state = seeded();
-    // WR-001 (rph-adult-secure) is seeded confirmed.
-    expect(release(state, "WR-001").state).toBe("confirmed");
-    const [blocker] = BED_RELEASE_BLOCKERS;
-    const next = wardFlowReducer(state, {
-      type: "BLOCK_BED_RELEASE",
-      role: "ward",
-      now: NOW,
-      releaseId: "WR-001",
-      actingUnitId: "rph-adult-secure",
-      blocker,
-    });
-    expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-001").state).toBe("blocked");
-    expect(release(next, "WR-001").blocker).toBe(blocker);
-  });
-
-  it("11. a ward releases a blocked release (blocked -> released)", () => {
-    const state = seeded();
-    // WR-007 (fsh-adult-secure) is seeded blocked.
-    expect(release(state, "WR-007").state).toBe("blocked");
-    const next = wardFlowReducer(state, {
-      type: "RELEASE_BED",
-      role: "ward",
-      now: NOW,
-      releaseId: "WR-007",
-      actingUnitId: "fsh-adult-secure",
-    });
-    expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-007").state).toBe("released");
-    expect(release(next, "WR-007").blocker).toBeNull();
-  });
-
-  it("12. CONFIRM_BED_RELEASE on an already-released release is refused with the exact text, state unchanged", () => {
-    const state = seeded();
-    // WR-008 (arm-adult-open) is seeded released — a terminal state.
+    // WR-008 (arm-adult-open) is seeded discharged — a terminal state.
     const before = release(state, "WR-008");
-    expect(before.state).toBe("released");
+    expect(before.state).toBe("discharged");
     const next = wardFlowReducer(state, {
       type: "CONFIRM_BED_RELEASE",
       role: "ward",
@@ -763,33 +732,51 @@ describe("ward bed release lifecycle", () => {
       actingUnitId: "arm-adult-open",
     });
     expect(next.rejections).toHaveLength(1);
-    expect(next.rejections[0].reason).toBe("cannot move release WR-008 from released to confirmed");
+    expect(next.rejections[0]?.reason).toBe("cannot move release WR-008 from discharged to confirmed");
     expect(release(next, "WR-008")).toEqual(before);
   });
 
-  it("13. BLOCK_BED_RELEASE on an already-blocked release is refused with the exact text, state unchanged", () => {
+  it("11. BLOCK_BED_RELEASE on a discharged release is refused with the exact text, state unchanged", () => {
     const state = seeded();
-    // WR-009 (rgh-adult-secure) is seeded blocked.
-    const before = release(state, "WR-009");
-    expect(before.state).toBe("blocked");
+    // WR-008 (arm-adult-open) is seeded discharged — nothing left to hold up.
+    const before = release(state, "WR-008");
+    expect(before.state).toBe("discharged");
     const next = wardFlowReducer(state, {
       type: "BLOCK_BED_RELEASE",
       role: "ward",
       now: NOW,
-      releaseId: "WR-009",
-      actingUnitId: "rgh-adult-secure",
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
       blocker: BED_RELEASE_BLOCKERS[0],
     });
     expect(next.rejections).toHaveLength(1);
-    expect(next.rejections[0].reason).toBe("cannot move release WR-009 from blocked to blocked");
-    expect(release(next, "WR-009")).toEqual(before);
+    expect(next.rejections[0]?.reason).toBe("cannot block release WR-008 because it is already released");
+    expect(release(next, "WR-008")).toEqual(before);
   });
 
-  it("14. RELEASE_BED on a predicted release is refused with the exact text, state unchanged", () => {
+  it("12. RELEASE_BED on a discharged release is refused with the exact text, state unchanged", () => {
     const state = seeded();
-    // WR-002 (scgh-adult-open) is seeded predicted.
-    const before = release(state, "WR-002");
-    expect(before.state).toBe("predicted");
+    // WR-008 (arm-adult-open) is already discharged — releasing it again is refused.
+    const before = release(state, "WR-008");
+    expect(before.state).toBe("discharged");
+    const next = wardFlowReducer(state, {
+      type: "RELEASE_BED",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0]?.reason).toBe("cannot move release WR-008 from discharged to released");
+    expect(release(next, "WR-008")).toEqual(before);
+  });
+
+  it("13. RELEASE_BED on an expected release is accepted (expected -> discharged, no confirm step required)", () => {
+    const state = seeded();
+    // WR-002 (scgh-adult-open) is seeded expected — RELEASE_BED accepts expected -> discharged
+    // directly (see the reducer's own comment: "the four-stage model already permitted the same
+    // journey via expected -> blocked -> released").
+    expect(release(state, "WR-002").state).toBe("expected");
     const next = wardFlowReducer(state, {
       type: "RELEASE_BED",
       role: "ward",
@@ -797,8 +784,7 @@ describe("ward bed release lifecycle", () => {
       releaseId: "WR-002",
       actingUnitId: "scgh-adult-open",
     });
-    expect(next.rejections).toHaveLength(1);
-    expect(next.rejections[0].reason).toBe("cannot move release WR-002 from predicted to released");
-    expect(release(next, "WR-002")).toEqual(before);
+    expect(next.rejections).toHaveLength(0);
+    expect(release(next, "WR-002").state).toBe("discharged");
   });
 });
