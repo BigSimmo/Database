@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "b1fddb0b2e83e4634d1b368a7f01f288a34c6770",
-    "committed_at": "2026-09-03T18:34:41+00:00"
+    "sha": "1131a98b7ff7103b6b5e8aabf23975d1a472e8f0",
+    "committed_at": "2026-09-04T09:54:02+00:00"
   },
   "routes": {
     "modes": [
@@ -4201,6 +4201,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/testing.md",
         "section": "root",
         "catalogued": true
@@ -5745,9 +5750,9 @@
       }
     ],
     "counts": {
-      "documents": 832,
+      "documents": 833,
       "catalogued": 115,
-      "uncatalogued": 717,
+      "uncatalogued": 718,
       "sections": 22
     }
   },
@@ -10633,6 +10638,14 @@
         "checks": "merge-tree clean; behind_by 0; Unit/Build/Static/ProdUI in progress; no failing required"
       },
       {
+        "date": "2026-09-03",
+        "ref": "claude/token-layer-collapse-itskb0 (PR #2577)",
+        "head": "3e4debbf84436c21aac0a4f9d34c3c7ba1fed57c",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: PR required failing (Unit coverage + Production UI (3) red), branch behind main, 2 P2 review threads (already fixed/resolved by prior session at 88de0af9a). Fixed: merged origin/main clean (git merge, no conflicts), fixed tests/playwright-pr-shards.test.ts (#159) by adding ui-token-layer-resolution.spec.ts to scripts/playwright-pr-shards.mjs productionSpecFilePattern + a shard-1 profile entry, which was missing after the spec was wired into playwright.config.ts's pattern but not the byte-for-byte-synced script copy. 0 threads left open (both already resolved pre-sweep, re-verified unresolved-thread count is 0). Production UI (3)'s differentials-compare-queue failure is unrelated to this PR's diff (no touch to tests/ui-tools.spec.ts or differentials code) and not reproduced as a main-branch baseline issue; left for the re-run to confirm as transient rather than 'fixed' with an unrelated code change. After: pushed 3e4debbf8, CI re-running on the merged+fixed head; Unit coverage and Production UI shards in progress at report time.",
+        "checks": "Local: npx vitest run tests/playwright-pr-shards.test.ts tests/playwright-project-isolation.test.ts (23 passed); npx prettier --check scripts/playwright-pr-shards.mjs (pass). No provider-backed checks run."
+      },
+      {
         "date": "2026-07-30",
         "ref": "codex/review-pr1448",
         "head": "3e50d1364912c2296a3a681f595dd5b89880129e",
@@ -13599,6 +13612,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "GitHub reported dirty/conflicting mergeable_state but git merge-tree and a real test merge in a worktree were clean (stale mergeability). Merged origin/main directly and pushed. No unresolved review threads.",
         "checks": "git merge-tree (clean), real worktree merge (clean, no conflicts)"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/caring-contacts-design-audit-fcay0l (PR #2574)",
+        "head": "62202f899fc0477d8b2b3601bf6e886a01c4871c",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Merged origin/main into a mergeable_state:dirty branch; real conflicts were only in generated files (data/repo-awareness-snapshot.json, docs/scripts-index.md), resolved by regenerating via their own generators, no hand edits. Pushed merge commit 62202f899. Prior CI failure (Unit coverage: pip install PyMuPDF timed out downloading from files.pythonhosted.org) was a hosted network transient unrelated to this PR's code; the merge push retriggers CI fresh. Only 1 review thread exists on the PR and it was already resolved (Codex overflow-hidden clipping finding, fixed in d76bac79c prior to this session) - 0 new threads to work.",
+        "checks": "local: merge-tree write-tree classification (real conflicts, both in generated docs), npm run snapshot:repo-awareness, node scripts/update-docs-inventory.mjs (regenerated clean), pre-commit hook docs sync/index checks (passed on commit). No provider-backed checks run. Hosted CI: fresh run 33802209382 in progress at push time, not yet settled."
       },
       {
         "date": "2026-08-04",
@@ -17113,6 +17134,14 @@
         "checks": "git merge-tree clean; npm run format; prior tip CI green; no provider-backed checks run"
       },
       {
+        "date": "2026-09-03",
+        "ref": "claude/token-layer-collapse-itskb0 (PR #2577)",
+        "head": "88de0af9af2eb9f454c9c1bb4458ab3885248eb0",
+        "scope": "Run PR sweep: merge origin/main drift + Codex review threads",
+        "outcome": "before: mergeable_state dirty (real conflict in playwright.config.ts spec-pattern regexes vs origin/main), 2 unresolved Codex review threads (P2: isPixelDriftFailure over-matched toHaveScreenshot runtime failures as pixel-drift; token-layer-resolution pin didn't assert full divergence-report coverage), CI unrun. after: merged origin/main (mechanical union-merge of the two regex alternation lists in playwright.config.ts, no other conflicts), fixed both review findings with regression tests, replied to and resolved both threads, formatted and pushed. mergeable_state now blocked (awaiting required checks, no conflict). CI re-running at https://github.com/BigSimmo/Database/actions/runs/33791862823 (head 88de0af9af2eb9f454c9c1bb4458ab3885248eb0).",
+        "checks": "local: node --check plus manual invocation of isPixelDriftFailure cases (matching the added test assertions) and a node script computing divergence-report vs pin coverage (0 uncovered) while the machine-wide focused-test lock was contended; once free, node scripts/run-vitest.mjs run tests/classify-visual-baseline-outcome.test.ts -- 8/8 passed. npx prettier --check on all touched files clean after fixing one formatting violation. No provider-backed checks run. Full CI (lint/typecheck/build/ui-critical etc.) left to GitHub, re-running on push."
+      },
+      {
         "date": "2026-07-28",
         "ref": "fix/audit-remediation-from-main",
         "head": "88deecfb988da030d806b1d8c0a4c8349502a5f8",
@@ -18615,6 +18644,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: CONFLICTING, CI green, 0 threads. After: merged origin/main cleanly (ledger/codebase-index auto-merge); pushed 9c373eb1c. Threads: none. Residual: CI re-running.",
         "checks": "merge origin/main only; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/issues-followups (PR #2544)",
+        "head": "9c485f59e73e001e35b6e2075a6d933e080aeaa7",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "No CI had run on this head (pending/no checks); branch was behind main with a clean merge-tree, merged origin/main (no conflicts, package.json script additions only, no lockfile change, no npm install needed); both review threads were already resolved from a prior sweep pass, none left open",
+        "checks": "npm run check:outstanding-issues (pass, includes check:outstanding-issues-snapshot), npm run check:ledger-write-discipline (pass), npx prettier --check . (pass, whole tree); no provider-backed checks run"
       },
       {
         "date": "2026-07-24",
@@ -23671,6 +23708,14 @@
         "scope": "issue 148 deletion guard",
         "outcome": "approved: no P0-P2 findings; base comparison is fail-closed in CI and preserves archive moves",
         "checks": "verify:cheap; deletion self-test; unreadable-base proof; CI scope; GitHub Actions pin guard"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/answer-loading-sources-animation-4obfpq",
+        "head": "da1cc81620afc9db0dc6c9ff71061b3a471a193e",
+        "scope": "answer-preview source governance, evidence rail",
+        "outcome": "P1 governance display-cap defect fixed with a mutation-proven test; P2 invariant/doc drift recorded as a dated design-doc amendment",
+        "checks": "clinical-governance-reviewer; verify:cheap; verify:pr-local; build; eval:rag:offline; eval:rag:adversarial:offline; focused chromium (answer-progress-ui-smoke 8, ui-phone-motion+ui-universal-search 25, ui-smoke 106)"
       },
       {
         "date": "2026-08-21",
