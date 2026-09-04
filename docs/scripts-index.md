@@ -98,7 +98,14 @@ Also catalogued (2026-09-02), gate and CI helpers:
 - `check-worker-python-lock.mjs` (`check:worker-python-lock`, `check:worker-python-cloud-lock`, `check:worker-python-locks:static`), `generate-worker-python-lock.mjs` (`generate:worker-python-lock`, `generate:worker-python-cloud-lock`), `worker-python-lock-config.mjs` — the hashed `worker/python/requirements.txt` lock targets.
 - `check-dev-drive-cache.mjs` (`check:dev-drive-cache`) — Windows Dev Drive npm cache registration and Defender trust (`#6SMMB4`).
 
-For executable phone-chrome changes, use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
+Also catalogued (2026-09-04):
+
+- `check-chain-mirror-parity.ts` (`check:chain-mirror-parity`) — replays the migration chain and diffs the result against `supabase/schema.sql`, catching drift that "chain applies" and "manifest is not stale" checks both miss.
+- `check-dependency-drift.mjs` (`check:dependency-drift`) — flags a surface whose transitive import closure changed even though the files a staleness check names directly did not.
+- `check-design-drift-ratchet.mjs` (`check:design-drift-ratchet`) — ratchet guard for two design-token drift metrics (bypass-prone inline `style={{ }}` under `src/**`; design-system components with zero product importers).
+- `stamp-service-worker.mjs` (part of `build:internal`) — gives `public/sw.js` a different body on every build so the browser's byte comparison detects an update and fires `updatefound`/`activate`.
+
+ use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
 
 ## Ingestion, indexing & reindex [live]
 
@@ -185,6 +192,12 @@ part of `check:design-system-contract` — the ratchet-figures block in `docs/de
 `promote-query-misses.ts`, `flake-ledger.mjs`, `sweep-branch-ledger.mjs`, `dependency-report.mjs`,
 `set-site-administrator.ts`, `ops-digest.mjs`, `build-clinical-review-queue.ts`,
 `verify-locality-metadata.ts`, `update-docs-inventory.mjs`.
+Also catalogued (2026-09-04), landed without `package.json` wiring yet: `check-ward-data.mjs` —
+reads the Ward Flow prototype's changeable data (bed numbers, hospitals, wards) and reports
+arithmetic that does not add up, in plain words aimed at a non-programmer editor; read-only and
+offline. `run-ward-tests.mjs` — runs a named set of Vitest files and refuses to report success
+unless every file handed in actually produced a result, closing a false-green mode where a crashed
+worker still prints an internally consistent pass count.
 
 ### Review ledger, branches and skills [live]
 
