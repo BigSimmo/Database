@@ -325,7 +325,23 @@ async function openWorkspace(
   // early carries a second, inert copy of the whole shell. Settle on exactly one
   // before measuring anything — and assert it, because a shell that genuinely
   // mounted twice would double every landmark on the page.
-  await expect(page.getByTestId("caring-contacts-rail")).toHaveCount(1);
+  //
+  // Both navigation landmarks, not just the rail. The sentence above always said
+  // "every landmark", but the wait only ever covered `caring-contacts-rail`, and
+  // the two are reconciled on different ticks: `toHaveCount(1)` retries, so it
+  // can go green at a moment when the rail has settled and the dock is still
+  // doubled. The frozen-layout sweep then asserts on the dock a few lines later
+  // and trips Playwright strict mode on the second copy — observed on PR #2600,
+  // CI run 33868074584 shard 2, "Template detail at 390px: the phone dock does
+  // not own navigation", with `caring-contacts-phone-dock` resolving to 2
+  // elements despite this guard having passed on the same navigation.
+  //
+  // Both are `md:hidden`/`md:flex` siblings of one shell subtree, so exactly one
+  // of each exists at every width — the count is 1 whichever one is displayed,
+  // and this says nothing about which is *visible*. That remains the sweep's job.
+  for (const landmark of ["caring-contacts-rail", "caring-contacts-phone-dock"]) {
+    await expect(page.getByTestId(landmark), `${landmark} did not settle to one copy`).toHaveCount(1);
+  }
   // `exact: true`, because Playwright's `name` is a case-insensitive SUBSTRING match by default,
   // and two of these headings are prefixes of each other: "Template" would be satisfied by the
   // templates library's "Templates" h1, so a regression serving the library at a detail URL would
