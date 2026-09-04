@@ -1,6 +1,6 @@
-Clinical Guide
+PsychSift
 
-Purpose: Clinical Guide is a local clinical knowledge-base interface for searching indexed source documents, reviewing evidence, and drafting source-backed clinical answers.
+Purpose: PsychSift is a local clinical knowledge-base interface for searching indexed source documents, reviewing evidence, and drafting source-backed clinical answers.
 
 Agent / codebase orientation: docs/codebase-index.md (module map, APIs, Supabase, worker). Route index: docs/site-map.md.
 

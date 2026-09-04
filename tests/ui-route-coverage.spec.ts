@@ -277,7 +277,7 @@ test.describe("previously uncovered production routes", () => {
       "/therapy-compass",
       async (currentPage) => {
         // `/therapy-compass` redirects onto the shared home, whose per-mode title
-        // is a level-2 heading under the page's sr-only "Clinical Guide" h1.
+        // is a level-2 heading under the page's sr-only "PsychSift" h1.
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Therapy", level: 2, exact: true })).toBeVisible({
           timeout: 30_000,
@@ -710,14 +710,21 @@ test.describe("previously uncovered production routes", () => {
     await expect(page.getByRole("heading", { name: "Tools", level: 1 })).toBeVisible();
   });
 
-  test("Medications index serves the Medication mode home", async ({ page }) => {
-    // Previously a 307 to `/?mode=prescribing`. `/` is now the shared home for
-    // every mode, so Medication owns a real home here instead of aliasing to it.
+  test("Medications index redirects to the shared home with prescribing preselected", async ({ page }) => {
+    // Consolidated like most other modes (2026-09): `/medications` no longer
+    // renders its own idle-view content (the retired Dose/Safety/Monitoring/Access
+    // shortcut pills), it forwards to the shared home. This test previously
+    // asserted the opposite — that `/medications` stayed on `/medications` and
+    // rendered its own body — with a comment reading "Previously a 307 to
+    // /?mode=prescribing", proving this exact reversal happened once before with
+    // no reason recorded in this repo's (squash-merged) git history. Reversing it
+    // again is a deliberate, approved product decision, not a rediscovery of the
+    // same mistake.
     await gotoApp(page, "/medications");
-    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/");
     const destination = new URL(page.url());
-    expect(destination.pathname).toBe("/medications");
-    expect(destination.searchParams.toString()).toBe("");
+    expect(destination.pathname).toBe("/");
+    expect(destination.searchParams.get("mode")).toBe("prescribing");
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
   });
 

@@ -51,9 +51,9 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
-The product surface is **16 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+The product surface is **17 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
 answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
-prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources.
+prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources, on-call.
 
 ### The two flows that matter
 
@@ -163,25 +163,26 @@ Smaller top-level directories that are easy to miss:
 
 ### API routes (`src/app/api/`)
 
-| Area             | Routes                                                                                                                 | Entry files                                                     |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                  | `account/`                                                      |
-| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                            | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
-| Clinical Ask     | `/api/clinical-ask/stream`                                                                                             | `clinical-ask/stream/route.ts`                                  |
-| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                       | `clinical-quality/route.ts`                                     |
-| Speech           | `/api/speech/transcribe`                                                                                               | `speech/transcribe/route.ts`                                    |
-| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                      | `search/`                                                       |
-| Upload           | `/api/upload`                                                                                                          | `upload/route.ts`                                               |
-| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts    | `documents/`                                                    |
-| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                           | `differentials/`                                                |
-| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                          | `medications/`                                                  |
-| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                        | `ingestion/`                                                    |
-| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                | `registry/records/`                                             |
-| Images           | `/api/images/[id]/signed-url`                                                                                          | `images/[id]/signed-url/route.ts`                               |
-| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                       | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
-| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)       | `webhooks/`                                                     |
-| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)            | `caring-contacts/`                                              |
+| Area             | Routes                                                                                                                                      | Entry files                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                                       | `account/`                                                      |
+| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                                                 | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Clinical Ask     | `/api/clinical-ask/stream`                                                                                                                  | `clinical-ask/stream/route.ts`                                  |
+| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                                            | `clinical-quality/route.ts`                                     |
+| Speech           | `/api/speech/transcribe`                                                                                                                    | `speech/transcribe/route.ts`                                    |
+| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                                           | `search/`                                                       |
+| Upload           | `/api/upload`                                                                                                                               | `upload/route.ts`                                               |
+| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts                         | `documents/`                                                    |
+| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                                                | `differentials/`                                                |
+| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                                               | `medications/`                                                  |
+| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                             | `ingestion/`                                                    |
+| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                     | `registry/records/`                                             |
+| On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries) | `on-call/entries/`                                              |
+| Images           | `/api/images/[id]/signed-url`                                                                                                               | `images/[id]/signed-url/route.ts`                               |
+| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                            | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                      | `eval-cases/`, `jobs/`                                          |
+| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                            | `webhooks/`                                                     |
+| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                 | `caring-contacts/`                                              |
 
 ---
 
@@ -373,6 +374,37 @@ wrong. What holds Ruling 13 is the module boundary, which does not decay as file
 nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue
 names it by href, never by import), so the dashboard references no chunk exclusive to it.
 
+### On Call mode
+
+The junior-doctor operations hub: the owner's **own** service information — numbers, escalation
+routes, referral pathways, orientation, teaching and logistics. Six sections, one row shape.
+
+**It carries no app-authored clinical content.** Every entry is written by the owner, and the mode
+states only what they typed. What it does add is provenance: each entry records when it was last
+verified, and `entry-model` derives a twelve-month staleness state from that date rather than storing
+one, so a number that has not been confirmed in a year is labelled stale wherever it appears — and
+the printable card excludes stale entries outright.
+
+`src/lib/on-call/`:
+
+| Module           | Role                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `entry-model`    | The six section ids, per-section `.strict()` Zod schemas, and the twelve-month freshness rule |
+| `repository`     | Owner-scoped reads of `on_call_entries`; throws rather than query without an owner id         |
+| `api-schemas`    | Create/update request shapes (kept out of the route files, which may export only route names) |
+| `entry-store`    | Browser cache over `createBrowserStore`, cleared on sign-out and session expiry               |
+| `search`         | Offline search across all six sections, over the cached entries                               |
+| `card-selection` | Which entries reach the printable card: on-card, not personal, not stale                      |
+
+Routes live at `/on-call/<section>` (`contacts`, `playbook`, `referrals`, `orientation`,
+`education`, `logistics`) plus `/on-call/search` and `/on-call/card`; components are in
+`src/components/on-call/`. The API is `/api/on-call/entries`, `[id]`, and `[id]/verify` — the last
+being the one-tap "still correct today" action that resets the freshness clock.
+
+**Storage.** `on_call_entries` is owner-scoped with RLS enabled and revoked from `anon` and
+`authenticated`; reads and writes go through the service-role client at the API layer, the same
+application-layer ownership model as `clinical_registry_records`.
+
 ---
 
 ## Supabase
@@ -386,7 +418,7 @@ names it by href, never by import), so the dashboard references no chunk exclusi
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`
 
 **Storage buckets:** `clinical-documents`, `clinical-images` (private)
 
@@ -401,6 +433,7 @@ names it by href, never by import), so the dashboard references no chunk exclusi
 | Indexing v3 agent                 | `20260625000000_indexing_v3_agent_worker_hardening.sql`, `20260702190000_indexing_v3_agent_jobs_table.sql`      |
 | Atomic reindex                    | `20260628000000_atomic_reindex_generation_commit.sql`                                                           |
 | Clinical registry                 | `20260703020000_clinical_registry_records.sql`                                                                  |
+| On Call mode entries              | `20260904120000_on_call_entries.sql`                                                                            |
 
 ### Key RPCs
 
@@ -507,7 +540,7 @@ sequenceDiagram
 
 ### PsychSift surface
 
-- 16 app modes with unified search shell
+- 17 app modes with unified search shell
 - Documents mode: browse indexed guidelines, search, scope, and inspect cited answers; document uploads remain in the administrator backend
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
@@ -695,7 +728,7 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
   page: freshness stamp, count tiles, a "blocking now" callout, the recommended running order
   (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
-  and pending inbox requests. `/mockups/development/routes` — every page and all 16 modes, from
+  and pending inbox requests. `/mockups/development/routes` — every page and every app mode, from
   the repo awareness snapshot's route walk. `/mockups/development/documentation` — every tracked
   document, its area, and whether the codebase index lists it. `/mockups/development/test-health`
   — unstable and quarantined tests, from the flake ledger. `/mockups/development/review-state` —
@@ -783,7 +816,7 @@ terminology: `docs/care-plan-context.md`; build history and rulings: `docs/care-
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes**: all 16 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while five routes still own a functional home of their own — `/medications` (the Prescribing workspace, with dose/safety/monitoring checks), `/favourites` (a hub), `/tools` (a launcher), `/documents` (dashboard-owned: browse, recent documents and the document-search empty state) and `/sources` (a `ModeHomeTemplate` home over the source catalogue, which lives at `/sources/search`). None of those five is a duplicate of the shared home; each is its mode’s own functional surface. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. The other ten modes were consolidated onto the shared home: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary` and `/therapy-compass` are now `redirect()` stubs (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
+- **Mode homes**: all 17 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while three routes still own a functional home of their own — `/favourites` (a hub), `/tools` (a launcher) and `/sources` (a `ModeHomeTemplate` home over the source catalogue, which lives at `/sources/search`). None of those three is a duplicate of the shared home; each is its mode's own functional surface. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. Thirteen modes are now consolidated onto the shared home, via two different mechanisms: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary`, `/therapy-compass`, `/documents` and `/on-call` (whose six section pages live under `/on-call/<section>`) are `redirect()` stubs registered in `consolidatedModeHomePaths` (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). `/medications` is consolidated too, but through its own bespoke redirect (`medications/page.tsx` plus a matching fast-path, `medicationsHomeTarget()`, in `src/proxy.ts`) — it stays out of `consolidatedModeHomePaths` because it has no separate `/medications/search` route for that map's generic `${pathname}/search` submitted-target logic to forward to; its submitted searches already went straight to `/?mode=prescribing&q=…&run=1` before this change, and still do. Do not assume Medications is in the shared map — a reader who does will go looking for a results route that does not exist. Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
 - **Information (detail) pages**: catalogue/record routes under each mode (`/services/[slug]`, `/forms/[slug]`, `/medications/[slug]`, `/specifiers/[slug]`, `/formulation/[slug]`, `/factsheets/[slug]`, `/dictionary/[slug]`, `/dictionary/topics/[slug]`, `/therapy-compass/[slug]`, `/dsm/diagnoses/[slug]`, …). Route detection: `src/lib/information-pages.ts` (`isInformationPage`). Shared outer chrome: `src/components/information-page-shell.tsx` (`InformationPageShell`, breadcrumbs, optional footer). Specifier/formulation mode shells re-export that primitive. Intentional opt-outs: document viewer and the differentials presentation workflow.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
 - **Results routing**: each consolidated mode owns its submitted searches at `<mode>/search` (`/services/search` → `ServicesNavigatorPage`, `/forms/search` → `FormsSearchResultsPage`, `/differentials/search` → `DifferentialsHome` results view, `/formulation/search` → local mechanism results, and the same shape for dsm, dictionary, factsheets, specifiers, calculators, therapy-compass and documents). That split is not cosmetic: the bare path redirects to the shared home, so routing a submitted query back at it would loop — `consolidatedModeHomeModeIds` drives both halves from one list, and `tests/consolidated-mode-home-redirect.test.ts` pins the no-loop property. `/favourites` and `/tools` keep filtering in place on their own routes. `/sources` is the one standalone home that is not consolidated yet still keeps its results on a separate route: a submitted link forwards to `/sources/search` through `standaloneModeSubmittedSearchTarget`, which `app-modes.ts` and `src/proxy.ts` both read so the href and the redirect cannot disagree. Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. Bare `/?mode=<id>` always renders the shared home with that mode preselected; only a submitted deep link (`q` plus `run=1`) resolves onward to the mode's own search surface.

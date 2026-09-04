@@ -8,24 +8,21 @@ import type { AppModeId } from "@/lib/app-modes";
  * bookmarks, the sitemap and external deep links keep resolving; they forward
  * to that shared home instead of rendering a second one.
  *
- * Five modes are deliberately absent, because none of them is a duplicate of the
+ * Four modes are deliberately absent, because none of them is a duplicate of the
  * shared home — each is its mode's only functional surface, so folding it in
  * would delete a feature rather than de-duplicate a page:
  *   /tools        the launcher (categories, filters, saved)
  *   /favourites   the hub (Continue, Recent, sets, sort/view)
- *   /medications  the prescribing workspace (dose/safety/monitoring checks)
- *   /documents    dashboard-owned: the shell mounts ClinicalDashboard for that
- *                 pathname, so `/documents` renders a real Documents home —
- *                 browse, recent documents and the document-search empty state
- *                 — not a duplicate of the generic shared home. Folding it in
- *                 here silently deleted those three affordances (`/issues`
- *                 tracked this as a Production UI regression); restored.
+ *   /medications  the prescribing workspace (dose/safety/monitoring checks) —
+ *                 consolidated separately, outside this map (see its own
+ *                 redirect wiring); it stays absent here regardless.
  *   /            the shared home itself
  *
  * Sub-routes are deliberately NOT listed: `/dsm/search`, `/factsheets/[slug]`
  * and friends are real surfaces and must keep rendering themselves.
  */
 const consolidatedModeHomePaths = {
+  "/documents": "documents",
   "/dsm": "dsm",
   "/dictionary": "dictionary",
   "/factsheets": "factsheets",
@@ -36,6 +33,7 @@ const consolidatedModeHomePaths = {
   "/formulation": "formulation",
   "/differentials": "differentials",
   "/therapy-compass": "therapy-compass",
+  "/on-call": "on-call",
 } as const satisfies Record<string, AppModeId>;
 
 type ConsolidatedModeHomePath = keyof typeof consolidatedModeHomePaths;

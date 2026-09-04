@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "8d60b966001d3bcb693f34bcd57267cfb80e180c",
-    "committed_at": "2026-09-04T11:23:27+08:00"
+    "sha": "42f0ddb075ddb3ee9e839762c53552c771248cd3",
+    "committed_at": "2026-09-04T17:36:37+00:00"
   },
   "routes": {
     "modes": [
@@ -33,7 +33,7 @@
       {
         "id": "documents",
         "label": "Documents",
-        "home": "/documents",
+        "home": "/?mode=documents",
         "dev_only": false
       },
       {
@@ -64,6 +64,12 @@
         "id": "formulation",
         "label": "Formulation",
         "home": "/?mode=formulation",
+        "dev_only": false
+      },
+      {
+        "id": "on-call",
+        "label": "On Call",
+        "home": "/?mode=on-call",
         "dev_only": false
       },
       {
@@ -220,11 +226,6 @@
         "area": "product"
       },
       {
-        "path": "/documents",
-        "file": "src/app/(search-app)/documents/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/documents/[id]",
         "file": "src/app/(search-app)/documents/[id]/page.tsx",
         "area": "product"
@@ -307,11 +308,6 @@
       {
         "path": "/formulation/search",
         "file": "src/app/(search-app)/formulation/search/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/medications",
-        "file": "src/app/(search-app)/medications/page.tsx",
         "area": "product"
       },
       {
@@ -1045,6 +1041,46 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/card",
+        "file": "src/app/(search-app)/on-call/card/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/contacts",
+        "file": "src/app/(search-app)/on-call/contacts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/education",
+        "file": "src/app/(search-app)/on-call/education/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/logistics",
+        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/orientation",
+        "file": "src/app/(search-app)/on-call/orientation/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/playbook",
+        "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/referrals",
+        "file": "src/app/(search-app)/on-call/referrals/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/search",
+        "file": "src/app/(search-app)/on-call/search/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/privacy",
         "file": "src/app/privacy/page.tsx",
         "area": "product"
@@ -1202,6 +1238,11 @@
         "target": "/?mode=differentials"
       },
       {
+        "path": "/documents",
+        "file": "src/app/(search-app)/documents/page.tsx",
+        "target": "/?mode=documents"
+      },
+      {
         "path": "/documents/source",
         "file": "src/app/(search-app)/documents/source/page.tsx",
         "target": "/documents/[id]"
@@ -1232,6 +1273,11 @@
         "target": "/?mode=formulation"
       },
       {
+        "path": "/medications",
+        "file": "src/app/(search-app)/medications/page.tsx",
+        "target": "/?mode=prescribing"
+      },
+      {
         "path": "/mockups/favourites-hub",
         "file": "src/app/mockups/favourites-hub/page.tsx",
         "target": "/favourites"
@@ -1245,6 +1291,11 @@
         "path": "/mockups/ward-flow/constellation",
         "file": "src/app/mockups/ward-flow/constellation/page.tsx",
         "target": "/mockups/ward-flow/network"
+      },
+      {
+        "path": "/on-call",
+        "file": "src/app/(search-app)/on-call/page.tsx",
+        "target": "/?mode=on-call"
       },
       {
         "path": "/services",
@@ -1464,6 +1515,18 @@
         "file": "src/app/api/medications/[slug]/route.ts"
       },
       {
+        "path": "/api/on-call/entries",
+        "file": "src/app/api/on-call/entries/route.ts"
+      },
+      {
+        "path": "/api/on-call/entries/[id]",
+        "file": "src/app/api/on-call/entries/[id]/route.ts"
+      },
+      {
+        "path": "/api/on-call/entries/[id]/verify",
+        "file": "src/app/api/on-call/entries/[id]/verify/route.ts"
+      },
+      {
         "path": "/api/registry/records",
         "file": "src/app/api/registry/records/route.ts"
       },
@@ -1505,12 +1568,12 @@
       }
     ],
     "counts": {
-      "modes": 16,
-      "pages": 213,
-      "product_pages": 68,
+      "modes": 17,
+      "pages": 219,
+      "product_pages": 74,
       "mockup_pages": 145,
-      "redirects": 18,
-      "api": 60
+      "redirects": 21,
+      "api": 63
     }
   },
   "documentation": {
@@ -1961,6 +2024,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/crisis-lines-verification.md",
+        "section": "care-plan",
+        "catalogued": true
+      },
+      {
         "path": "docs/care-plan/HANDOFF-2026-08-24-SUPERSEDED.md",
         "section": "care-plan",
         "catalogued": false
@@ -2121,6 +2189,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/hazard-log.md",
+        "section": "caring-contacts",
+        "catalogued": true
+      },
+      {
         "path": "docs/caring-contacts/interaction-matrix.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2129,6 +2202,11 @@
         "path": "docs/caring-contacts/linked-prototype-handoff.md",
         "section": "caring-contacts",
         "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/message-review-pack.md",
+        "section": "caring-contacts",
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-1-handoff.md",
@@ -3306,6 +3384,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/prompts/sources-mode-extraction.md",
+        "section": "prompts",
+        "catalogued": false
+      },
+      {
         "path": "docs/pwa.md",
         "section": "root",
         "catalogued": true
@@ -3821,6 +3904,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-04-on-call-mode.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",
         "section": "superpowers",
         "catalogued": false
@@ -4242,6 +4330,11 @@
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-sources-mode-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -5845,9 +5938,9 @@
       }
     ],
     "counts": {
-      "documents": 852,
-      "catalogued": 115,
-      "uncatalogued": 737,
+      "documents": 858,
+      "catalogued": 118,
+      "uncatalogued": 740,
       "sections": 22
     }
   },
@@ -7331,6 +7424,14 @@
         "scope": "document results responsive UI polish",
         "outcome": "P2 tap-target review finding fixed with 48px actions and regression coverage",
         "checks": "focused production Playwright 1 passed; eslint passed; format passed; diff-check passed"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/sources-mode-redesign-73uxmc",
+        "head": "0f85b916d62d48c188fc80da4aceec37d7307d26",
+        "scope": "prlanded",
+        "outcome": "PR #2593 merged as 0f85b91 (true merge, not squash). Verified by content: all seven branch commits are ancestors of origin/main; the eight changed files are byte-identical between branch tip 87b1d5e and main; the whole-tree diff 87b1d5e..0f85b91 is empty, so the merge took the branch tree wholesale and nothing was orphaned by the auto-merge race. Remote branch deleted on merge (0 refs), so no post-merge commit can be stranded. Sources browse redesign: Topics and Publishers moved onto the shared SearchResultsHeaderBand chrome, honour ?q=, and gained filter/empty-state parity with Catalogue. Three Codex P2 findings fixed pre-merge in 666e030 (non-lead/alias members unsearchable; Clear search wiping filters; date-only UTC month shift). One unrelated CI break, tests/ui-smoke.spec.ts setup-status checklist, was caused by main f552a2f and fixed on the branch in 87b1d5e by another session.",
+        "checks": "Post-merge on 0f85b91: sources-browse-facets + sources-mode.dom + source-catalogue-core = 102 passed under TZ=America/Los_Angeles. Pre-merge on the branch: verify:cheap (design-system contract passed, colour-only status indicators 0), ui-sources.spec.ts 7/7 and ui-mode-nav-density.spec.ts 57/57 in Chromium, prettier --check clean. Full verify:ui and verify:pr-local were NOT run locally; left to CI. Three verify:cheap failures (clinical-hazard-controls, privacy-readiness-contract, rag-plan-package-parity) are shallow-clone artefacts that fail identically on base a5c56ce."
       },
       {
         "date": "2026-07-30",
@@ -14987,6 +15088,14 @@
         "scope": "Cloud connected profile credential boundary",
         "outcome": "No high-confidence issues after least-privilege MCP hardening and portable Git fixture fix",
         "checks": "Cloud static PASS; focused Vitest 15/15; full format PASS; Bash syntax PASS; PR-local dry-run"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/answer-page-handover-c2qlwy",
+        "head": "6ff656690d71eaef34d4e5a2f521c0424c031680",
+        "scope": "prlanded",
+        "outcome": "merged (#2541) — 'Report a problem' opens as a Sheet; Codex P2 (sheet stayed open over the page-level outcome notice, silent in demo/expired-token paths) fixed and its thread resolved",
+        "checks": "verify:ui 646 passed; test 12058 passed | 1 skipped; lint/typecheck exit 0; focused browser proof tests/ui-smoke.spec.ts 106 passed (4.5m); landed content verified: branch tip 93eddb582 is an ancestor of origin/main and submitFeedbackAndClose is present"
       },
       {
         "date": "2026-08-13",
@@ -25195,6 +25304,14 @@
         "scope": "account setup redesign and Apple OAuth wiring",
         "outcome": "READY: no findings; live Apple provider activation remains operator-gated",
         "checks": "focused auth DOM 24/24; targeted Chromium 2/2; lint/typecheck/build/design contracts passed; RAG fixtures 36/36; full Vitest blocked by baseline Windows hook failures; PDF isolated 9/9"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/smart-test-selection-q4rt7m",
+        "head": "edf1f0aff7ae90d2ac819739b5226cc155890912",
+        "scope": "prlanded",
+        "outcome": "merged (#2553) — browser-gate planner (npm run plan:browser), arbiter narrowed-gate routing, cloud SessionStart testing-policy hook; three Codex P2s (mockup project routing, draft-PR CI precondition, two-token selector flags) fixed and all threads resolved",
+        "checks": "test 948 files / 12114 passed | 1 skipped; lint/typecheck exit 0; gate-manifest, ci-scope, verification-plan, skills, knip, docs links/scripts/inventory all pass; plan:browser level none for its own files and CI agrees; landed content verified: branch tip 2626ff7a8 is an ancestor of origin/main, planner+hook+arbiter symbols present, hook is 100755"
       },
       {
         "date": "2026-07-25",
