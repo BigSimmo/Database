@@ -210,6 +210,47 @@ describe("indexing-v3-agent behavior", () => {
     }
   });
 
+  // #W98GR7 claimed the agent deletes an artifact family BEFORE calling OpenAI, so a
+  // provider outage leaves the family permanently empty. It does the opposite, and the
+  // assertion above does not prove it: that one pins delete-before-insert INSIDE the
+  // transaction, and would stay green if the embedding call were moved inside `sql.begin`,
+  // which is exactly the arrangement the issue describes.
+  //
+  // This pins the ordering the refutation actually rests on. The `await embeddingBatch(...)`
+  // completes before `sql.begin` is entered, so an outage throws before any delete happens,
+  // and the delete and insert then share one transaction, so a failed insert rolls the
+  // delete back. Static source assertion like its neighbour, because index.ts is
+  // Deno-runtime code Vitest cannot execute — worth saying plainly rather than implying
+  // behavioural coverage that does not exist.
+  it("calls OpenAI before it deletes anything, so an outage cannot empty a family", async () => {
+    const edgeSource = String(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8"),
+      ),
+    );
+    const functionBody = (name: string, nextName: string) =>
+      sourceSegment(edgeSource, `async function ${name}`, `async function ${nextName}`, {
+        label: `indexing-v3-agent function ${name}`,
+      });
+
+    for (const [name, nextName] of [
+      ["upsertMemoryCardsFromSections", "upsertSectionIndexUnits"],
+      ["upsertSectionIndexUnits", "upsertVisualArtifacts"],
+      ["upsertVisualArtifacts", "upsertCoreEmbeddingFields"],
+      ["upsertCoreEmbeddingFields", "updateQuality"],
+    ]) {
+      const body = functionBody(name, nextName);
+      const embedding = body.indexOf("await embeddingBatch(");
+      const transaction = body.indexOf("await sql.begin(async (tx) =>");
+      expect(embedding, `${name} must call embeddingBatch`).toBeGreaterThanOrEqual(0);
+      expect(transaction, `${name} must open a transaction`).toBeGreaterThanOrEqual(0);
+      expect(embedding, `${name} must await OpenAI before opening the transaction`).toBeLessThan(transaction);
+      // And no second embedding call inside the transaction, which would reintroduce the
+      // reported failure mode for the part of the family written after it.
+      expect(body.slice(transaction)).not.toContain("await embeddingBatch(");
+    }
+  });
+
   it("normalizes metadata counters for repeated idempotent runs", () => {
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "4" }, "indexing_v3_agent_deferral_count")).toBe(4);
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "bad" }, "indexing_v3_agent_deferral_count")).toBe(0);

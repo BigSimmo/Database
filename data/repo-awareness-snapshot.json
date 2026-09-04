@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "8d60b966001d3bcb693f34bcd57267cfb80e180c",
-    "committed_at": "2026-09-04T11:23:27+08:00"
+    "sha": "5575f9510573de6a8e8808081ff9bcda21a597f0",
+    "committed_at": "2026-09-04T10:18:41+00:00"
   },
   "routes": {
     "modes": [
@@ -14389,6 +14389,14 @@
         "checks": "PASS: typecheck, build, unit coverage, Lighthouse, static checks, container verification, scans and PR required. No live OpenAI call."
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/enrichment-staging",
+        "head": "69d5e4d0ffd1dd039948d7931f271b34dd486fa5",
+        "scope": "clinical governance",
+        "outcome": "changes requested: 2xP1 (drift-manifest stale => tests/drift-detection.test.ts red; schema.sql mirror does not match migration body and unpins the def_hash guarded by 20260819110500) + 6xP2/P3",
+        "checks": "offline only: vitest drift-detection (FAIL), enrichment-repair + supabase-schema (103 pass), migration-history-guards (8 pass), typecheck, knip, check:function-grants, check:owner-scope, check:migration-role, check:outstanding-issues, check:ledger-write-discipline, check:repo-awareness-snapshot, docs:check-scripts; no provider commands run"
+      },
+      {
         "date": "2026-07-25",
         "ref": "cursor/fix-mobile-composer-edge-scroll-5b1d (PR #1192)",
         "head": "69dc0dbfb46586f54f5934199d4a65b9f6a0aba8",
@@ -14987,6 +14995,14 @@
         "scope": "Cloud connected profile credential boundary",
         "outcome": "No high-confidence issues after least-privilege MCP hardening and portable Git fixture fix",
         "checks": "Cloud static PASS; focused Vitest 15/15; full format PASS; Bash syntax PASS; PR-local dry-run"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/answer-page-handover-c2qlwy",
+        "head": "6ff656690d71eaef34d4e5a2f521c0424c031680",
+        "scope": "prlanded",
+        "outcome": "merged (#2541) — 'Report a problem' opens as a Sheet; Codex P2 (sheet stayed open over the page-level outcome notice, silent in demo/expired-token paths) fixed and its thread resolved",
+        "checks": "verify:ui 646 passed; test 12058 passed | 1 skipped; lint/typecheck exit 0; focused browser proof tests/ui-smoke.spec.ts 106 passed (4.5m); landed content verified: branch tip 93eddb582 is an ancestor of origin/main and submitFeedbackAndClose is present"
       },
       {
         "date": "2026-08-13",
@@ -25195,6 +25211,14 @@
         "scope": "account setup redesign and Apple OAuth wiring",
         "outcome": "READY: no findings; live Apple provider activation remains operator-gated",
         "checks": "focused auth DOM 24/24; targeted Chromium 2/2; lint/typecheck/build/design contracts passed; RAG fixtures 36/36; full Vitest blocked by baseline Windows hook failures; PDF isolated 9/9"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/smart-test-selection-q4rt7m",
+        "head": "edf1f0aff7ae90d2ac819739b5226cc155890912",
+        "scope": "prlanded",
+        "outcome": "merged (#2553) — browser-gate planner (npm run plan:browser), arbiter narrowed-gate routing, cloud SessionStart testing-policy hook; three Codex P2s (mockup project routing, draft-PR CI precondition, two-token selector flags) fixed and all threads resolved",
+        "checks": "test 948 files / 12114 passed | 1 skipped; lint/typecheck exit 0; gate-manifest, ci-scope, verification-plan, skills, knip, docs links/scripts/inventory all pass; plan:browser level none for its own files and CI agrees; landed content verified: branch tip 2626ff7a8 is an ancestor of origin/main, planner+hook+arbiter symbols present, hook is 100755"
       },
       {
         "date": "2026-07-25",

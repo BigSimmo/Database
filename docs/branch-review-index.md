@@ -15,15 +15,16 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 603
-- Distinct ref cells: 383
-- Distinct reviewed heads: 586
-- Date range: `2026-08-12` to `2026-09-03`
+- Records: 606
+- Distinct ref cells: 386
+- Distinct reviewed heads: 589
+- Date range: `2026-08-12` to `2026-09-04`
 
 Records per date, newest first:
 
+- `2026-09-04` — 2 records
 - `2026-09-03` — 12 records
-- `2026-09-02` — 16 records
+- `2026-09-02` — 17 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
 - `2026-08-30` — 3 records
@@ -51,6 +52,8 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-04 | claude/smart-test-selection-q4rt7m | prlanded | merged (#2553) — browser-gate planner (npm run plan:browser), arbiter… | [062e844f](branch-review-records/062e844f787018a9ccdf98bca24e4206614b7403a7e3896b73876b228f885005.record.md) |
+| 2026-09-04 | claude/answer-page-handover-c2qlwy | prlanded | merged (#2541) — 'Report a problem' opens as a Sheet; Codex P2 (sheet… | [b5ca5f1c](branch-review-records/b5ca5f1c00340e7acbc8e643d9cb1250ebfaf72a516175a6a96d06a517ee3f47.record.md) |
 | 2026-09-03 | claude/audit-fix-p1 (PR #2580) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state blocked, 1 unresolved review thread (codex M22… | [05d026fe](branch-review-records/05d026fe646f677e39436ddceb09504fcdedcda3d1b0c75c914fc4bde2fb3b01.record.md) |
 | 2026-09-03 | claude/token-layer-collapse-itskb0 (PR #2577) | Run PR sweep: merge origin/main drift + Codex review threads | before: mergeable_state dirty (real conflict in playwright.config.ts s… | [20984d0f](branch-review-records/20984d0ff09095aeac675096ff3a1fd0610bb26a73bf25fdfa355b3d1fe64535.record.md) |
 | 2026-09-03 | claude/sources-mode-dropdown-home-mzw4f5 | PR #2567 Sources mode home, existing review feedback, CI, and integration with main | No new P0-P2 findings. The existing filter-only deep-link concern was… | [25566cb7](branch-review-records/25566cb7e5e57014296d21781f8af26d7a472066909492e9ffe41f3259714fef.record.md) |
@@ -78,6 +81,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-09-02 | claude/gate-audit-ujhkqb | prlanded | merged clean, content diff empty against branch tip | [9f7fd1f9](branch-review-records/9f7fd1f9419de5446570947eaf97adbf74e22ae0543039142417e79ed7c2e928.record.md) |
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | mockup retirement policy and sweep | Reviewed by two fresh agents before push; both found real defects and… | [b34f56e0](branch-review-records/b34f56e00cf20e8f76a4e7564cdb71ae5fd3c9cf97973c49f9b5541448f99a56.record.md) |
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | prlanded | MERGED as #2543 squash 374a5603; content diff against branch tip 4877a… | [d3807849](branch-review-records/d38078490b7139c61eb2906b444fe58962bed612bb6463ba09dddf1e78f05294.record.md) |
+| 2026-09-02 | claude/enrichment-staging | clinical governance | changes requested: 2xP1 (drift-manifest stale => tests/drift-detection… | [ebd99269](branch-review-records/ebd992696b935640a5c8e9462c1741a00a0c7497f04384ec810c415b29d80be2.record.md) |
 | 2026-09-02 | claude/care-plan-next (PR #2528) | Run PR sweep: review threads + main sync | Fixed 1 of 3 Codex P2 threads: added the in-file SUPERSEDED banner to… | [f5b42005](branch-review-records/f5b420054f6ed5cd54dfce9d748677965f53cac6f3f73dc725e603370eede38b.record.md) |
 | 2026-09-01 | PR-2504 | Resolve Codex P1: corpus-health table access | Verified the authenticated role lacks table SELECT; the administrator-… | [5d80826b](branch-review-records/5d80826bf56625f7a05594bf5c46f05a421a883a038ace94c07ca265528f1dba.record.md) |
 | 2026-09-01 | PR-2507 | Run PR sweep: enforce Favourites phone tap-target minimum | Replaced the blacklist-only target guard with a positive 48px-or-row-w… | [8b140d28](branch-review-records/8b140d281375ce001e5f712e3c697b4828186a605e096bb86342f16f0452610a.record.md) |
