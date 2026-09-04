@@ -115,6 +115,7 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
         }),
         retrievalGateBlocked:
           answer.retrievalGateBlocked === true || answer.retrievalDiagnostics?.gateStatus === "blocked",
+        authorityTrustCapRequired: true,
         sourceGovernanceWarnings: warnings,
         safetyWarnings: [],
       },

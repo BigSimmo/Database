@@ -4,6 +4,7 @@ import {
   describeSourceStrengthForCopy,
   formatAnswerRenderCopyText,
 } from "../src/lib/answer-render-policy";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import type {
   BestSourceRecommendation,
   Citation,
@@ -133,6 +134,10 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
     },
     ...overrides,
   };
+}
+
+function clientAnswer(overrides: Partial<RagAnswer> = {}) {
+  return toClientAnswerPayload(answer(overrides));
 }
 
 describe("answer render policy", () => {
@@ -272,6 +277,10 @@ describe("answer render policy", () => {
     const model = buildAnswerRenderModel(
       answer({
         sources: [reviewDue],
+        citations: [],
+        answerSections: [],
+        quoteCards: [],
+        bestSource: null,
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -315,7 +324,7 @@ describe("answer render policy", () => {
 
   it("does not render high trust for high-risk claims supported only by unverified evidence", () => {
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -342,7 +351,7 @@ describe("answer render policy", () => {
   it("keeps high trust for routine claims on unverified evidence while the D5 flag is off", () => {
     // Locks the zero-change default: only high-risk claims are authority-gated.
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -370,7 +379,7 @@ describe("answer render policy", () => {
     vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "true");
     try {
       const model = buildAnswerRenderModel(
-        answer({
+        clientAnswer({
           supportedClaims: [
             {
               claimId: "claim-1",
@@ -410,7 +419,7 @@ describe("answer render policy", () => {
     ],
   ])("caps high-risk trust for %s", (_label, assessment) => {
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -431,7 +440,7 @@ describe("answer render policy", () => {
   it("prefers a direct supporting chunk as best source", () => {
     const direct = source({ id: "chunk-2", document_id: "doc-2", title: "Direct threshold", file_name: "direct.pdf" });
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         sources: [source(), direct],
         supportedClaims: [
           {
@@ -577,8 +586,8 @@ describe("answer render policy", () => {
     expect(model.allowedBlocks).toEqual(expect.arrayContaining(["quoteCards", "visualEvidence", "relatedDocuments"]));
   });
 
-  it("promotes smartApiPlan core source links into canonical primary sources", () => {
-    const model = buildAnswerRenderModel(
+  it("does not widen the client renderer to server-only smartApiPlan links", () => {
+    const payload = toClientAnswerPayload(
       answer({
         smartApiPlan: {
           coreSourceLinks: [
@@ -599,14 +608,13 @@ describe("answer render policy", () => {
         } as RagAnswer["smartApiPlan"],
       }),
     );
+    const model = buildAnswerRenderModel(payload);
 
-    expect(model.primarySources[0]).toMatchObject({
-      chunk_id: "core-chunk",
-      document_id: "doc-core",
-      href: "/documents/doc-core?page=8&chunk=core-chunk",
-      reason: "Selected by the answer plan.",
-    });
-    expect(model.copyText).toContain("/documents/doc-core?page=8&chunk=core-chunk");
+    expect(payload).not.toHaveProperty("smartApiPlan");
+    expect(model.primarySources).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ chunk_id: "core-chunk" })]),
+    );
+    expect(model.copyText).not.toContain("/documents/doc-core?page=8&chunk=core-chunk");
   });
 
   it("deduplicates conflicting section evidence by source rather than rendering duplicate rows", () => {
@@ -757,25 +765,12 @@ describe("answer render policy", () => {
               severity: "warning",
               message: "One or more supporting sources are not locally validated.",
             },
-          ],
-          supportedClaims: [
             {
-              claimId: "claim-1",
-              text: "Review the dose.",
-              riskClass: "high_risk",
-              supportingChunkIds: ["chunk-1"],
-              supportStatus: "direct",
+              code: "review_due_source",
+              severity: "warning",
+              message: "A supporting source is due for review.",
             },
           ],
-          evidenceAssessments: {
-            "chunk-1": {
-              relevance: "direct",
-              claimSupport: "direct",
-              authority: "approved",
-              currency: "review_due",
-              extractionQuality: "good",
-            },
-          },
         }),
       );
 

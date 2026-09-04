@@ -5,7 +5,8 @@ import { FileText, Filter, Search } from "lucide-react";
 import { cn, floatingControl, metadataPillDensity, primaryControl } from "@/components/ui-primitives";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { CrossModeLink } from "@/lib/cross-mode-links";
-import type { SearchResult, Citation } from "@/lib/types";
+import type { ClientSearchResult } from "@/lib/answer-client-payload";
+import type { Citation } from "@/lib/types";
 
 export function SourceActionRow({
   viewerHref,
@@ -63,7 +64,7 @@ export function SourceActionRow({
   );
 }
 
-export function sourceResultHref(source: SearchResult) {
+export function sourceResultHref(source: ClientSearchResult) {
   const metadata =
     source.source_metadata && typeof source.source_metadata === "object"
       ? (source.source_metadata as Record<string, unknown>)
@@ -86,7 +87,7 @@ export function sourceResultHref(source: SearchResult) {
 export function citedDocumentHref(
   sourceId: string,
   locator: string | undefined,
-  candidates: readonly SearchResult[],
+  candidates: readonly ClientSearchResult[],
 ): string | null {
   if (!sourceId || sourceId.startsWith("__unidentified_")) return null;
 

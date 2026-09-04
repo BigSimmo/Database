@@ -226,6 +226,7 @@ import {
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
+import type { ClientSearchResult } from "@/lib/answer-client-payload";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import {
   frontendSourceGovernanceWarnings,
@@ -338,7 +339,7 @@ export function ClinicalDashboard({
   // scroll can reclaim chrome on result views (Answer and other bottom docks).
   const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;
   const [answer, setAnswer] = useState<AnswerPayload | null>(null);
-  const [sources, setSources] = useState<SearchResult[]>([]);
+  const [sources, setSources] = useState<ClientSearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
   // exchanges displayed above the latest answer; `latestAnswerQuery` is the
   // question that produced the current `answer` (the composer `query` is a
@@ -2854,7 +2855,7 @@ export function ClinicalDashboard({
         });
         if (!heading || !body) return null;
 
-        const citationSources: SearchResult[] = [];
+        const citationSources: ClientSearchResult[] = [];
         const seenCitationIds = new Set<string>();
         for (const id of section.citation_chunk_ids) {
           if (seenCitationIds.has(id)) continue;
@@ -2871,7 +2872,7 @@ export function ClinicalDashboard({
           citationSources,
         };
       })
-      .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
+      .filter((section): section is AnswerSection & { citationSources: ClientSearchResult[] } => section !== null);
   }, [answer?.answerSections, answerPreformatted, sourceLookup]);
   const answerEvidenceMapRows = useMemo(() => {
     if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];

@@ -12,8 +12,9 @@ import {
 import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
+import { answerUsesDegradedMode } from "@/components/ui/answer-state";
 import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
-import type { SearchResult } from "@/lib/types";
+import type { ClientSearchResult } from "@/lib/answer-client-payload";
 
 /**
  * A completed Q&A exchange kept on screen after a newer answer arrives, so
@@ -23,7 +24,7 @@ export type AnswerTurn = {
   id: string;
   query: string;
   answer: AnswerPayload;
-  sources: SearchResult[];
+  sources: ClientSearchResult[];
 };
 
 export const maxVisiblePriorTurns = 10;
@@ -65,8 +66,13 @@ export function PriorAnswerTurnSurface({
     turn.answer.sources?.length ||
     turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
+  const degradedAnswer = answerUsesDegradedMode({
+    answerQualityTier: turn.answer.answerQualityTier,
+    fallbackReasonCode: turn.answer.fallbackReasonCode,
+    degradedMode: turn.answer.degradedMode,
+  });
   const needsSourceReview =
-    turn.answer.answerQualityTier === "source_only" ||
+    degradedAnswer ||
     turn.answer.grounded === false ||
     renderModel.trust === "low" ||
     renderModel.trust === "unsupported";
@@ -101,7 +107,7 @@ export function PriorAnswerTurnSurface({
               query={turn.query}
               preformatted={turnPreformatted}
               sourceCount={sourceCount}
-              sourceOnly={turn.answer.answerQualityTier === "source_only"}
+              sourceOnly={degradedAnswer}
               bestSource={renderModel.bestSource}
               sources={renderModel.reviewSources}
               sourceLinks={renderModel.primarySources}
@@ -125,8 +131,10 @@ export function PriorAnswerTurnSurface({
               >
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
                 <span>
-                  <strong className="text-[color:var(--text-heading)]">Review source match.</strong> Verify cited
-                  passages before relying on this previous answer.
+                  <strong className="text-[color:var(--text-heading)]">Review source match.</strong>{" "}
+                  {degradedAnswer && turn.answer.degradedMode?.reason
+                    ? turn.answer.degradedMode.reason
+                    : "Verify cited passages before relying on this previous answer."}
                 </span>
               </div>
             ) : null}

@@ -51,7 +51,8 @@ import { type AnswerRenderModel, type CanonicalAnswerTableRecord } from "@/lib/a
 import { formatCompactCitationLabel } from "@/lib/citations";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
-import type { QuoteCard, RagAnswer, SearchResult, VisualEvidenceCard } from "@/lib/types";
+import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
+import type { QuoteCard, VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 import { type AnswerEvidenceMapRow } from "@/lib/ward-output";
 
@@ -475,8 +476,8 @@ export function MobileEvidenceSheetContent({
   onFollowUpQuote,
   onScopeDocument,
 }: {
-  answer: RagAnswer;
-  sources: SearchResult[];
+  answer: ClientRagAnswerPayload;
+  sources: ClientSearchResult[];
   renderModel: AnswerRenderModel;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];

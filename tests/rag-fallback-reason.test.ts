@@ -67,6 +67,8 @@ describe("sanitized RAG fallback reasons", () => {
     const cases = [
       [{ routingReason: "source_only_offline_mode" }, "provider_offline"],
       [{ routingReason: "source_only_no_api" }, "provider_missing_key"],
+      [{ routingReason: "source_only_auth_failed" }, "provider_auth"],
+      [{ routingReason: "source_only_provider_failed" }, "provider_failure"],
       [{ providerFailure: "auth_failed" }, "provider_auth"],
       [{ routingReason: "generation_fallback:provider_auth_failed" }, "provider_auth"],
       [{ providerFailure: "quota_exhausted" }, "provider_quota"],
@@ -78,6 +80,12 @@ describe("sanitized RAG fallback reasons", () => {
       [{ routingReason: "limited_retrieval; vector_fallback" }, "retrieval_degraded"],
       [{ routingReason: "retrieval_miss; no_candidates" }, "no_candidates"],
       [{ routingReason: "confidence_gate_blocked; low_signal" }, "low_signal"],
+      [{ routingReason: "source_only_offline_mode; comparison_evidence_gap" }, "coverage_gap"],
+      [
+        { routingReason: "generation_fallback:provider_timeout; post_generation_claim_quality_gate" },
+        "citation_or_claim_gate",
+      ],
+      [{ routingReason: "adversarial_manipulation_refused" }, "source_governance_block"],
       [{ insufficiencyReason: "not_in_corpus" }, "coverage_gap"],
       [{ insufficiencyReason: "source_role_mismatch" }, "source_role_mismatch"],
       [{ insufficiencyReason: "source_conflict" }, "source_conflict"],

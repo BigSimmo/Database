@@ -105,7 +105,10 @@ describe("answerStateForAnswer · empty sources fallback", () => {
         ...answerWith([]),
         answerQualityTier: "source_only",
         fallbackReasonCode: "coverage_gap",
-        routingReason: "generation_fallback:provider_timeout",
+        degradedMode: {
+          active: true,
+          reason: "Answer generation timed out; the verified source-backed portion is shown.",
+        },
       },
     });
 
@@ -129,6 +132,26 @@ describe("answerStateForAnswer · empty sources fallback", () => {
         renderCopyText: "Clinical answer draft\n\nAnswer\nStart at 12.5 mg at night.",
       }),
     ).toMatch(/answer generation was unavailable/i);
+  });
+
+  it.each([
+    ["coverage_gap", /did not pass the quality gate/i],
+    ["provider_offline", /answer generation was unavailable/i],
+    ["provider_missing_key", /answer generation was unavailable/i],
+  ] as const)("copies tierless %s degradation with the governed caveat", (fallbackReasonCode, caveat) => {
+    const degradedAnswer: RagAnswer = {
+      ...answerWith([]),
+      fallbackReasonCode,
+      degradedMode: { active: true, reason: "A fixed public explanation." },
+    };
+
+    expect(answerStateForAnswer({ answer: degradedAnswer })).toMatchObject({ kind: "source_only" });
+    expect(
+      buildAnswerClipboardText({
+        answer: degradedAnswer,
+        renderCopyText: "Clinical answer draft\n\nAnswer\nStart at 12.5 mg at night.",
+      }),
+    ).toMatch(caveat);
   });
 });
 

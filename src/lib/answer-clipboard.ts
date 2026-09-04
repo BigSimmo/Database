@@ -125,6 +125,7 @@ export function composeAnswerClipboardText({
   state,
   metadata,
   sourceOnly,
+  degradedReason,
 }: {
   /** `buildAnswerRenderModel(answer).copyText` — the primary product payload. */
   renderCopyText: string;
@@ -137,9 +138,15 @@ export function composeAnswerClipboardText({
    * state alone can no longer be trusted to say whether a model wrote the prose.
    */
   sourceOnly?: boolean;
+  /** Fixed browser-safe degradation phrase from the governed answer projection. */
+  degradedReason?: string | null;
 }): string {
   const body = renderCopyText.trim();
-  const head = [answerStateAttribution(state, { sourceOnly }), answerClipboardCaveatLine(state)]
+  const head = [
+    answerStateAttribution(state, { sourceOnly }),
+    degradedReason ? `Degraded mode: ${degradedReason}` : null,
+    answerClipboardCaveatLine(state),
+  ]
     .filter(Boolean)
     .join("\n");
   const provenance = answerClipboardProvenanceLine(state, metadata);

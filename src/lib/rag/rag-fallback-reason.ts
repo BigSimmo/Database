@@ -66,7 +66,41 @@ const providerFailureCodes: Record<ProviderFailureKind, RagFallbackReasonCode> =
 };
 
 function legacyFallbackReason(reason: string): RagFallbackReasonCode {
-  const normalized = reason.toLowerCase();
+  const normalized = reason.trim().toLowerCase();
+  if (normalized === "source_only_auth_failed") return "provider_auth";
+  if (normalized === "source_only_provider_failed") return "provider_failure";
+  if (
+    /\b(?:adversarial[_ -]?manipulation[_ -]?refused|governance[_ -]?block|source[_ -]?governance)\b/.test(normalized)
+  ) {
+    return "source_governance_block";
+  }
+  if (/\bsource[_ -]?role[_ -]?mismatch\b/.test(normalized)) return "source_role_mismatch";
+  if (/\bsource[_ -]?conflict\b/.test(normalized)) return "source_conflict";
+  if (/\bsite[_ -]?content[_ -]?updating\b/.test(normalized)) return "site_content_updating";
+  if (/\bsite[_ -]?content[_ -]?stale\b/.test(normalized)) return "site_content_stale";
+  if (/\bsite[_ -]?content[_ -]?unavailable\b/.test(normalized)) return "site_content_unavailable";
+  if (
+    /\b(?:post[_ -]?generation[_ -]?claim[_ -]?quality[_ -]?gate|citation[_ -]?(?:gate|failure|unsupported))\b/.test(
+      normalized,
+    )
+  ) {
+    return "citation_or_claim_gate";
+  }
+  if (/(?:claim[_ -]?support|numeric[_ -]?faithfulness|generation[_ -]?quality)(?:[_ -]|$)/.test(normalized)) {
+    return "citation_or_claim_gate";
+  }
+  if (/\b(?:no[_ -]?candidates?|no[_ -]?results?)\b/.test(normalized)) return "no_candidates";
+  if (/\b(?:confidence[_ -]?gate[_ -]?blocked|low[_ -]?signal|below[_ -]?threshold)\b/.test(normalized)) {
+    return "low_signal";
+  }
+  if (
+    /\b(?:comparison[_ -]?evidence[_ -]?gap|coverage[_ -]?gap|not[_ -]?in[_ -]?corpus|insufficient[_ -]?claim[_ -]?support|provider[_ -]?source[_ -]?gap|source[_ -]?gap)\b/.test(
+      normalized,
+    )
+  ) {
+    return "coverage_gap";
+  }
+  if (/(?:^|[_\s-])(?:timeout|timed out|etimedout|deadline exceeded)\b/.test(normalized)) return "provider_timeout";
   if (/\bsource_only_offline_mode\b/.test(normalized)) return "provider_offline";
   if (/\bsource_only_(?:no_api|missing_key)\b/.test(normalized)) return "provider_missing_key";
   if (/\b(?:missing|no)[_ -]?(?:api[_ -]?)?key\b/.test(normalized)) return "provider_missing_key";
@@ -78,25 +112,9 @@ function legacyFallbackReason(reason: string): RagFallbackReasonCode {
   }
   if (/\b(?:quota|insufficient[_ -]?credits?)\b/.test(normalized)) return "provider_quota";
   if (/\b(?:rate[_ -]?limit|too many requests|\b429\b)\b/.test(normalized)) return "provider_rate_limit";
-  if (/(?:^|[_\s-])(?:timeout|timed out|etimedout|deadline exceeded)\b/.test(normalized)) return "provider_timeout";
   if (/\b(?:provider[_ -]?offline|provider[_ -]?unavailable)\b/.test(normalized)) return "provider_offline";
   if (/\b(?:retrieval[_ -]?degraded|vector[_ -]?fallback|hybrid[_ -]?fallback)\b/.test(normalized)) {
     return "retrieval_degraded";
-  }
-  if (/\b(?:no[_ -]?candidates?|no[_ -]?results?)\b/.test(normalized)) return "no_candidates";
-  if (/\b(?:low[_ -]?signal|below[_ -]?threshold)\b/.test(normalized)) return "low_signal";
-  if (/\b(?:coverage[_ -]?gap|not[_ -]?in[_ -]?corpus|insufficient[_ -]?claim[_ -]?support)\b/.test(normalized)) {
-    return "coverage_gap";
-  }
-  if (/\bsource[_ -]?role[_ -]?mismatch\b/.test(normalized)) return "source_role_mismatch";
-  if (/\bsource[_ -]?conflict\b/.test(normalized)) return "source_conflict";
-  if (/\b(?:governance[_ -]?block|source[_ -]?governance)\b/.test(normalized)) return "source_governance_block";
-  if (/\bsite[_ -]?content[_ -]?updating\b/.test(normalized)) return "site_content_updating";
-  if (/\bsite[_ -]?content[_ -]?stale\b/.test(normalized)) return "site_content_stale";
-  if (/\bsite[_ -]?content[_ -]?unavailable\b/.test(normalized)) return "site_content_unavailable";
-  if (/\b(?:citation|claim)[_ -]?(?:gate|failure|unsupported)\b/.test(normalized)) return "citation_or_claim_gate";
-  if (/(?:claim[_ -]?support|numeric[_ -]?faithfulness|generation[_ -]?quality)(?:[_ -]|$)/.test(normalized)) {
-    return "citation_or_claim_gate";
   }
   if (/\bunsupported\b/.test(normalized)) return "unsupported";
   if (/\b(?:generation_fallback|hybrid_error|provider_error|generation_error)\b/.test(normalized)) {
@@ -113,10 +131,13 @@ export function classifyRagFallbackReason(input: RagFallbackInput): RagFallbackR
 }
 
 const legacyFallbackMarker =
-  /source_only_[a-z_]+|fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i;
+  /source_only_[a-z_]+|fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal|adversarial|governance|citation|claim_quality/i;
 
 export function fallbackReasonFromRouting(input: RagFallbackInput | string): RagFallbackReasonCode | null;
 export function fallbackReasonFromRouting(input: null | undefined): null;
+export function fallbackReasonFromRouting(
+  input: RagFallbackInput | string | null | undefined,
+): RagFallbackReasonCode | null;
 export function fallbackReasonFromRouting(
   input: RagFallbackInput | string | null | undefined,
 ): RagFallbackReasonCode | null {
@@ -130,7 +151,25 @@ export function fallbackReasonFromRouting(
     : null;
 }
 
+const strongerGovernanceCodes = new Set<RagFallbackReasonCode>([
+  "source_role_mismatch",
+  "source_conflict",
+  "source_governance_block",
+  "site_content_updating",
+  "site_content_stale",
+  "site_content_unavailable",
+  "citation_or_claim_gate",
+]);
+
+/** Return only governance failures that may supersede an earlier provider/base fallback. */
+export function strongerGovernanceFallbackReasonFromRouting(reason?: string | null): RagFallbackReasonCode | null {
+  const inferred = fallbackReasonFromRouting(reason);
+  return inferred && strongerGovernanceCodes.has(inferred) ? inferred : null;
+}
+
 const providerGenerationFallbackCodes = new Set<RagFallbackReasonCode>([
+  "provider_offline",
+  "provider_missing_key",
   "provider_auth",
   "provider_quota",
   "provider_rate_limit",

@@ -59,6 +59,10 @@ export type AnswerStateInput = {
   fallbackReasonCode?: RagFallbackReasonCode | null;
   fallbackReason?: string | null;
   routingReason?: string | null;
+  degradedMode?: {
+    active: boolean;
+    reason?: string | null;
+  } | null;
   /**
    * The pipeline's own grounding verdict. `false` means the prose is not
    * supported by the cited evidence — see the `ungrounded` kind.
@@ -94,6 +98,22 @@ export type AnswerStateInput = {
  * re-derive the decision.
  */
 const generationFallbackMarker = /generation_fallback|generation_failed/i;
+
+const generationUnavailableCodes = new Set<RagFallbackReasonCode>([
+  "provider_offline",
+  "provider_missing_key",
+  "provider_auth",
+  "provider_quota",
+  "provider_rate_limit",
+  "provider_timeout",
+  "provider_failure",
+]);
+
+export function answerUsesDegradedMode(input: AnswerStateInput): boolean {
+  return (
+    input.answerQualityTier === "source_only" || input.degradedMode?.active === true || input.fallbackReasonCode != null
+  );
+}
 
 const recordStateDefect = createBoundedDiagnosticRecorder({
   emit: (message) => {
@@ -247,17 +267,9 @@ export function answerStateFromRetrieval(input: AnswerStateInput): AnswerState {
   const ungroundedReason = ungroundedReasonFrom(input);
   if (ungroundedReason) return { kind: "ungrounded", reason: ungroundedReason, sourceCount };
 
-  if (input.answerQualityTier === "source_only") {
+  if (answerUsesDegradedMode(input)) {
     const generationFailed = input.fallbackReasonCode
-      ? [
-          "provider_offline",
-          "provider_missing_key",
-          "provider_auth",
-          "provider_quota",
-          "provider_rate_limit",
-          "provider_timeout",
-          "provider_failure",
-        ].includes(input.fallbackReasonCode)
+      ? generationUnavailableCodes.has(input.fallbackReasonCode)
       : generationFallbackMarker.test(`${input.fallbackReason ?? ""} ${input.routingReason ?? ""}`);
     return {
       kind: "source_only",

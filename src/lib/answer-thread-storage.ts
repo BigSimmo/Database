@@ -1,4 +1,4 @@
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
 
 export const answerThreadStorageKey = "clinical-kb-answer-thread";
 export const guestAnswerThreadOwnerId = "guest-tab-session";
@@ -33,8 +33,8 @@ export function resolveAnswerThreadOwnerId({
 export type StoredAnswerTurn = {
   id: string;
   query: string;
-  answer: RagAnswer;
-  sources: SearchResult[];
+  answer: ClientRagAnswerPayload;
+  sources: ClientSearchResult[];
 };
 
 export type PersistedAnswerThread = {

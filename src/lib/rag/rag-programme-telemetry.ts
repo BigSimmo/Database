@@ -11,7 +11,11 @@ import {
   type RagObservationContext,
 } from "@/lib/rag/rag-contracts";
 import { ragAnswerQueryPlanDiagnostics } from "@/lib/rag/rag-cache";
-import { classifyRagFallbackReason, normalizeRagFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
+import {
+  classifyRagFallbackReason,
+  isProviderGenerationFallbackCode,
+  normalizeRagFallbackReasonCode,
+} from "@/lib/rag/rag-fallback-reason";
 import type {
   RagAnswer,
   RagFallbackReasonCode,
@@ -333,7 +337,12 @@ function generationOutcomeForAnswer(answer: RagAnswer): RagGenerationOutcome {
     answer.responseMode === "evidence_gap"
   )
     return "failed";
-  if (answer.answerQualityTier === "source_only" || answer.providerMode === "offline") return "source_only";
+  if (
+    isProviderGenerationFallbackCode(fallbackReasonCodeForAnswer(answer)) ||
+    answer.answerQualityTier === "source_only" ||
+    answer.providerMode === "offline"
+  )
+    return "source_only";
   if (answer.routingMode === "extractive" || (answer.modelUsed == null && answer.grounded)) return "extractive";
   if (answer.modelUsed) return "generated";
   return answer.grounded ? "extractive" : "failed";

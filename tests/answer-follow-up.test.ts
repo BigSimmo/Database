@@ -244,7 +244,7 @@ describe("buildAnswerFollowUpSuggestions · composition menu", () => {
     }
   });
 
-  it("falls back to the query shape when a cached payload carries no query analysis", () => {
+  it("derives an evidence-backed subject when the client payload carries no query analysis", () => {
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",
       {
@@ -257,7 +257,7 @@ describe("buildAnswerFollowUpSuggestions · composition menu", () => {
       ["lithium dosing"],
     );
 
-    expect(suggestions).toContain("What monitoring is required for lithium dosing?");
+    expect(suggestions).toContain("What monitoring is required for lithium?");
   });
 });
 

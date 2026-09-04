@@ -1,12 +1,13 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { queryCoreTerms } from "@/lib/evidence-relevance";
 import { sanitizeAnswerText } from "@/lib/rag/rag-answer-text";
+import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
 import {
   clinicalProseUsefulness,
   sourceTextForCompactDisplay,
   sourceTextForDisplay,
 } from "@/lib/source-text-sanitizer";
-import type { Citation, RagAnswer, SafetyWarning, SafetyWarningKind, SearchResult } from "@/lib/types";
+import type { Citation, RagAnswer, SafetyWarning, SafetyWarningKind } from "@/lib/types";
 
 export type SafetyFindingKind = SafetyWarningKind;
 export type SafetyFinding = SafetyWarning;
@@ -66,7 +67,7 @@ function conciseSourceText(text: string) {
   return `${normalized.slice(0, 257).trim()}...`;
 }
 
-function citationFromSource(source: SearchResult): Citation {
+function citationFromSource(source: ClientSearchResult): Citation {
   return {
     chunk_id: source.id,
     document_id: source.document_id,
@@ -85,7 +86,11 @@ function hasQueryConceptOverlap(text: string, terms: string[]) {
   return terms.some((term) => haystack.includes(term.toLowerCase()));
 }
 
-export function extractSafetyFindings(answer: RagAnswer | null | undefined, limit = 5): SafetyFinding[] {
+type SafetyAnswerInput = ClientRagAnswerPayload & {
+  smartPanel?: Pick<NonNullable<RagAnswer["smartPanel"]>, "query">;
+};
+
+export function extractSafetyFindings(answer: SafetyAnswerInput | null | undefined, limit = 5): SafetyFinding[] {
   if (answer?.safetyWarnings) return answer.safetyWarnings.slice(0, limit);
   if (!answer?.grounded) return [];
   if (answer.relevance && !answer.relevance.isSourceBacked) return [];

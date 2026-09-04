@@ -17,6 +17,8 @@ describe("provider generation degradation classification", () => {
         routingReason: "high_confidence_extractive_retrieval",
       }),
     ).toBe(true);
+    expect(isProviderGenerationDegraded({ fallbackReasonCode: "provider_offline" })).toBe(true);
+    expect(isProviderGenerationDegraded({ fallbackReasonCode: "provider_missing_key" })).toBe(true);
     expect(
       isProviderGenerationDegraded({
         fallbackReasonCode: "coverage_gap",

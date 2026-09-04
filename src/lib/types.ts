@@ -1245,6 +1245,8 @@ export type RagAnswer = {
   retrievalDiagnostics?: RetrievalDiagnostics;
   /** Bounded browser-safe projection of retrievalDiagnostics.gateStatus. */
   retrievalGateBlocked?: boolean;
+  /** Server-derived browser-safe trust cap. Never carries claim, chunk, document, or assessment identities. */
+  authorityTrustCapRequired?: boolean;
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;

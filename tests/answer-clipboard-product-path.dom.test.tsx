@@ -111,4 +111,21 @@ describe("product answer copy · goes through the #208 composer", () => {
     const copied = await copiedTextFor({ answerQualityTier: "source_only" });
     expect(copied.startsWith("Assembled directly from the cited sources without model synthesis.")).toBe(true);
   });
+
+  it.each([
+    ["provider_offline", /answer generation is .*unavailable/i],
+    ["provider_missing_key", /answer generation is not configured/i],
+  ] as const)(
+    "surfaces tierless %s degradation in the rendered turn and copied record",
+    async (fallbackReasonCode, expectedReason) => {
+      const copied = await copiedTextFor({
+        fallbackReasonCode,
+        degradedMode: { active: true, reason: "Answer generation was unavailable; verified sources are shown." },
+      });
+
+      expect(screen.getByTestId("prior-answer-source-review")).toBeInTheDocument();
+      expect(copied.startsWith("Assembled directly from the cited sources without model synthesis.")).toBe(true);
+      expect(copied).toMatch(expectedReason);
+    },
+  );
 });

@@ -3,7 +3,7 @@ import {
   type AnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { isAnswerStreamEventName, type VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
-import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
+import type { ClientDegradedMode, ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import { isRagFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
 import type { RagAnswer } from "@/lib/types";
 
@@ -26,6 +26,12 @@ export function evidencePreviewReconcilesWithFinal(preview: VerifiedEvidencePrev
 
 const answerConfidenceValues = new Set<AnswerPayload["confidence"]>(["high", "medium", "low", "unsupported"]);
 
+function isClientDegradedMode(value: unknown): value is ClientDegradedMode {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.active === "boolean" && (candidate.reason == null || typeof candidate.reason === "string");
+}
+
 export function isAnswerPayload(value: unknown): value is AnswerPayload {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const payload = value as Record<string, unknown>;
@@ -37,6 +43,8 @@ export function isAnswerPayload(value: unknown): value is AnswerPayload {
     Array.isArray(payload.sources) &&
     (payload.fallbackReasonCode == null || isRagFallbackReasonCode(payload.fallbackReasonCode)) &&
     (payload.retrievalGateBlocked === undefined || typeof payload.retrievalGateBlocked === "boolean") &&
+    (payload.authorityTrustCapRequired === undefined || typeof payload.authorityTrustCapRequired === "boolean") &&
+    (payload.degradedMode === undefined || isClientDegradedMode(payload.degradedMode)) &&
     (payload.demoMode === undefined || typeof payload.demoMode === "boolean")
   );
 }
@@ -270,9 +278,7 @@ export function answerPayloadIsUsable(payload: AnswerPayload) {
   const answerText = payload.answer.trim();
   if (!answerText) return false;
   if (payload.confidence === "unsupported") {
-    const hasGapContext = Boolean(
-      payload.relevance || payload.smartPanel?.relevance || payload.sources?.length || payload.relatedDocuments?.length,
-    );
+    const hasGapContext = Boolean(payload.relevance || payload.sources?.length || payload.relatedDocuments?.length);
     return hasGapContext;
   }
 

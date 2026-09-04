@@ -25,19 +25,14 @@ import {
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
 import { AnswerCard, AnswerCardQueryEcho, type AnswerSupportStrength } from "@/components/ui/answer-card";
+import { answerUsesDegradedMode } from "@/components/ui/answer-state";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
 import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
-import type {
-  AnswerSection,
-  BestSourceRecommendation,
-  EvidenceSummary,
-  QuoteCard,
-  RagAnswer,
-  SearchResult,
-} from "@/lib/types";
+import type { AnswerSection, BestSourceRecommendation, EvidenceSummary, QuoteCard } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
 
 /**
@@ -71,7 +66,7 @@ function StagedAnswerResultSurfaceImpl({
   crossModeQueries,
   onCrossModeSearch,
 }: {
-  answer: RagAnswer;
+  answer: ClientRagAnswerPayload;
   query: string;
   bestSource: BestSourceRecommendation | null;
   sourceSummary?: EvidenceSummary;
@@ -81,9 +76,9 @@ function StagedAnswerResultSurfaceImpl({
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   onScopeDocument: (documentId: string) => void;
   answerGrounded: boolean;
-  sources: SearchResult[];
+  sources: ClientSearchResult[];
   demoMode: boolean;
-  safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
+  safeAnswerSections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>;
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
   copiedAnswer: boolean;
   pendingFeedback: AnswerFeedbackType | null;
@@ -97,12 +92,13 @@ function StagedAnswerResultSurfaceImpl({
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
   const router = useRouter();
+  const degradedAnswer = answerUsesDegradedMode({
+    answerQualityTier: answer.answerQualityTier,
+    fallbackReasonCode: answer.fallbackReasonCode,
+    degradedMode: answer.degradedMode,
+  });
   const noteCount = clinicalNotesCount(answer);
-  const showClinicalNotes =
-    safetyFindings.length > 0 ||
-    noteCount > 0 ||
-    answer.answerQualityTier === "source_only" ||
-    answerGrounded === false;
+  const showClinicalNotes = safetyFindings.length > 0 || noteCount > 0 || degradedAnswer || answerGrounded === false;
   const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
     answer,
     answerViewMode,
@@ -219,7 +215,7 @@ function StagedAnswerResultSurfaceImpl({
     // stale/partial/ungrounded outrank source_only, so keying on the kind announced
     // "AI-generated" directly above the Source-only disclosure saying no model wrote
     // it (#228).
-    attribution: (answer.answerQualityTier === "source_only" ? "extractive" : "model") as "extractive" | "model",
+    attribution: (degradedAnswer ? "extractive" : "model") as "extractive" | "model",
     sourceCount: "sourceCount" in answerState ? answerState.sourceCount : sourceCount,
   };
   const answerProse = (
@@ -228,7 +224,7 @@ function StagedAnswerResultSurfaceImpl({
       query={query}
       preformatted={isPreformattedGroundedAnswer(answer)}
       sourceCount={sourceCount}
-      sourceOnly={answer.answerQualityTier === "source_only"}
+      sourceOnly={degradedAnswer}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}

@@ -1905,6 +1905,7 @@ describe("RAG structured-output fallback", () => {
 
     expect(answer.routingReason).toContain("source_only_offline_mode");
     expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.fallbackReasonCode).toBe("coverage_gap");
     expect(answer.routingReason).not.toContain("source_backed_review_fallback");
     expect(answer.grounded).toBe(false);
     expect(answer.responseMode).toBe("evidence_gap");
@@ -4833,6 +4834,7 @@ describe("RAG structured-output fallback", () => {
     );
 
     expect(answer.routingReason).toContain("post_generation_claim_quality_gate");
+    expect(answer.fallbackReasonCode).toBe("citation_or_claim_gate");
     expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([served.id]);
     expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
     expect(answer.smartApiPlan?.answerPlan.sourceSelection.selectedCount).toBe(1);
@@ -5006,6 +5008,7 @@ describe("RAG structured-output fallback", () => {
 
     expect(answer.routingMode).toBe("unsupported");
     expect(answer.routingReason).toContain("confidence_gate_blocked");
+    expect(answer.fallbackReasonCode).toBe("low_signal");
     expect(answer.retrievalDiagnostics).toMatchObject({
       gateStatus: "blocked",
       fallbackReason: "low_signal_document_lookup_strong",

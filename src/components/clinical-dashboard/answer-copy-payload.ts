@@ -14,11 +14,12 @@
 // takes a structural shape so the design-system bundle never pulls the
 // retrieval layer in, and `RagAnswer` is the retrieval layer.
 
-import { answerStateFromRetrieval, type AnswerState } from "@/components/ui/answer-state";
+import { answerStateFromRetrieval, answerUsesDegradedMode, type AnswerState } from "@/components/ui/answer-state";
 import { isPreformattedGroundedAnswer, primaryAnswerDisplayText } from "@/components/clinical-dashboard/answer-content";
 import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
+import { publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
 import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
 
 export type AnswerCopyInput = {
   answer: AnswerPayload;
@@ -27,7 +28,7 @@ export type AnswerCopyInput = {
    * An empty array is treated as unpopulated — `??` alone would keep `[]` and
    * drop overdue-source warnings that only the fallback still carries.
    */
-  sources?: SearchResult[];
+  sources?: ClientSearchResult[];
   /** Render trust, passed through rather than re-derived. */
   weakEvidence?: boolean;
 };
@@ -36,13 +37,13 @@ export type AnswerCopyInput = {
  * Derives clipboard text from the same finalized answer projection as the
  * primary screen surface. This deliberately avoids copying rendered DOM.
  */
-export function answerTextForClipboard(answer: RagAnswer): string {
+export function answerTextForClipboard(answer: ClientRagAnswerPayload): string {
   return primaryAnswerDisplayText(answer.answer, {
     preformatted: isPreformattedGroundedAnswer(answer),
   });
 }
 
-function renderCopyTextWithCanonicalAnswer(renderCopyText: string, answer: RagAnswer): string {
+function renderCopyTextWithCanonicalAnswer(renderCopyText: string, answer: ClientRagAnswerPayload): string {
   const rawAnswerText = answer.answer.trim().replace(/\*\*/g, "");
   const canonicalAnswerText = answerTextForClipboard(answer);
   const answerMarker = "Answer\n";
@@ -70,9 +71,9 @@ function renderCopyTextWithCanonicalAnswer(renderCopyText: string, answer: RagAn
  * operator for that contract.
  */
 export function resolveAnswerSources(
-  answerSources: SearchResult[] | null | undefined,
-  fallback?: SearchResult[] | null,
-): SearchResult[] | undefined {
+  answerSources: ClientSearchResult[] | null | undefined,
+  fallback?: ClientSearchResult[] | null,
+): ClientSearchResult[] | undefined {
   if (answerSources != null && answerSources.length > 0) return answerSources;
   if (fallback != null && fallback.length > 0) return fallback;
   return answerSources ?? fallback ?? undefined;
@@ -85,6 +86,7 @@ export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCo
     citations: answer.citations,
     answerQualityTier: answer.answerQualityTier,
     fallbackReasonCode: answer.fallbackReasonCode,
+    degradedMode: answer.degradedMode,
     grounded: answer.grounded,
     confidence: answer.confidence,
     unverifiedNumericTokens: answer.unverifiedNumericTokens,
@@ -101,9 +103,9 @@ export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCo
  * citations, because an unfiltered set is better than an empty one.
  */
 export function citedSourcesOnly(
-  sources: readonly SearchResult[] | null | undefined,
-  citations: RagAnswer["citations"] | null | undefined,
-): readonly SearchResult[] {
+  sources: readonly ClientSearchResult[] | null | undefined,
+  citations: ClientRagAnswerPayload["citations"] | null | undefined,
+): readonly ClientSearchResult[] {
   if (!sources?.length) return sources ?? [];
   const citedChunkIds = new Set<string>();
   const citedDocumentIds = new Set<string>();
@@ -128,8 +130,8 @@ export function citedSourcesOnly(
  * composer (it would contradict a multi-source stale caveat).
  */
 export function singleDocumentClipboardMetadata(
-  sources: readonly SearchResult[] | null | undefined,
-): SearchResult["source_metadata"] | undefined {
+  sources: readonly ClientSearchResult[] | null | undefined,
+): ClientSearchResult["source_metadata"] | undefined {
   if (!sources?.length) return undefined;
   const documentIds = new Set(
     sources.map((source) => source.document_id?.trim()).filter((id): id is string => Boolean(id)),
@@ -158,10 +160,22 @@ export function buildAnswerClipboardText({
   renderCopyText,
 }: AnswerCopyInput & { renderCopyText: string }): string {
   const resolvedSources = resolveAnswerSources(answer.sources, sources);
+  const state = answerStateForAnswer({ answer, sources, weakEvidence });
+  const sourceOnly = answerUsesDegradedMode({
+    answerQualityTier: answer.answerQualityTier,
+    fallbackReasonCode: answer.fallbackReasonCode,
+    degradedMode: answer.degradedMode,
+  });
   return composeAnswerClipboardText({
     renderCopyText: renderCopyTextWithCanonicalAnswer(renderCopyText, answer),
-    sourceOnly: answer.answerQualityTier === "source_only",
-    state: answerStateForAnswer({ answer, sources, weakEvidence }),
+    sourceOnly,
+    state,
+    degradedReason:
+      sourceOnly && state.kind !== "source_only"
+        ? answer.fallbackReasonCode
+          ? publicFallbackReason(answer.fallbackReasonCode)
+          : (answer.degradedMode?.reason ?? null)
+        : null,
     // Cited set, not every candidate: an uncited candidate from another document
     // would otherwise make a one-document answer look like two and suppress the
     // provenance audit line entirely.

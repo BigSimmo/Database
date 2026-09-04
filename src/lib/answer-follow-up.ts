@@ -1,5 +1,6 @@
 import { buildRelatedInformationMenu, type RelatedInformationMenuKey } from "@/lib/rag/answer-composition";
-import type { AnswerSectionKind, RagAnswer } from "@/lib/types";
+import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
+import type { AnswerSectionKind } from "@/lib/types";
 
 // Client-side follow-up context for the single-query answer API.
 // The /api/answer/stream schema accepts one query string (max 2000 chars), so
@@ -22,6 +23,28 @@ const followUpCuePattern =
   /\b(what about|how about|and (?:for|in|with|the)|also|too\??$|same (?:for|with)|instead|as well|it\b|they\b|them\b|this\b|that\b|those\b|these\b)\b/i;
 
 const questionLeadPattern = /^(what|how|when|where|which|who|why|can|should|does|do|is|are)\b/i;
+
+const followUpTopicNoise = new Set([
+  "action",
+  "actions",
+  "dosing",
+  "dose",
+  "drug",
+  "for",
+  "guidance",
+  "guideline",
+  "management",
+  "medication",
+  "monitoring",
+  "policy",
+  "protocol",
+  "summarise",
+  "summary",
+  "the",
+  "this",
+  "toxicity",
+  "with",
+]);
 
 function significantTokens(text: string): string[] {
   return (text.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? []).filter(
@@ -326,35 +349,32 @@ function bounded(value: string | null | undefined): string {
  * server-derived safety findings add the passages the UI already shows. Query
  * analysis is deliberately excluded — canonical terms are query-derived, so
  * counting them here would let a query term vouch for corpus coverage it does
- * not have. They vouch for the SUBJECT only (see `buildSubjectHaystack`).
+ * not have. The subject is instead the evidence-backed intersection of the
+ * clinician's query tokens and this haystack.
  */
-function buildEvidenceHaystack(answer: RagAnswer): string {
+function buildEvidenceHaystack(answer: ClientRagAnswerPayload): string {
   const parts: string[] = [];
   for (const source of (answer.sources ?? []).slice(0, maxEvidenceSources)) {
     parts.push(source.title ?? "", source.section_heading ?? "", bounded(source.retrieval_synopsis ?? source.content));
   }
-  const quotes = [...(answer.quoteCards ?? []), ...(answer.smartPanel?.quotes ?? [])].slice(0, maxEvidenceQuotes);
+  const quotes = (answer.quoteCards ?? []).slice(0, maxEvidenceQuotes);
   for (const quote of quotes) parts.push(bounded(quote.quote));
   for (const warning of answer.safetyWarnings ?? []) parts.push(warning.kind, warning.label, bounded(warning.text));
   return parts.join(" \n").toLowerCase();
 }
 
-/** Where a suggested subject may legitimately come from: evidence, or the resolved query analysis. */
-function buildSubjectHaystack(answer: RagAnswer, evidenceHaystack: string): string {
-  const analysis = answer.queryAnalysis;
-  const terms = [...(analysis?.medications ?? []), ...(analysis?.canonicalTerms ?? [])];
-  return `${evidenceHaystack} \n${terms.join(" \n").toLowerCase()}`;
-}
-
-function topicLabel(priorQuery: string, answer: RagAnswer) {
-  const canonical = answer.queryAnalysis?.canonicalTerms?.filter((term) => term.trim()) ?? [];
-  if (canonical.length > 0) {
-    const label = canonical.slice(0, 3).join(" ");
-    return label.length > 48 ? `${label.slice(0, 45).trimEnd()}…` : label;
-  }
-
+function topicLabel(priorQuery: string, evidenceHaystack: string) {
   const trimmed = priorQuery.trim();
   if (!trimmed) return "this topic";
+
+  const evidenceBackedTopic = (trimmed.match(/[A-Za-z][A-Za-z-]{2,}/g) ?? [])
+    .filter((token) => !followUpTopicNoise.has(token.toLowerCase()))
+    .filter((token) => evidenceHaystack.includes(token.toLowerCase()))
+    .slice(0, 3)
+    .join(" ");
+  if (evidenceBackedTopic) {
+    return evidenceBackedTopic.length > 48 ? `${evidenceBackedTopic.slice(0, 45).trimEnd()}…` : evidenceBackedTopic;
+  }
 
   // Long or interrogative queries: use a short topic phrase instead of the full question.
   if (trimmed.length > 48 || questionLeadPattern.test(trimmed)) {
@@ -386,52 +406,36 @@ function resolveAnchorQuery(latestQuery: string, priorQueries: string[]) {
 }
 
 /**
- * Prefer a subject the clinician actually named. Medications on the analysis can
- * be answer-derived rather than asked-for — an agitation question whose answer
- * lists olanzapine must not produce "…for olanzapine?" chips — so a term that
- * appears in the anchor question wins, and a bare medication is only the
- * fallback.
- */
-function subjectFromAnalysis(anchorQuery: string, answer: RagAnswer): string | null {
-  const normalizedAnchor = anchorQuery.toLowerCase();
-  const medications = (answer.queryAnalysis?.medications ?? []).map((term) => term.trim()).filter(Boolean);
-  const canonical = (answer.queryAnalysis?.canonicalTerms ?? []).map((term) => term.trim()).filter(Boolean);
-  for (const term of [...medications, ...canonical]) {
-    const at = normalizedAnchor.indexOf(term.toLowerCase());
-    if (at < 0) continue;
-    // Read the subject back out of the question so the chip keeps the
-    // clinician's own casing ("ADHD", not the normalised "adhd").
-    return anchorQuery.slice(at, at + term.length);
-  }
-  return medications[0] ?? null;
-}
-
-/**
  * Which composition menu applies. Class-carrying answers use the S2 menu
- * verbatim; the query-shape fallbacks only cover answers that reached the client
- * without a query analysis (cached or degraded payloads).
+ * verbatim; query-shape fallbacks cover cached or degraded payloads without a
+ * query class.
  */
-function resolveMenuKey(anchorQuery: string, answer: RagAnswer): RelatedInformationMenuKey {
-  const queryClass = answer.queryClass ?? answer.queryAnalysis?.queryClass;
+function resolveMenuKey(anchorQuery: string, answer: ClientRagAnswerPayload): RelatedInformationMenuKey {
+  const queryClass = answer.queryClass;
   if (queryClass) {
-    return buildRelatedInformationMenu(queryClass, answer.queryAnalysis?.intent ?? "general").key;
+    const intent =
+      (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
+      /\b(?:toxicity|overdose|urgent|emergency|escalat(?:e|ion|ing)?)\b/i.test(anchorQuery)
+        ? "escalation_risk"
+        : "general";
+    return buildRelatedInformationMenu(queryClass, intent).key;
   }
-  if (answer.queryAnalysis?.comparisonIntent) return "comparison";
-  if (answer.queryAnalysis?.documentTitleIntent) return "none";
   if (/\b(dose|dosing|mg|monitor|medication|drug)\b/i.test(anchorQuery)) return "dosing";
   if (/\b(threshold|level|cut[- ]?off|range)\b/i.test(anchorQuery)) return "threshold";
   return "none";
 }
 
-function templatesForMenuKey(menuKey: RelatedInformationMenuKey, answer: RagAnswer): readonly FollowUpTemplate[] {
+function templatesForMenuKey(
+  menuKey: RelatedInformationMenuKey,
+  answer: ClientRagAnswerPayload,
+): readonly FollowUpTemplate[] {
   if (menuKey !== "none") return menuFollowUpTemplates[menuKey];
-  const queryClass = answer.queryClass ?? answer.queryAnalysis?.queryClass;
-  if (queryClass === "document_lookup" || answer.queryAnalysis?.documentTitleIntent) return documentLookupTemplates;
+  if (answer.queryClass === "document_lookup") return documentLookupTemplates;
   return generalTemplates;
 }
 
-function gapFollowUpTemplates(answer: RagAnswer) {
-  const gaps = answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? [];
+function gapFollowUpTemplates(answer: ClientRagAnswerPayload) {
+  const gaps = answer.conflictsOrGaps ?? [];
   return gaps
     .map((gap) => gap.message.trim())
     .filter(Boolean)
@@ -453,7 +457,7 @@ function gapFollowUpTemplates(answer: RagAnswer) {
  */
 export function buildAnswerFollowUpSuggestions(
   priorQuery: string,
-  answer: RagAnswer,
+  answer: ClientRagAnswerPayload,
   priorQueries: string[] = [],
 ): string[] {
   const trimmedPrior = priorQuery.trim();
@@ -461,9 +465,9 @@ export function buildAnswerFollowUpSuggestions(
 
   const anchorQuery = resolveAnchorQuery(trimmedPrior, priorQueries);
   const evidenceHaystack = buildEvidenceHaystack(answer);
-  const subjectHaystack = buildSubjectHaystack(answer, evidenceHaystack);
+  const subjectHaystack = evidenceHaystack;
 
-  const topic = subjectFromAnalysis(anchorQuery, answer) ?? topicLabel(anchorQuery, answer);
+  const topic = topicLabel(anchorQuery, evidenceHaystack);
   const topicSupported = significantTokens(topic).some((token) => subjectHaystack.includes(token));
 
   const seen = new Set(priorQueries.map(normalizeSuggestionKey));
@@ -483,7 +487,7 @@ export function buildAnswerFollowUpSuggestions(
     if (suggestions.length >= maxFollowUpSuggestions) break;
     push(gap);
   }
-  const hasReportedGap = (answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []).length > 0;
+  const hasReportedGap = (answer.conflictsOrGaps ?? []).length > 0;
   const answerText = (answer.answer ?? "").toLowerCase();
   const emittedSectionKinds = new Set(
     (answer.answerSections ?? []).map((section) => section.kind).filter((kind): kind is AnswerSectionKind => !!kind),

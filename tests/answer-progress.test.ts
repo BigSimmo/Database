@@ -22,7 +22,6 @@ const previewSource = {
   content: "ANC thresholds and FBC monitoring schedule for clozapine.",
   image_ids: [],
   similarity: 0.82,
-  images: [],
 };
 
 const evidencePreview: VerifiedEvidencePreviewUnit = {

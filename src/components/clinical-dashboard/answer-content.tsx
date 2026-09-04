@@ -39,9 +39,9 @@ import type {
   AnswerSectionKind,
   BestSourceRecommendation,
   RagAnswer,
-  SearchResult,
   VisualEvidenceCard,
 } from "@/lib/types";
+import type { ClientSearchResult } from "@/lib/answer-client-payload";
 
 export const SourceImage = memo(function SourceImage({
   endpoint,
@@ -151,12 +151,12 @@ type CapsulePreviewSource = {
   fileName?: string;
   pageNumber: number | null;
   metadata: ReturnType<typeof normalizeSourceMetadata>;
-  sourceMetadata?: SearchResult["source_metadata"];
+  sourceMetadata?: ClientSearchResult["source_metadata"];
   score: number;
   href: string;
   snippet?: string;
   sourceStrength?:
-    SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | SearchResult["source_strength"];
+    SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | ClientSearchResult["source_strength"];
 };
 
 function sourceBadgeLabel(index: number) {
@@ -196,7 +196,7 @@ function sourcePreviewPageCountLabel(previewSources: CapsulePreviewSource[]) {
 
 function capsulePreviewSources(
   bestSource: BestSourceRecommendation | null,
-  sources: SearchResult[],
+  sources: ClientSearchResult[],
   sourceLinks: SourceLink[] = [],
 ) {
   const rows: CapsulePreviewSource[] = [];
@@ -431,7 +431,7 @@ export function NaturalLanguageAnswer({
   sourceCount: number;
   sourceOnly: boolean;
   bestSource: BestSourceRecommendation | null;
-  sources: SearchResult[];
+  sources: ClientSearchResult[];
   sourceLinks: SourceLink[];
   copied: boolean;
   onCopy: () => void;
@@ -648,7 +648,7 @@ function keyClinicalItemFromText(item: string): KeyClinicalItem | null {
 }
 
 export function keyClinicalItemsFromSections(
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
+  sections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>,
 ): KeyClinicalItem[] {
   const usefulKinds = new Set<AnswerSectionKind | undefined>([
     "required_actions",

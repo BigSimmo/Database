@@ -164,6 +164,30 @@ describe("RAG programme telemetry projection", () => {
     expect(JSON.stringify(toClientAnswerPayload(answer))).not.toContain(INTERACTION_ID);
   });
 
+  it.each(["provider_offline", "provider_missing_key"] as const)(
+    "classifies typed-only %s as a source-only generation outcome",
+    (fallbackReasonCode) => {
+      const answer = observeRagAnswer(
+        {
+          answer: "Deterministic source-backed fallback.",
+          grounded: true,
+          confidence: "medium",
+          citations: [],
+          sources: [],
+          routingMode: "extractive",
+          fallbackReasonCode,
+        } satisfies RagAnswer,
+        { interactionId: INTERACTION_ID, rolloutMode: "legacy" },
+      );
+
+      expect(ragProgrammeTelemetryForAnswer(answer)).toMatchObject({
+        fallback_reason_code: fallbackReasonCode,
+        insufficiency_reason: "provider_failure",
+        generation_outcome: "source_only",
+      });
+    },
+  );
+
   it("rebinds a cached or coalesced answer object to the current route-created interaction id", () => {
     const reusedAnswer = {
       answer: "Cached governed answer.",

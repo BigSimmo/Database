@@ -4,6 +4,7 @@ import {
   fallbackReasonFromRouting,
   isProviderGenerationFallbackCode,
   normalizeRagFallbackReasonCode,
+  strongerGovernanceFallbackReasonFromRouting,
   type RagFallbackInput,
 } from "@/lib/rag/rag-fallback-reason";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -44,7 +45,7 @@ export function deriveConfidence(
   return "low";
 }
 
-export { fallbackReasonFromRouting, normalizeRagFallbackReasonCode };
+export { fallbackReasonFromRouting, normalizeRagFallbackReasonCode, strongerGovernanceFallbackReasonFromRouting };
 
 /** True only when model generation failed and the answer fell back locally. */
 export function isProviderGenerationDegraded(input?: string | null | RagFallbackInput) {

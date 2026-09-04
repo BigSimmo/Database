@@ -215,7 +215,7 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(source.memory_cards).toBeUndefined();
     expect(source.table_facts).toBeUndefined();
     expect(source.document_summary).toBeUndefined();
-    expect(source.images).toEqual([]);
+    expect(source.images).toBeUndefined();
   });
 
   it("is byte-identical to the final payload's trim of the same sources", () => {

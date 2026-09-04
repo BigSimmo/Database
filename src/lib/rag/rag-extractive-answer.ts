@@ -45,6 +45,7 @@ import {
   evidenceTextForGate,
   fallbackReasonFromRouting,
   normalizeRagFallbackReasonCode,
+  strongerGovernanceFallbackReasonFromRouting,
   machineReadableFallbackAnswer,
   rankMemoryCardsForAnswer,
   scoreValue,
@@ -3833,13 +3834,15 @@ function applyProviderLabels(answer: RagAnswer): RagAnswer {
   const fallbackReason =
     answer.fallbackReason ?? (answerQualityTier === "source_only" ? (legacyFallbackReason ?? "source_only") : null);
   const inferredFallbackReasonCode = fallbackReasonFromRouting(answer.routingReason);
+  const strongerGovernanceCode = strongerGovernanceFallbackReasonFromRouting(answer.routingReason);
   const explicitFallbackReasonCode = normalizeRagFallbackReasonCode(answer.fallbackReasonCode);
   const fallbackReasonCode =
-    answer.fallbackReasonCode != null
+    strongerGovernanceCode ??
+    (answer.fallbackReasonCode != null
       ? explicitFallbackReasonCode
       : inferredFallbackReasonCode === "unknown"
         ? null
-        : inferredFallbackReasonCode;
+        : inferredFallbackReasonCode);
   const degradedActive = answerQualityTier === "source_only";
   return {
     ...answer,

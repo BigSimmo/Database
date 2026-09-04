@@ -13,7 +13,12 @@ import {
   isLowYieldClinicalText,
   sourceTextForClinicalProse,
 } from "@/lib/source-text-sanitizer";
+import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import type { AnswerSectionKind, QuoteCard, RagAnswer, VisualEvidenceCard } from "@/lib/types";
+
+type AnswerPresentationInput = ClientRagAnswerPayload & {
+  smartPanel?: Pick<NonNullable<RagAnswer["smartPanel"]>, "query" | "visualEvidence">;
+};
 
 export type ClinicalOutputSectionId =
   | "bottom-line"
@@ -212,7 +217,7 @@ function visualEvidenceText(card: VisualEvidenceCard) {
     .join(" ");
 }
 
-function isWeakAnswer(answer: RagAnswer) {
+function isWeakAnswer(answer: AnswerPresentationInput) {
   return (
     answer.confidence === "unsupported" ||
     answer.grounded === false ||
@@ -222,7 +227,7 @@ function isWeakAnswer(answer: RagAnswer) {
   );
 }
 
-function isPromotableClinicalTable(card: VisualEvidenceCard, answer: RagAnswer) {
+function isPromotableClinicalTable(card: VisualEvidenceCard, answer: AnswerPresentationInput) {
   const text = visualEvidenceText(card);
   const query = answer.smartPanel?.query ?? "";
   if (!hasThresholdSignal(text, query)) return false;
@@ -237,7 +242,7 @@ function isPromotableClinicalTable(card: VisualEvidenceCard, answer: RagAnswer) 
   return !relevance || directlyRelevant;
 }
 
-function isPromotableThresholdItem(item: string, answer: RagAnswer) {
+function isPromotableThresholdItem(item: string, answer: AnswerPresentationInput) {
   if (unsupportedGapPattern.test(item)) return false;
   if (isLowYieldClinicalText(item)) return false;
   const query = answer.smartPanel?.query ?? "";
@@ -284,7 +289,7 @@ function tableFromVisualEvidence(card: VisualEvidenceCard): ClinicalThresholdTab
   return candidate;
 }
 
-function buildThresholdTables(answer: RagAnswer) {
+function buildThresholdTables(answer: AnswerPresentationInput) {
   const evidence = [...(answer.visualEvidence ?? []), ...(answer.smartPanel?.visualEvidence ?? [])];
   const seen = new Set<string>();
   const tables: ClinicalThresholdTable[] = [];
@@ -303,7 +308,7 @@ function buildThresholdTables(answer: RagAnswer) {
   return tables;
 }
 
-function buildVerifySourceItems(answer: RagAnswer) {
+function buildVerifySourceItems(answer: AnswerPresentationInput) {
   const citationCount = answer.citations.length;
   const quoteCount = answer.quoteCards?.length ?? 0;
   const sourceStrength = answer.evidenceSummary?.source_strength;
@@ -378,7 +383,10 @@ function sectionKindToClinicalSection(kind?: AnswerSectionKind): { id: ClinicalO
   return null;
 }
 
-function isPromotableAnswerSection(section: NonNullable<RagAnswer["answerSections"]>[number], answer: RagAnswer) {
+function isPromotableAnswerSection(
+  section: NonNullable<AnswerPresentationInput["answerSections"]>[number],
+  answer: AnswerPresentationInput,
+) {
   if (section.kind === "source_gap") return true;
   if (section.kind === "verification" || section.kind === "quotes" || section.kind === "visual_evidence") return false;
   const useful = clinicalProseUsefulness(`${section.heading}. ${section.body}`);
@@ -390,7 +398,7 @@ function isPromotableAnswerSection(section: NonNullable<RagAnswer["answerSection
   return true;
 }
 
-function sectionDisplayLines(answer: RagAnswer) {
+function sectionDisplayLines(answer: AnswerPresentationInput) {
   return (answer.answerSections ?? [])
     .filter((section) => isPromotableAnswerSection(section, answer))
     .flatMap((section) => {
@@ -419,12 +427,12 @@ function clinicalTableCaption(value: string) {
     .trim();
 }
 
-function answerSectionTableArea(section: NonNullable<RagAnswer["answerSections"]>[number]) {
+function answerSectionTableArea(section: NonNullable<AnswerPresentationInput["answerSections"]>[number]) {
   if (section.kind) return sectionKindLabels[section.kind];
   return normalizeText(section.heading) || "Clinical support";
 }
 
-function shouldBuildStructuredSupportTable(answer: RagAnswer, rowCount: number) {
+function shouldBuildStructuredSupportTable(answer: AnswerPresentationInput, rowCount: number) {
   if (rowCount < 2) return false;
   if (rowCount >= 3) return true;
   return (
@@ -437,7 +445,7 @@ function shouldBuildStructuredSupportTable(answer: RagAnswer, rowCount: number) 
   );
 }
 
-function buildStructuredSupportTable(answer: RagAnswer): ClinicalThresholdTable | null {
+function buildStructuredSupportTable(answer: AnswerPresentationInput): ClinicalThresholdTable | null {
   const seen = new Set<string>();
   const rows = (answer.answerSections ?? [])
     .filter((section) => isPromotableAnswerSection(section, answer))
@@ -473,7 +481,7 @@ function buildStructuredSupportTable(answer: RagAnswer): ClinicalThresholdTable 
   };
 }
 
-function buildSourceComparisonTable(answer: RagAnswer): ClinicalThresholdTable | null {
+function buildSourceComparisonTable(answer: AnswerPresentationInput): ClinicalThresholdTable | null {
   const documents = (answer.documentBreakdown ?? []).slice(0, 4);
   const shouldCompare =
     answer.responseMode === "comparison_matrix" || answer.queryClass === "comparison" || documents.length >= 3;
@@ -517,12 +525,12 @@ function sourceStatusSummary(metadataInput: unknown) {
   return [sourceStatusLabel(metadata), validationStatusLabel(metadata), extractionQualityLabel(metadata)].join(" / ");
 }
 
-function displaySectionLabel(section: NonNullable<RagAnswer["answerSections"]>[number]) {
+function displaySectionLabel(section: NonNullable<AnswerPresentationInput["answerSections"]>[number]) {
   if (section.kind) return sectionKindLabels[section.kind];
   return normalizeText(section.heading) || "Answer section";
 }
 
-export function buildAnswerEvidenceMap(answer: RagAnswer | null | undefined): AnswerEvidenceMapRow[] {
+export function buildAnswerEvidenceMap(answer: AnswerPresentationInput | null | undefined): AnswerEvidenceMapRow[] {
   if (!answer) return [];
 
   const sourceByChunkId = new Map((answer.sources ?? []).map((source) => [source.id, source]));
@@ -580,7 +588,7 @@ export function buildAnswerEvidenceMap(answer: RagAnswer | null | undefined): An
   }));
 }
 
-export function buildHighYieldClinicalOutputSections(answer: RagAnswer | null | undefined) {
+export function buildHighYieldClinicalOutputSections(answer: AnswerPresentationInput | null | undefined) {
   const highYieldIds = new Set<ClinicalOutputSectionId>([
     "action",
     "thresholds",
@@ -665,7 +673,7 @@ export function formatDisplayedVisualEvidenceForClipboard(cards: VisualEvidenceC
   });
 }
 
-export function buildClinicalOutputSections(answer: RagAnswer | null | undefined) {
+export function buildClinicalOutputSections(answer: AnswerPresentationInput | null | undefined) {
   if (!answer) return [];
 
   const answerContent = parseAnswerDisplayContent(answer.answer, answer.responseMode);
@@ -792,7 +800,7 @@ function isRepeatedBottomLine(item: string, bottomLine: string) {
   return false;
 }
 
-function bottomLineForOutput(answer: RagAnswer, sections: ClinicalOutputSection[]) {
+function bottomLineForOutput(answer: AnswerPresentationInput, sections: ClinicalOutputSection[]) {
   const bottomLineSection = sections.find((section) => section.id === "bottom-line");
   const parsedLead = parseAnswerDisplayContent(answer.answer, answer.responseMode).lead;
   const fallbackFromSections = (answer.answerSections ?? [])
@@ -814,7 +822,7 @@ function bottomLineForOutput(answer: RagAnswer, sections: ClinicalOutputSection[
     : candidateBottomLine;
 }
 
-function highYieldSectionsForOutput(answer: RagAnswer, bottomLine: string) {
+function highYieldSectionsForOutput(answer: AnswerPresentationInput, bottomLine: string) {
   return buildHighYieldClinicalOutputSections(answer)
     .filter((section) => section.id !== "bottom-line" && section.id !== "verify-source")
     .map((section) => ({
@@ -839,12 +847,12 @@ function sectionOutputLines(section: ClinicalOutputSection) {
   return [section.title, ...section.items.map((item) => `- ${item}`), ...tableLines, ""];
 }
 
-function citationOutputLines(answer: RagAnswer) {
+function citationOutputLines(answer: AnswerPresentationInput) {
   if (answer.citations.length === 0) return ["No linked citations."];
   return answer.citations.map((citation, index) => `${index + 1}. ${formatCitationLabel(citation)}`);
 }
 
-function sourceStatusOutputLines(answer: RagAnswer) {
+function sourceStatusOutputLines(answer: AnswerPresentationInput) {
   if (answer.citations.length === 0) return ["No source provenance."];
   return answer.citations.map(
     (citation, index) =>
@@ -862,7 +870,7 @@ function compactOutputDocument(lines: string[]) {
     .trim();
 }
 
-export function formatAnswerForClipboard(answer: RagAnswer) {
+export function formatAnswerForClipboard(answer: AnswerPresentationInput) {
   const sections = buildClinicalOutputSections(answer);
   const bottomLine = bottomLineForOutput(answer, sections);
   const highYieldSections = highYieldSectionsForOutput(answer, bottomLine);
@@ -891,7 +899,7 @@ export function formatQuotesForClipboard(quotes: QuoteCard[] = []) {
     .join("\n\n");
 }
 
-export function formatWardNote(answer: RagAnswer, demoMode = false) {
+export function formatWardNote(answer: AnswerPresentationInput, demoMode = false) {
   const clinicalSections = buildClinicalOutputSections(answer);
   const bottomLine = bottomLineForOutput(answer, clinicalSections);
   const highYieldSections = highYieldSectionsForOutput(answer, bottomLine);

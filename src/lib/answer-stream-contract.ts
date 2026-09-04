@@ -1,5 +1,6 @@
 import type { PublicAnswerProgressEvent } from "@/lib/answer-progress-public";
-import type { AnswerSection, Citation, SearchResult } from "@/lib/types";
+import type { ClientSearchResult } from "@/lib/answer-client-payload";
+import type { AnswerSection, Citation } from "@/lib/types";
 
 // #100 incremental verified delivery (docs/verified-answer-incremental-delivery-design.md).
 // A verified unit is an append-only preview of content that is byte-identical to a subset
@@ -10,7 +11,7 @@ export type VerifiedEvidencePreviewUnit = {
   kind: "evidence_preview";
   sequence: 0;
   /** Client-trimmed sources — the exact trimSourceForClient output used by `final`. */
-  sources: SearchResult[];
+  sources: ClientSearchResult[];
   selectedContextCount: number;
 };
 
@@ -88,7 +89,6 @@ const clientSourceKeys = new Set([
   "relevance",
   "match_explanation",
   "indexing_quality",
-  "images",
 ]);
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -134,7 +134,7 @@ function isOptionalNullableString(record: Record<string, unknown>, key: string):
   return !(key in record) || record[key] === undefined || isNullableString(record[key]);
 }
 
-function isClientSource(value: unknown): value is SearchResult {
+function isClientSource(value: unknown): value is ClientSearchResult {
   if (!isPlainRecord(value) || !hasOnlyKeys(value, clientSourceKeys)) return false;
   if (
     typeof value.id !== "string" ||
@@ -147,9 +147,7 @@ function isClientSource(value: unknown): value is SearchResult {
     typeof value.content !== "string" ||
     value.content.length > clientSourceSnippetMaxChars ||
     !isStringArray(value.image_ids) ||
-    !isFiniteNumber(value.similarity) ||
-    !Array.isArray(value.images) ||
-    value.images.length !== 0
+    !isFiniteNumber(value.similarity)
   ) {
     return false;
   }

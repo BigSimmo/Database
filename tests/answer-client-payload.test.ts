@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { toClientAnswerPayload, type ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
+import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { issueContextPackAdmissionReceipt } from "@/lib/rag/rag-context-admission";
 import type { RagAnswer, SearchResult } from "@/lib/types";
@@ -72,15 +73,15 @@ describe("toClientAnswerPayload", () => {
 
   it("drops server-only per-source fields the client never renders", () => {
     const trimmed = toClientAnswerPayload(answerWith([fullSource()])).sources![0];
-    expect(trimmed.adjacent_context).toBeUndefined();
-    expect(trimmed.memory_cards).toBeUndefined();
-    expect(trimmed.table_facts).toBeUndefined();
-    expect(trimmed.index_unit).toBeUndefined();
-    expect(trimmed.document_summary).toBeUndefined();
-    expect(trimmed.corpus_scope).toBeUndefined();
-    expect(trimmed.site_content_domain).toBeUndefined();
-    expect(trimmed.context_pack_admission).toBeUndefined();
-    expect(trimmed.images).toEqual([]);
+    expect(trimmed).not.toHaveProperty("adjacent_context");
+    expect(trimmed).not.toHaveProperty("memory_cards");
+    expect(trimmed).not.toHaveProperty("table_facts");
+    expect(trimmed).not.toHaveProperty("index_unit");
+    expect(trimmed).not.toHaveProperty("document_summary");
+    expect(trimmed).not.toHaveProperty("corpus_scope");
+    expect(trimmed).not.toHaveProperty("site_content_domain");
+    expect(trimmed).not.toHaveProperty("context_pack_admission");
+    expect(trimmed).not.toHaveProperty("images");
   });
 
   it("does not serialize bulky source image objects", () => {
@@ -94,7 +95,7 @@ describe("toClientAnswerPayload", () => {
     const trimmed = toClientAnswerPayload(answerWith([source])).sources![0];
 
     expect(trimmed.image_ids).toEqual(["image-1"]);
-    expect(trimmed.images).toEqual([]);
+    expect(trimmed).not.toHaveProperty("images");
     expect(JSON.stringify(trimmed)).not.toContain("private/source/page-4.png");
   });
 
@@ -164,6 +165,7 @@ describe("toClientAnswerPayload", () => {
       citations: [],
       sources: [],
       retrievalGateBlocked: false,
+      authorityTrustCapRequired: false,
     });
     expect(toClientAnswerPayload(empty)).not.toBe(empty);
   });
@@ -175,6 +177,88 @@ describe("toClientAnswerPayload", () => {
     expectTypeOf(payload).not.toHaveProperty("routingReason");
     expectTypeOf(payload).not.toHaveProperty("fallbackReason");
     expectTypeOf(payload).not.toHaveProperty("retrievalDiagnostics");
+    expectTypeOf(payload).not.toHaveProperty("supportedClaims");
+    expectTypeOf(payload).not.toHaveProperty("evidenceAssessments");
+    expectTypeOf(payload).not.toHaveProperty("smartPanel");
+    expectTypeOf(payload).not.toHaveProperty("smartApiPlan");
+
+    type ClientSource = ClientRagAnswerPayload["sources"][number];
+    type ClientScope = NonNullable<ClientRagAnswerPayload["scope"]>;
+    expectTypeOf<ClientSource>().not.toHaveProperty("adjacent_context");
+    expectTypeOf<ClientSource>().not.toHaveProperty("context_pack_admission");
+    expectTypeOf<ClientSource>().not.toHaveProperty("document_summary");
+    expectTypeOf<ClientSource>().not.toHaveProperty("memory_cards");
+    expectTypeOf<ClientSource>().not.toHaveProperty("table_facts");
+    expectTypeOf<ClientSource>().not.toHaveProperty("index_unit");
+    expectTypeOf<ClientSource>().not.toHaveProperty("corpus_scope");
+    expectTypeOf<ClientSource>().not.toHaveProperty("site_content_domain");
+    expectTypeOf<ClientSource>().not.toHaveProperty("images");
+    expectTypeOf<ClientScope>().not.toHaveProperty("retrieval");
+    expectTypeOf(payload.degradedMode).toEqualTypeOf<{ active: boolean; reason?: string | null } | undefined>();
+  });
+
+  it("preserves the server-derived high-risk authority cap through projection and rendering", () => {
+    const source = fullSource({
+      relevance: {
+        verdict: "direct",
+        label: "Direct",
+        matchedTerms: ["monitoring"],
+        missingTerms: [],
+        directSourceCount: 1,
+        weakSourceCount: 0,
+        score: 1,
+        supportReason: "Direct support",
+        isSourceBacked: true,
+        coverageScore: 1,
+        rankScore: 1,
+        titleMatchedTerms: ["monitoring"],
+        contentMatchedTerms: ["monitoring"],
+        metadataMatchedTerms: [],
+        chips: [],
+      },
+    });
+    const response = buildGovernedAnswerClientResponse({
+      ...answerWith([source]),
+      relevance: source.relevance,
+      supportedClaims: [
+        {
+          claimId: "claim-1",
+          text: "High-risk monitoring claim",
+          riskClass: "high_risk",
+          supportingChunkIds: [source.id],
+          supportStatus: "direct",
+        },
+      ],
+      evidenceAssessments: {
+        [source.id]: {
+          relevance: "direct",
+          claimSupport: "direct",
+          authority: "unverified",
+          currency: "current",
+          extractionQuality: "good",
+        },
+      },
+      quoteCards: [
+        {
+          chunk_id: source.id,
+          document_id: source.document_id,
+          title: source.title,
+          file_name: source.file_name,
+          page_number: source.page_number,
+          chunk_index: source.chunk_index,
+          quote: "High-risk monitoring claim",
+          section_heading: source.section_heading,
+        },
+      ],
+    });
+
+    expect(response.payload.authorityTrustCapRequired).toBe(true);
+    expect(response.payload).not.toHaveProperty("supportedClaims");
+    expect(response.payload).not.toHaveProperty("evidenceAssessments");
+
+    const renderModel = buildAnswerRenderModel(response.payload);
+    expect(renderModel.trust).toBe("medium");
+    expect(renderModel.quoteCards).toEqual([]);
   });
 
   it("materially shrinks a representative payload", () => {

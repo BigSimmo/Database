@@ -198,6 +198,20 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     },
   );
 
+  it.each([
+    ["coverage_gap", "quality_gate"],
+    ["provider_offline", "generation_failed"],
+    ["provider_missing_key", "generation_failed"],
+  ] as const)("surfaces typed-only %s degradation without a source-only tier", (fallbackReasonCode, reason) => {
+    expect(
+      answerStateFromRetrieval({
+        sources: [],
+        fallbackReasonCode,
+        degradedMode: { active: true, reason: "A fixed public explanation." },
+      }),
+    ).toEqual({ kind: "source_only", reason });
+  });
+
   it("gives the typed code precedence and parses legacy markers only when it is absent", () => {
     expect(
       answerStateFromRetrieval({
