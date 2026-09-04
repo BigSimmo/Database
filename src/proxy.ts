@@ -123,10 +123,8 @@ export async function proxy(request: NextRequest) {
     headers.set("x-nonce", nonce);
     headers.set("content-security-policy", csp);
     // Untrusted: strip unconditionally so a client cannot set this header itself
-    // and spoof past the parent `/mockups` layout's production gate on a route
-    // that is not actually one of the developer-gated subtrees listed in
-    // DEVELOPER_GATED_PATH_PREFIXES (`/mockups/development`, the Caring Contact
-    // prototype, and the Care Plan prototype).
+    // and spoof past a developer-gated layout on a route that is not actually
+    // one of the subtrees listed in DEVELOPER_GATED_PATH_PREFIXES.
     headers.delete(DEVELOPER_AREA_HEADER);
     headers.delete(DEVELOPER_AREA_PATH_HEADER);
     headers.delete(PROXY_AUTH_USER_HEADER);
@@ -265,8 +263,8 @@ export function shouldBlockProductionMockups(
 ) {
   if (!pathname.startsWith("/mockups") || environment.NODE_ENV !== "production") return false;
 
-  // `/mockups/development` and the two prototypes it links to — Caring Contact
-  // and Care Plan — carry their own signed-in-administrator gate
+  // `/mockups/development` and the prototypes it links to carry their own
+  // signed-in-administrator gate
   // (`DeveloperAreaGate`, applied in each subtree's layout via the
   // x-developer-area header set above), so let them through this blanket block
   // and let that gate run instead of a bare 404. The match is exact-or-slash, so

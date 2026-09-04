@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   createContext,
   type FormEvent,
@@ -21,7 +20,6 @@ import {
   Check,
   ChevronRight,
   CloudOff,
-  FlaskConical,
   CircleUserRound,
   Globe2,
   History,
@@ -1354,29 +1352,6 @@ export function SettingsDialog({
                 </SettingsCard>
               </SettingsSection>
 
-              <SettingsSection
-                id="development"
-                title="Developer"
-                note="In-progress surfaces. Signing in with a developer account is required to open them. Not clinical content."
-              >
-                <SettingsCard rowId="settings-row-development-page" padded>
-                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Developer hub</p>
-                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
-                    patient record, message or schedule on them is real.
-                  </p>
-                  <Link
-                    href="/mockups/development"
-                    onClick={onClose}
-                    className={cn(floatingControl, "mt-3 w-full gap-2 text-sm")}
-                    data-testid="settings-row-development-page"
-                  >
-                    <FlaskConical aria-hidden="true" className="h-4 w-4" />
-                    Developer
-                    <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
-                  </Link>
-                </SettingsCard>
-              </SettingsSection>
             </div>
           </div>
         </div>

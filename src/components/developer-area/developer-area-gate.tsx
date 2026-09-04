@@ -8,12 +8,11 @@ import { resolveDeveloperAccessState } from "@/lib/developer-area/access";
 import { DeveloperGateScreen } from "./developer-gate-screen";
 
 /**
- * Wraps `/mockups/development` and `/mockups/caring-contacts/**` (the two
- * subtrees `src/proxy.ts` carves out of the blanket `/mockups` production
- * gate). Outside production — or with the explicit opt-in flag — this is a
- * no-op, matching every other /mockups/* route. In production it requires a
- * signed-in administrator (see `resolveDeveloperAccessState`), showing a
- * sign-in screen or an access-denied screen instead of the real content.
+ * Wraps the developer hub, its prototype subtrees, and the synthetic
+ * `/caring-contacts/**` workspace. Outside production — or with the explicit
+ * opt-in flag — this is a no-op. In production it requires a signed-in
+ * administrator (see `resolveDeveloperAccessState`), showing a sign-in screen
+ * or an access-denied screen instead of the real content.
  */
 export async function DeveloperAreaGate({ children }: { children: ReactNode }) {
   if (mockupsEnabled()) {

@@ -19,13 +19,14 @@ export const DEVELOPER_AREA_HEADER = "x-developer-area";
 export const DEVELOPER_AREA_PATH_HEADER = "x-developer-area-path";
 
 /** Exact prefixes only. A path that merely begins with the same characters —
- *  `/mockups/care-plan-archive`, say — is not a match and stays behind the
- *  blanket production block, because `isDeveloperGatedPath` requires either an
- *  exact hit or a following `/`. Add a prefix here one subtree at a time; never
- *  widen this to `/mockups`. */
+ *  `/mockups/care-plan-archive` or `/caring-contacts-archive`, say — is not a
+ *  match, because `isDeveloperGatedPath` requires either an exact hit or a
+ *  following `/`. Add a prefix here one subtree at a time; never widen this to
+ *  all mockups. */
 export const DEVELOPER_GATED_PATH_PREFIXES = [
   "/mockups/development",
   "/mockups/caring-contacts",
   "/mockups/care-plan",
   "/mockups/ward-flow",
+  "/caring-contacts",
 ] as const;

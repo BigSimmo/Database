@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { SETTINGS_SECTIONS } from "@/components/clinical-dashboard/settings-sections";
 import { HUB_PANELS, panelsInGroup } from "@/lib/developer-area/hub-panels";
+import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
+import { toolCatalogRecords } from "@/lib/tools-catalog";
 // Test files live outside `src/**`, so unlike `hub-panels.ts` itself they are
 // not bound by eslint.config.mjs's mockup-import boundary and may import this
 // constant freely — see the anti-drift assertion below.
@@ -42,12 +45,21 @@ describe("hub panels", () => {
     expect(clinicalTrust[0]).toMatchObject({ id: "clinical-trust", phase: 1, group: "clinical" });
   });
 
-  it("keeps the existing prototypes reachable as real destinations", () => {
-    for (const id of ["care-plan", "caring-contact", "ward-flow"]) {
+  it("keeps every detailed prototype reachable only from the developer hub", () => {
+    for (const id of ["care-plan", "caring-contact", "caring-contacts-workspace", "ward-flow"]) {
       const panel = HUB_PANELS.find((entry) => entry.id === id);
       expect(panel?.phase, `${id} should be built`).toBe(1);
       expect(panel?.href, `${id} needs a destination`).toBeTruthy();
     }
+
+    expect(toolCatalogRecords.some((tool) => tool.href.startsWith("/mockups/") || tool.href === "/caring-contacts")).toBe(
+      false,
+    );
+    expect(SETTINGS_SECTIONS.some((section) => section.id === "development")).toBe(false);
+    expect(DEVELOPER_GATED_PATH_PREFIXES).toContain("/caring-contacts");
+
+    const workspaceLayout = readFileSync(join(process.cwd(), "src/app/caring-contacts/layout.tsx"), "utf8");
+    expect(workspaceLayout).toContain("<DeveloperAreaGate>{children}</DeveloperAreaGate>");
   });
 
   it("keeps the Care Plan href in sync with its route source", () => {

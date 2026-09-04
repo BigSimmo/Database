@@ -6,9 +6,10 @@ import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import { CARING_CONTACTS_ROUTES, type CaringContactsRouteKey } from "@/lib/caring-contacts-routes";
+import { HUB_PANELS } from "@/lib/developer-area/hub-panels";
 import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
 import { colourCodingReferenceHref } from "@/lib/reference-routes";
-import { tools } from "@/components/tools-page-mockups/tool-fixtures";
+import { toolCatalogRecords } from "@/lib/tools-catalog";
 import { collectSiteMapData } from "../scripts/generate-site-map";
 
 /**
@@ -481,7 +482,10 @@ for (const mode of appModeDefinitions) {
   ];
   for (const href of hrefs) builderTargets.add(pathOnly(href));
 }
-for (const tool of tools) builderTargets.add(pathOnly(tool.href));
+for (const tool of toolCatalogRecords) builderTargets.add(pathOnly(tool.href));
+for (const panel of HUB_PANELS) {
+  if (panel.href && !panel.external) builderTargets.add(pathOnly(panel.href));
+}
 builderTargets.add(pathOnly(colourCodingReferenceHref()));
 
 // ModeNav destinations are data (registry href strings rendered as <Link>s), so

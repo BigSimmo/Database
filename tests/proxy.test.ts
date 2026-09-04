@@ -195,7 +195,7 @@ describe("production mockup boundary", () => {
 });
 
 describe("developer-area header (x-developer-area)", () => {
-  it("sets the header only for the two developer-gated paths, and strips a client-supplied copy elsewhere", async () => {
+  it("sets the header only for developer-gated paths, and strips a client-supplied copy elsewhere", async () => {
     const developmentRequest = requestFor("/mockups/development");
     const developmentResponse = await proxy(developmentRequest);
     expect(developmentResponse.headers.get("x-middleware-request-x-developer-area")).toBe("1");
@@ -208,8 +208,17 @@ describe("developer-area header (x-developer-area)", () => {
       "/mockups/care-plan/patients/SYN-PATIENT-001/presentations",
     );
 
+    const workspaceResponse = await proxy(requestFor("/caring-contacts/patients"));
+    expect(workspaceResponse.headers.get("x-middleware-request-x-developer-area")).toBe("1");
+    expect(workspaceResponse.headers.get("x-middleware-request-x-developer-area-path")).toBe(
+      "/caring-contacts/patients",
+    );
+
     const carePlanLookAlikeResponse = await proxy(requestFor("/mockups/care-plan-archive"));
     expect(carePlanLookAlikeResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
+
+    const workspaceLookAlikeResponse = await proxy(requestFor("/caring-contacts-archive"));
+    expect(workspaceLookAlikeResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
 
     const otherMockupRequest = requestFor("/mockups/tools-workflow-board");
     otherMockupRequest.headers.set("x-developer-area", "1");

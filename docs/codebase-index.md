@@ -74,7 +74,7 @@ Smaller top-level directories that are easy to miss:
 | `/`                                                                                                                                                                                                                                                                             | `src/app/(search-app)/page.tsx`                                                                                                                                                    |
 | Shared mode-home route group (`/(search-app)`)                                                                                                                                                                                                                                  | `src/app/(search-app)/`                                                                                                                                                            |
 | Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                                                                                                                             | `src/app/(search-app)/` shared shell group                                                                                                                                         |
-| `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                                                                                                                          | `src/app/caring-contacts/`                                                                                                                                                         |
+| `/caring-contacts` (developer-gated synthetic workspace; own nav, entered only from the Development hub)                                                                                                                                                                       | `src/app/caring-contacts/`                                                                                                                                                         |
 | `/caring-contacts/patients` (permission-scoped caseload: one row per plan plus an authorised names-only projection; URL state filter and local name/identifier search)                                                                                                          | `src/app/caring-contacts/patients/page.tsx`                                                                                                                                        |
 | `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                                                                                                   | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                                                                                                            |
 | `/caring-contacts/plans/new` (the activation wizard: agreement, pathway, personalisation, review; started for one accepted referral named by `?referral=`)                                                                                                                      | `src/app/caring-contacts/plans/new/page.tsx`                                                                                                                                       |
@@ -181,7 +181,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 | `env.ts`                                                                                          | Zod-validated environment                                                                                                                                                                             |
 | `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                    | Multi-user scope and privacy                                                                                                                                                                          |
 | `authorization.ts`                                                                                | `site_role === "administrator"` claim check                                                                                                                                                           |
-| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                             | Signed-in-administrator gate for the Settings "Development" hub (`/mockups/development`, `/mockups/caring-contacts/**`, `/mockups/care-plan/**`); the production block itself lives in `src/proxy.ts` |
+| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                             | Signed-in-administrator gate for the private Development hub, its Care Plan, Caring Contacts, and Ward Flow prototypes, and the `/caring-contacts/**` synthetic workspace; the production mockup block itself lives in `src/proxy.ts` |
 
 ### Clinical product data
 
@@ -212,7 +212,8 @@ privacy-safe audit records, and is exercised against both in-memory and local Po
 repositories. `src/lib/caring-contacts-server/` is the server-side seam for the demo session
 and optional separate database connection. It must fail closed in production and must never
 connect to the `Clinical KB Database` Supabase project. The standalone `src/app/caring-contacts/` workspace
-is noindex, visibly marked synthetic, and has a single inbound entry from the Tools catalogue.
+is noindex, visibly marked synthetic, administrator-gated in production, and listed only by the private
+Development hub. It is not part of the Tools catalogue or Settings navigation.
 
 Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
 destination set: a destination carries an `href` only once its page exists, and every other one
@@ -312,7 +313,7 @@ SMALLER than the HTML it replaced: rows are reduced to the row projection and pr
 state on the server side.
 that as a count of client components — this paragraph has carried two such counts and both were
 wrong. What holds Ruling 13 is the module boundary, which does not decay as files are added:
-nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue
+nothing outside the `/caring-contacts` route segment imports the workspace (the developer hub
 names it by href, never by import), so the dashboard references no chunk exclusive to it.
 
 ---
@@ -467,11 +468,8 @@ same pattern as the Care Plan and Caring Contacts prototypes: `"/mockups/ward-fl
 `DEVELOPER_GATED_PATH_PREFIXES` (`src/lib/developer-area/headers.ts`), so `src/proxy.ts` lets it
 through the blanket `/mockups` production block and `DeveloperAreaGate`
 (`src/app/mockups/ward-flow/layout.tsx`) requires a signed-in administrator instead of rendering
-the prototype to an anonymous visitor. The move only relocated and re-gated the route tree; the
-Tools catalogue entry (`src/lib/tools-catalog.ts`, id `ward-management`) still exists and now
-points at the gated path rather than being removed — a separate, not-yet-landed task drops it
-(and the applications-launcher, tools-search-results, and category-identity mentions that key off
-it) from clinical discovery entirely.
+the prototype to an anonymous visitor. It has no Tools catalogue entry and is discoverable only
+from the private Development hub.
 
 - **Design spec:** `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`
 - **Glossary:** `docs/ward-management-context.md` · **Decisions:** `docs/ward-management-decisions.md`
@@ -549,8 +547,10 @@ it) from clinical discovery entirely.
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 
-Login-gated internal hub for repository/task state, reachable only to a signed-in administrator
-account (`DeveloperAreaGate`, `src/components/developer-area/developer-area-gate.tsx`; gate helpers
+Login-gated internal hub for repository/task state and the sole navigation index for detailed
+prototypes. It is deliberately absent from the product Settings and Tools surfaces and is reachable
+only to a signed-in administrator account (`DeveloperAreaGate`,
+`src/components/developer-area/developer-area-gate.tsx`; gate helpers
 `src/lib/developer-area/access.ts` + `headers.ts` — see the Supabase/auth/env table above). Phase 2
 shipped four more live panels (routes and modes, documentation, test health, review state) on top
 of Phase 1's task ledger. Phase 3 shipped the ingestion panel (below) and pruned four placeholder

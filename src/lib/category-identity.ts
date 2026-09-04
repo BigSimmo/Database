@@ -172,7 +172,6 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   "safety-plan": "clipboardList",
   calculators: "calculator",
   monitoring: "waves",
-  "caring-contacts": "heartHandshake",
   favourites: "star",
 };
 

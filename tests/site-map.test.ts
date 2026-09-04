@@ -3,7 +3,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
-import { tools } from "@/components/tools-page-mockups/tool-fixtures";
+import { HUB_PANELS } from "@/lib/developer-area/hub-panels";
+import { toolCatalogRecords } from "@/lib/tools-catalog";
 import { differentialRecords } from "@/lib/differentials";
 import { dsmDiagnoses } from "@/lib/dsm";
 import { formulationMechanisms } from "@/lib/formulation";
@@ -166,7 +167,10 @@ describe("tracked sitemap", () => {
       expectDocumentedHref(("href" in mode ? mode.href : undefined) ?? appModeHomeHref(mode.id));
     }
 
-    for (const tool of tools) expectDocumentedHref(tool.href);
+    for (const tool of toolCatalogRecords) expectDocumentedHref(tool.href);
+    for (const panel of HUB_PANELS) {
+      if (panel.href && !panel.external) expectDocumentedHref(panel.href);
+    }
 
     for (const href of [
       "/?mode=answer",

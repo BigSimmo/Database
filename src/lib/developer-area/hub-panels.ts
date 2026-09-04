@@ -122,9 +122,9 @@ export const HUB_PANELS: readonly HubPanel[] = [
     href: "/brand/preview.html",
     external: true,
   },
-  // Three real prototype cards, not one generic self-linking "Prototypes" card.
-  // This is also what preserves the Care Plan, Caring Contact, and Ward Flow entries the
-  // spec requires to survive the hub rewrite.
+  // Real prototype cards, not one generic self-linking "Prototypes" card.
+  // This is also what preserves the Care Plan, Caring Contact, full Caring Contacts
+  // workspace, and Ward Flow entries the spec requires to survive the hub rewrite.
   //
   // This module is production space (`src/lib/**`), not `src/app/mockups/**`,
   // so `eslint.config.mjs`'s `no-restricted-imports` boundary forbids importing
@@ -152,6 +152,14 @@ export const HUB_PANELS: readonly HubPanel[] = [
     group: "reference",
     phase: 1,
     href: "/mockups/caring-contacts",
+  },
+  {
+    id: "caring-contacts-workspace",
+    name: "Caring Contacts workspace",
+    summary: "Full synthetic operational workspace: caseload, schedules, pathways, reports, and team views",
+    group: "reference",
+    phase: 1,
+    href: "/caring-contacts",
   },
   {
     id: "ward-flow",
