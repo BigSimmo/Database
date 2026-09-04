@@ -1,5 +1,5 @@
 -- Fail-fast validation guard for
--- 20260902090000_align_corpus_flip_retrieval_scoped_child_owners.sql.
+-- 20260904090000_align_corpus_flip_retrieval_scoped_child_owners.sql.
 --
 -- Modelled on 20260804110240_restore_rag_search_health_indexes.sql: it
 -- validates and never builds. It defines no object, replaces no function and
@@ -23,6 +23,13 @@
 -- pinned. A function-level statement_timeout is rejected on purpose: PostgreSQL
 -- arms that timer when the top-level statement starts, so a function SET clause
 -- cannot bound its own call and would only look like a safeguard.
+--
+-- The #ZBAC9D quarantine condition (20260902110200) is pinned here as well.
+-- 20260904090000 replaces the whole function, so it necessarily carries that
+-- condition forward; pinning it means a later rebase that reverted to the
+-- narrower deleted-owner-only test -- which
+-- documents_ownerless_requires_publication_marker (20260902110500) would then
+-- abort the return-to-private call on -- fails here instead of on the operator.
 
 set local search_path = public, extensions, pg_catalog;
 set local lock_timeout = '5s';
@@ -62,7 +69,8 @@ begin
           ('if v_child_row_probe > v_max_child_rows then'),
           ('get diagnostics v_updated = row_count'),
           ('if v_child_rows > v_max_child_rows then'),
-          ('using errcode = ''54000''')
+          ('using errcode = ''54000'''),
+          ('status = case when existing_owner.id is null and not ( snapshot.owner_id is null and snapshot.public_corpus_present and snapshot.public_corpus_value = ''true''::jsonb ) then ''failed'' else d.status end')
       ) as t(fragment)
     loop
       if position(required.fragment in normalized) = 0 then
@@ -101,7 +109,7 @@ begin
      or cardinality(missing_fragments) > 0
      or cardinality(wrong_settings) > 0 then
     raise exception
-      'corpus access switch was recorded without its retrieval-scoped derived owner alignment or its row ceiling; apply 20260902090000 before marking this version applied. Missing: %; Unaligned: %; Settings: %',
+      'corpus access switch was recorded without its retrieval-scoped derived owner alignment, its row ceiling or the #ZBAC9D quarantine condition; apply 20260904090000 before marking this version applied. Missing: %; Unaligned: %; Settings: %',
       coalesce(nullif(array_to_string(absent_objects, ', '), ''), '(none)'),
       coalesce(nullif(array_to_string(missing_fragments, ', '), ''), '(none)'),
       coalesce(nullif(array_to_string(wrong_settings, ', '), ''), '(none)');

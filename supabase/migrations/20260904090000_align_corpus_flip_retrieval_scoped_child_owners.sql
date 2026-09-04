@@ -69,6 +69,20 @@
 -- migration only moves rows to the side of the existing public predicate where
 -- their parent document already sits.
 --
+-- Ordering, and why this version number and not an earlier one. This migration
+-- REPLACES the whole function, so it must be the last migration that does. It
+-- was first written as 20260902090000, which merging main would have placed
+-- BEFORE 20260902110200_quarantine_ownerless_unpublished_on_private_rollback.sql
+-- (#ZBAC9D) -- so the later version would have silently overwritten every child
+-- owner statement below and this whole fix would have reached the live database
+-- as a no-op. It is renumbered to sort after 20260902111500, the newest recorded
+-- version, and it carries the #ZBAC9D quarantine widening forward verbatim: the
+-- private branch quarantines any row that LANDS ownerless without a true
+-- publication marker, which is what
+-- documents_ownerless_requires_publication_marker (20260902110500) requires. The
+-- fail-fast guard beside this file pins that condition too, so a future rebase
+-- cannot drop it silently.
+--
 -- Replaces the function through a new version because every earlier version was
 -- already recorded by the hosted migration operation.
 
@@ -284,8 +298,21 @@ begin
     update public.documents d
     set
       owner_id = existing_owner.id,
+      -- Quarantine whenever the row LANDS ownerless without a true publication marker,
+      -- not only when its owner was deleted (#ZBAC9D, 20260902110200). The original
+      -- condition missed the row that was ALREADY ownerless and unmarked when public mode
+      -- was activated -- the population 20260825025032's header describes -- and restoring
+      -- such a row as ownerless-unmarked-indexed is what
+      -- documents_ownerless_requires_publication_marker forbids, so the whole
+      -- return-to-private call would abort.
       status = case
-        when snapshot.owner_id is not null and existing_owner.id is null then 'failed'
+        when existing_owner.id is null
+          and not (
+            snapshot.owner_id is null
+            and snapshot.public_corpus_present
+            and snapshot.public_corpus_value = 'true'::jsonb
+          )
+        then 'failed'
         else d.status
       end,
       metadata = case

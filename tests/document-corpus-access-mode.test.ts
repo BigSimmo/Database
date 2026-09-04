@@ -17,12 +17,25 @@ const effectiveMigration = readFileSync(
   new URL("../supabase/migrations/20260826090000_fail_closed_deleted_document_owner_rollback.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+// The alignment migration REPLACES the whole switch, so its version has to sort after
+// every other migration that replaces it -- 20260902110200 (#ZBAC9D) above all, which
+// landed on main after this work started. Ordered the other way, merging would apply the
+// alignment first and let the later version overwrite every child-owner statement in it,
+// which is a fix that reaches the live database as a no-op.
+const CHILD_OWNER_MIGRATION_FILE = "20260904090000_align_corpus_flip_retrieval_scoped_child_owners.sql";
+const QUARANTINE_MIGRATION_FILE = "20260902110200_quarantine_ownerless_unpublished_on_private_rollback.sql";
+// The #ZBAC9D private-branch quarantine condition, as the alignment migration must carry
+// it forward: documents_ownerless_requires_publication_marker (20260902110500) aborts the
+// whole return-to-private call without it.
+const QUARANTINE_CONDITION =
+  "status = case when existing_owner.id is null and not ( snapshot.owner_id is null and " +
+  "snapshot.public_corpus_present and snapshot.public_corpus_value = 'true'::jsonb ) then 'failed' else d.status end";
 const childOwnerMigration = readFileSync(
-  new URL("../supabase/migrations/20260902090000_align_corpus_flip_retrieval_scoped_child_owners.sql", import.meta.url),
+  new URL(`../supabase/migrations/${CHILD_OWNER_MIGRATION_FILE}`, import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const childOwnerGuardMigration = readFileSync(
-  new URL("../supabase/migrations/20260902090100_validate_corpus_flip_child_owner_alignment.sql", import.meta.url),
+  new URL("../supabase/migrations/20260904090100_validate_corpus_flip_child_owner_alignment.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const childOwnerFunction = childOwnerMigration.slice(
@@ -197,6 +210,21 @@ describe("corpus flip aligns the retrieval-scoped derived owners", () => {
     expect(childOwnerMigration).toContain("publish in batches through public.publish_approved_documents instead");
   });
 
+  it("carries the #ZBAC9D quarantine widening forward rather than reverting it", () => {
+    // This migration replaces the whole function, so whatever it does NOT say is dropped.
+    // 20260902110200 widened the private-branch quarantine from "the owner was deleted" to
+    // "the row lands ownerless without a true publication marker", and 20260902110500 then
+    // made that load-bearing: without it the return-to-private call aborts on
+    // documents_ownerless_requires_publication_marker. Both the body and the guard beside
+    // it pin the condition, so a rebase cannot silently reinstate the narrower test.
+    expect(CHILD_OWNER_MIGRATION_FILE > QUARANTINE_MIGRATION_FILE).toBe(true);
+    expect(childOwnerFunction).toContain(QUARANTINE_CONDITION);
+    expect(childOwnerFunction).not.toContain(
+      "status = case when snapshot.owner_id is not null and existing_owner.id is null then 'failed'",
+    );
+    expect(childOwnerGuardMigration).toContain(QUARANTINE_CONDITION.replace(/'/g, "''"));
+  });
+
   it("corrects the header rationale that called derived owners irrelevant to visibility", () => {
     expect(childOwnerMigration).toContain("retrieval_owner_matches");
     expect(childOwnerMigration).toContain("20260825025717");
@@ -260,7 +288,8 @@ describe("supabase/schema.sql mirrors the migrated corpus access switch", () => 
 
   it("tracks every migration that replaces the switch, newest last", () => {
     expect(replacements.length).toBeGreaterThan(0);
-    expect(replacements.at(-1)).toBe("20260902090000_align_corpus_flip_retrieval_scoped_child_owners.sql");
+    expect(replacements).toContain(QUARANTINE_MIGRATION_FILE);
+    expect(replacements.at(-1)).toBe(CHILD_OWNER_MIGRATION_FILE);
   });
 
   it("carries the newest migrated body, comment and grants verbatim", () => {
