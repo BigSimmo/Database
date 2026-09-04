@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b0654cc7-6025-4b22-a9c1-26c27475cc42",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The caring-contacts dark specimen tile paints the dead compat palette, and is the only place in the app that does",
+    "detail": "src/components/caring-contacts/mockups/component-state-specimens.tsx:128 puts a literal 'dark' class on an <article> without 'ckb-v2'. It is the only off-root .dark mount in src/. globals.css .dark (0,1,0) is declared ON that element, while the v2 dark selectors (.dark .ckb-v2.ckb-v2 and .ckb-v2.dark.ckb-v2) need a .ckb-v2 at or below it, so the compat values win there by declaration-beats-inheritance. Measured in Chromium at /mockups/caring-contacts/system-states: --border #2b3136, --surface-raised #171b1e, --surface #101315, --text-muted #a4adb7 - all globals dark, where the app's real dark mode paints #333a41, #1c2126, #12161a, #a8b2bd. So a tile whose whole purpose is to demonstrate the dark luminance ladder demonstrates a ladder the product never uses. Fix is to add 'ckb-v2' beside 'dark' on that element, which is also a prerequisite for the token-layer collapse: deleting the dead globals .dark declarations would otherwise drop this subtree onto the v2 LIGHT palette. That fix is not a no-op - it moves the tile from the compat dark palette to the real one - so it needs owner sign-off rather than riding along silently. /mockups is blocked in production by src/proxy.ts, so this is a dev/preview surface only.",
+    "source": "Token-layer collapse, branch claude/token-layer-collapse-itskb0, browser-measured 2026-09-04",
+    "issueUlid": "01M1NV5VB9NKHVRYQHB1NYK0AJ"
+  }
+}
