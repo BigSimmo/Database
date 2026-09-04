@@ -135,6 +135,125 @@ describe("clinical safety findings", () => {
     expect(findings[0].text).not.toMatch(/Source mentions|PAE-PRO-0338|Page 5 of 5|Chunk index/i);
   });
 
+  // Audit M9: the document-code scrub carried the `i` flag, so
+  // `[A-Z]{2,}(?:-[A-Z0-9]+)+` matched any lowercase hyphenated word after
+  // protocol/policy/procedure and deleted the subject of the sentence.
+  it("keeps ordinary hyphenated phrases after protocol, policy or procedure (M9)", () => {
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote: "Follow the clozapine protocol re-challenge only after haematology review.",
+        },
+        {
+          chunk_id: "chunk-2",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 2,
+          chunk_index: 1,
+          section_heading: null,
+          quote: "Per local policy co-prescribing of two antipsychotics requires senior review first.",
+        },
+        {
+          chunk_id: "chunk-3",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 3,
+          chunk_index: 2,
+          section_heading: null,
+          quote: "Procedure post-operative delirium monitoring: repeat FBC daily.",
+        },
+      ],
+      sources: [],
+    });
+
+    const texts = findings.map((finding) => finding.text).join(" | ");
+    expect(texts).toContain("protocol re-challenge");
+    expect(texts).toContain("policy co-prescribing");
+    expect(texts).toContain("post-operative delirium monitoring");
+  });
+
+  // Audit L111: the chip text was cut at a fixed 257 characters with no word or
+  // number boundary, so "ANC 1500" straddling the cut rendered as "ANC 1" — a
+  // partial number that reads as a complete threshold.
+  it("never cuts a safety finding inside a numeric token (L111)", () => {
+    const prefix = "Monitor renal function weekly. ".repeat(8);
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote: `${prefix}and ANC 1500 requires urgent review and escalation to the on-call haematology team today.`,
+        },
+      ],
+      sources: [],
+    });
+
+    const text = findings[0].text;
+    expect(text.length).toBeLessThanOrEqual(261);
+    // The full threshold did not fit; showing part of it is worse than showing
+    // none of it.
+    expect(text).not.toMatch(/ANC\s+1\b/);
+    // The cut lands on a word boundary, so no token — least of all a number —
+    // is shown in part.
+    expect(text.replace(/\.+$/, "")).toMatch(/\bweekly$/);
+  });
+
+  // Audit L111, second boundary case (Codex review on PR #2610): when a numeric
+  // threshold ends EXACTLY at the cut, the slice already holds the complete token,
+  // but backing up to the previous space deleted the whole value — "ANC below 1500"
+  // rendered as "ANC below", which still reads as a finished instruction with the
+  // threshold silently removed.
+  it("keeps a threshold that ends exactly at the cut (L111)", () => {
+    const tail = "ANC below 1500";
+    const lead = "Monitor renal function weekly. ";
+    let prefix = "";
+    while (prefix.length < 257 - tail.length) prefix += lead;
+    prefix = prefix.slice(0, 257 - tail.length);
+    const quote = `${prefix}${tail} and escalate to haematology the same day.`;
+    // The final "0" is the last sliced character and the cut lands on the space.
+    expect(quote[256]).toBe("0");
+    expect(quote[257]).toBe(" ");
+
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote,
+        },
+      ],
+      sources: [],
+    });
+
+    const text = findings[0].text;
+    expect(text.length).toBeLessThanOrEqual(261);
+    expect(text).toContain("ANC below 1500");
+    // and never the value-stripped form that reads as a complete instruction
+    expect(text).not.toMatch(/ANC below\s*\.*$/);
+  });
+
   it("sorts safety findings by clinical severity", () => {
     const findings: SafetyFinding[] = [
       {
