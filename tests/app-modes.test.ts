@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -61,6 +63,24 @@ describe("app mode search contract", () => {
     for (const mode of appModeDefinitions) {
       expect(isSearchableAppMode(mode.id)).toBe(true);
     }
+  });
+
+  it("rejects unknown ids from isSearchableAppMode exactly as isAppModeId does", () => {
+    for (const candidate of ["", "not-a-mode", "ANSWER", "answer ", ...appModeIds]) {
+      expect(isSearchableAppMode(candidate), candidate).toBe(isAppModeId(candidate));
+    }
+    expect(isSearchableAppMode("not-a-mode")).toBe(false);
+  });
+
+  it("does not re-enumerate every search kind inside isSearchableAppMode", () => {
+    // SearchableAppModeId is AppModeId, so a list naming every AppModeSearchKind can never
+    // return false for a defined mode; it only looks like a distinction. The predicate
+    // must delegate to isAppModeId rather than carry that list.
+    const source = readFileSync(path.join(process.cwd(), "src/lib/app-modes.ts"), "utf8");
+    const body = /export function isSearchableAppMode[\s\S]*?\n\}/.exec(source)?.[0] ?? "";
+    expect(body).not.toBe("");
+    expect(body).not.toMatch(/kind === "/);
+    expect(body).toContain("isAppModeId(");
   });
 
   it("routes medication mode through document search with a medication-oriented query mode", () => {

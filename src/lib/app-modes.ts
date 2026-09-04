@@ -621,24 +621,16 @@ export function appModeCanUseSourceLibraryShortcut(modeId: AppModeId) {
   return kind === "documents" || kind === "differentials";
 }
 
+/**
+ * Every declared mode is searchable through the dashboard composer:
+ * `SearchableAppModeId` is `AppModeId`, so this is `isAppModeId` under the name the
+ * composer reasons in. It once re-listed every `AppModeSearchKind` here, which read
+ * as a distinction the type does not allow and could never return false for a
+ * defined mode. If a non-searchable mode is ever introduced, narrow the type and
+ * this predicate together.
+ */
 export function isSearchableAppMode(modeId: string): modeId is SearchableAppModeId {
-  const mode = appModeDefinitions.find((definition) => definition.id === modeId);
-  if (!mode) return false;
-  const kind = mode.search.kind;
-  return (
-    kind === "answer" ||
-    kind === "documents" ||
-    kind === "services" ||
-    kind === "forms" ||
-    kind === "favourites" ||
-    kind === "differentials" ||
-    kind === "dsm" ||
-    kind === "specifiers" ||
-    kind === "formulation" ||
-    kind === "therapies" ||
-    kind === "calculators" ||
-    kind === "tools"
-  );
+  return isAppModeId(modeId);
 }
 
 /**
