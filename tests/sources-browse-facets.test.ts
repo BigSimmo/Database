@@ -112,6 +112,17 @@ describe("sourceTopicLabel", () => {
   it("turns a stored topic value into a readable heading", () => {
     expect(sourceTopicLabel("perinatal_mental_health")).toBe("Perinatal Mental Health");
   });
+
+  it("reads kebab-case values without title-casing the joining words", () => {
+    // Stored values are a mix of the two casings; blanket title-casing produced
+    // "Conditions-Risk-And-Safety", which is a heading nobody wrote.
+    expect(sourceTopicLabel("conditions-risk-and-safety")).toBe("Conditions Risk and Safety");
+    expect(sourceTopicLabel("community-and-models-of-care")).toBe("Community and Models of Care");
+  });
+
+  it("keeps a leading joining word capitalised", () => {
+    expect(sourceTopicLabel("the-mental-health-act")).toBe("The Mental Health Act");
+  });
 });
 
 describe("deriveTopicBrowseSummaries", () => {

@@ -48,6 +48,9 @@ export type SourceBrowseSummary = {
   scope: SourceGeographyScope;
   /** The most recent publication or review date across the group, ISO, or null. */
   latestDate: string | null;
+  /** Which field `latestDate` came from, so the row can name it rather than
+      calling a publication date a review. */
+  latestDateLabel: "reviewed" | "published" | null;
   /** The member the catalogue would list first. */
   leadEntry: { id: string; title: string } | null;
 };
@@ -57,8 +60,25 @@ export type SourceBrowseOrder = "coverage" | "alpha" | "attention";
 /** How many summaries carry supporting detail before the row starts to crowd. */
 const DETAIL_LIMIT = 3;
 
+/**
+ * Small words that stay lower-case inside a heading.
+ *
+ * Stored topic values are a mix of `snake_case` and `kebab-case`, and blanket
+ * title-casing turned `conditions-risk-and-safety` into
+ * "Conditions-Risk-And-Safety" — a heading no clinician wrote and none would
+ * read twice.
+ */
+const MINOR_LABEL_WORDS = new Set(["and", "or", "of", "the", "in", "on", "for", "to", "with", "a", "an"]);
+
 export function sourceTopicLabel(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const words = value.split(/[\s_-]+/).filter(Boolean);
+  return words
+    .map((word, index) =>
+      index > 0 && MINOR_LABEL_WORDS.has(word.toLocaleLowerCase("en-AU"))
+        ? word.toLocaleLowerCase("en-AU")
+        : word.charAt(0).toLocaleUpperCase("en-AU") + word.slice(1),
+    )
+    .join(" ");
 }
 
 function emptyBandCounts(): SourceBandCounts {
@@ -77,13 +97,18 @@ function dateValue(value: string | null) {
  * future expiry as recency is exactly the inference the Method page forbids.
  */
 function latestKnownDate(entries: readonly ClinicalSourceCatalogueEntry[]) {
-  let best: string | null = null;
+  let best: { date: string; label: "reviewed" | "published" } | null = null;
   let bestValue = Number.NEGATIVE_INFINITY;
   for (const entry of entries) {
-    for (const candidate of [entry.publicationDate, entry.reviewDate]) {
+    // Review wins a tie: when a source was published and reviewed on the same
+    // day, "reviewed" is the stronger of the two claims.
+    for (const [candidate, label] of [
+      [entry.publicationDate, "published"],
+      [entry.reviewDate, "reviewed"],
+    ] as const) {
       const value = dateValue(candidate);
-      if (candidate && value > bestValue) {
-        best = candidate;
+      if (candidate && value >= bestValue) {
+        best = { date: candidate, label };
         bestValue = value;
       }
     }
@@ -115,6 +140,7 @@ function summarise(params: {
   for (const entry of entries) bandCounts[entry.rating.band] += 1;
   const jurisdictions = rankedValues(entries.map((entry) => entry.geography.scope));
   const lead = [...entries].sort(compareQuality)[0] ?? null;
+  const latest = latestKnownDate(entries);
 
   return {
     value,
@@ -143,7 +169,8 @@ function summarise(params: {
     usedByModes: rankedValues(entries.flatMap((entry) => entry.usedBy.map((usage) => usage.modeId))),
     jurisdictions,
     scope: params.scope ?? jurisdictions[0] ?? "unknown",
-    latestDate: latestKnownDate(entries),
+    latestDate: latest?.date ?? null,
+    latestDateLabel: latest?.label ?? null,
     leadEntry: lead ? { id: lead.id, title: lead.title } : null,
   };
 }

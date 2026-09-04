@@ -150,6 +150,7 @@ function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: 
   const latest = monthYear(summary.latestDate);
   const detail = kind === "topic" ? summary.publishers : summary.topics.map(sourceTopicLabel);
   const usage = summary.usedByModes.slice(0, 2).map((modeId) => appModeDefinition(modeId).label);
+  const bands = SOURCE_BAND_ORDER.filter((band) => summary.bandCounts[band] > 0);
 
   return (
     <li>
@@ -167,26 +168,33 @@ function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: 
           <Icon className="size-icon-md" aria-hidden="true" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-sm-minus font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
+          <span className="block overflow-hidden text-sm-minus font-extrabold leading-5 text-[color:var(--text-heading)] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] group-hover:text-[color:var(--clinical-accent)]">
             {summary.label}
           </span>
           {/* The quality mix as a bar, drawn inside the row's labelled link and
               always accompanied by the sentence below it. Band is a clinical
               signal, so it is never carried by hue alone — under forced colors
               every fill collapses to the same system colour, and the tally in
-              words is what survives. */}
-          <span
-            aria-hidden
-            className="mt-1.5 flex h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
-          >
-            {SOURCE_BAND_ORDER.filter((band) => summary.bandCounts[band] > 0).map((band) => (
-              <span
-                key={band}
-                className={cn("h-full", bandFill[band])}
-                style={{ flexGrow: summary.bandCounts[band] }}
-              />
-            ))}
-          </span>
+              words is what survives.
+
+              Only drawn where there is a mix. A heading whose sources are all one
+              band renders a single solid bar that says nothing the sentence does
+              not, and on a corpus where one band dominates that is a whole page of
+              identical coloured rules reading as an alert. */}
+          {bands.length > 1 ? (
+            <span
+              aria-hidden
+              className="mt-1.5 flex h-0.5 w-full max-w-40 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+            >
+              {bands.map((band) => (
+                <span
+                  key={band}
+                  className={cn("h-full", bandFill[band])}
+                  style={{ flexGrow: summary.bandCounts[band] }}
+                />
+              ))}
+            </span>
+          ) : null}
           <span className="mt-1 block text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
             {qualityPhrase(summary)}
             {summary.attentionCount > 0 ? (
@@ -195,24 +203,22 @@ function BrowseRow({ kind, summary, href }: { kind: SourcesBrowseKind; summary: 
                 {summary.attentionCount} need{summary.attentionCount === 1 ? "s" : ""} attention
               </span>
             ) : null}
-            {latest ? ` · latest ${latest}` : null}
+            {latest ? ` · ${summary.latestDateLabel} ${latest}` : null}
           </span>
           {detail.length || usage.length ? (
-            <span className="mt-1 hidden truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)] sm:block">
+            <span className="mt-1 block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
               {detail.join(" · ")}
               {detail.length && usage.length ? " · " : null}
               {usage.length ? `Used in ${usage.join(", ")}` : null}
             </span>
           ) : null}
         </span>
-        <span className="flex shrink-0 items-center gap-1.5 self-center">
-          <span className="text-right">
-            <span className="block text-sm-minus font-extrabold leading-4 text-[color:var(--text-heading)]">
-              {summary.count}
-            </span>
-            <span className="block text-3xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
-              {summary.count === 1 ? "source" : "sources"}
-            </span>
+        {/* The count, without its unit. 166 stacked "SOURCES" captions is noise,
+            and the width the caption cost is what was truncating the titles. The
+            unit stays in the row's accessible name and in the line below. */}
+        <span className="flex shrink-0 items-center gap-1 self-center">
+          <span className="nums text-sm-minus font-extrabold leading-4 text-[color:var(--text-heading)]">
+            {summary.count}
           </span>
           <ArrowRight
             className={cn(

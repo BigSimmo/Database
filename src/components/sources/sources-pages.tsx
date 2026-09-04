@@ -7,7 +7,11 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { SourcesBrowseClient } from "@/components/sources/sources-browse-client";
 import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
 import { Chip } from "@/components/ui/chip";
-import { derivePublisherBrowseSummaries, deriveTopicBrowseSummaries } from "@/lib/sources/browse-facets";
+import {
+  derivePublisherBrowseSummaries,
+  deriveTopicBrowseSummaries,
+  sourceTopicLabel,
+} from "@/lib/sources/browse-facets";
 import {
   SOURCE_RATING_WEIGHTS,
   type ClinicalSourceCatalogueEntry,
@@ -432,7 +436,7 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
                   href={`/sources/search?topic=${encodeURIComponent(topic)}`}
                   className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-compact-meta"
                 >
-                  {titleCase(topic)}
+                  {sourceTopicLabel(topic)}
                 </Link>
               ))}
             </div>
