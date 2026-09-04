@@ -6030,7 +6030,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const payload = await response.json();
     expect(typeof payload.demoMode).toBe("boolean");
-    expect(payload.checks).toHaveLength(6);
+    expect(payload.checks).toHaveLength(7);
     expect(payload.checks.map((check: { id: string }) => check.id)).toEqual([
       "env",
       "project",
@@ -6038,6 +6038,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       "search",
       "openai",
       "worker",
+      "answerPreview",
     ]);
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
   });

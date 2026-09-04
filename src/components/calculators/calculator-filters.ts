@@ -1,4 +1,4 @@
-import { normalizeSearchText } from "@/lib/catalog-search";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
 import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 
 import { domainLabels, type CalculatorDomain, type CalculatorFixture } from "./calculator-fixtures";
@@ -43,8 +43,8 @@ function calculatorQueryScore(calc: CalculatorFixture, query: string, expansions
     .filter(Boolean);
   return terms.reduce((score, term) => {
     const specificity = term.includes(" ") ? term.split(" ").length : 1;
-    if (primaryText.includes(term)) return score + 10 * specificity;
-    if (itemText.includes(term)) return score + 2 * specificity;
+    if (includesWholeTerm(primaryText, term)) return score + 10 * specificity;
+    if (includesWholeTerm(itemText, term)) return score + 2 * specificity;
     return score;
   }, 0);
 }

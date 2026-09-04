@@ -1,4 +1,4 @@
-import { normalizeSearchText } from "@/lib/catalog-search";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
 import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 import {
   dictionaryComparisonPairs,
@@ -175,8 +175,9 @@ function relatedEntryScore(entry: DictionaryEntry, normalizedExpansions: readonl
   const score = normalizedExpansions.reduce((best, term) => {
     const specificity = term.includes(" ") ? term.split(" ").length : 1;
     if (identities.some((identity) => identity === term)) return Math.max(best, 43.5 + specificity / 10);
-    if (identities.some((identity) => identity.includes(term))) return Math.max(best, 43.25 + specificity / 10);
-    if (searchable.includes(term)) return Math.max(best, 43 + specificity / 100);
+    if (identities.some((identity) => includesWholeTerm(identity, term)))
+      return Math.max(best, 43.25 + specificity / 10);
+    if (includesWholeTerm(searchable, term)) return Math.max(best, 43 + specificity / 100);
     return best;
   }, 0);
   return score ? { score, reason: "Related search term" } : null;
@@ -242,7 +243,7 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
     for (const topic of dictionaryTopics) {
       if (!allowedTopics.has(topic.slug)) continue;
       const searchable = normalizeSearchText(`${topic.title} ${topic.description}`);
-      const relatedMatch = normalizedExpansions.some((term) => searchable.includes(term));
+      const relatedMatch = normalizedExpansions.some((term) => includesWholeTerm(searchable, term));
       if (!normalizedQuery || searchable.includes(normalizedQuery) || relatedMatch) {
         const directMatch = !normalizedQuery || searchable.includes(normalizedQuery);
         hits.push({

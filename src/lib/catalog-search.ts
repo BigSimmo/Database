@@ -24,6 +24,19 @@ export function compactSearchText(value: string) {
   return value.replace(/\s+/g, "");
 }
 
+/**
+ * Whole-word/whole-phrase containment for an already-normalized haystack and
+ * term (both produced by `normalizeSearchText`, so words are single-space
+ * separated). Plain `.includes()` on a short extracted subject term (e.g.
+ * "ect") false-positives inside unrelated words (e.g. "effects"); padding
+ * both sides with a space anchors the match to word boundaries, and works
+ * unchanged for multi-word phrase terms.
+ */
+export function includesWholeTerm(haystack: string, term: string) {
+  if (!term) return false;
+  return ` ${haystack} `.includes(` ${term} `);
+}
+
 function typoDistanceLimit(term: string) {
   // One edit recovers common clinical typos without allowing exact long drug
   // names to cross-match distinct catalogue entries (for example fluoxetine

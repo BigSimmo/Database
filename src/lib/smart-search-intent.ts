@@ -287,15 +287,28 @@ export function smartSearchContentTerms(modeId: AppModeId, query: string): strin
   if (!interpretation.naturalLanguage) return interpretation.expansions;
 
   const ignored = isSmartNaturalSearchMode(modeId) ? modeSearchWords[modeId] : undefined;
-  const phraseExpansions = interpretation.expansions.filter((term) => term.includes(" "));
-  const compactExpansions = interpretation.expansions.filter(
-    (term) => term.includes(" ") || !phraseExpansions.some((phrase) => phrase.split(" ").includes(term)),
-  );
+  // Recompute the curated terms straight from the matching rules rather than
+  // reusing `interpretation.expansions`, which also carries the single-word
+  // pieces a multi-word rule term is decomposed into (for `smartSearchExpansions`
+  // consumers that only ever `.includes()` against a flat, unstructured haystack).
+  // Deduping against that flattened list previously dropped a rule's own curated
+  // single-word term whenever another rule for the same query also contributed a
+  // phrase containing that word — e.g. a "hallucination" rule term disappeared
+  // whenever "auditory hallucination" matched too, because the decomposed
+  // "hallucination" token from the phrase looked identical and got filtered out
+  // as redundant, along with the real curated term.
+  const curatedTerms = isSmartNaturalSearchMode(modeId)
+    ? modeExpansionRules[modeId]
+        .filter((rule) => rule.pattern.test(interpretation.originalQuery))
+        .flatMap((rule) => rule.terms)
+        .map(normalizeSearchText)
+        .filter(Boolean)
+    : interpretation.expansions;
   const subjectTerms = lexicalTokens(interpretation.originalQuery)
     .map(normalizeSearchText)
     .filter((term) => term.length > 1 && !naturalLanguageStopWords.has(term) && !ignored?.has(term));
 
-  return Array.from(new Set([...compactExpansions, ...subjectTerms])).slice(0, 24);
+  return Array.from(new Set([...curatedTerms, ...subjectTerms])).slice(0, 24);
 }
 
 export function expandedSmartSearchQuery(modeId: AppModeId, query: string): string {

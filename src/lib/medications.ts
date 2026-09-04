@@ -331,6 +331,14 @@ export function rankMedicationRecords(
   // shared ranker's expanded lane: they add recall via the content haystack without competing
   // with exact name/prefix scoring. Empty by default so existing callers are unchanged.
   expansions: string[] = [],
+  // Governed Prescribing-only bonus for a complete multi-word expansion phrase (a
+  // concept match, not a generic content hit). Off by default: `expansions` here is
+  // also threaded into `searchMedicationsDomain` (universal-search, general clinical
+  // search), where two concept-equivalent phrases (e.g. "blood pressure" and
+  // "orthostatic hypotension") can otherwise stack bonuses and push an unrelated
+  // medication class above real matches. Only `searchMedicationCatalog` (the
+  // Prescribing mode's own catalogue search) opts in.
+  applyExpandedPhraseBonus = false,
 ): MedicationSearchMatch[] {
   return rankCatalogRecords(records, query, {
     fields: [
@@ -374,7 +382,7 @@ export function rankMedicationRecords(
     ],
     prefixBonus: 5,
     expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
-    expandedPhraseBonus: 8,
+    expandedPhraseBonus: applyExpandedPhraseBonus ? 8 : 0,
     limit,
     tieBreak: (left, right) => left.name.localeCompare(right.name),
   }).map(({ record, score, signals }) => ({

@@ -14,7 +14,7 @@
  */
 
 import { categoryAccentVars, FACTSHEET_CATEGORY_IDENTITY, type FactsheetCategoryKey } from "@/lib/category-identity";
-import { normalizeSearchText } from "@/lib/catalog-search";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
 import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 
 /**
@@ -735,8 +735,8 @@ export function filterFactsheets(query: string, category?: string, expansions: r
       const identityText = normalizeSearchText(`${sheet.title} ${sheet.brand ?? ""}`);
       const expansionScore = normalizedExpansions.reduce((score, term) => {
         const specificity = term.includes(" ") ? term.split(" ").length : 1;
-        if (identityText.includes(term)) return score + 10 * specificity;
-        if (searchable.includes(term)) return score + specificity;
+        if (includesWholeTerm(identityText, term)) return score + 10 * specificity;
+        if (includesWholeTerm(searchable, term)) return score + specificity;
         return score;
       }, 0);
       if (expansionScore > 0) expansionOnlyMatches.push({ sheet, score: expansionScore });
