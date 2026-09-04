@@ -1,0 +1,131 @@
+/** @vitest-environment jsdom */
+
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const accountState = vi.hoisted(() => ({ isAuthenticated: true }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+}));
+
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({
+    isAuthenticated: accountState.isAuthenticated,
+    isSaved: () => false,
+    setFavourite: vi.fn(async () => true),
+  }),
+}));
+
+// The dialog's own contract (fields, submit, error/notice) is covered by its own
+// tests; this file only needs to know whether the "Sign in" action opens it.
+vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
+  AccountSetupDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="on-call-account-setup-dialog-open" /> : null,
+}));
+
+import OnCallContactsRoute from "@/app/(search-app)/on-call/contacts/page";
+import OnCallEducationRoute from "@/app/(search-app)/on-call/education/page";
+import OnCallLogisticsRoute from "@/app/(search-app)/on-call/logistics/page";
+import OnCallOrientationRoute from "@/app/(search-app)/on-call/orientation/page";
+import OnCallPlaybookRoute from "@/app/(search-app)/on-call/playbook/page";
+import OnCallReferralsRoute from "@/app/(search-app)/on-call/referrals/page";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { sectionTargetIds } from "@/components/in-page-nav/page-section-index";
+import { onCallSectionNavSections } from "@/components/on-call/on-call-nav-header";
+import { ON_CALL_SECTIONS, type OnCallSection } from "@/lib/on-call/entry-model";
+
+type RouteCase = {
+  section: OnCallSection;
+  title: string;
+  Route: () => ReactElement;
+};
+
+const routes: RouteCase[] = [
+  { section: "contacts", title: "Contacts", Route: OnCallContactsRoute },
+  { section: "playbook", title: "Playbook", Route: OnCallPlaybookRoute },
+  { section: "referrals", title: "Referrals", Route: OnCallReferralsRoute },
+  { section: "orientation", title: "Orientation", Route: OnCallOrientationRoute },
+  // Titled "Teaching" everywhere a reader sees it, even though the section id
+  // (route segment, database check constraint) stays "education".
+  { section: "education", title: "Teaching", Route: OnCallEducationRoute },
+  { section: "logistics", title: "Logistics", Route: OnCallLogisticsRoute },
+];
+
+afterEach(() => {
+  cleanup();
+  accountState.isAuthenticated = true;
+});
+
+describe("on-call section routes", () => {
+  it("covers every declared on-call section, in order", () => {
+    // Fails loudly if a section is added to the data model without a route
+    // case here, rather than leaving the new section silently unguarded.
+    expect(routes.map((route) => route.section)).toEqual([...ON_CALL_SECTIONS]);
+  });
+
+  it.each(routes.map((route) => [route.title, route] as const))(
+    "%s renders exactly one first-level heading naming the section",
+    (_title, route) => {
+      render(<route.Route />);
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      expect(screen.getByRole("heading", { level: 1, name: route.title })).toBeInTheDocument();
+    },
+  );
+
+  it.each(routes.map((route) => [route.title, route] as const))(
+    "%s renders an anchor, with the shared in-page scroll margin, for every declared section",
+    (_title, route) => {
+      const { container } = render(<route.Route />);
+      const declared = onCallSectionNavSections(route.section);
+      expect(declared.length).toBeGreaterThan(0);
+
+      for (const section of declared) {
+        const anchor = sectionTargetIds(section)
+          .map((id) => container.querySelector(`#${CSS.escape(id)}`))
+          .find((element): element is Element => element !== null);
+        expect(anchor, `${route.title}: no element renders an anchor for "${section.id}"`).not.toBeNull();
+        expect(anchor?.className, `${route.title}: "${section.id}" has no in-page scroll margin`).toContain(
+          inPageAnchor,
+        );
+      }
+    },
+  );
+
+  it.each(routes.map((route) => [route.title, route] as const))(
+    "%s shows a genuine next action for a signed-in reader with no entries yet",
+    (_title, route) => {
+      accountState.isAuthenticated = true;
+      render(<route.Route />);
+
+      const empty = screen.getByTestId(`on-call-${route.section}-empty`);
+      expect(within(empty).getByRole("link", { name: "Search On Call" })).toHaveAttribute("href", "/on-call/search");
+      expect(screen.queryByTestId(`on-call-${route.section}-signed-out`)).toBeNull();
+    },
+  );
+
+  it.each(routes.map((route) => [route.title, route] as const))(
+    "%s names the generic section but renders no entry content when signed out",
+    async (_title, route) => {
+      accountState.isAuthenticated = false;
+      render(<route.Route />);
+
+      // The generic section name is always shown — it is not entry content.
+      expect(screen.getByRole("heading", { level: 1, name: route.title })).toBeInTheDocument();
+      expect(screen.getAllByText(route.title).length).toBeGreaterThan(0);
+
+      const signedOut = screen.getByTestId(`on-call-${route.section}-signed-out`);
+      expect(screen.queryByTestId(`on-call-${route.section}-empty`)).toBeNull();
+
+      const signIn = within(signedOut).getByRole("button", { name: "Sign in" });
+      expect(screen.queryByTestId("on-call-account-setup-dialog-open")).toBeNull();
+
+      const user = userEvent.setup();
+      await user.click(signIn);
+      expect(screen.getByTestId("on-call-account-setup-dialog-open")).toBeInTheDocument();
+    },
+  );
+});

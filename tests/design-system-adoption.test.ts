@@ -1424,8 +1424,11 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 82 = 76 prior census + 6 Sources routes (the sixth is `/sources/search`, which took the
-    // catalogue over when `/sources` became a mode home of its own). Prior 76 = 59 + 6 + 10 + 1: the 59 production pages that preceded both changes, the six
+    // 90 = 82 prior census + 8 On Call routes: the redirect stub (`/on-call`), the six section
+    // pages (contacts, playbook, referrals, orientation, education, logistics), and
+    // `/on-call/search`. Prior 82 = 76 prior census + 6 Sources routes (the sixth is
+    // `/sources/search`, which took the catalogue over when `/sources` became a mode home of its
+    // own). Prior 76 = 59 + 6 + 10 + 1: the 59 production pages that preceded both changes, the six
     // `<mode>/search` routes home consolidation split out of the bare paths, the Caring
     // Contacts workspace's ten screens (Today; the Patients caseload from Phase 2B Task 5;
     // the per-patient overview from Task 6; the activation wizard from Task 7; the Schedule
@@ -1440,7 +1443,7 @@ describe("design-system adoption manifest", () => {
     // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
     // resolving and still count as declared routes. This is a census, so a route nobody
     // intended to add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(82);
+    expect(manifest.routeCoverage.discovered).toHaveLength(90);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

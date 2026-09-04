@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { updateOnCallEntrySchema } from "@/app/api/on-call/entries/[id]/route";
 
 const list = readFileSync("src/app/api/on-call/entries/route.ts", "utf8");
 const detail = readFileSync("src/app/api/on-call/entries/[id]/route.ts", "utf8");
@@ -50,6 +51,53 @@ describe("On Call entry [id] route", () => {
     // A single not-found branch fed by the same scoped lookup — no separate existence check
     // that would let a caller distinguish "missing" from "not yours".
     expect(detail.match(/On Call entry not found\./g)?.length).toBe(2);
+  });
+});
+
+describe("On Call entry PATCH schema (updateOnCallEntrySchema)", () => {
+  const completeBody = {
+    section: "contacts" as const,
+    slug: "ward-4b",
+    title: "Ward 4B",
+    subtitle: null,
+    body: null,
+    details: { role: "Registrar" },
+    linkedDocumentIds: [],
+    tags: [],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 0,
+    lastVerifiedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  it("accepts a complete PATCH body", () => {
+    expect(updateOnCallEntrySchema.safeParse(completeBody).success).toBe(true);
+  });
+
+  it("rejects a PATCH body that omits lastVerifiedAt instead of silently defaulting it to null", () => {
+    const withoutLastVerifiedAt: Record<string, unknown> = { ...completeBody };
+    delete withoutLastVerifiedAt.lastVerifiedAt;
+    const result = updateOnCallEntrySchema.safeParse(withoutLastVerifiedAt);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.path.join(".") === "lastVerifiedAt")).toBe(true);
+    }
+  });
+
+  it("rejects a PATCH body that omits any other defaulted field, not only lastVerifiedAt", () => {
+    for (const field of [
+      "subtitle",
+      "body",
+      "linkedDocumentIds",
+      "tags",
+      "isPersonal",
+      "includeOnCard",
+      "sortOrder",
+    ] as const) {
+      const partial: Record<string, unknown> = { ...completeBody };
+      delete partial[field];
+      expect(updateOnCallEntrySchema.safeParse(partial).success, `omitting ${field} should be rejected`).toBe(false);
+    }
   });
 });
 

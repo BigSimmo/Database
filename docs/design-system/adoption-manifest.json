@@ -2431,6 +2431,14 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/on-call/contacts/page.tsx",
+        "src/app/(search-app)/on-call/education/page.tsx",
+        "src/app/(search-app)/on-call/logistics/page.tsx",
+        "src/app/(search-app)/on-call/orientation/page.tsx",
+        "src/app/(search-app)/on-call/page.tsx",
+        "src/app/(search-app)/on-call/playbook/page.tsx",
+        "src/app/(search-app)/on-call/referrals/page.tsx",
+        "src/app/(search-app)/on-call/search/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
         "src/app/(search-app)/services/search/page.tsx",
@@ -2688,6 +2696,86 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/contacts/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/education/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/orientation/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ModeHome"]
+        },
+        {
+          "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/referrals/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/services/[slug]/page.tsx",
@@ -4019,6 +4107,14 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/contacts/page.tsx",
+      "src/app/(search-app)/on-call/education/page.tsx",
+      "src/app/(search-app)/on-call/logistics/page.tsx",
+      "src/app/(search-app)/on-call/orientation/page.tsx",
+      "src/app/(search-app)/on-call/page.tsx",
+      "src/app/(search-app)/on-call/playbook/page.tsx",
+      "src/app/(search-app)/on-call/referrals/page.tsx",
+      "src/app/(search-app)/on-call/search/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -4103,6 +4199,14 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/contacts/page.tsx",
+      "src/app/(search-app)/on-call/education/page.tsx",
+      "src/app/(search-app)/on-call/logistics/page.tsx",
+      "src/app/(search-app)/on-call/orientation/page.tsx",
+      "src/app/(search-app)/on-call/page.tsx",
+      "src/app/(search-app)/on-call/playbook/page.tsx",
+      "src/app/(search-app)/on-call/referrals/page.tsx",
+      "src/app/(search-app)/on-call/search/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -4149,7 +4253,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 89,
+    "inheritedCkbV2RootCount": 97,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4158,8 +4262,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 39,
-    "rootCount": 90,
-    "productionRouteCount": 82,
-    "nextUiEntryCount": 143
+    "rootCount": 98,
+    "productionRouteCount": 90,
+    "nextUiEntryCount": 153
   }
 }
