@@ -8,7 +8,7 @@ import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/au
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 import { assertSearchSchemaHealth } from "@/lib/validation/row-contracts";
-import { readLastEvidencePreviewReason } from "@/lib/answer-preview";
+import { describeEvidencePreviewForAnyCaller } from "@/lib/answer-preview";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -303,10 +303,20 @@ const COARSE_SETUP_DETAIL: Record<SetupCheckStatus, string> = {
   unknown: "Status unavailable. Operators can see specifics via the health deep probe or server logs.",
 };
 
+// `answerPreview` is the one check whose detail survives, and it is REBUILT here rather than
+// passed through. It is a diagnostic for the clinician using the app, not operator telemetry:
+// blanking it left the person reporting "the sources never appear" reading `Ready.` whatever had
+// happened. `describeEvidencePreviewForAnyCaller` assembles its string from a fixed enum and a
+// timestamp and nothing else, so rebuilding rather than copying keeps that guarantee even if the
+// authorized detail is later widened.
 function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPayload {
   return {
     ...payload,
-    checks: payload.checks.map((item) => ({ ...item, detail: COARSE_SETUP_DETAIL[item.status] })),
+    checks: payload.checks.map((item) =>
+      item.id === "answerPreview"
+        ? { ...item, detail: describeEvidencePreviewForAnyCaller() }
+        : { ...item, detail: COARSE_SETUP_DETAIL[item.status] },
+    ),
   };
 }
 
@@ -319,27 +329,11 @@ function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPaylo
  * it. One enum and a timestamp; no query, document, owner, or clinical text ever reaches here.
  */
 function answerPreviewCheck(): SetupCheck {
-  if (!env.RAG_INCREMENTAL_EVIDENCE_PREVIEW) {
-    return check(
-      "answerPreview",
-      "Answer wait shows sources",
-      "needs_setup",
-      "Disabled by RAG_INCREMENTAL_EVIDENCE_PREVIEW=false; the answer wait will never show source cards.",
-    );
-  }
-  const last = readLastEvidencePreviewReason();
-  if (!last) {
-    return check("answerPreview", "Answer wait shows sources", "ready", "Enabled. No answer has been served yet.");
-  }
-  // Two reasons mean the rail was drawn, not withheld: the ordinary path, and the fallback
-  // that rescues an emptied retry intersection. Reading anything but "ok" as a withholding
-  // would have this diagnostic report a failure at exactly the moment the fallback worked —
-  // the reading that sent this investigation down the wrong path in the first place.
-  const delivered = last.reason === "ok" || last.reason === "empty_intersection_relaxed";
-  const detail = delivered
-    ? `Enabled. The last answer showed its sources (${last.reason}, ${last.at}).`
-    : `Enabled. The last answer withheld its sources: ${last.reason} (${last.at}).`;
-  return check("answerPreview", "Answer wait shows sources", "ready", detail);
+  // One wording for both audiences. The authorized and anonymous paths read the same sentence,
+  // so the two cannot drift and the anonymous reader is never shown a weaker truth than the
+  // operator — the failure this check exists to avoid.
+  const status = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW ? "ready" : "needs_setup";
+  return check("answerPreview", "Answer wait shows sources", status, describeEvidencePreviewForAnyCaller());
 }
 
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
