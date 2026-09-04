@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "e807b805816d922f56908a76863de47e67765d02",
-    "committed_at": "2026-09-02T20:16:31+00:00"
+    "sha": "2aa57e55bb4d3aa59d9d70abda7edd54efb60cb1",
+    "committed_at": "2026-09-04T00:19:25+00:00"
   },
   "routes": {
     "modes": [
@@ -18647,6 +18647,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: CONFLICTING, CI green, 0 threads. After: merged origin/main cleanly (ledger/codebase-index auto-merge); pushed 9c373eb1c. Threads: none. Residual: CI re-running.",
         "checks": "merge origin/main only; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/issues-followups (PR #2544)",
+        "head": "9c485f59e73e001e35b6e2075a6d933e080aeaa7",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "No CI had run on this head (pending/no checks); branch was behind main with a clean merge-tree, merged origin/main (no conflicts, package.json script additions only, no lockfile change, no npm install needed); both review threads were already resolved from a prior sweep pass, none left open",
+        "checks": "npm run check:outstanding-issues (pass, includes check:outstanding-issues-snapshot), npm run check:ledger-write-discipline (pass), npx prettier --check . (pass, whole tree); no provider-backed checks run"
       },
       {
         "date": "2026-07-24",

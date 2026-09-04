@@ -15,14 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 603
-- Distinct ref cells: 383
-- Distinct reviewed heads: 586
+- Records: 604
+- Distinct ref cells: 384
+- Distinct reviewed heads: 587
 - Date range: `2026-08-12` to `2026-09-03`
 
 Records per date, newest first:
 
-- `2026-09-03` — 11 records
+- `2026-09-03` — 12 records
 - `2026-09-02` — 17 records
 - `2026-09-01` — 5 records
 - `2026-08-31` — 4 records
@@ -61,6 +61,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-09-03 | claude/token-layer-collapse-itskb0 (PR #2577) | Run PR sweep: CI fix + threads + drift | Before: PR required failing (Unit coverage + Production UI (3) red), b… | [bf249c98](branch-review-records/bf249c989a4f4b805bae7156c55640bf94ee51503f9a81c935cc51f04bd36879.record.md) |
 | 2026-09-03 | claude/psychsift-active-sources-design-pyt2p9 | prlanded | PR #2584 squash-merged as 02a6316; content diff against branch tip 213… | [c81bc98a](branch-review-records/c81bc98a051d67f0622d109a6a3ce6e68b80b63bac0d9395001df6ed25b49fdd.record.md) |
 | 2026-09-03 | claude/snapshot-conflicts-3w455k (PR #2575) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state behind main (stale snapshot said blocked), 0 C… | [e6295edf](branch-review-records/e6295edf2c91cc2ae6a82f1b256ed2358dd3db62918db93e7c2893a968f82729.record.md) |
+| 2026-09-03 | claude/issues-followups (PR #2544) | Run PR sweep: CI fix + threads + drift | No CI had run on this head (pending/no checks); branch was behind main… | [e87f5e78](branch-review-records/e87f5e78703c1434f51e380613c31b831ca9f402e40895d6b295c4ac28e01f39.record.md) |
 | 2026-09-03 | claude/answer-loading-sources-animation-4obfpq | answer-preview source governance, evidence rail | P1 governance display-cap defect fixed with a mutation-proven test; P2… | [ed1a74a8](branch-review-records/ed1a74a8381f97381f870e96a503c8ee36f825732c97de9c954dc90885fde588.record.md) |
 | 2026-09-02 | claude/caring-contacts-rules-r7r2ih-4 | PR #2535 (#PAMATF): model.ts planSendingHold relocation and load-time invariant, both repo… | MERGED 2026-09-02 into its base branch (claude/caring-contacts-rules-r… | [0cee2b10](branch-review-records/0cee2b10b5e10b575263b1af0df0d87c555460e6e15dc052cfd1162d8fa2c265.record.md) |
 | 2026-09-02 | claude/caring-contacts-rules-r7r2ih | PR #2532 (#59JT7W + #RZVMPD, squashed to main): src/lib/caring-contacts/message-policy.ts,… | MERGED to main 2026-09-02. Closing-message refusal routed through the… | [0f22b88a](branch-review-records/0f22b88a41a63454cdb1b0ac291233906c397a7cbfca1539a0b1c020e99234df.record.md) |

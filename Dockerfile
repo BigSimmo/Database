@@ -87,7 +87,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
-COPY public ./public
+# From the build stage, not the build context: `stamp-service-worker.mjs` rewrites
+# public/sw.js during the build so the file's bytes differ per release, and a plain
+# `COPY public` would take the unstamped original straight from the context and silently
+# undo it. The runtime image must carry the artifact the build actually produced.
+COPY --from=build /app/public ./public
 COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts
 COPY --from=build /app/src/lib/observability/sentry-release.ts ./src/lib/observability/sentry-release.ts
 COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts

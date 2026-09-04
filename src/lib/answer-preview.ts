@@ -17,6 +17,67 @@ export type { VerifiedUnit };
 
 const evidencePreviewMaxSources = 12;
 
+/** Why a wait did or did not show its sources.
+ *
+ * The preview was discarded silently at five separate points and recorded nothing, so a
+ * clinician reporting "the sources never appear" could not be answered without guessing:
+ * a flag, a cache hit, an empty intersection, a governance refusal and a malformed unit all
+ * looked identical from outside. `docs/verified-answer-incremental-delivery-design.md`
+ * asked for "rejection-reason enums" in its acceptance section and they were never built.
+ *
+ * An enum, deliberately — never a message. It names a decision, never a document, a query,
+ * an owner or any clinical text, so it can cross the route boundary and sit in a diagnostic
+ * endpoint without carrying anything that needed governing in the first place.
+ *
+ * `contract_rejected` is not raised here. It belongs to the route boundary, where a unit
+ * that fails the stream contract's structural validation is dropped — see
+ * `toPublicAnswerProgressEvent`. */
+export const evidencePreviewReasons = [
+  "ok",
+  "disabled",
+  "no_candidates",
+  "empty_intersection_relaxed",
+  "answer_level_danger",
+  "all_sources_danger",
+  "contract_rejected",
+] as const;
+
+export type EvidencePreviewReason = (typeof evidencePreviewReasons)[number];
+
+export type EvidencePreviewOutcome = {
+  unit: VerifiedEvidencePreviewUnit | null;
+  reason: EvidencePreviewReason;
+};
+
+export type EvidencePreviewProgressFields = {
+  verifiedUnit?: VerifiedEvidencePreviewUnit;
+  previewReason: EvidencePreviewReason;
+};
+
+function withheld(reason: EvidencePreviewReason): EvidencePreviewOutcome {
+  return { unit: null, reason };
+}
+
+/** The most recent decision this server process made, for the diagnostic surface in
+ *  `/api/setup-status`. One enum and a timestamp: no query, no owner, no document, nothing
+ *  that identifies whose answer it was. Deliberately in memory rather than persisted — this
+ *  answers "is the rail working right now", not "what happened last Tuesday", and a
+ *  diagnostic is not a reason to start storing anything about clinical questions. */
+let lastEvidencePreviewReason: { reason: EvidencePreviewReason; at: string } | null = null;
+
+function recordEvidencePreviewReason(reason: EvidencePreviewReason) {
+  lastEvidencePreviewReason = { reason, at: new Date().toISOString() };
+}
+
+export function readLastEvidencePreviewReason() {
+  return lastEvidencePreviewReason;
+}
+
+/** Exported for the route boundary, which is the only other place a preview is discarded. */
+export function recordEvidencePreviewContractRejection() {
+  recordEvidencePreviewReason("contract_rejected");
+}
+
 /** Is this one source danger-level on its own account?
  *
  * Asked one source at a time, and deliberately so. `sourceGovernanceWarnings` ends with
@@ -63,21 +124,30 @@ function hasAnswerLevelDanger(relevance: EvidenceRelevance | null) {
  * withhold content anyway. At preview time the answer's support level is not yet known, so
  * the danger decision is applied unconditionally.
  */
-export function buildEvidencePreviewUnit(args: {
+export function evaluateEvidencePreview(args: {
   results: SearchResult[];
   relevance?: EvidenceRelevance | null;
-}): VerifiedEvidencePreviewUnit | null {
-  if (!args.results.length) return null;
-  if (hasAnswerLevelDanger(args.relevance ?? null)) return null;
+}): EvidencePreviewOutcome {
+  if (!args.results.length) return withheld("no_candidates");
+  if (hasAnswerLevelDanger(args.relevance ?? null)) return withheld("answer_level_danger");
 
   // Governance is a property of the document, so every chunk of a flagged document goes with
   // it. A clean-looking second chunk of a badly extracted PDF is the same PDF.
   const dangerDocumentIds = new Set(args.results.filter(isDangerLevelSource).map((result) => result.document_id));
-  return buildUnit(args.results.filter((result) => !dangerDocumentIds.has(result.document_id)));
+  const survivors = args.results.filter((result) => !dangerDocumentIds.has(result.document_id));
+  if (!survivors.length) return withheld("all_sources_danger");
+  return { unit: buildUnit(survivors), reason: "ok" };
 }
 
-function buildUnit(results: SearchResult[]): VerifiedEvidencePreviewUnit | null {
-  if (!results.length) return null;
+/** The unit alone, for callers that do not need to explain an absence. */
+export function buildEvidencePreviewUnit(args: {
+  results: SearchResult[];
+  relevance?: EvidenceRelevance | null;
+}): VerifiedEvidencePreviewUnit | null {
+  return evaluateEvidencePreview(args).unit;
+}
+
+function buildUnit(results: SearchResult[]): VerifiedEvidencePreviewUnit {
   const selected = results.slice(0, evidencePreviewMaxSources);
   return {
     schemaVersion: 1,
@@ -91,17 +161,63 @@ function buildUnit(results: SearchResult[]): VerifiedEvidencePreviewUnit | null 
   };
 }
 
-/** Keep the ranking event small and keep final-path reconciliation out of the RAG monolith. */
+/** Keep the ranking event small and keep final-path reconciliation out of the RAG monolith.
+ *
+ * **The intersection is a preference, not a requirement.** Showing only sources present in
+ * both the normal and the strong-retry context keeps the rail stable across a generation
+ * retry, which is worth having. But the two sets apply the per-document crowding cap to
+ * different input lists (`selectModelContextResults` slices the fast route to four results
+ * BEFORE the Australian-preference sort, the strong route sorts the whole set), so on a
+ * document-scoped fast query the intersection can come back empty while retrieval, ranking
+ * and generation are all perfectly healthy. An empty intersection then withheld the entire
+ * rail and said nothing about why.
+ *
+ * Falling back to the normal context set is safe because that is exactly the evidence
+ * generation is about to read. It is never wider than the answer's own inputs.
+ */
 export function buildEvidencePreviewProgress(args: {
   normalResults: SearchResult[];
   fallbackResults: SearchResult[];
   relevance?: EvidenceRelevance | null;
-}): { verifiedUnit?: VerifiedEvidencePreviewUnit } {
-  if (!env.RAG_INCREMENTAL_EVIDENCE_PREVIEW) return {};
+}): EvidencePreviewProgressFields {
+  if (!env.RAG_INCREMENTAL_EVIDENCE_PREVIEW) return { previewReason: "disabled" };
   const fallbackIds = new Set(args.fallbackResults.map((result) => result.id));
-  const verifiedUnit = buildEvidencePreviewUnit({
-    results: args.normalResults.filter((result) => fallbackIds.has(result.id)),
-    relevance: args.relevance,
-  });
-  return verifiedUnit ? { verifiedUnit } : {};
+  const retained = args.normalResults.filter((result) => fallbackIds.has(result.id));
+  const stable = evaluateEvidencePreview({ results: retained, relevance: args.relevance });
+  if (stable.unit) return previewFields(stable);
+
+  // Only "the intersection emptied it" is worth a second attempt. A governance refusal or an
+  // answer-level danger verdict is the same verdict over the wider set, so retrying it would
+  // just re-derive the same refusal with more sources in scope.
+  if (stable.reason !== "no_candidates" || !args.normalResults.length) return previewFields(stable);
+  const relaxed = evaluateEvidencePreview({ results: args.normalResults, relevance: args.relevance });
+  return previewFields(relaxed, relaxed.unit ? "empty_intersection_relaxed" : relaxed.reason);
+}
+
+/** The cached-answer path, which reached the browser with no rail at all until now.
+ *
+ * `docs/verified-answer-incremental-delivery-design.md` sanctions this explicitly — "cache
+ * hits may emit the same units from the already governed cached answer" — and it was simply
+ * never built, so every repeated question showed a wait with no sources while a first-time
+ * question showed them. Repeats are the common case for a clinical reference tool: the same
+ * question comes up on the next patient.
+ *
+ * The sources come from the stored answer, so they have already passed the full governed
+ * final-response path once. They still go through the same `evaluateEvidencePreview` gate
+ * here rather than a shortcut, because governance can have changed since they were cached.
+ */
+export function buildCachedEvidencePreviewProgress(args: {
+  results: SearchResult[];
+  relevance?: EvidenceRelevance | null;
+}): EvidencePreviewProgressFields {
+  if (!env.RAG_INCREMENTAL_EVIDENCE_PREVIEW) return { previewReason: "disabled" };
+  return previewFields(evaluateEvidencePreview(args));
+}
+
+function previewFields(
+  outcome: EvidencePreviewOutcome,
+  reason: EvidencePreviewReason = outcome.reason,
+): EvidencePreviewProgressFields {
+  recordEvidencePreviewReason(reason);
+  return outcome.unit ? { verifiedUnit: outcome.unit, previewReason: reason } : { previewReason: reason };
 }
