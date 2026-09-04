@@ -21,7 +21,13 @@
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /*
+   * ⚠️ NO background HERE, DELIBERATELY. `WardGround` paints `--ward-ground` as a real DOM
+   * ancestor of every route's <main> — this rule used to cover it with `var(--surface)`, which is
+   * exactly the defect `tests/ward-design-language-contract.test.ts` names: "the ground is painted
+   * and invisible on all twenty screens". Freed 2026-09-04 for this screen; do not reintroduce an
+   * opaque root background here.
+   */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -100,7 +106,12 @@
   line-height: var(--pe-leading-body);
 }
 
-.identity,
+/*
+ * ⚠️ `.identity` USED TO BE IN THIS LIST AND IS NOT ANY MORE. The "Who this is" section now
+ * renders through `WardPanel`, which supplies its own border/background/padding from the
+ * `--ward-*` token layer — a second, competing panel style on the same element would fight it
+ * rather than compose with it. `.actions` and `.missing` are unchanged; neither is a WardPanel yet.
+ */
 .actions,
 .missing {
   display: flex;
@@ -113,8 +124,9 @@
 }
 
 /*
- * A definition list, not a table. These are four facts about one person, and a table invites a
- * fifth column of somebody else — which is the direction PD-1 explicitly does not authorise.
+ * A definition list, not a table. These are three facts about one person (age moved to its own
+ * `WardFigure` — see `person-screen.tsx`), and a table invites a fourth column of somebody else —
+ * which is the direction PD-1 explicitly does not authorise.
  */
 .factList {
   display: grid;
@@ -123,13 +135,11 @@
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 }
 
-.fact {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: var(--pe-space-4);
-}
-
+/*
+ * Layout (flex column, label-to-value gap) now comes from `ward-shared.module.css`'s `.field`,
+ * composed alongside this class in the JSX. `.fact` keeps only the typography below, so it is not
+ * declaring the same gap twice under two names.
+ */
 .fact dt {
   color: var(--text-muted);
   font-size: var(--text-3xs);
@@ -218,5 +228,77 @@
 @media (forced-colors: active) {
   .screen {
     --wf-border: var(--border);
+  }
+}
+
+/*
+ * ⚠️ `color: CanvasText` IS THE LOAD-BEARING LINE HERE, NOT `color-scheme: light`.
+ *
+ * This root sets `color: var(--text)` ON ITSELF. The dark ramp is scoped by the CLASS
+ * `.ckb-v2.dark.ckb-v2` rather than by a media query, so `color-scheme: light` cannot make it
+ * re-resolve; and `globals.css` resets print colour on `html, body`, which cannot reach an
+ * element that declares the property itself. Printing from dark mode therefore put pale text on
+ * white paper — and because this screen no longer paints its own background, the page came out
+ * nearly BLANK rather than as a dark band. Blank is the worse failure: a dark band gets reported.
+ *
+ * An ancestor cannot override a property an element sets on itself, so the reset has to live in
+ * the file that made the declaration. Found by a sibling-stylesheet matrix, not by reading this
+ * file — every file here is internally consistent and the asymmetry only exists across the set.
+ */
+@media print {
+  /*
+   * ⚠️ THE RESET NOW COVERS EVERY DESCENDANT, NOT JUST THIS ROOT. An ancestor cannot override a
+   * property an element sets on itself, which is exactly why this reset had to live here — but the
+   * same sentence is just as true one level down: a rule like `.fact dd { color: var(--text-heading) }`
+   * sets colour on itself too, and `.screen { color: CanvasText }` cannot reach past it either.
+   * `board.module.css` tried to fix this by enumerating every coloured selector — 56 of them across
+   * a 250-line print block — and still missed five content selectors. An enumerated list is the
+   * defect regenerating: any new coloured selector re-opens it, silently, forever. The wildcard
+   * `.screen *` cannot drift, and it flattens nothing anybody wanted — a sweep of every existing
+   * print block across these seven files found zero non-`CanvasText` colour declarations inside any
+   * of them.
+   *
+   * ⚠️ `!important` IS REQUIRED ON `color` HERE, AND THE WILDCARD ALONE IS NOT ENOUGH — measured
+   * through an actual cascade (jsdom's computed-style engine), not read off the CSS. Specificity is
+   * resolved before source order, so sitting at the end of the file buys nothing: `.screen *` is one
+   * class plus the universal selector (specificity 0,1,0; the universal contributes zero), and any
+   * rule combining a class with a type selector or a pseudo/attribute selector outranks it — `.fact
+   * dd` (0,1,1) here, and the same shape recurs across this file's siblings as `.bedChip[data-state=
+   * "…"]` (0,2,0), `.dataTable td`, `.timeline span`. Confirmed: `.fact dd` computed
+   * `rgb(244, 246, 248)` — still near-white — with the wildcard alone, and `rgb(0, 0, 0)` once
+   * `!important` was added. `color-scheme` needs no `!important`: nothing competes for it.
+   * `coordinator.module.css` already carries `color: CanvasText !important` in its own print
+   * blocks — this file now matches that precedent rather than re-deriving it.
+   *
+   * ⚠️ THE WILDCARD ALONE WOULD HAVE LOOKED FIXED. It corrects every plain element, so a spot-check
+   * on any single-class element prints black and the fix reads as confirmed, while the elements that
+   * declare their own colour with a type or attribute selector — the table rows, the state chips,
+   * exactly where the failure is clinically dangerous — stay invisible. Fix one instance, verify on
+   * the instance in front of you, never revisit the siblings: the same defect recurring at a third
+   * level, after file and after selector.
+   *
+   * NOT VERIFIED ON PAPER. This is a jsdom cascade resolution, not an observation of a printout —
+   * `!important` winning over specificity is spec behaviour common to every rendering engine,
+   * including the one that will actually print the page, so the result should carry over.
+   */
+  .screen,
+  .screen * {
+    color-scheme: light;
+    color: CanvasText !important;
+    /*
+     * 🔴 THE MISSING HALF, AND WITHOUT IT THE LINE ABOVE MAKES THE PAGE WORSE. Measured in
+     * Chromium 151 under print + dark: a themed card kept `rgb(23, 26, 29)` because nothing
+     * resets backgrounds, while the reset forced its text to `rgb(0, 0, 0)`. **Black on a dark
+     * card — gone.** Before the text reset that same text was near-white on the dark card:
+     * wasteful, and READABLE. The fix and the untouched background are each defensible alone
+     * and strictly worse together, and nothing either of us checked would have caught it,
+     * because we were both looking at text colour on a white page.
+     *
+     * ⚠️ `background-color`, NEVER the `background` shorthand. `board.module.css` hatches its
+     * blocked, held and past-date bed states with `background-image: repeating-linear-gradient`.
+     * The shorthand wipes `background-image` and would silently erase the pattern that
+     * distinguishes a blocked bed from an empty one — a state distinction, not decoration.
+     */
+    background-color: Canvas !important;
   }
 }
