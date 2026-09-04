@@ -144,7 +144,7 @@ export function isAnswerSourceBacked(answer: RagAnswer): boolean {
 }
 
 function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
-  const retrievalBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
+  const retrievalBlocked = answer.retrievalGateBlocked === true;
   const sourceBacked = isAnswerSourceBacked(answer);
   const hasFaithfulnessWarning = Boolean(answer.faithfulnessWarning || answer.unverifiedNumericTokens?.length);
   const evidenceGap = answer.responseMode === "evidence_gap";
@@ -434,7 +434,7 @@ function buildWarnings(answer: RagAnswer, trust: AnswerRenderTrust) {
   if (trust === "unsupported")
     warnings.push("This is a source-gap answer; recommendation-style evidence extras are hidden.");
   if (trust === "low") warnings.push("Evidence support is low; verify linked sources before relying on the answer.");
-  if (answer.retrievalDiagnostics?.gateStatus === "blocked") {
+  if (answer.retrievalGateBlocked === true) {
     warnings.push("Retrieval confidence gate was blocked for low signal.");
   }
   if (answer.faithfulnessWarning) warnings.push(answer.faithfulnessWarning);

@@ -162,9 +162,12 @@ describe("answer stream verified preview ordering", () => {
   it("logs an empty-scope final outcome with the stream's one interaction id", async () => {
     resolveSearchScope.mockResolvedValueOnce({
       documentIds: [],
-      filters: {},
+      filters: { collections: ["private-filter"] },
       activeFilterCount: 1,
-      warnings: [],
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      summary: "One active filter",
+      futureInternalField: "private",
     });
 
     const { POST } = await import("../src/app/api/answer/stream/route");
@@ -175,7 +178,8 @@ describe("answer stream verified preview ordering", () => {
         body: JSON.stringify({ query: "missing scoped evidence" }),
       }),
     );
-    await response.text();
+    const frames = parseSseFrames(await response.text());
+    const final = frames.find((frame) => frame.event === "final")?.data;
 
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
     const logged = persistAnswerDiagnostics.mock.calls[0]?.[0] as
@@ -186,6 +190,21 @@ describe("answer stream verified preview ordering", () => {
     });
     const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
     expect(ragProgrammeTelemetryForAnswer(logged!.answer as never)?.interaction_id).toBe(logged?.interactionId);
+    expect(Object.keys(final?.scope as Record<string, unknown>)).toEqual([
+      "summary",
+      "activeFilterCount",
+      "matchedDocumentCount",
+      "warnings",
+      "queryMode",
+    ]);
+    expect(final?.scope).toEqual({
+      summary: "One active filter",
+      activeFilterCount: 1,
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      queryMode: "auto",
+    });
+    expect(JSON.stringify(final?.scope)).not.toMatch(/private-filter|futureInternalField|documentIds|filters/);
   });
 
   it("does not complete the SSE response before configured joined persistence settles", async () => {

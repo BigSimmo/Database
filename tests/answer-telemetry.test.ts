@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAnswerLogRow, logAnswerDiagnostics, type AnswerTelemetrySource } from "../src/lib/answer-telemetry";
-import { observeRagAnswer } from "../src/lib/rag/rag-programme-telemetry";
+import {
+  buildAnswerLogRow,
+  buildRagQueryLogRow,
+  logAnswerDiagnostics,
+  type AnswerTelemetrySource,
+} from "../src/lib/answer-telemetry";
+import { observeRagAnswer, ragProgrammeTelemetryForAnswer } from "../src/lib/rag/rag-programme-telemetry";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 const UUID_A = "11111111-1111-1111-1111-111111111111";
@@ -129,6 +134,36 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     expect(meta.answer.fallback_reason_code).toBe("coverage_gap");
     expect(row.miss_reason).toBe("coverage_gap");
     expect(JSON.stringify(meta.answer)).not.toMatch(/private-host|token=secret/);
+  });
+
+  it("normalizes malformed typed reasons and persists the bounded truncation signal", () => {
+    const malformed = answer({
+      fallbackReasonCode: "provider_timeout\nprivate-host?token=secret" as never,
+      latencyTimings: { provider_generation_truncated: true },
+    });
+    const retrievalRow = buildAnswerLogRow({
+      query: "unknown drug?",
+      interactionId: INTERACTION_ID,
+      answer: malformed,
+    });
+    const retrievalMetadata = retrievalRow.metadata as unknown as AnswerMetadata;
+    expect(retrievalMetadata.answer.fallback_reason_code).toBe("unknown");
+    expect(retrievalMetadata.answer.provider_generation_truncated).toBe(true);
+
+    const programmeTelemetry = observeRagAnswer(
+      { ...malformed, answer: "Source-backed response.", citations: [] } as RagAnswer,
+      { interactionId: INTERACTION_ID, rolloutMode: "legacy" },
+    );
+    const queryRow = buildRagQueryLogRow({
+      query: "unknown drug?",
+      interactionId: INTERACTION_ID,
+      answer: programmeTelemetry,
+      programmeTelemetry: ragProgrammeTelemetryForAnswer(programmeTelemetry)!,
+    });
+    expect(queryRow.metadata).toMatchObject({
+      fallback_reason_code: "unknown",
+      provider_generation_truncated: true,
+    });
   });
 
   it("drops non-UUID chunk/document ids from the selected arrays", () => {

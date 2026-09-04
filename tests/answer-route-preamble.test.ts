@@ -167,7 +167,15 @@ describe("/api/answer preamble", () => {
 
   it("projects an empty scope through the same bounded answer payload", async () => {
     consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(false));
-    resolveSearchScope.mockResolvedValue({ documentIds: [], filters: {}, activeFilterCount: 0, warnings: [] });
+    resolveSearchScope.mockResolvedValue({
+      documentIds: [],
+      filters: { collections: ["private-filter"] },
+      activeFilterCount: 1,
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      summary: "One active filter",
+      futureInternalField: "private",
+    });
 
     const { POST } = await import("../src/app/api/answer/route");
     const response = await POST(answerRequest());
@@ -183,6 +191,21 @@ describe("/api/answer preamble", () => {
     });
     expect(payload).not.toHaveProperty("routingReason");
     expect(payload).not.toHaveProperty("fallbackReason");
+    expect(Object.keys(payload.scope)).toEqual([
+      "summary",
+      "activeFilterCount",
+      "matchedDocumentCount",
+      "warnings",
+      "queryMode",
+    ]);
+    expect(payload.scope).toEqual({
+      summary: "One active filter",
+      activeFilterCount: 1,
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      queryMode: "auto",
+    });
+    expect(JSON.stringify(payload.scope)).not.toMatch(/private-filter|futureInternalField|documentIds|filters/);
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 });

@@ -33,7 +33,11 @@ function fakeClient(
       or: (filters: string) => {
         observedNarrowingFilters.push({ method: "or", column: "", value: filters });
         return build(
-          filters.startsWith("metadata->>fallback_reason_code.eq.provider_timeout") ? "timeout" : "degraded",
+          filters.startsWith("metadata->>fallback_reason_code.eq.provider_timeout")
+            ? "timeout"
+            : filters.startsWith("metadata->>provider_generation_truncated.eq.true")
+              ? "truncation"
+              : "degraded",
         );
       },
       ilike: (_column: string, pattern: string) =>
@@ -115,6 +119,24 @@ describe("answerSloSnapshot", () => {
       method: "or",
       column: "",
       value: "metadata->>fallback_reason_code.eq.provider_timeout,metadata->>fallback_reason.ilike.%timeout%",
+    });
+  });
+
+  it("counts the bounded truncation flag before retaining the legacy text fallback", async () => {
+    const observedNarrowingFilters: Array<{
+      method: "eq" | "not" | "or";
+      column: string;
+      value: unknown;
+    }> = [];
+
+    await answerSloSnapshot(
+      fakeClient({ total: 7, hybrid: 0, degraded: 0, truncation: 2 }, undefined, [], observedNarrowingFilters),
+    );
+
+    expect(observedNarrowingFilters).toContainEqual({
+      method: "or",
+      column: "",
+      value: "metadata->>provider_generation_truncated.eq.true,metadata->>fallback_reason.ilike.%max_output_tokens%",
     });
   });
 

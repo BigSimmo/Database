@@ -3223,6 +3223,7 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
   const openAIRequestIds: string[] = [];
   let answerRetryCount = 0;
   const answerRetryReasons: string[] = [];
+  let providerGenerationTruncated = false;
   const packContextForGeneration = useGovernedContextPacking
     ? packGovernedContext
     : createGenerationContextPacker({
@@ -3241,7 +3242,6 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     options?: { strong?: boolean; qualityRetryInstruction?: string; maxOutputTokensOverride?: number },
   ): Promise<OpenAITextResult> {
     const qualityRetryInstruction = options?.qualityRetryInstruction;
-    // Effort, rather than model identity, differentiates fast from strong generation.
     const useStrongReasoning = options?.strong ?? false;
     const input = qualityRetryInstruction
       ? `${buildAnswerInput(contextResults)}
@@ -3270,6 +3270,7 @@ ${qualityRetryInstruction}`
       );
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
       if (result.requestId) openAIRequestIds.push(result.requestId);
+      if (result.truncated) providerGenerationTruncated = true;
       return result;
     } finally {
       generationLatencyMs += Date.now() - generationStartedAt;
@@ -3278,9 +3279,6 @@ ${qualityRetryInstruction}`
 
   // A truncated first attempt gets a larger bounded retry budget.
   const strongRetryMaxOutputTokens = Math.max(env.OPENAI_MAX_OUTPUT_TOKENS * 2, 24000);
-  // Keep the source-backed recovery reserve out of a multi-attempt generation tail.
-  const generationTotalBudgetMs = env.OPENAI_ANSWER_TIMEOUT_MS * 2;
-
   function generationIncompleteReason(result: OpenAITextResult) {
     return result.incompleteReason ?? (result.status === "incomplete" ? "incomplete" : "unknown");
   }
@@ -3403,6 +3401,7 @@ ${qualityRetryInstruction}`
         context_pack_cache_hits: contextPackCacheHits,
         answer_retry_count: answerRetryCount,
         answer_retry_reasons: [...answerRetryReasons],
+        provider_generation_truncated: providerGenerationTruncated,
         search_latency_ms: searchLatencyMs,
         generation_latency_ms: generationLatencyMs,
         ...routeTimingDiagnostics(),
@@ -3461,7 +3460,6 @@ ${qualityRetryInstruction}`
       relevance,
     }),
   });
-  // Preserve the first deterministic quality verdict even if the repair call fails.
   let initialGenerationQualityFailure: ReturnType<typeof generationQualityFailureDiagnostics> = null;
   try {
     await args.onProgress?.({
@@ -3567,6 +3565,10 @@ ${qualityRetryInstruction}`
         answerRetryReasons.push(`fast_source_backed_extractive_recovery:${retryReason}`);
         throw new Error(`source_backed_extractive_recovery:${retryReason}`);
       }
+      if (!deadlineAllowsGenerationRetry(routeDeadline)) {
+        answerRetryReasons.push(`fast_quality_retry_skipped_budget_reserve:${retryReason}`);
+        throw new Error(`source_backed_extractive_recovery:${retryReason}`);
+      }
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
@@ -3618,17 +3620,11 @@ ${qualityRetryInstruction}`
         "provider_source_gap",
         summarizeGenerationQualityAnswerShape(answer),
       );
-    // Whether the answer was produced by the strong path (either routed strong from the
-    // start or escalated via retry). Tracked by flag rather than model identity so it stays
-    // correct when fast and strong tiers share a model.
     const usedStrongModel = route.mode === "strong" || retriedWithStrong;
     const strongQualityFailureReason = usedStrongModel
       ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
       : null;
     if (route.mode === "strong" && queryClass === "comparison" && strongQualityFailureReason) {
-      // A second strong-model pass is expensive and pushes comparison requests beyond the
-      // latency target. The catch path can rebuild these answers deterministically from the
-      // same attributed sources, so prefer that bounded recovery over another generation.
       throw new GenerationQualityError(
         "strong_gate",
         strongQualityFailureReason,
@@ -3636,17 +3632,20 @@ ${qualityRetryInstruction}`
       );
     }
     const answerNeedsStrongQualityRepair = usedStrongModel && Boolean(strongQualityFailureReason);
-    if (answerNeedsStrongQualityRepair && generationLatencyMs >= generationTotalBudgetMs) {
-      // A4 tail-latency guard: out of the cumulative generation time budget, so keep the
-      // valid (if imperfect) cited strong answer instead of spending a third generation
-      // and risking a truncation -> unsupported tail. Recorded for observability.
-      answerRetryReasons.push(`strong_quality_repair_skipped_time_budget:${strongQualityFailureReason}`);
-    } else if (answerNeedsStrongQualityRepair && strongQualityFailureReason) {
+    if (answerNeedsStrongQualityRepair && strongQualityFailureReason) {
       initialGenerationQualityFailure = {
         stage: "strong_gate",
         gateReason: strongQualityFailureReason,
         answerShape: summarizeGenerationQualityAnswerShape(answer),
       };
+      if (!deadlineAllowsGenerationRetry(routeDeadline)) {
+        answerRetryReasons.push(`strong_quality_repair_skipped_budget_reserve:${strongQualityFailureReason}`);
+        throw new GenerationQualityError(
+          "strong_gate",
+          strongQualityFailureReason,
+          initialGenerationQualityFailure.answerShape,
+        );
+      }
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
       answerRetryReasons.push("strong_quality_retry");
@@ -3704,6 +3703,7 @@ ${qualityRetryInstruction}`
       context_pack_cache_hits: contextPackCacheHits,
       answer_retry_count: answerRetryCount,
       answer_retry_reasons: [...answerRetryReasons],
+      provider_generation_truncated: providerGenerationTruncated,
       search_latency_ms: searchLatencyMs,
       generation_latency_ms: generationLatencyMs,
       ...routeTimingDiagnostics(),

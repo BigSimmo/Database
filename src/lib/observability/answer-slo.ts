@@ -82,7 +82,7 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
     ),
     // fallback_reason values look like "...generation_fallback:provider_incomplete_max_output_tokens"
     // and "...generation_fallback:provider_timeout" (confirmed in live rag_queries).
-    base().ilike("metadata->>fallback_reason", "%max_output_tokens%"),
+    base().or("metadata->>provider_generation_truncated.eq.true,metadata->>fallback_reason.ilike.%max_output_tokens%"),
     base().or("metadata->>fallback_reason_code.eq.provider_timeout,metadata->>fallback_reason.ilike.%timeout%"),
   ]);
 

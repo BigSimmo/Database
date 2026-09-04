@@ -249,9 +249,15 @@ export function answerStateFromRetrieval(input: AnswerStateInput): AnswerState {
 
   if (input.answerQualityTier === "source_only") {
     const generationFailed = input.fallbackReasonCode
-      ? ["provider_auth", "provider_quota", "provider_rate_limit", "provider_timeout", "provider_failure"].includes(
-          input.fallbackReasonCode,
-        )
+      ? [
+          "provider_offline",
+          "provider_missing_key",
+          "provider_auth",
+          "provider_quota",
+          "provider_rate_limit",
+          "provider_timeout",
+          "provider_failure",
+        ].includes(input.fallbackReasonCode)
       : generationFallbackMarker.test(`${input.fallbackReason ?? ""} ${input.routingReason ?? ""}`);
     return {
       kind: "source_only",

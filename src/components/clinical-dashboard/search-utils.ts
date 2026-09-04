@@ -3,11 +3,17 @@ import {
   type AnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { isAnswerStreamEventName, type VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
+import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
+import { isRagFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
 import type { RagAnswer } from "@/lib/types";
 
 export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
 
-export type AnswerPayload = RagAnswer & { demoMode?: boolean };
+export type AnswerPayload = ClientRagAnswerPayload &
+  Pick<RagAnswer, "interactionId" | "feedbackToken"> & {
+    demoMode?: boolean;
+    fallbackMode?: "non_production_demo";
+  };
 
 export function evidencePreviewReconcilesWithFinal(preview: VerifiedEvidencePreviewUnit, finalPayload: AnswerPayload) {
   const finalSourcesByIdentity = new Map(
@@ -29,6 +35,8 @@ export function isAnswerPayload(value: unknown): value is AnswerPayload {
     answerConfidenceValues.has(payload.confidence as AnswerPayload["confidence"]) &&
     Array.isArray(payload.citations) &&
     Array.isArray(payload.sources) &&
+    (payload.fallbackReasonCode == null || isRagFallbackReasonCode(payload.fallbackReasonCode)) &&
+    (payload.retrievalGateBlocked === undefined || typeof payload.retrievalGateBlocked === "boolean") &&
     (payload.demoMode === undefined || typeof payload.demoMode === "boolean")
   );
 }

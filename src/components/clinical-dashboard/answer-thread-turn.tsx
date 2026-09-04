@@ -12,7 +12,8 @@ import {
 import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
+import type { SearchResult } from "@/lib/types";
 
 /**
  * A completed Q&A exchange kept on screen after a newer answer arrives, so
@@ -21,7 +22,7 @@ import type { RagAnswer, SearchResult } from "@/lib/types";
 export type AnswerTurn = {
   id: string;
   query: string;
-  answer: RagAnswer;
+  answer: AnswerPayload;
   sources: SearchResult[];
 };
 

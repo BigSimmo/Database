@@ -15,7 +15,11 @@ import {
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer } from "@/lib/types";
-import { classifyRagFallbackReason, isProviderGenerationFallbackCode } from "@/lib/rag/rag-fallback-reason";
+import {
+  classifyRagFallbackReason,
+  isProviderGenerationFallbackCode,
+  normalizeRagFallbackReasonCode,
+} from "@/lib/rag/rag-fallback-reason";
 
 // Per-answer observability (threat-model §7 follow-up).
 //
@@ -70,7 +74,9 @@ function meanHybridScore(sources: AnswerTelemetrySource["sources"]): number | nu
 }
 
 function boundedFallbackReasonCode(answer: AnswerTelemetrySource) {
-  if (Object.prototype.hasOwnProperty.call(answer, "fallbackReasonCode")) return answer.fallbackReasonCode ?? null;
+  if (Object.prototype.hasOwnProperty.call(answer, "fallbackReasonCode")) {
+    return normalizeRagFallbackReasonCode(answer.fallbackReasonCode);
+  }
   const legacyReason = [answer.fallbackReason, answer.degradedMode?.reason, answer.routingReason]
     .filter(Boolean)
     .join("; ");
@@ -110,6 +116,7 @@ export function buildAnswerLogRow(args: {
     generation_latency_ms: finiteOrNull(timings.generation_latency_ms),
     search_latency_ms: finiteOrNull(timings.search_latency_ms),
     answer_retry_count: finiteOrNull(timings.answer_retry_count),
+    provider_generation_truncated: timings.provider_generation_truncated === true,
     embedding_prefetched: typeof timings.embedding_prefetched === "boolean" ? timings.embedding_prefetched : null,
     request_ids: answer.openAIRequestIds ?? [],
     interaction_id: args.interactionId,
@@ -180,6 +187,7 @@ export function buildRagQueryLogRow(args: {
       fallback_reason_code: fallbackReasonCode,
       degraded: args.answer.degradedMode?.active ?? false,
       provider_generation_degraded: isProviderGenerationFallbackCode(fallbackReasonCode),
+      provider_generation_truncated: args.answer.latencyTimings?.provider_generation_truncated === true,
       model_used: args.answer.modelUsed ?? null,
       ...buildRagQueryMetadata(args.programmeTelemetry, env.RAG_TELEMETRY_EXTENDED),
       ...queryPrivacyMetadata(args.query),

@@ -24,6 +24,17 @@ const fallbackCodes = new Set<RagFallbackReasonCode>([
   "unknown",
 ]);
 
+export function normalizeRagFallbackReasonCode(value: unknown): RagFallbackReasonCode | null {
+  if (value == null) return null;
+  return typeof value === "string" && fallbackCodes.has(value as RagFallbackReasonCode)
+    ? (value as RagFallbackReasonCode)
+    : "unknown";
+}
+
+export function isRagFallbackReasonCode(value: unknown): value is RagFallbackReasonCode {
+  return typeof value === "string" && normalizeRagFallbackReasonCode(value) === value;
+}
+
 export type RagFallbackInput = {
   fallbackReasonCode?: RagFallbackReasonCode | null;
   insufficiencyReason?: RagInsufficiencyReason | null;
@@ -95,7 +106,7 @@ function legacyFallbackReason(reason: string): RagFallbackReasonCode {
 }
 
 export function classifyRagFallbackReason(input: RagFallbackInput): RagFallbackReasonCode {
-  if (input.fallbackReasonCode && fallbackCodes.has(input.fallbackReasonCode)) return input.fallbackReasonCode;
+  if (input.fallbackReasonCode != null) return normalizeRagFallbackReasonCode(input.fallbackReasonCode) ?? "unknown";
   if (input.insufficiencyReason) return insufficiencyFallback[input.insufficiencyReason] ?? "unknown";
   if (input.providerFailure) return providerFailureCodes[input.providerFailure] ?? "unknown";
   return input.routingReason ? legacyFallbackReason(input.routingReason) : "unknown";

@@ -76,6 +76,10 @@ export function answerStateCaveat(state: AnswerState): string | null {
       return `only ${state.retrieved} of ${state.requested} sources were available for this answer.`;
     case "ungrounded":
       return UNGROUNDED_CAVEAT[state.reason];
+    case "source_only":
+      return state.reason === "generation_failed"
+        ? "answer generation was unavailable, so this response was assembled directly from the cited sources."
+        : "answer generation did not pass the quality gate, so this response was assembled directly from the cited sources.";
     default:
       return null;
   }

@@ -17,10 +17,11 @@
 import { answerStateFromRetrieval, type AnswerState } from "@/components/ui/answer-state";
 import { isPreformattedGroundedAnswer, primaryAnswerDisplayText } from "@/components/clinical-dashboard/answer-content";
 import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
+import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 export type AnswerCopyInput = {
-  answer: RagAnswer;
+  answer: AnswerPayload;
   /**
    * Search-result fallback for paths that do not populate `answer.sources`.
    * An empty array is treated as unpopulated — `??` alone would keep `[]` and
@@ -84,8 +85,6 @@ export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCo
     citations: answer.citations,
     answerQualityTier: answer.answerQualityTier,
     fallbackReasonCode: answer.fallbackReasonCode,
-    fallbackReason: answer.fallbackReason,
-    routingReason: answer.routingReason,
     grounded: answer.grounded,
     confidence: answer.confidence,
     unverifiedNumericTokens: answer.unverifiedNumericTokens,

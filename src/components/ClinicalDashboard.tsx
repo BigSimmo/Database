@@ -176,6 +176,7 @@ import {
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
+  type AnswerPayload,
   type AnswerErrorKind,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
@@ -240,7 +241,6 @@ import type {
   ImportBatch,
   IngestionJob,
   QuoteCard,
-  RagAnswer,
   AnswerSection,
   SearchResult,
   SearchScopeSummary,
@@ -337,7 +337,7 @@ export function ClinicalDashboard({
   // Suppress autofocus once a mode search/answer has been submitted so hide-on-
   // scroll can reclaim chrome on result views (Answer and other bottom docks).
   const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;
-  const [answer, setAnswer] = useState<RagAnswer | null>(null);
+  const [answer, setAnswer] = useState<AnswerPayload | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
   // exchanges displayed above the latest answer; `latestAnswerQuery` is the
@@ -1781,7 +1781,7 @@ export function ClinicalDashboard({
     setLatestAnswerQuery(committedQuery);
     setAnswer(answerData);
     setSources(answerData.sources ?? []);
-    setSearchRelevance(answerData.relevance ?? answerData.smartPanel?.relevance ?? null);
+    setSearchRelevance(answerData.relevance ?? null);
     setSearchScope(answerData.scope ?? null);
     setSourceGovernanceWarnings((answerData.sourceGovernanceWarnings ?? []) as SourceGovernanceWarning[]);
     setSearchFacets(null);
@@ -2376,8 +2376,8 @@ export function ClinicalDashboard({
           sourceIds: sourceChunkIds,
           citedSourceIds: citedChunkIds,
           route: answer.routingMode ?? null,
-          model: answer.modelUsed ?? null,
-          providerRequestIds: Array.from(new Set(answer.openAIRequestIds ?? [])).slice(0, 10),
+          model: null,
+          providerRequestIds: [],
         }),
       });
 
@@ -2814,14 +2814,14 @@ export function ClinicalDashboard({
   );
   const visualEvidence = useMemo(() => answerRenderModel?.visualEvidence ?? [], [answerRenderModel]);
   const relatedDocuments = useMemo(() => answerRenderModel?.relatedDocuments ?? [], [answerRenderModel]);
-  const currentRelevance = answer?.relevance ?? answer?.smartPanel?.relevance ?? searchRelevance;
+  const currentRelevance = answer?.relevance ?? searchRelevance;
   const weakEvidence = answerRenderModel
     ? answerRenderModel.trust === "unsupported" || answerRenderModel.trust === "low"
     : (currentRelevance ? isWeakRelevance(currentRelevance) : answer?.grounded !== true) ||
-      answer?.retrievalDiagnostics?.gateStatus === "blocked";
+      answer?.retrievalGateBlocked === true;
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answerRenderModel?.bestSource ?? null;
-  const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
+  const sourceSummary = answer?.evidenceSummary;
   const answerGrounded =
     answer?.grounded === true &&
     answer.confidence !== "unsupported" &&

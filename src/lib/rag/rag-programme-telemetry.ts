@@ -11,7 +11,7 @@ import {
   type RagObservationContext,
 } from "@/lib/rag/rag-contracts";
 import { ragAnswerQueryPlanDiagnostics } from "@/lib/rag/rag-cache";
-import { classifyRagFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import { classifyRagFallbackReason, normalizeRagFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
 import type {
   RagAnswer,
   RagFallbackReasonCode,
@@ -289,7 +289,9 @@ function emptyProgrammeCounts(): ProgrammeCounts {
 }
 
 function fallbackReasonCodeForAnswer(answer: RagAnswer): RagFallbackReasonCode | null {
-  if (Object.prototype.hasOwnProperty.call(answer, "fallbackReasonCode")) return answer.fallbackReasonCode ?? null;
+  if (Object.prototype.hasOwnProperty.call(answer, "fallbackReasonCode")) {
+    return normalizeRagFallbackReasonCode(answer.fallbackReasonCode);
+  }
   const legacyReason = [answer.fallbackReason, answer.degradedMode?.reason, answer.routingReason]
     .filter(Boolean)
     .join("; ");
@@ -442,11 +444,19 @@ export async function recordRagQueryForAnswer<T extends RagQueryObservationRow>(
   row: T,
   legacyWriter: (row: T) => Promise<void>,
 ): Promise<void> {
-  if (!context) return legacyWriter(row);
+  const loggedRow = {
+    ...row,
+    metadata: {
+      ...row.metadata,
+      fallback_reason_code: fallbackReasonCodeForAnswer(answer),
+      provider_generation_truncated: Boolean(answer.latencyTimings?.provider_generation_truncated),
+    },
+  } as T;
+  if (!context) return legacyWriter(loggedRow);
   setRagQueryObservation(answer, {
-    sourceChunkIds: row.source_chunk_ids ?? [],
-    model: row.model ?? null,
-    metadata: row.metadata ?? {},
+    sourceChunkIds: loggedRow.source_chunk_ids ?? [],
+    model: loggedRow.model ?? null,
+    metadata: loggedRow.metadata ?? {},
   });
 }
 

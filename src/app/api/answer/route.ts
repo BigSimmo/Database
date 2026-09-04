@@ -31,6 +31,7 @@ import * as serverAuth from "@/lib/supabase/auth";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
+import { toClientSearchScopeSummary } from "@/lib/answer-client-payload";
 
 export const runtime = "nodejs";
 
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ...governedEmptyResponse.payload,
-          scope: { ...scope, queryMode: answerBody.queryMode },
+          scope: toClientSearchScopeSummary(scope, answerBody.queryMode),
           ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
         },
         serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
@@ -171,7 +172,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ...governedResponse.payload,
-        scope: { ...scope, queryMode: answerBody.queryMode },
+        scope: toClientSearchScopeSummary(scope, answerBody.queryMode),
         ...answerFeedbackMetadata(interactionId, governedResponse.payload.answer),
       },
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,

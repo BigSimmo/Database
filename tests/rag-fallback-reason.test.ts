@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyRagFallbackReason, publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import {
+  classifyRagFallbackReason,
+  isRagFallbackReasonCode,
+  publicFallbackReason,
+} from "@/lib/rag/rag-fallback-reason";
 
 describe("sanitized RAG fallback reasons", () => {
+  it("accepts only canonical non-null runtime codes", () => {
+    expect(isRagFallbackReasonCode("provider_timeout")).toBe(true);
+    expect(isRagFallbackReasonCode(null)).toBe(false);
+    expect(isRagFallbackReasonCode("provider_future_mode")).toBe(false);
+  });
+
   it("maps provider failures to stable public codes without internals", () => {
     expect(classifyRagFallbackReason({ providerFailure: "timeout" })).toBe("provider_timeout");
     expect(
@@ -27,6 +37,22 @@ describe("sanitized RAG fallback reasons", () => {
         routingReason: "quota exceeded",
       }),
     ).toBe("site_content_stale");
+  });
+
+  it("maps malformed or future runtime typed values to unknown without consulting legacy text", () => {
+    expect(
+      classifyRagFallbackReason({
+        fallbackReasonCode: "provider_timeout\nprivate-host?token=secret" as never,
+        providerFailure: "timeout",
+        routingReason: "provider_timeout",
+      }),
+    ).toBe("unknown");
+    expect(
+      classifyRagFallbackReason({
+        fallbackReasonCode: { future: "provider_timeout" } as never,
+        routingReason: "provider_timeout",
+      }),
+    ).toBe("unknown");
   });
 
   it("maps unknown legacy details to unknown rather than copying sensitive text", () => {

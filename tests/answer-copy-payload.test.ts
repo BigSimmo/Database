@@ -111,6 +111,25 @@ describe("answerStateForAnswer · empty sources fallback", () => {
 
     expect(state).toEqual({ kind: "source_only", reason: "quality_gate" });
   });
+
+  it("describes offline generation as unavailable rather than a quality-gate failure", () => {
+    const offlineAnswer: RagAnswer = {
+      ...answerWith([]),
+      answerQualityTier: "source_only",
+      fallbackReasonCode: "provider_offline",
+    };
+
+    expect(answerStateForAnswer({ answer: offlineAnswer })).toEqual({
+      kind: "source_only",
+      reason: "generation_failed",
+    });
+    expect(
+      buildAnswerClipboardText({
+        answer: offlineAnswer,
+        renderCopyText: "Clinical answer draft\n\nAnswer\nStart at 12.5 mg at night.",
+      }),
+    ).toMatch(/answer generation was unavailable/i);
+  });
 });
 
 describe("buildAnswerClipboardText · single-document provenance", () => {

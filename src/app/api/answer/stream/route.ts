@@ -38,6 +38,7 @@ import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-s
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
+import { toClientSearchScopeSummary } from "@/lib/answer-client-payload";
 
 export const runtime = "nodejs";
 
@@ -227,7 +228,7 @@ function streamAnswer(
             });
             sendFinal({
               ...governedEmptyResponse.payload,
-              scope: { ...scope, queryMode: body.queryMode },
+              scope: toClientSearchScopeSummary(scope, body.queryMode),
               ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
             });
             return;
@@ -273,7 +274,7 @@ function streamAnswer(
 
           sendFinal({
             ...governedResponse.payload,
-            scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
+            scope: scope ? toClientSearchScopeSummary(scope, body.queryMode) : undefined,
             ...streamAnswerFeedbackMetadata(interactionId, governedResponse.payload.answer),
           });
         } catch (error) {

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { toClientAnswerPayload } from "@/lib/answer-client-payload";
+import { toClientAnswerPayload, type ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { issueContextPackAdmissionReceipt } from "@/lib/rag/rag-context-admission";
@@ -42,8 +42,14 @@ function fullSource(overrides: Partial<SearchResult> = {}): SearchResult {
   } as SearchResult;
 }
 
-function answerWith(sources: SearchResult[]): Pick<RagAnswer, "sources"> {
-  return { sources };
+function answerWith(sources: SearchResult[]): RagAnswer {
+  return {
+    answer: "Use the cited source.",
+    grounded: true,
+    confidence: "high",
+    citations: [],
+    sources,
+  };
 }
 
 describe("toClientAnswerPayload", () => {
@@ -150,9 +156,25 @@ describe("toClientAnswerPayload", () => {
       ...answerWith([]),
       routingReason: "server-only-routing",
       futureServerSecret: "must-not-cross-boundary",
-    } as Pick<RagAnswer, "sources" | "routingReason"> & { futureServerSecret: string };
-    expect(toClientAnswerPayload(empty)).toEqual({ sources: [] });
+    } as RagAnswer & { futureServerSecret: string };
+    expect(toClientAnswerPayload(empty)).toEqual({
+      answer: "Use the cited source.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+      retrievalGateBlocked: false,
+    });
     expect(toClientAnswerPayload(empty)).not.toBe(empty);
+  });
+
+  it("returns an explicit allowlisted client type without private answer fields", () => {
+    const payload = toClientAnswerPayload(answerWith([]));
+
+    expectTypeOf(payload).toEqualTypeOf<ClientRagAnswerPayload>();
+    expectTypeOf(payload).not.toHaveProperty("routingReason");
+    expectTypeOf(payload).not.toHaveProperty("fallbackReason");
+    expectTypeOf(payload).not.toHaveProperty("retrievalDiagnostics");
   });
 
   it("materially shrinks a representative payload", () => {

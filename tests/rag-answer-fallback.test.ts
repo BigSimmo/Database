@@ -149,6 +149,16 @@ async function answerFromTextSources(
     forceGenerationFallbackResultIds?: string[];
     forceGenerationRoute?: boolean;
     captureLoggedRow?: (row: { source_chunk_ids?: string[]; metadata?: Record<string, unknown> }) => void;
+    generationAttemptElapsedMs?: readonly number[];
+    captureGenerationOptions?: (
+      options: { timeoutMs?: number; maxRetries?: number; signal?: AbortSignal },
+      attemptIndex: number,
+    ) => void;
+    beforeGenerationAttempt?: (
+      options: { timeoutMs?: number; maxRetries?: number; signal?: AbortSignal },
+      attemptIndex: number,
+    ) => void;
+    signal?: AbortSignal;
   } = {},
 ) {
   // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
@@ -300,9 +310,14 @@ async function answerFromTextSources(
     }),
   }));
   let generatedAnswerAttemptIndex = 0;
-  const generateStructuredTextResult = vi.fn(async (input: string) => {
+  const generateStructuredTextResult = vi.fn(async (input: string, _schema: unknown, providerOptions = {}) => {
     options.captureInput?.(input);
-    const attempt = Array.isArray(generatedAnswer) ? generatedAnswer[generatedAnswerAttemptIndex++] : generatedAnswer;
+    const attemptIndex = generatedAnswerAttemptIndex++;
+    options.captureGenerationOptions?.(providerOptions, attemptIndex);
+    options.beforeGenerationAttempt?.(providerOptions, attemptIndex);
+    const elapsedMs = options.generationAttemptElapsedMs?.[attemptIndex] ?? 0;
+    if (elapsedMs > 0) vi.setSystemTime(new Date(Date.now() + elapsedMs));
+    const attempt = Array.isArray(generatedAnswer) ? generatedAnswer[attemptIndex] : generatedAnswer;
     if (attempt === "truncated") {
       return {
         text: "",
@@ -436,6 +451,7 @@ async function answerFromTextSources(
     skipCache: true,
     sourcePolicyConflicts: options.sourcePolicyConflicts,
     onProgress: options.captureProgress,
+    signal: options.signal,
     ...(options.governed
       ? {
           observationContext: {
@@ -6101,14 +6117,172 @@ describe("budget-aware generation deadlines", () => {
     vi.useRealTimers();
   });
 
+  const qualityRetrySources = [
+    source({
+      id: "deadline-quality-a",
+      document_id: "deadline-guide-a",
+      title: "Monitoring Pathway Guide A",
+      content: "Guide A outlines routine monitoring steps and referral thresholds.",
+    }),
+    source({
+      id: "deadline-quality-b",
+      document_id: "deadline-guide-b",
+      title: "Monitoring Pathway Guide B",
+      content: "Guide B outlines a second monitoring pathway and escalation thresholds.",
+    }),
+  ];
+  const templateQualityAnswer: GeneratedAnswerPayload = {
+    answer: "Compare the document monitoring pathways using the source-backed guidance.",
+    grounded: true,
+    confidence: "high",
+    answerSections: [],
+    citations: [{ chunk_id: "deadline-quality-a" }],
+    quoteCards: [],
+    conflictsOrGaps: [],
+  };
+  const repairedQualityAnswer: GeneratedAnswerPayload = {
+    answer: "Guide A and Guide B both require routine monitoring, with escalation at their stated referral thresholds.",
+    grounded: true,
+    confidence: "high",
+    answerSections: [],
+    citations: [{ chunk_id: "deadline-quality-a" }, { chunk_id: "deadline-quality-b" }],
+    quoteCards: [],
+    conflictsOrGaps: [],
+  };
+
+  async function comparisonQualityAnswer(
+    elapsedMs: readonly number[],
+    capture: Array<{ timeoutMs?: number; maxRetries?: number; signal?: AbortSignal }>,
+    signal?: AbortSignal,
+    beforeGenerationAttempt?: (options: { signal?: AbortSignal }, attemptIndex: number) => void,
+  ) {
+    return answerFromTextSources(
+      "Compare document monitoring pathways across two guides",
+      qualityRetrySources,
+      [templateQualityAnswer, templateQualityAnswer, repairedQualityAnswer],
+      {
+        generationAttemptElapsedMs: elapsedMs,
+        captureGenerationOptions: (options) => capture.push(options),
+        beforeGenerationAttempt,
+        signal,
+      },
+    );
+  }
+
+  it("admits fast quality escalation at the exact retry threshold with the shared provider contract", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    const calls: Array<{ timeoutMs?: number; maxRetries?: number; signal?: AbortSignal }> = [];
+
+    const answer = await comparisonQualityAnswer([3_000, 0, 0], calls);
+
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(calls[0]?.maxRetries).toBe(0);
+    expect(calls[1]?.maxRetries).toBe(0);
+    expect(calls[0]?.signal).toBe(calls[1]?.signal);
+    expect(answer.latencyTimings?.answer_retry_reasons).not.toContainEqual(
+      expect.stringMatching(/^fast_quality_retry_skipped_budget_reserve:/),
+    );
+  });
+
+  it("denies fast quality escalation one millisecond below the retry threshold", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    const calls: Array<{ timeoutMs?: number; maxRetries?: number; signal?: AbortSignal }> = [];
+
+    const answer = await comparisonQualityAnswer([3_001], calls);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.maxRetries).toBe(0);
+    expect(calls[0]?.signal).toBeInstanceOf(AbortSignal);
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain(
+      "fast_quality_retry_skipped_budget_reserve:fast_template_retry_strong",
+    );
+    expect(answer.routingReason).toContain("source_backed");
+  });
+
+  it("admits and denies strong quality repair exactly at the retry threshold", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    const admittedCalls: Array<{ timeoutMs?: number; maxRetries?: number; signal?: AbortSignal }> = [];
+    const admitted = await answerFromTextSources(
+      "what monitoring is required for clozapine",
+      [
+        source({
+          id: "deadline-quality-a",
+          document_id: "deadline-guide-a",
+          title: "Medication guideline",
+          content:
+            "Complete clozapine consent documentation and the monitoring form at initiation, with routine safety review.",
+        }),
+      ],
+      [templateQualityAnswer, repairedQualityAnswer],
+      {
+        generationAttemptElapsedMs: [13_000, 0],
+        captureGenerationOptions: (options) => admittedCalls.push(options),
+        forceGenerationRoute: true,
+      },
+    );
+    expect(admittedCalls).toHaveLength(2);
+    expect(admittedCalls[0]?.signal).toBe(admittedCalls[1]?.signal);
+    expect(admittedCalls.every((call) => call.maxRetries === 0)).toBe(true);
+    expect(admitted.latencyTimings?.answer_retry_reasons).toContain("strong_quality_retry");
+
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    const deniedCalls: Array<{ timeoutMs?: number; maxRetries?: number; signal?: AbortSignal }> = [];
+    const denied = await answerFromTextSources(
+      "what monitoring is required for clozapine",
+      [
+        source({
+          id: "deadline-quality-a",
+          document_id: "deadline-guide-a",
+          title: "Medication guideline",
+          content:
+            "Complete clozapine consent documentation and the monitoring form at initiation, with routine safety review.",
+        }),
+      ],
+      [templateQualityAnswer, repairedQualityAnswer],
+      {
+        generationAttemptElapsedMs: [13_001],
+        captureGenerationOptions: (options) => deniedCalls.push(options),
+        forceGenerationRoute: true,
+      },
+    );
+    expect(deniedCalls).toHaveLength(1);
+    expect(denied.latencyTimings?.answer_retry_reasons).toContainEqual(
+      expect.stringMatching(/^strong_quality_repair_skipped_budget_reserve:/),
+    );
+    expect(denied.routingReason).toContain("source_backed");
+  });
+
+  it("rethrows caller abort without entering deterministic recovery", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    const controller = new AbortController();
+    const reason = new DOMException("caller stopped", "AbortError");
+    const calls: Array<{ timeoutMs?: number; maxRetries?: number; signal?: AbortSignal }> = [];
+
+    await expect(
+      comparisonQualityAnswer([0], calls, controller.signal, (_options, attemptIndex) => {
+        if (attemptIndex === 0) controller.abort(reason);
+      }),
+    ).rejects.toBe(reason);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.signal?.aborted).toBe(true);
+  });
+
   /** Mirrors the "recovers lithium dosing" fixture above: a fast-routed dose query whose
    * every generation attempt resolves truncated (max_output_tokens). The first attempt
    * optionally burns fake wall-clock before resolving, so the remaining route budget can
    * be pushed below the recovery reserve + retry viability floor. */
-  async function lithiumTruncatedGenerationAnswer(consumeFirstAttemptMs: number) {
+  async function lithiumTruncatedGenerationAnswer(
+    consumeFirstAttemptMs: number,
+    captureLoggedRow?: (row: { metadata?: Record<string, unknown> }) => void,
+  ) {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+    if (captureLoggedRow) vi.stubEnv("RAG_AWAIT_QUERY_LOGS", "true");
 
     const waSource = (overrides: Partial<SearchResult>, publisherCode: "FSH" | "EMHS") =>
       source({
@@ -6224,7 +6398,11 @@ describe("budget-aware generation deadlines", () => {
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({
         rpc,
-        from: vi.fn(() => new EmptyQuery()),
+        from: vi.fn((table: string) =>
+          table === "rag_queries" && captureLoggedRow
+            ? { insert: vi.fn(async (row) => (captureLoggedRow(row), { error: null })) }
+            : new EmptyQuery(),
+        ),
       }),
     }));
     vi.doMock("@/lib/openai", () => ({
@@ -6236,7 +6414,7 @@ describe("budget-aware generation deadlines", () => {
     const answer = await answerQuestionWithScope({
       query: "Lithium dosing",
       ownerId: undefined,
-      logQuery: false,
+      logQuery: Boolean(captureLoggedRow),
       skipCache: true,
     });
     return { answer, generateStructuredTextResult };
@@ -6345,7 +6523,10 @@ describe("budget-aware generation deadlines", () => {
     // resolves truncated: the 15_000ms left is below generationRecoveryReserveMs +
     // minimumGenerationRetryMs (22_000ms), so the strong self-heal must be skipped
     // instead of spending the recovery reserve on a guaranteed-discard retry.
-    const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000);
+    let loggedRow: { metadata?: Record<string, unknown> } | undefined;
+    const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000, (row) => {
+      loggedRow = row;
+    });
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
     // The skip is recorded without counting as a retry; the terminal truncation throw
@@ -6362,6 +6543,9 @@ describe("budget-aware generation deadlines", () => {
     expect(answer.confidence).not.toBe("unsupported");
     expect(answer.citations.length).toBeGreaterThan(0);
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/lithium|250 mg/i);
+    expect(answer.latencyTimings?.provider_generation_truncated).toBe(true);
+    expect(loggedRow?.metadata?.provider_generation_truncated).toBe(true);
+    expect(loggedRow?.metadata?.fallback_reason_code).toBe(answer.fallbackReasonCode);
   });
 
   it("keeps the truncation self-heal when the budget reserve still fits", async () => {

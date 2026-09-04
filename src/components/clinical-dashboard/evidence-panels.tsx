@@ -1306,13 +1306,12 @@ export { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/
 export function AnswerSafetyNotice({
   demoMode,
   weakEvidence = false,
-  retrievalDiagnostics,
+  retrievalGateBlocked = false,
 }: {
   demoMode: boolean;
   weakEvidence?: boolean;
-  retrievalDiagnostics?: RagAnswer["retrievalDiagnostics"];
+  retrievalGateBlocked?: boolean;
 }) {
-  const retrievalGateBlocked = retrievalDiagnostics?.gateStatus === "blocked";
   return (
     <div
       data-testid="answer-safety-notice"

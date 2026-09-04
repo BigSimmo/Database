@@ -3,6 +3,7 @@ import { normalizeSectionText, splitBalancedWords } from "@/lib/rag/rag-answer-t
 import {
   fallbackReasonFromRouting,
   isProviderGenerationFallbackCode,
+  normalizeRagFallbackReasonCode,
   type RagFallbackInput,
 } from "@/lib/rag/rag-fallback-reason";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -43,7 +44,7 @@ export function deriveConfidence(
   return "low";
 }
 
-export { fallbackReasonFromRouting };
+export { fallbackReasonFromRouting, normalizeRagFallbackReasonCode };
 
 /** True only when model generation failed and the answer fell back locally. */
 export function isProviderGenerationDegraded(input?: string | null | RagFallbackInput) {

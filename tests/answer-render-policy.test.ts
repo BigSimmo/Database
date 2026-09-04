@@ -136,6 +136,13 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 }
 
 describe("answer render policy", () => {
+  it("caps trust and adds a warning from the bounded retrieval gate signal", () => {
+    const model = buildAnswerRenderModel(answer({ retrievalGateBlocked: true }));
+
+    expect(model.trust).toBe("low");
+    expect(model.warnings).toContain("Retrieval confidence gate was blocked for low signal.");
+  });
+
   it("labels review-only citations accurately instead of calling them generated-answer citations", () => {
     const model = buildAnswerRenderModel(
       answer({

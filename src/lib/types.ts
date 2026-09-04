@@ -1243,6 +1243,8 @@ export type RagAnswer = {
   supportedClaims?: SupportedClaim[];
   evidenceAssessments?: Record<string, EvidenceAssessment>;
   retrievalDiagnostics?: RetrievalDiagnostics;
+  /** Bounded browser-safe projection of retrievalDiagnostics.gateStatus. */
+  retrievalGateBlocked?: boolean;
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;
@@ -1293,6 +1295,8 @@ export type RagAnswer = {
     context_pack_cache_hits?: number;
     answer_retry_count?: number;
     answer_retry_reasons?: string[];
+    /** Server-only bounded observation that any provider generation result was truncated. */
+    provider_generation_truncated?: boolean;
     /** Cache-version refresh plus answer-cache lookups before retrieval starts. These run
      * inside the route budget but outside every retrieval phase timer. Additive. */
     pre_retrieval_latency_ms?: number;

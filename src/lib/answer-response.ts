@@ -7,7 +7,11 @@ import {
 } from "@/lib/source-governance";
 import type { RagAnswer, SafetyWarning } from "@/lib/types";
 import { carryRagProgrammeTelemetry } from "@/lib/rag/rag-programme-telemetry";
-import { classifyRagFallbackReason, publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import {
+  classifyRagFallbackReason,
+  normalizeRagFallbackReasonCode,
+  publicFallbackReason,
+} from "@/lib/rag/rag-fallback-reason";
 
 function answerFallbackReasonCode(
   answer?: Pick<
@@ -16,7 +20,7 @@ function answerFallbackReasonCode(
   >,
 ) {
   if (!answer) return null;
-  if (answer.fallbackReasonCode) return answer.fallbackReasonCode;
+  if (answer.fallbackReasonCode != null) return normalizeRagFallbackReasonCode(answer.fallbackReasonCode) ?? "unknown";
   const active = answer.degradedMode?.active === true || answer.answerQualityTier === "source_only";
   if (!active && !answer.fallbackReason && !answer.routingReason) return null;
   const code = classifyRagFallbackReason({
@@ -56,7 +60,10 @@ export function answerDegradedModeSignal(
   >,
 ) {
   const fallbackReasonCode = answerFallbackReasonCode(answer);
-  const active = answer?.degradedMode?.active === true || answer?.answerQualityTier === "source_only";
+  const active =
+    answer?.degradedMode?.active === true ||
+    answer?.answerQualityTier === "source_only" ||
+    answer?.fallbackReasonCode != null;
   return {
     active,
     reason: active ? publicFallbackReason(fallbackReasonCode ?? "unknown") : null,
@@ -106,6 +113,8 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
           fallbackReasonCode: "source_governance_block",
           answerQualityTier: "source_only",
         }),
+        retrievalGateBlocked:
+          answer.retrievalGateBlocked === true || answer.retrievalDiagnostics?.gateStatus === "blocked",
         sourceGovernanceWarnings: warnings,
         safetyWarnings: [],
       },
@@ -131,17 +140,29 @@ export function buildGovernedDemoAnswerClientResponse(answer: RagAnswer, fallbac
   const demoFallbackCode = fallbackReason
     ? classifyRagFallbackReason({ routingReason: fallbackReason })
     : answerFallbackReasonCode(answer);
-  const governedResponse = buildGovernedAnswerClientResponse({
-    ...answer,
-    ...(fallbackReason ? { fallbackReasonCode: demoFallbackCode, answerQualityTier: "source_only" as const } : {}),
-  });
+  const governedResponse = buildGovernedAnswerClientResponse(answer);
+  const governedCode = answerFallbackReasonCode(answer);
+  const preserveGovernanceCode =
+    governedResponse.refused ||
+    governedCode === "source_governance_block" ||
+    governedCode === "source_conflict" ||
+    governedCode === "source_role_mismatch" ||
+    governedCode === "site_content_updating" ||
+    governedCode === "site_content_stale" ||
+    governedCode === "site_content_unavailable";
+  const fallbackReasonCode = preserveGovernanceCode ? governedResponse.payload.fallbackReasonCode : demoFallbackCode;
   return {
     ...governedResponse.payload,
     demoMode: true as const,
-    ...(fallbackReason ? { fallbackReasonCode: demoFallbackCode } : {}),
-    degradedMode: fallbackReason
-      ? { active: true, reason: publicFallbackReason(demoFallbackCode ?? "unknown") }
-      : answerDegradedModeSignal(answer),
+    ...(fallbackReason
+      ? {
+          fallbackReasonCode,
+          degradedMode: {
+            active: true,
+            reason: publicFallbackReason(fallbackReasonCode ?? "unknown"),
+          },
+        }
+      : {}),
     ...(fallbackReason ? { fallbackMode: "non_production_demo" as const } : {}),
   };
 }

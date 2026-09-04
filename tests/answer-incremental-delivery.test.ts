@@ -221,7 +221,13 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
   it("is byte-identical to the final payload's trim of the same sources", () => {
     const results = [makeSource(), makeSource({ id: "chunk-2", content: "y".repeat(2000) })];
     const unit = buildEvidencePreviewUnit({ results });
-    const finalPayload = toClientAnswerPayload({ sources: results });
+    const finalPayload = toClientAnswerPayload({
+      answer: "Source preview fixture.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: results,
+    });
     expect(JSON.stringify(unit!.sources)).toBe(JSON.stringify(finalPayload.sources));
   });
 

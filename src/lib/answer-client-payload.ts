@@ -1,4 +1,4 @@
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import type { ClinicalQueryMode, RagAnswer, SearchResult, SearchScopeSummary } from "@/lib/types";
 
 // Route-boundary trim of the answer payload. The retrieval pipeline carries
 // full chunk text plus server-only context on every source (adjacent_context
@@ -67,6 +67,7 @@ const answerFieldPolicy = {
   supportedClaims: "server",
   evidenceAssessments: "server",
   retrievalDiagnostics: "server",
+  retrievalGateBlocked: "client",
   modelUsed: "server",
   routingMode: "client",
   routingReason: "server",
@@ -109,6 +110,49 @@ const answerFieldPolicy = {
   faithfulnessWarning: "client",
 } as const satisfies Record<keyof RagAnswer, "client" | "server">;
 
+type ClientAnswerKey = {
+  [Key in keyof typeof answerFieldPolicy]: (typeof answerFieldPolicy)[Key] extends "client" ? Key : never;
+}[keyof typeof answerFieldPolicy];
+
+export type ClientRagAnswerPayload = Pick<RagAnswer, ClientAnswerKey>;
+
+const scopeSummaryMaxChars = 300;
+const scopeWarningMaxChars = 240;
+const scopeWarningMaxCount = 5;
+
+function boundedScopeText(value: unknown, maximum: number): string {
+  if (typeof value !== "string") return "";
+  const normalized = value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.length <= maximum ? normalized : `${normalized.slice(0, maximum - 1).trimEnd()}…`;
+}
+
+/** Allowlisted route/client projection. Resolved document ids and raw filters never cross this boundary. */
+export function toClientSearchScopeSummary(
+  scope: Pick<SearchScopeSummary, "summary" | "activeFilterCount" | "matchedDocumentCount" | "warnings">,
+  queryMode?: ClinicalQueryMode,
+): SearchScopeSummary {
+  const activeFilterCount = Number.isFinite(scope.activeFilterCount)
+    ? Math.max(0, Math.min(1_000, Math.trunc(scope.activeFilterCount)))
+    : 0;
+  const matchedDocumentCount =
+    scope.matchedDocumentCount == null || !Number.isFinite(scope.matchedDocumentCount)
+      ? null
+      : Math.max(0, Math.min(1_000_000, Math.trunc(scope.matchedDocumentCount)));
+  return {
+    summary: boundedScopeText(scope.summary, scopeSummaryMaxChars),
+    activeFilterCount,
+    matchedDocumentCount,
+    warnings: (Array.isArray(scope.warnings) ? scope.warnings : [])
+      .slice(0, scopeWarningMaxCount)
+      .map((warning) => boundedScopeText(warning, scopeWarningMaxChars))
+      .filter(Boolean),
+    ...(queryMode === undefined ? {} : { queryMode }),
+  };
+}
+
 /** Exported for the verified evidence preview (#100), which must cross the route
  * boundary through the exact same trim as the final payload — never a copy of it. */
 export function trimSourceForClient(source: SearchResult): SearchResult {
@@ -129,12 +173,15 @@ export function trimSourceForClient(source: SearchResult): SearchResult {
   return trimmed;
 }
 
-export function toClientAnswerPayload<T extends Pick<RagAnswer, "sources">>(answer: T): T {
+export function toClientAnswerPayload(answer: RagAnswer): ClientRagAnswerPayload {
   const payload = Object.fromEntries(
     (Object.keys(answerFieldPolicy) as Array<keyof RagAnswer>)
       .filter((key) => answerFieldPolicy[key] === "client" && key in answer)
       .map((key) => [key, (answer as Partial<RagAnswer>)[key]]),
-  ) as T;
+  ) as ClientRagAnswerPayload;
   payload.sources = (answer.sources ?? []).map(trimSourceForClient);
+  payload.retrievalGateBlocked =
+    answer.retrievalGateBlocked === true || answer.retrievalDiagnostics?.gateStatus === "blocked";
+  if (answer.scope) payload.scope = toClientSearchScopeSummary(answer.scope, answer.scope.queryMode);
   return payload;
 }

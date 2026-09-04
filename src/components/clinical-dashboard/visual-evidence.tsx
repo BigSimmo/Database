@@ -622,7 +622,7 @@ export function MobileEvidenceSheetContent({
       <AnswerSafetyNotice
         demoMode={demoMode}
         weakEvidence={renderModel.trust !== "high"}
-        retrievalDiagnostics={answer.retrievalDiagnostics}
+        retrievalGateBlocked={answer.retrievalGateBlocked}
       />
       <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
       <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">

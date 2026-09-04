@@ -185,6 +185,19 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     expect(qualityGate).toEqual({ kind: "source_only", reason: "quality_gate" });
   });
 
+  it.each(["provider_offline", "provider_missing_key"] as const)(
+    "treats %s as unavailable generation rather than a quality gate",
+    (fallbackReasonCode) => {
+      expect(
+        answerStateFromRetrieval({
+          sources: [],
+          answerQualityTier: "source_only",
+          fallbackReasonCode,
+        }),
+      ).toEqual({ kind: "source_only", reason: "generation_failed" });
+    },
+  );
+
   it("gives the typed code precedence and parses legacy markers only when it is absent", () => {
     expect(
       answerStateFromRetrieval({
