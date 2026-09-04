@@ -500,6 +500,51 @@ describe("Ward Flow compact chat control", () => {
     ).toThrow(/is not on/);
   });
 
+  /**
+   * ⚠️ THE SIBLING OF THE TEST BELOW, AND THE REASON THAT ONE IS NOT ENOUGH. "Unmounted is an
+   * ordinary state" is true only for a snapshot with nothing uncommitted. With recorded dirty
+   * artifacts it is a positive claim — "there was no uncommitted work" — made from a directory
+   * that does not exist. The caller then reads those artifacts from the same missing path.
+   *
+   * Not hypothetical: `ward-board` records 139 untracked files, and three sibling checkouts under
+   * `.claude/worktrees/` were destroyed by unrelated cleanup on 2026-08-21.
+   */
+  it("refuses an unmounted checkout whose snapshot records uncommitted work, rather than calling it clean", () => {
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-dirty-"), "never-created");
+    const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }).trim();
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf8" }).trim();
+
+    // CONTROL: the same unmounted source with a CLEAN snapshot must still be accepted, or this
+    // test would pass against a validator that simply rejects every unmounted checkout.
+    expect(
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head },
+        { tracked: [], untrackedCount: 0 },
+        "clean-source",
+      ).mounted,
+      "an unmounted checkout with a clean snapshot is still an ordinary state",
+    ).toBe(false);
+
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head },
+        { tracked: [], untrackedCount: 139 },
+        "dirty-source",
+      ),
+    ).toThrow(/not mounted, but the recorded snapshot carries uncommitted work/);
+
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head },
+        { tracked: ["src/x.ts"], untrackedCount: 0 },
+        "dirty-source",
+      ),
+    ).toThrow(/not mounted, but the recorded snapshot carries uncommitted work/);
+  });
+
   it("accepts an intact branch with no worktree mounted, and says so rather than failing", () => {
     const missingPath = path.join(temporaryDirectory("ward-unmounted-"), "never-created");
     const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {

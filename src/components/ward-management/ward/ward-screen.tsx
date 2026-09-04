@@ -831,7 +831,26 @@ export function WardScreen({ unitId }: WardScreenProps) {
               </div>
               <div className={styles.confirmRowMeta}>
                 <WardChip level={confirmedToday.has("empty") ? "accepted" : "stalled"}>
-                  {confirmedToday.has("empty") ? "Confirmed just now" : "Not confirmed since this page opened"}
+                  {/*
+                    ⚠️ BOTH HALVES SCOPED TO THE SESSION, NOT ONLY THE NEGATIVE ONE. This chip read
+                    "Confirmed just now" while its own negative already said "since this page
+                    opened" — and nothing here writes `unit.empty.confirmedAt`, so `WardFreshness`
+                    directly beneath it went on showing the old feed time. One row saying both
+                    "Confirmed just now" and "last confirmed three hours ago", with the false half
+                    in the louder position.
+
+                    ⚠️ A reviewer asked for this to be recorded through reducer state "as the
+                    allocatable confirmation does". There is no such event to send: CONFIRM_CAPACITY
+                    is specifically the allocatable count, and the only writes to `empty.confirmedAt`
+                    are side effects of pulling, releasing and discharging a bed. Recording it needs
+                    a new event and a model decision about what a ward confirming an empty count
+                    MEANS — not this component's to make, the same reason the constraints answer
+                    below carries no field. The wording is the whole of the available fix, and
+                    saying so is better than a silent narrower change.
+                  */}
+                  {confirmedToday.has("empty")
+                    ? "Confirmed since this page opened"
+                    : "Not confirmed since this page opened"}
                 </WardChip>
                 {/*
                  * ⚠️ THIS SAID "Confirmed 07:26" FOR A FIGURE NOBODY CONFIRMED. `unit.empty` is a
@@ -899,7 +918,12 @@ export function WardScreen({ unitId }: WardScreenProps) {
               </div>
               <div className={styles.confirmRowMeta}>
                 <WardChip level={confirmedToday.has("constraints") ? "accepted" : "stalled"}>
-                  {confirmedToday.has("constraints") ? "Confirmed just now" : "Not answered since this page opened"}
+                  {/* Same asymmetry as the empty-bed chip above, and `Unit` records nothing about
+                      this answer at all — so session scope is not a compromise here, it is the
+                      only true thing available. */}
+                  {confirmedToday.has("constraints")
+                    ? "Answered since this page opened"
+                    : "Not answered since this page opened"}
                 </WardChip>
               </div>
               {confirmedToday.has("constraints") ? (
