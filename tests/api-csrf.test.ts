@@ -27,23 +27,34 @@ describe("apiMutationCsrfVerdict", () => {
 
   it("rejects Sec-Fetch-Site: cross-site regardless of Origin", () => {
     expect(
-      apiMutationCsrfVerdict(headersOf({ "sec-fetch-site": "cross-site", origin: "https://psychiatry.tools" }), requestHost),
+      apiMutationCsrfVerdict(
+        headersOf({ "sec-fetch-site": "cross-site", origin: "https://psychiatry.tools" }),
+        requestHost,
+      ),
     ).toEqual({ allowed: false, reason: "cross_site" });
   });
 
   it("allows same-origin Fetch Metadata with no Origin header (existing browser flow)", () => {
-    expect(apiMutationCsrfVerdict(headersOf({ "sec-fetch-site": "same-origin" }), requestHost)).toEqual({ allowed: true });
+    expect(apiMutationCsrfVerdict(headersOf({ "sec-fetch-site": "same-origin" }), requestHost)).toEqual({
+      allowed: true,
+    });
   });
 
   it("allows same-origin Fetch Metadata whose Origin matches the request host", () => {
     expect(
-      apiMutationCsrfVerdict(headersOf({ "sec-fetch-site": "same-origin", origin: "https://psychiatry.tools" }), requestHost),
+      apiMutationCsrfVerdict(
+        headersOf({ "sec-fetch-site": "same-origin", origin: "https://psychiatry.tools" }),
+        requestHost,
+      ),
     ).toEqual({ allowed: true });
   });
 
   it("rejects Sec-Fetch-Site: same-site when Origin is a sibling subdomain", () => {
     expect(
-      apiMutationCsrfVerdict(headersOf({ "sec-fetch-site": "same-site", origin: "https://evil.psychiatry.tools" }), requestHost),
+      apiMutationCsrfVerdict(
+        headersOf({ "sec-fetch-site": "same-site", origin: "https://evil.psychiatry.tools" }),
+        requestHost,
+      ),
     ).toEqual({ allowed: false, reason: "origin_mismatch" });
   });
 
@@ -87,7 +98,11 @@ describe("apiMutationCsrfVerdict", () => {
     ).toEqual({ allowed: true });
     expect(
       apiMutationCsrfVerdict(
-        headersOf({ origin: "https://psychiatry.tools", host: "internal.railway.app", "x-forwarded-host": "psychiatry.tools" }),
+        headersOf({
+          origin: "https://psychiatry.tools",
+          host: "internal.railway.app",
+          "x-forwarded-host": "psychiatry.tools",
+        }),
         "internal.railway.app",
       ),
     ).toEqual({ allowed: true });
@@ -109,7 +124,10 @@ describe("apiMutationCsrfVerdict", () => {
 
   it("does not consult Referer once Fetch Metadata vouches for the request", () => {
     expect(
-      apiMutationCsrfVerdict(headersOf({ "sec-fetch-site": "same-origin", referer: "https://attacker.example/" }), requestHost),
+      apiMutationCsrfVerdict(
+        headersOf({ "sec-fetch-site": "same-origin", referer: "https://attacker.example/" }),
+        requestHost,
+      ),
     ).toEqual({ allowed: true });
   });
 });

@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { appModeHomeHref, appModeSelectionHref } from "@/lib/app-modes";
+import { apiMutationCsrfVerdict, isCsrfGuardedApiRequest } from "@/lib/api-csrf";
 import {
   consolidatedModeHomeTarget,
   standaloneModeSubmittedSearchTarget,
@@ -158,13 +159,11 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (
-    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method) &&
-    pathname.startsWith("/api/") &&
-    !pathname.startsWith("/api/webhooks/")
-  ) {
-    const secFetchSite = request.headers.get("sec-fetch-site");
-    if (secFetchSite === "cross-site") {
+  // Fetch Metadata plus an Origin/Referer host check (see `@/lib/api-csrf` for why
+  // `Sec-Fetch-Site: cross-site` alone is not enough).
+  if (isCsrfGuardedApiRequest(request.method, pathname)) {
+    const verdict = apiMutationCsrfVerdict(request.headers, request.nextUrl.host);
+    if (!verdict.allowed) {
       const response = NextResponse.json(
         { error: "Cross-site request blocked.", code: "cross_site_forbidden" },
         { status: 403 },
