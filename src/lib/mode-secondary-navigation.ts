@@ -105,7 +105,15 @@ export const modeSecondaryNavigationRegistry = {
     { id: "publishers", label: "Publishers", href: "/sources/publishers" },
     { id: "method", label: "Method", href: "/sources/method" },
   ],
-  "on-call": [],
+  // Contacts leads because it is the page a shift actually opens.
+  "on-call": [
+    { id: "contacts", label: "Contacts", href: "/on-call/contacts" },
+    { id: "playbook", label: "Playbook", href: "/on-call/playbook" },
+    { id: "referrals", label: "Referrals", href: "/on-call/referrals" },
+    { id: "orientation", label: "Orientation", href: "/on-call/orientation" },
+    { id: "teaching", label: "Teaching", href: "/on-call/education" },
+    { id: "logistics", label: "Logistics", href: "/on-call/logistics" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -140,6 +148,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "therapy-compass",
   "dictionary",
   "sources",
+  "on-call",
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -231,6 +240,15 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/sources/method") return "method";
     return null;
   }
+  if (modeId === "on-call") {
+    if (pathname === "/on-call/contacts") return "contacts";
+    if (pathname === "/on-call/playbook") return "playbook";
+    if (pathname === "/on-call/referrals") return "referrals";
+    if (pathname === "/on-call/orientation") return "orientation";
+    if (pathname === "/on-call/education") return "teaching";
+    if (pathname === "/on-call/logistics") return "logistics";
+    return null;
+  }
   // Every mode with destinations has a branch above; the rest register none, so
   // nothing can be current. This used to be
   // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
@@ -288,6 +306,16 @@ export function isModeSecondaryNavigationRoute(params: {
   }
   if (modeId === "sources") {
     return ["/sources/search", "/sources/topics", "/sources/publishers", "/sources/method"].includes(pathname);
+  }
+  if (modeId === "on-call") {
+    return [
+      "/on-call/contacts",
+      "/on-call/playbook",
+      "/on-call/referrals",
+      "/on-call/orientation",
+      "/on-call/education",
+      "/on-call/logistics",
+    ].includes(pathname);
   }
   return false;
 }

@@ -45,4 +45,23 @@ describe("rowToOnCallEntry", () => {
     });
     expect(entry.details).toBeNull();
   });
+
+  it("normalizes empty or whitespace-only subtitle to null instead of throwing", () => {
+    const entry = rowToOnCallEntry({
+      id: "11111111-1111-4111-8111-111111111111",
+      section: "contacts",
+      slug: "ward-4b",
+      title: "Ward 4B",
+      subtitle: "",
+      body: null,
+      details: {},
+      linked_document_ids: [],
+      tags: [],
+      is_personal: false,
+      include_on_card: false,
+      sort_order: 0,
+      last_verified_at: null,
+    });
+    expect(entry.subtitle).toBeNull();
+  });
 });

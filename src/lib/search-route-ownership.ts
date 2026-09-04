@@ -107,6 +107,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/medications",
   "/calculators",
   "/tools",
+  "/on-call",
 ] as const;
 
 export function isAlwaysStandaloneShellPath(pathname: string): boolean {

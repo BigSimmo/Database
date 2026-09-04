@@ -30,7 +30,7 @@ export const phoneModeGroups = [
     id: "care",
     label: "Care",
     hint: "Medication, calculators, reference, therapy",
-    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary", "on-call"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;

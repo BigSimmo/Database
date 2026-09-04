@@ -36,6 +36,7 @@ const consolidatedModeHomePaths = {
   "/formulation": "formulation",
   "/differentials": "differentials",
   "/therapy-compass": "therapy-compass",
+  "/on-call": "on-call",
 } as const satisfies Record<string, AppModeId>;
 
 type ConsolidatedModeHomePath = keyof typeof consolidatedModeHomePaths;

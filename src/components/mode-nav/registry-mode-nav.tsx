@@ -5,15 +5,20 @@ import {
   BookMarked,
   ClipboardCheck,
   ClipboardList,
+  Compass,
+  Contact,
   GitCompareArrows,
+  GraduationCap,
   Landmark,
   LibraryBig,
   ListChecks,
   Network,
   Search,
+  Send,
   Sparkles,
   Stethoscope,
   Scale,
+  Truck,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +52,17 @@ export const registryModeNavDensityProfiles = {
   // and Search/Browse were two names for one place.
   dictionary: "balanced-four",
   sources: "balanced-four",
+  // Six destinations — one more than any other adopted mode carries today (the
+  // widest precedent, Therapy Compass, has five). `extended` is the widest
+  // calibrated profile, so it is the closest existing budget rather than a
+  // measured fit. The routes these tabs point at do not exist yet (a later
+  // task adds them), so `tests/ui-mode-nav-density.spec.ts` cannot run against
+  // real pages today — the live density check (`--project=phone`) is owed once
+  // they do. If six labels do not fit inside `extended` there, the decided
+  // fallback is to cut the registry to Contacts, Playbook, Referrals,
+  // Orientation on `balanced-four`, reaching Teaching and Logistics from the
+  // mode home and from search instead — not a third profile.
+  "on-call": "extended",
 } as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
@@ -75,6 +91,12 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   catalogue: LibraryBig,
   publishers: Landmark,
   method: Scale,
+  contacts: Contact,
+  playbook: BookOpenText,
+  referrals: Send,
+  orientation: Compass,
+  teaching: GraduationCap,
+  logistics: Truck,
 };
 
 /**

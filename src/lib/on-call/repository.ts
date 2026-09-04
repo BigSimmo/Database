@@ -18,7 +18,10 @@ export function rowToOnCallEntry(row: Record<string, unknown>): OnCallEntry & { 
     section: row.section,
     slug: row.slug,
     title: row.title,
-    subtitle: row.subtitle ?? null,
+    // The database column permits an empty string. Normalize whitespace-only
+    // or empty subtitles to null so one blank subtitle does not reject the
+    // entire list fetch.
+    subtitle: typeof row.subtitle === "string" && row.subtitle.trim() === "" ? null : (row.subtitle ?? null),
     body: row.body ?? null,
     details: row.details ?? {},
     linkedDocumentIds: row.linked_document_ids ?? [],

@@ -29,7 +29,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   factsheets: ["Search", "Topics"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
   sources: ["Catalogue", "Topics", "Publishers", "Method"],
-  "on-call": [],
+  "on-call": ["Contacts", "Playbook", "Referrals", "Orientation", "Teaching", "Logistics"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -398,6 +398,7 @@ describe("mode secondary navigation registry", () => {
       "dsm",
       "factsheets",
       "formulation",
+      "on-call",
       "sources",
       "specifiers",
       "therapy-compass",
