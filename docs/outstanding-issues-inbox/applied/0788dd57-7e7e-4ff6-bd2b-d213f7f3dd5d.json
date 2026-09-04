@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0788dd57-7e7e-4ff6-bd2b-d213f7f3dd5d",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2a381215-ce49-4ef7-91c4-f1b599e6ed38",
+    "reason": "Overtaken by the reconciliation on main (#2542), not withdrawn on the merits. This was my done request for #0HYHTH. While it sat queued on this branch, another session's competing done for the same row (59f035ef) was reconciled onto main, so #0HYHTH is now closed and this request throws '#0HYHTH is no longer open', blocking the whole inbox from planning. My cancel of 59f035ef (fd9de7fe) had already been overtaken the same way and is recorded as a no-op. Cancelling is the only way to unblock, and the end state it leaves is correct in substance: the row is closed, which is what both requests wanted. What is lost is the outcome TEXT. The recorded outcome describes the scan as it stood at B3 -- two roots, src/components/caring-contacts/workspace and src/app/caring-contacts -- and correctly names the residue outstanding at that time. PR #2521 took the scan to five roots, adding the sealed domain src/lib/caring-contacts/**, src/lib/caring-contacts-server/** and src/app/api/caring-contacts/**, which closes that residue inside the same PR. So the archive now understates the fix by roughly half. A separate update request follows to correct the archived row rather than leaving the ledger describing a smaller change than the one that landed. Recorded here because the mechanism is worth knowing: two sessions each queued a close for one row, whichever reconciles first wins, and the loser does not merely lose -- it hard-fails the planner until someone cancels it."
+  }
+}

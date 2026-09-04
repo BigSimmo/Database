@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { cn, pageContainer } from "@/components/ui-primitives";
 import { CompareIdsChrome, type CompareCatalogItem, type CompareStarterChip } from "@/components/compare";
 import { Button } from "@/components/ui/button";
+import { missingValuePhrase } from "@/components/ui/missing-value";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
 import { THERAPY_MAX_COMPARE, therapyScreenHref } from "@/lib/therapy-compass-navigation";
@@ -30,6 +31,18 @@ import { useClipboard } from "../use-clipboard";
 
 const CBT_SLUG = "cognitive-behavioural-therapy-cbt";
 const ACT_SLUG = "acceptance-and-commitment-therapy-act";
+
+/**
+ * Every fallback below stands for a record that carries neither of the two fields the accessor
+ * reads, so the phrase describes the record and not one field of it: nothing was recorded under
+ * this heading. A dash could not say that, and in a clinical comparison table an empty-looking
+ * cell reads as a negative finding rather than an absent one (SPEC §11).
+ *
+ * These accessors are typed `(t: Therapy) => string` because their output is diffed through a
+ * `Set` for the Differences tab and exported to the clipboard by "Copy set", so the primitive's
+ * string form is used rather than the component — same vocabulary, one source of wording.
+ */
+const NOT_RECORDED = missingValuePhrase("not_recorded");
 
 type Row = {
   key: string;
@@ -54,17 +67,17 @@ const ROWS: Row[] = [
     label: "Best fit",
     icon: Target,
     priority: true,
-    get: (t) => t.bestUsedFor || t.targetSymptoms || "—",
+    get: (t) => t.bestUsedFor || t.targetSymptoms || NOT_RECORDED,
   },
   {
     key: "first",
     label: "What to do first",
     icon: CirclePlay,
-    get: (t) => parseSteps(t.deliverySteps)[0] || summarise(t.mechanism, 1) || "—",
+    get: (t) => parseSteps(t.deliverySteps)[0] || summarise(t.mechanism, 1) || NOT_RECORDED,
   },
-  { key: "time", label: "Time required", icon: Clock, get: (t) => t.timeRequired || t.sessionLength || "—" },
-  { key: "setting", label: "Setting", icon: Shield, get: (t) => t.setting || t.patientPopulation || "—" },
-  { key: "complexity", label: "Clinician skill / complexity", icon: Scale, get: (t) => t.complexity || "—" },
+  { key: "time", label: "Time required", icon: Clock, get: (t) => t.timeRequired || t.sessionLength || NOT_RECORDED },
+  { key: "setting", label: "Setting", icon: Shield, get: (t) => t.setting || t.patientPopulation || NOT_RECORDED },
+  { key: "complexity", label: "Clinician skill / complexity", icon: Scale, get: (t) => t.complexity || NOT_RECORDED },
   {
     key: "evidence",
     label: "Evidence level",
@@ -193,9 +206,13 @@ export function CompareScreen() {
             <div className="py-5 px-5.5">
               <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>
-            <SummaryCell label="SHORTEST DELIVERY" value={shortestDelivery(items)?.name ?? "—"} accent />
+            {/* Unreachable, and deliberately left as a dash rather than given a phrase it would
+                never show: `shortestDelivery` returns null only for an empty array, this whole
+                block is gated on `items.length >= 2` above, and `Therapy.name` is non-nullable.
+                A missing-value phrase here would claim a case the code cannot produce. */}
+            <SummaryCell label="Shortest delivery" value={shortestDelivery(items)?.name ?? "—"} accent />
             <SummaryCell
-              label="SOURCE STATUS"
+              label="Source status"
               value={`${needsReviewCount(items)} of ${items.length} need review`}
               warn
             />
@@ -273,7 +290,7 @@ export function CompareScreen() {
                           className={`border-t border-[color:var(--border)] font-semibold ${dense ? "px-4 py-3" : "px-5 py-4"}`}
                         >
                           <span className="flex items-center gap-2.5">
-                            <r.icon className="size-icon-md shrink-0" strokeWidth={1.7} />
+                            <r.icon aria-hidden="true" className="size-icon-md shrink-0" strokeWidth={1.7} />
                             {r.label}
                           </span>
                         </th>
@@ -391,7 +408,7 @@ function SummaryCell({
     <div
       className={`border-l border-[color:var(--border)] px-5.5 py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
     >
-      <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-1.5">{label}</div>
+      <div className="text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] mb-1.5">{label}</div>
       <div className="text-sm font-semibold text-[color:var(--text-heading)]">{value}</div>
     </div>
   );

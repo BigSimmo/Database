@@ -703,13 +703,13 @@ surface. **Landed.** Danger contrast and hover/active tokens plus the 48px tap-f
 **Purpose.** Icon-only action with a mandatory `label`. **States/Keyboard.** As Button;
 the label is the accessible name; the glyph is `aria-hidden`. **Rules.** Visible face may
 be compact; the hit target meets the tap floor via padding or pseudo-element. **Open
-defects → PR.** `disabled:opacity` (one of the ten) → PR 3; ref forwarding → PR 4.
+defects → PR.** `disabled:opacity` (one of the 39, §9.33) → PR 3; ref forwarding → PR 4.
 
 ### 9.3 `AsyncButton` — deprecated
 
-**Disposition.** Retire or alias to `Button` (PR 4). Until then its one live defect
-stands: no `type="button"`, so it can submit a surrounding form. Do not build new surfaces
-on it.
+**Disposition.** Retire or alias to `Button` (PR 4). Do not build new surfaces on it.
+**Resolved.** `type` defaults to `"button"` (applied after the prop spread so an explicit
+`type="submit"` still wins) — it can no longer submit a surrounding form.
 
 ### 9.4 `ToggleSwitch`
 
@@ -886,9 +886,11 @@ links carry the `ExternalLink` icon and an explicit new-tab policy, not an accid
 universal · `DownloadLink`'s `download` semantics are not overridable by spread; `tone`
 is destructured, never leaked to the DOM · `LinkAction`'s arrow animates with `transform`,
 never `gap`. **Resolved (6 Aug 2026).** `tone` is destructured before the spread in
-`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Open defects → PR.** `download`
-still overridable by spread · `LinkAction` `gap` animation · new-tab policy implicit /
-raw underline offset → PR 9.
+`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Resolved.** `DownloadLink`'s
+`download` is `Omit`ted from the spread type and applied after `{...props}`, so it can no
+longer be overridden; `LinkAction`'s arrow nudge uses `transition-transform` +
+`group-hover:translate-x-0.5`, never `gap`. **Open defects → PR.** new-tab policy implicit
+/ raw underline offset → PR 9.
 
 ### 9.21 `Tooltip`
 
@@ -939,8 +941,9 @@ behaviour and truncation → PR 11.
 **Contract.** Determinate progress is `transform: scaleX()` with `transform-origin:
 left` — never `width` · indeterminate must use tokened duration; reduced motion shows a
 static state · the track/fill pair follows the edge rule. **Landed.** Determinate fill uses
-`scaleX()` and tokened transition duration. **Open defects → PR.** the indeterminate animation
-still carries a hardcoded `1.4s` timing → PR 9.
+`scaleX()` and tokened transition duration; indeterminate now uses the `animate-shimmer`
+`@theme` token rather than a hardcoded `1.4s` literal. **Open defects → PR.** none
+remaining on this component.
 
 ### 9.27 `StageList`
 
@@ -992,8 +995,10 @@ sanitiser's tiny grammar renders as plain text.
 
 ### 9.33 `ui-primitives.tsx` recipes
 
-**Contract.** `controlBase` owns the disabled encoding — the ten remaining
-`disabled:opacity` uses migrate in PR 3 · the module splits in PR 12
+**Contract.** `controlBase` owns the disabled encoding — the 39 remaining
+`disabled:opacity` uses (ratcheted as `disabledOpacityUses` in
+`scripts/design-system-contract-baseline.json`; re-measured 2 Sep 2026, corrected from a
+stale "ten") migrate in PR 3 · the module splits in PR 12
 (`styles/recipes.ts`, actions, feedback, forms, clinical-source, source-metadata
 contract) so generic primitives stop importing clinical application modules · recipes
 never restate a token value. `interactiveCompact` and `tableMicroActionRow` use
@@ -1023,7 +1028,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              23 |
 | `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -1044,7 +1049,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
-| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
+| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
