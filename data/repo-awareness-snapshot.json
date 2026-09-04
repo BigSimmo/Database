@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "fbfc8948b1eb45de17d8a927e29e730040e77e6b",
-    "committed_at": "2026-09-04T12:00:40+00:00"
+    "sha": "599c60d81e7c96556fc4a6ceebbd8db01d027271",
+    "committed_at": "2026-09-04T12:19:47+00:00"
   },
   "routes": {
     "modes": [
@@ -3369,6 +3369,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/prompts/sources-mode-extraction.md",
+        "section": "prompts",
+        "catalogued": false
+      },
+      {
         "path": "docs/pwa.md",
         "section": "root",
         "catalogued": true
@@ -5918,9 +5923,9 @@
       }
     ],
     "counts": {
-      "documents": 854,
+      "documents": 855,
       "catalogued": 115,
-      "uncatalogued": 739,
+      "uncatalogued": 740,
       "sections": 22
     }
   },
