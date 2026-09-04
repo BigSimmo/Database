@@ -276,7 +276,6 @@ async function mockMedicationStressData(page: Page) {
   });
 }
 
-
 async function openDailyActions(page: Page) {
   const trigger = page.getByRole("button", { name: /^Open .+ options$/ });
   const menu = page.getByTestId("daily-actions-menu");

@@ -304,7 +304,6 @@ async function waitForReactEventHandler(locator: Locator, eventName: "onChange" 
     .toBe(true);
 }
 
-
 async function expectIdlePhoneHomeCentered(page: Page, homeTestId: string) {
   await expect(page.getByTestId(homeTestId)).toBeVisible();
   const geometry = await page.evaluate((homeTestId) => {

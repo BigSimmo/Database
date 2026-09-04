@@ -6,7 +6,6 @@ async function gotoLauncher(page: Page, path = "/tools") {
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
-
 test("Show all opens the unfiltered tools search mode", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoLauncher(page, "/?mode=tools");

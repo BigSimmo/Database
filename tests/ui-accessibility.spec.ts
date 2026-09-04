@@ -120,7 +120,6 @@ async function mockDifferentialSearch(page: Page) {
   });
 }
 
-
 async function expectDashboardUsable(page: Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();

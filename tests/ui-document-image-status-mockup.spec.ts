@@ -1,7 +1,6 @@
 import { expect, test } from "playwright/test";
 import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 
-
 test("image-only document tables use a compact status without the redundant warning panel @mockup", async ({
   page,
 }) => {

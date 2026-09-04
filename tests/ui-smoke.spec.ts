@@ -88,7 +88,6 @@ async function installClipboardMock(page: Page) {
   });
 }
 
-
 async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onScroll" | "onSubmit") {
   await expect
     .poll(
