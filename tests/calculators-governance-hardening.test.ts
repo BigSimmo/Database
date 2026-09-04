@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { allCalculatorFixtures, calculators, calculatorEvidence } from "@/components/calculators/calculator-fixtures";
+import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 
 const REPO_ROOT = process.cwd();
 
@@ -28,6 +29,19 @@ type GovernanceSource = {
   lastReviewed?: string;
   nextReview?: string;
   supersedes?: string | null;
+};
+
+/**
+ * A golden vector pins one scored administration of a calculator: the raw
+ * answers plus the score and band the current fixture must derive from them.
+ * `answers` uses the same shape as `AnswerMap` — checkbox items take 1/0,
+ * options items take the selected option's index.
+ */
+type GoldenVector = {
+  name?: string;
+  answers?: Record<string, number>;
+  expectedScore?: number;
+  expectedBand?: string;
 };
 
 describe("calculator governance hardening", () => {
@@ -60,18 +74,37 @@ describe("calculator governance hardening", () => {
     }
   });
 
-  it("ships a golden-vector registry covering every active calculator", () => {
+  it("ships a golden-vector registry covering every active calculator, and every vector scores correctly", () => {
     const vectorPath = path.join(REPO_ROOT, "data", "calculators", "golden-vectors.json");
     expect(fs.existsSync(vectorPath)).toBe(true);
     const registry = JSON.parse(fs.readFileSync(vectorPath, "utf8")) as {
-      calculators?: Array<{ calculatorId?: string; responseAnchorSetId?: string; vectors?: unknown[] }>;
+      calculators?: Array<{ calculatorId?: string; responseAnchorSetId?: string; vectors?: GoldenVector[] }>;
     };
     const byId = new Map((registry.calculators ?? []).map((entry) => [entry.calculatorId, entry]));
-    for (const calc of calculators as GovernanceFixture[]) {
+    for (const calc of allCalculatorFixtures.filter((fixture) =>
+      calculators.some((active) => active.id === fixture.id),
+    )) {
       const entry = byId.get(calc.id);
       expect(entry, `${calc.id} golden-vector entry`).toBeTruthy();
-      expect(entry?.responseAnchorSetId).toBe(calc.responseAnchorSetId);
-      expect(entry?.vectors?.length ?? 0, `${calc.id} golden-vector count`).toBeGreaterThan(0);
+      expect(entry?.responseAnchorSetId).toBe((calc as GovernanceFixture).responseAnchorSetId);
+      const vectors = entry?.vectors ?? [];
+      expect(vectors.length, `${calc.id} golden-vector count`).toBeGreaterThan(0);
+
+      vectors.forEach((vector, index) => {
+        const vectorLabel = `${calc.id} golden vector #${index}${vector?.name ? ` (${vector.name})` : ""}`;
+        expect(vector, vectorLabel).toBeTruthy();
+        expect(vector?.answers, `${vectorLabel} answers`).toBeTypeOf("object");
+        expect(vector?.expectedScore, `${vectorLabel} expectedScore`).toBeTypeOf("number");
+        expect(vector?.expectedBand, `${vectorLabel} expectedBand`).toBeTypeOf("string");
+
+        // Run the vector's answers through the real scoring/banding derivation
+        // used by every calculator mockup, so a registry entry can no longer
+        // go green while claiming a score or band the fixture would not
+        // actually produce.
+        const derived = deriveCalculator(calc, (vector?.answers ?? {}) as AnswerMap);
+        expect(derived.score, `${vectorLabel} derived score`).toBe(vector?.expectedScore);
+        expect(derived.band?.label, `${vectorLabel} derived band`).toBe(vector?.expectedBand);
+      });
     }
   });
 
