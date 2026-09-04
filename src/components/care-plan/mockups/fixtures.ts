@@ -244,17 +244,19 @@ export const syntheticCmhtContacts = [
  * public sources below on 20 August 2026. If a number or an availability window
  * has changed since, correct it here rather than anywhere it is displayed.
  *
- * Re-verification cadence: **every 12 months from the newest `verifiedOn`
- * below**, and before any of these contacts is reused outside the
- * administrator-gated `/mockups` prototype. Nothing ages these dates
- * automatically, so a stale `verifiedOn` is invisible until someone checks: the
- * next due date is 20 August 2027. Re-verify each number and availability window
- * against its `sourceUrl` — three cite East Metropolitan Health Service pages
- * and `000` cites Triple Zero — then move the
- * `verifiedOn` date only for the entries actually re-checked. These strings
- * render on the printed Personal Safety Plan and Patient Plan, which is the one
- * place the prototype's "everything is synthetic" framing does not protect the
- * reader - a dead or redirected crisis number would print as guidance.
+ * VERIFICATION RECORD: `docs/care-plan/crisis-lines-verification.md`. It holds, per
+ * number, the source used to check it, the `verifiedOn` date below, every other place
+ * in this file the same number is printed, and the six-monthly re-verification cadence
+ * and procedure. Nothing in this repository ages `verifiedOn`, so that document is the
+ * only thing that says when these are next due to be checked -- update it in the same
+ * change as any correction here.
+ * Each `sourceUrl` below is the page used for that check: three cite East
+ * Metropolitan Health Service pages and `000` cites Triple Zero. Re-verify each
+ * number and its availability window against its own `sourceUrl`, then move the
+ * `verifiedOn` date only for the entries actually re-checked. These strings render
+ * on the printed Personal Safety Plan and Patient Plan, which is the one place the
+ * prototype's "everything is synthetic" framing does not protect the reader - a dead
+ * or redirected crisis number would print as guidance.
  */
 export const publicCrisisContacts = [
   {
