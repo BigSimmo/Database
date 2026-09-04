@@ -18,7 +18,7 @@ stores no patient information, and it never authors clinical guidance in the app
 | Decision                  | Chosen                                                                                                            | Rejected, and why                                                                                                                                                                                                                                                             |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Where content lives       | Private rows in Supabase, owner-scoped, edited in the app                                                         | Committing real contacts/manuals into the repository — exposes internal service information to anyone with repo access and makes every correction a code change                                                                                                               |
-| Audience for v1           | The owner alone                                                                                                   | Cohort sharing. The app has exactly two visibility states, owner-only and fully public, and `psychiatry.tools` has no login wall, so the only available "share" would publish a hospital's internal contacts to the open internet. Deferred to its own reviewed project (§11) |
+| Audience for v1           | The owner alone                                                                                                   | Cohort sharing. The app has exactly two visibility states, owner-only and fully public, and `psychiatry.tools` has no login wall, so the only available "share" would publish a hospital's internal contacts to the open internet. Deferred to its own reviewed project (§12) |
 | Referrals list            | On Call keeps its own list                                                                                        | Reusing the Services registry — the owner asked for a separate list shaped for on-call use                                                                                                                                                                                    |
 | Orientation manuals       | The uploaded PDF is the source of truth; the owner may pin a short summary above it, labelled as the owner's note | Retyping manual content as app pages — creates a second copy that silently drifts from the real manual                                                                                                                                                                        |
 | Rosters                   | Not built                                                                                                         | A hand-maintained "who is on tonight" decays within a fortnight, and its failure mode is a junior calling the wrong person in an emergency. Role-based contacts give the same benefit without decay                                                                           |
@@ -155,29 +155,136 @@ These are requirements, not preferences.
    never presented as the manual's words.
 5. Demo fixtures contain no clinical guidance of any kind.
 
-Each of these gets a test (§9).
+Each of these gets a test (§10).
 
-## 8. Mode registration
+## 8. Design and phone behaviour
+
+### 8.1 It borrows; it does not invent
+
+On Call introduces no new colours, type sizes, spacing values or motion. It cannot: the
+design gates hold thirteen metrics at hard zero, and a new page fails on a raw hex, a
+`shadow-md`, arbitrary tracking or a hardcoded duration. The practical effect is that On Call
+looks like the rest of the app from its first commit.
+
+Two identity entries are needed: a glyph in `APP_MODE_ICON`, which must be unique across all
+modes because a test compares them pairwise, and an accent in `APP_MODE_ACCENT` drawn from the
+category triads. The accent may never resolve to a danger, warning, success or info colour —
+a category is not a status.
+
+Every tap target is 48px. Never 44: `min-h-11` reintroduces a known browser-test flake, and
+generic accessibility guidance does not override that. Metadata chips, filter rows and table
+micro-actions may use the 40px compact rung, each with a comment saying why.
+
+### 8.2 The shape of a page
+
+The structural template is **Sources** (`src/components/sources/sources-pages.tsx`): four peer
+browse surfaces rendered from one module off one data load. On Call copies that factoring so
+six sections cannot drift into six divergent shells.
+
+Each section page is `InformationPageShell` — reading width for prose, default width for lists
+— headed by `InPageNavHeader`. The page's section table is exported from a colocated
+`"use client"` sibling named for its route, which is the convention the chrome contract binds
+new pages to.
+
+`InPageNavHeader` supplies, consistently with the document viewer the owner already uses: a
+back control, the page title with a chevron opening a section sheet on phones, the active
+section named beneath the title in the mode accent, an ellipsis actions sheet, and a weighted
+segment track along the bottom edge. It attaches beneath the universal phone header through
+`PhoneHeaderCollapsePortal` and hides and reveals with that single owner. No second sticky
+header, no second scroll-hide hook, no page-local dock reserve.
+
+### 8.3 Home and navigation
+
+The mode bar carries all six sections under short labels — Contacts, Playbook, Referrals,
+Orientation, Teaching, Logistics. On phones it shows three and a More sheet, which is the
+established pattern. On Call joins the adopted-nav set with a density profile, and its label
+widths are proved by the browser test that exists for that purpose.
+
+**If six labels fail the density evidence, the fallback is already decided**: the bar carries
+Contacts, Playbook, Referrals and Orientation, and Teaching and Logistics are reached from the
+home and from search. Nobody makes a fresh decision mid-build.
+
+Contacts leads, because it is the page a shift actually opens.
+
+### 8.4 Each page, designed for the thumb first
+
+- **Contacts** — one scrolling column of role rows. The whole row is the tap target and the
+  number is a `tel:` link, so ringing someone is a single tap. Rows group by area under sticky
+  headings, and anything overdue for checking collects into a group at the top. This is the
+  page built for one hand in a corridor; the desktop view is this widened, not a different
+  design.
+- **Playbook** — scenario cards opening to an escalation ladder: an ordered list of who, when,
+  and a number to tap, then the linked local guidance with each document's title and date. A
+  scenario with no linked guideline renders a real empty state offering a Documents search.
+- **Referrals** — rows expanding to accepts, does not accept, catchment, hours, how to refer.
+  Accepts and exclusions are labelled text, never colour-coded chips alone.
+- **Orientation** — a shelf of documents. Where the owner has pinned a summary it sits above
+  the document link in a bordered note, visibly attributed to the owner.
+- **Education** — a list in order of next occurrence, each with its topics and, where one
+  exists, a recording link marked as leaving the app.
+- **Logistics** — the plainest page: grouped rows, each with a place, an hour range or a number.
+
+### 8.5 States
+
+- **Loading** — `ModeHomeRouteLoading` on the home; skeletons with stable geometry elsewhere.
+  A spinner is never a terminal state.
+- **Empty** — a real next action. For an empty section that action is adding the first entry.
+- **Signed out** — the same empty-state component, naming sign-in as the action, showing no
+  entry content.
+- **Error** — never renders a count.
+- **Stale** — carries a non-colour channel: an icon and the words "checked <date>". Status may
+  never be signalled by colour alone, and a number is never painted in a status colour.
+- **Offline** — a banner naming the date of the saved copy. Its announcement goes to a
+  screen-reader-only live region; the visible banner is not itself a live region.
+
+### 8.6 Search
+
+`/on-call/search` wears the shared results band. The mode declares its results surface, which
+makes the band mandatory rather than optional — the type system refuses the mode otherwise and
+a contract test then requires the band to be mounted. Sort is a segmented control from tablet
+width up; the phone filter is the badged trigger opening a sheet, never a native select. A
+faulted search renders no count at all.
+
+### 8.7 The printable card
+
+`/on-call/card` follows the Dictionary record page: the print action lives in the actions
+sheet, the page composes `PrintSection` with `BrowserPrintButton`, and it carries the shared
+confidential-document footer. Excluded from the card: anything flagged personal, and anything
+stale. Both exclusions are tests, not conventions.
+
+### 8.8 Registration the design gates require
+
+Beyond the mode registries in §9: an icon for every new navigation entry, a nav density
+profile plus its recorded evidence, the section anchors asserted against rendered DOM, the new
+routes added to the phone-scroll route lists, and every new page declared exactly once in the
+design-system adoption contract with its five proofs — dark, forced colours, 320px, print, and
+browser. Gate before push: the design-system contract, the type scale and the icon scale, then
+`npm run verify:phone-chrome`.
+
+## 9. Mode registration
 
 Adding a mode touches roughly sixty files, because the app is built so a mode cannot be
 half-added: about thirty registries and maps in `src/lib`, about ten components, and about
 twenty tests that each hold a complete list of all sixteen modes.
 
-- Mode id `on-call`, label `On Call`, namespace-isolated at `/on-call`, which owns a real
-  home rather than redirecting to the shared home.
+- Mode id `on-call`, label `On Call`, namespace-isolated at `/on-call`. The home is the
+  **shared home** at `/?mode=on-call`, with `/on-call` redirecting to it — the convention every
+  recently added mode follows. An earlier draft of this spec had On Call owning a real home;
+  that was wrong, and following the convention removes work rather than adding it.
 - A new search kind `on-call`, results surface `results-band`.
-- Routes: `/on-call`, `/on-call/search`, and one page per section, plus `/on-call/card`,
+- Routes: a `/on-call` redirect stub, `/on-call/search`, one page per section, `/on-call/card`,
   a `layout.tsx`, and a `loading.tsx` rendering `ModeHomeRouteLoading`.
 - Secondary navigation carries the **six sections only**. No `Search` tab: the composer is
   already on screen, and the registry's own notes record that a lone search button in a nav
   landmark is a wasted tab stop. The printable card is reached from Contacts, not the nav.
+  §8.3 settles what happens if six labels fail the density evidence.
 - No dynamic `[slug]` route in v1. Entries expand in place, which keeps the mode clear of the
   dynamic-route reachability gate and its explicit route list.
 - Generated artefacts to refresh: the site map, the repo-awareness snapshot, the
   design-system adoption manifest, and the codebase index. Several docs carry the number
   sixteen and need updating.
 
-## 9. Testing
+## 10. Testing
 
 Test-first, per the repository's TDD practice.
 
@@ -196,7 +303,7 @@ generator.
 **Browser** — On Call reachable from the desktop sidebar and the phone mode sheet; the
 contacts page usable on a phone viewport; the printable card route renders.
 
-## 10. Verification and deployment
+## 11. Verification and deployment
 
 Local gate: `npm run verify:pr-local`, plus `npm run check:owner-scope` for the new table and
 routes, and a focused browser run selected by `npm run plan:browser` rather than the full
@@ -212,7 +319,7 @@ approved window, auto-merge must not be armed on it, and the PR must not claim a
 deploy. After merge, the post-merge `live-drift` workflow is the gate that the schema
 actually applied.
 
-## 11. Explicitly out of scope
+## 12. Explicitly out of scope
 
 Recorded here so they are decisions rather than omissions:
 
