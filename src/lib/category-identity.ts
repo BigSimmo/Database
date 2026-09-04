@@ -97,6 +97,7 @@ export const CATEGORY_ICON_KEYS = [
   "waves",
   "star",
   "chat",
+  "phoneCall",
 ] as const;
 
 export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number];
@@ -123,6 +124,7 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   factsheets: "bookOpenText",
   dictionary: "bookMarked",
   sources: "libraryBig",
+  "on-call": "phoneCall",
 };
 
 /**
@@ -149,6 +151,7 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   tools: "slate",
   favourites: "search",
   answer: "clinical",
+  "on-call": "purple",
 };
 
 /**

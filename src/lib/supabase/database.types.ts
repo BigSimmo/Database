@@ -1797,6 +1797,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      on_call_entries: {
+        Row: {
+          body: string | null;
+          created_at: string;
+          details: Json;
+          id: string;
+          include_on_card: boolean;
+          is_personal: boolean;
+          last_verified_at: string | null;
+          linked_document_ids: string[];
+          owner_id: string;
+          section: string;
+          slug: string;
+          sort_order: number;
+          subtitle: string | null;
+          tags: string[];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          body?: string | null;
+          created_at?: string;
+          details?: Json;
+          id?: string;
+          include_on_card?: boolean;
+          is_personal?: boolean;
+          last_verified_at?: string | null;
+          linked_document_ids?: string[];
+          owner_id: string;
+          section: string;
+          slug: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          tags?: string[];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          body?: string | null;
+          created_at?: string;
+          details?: Json;
+          id?: string;
+          include_on_card?: boolean;
+          is_personal?: boolean;
+          last_verified_at?: string | null;
+          linked_document_ids?: string[];
+          owner_id?: string;
+          section?: string;
+          slug?: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          tags?: string[];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       rag_aliases: {
         Row: {
           alias: string;

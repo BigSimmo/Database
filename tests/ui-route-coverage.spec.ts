@@ -277,7 +277,7 @@ test.describe("previously uncovered production routes", () => {
       "/therapy-compass",
       async (currentPage) => {
         // `/therapy-compass` redirects onto the shared home, whose per-mode title
-        // is a level-2 heading under the page's sr-only "Clinical Guide" h1.
+        // is a level-2 heading under the page's sr-only "PsychSift" h1.
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Therapy", level: 2, exact: true })).toBeVisible({
           timeout: 30_000,
