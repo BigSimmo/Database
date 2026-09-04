@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   auditDeletions,
+  isRetirableRoutePath,
   auditIndex,
   deletedMockupFiles,
   deletedRouteSlugs,
@@ -294,6 +295,36 @@ describe("deletion scope", () => {
   });
 });
 
+describe("Route-column shape", () => {
+  /*
+   * ⚠️ THE FIRST VERSION OF THIS PREDICATE REFUSED LEGITIMATE ROUTES, and my own six cases
+   * missed it because every one of them was either an obvious file or an obvious route. The
+   * separator was written unescaped, so `.` matched ANY character and the alternation then
+   * matched the tail: `/mockups/caring-contacts/reports` was read as a file (the dot taking
+   * `r`, then `ts`), and so was `charts`. A FALSE REFUSAL — the opposite of the hole this
+   * predicate exists to close, and it would have blocked an owner-approved retirement.
+   *
+   * So the cases below are chosen for the boundary rather than the middle: routes whose last
+   * segment merely ENDS in an extension-like suffix must stay retirable, and a segment that IS
+   * an extension with no dot must stay retirable too.
+   */
+  const cases: Array<[string, boolean]> = [
+    ["/mockups/caring-contacts/reports", true],
+    ["/mockups/ward-flow/charts", true],
+    ["/mockups/x/mjs", true],
+    ["/mockups/example-gated/panel/[id]", true],
+    ["/mockups/x/widget.tsx", false],
+    ["/mockups/x/a.json", false],
+    ["/mockups/x/s.module.css", false],
+    ["/src/components/x", false],
+  ];
+  for (const [route, retirable] of cases) {
+    it(`${retirable ? "accepts" : "refuses"} ${route}`, () => {
+      expect(isRetirableRoutePath(route)).toBe(retirable);
+    });
+  }
+});
+
 describe("deletion audit", () => {
   const index = `# M\n\n${RETIRED_SECTION_HEADING}\n\n| Retired | Route | Superseded by | Evidence |\n| --- | --- | --- | --- |\n| 2026-09-02 | \`retired-route\` | \`winner\` | Evidence. |\n`;
 
@@ -322,6 +353,51 @@ describe("deletion audit", () => {
   it("refuses a deletion under a developer-gated prefix", () => {
     const result = runAudit([`${MOCKUP_ROUTE_ROOT}/ward-flow/handover/page.tsx`], [], {});
     expect(result.violations.join()).toContain("developer-gated prefix /mockups/ward-flow");
+  });
+
+  /*
+   * The owner register for Tier B, driven through the real audit rather than its parser.
+   *
+   * ⚠️ THE THIRD CASE IS A HOLE THAT SHIPPED. Writing a FILE path into the Route column cleared
+   * Tier B for that one file, and the symmetry guard could not see it: that guard probes
+   * `route + "/page.tsx"`, so for `…/widget.tsx` it looked for `…/widget.tsx/page.tsx`, which
+   * cannot exist, and stayed silent. A pass whose own counter-check was disabled by
+   * construction. Found by an adversarial run, not by reading the code.
+   */
+  const ownerRegister = (route: string) =>
+    `${index}\n## Retired developer-gated routes (owner decisions)\n\n` +
+    `| Retired | Route | Approved by | Superseded by | Evidence |\n` +
+    `| --- | --- | --- | --- | --- |\n` +
+    `| 2026-09-03 | \`${route}\` | Owner | \`/mockups/x\` | Reason. |\n`;
+
+  it("clears a gated route the owner has recorded", () => {
+    const result = runAudit(
+      [`${MOCKUP_ROUTE_ROOT}/development/foo/page.tsx`],
+      [],
+      {},
+      ownerRegister("/mockups/development/foo"),
+    );
+    expect(result.violations.join()).not.toContain("developer-gated prefix");
+  });
+
+  it("does not clear a non-route file on a sibling route’s record", () => {
+    const result = runAudit(
+      [`${MOCKUP_ROUTE_ROOT}/development/foo/widget.tsx`],
+      [],
+      {},
+      ownerRegister("/mockups/development/foo"),
+    );
+    expect(result.violations.join()).toContain("developer-gated prefix");
+  });
+
+  it("⚠️ refuses a FILE path in the Route column, which used to grant an unwatchable pass", () => {
+    const result = runAudit(
+      [`${MOCKUP_ROUTE_ROOT}/development/foo/widget.tsx`],
+      [],
+      {},
+      ownerRegister("/mockups/development/foo/widget.tsx"),
+    );
+    expect(result.violations.join()).toContain("is not a route path");
   });
 
   it("refuses a route deleted without a written record", () => {
@@ -370,6 +446,89 @@ describe("deletion audit", () => {
       },
     );
     expect(result.violations.join()).toContain("a surviving module");
+  });
+
+  /**
+   * The two-defect fix on 2026-09-02/03 (moduleSpecifiersFor's route specifier, and
+   * referencePattern/relativeSpecifierResolvesTo's bare-tail matching) must narrow the gate's
+   * false-positive rate without narrowing what it actually catches. Each case below is one of
+   * the controls that fix was required to prove, run through the real auditDeletions pipeline
+   * rather than against the unit functions directly.
+   */
+  describe("bare-tail and deep-route controls (regression guard for the 2026-09 specifier fix)", () => {
+    it("still catches a deleted module a surviving file really imports by a relative path", () => {
+      const result = runAudit(
+        ["src/components/retired-route/widget.tsx", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/retired-route/sibling.tsx"],
+        { "src/components/retired-route/sibling.tsx": 'import { Widget } from "./widget";' },
+      );
+      expect(result.violations.join()).toContain("a surviving module");
+    });
+
+    it("still catches a deep deleted route that is still linked, by its exact route — not the still-live root", () => {
+      const result = runAudit(
+        [`${MOCKUP_ROUTE_ROOT}/retired-route/nested/deep/page.tsx`],
+        ["src/components/still-links-deep-route.tsx", "src/components/links-only-the-root.tsx"],
+        {
+          "src/components/still-links-deep-route.tsx": 'const href = "/mockups/retired-route/nested/deep";',
+          "src/components/links-only-the-root.tsx": 'const href = "/mockups/retired-route";',
+        },
+      );
+      const joined = result.violations.join();
+      expect(joined).toContain('still referenced as "/mockups/retired-route/nested/deep"');
+      expect(joined).toContain("still-links-deep-route.tsx");
+      expect(joined).not.toContain("links-only-the-root.tsx");
+    });
+
+    it("still catches a CSS module retirement reached only through composes", () => {
+      const result = runAudit(
+        ["src/components/retired-route/shell.module.css", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/retired-route/consumer.module.css"],
+        { "src/components/retired-route/consumer.module.css": 'composes: base from "./shell.module.css";' },
+      );
+      expect(result.violations.join()).toContain("a surviving module");
+    });
+
+    it("still catches a dynamic import() of a retired module", () => {
+      const result = runAudit(
+        ["src/components/retired-route/panel.tsx", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/retired-route/loader.tsx"],
+        { "src/components/retired-route/loader.tsx": 'const Panel = dynamic(() => import("./panel"));' },
+      );
+      expect(result.violations.join()).toContain("a surviving module");
+    });
+
+    /**
+     * The false-positive direction. Before the fix, a bare state-value string like `"loading"`
+     * matched the same way a real `"./loading"` import did — anchored on the opening quote
+     * alone — and produced 54 false violations against one retired file on this branch.
+     */
+    it("does NOT flag an ordinary string literal that merely shares a bare tail's name", () => {
+      const result = runAudit(
+        [`${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`, "src/components/retired-route-mockups.tsx"],
+        ["src/components/status-values.tsx"],
+        { "src/components/status-values.tsx": 'const status = "retired-route-mockups";' },
+      );
+      expect(result.violations).toHaveLength(0);
+    });
+
+    /**
+     * The subtler false positive Defect 1 alone cannot fix: many files can share one bare
+     * basename (this repo has ~24 route-level `loading.tsx` files). A relative import of a
+     * DIFFERENT same-named file must not be mistaken for a reference to the deleted one —
+     * only `relativeSpecifierResolvesTo`'s directory-aware resolution tells them apart.
+     */
+    it("does NOT flag a relative import that resolves to a different same-named surviving file", () => {
+      const result = runAudit(
+        ["src/components/family-a/widget.tsx", `${MOCKUP_ROUTE_ROOT}/retired-route/page.tsx`],
+        ["src/components/family-b/widget.tsx", "src/components/family-b/consumer.tsx"],
+        {
+          "src/components/family-b/widget.tsx": "export const Widget = () => null;",
+          "src/components/family-b/consumer.tsx": 'import { Widget } from "./widget";',
+        },
+      );
+      expect(result.violations).toHaveLength(0);
+    });
   });
 
   it("fails closed when a surviving file cannot be read", () => {

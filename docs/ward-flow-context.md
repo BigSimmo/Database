@@ -235,6 +235,11 @@ Eight gates, evaluated before any ranking: `authorisation`, `cohort`, `security`
 
 ### `ward-sites.ts` — the network
 
+> ℹ️ **CORRECTION — 23 units, not 22.** Measured 2026-09-01: pinned by
+> `expect(screen.getByTestId("units")).toHaveTextContent("23")` in
+> `tests/ward-flow-provider.dom.test.tsx`. The passage below is stale; it is a correction of fact,
+> not a reversed decision.
+
 17 sites, **8 emergency departments**, **22 units**. `NOW_ANCHOR = 10 * 60 + 42` (10:42).
 
 ```
@@ -256,6 +261,13 @@ units past their staleness window, one unit whose feed and ward figures disagree
 unauthorised units, a private site, WACHS sites.
 
 ### `ward-movements.ts` — the demand
+
+> ℹ️ **CORRECTION — 50 movements and 9 bed releases, not 48 and 6.** Measured 2026-09-01: pinned by
+> `expect(screen.getByTestId("movements")).toHaveTextContent("50")` in
+> `tests/ward-flow-provider.dom.test.tsx` (a comment there notes "48 -> 50 on 2026-08-30: WF-019
+> and WF-020"), and `bedReleases` in
+> `src/components/ward-management/ward-movements.ts` holds ids `WR-001` through `WR-009` (9
+> entries). The passage below is stale; it is a correction of fact, not a reversed decision.
 
 **48 movements** (18 hand-authored covering every awkward state, 30 generated deterministically
 from their index) and **6 bed releases**. Built at realistic bad-night pressure across all eight

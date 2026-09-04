@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "2394b0ad-200b-4394-9411-4a1708c1efe3",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "aeb654e6-ed65-44c0-9930-c3223e89a7c8",
+    "reason": "Superseded by a single consolidated #ZBAC9D record queued in the same push. This record carried the corrected approach but not the live exposure measurements that landed on main via PR #2526; an update's detail replaces the field wholesale, so keeping this one would have silently discarded that data."
+  }
+}
