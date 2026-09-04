@@ -78,8 +78,7 @@ export function recordEvidencePreviewContractRejection() {
   recordEvidencePreviewReason("contract_rejected");
 }
 
-/** The rail's state in words that are safe for any caller to read, built here rather than
- *  anywhere else.
+/** The rail's state, worded for whoever is asking.
  *
  * `/api/setup-status` replaces every check's `detail` with a generic phrase for unauthenticated
  * callers, and rightly so: those strings can carry raw Supabase error text and project posture.
@@ -88,25 +87,59 @@ export function recordEvidencePreviewContractRejection() {
  * worse than no diagnostic, because it reads as a healthy answer to the question actually being
  * asked, and it is the reading that sends the next investigation down the wrong path.
  *
- * So this check's detail is exempt from that blanking, and the exemption is made safe by
+ * So this one check's detail survives the blanking, and the exemption is made safe by
  * construction rather than by trust: the string is assembled HERE, from a member of
- * `evidencePreviewReasons` and an ISO timestamp, and from nothing else. No query, document,
- * owner, clinical text or provider error can reach it, and an edit elsewhere cannot widen it.
+ * `evidencePreviewReasons` and a coarse recency bucket, and from nothing else. No query,
+ * document, owner, clinical text or provider error can reach it.
+ *
+ * **What the anonymous form deliberately withholds, after two independent reviews said so.**
+ * `lastEvidencePreviewReason` is process-global with no user or interaction correlation, so an
+ * exact ISO timestamp on a public endpoint is a pollable record of when this tool is being used
+ * clinically, and — the day a second clinician exists — one person's outcome answering another
+ * person's question. Neither is patient-identifiable and neither is query content, which is why
+ * this stays public at all rather than going back behind the operator token and being useless
+ * again. The timestamp is bucketed instead: recency is all the diagnostic question needs ("did
+ * my answer just now show its sources?"), and the exact second is the part that builds a
+ * timeline. Operators keep the precise form.
+ *
+ * **It also says "this server" on purpose.** Nothing correlates the reading to the reader's own
+ * answer, and more than one instance may serve the same domain, so a reader can be told about an
+ * answer that is not theirs. Stating the scope is the difference between a diagnostic that is
+ * narrow and one that is quietly wrong.
  */
 export function describeEvidencePreviewForAnyCaller(): string {
+  return describeEvidencePreview({ precise: false });
+}
+
+/** The operator form: exact timestamp, same decision word. Behind the deep-probe token. */
+export function describeEvidencePreviewForOperator(): string {
+  return describeEvidencePreview({ precise: true });
+}
+
+/** Coarse enough to answer "was that mine, just now?" without recording when anyone works. */
+function recencyBucket(at: string): string {
+  const elapsedMs = Date.now() - new Date(at).getTime();
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return "recently";
+  if (elapsedMs < 5 * 60_000) return "in the last few minutes";
+  if (elapsedMs < 60 * 60_000) return "in the last hour";
+  return "more than an hour ago";
+}
+
+function describeEvidencePreview({ precise }: { precise: boolean }): string {
   if (!env.RAG_INCREMENTAL_EVIDENCE_PREVIEW) {
     return "Switched off, so the answer wait will never show source cards.";
   }
   const last = lastEvidencePreviewReason;
   if (!last) return "On. This server has not served an answer yet, so there is nothing to report.";
+  const when = precise ? `at ${last.at}` : recencyBucket(last.at);
   // Re-checked rather than trusted. The exemption above rests on this value being one of a fixed
   // set of words, so anything outside that set is reported as unrecognised instead of echoed.
   if (!(evidencePreviewReasons as readonly string[]).includes(last.reason)) {
-    return `On. The last answer recorded an unrecognised outcome at ${last.at}.`;
+    return `On. The last answer this server handled recorded an unrecognised outcome, ${when}.`;
   }
   return deliveredEvidencePreviewReason(last.reason)
-    ? `On. The last answer showed its sources (${last.reason}, ${last.at}).`
-    : `On. The last answer withheld its sources: ${last.reason} (${last.at}).`;
+    ? `On. The last answer this server handled showed its sources (${last.reason}), ${when}.`
+    : `On. The last answer this server handled withheld its sources: ${last.reason}, ${when}.`;
 }
 
 /** Two reasons mean the rail was drawn, not withheld: the ordinary path, and the fallback that

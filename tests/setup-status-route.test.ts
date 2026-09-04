@@ -261,6 +261,7 @@ describe("/api/setup-status", () => {
     }));
     vi.doMock("@/lib/answer-preview", () => ({
       describeEvidencePreviewForAnyCaller: () => "PREVIEW-REASON-THE-CLINICIAN-MUST-SEE",
+      describeEvidencePreviewForOperator: () => "PREVIEW-REASON-OPERATOR-ONLY",
     }));
     const { GET } = await import("../src/app/api/setup-status/route");
 

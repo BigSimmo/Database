@@ -8,7 +8,7 @@ import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/au
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 import { assertSearchSchemaHealth } from "@/lib/validation/row-contracts";
-import { describeEvidencePreviewForAnyCaller } from "@/lib/answer-preview";
+import { describeEvidencePreviewForAnyCaller, describeEvidencePreviewForOperator } from "@/lib/answer-preview";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -329,11 +329,11 @@ function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPaylo
  * it. One enum and a timestamp; no query, document, owner, or clinical text ever reaches here.
  */
 function answerPreviewCheck(): SetupCheck {
-  // One wording for both audiences. The authorized and anonymous paths read the same sentence,
-  // so the two cannot drift and the anonymous reader is never shown a weaker truth than the
-  // operator — the failure this check exists to avoid.
+  // The operator form, with the exact timestamp. `coarseSetupStatusPayload` swaps in the bucketed
+  // form for an anonymous caller — the only difference between the two is the precision of "when",
+  // never the decision word, so the anonymous reader is not shown a weaker truth.
   const status = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW ? "ready" : "needs_setup";
-  return check("answerPreview", "Answer wait shows sources", status, describeEvidencePreviewForAnyCaller());
+  return check("answerPreview", "Answer wait shows sources", status, describeEvidencePreviewForOperator());
 }
 
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
