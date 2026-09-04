@@ -226,6 +226,57 @@ describe("/api/setup-status", () => {
     expect(operatorProject.detail).toContain("SECRET-PROJECT-POSTURE-DETAIL");
   });
 
+  // The blanking above is right for checks describing Supabase and project posture, and wrong for
+  // the one check a clinician is told to open. Blanked, it read "Ready." whatever had happened, so
+  // the person reporting "the sources never appear" got a healthy-looking answer to the question
+  // they were actually asking. This pins the exemption AND its narrowness in the same test: widen
+  // it to another check and the project assertion fails.
+  it("shows the answer-preview reason to an anonymous caller while still redacting project posture", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));
+    const createAdminClient = vi.fn(() => ({ from, rpc: vi.fn() }));
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        OPENAI_API_KEY: "openai-key",
+        SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
+        SUPABASE_IMAGE_BUCKET: "clinical-images",
+        WORKER_POLL_MS: 1500,
+        HEALTH_DEEP_PROBE_SECRET: "operator-secret",
+        RAG_INCREMENTAL_EVIDENCE_PREVIEW: true,
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth: vi.fn(async () => ({ ok: true })),
+      isSupabaseUnavailableError: () => false,
+      formatSupabaseUnavailableError: (error: unknown) => String(error),
+    }));
+    vi.doMock("@/lib/supabase/project", () => ({
+      checkSupabaseProjectConfig: () => ({ status: "warning", detail: "raw project posture detail" }),
+      formatSupabaseProjectCheck: () => "SECRET-PROJECT-POSTURE-DETAIL",
+    }));
+    vi.doMock("@/lib/answer-preview", () => ({
+      describeEvidencePreviewForAnyCaller: () => "PREVIEW-REASON-THE-CLINICIAN-MUST-SEE",
+      describeEvidencePreviewForOperator: () => "PREVIEW-REASON-OPERATOR-ONLY",
+    }));
+    const { GET } = await import("../src/app/api/setup-status/route");
+
+    const anon = await (await GET(new Request("https://clinical.example/api/setup-status"))).json();
+    const preview = anon.checks.find((c: { id: string }) => c.id === "answerPreview");
+    const project = anon.checks.find((c: { id: string }) => c.id === "project");
+
+    // The exemption: the reason reaches the reader rather than being flattened to "Ready.".
+    expect(preview.detail).toBe("PREVIEW-REASON-THE-CLINICIAN-MUST-SEE");
+    // Its narrowness: every other check is still coarse, and the secret never appears anywhere.
+    expect(project.detail).not.toContain("SECRET-PROJECT-POSTURE-DETAIL");
+    expect(project.detail).toBe("Ready.");
+    expect(JSON.stringify(anon)).not.toContain("SECRET-PROJECT-POSTURE-DETAIL");
+  });
+
   it("does not unlock detail for a spoofed local-looking Host in production (trusted-signal gate)", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));
