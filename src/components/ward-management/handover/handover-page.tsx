@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { splitDuration, formatSheetMoment } from "@/components/ward-management/ward-clock";
 import {
-  destinationUnit,
   elapsedLabel,
   handoverSnapshot,
   stageCopy,
@@ -177,11 +176,36 @@ export function InTransitSection({ snapshot, units }: { snapshot: HandoverSnapsh
           </thead>
           <tbody>
             {snapshot.inTransit.map((entry) => {
-              const unit = destinationUnit(entry.movement, units);
+              /*
+               * ACCEPTED-ONLY, never `destinationUnit`. That helper is
+               * `acceptedUnitId ?? referredUnitIds[0]`, so on a movement with an open referral and
+               * no acceptance it names the FIRST WARD ASKED as though it were the destination —
+               * the same defect already repaired on the movement workspace, where the masthead
+               * read "Bound for FSH Older Adult" beside "No ward has accepted this patient".
+               *
+               * The three states are kept apart rather than collapsed into one fallback: a ward
+               * has accepted, or wards have been asked and none has answered, or nobody has been
+               * asked. The middle one is the one the old fallback erased, and it is the one a
+               * coordinator acts on differently — chase an answer, versus start asking.
+               */
+              const unit = entry.movement.acceptedUnitId
+                ? units.find((candidate) => candidate.id === entry.movement.acceptedUnitId)
+                : undefined;
+              // Named here too, for the same reason as `patient-search.tsx`'s own column: a status
+              // without the wards is honest and unhelpful, and this table is read at handover where
+              // "who has been asked" is the next question anybody has.
+              const askedNames = entry.movement.referredUnitIds
+                .map((id) => units.find((candidate) => candidate.id === id)?.name)
+                .filter((name): name is string => name !== undefined);
+              const destinationCell = unit
+                ? unit.name
+                : entry.movement.referredUnitIds.length > 0
+                  ? `${entry.movement.referredUnitIds.length} ward${entry.movement.referredUnitIds.length === 1 ? "" : "s"} asked, none has accepted${askedNames.length > 0 ? ` — ${askedNames.join(", ")}` : ""}`
+                  : "No destination unit recorded";
               return (
                 <tr key={entry.movement.id}>
                   <td>{entry.movement.id}</td>
-                  <td>{unit?.name ?? "No destination unit recorded"}</td>
+                  <td>{destinationCell}</td>
                   <td>{entry.leg ?? "No transport leg recorded"}</td>
                 </tr>
               );

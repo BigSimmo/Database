@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Unit } from "@/components/ward-management/ward-model";
 import {
-  destinationUnit,
   elapsedLabel,
   searchPatients,
   type PatientSearchResult,
@@ -16,6 +15,7 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { findPatients, patientDisplayName, type Patient } from "@/components/ward-management/ward-patients";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
+import { WardPanel } from "@/components/ward-management/ward-panel";
 import { WARD_ADD_PERSON_HREF } from "@/components/ward-management/ward-nav";
 import { allEmergencyDepartments, edById } from "@/components/ward-management/ward-sites";
 
@@ -187,8 +187,7 @@ export function PeopleSection({ people, query }: { people: Patient[]; query: str
    */
   const addPersonHref = `${WARD_ADD_PERSON_HREF}?name=${encodeURIComponent(query.trim())}`;
   return (
-    <section className={styles.section} data-testid="ward-patient-search-people">
-      <h2 className={styles.resultsHeading}>{people.length === 1 ? "1 person" : `${people.length} people`}</h2>
+    <WardPanel title={people.length === 1 ? "1 person" : `${people.length} people`} testId="ward-patient-search-people">
       {!searched ? (
         <p className={styles.emptyNote} data-testid="ward-patient-search-people-idle">
           Search by record number or name to find a person. Related spellings are found too — searching
@@ -224,7 +223,7 @@ export function PeopleSection({ people, query }: { people: Patient[]; query: str
           ))}
         </ul>
       )}
-    </section>
+    </WardPanel>
   );
 }
 
@@ -248,8 +247,10 @@ export function ResultsSection({
   const movementResults = results.filter((result) => result.kind === "movement");
 
   return (
-    <section className={styles.section} data-testid="ward-patient-search-results">
-      <h2 className={styles.resultsHeading}>{results.length === 1 ? "1 match" : `${results.length} matches`}</h2>
+    <WardPanel
+      title={results.length === 1 ? "1 match" : `${results.length} matches`}
+      testId="ward-patient-search-results"
+    >
       {/*
        * REFERRALS FIRST, and it is not cosmetic ordering. A referral is somebody still waiting for
        * a decision; a movement is somebody whose decision has been made. The person an ED
@@ -294,7 +295,28 @@ export function ResultsSection({
                 <th scope="col">Stage</th>
                 <th scope="col">Department</th>
                 <th scope="col">Destination</th>
-                <th scope="col">Since arrival</th>
+                {/*
+                 * 🔴 "Open for", NOT "Since arrival". `elapsedLabel` measures from
+                 * `movement.openedAt` (`ward-derivations.ts:195`), and `Movement` holds NO arrival
+                 * instant at all — `arrivedAt` was deliberately deleted (`ward-model.ts`, Phase 8
+                 * Task 2R). `Referral.triagedAt`'s doc comment states the rule in terms: "TRIAGE IS
+                 * NOT ARRIVAL, AND NO SCREEN MAY WORD IT AS ONE." A patient arrives, waits, and is
+                 * triaged some time later; on a busy night that gap is not small, so a header
+                 * saying "arrival" over an opened-at clock understates every wait on the screen.
+                 *
+                 * ⚠️ THE SAME TWO WORDS ARE CORRECT ON THE OUT-OF-AREA LEDGER and must stay there.
+                 * That column is fed by `sinceArrivalLabel`, which reads a real admission and says
+                 * "Arrival not recorded" when it has none. Identical wording, different source,
+                 * only one of them a claim the record cannot support — which is why this one
+                 * survived review: it reads as house style rather than as an assertion.
+                 * `tests/ui-ward-referrals.spec.ts` pins that ledger's four headers; it does not
+                 * cover this table, so nothing there needed relaxing to make this change.
+                 *
+                 * "Open for" is safe across every row because `searchMovements` filters `isOpen`
+                 * first and unconditionally, so a closed movement can never reach this column and
+                 * be described as still open.
+                 */}
+                <th scope="col">Open for</th>
                 <th scope="col">
                   <span className="sr-only">Open</span>
                 </th>
@@ -308,18 +330,82 @@ export function ResultsSection({
           </table>
         </div>
       )}
-    </section>
+    </WardPanel>
   );
 }
 
+/*
+ * 🔴 THE DESTINATION COLUMN READS `acceptedUnitId` DIRECTLY AND NEVER `destinationUnit`.
+ *
+ * `destinationUnit` is `movement.acceptedUnitId ?? movement.referredUnitIds[0]`
+ * (`ward-derivations.ts:261`) — the fallback lives INSIDE the helper. So a patient with no
+ * acceptance and two open referrals had one of them, chosen arbitrarily by array order, printed
+ * to a coordinator under a column headed "Destination". Nothing on the row said the ward had not
+ * agreed to take them. That is not a display bug: it is the screen asserting a bed exists.
+ *
+ * ⚠️ THE HELPER KEEPS ITS FALLBACK AND SHOULD. The board and the network want a provisional
+ * destination to lay out, and this is not a repair to `destinationUnit`. It is a statement that a
+ * SEARCH RESULT is a record, and a record may not round a referral up to a destination.
+ *
+ * Ward Lead repaired the identical defect on the movement workspace; this is that fix, same shape.
+ * `flow-diagram.tsx:491` refused the helper for this reason AND for a second one — it only ever
+ * reads `referredUnitIds[0]`, so a second parallel referral is invisible. Reading `acceptedUnitId`
+ * closes both here, because an acceptance is singular by construction.
+ *
+ * ⚠️ KNOWN AND DELIBERATE ASYMMETRY: `searchMovements`' haystack (`ward-derivations.ts:1073`)
+ * still matches on `destinationUnit`, so searching a ward's name can return a patient merely
+ * REFERRED there, whose Destination cell then reads "No destination chosen". That looks odd and is
+ * true. The opposite — matching the search to the column by showing the referred ward — is the
+ * false statement this comment exists to prevent. Raised with Ward Lead rather than settled here.
+ */
 function ResultRow({ movement, units, now }: { movement: Movement; units: Unit[]; now: number }) {
-  const destination = destinationUnit(movement, units);
+  /*
+   * ACCEPTED-ONLY, never `destinationUnit` — see the note on the handover screen's own column.
+   * `destinationUnit` is `acceptedUnitId ?? referredUnitIds[0]`, so it presents the first ward
+   * ASKED as the destination on a movement nobody has accepted.
+   *
+   * "No destination chosen" was not a blank cell and was never the defect here; it was TRUE for a
+   * movement with nothing recorded and FALSE by omission for one with referrals outstanding,
+   * because the fallback could not tell those apart and the helper hid the difference by
+   * answering with a candidate.
+   */
+  const destination = movement.acceptedUnitId
+    ? units.find((candidate) => candidate.id === movement.acceptedUnitId)
+    : undefined;
+  /*
+   * THE WARDS ASKED ARE NAMED HERE, AND THAT IS THE "MATCHED ON" FIX — not a new column.
+   *
+   * ⚠️ **MY OWN REPAIR CREATED THIS.** `searchMovements`' haystack includes the destination's
+   * NAME, resolved through `destinationUnit` — which is `acceptedUnitId ?? referredUnitIds[0]`.
+   * So typing a ward's name has always matched movements merely REFERRED there. Before my change
+   * this cell printed that ward's name, wrongly, as the destination: the row was false but it did
+   * at least explain itself. After it, the cell read "1 ward asked, none has accepted" — true, and
+   * the ward the coordinator typed had vanished from the row entirely, leaving a result that looked
+   * arbitrary. **The row went from wrong-but-legible to right-but-inexplicable, and neither is what
+   * a person searching needs.**
+   *
+   * Naming the wards restores the match's explanation while keeping the status honest: the cell
+   * says nobody has accepted AND shows who was asked, so the same string answers both "what is the
+   * destination" and "why is this row here".
+   *
+   * The owner's ruling was to keep the haystack as it is — a coordinator typing a ward name almost
+   * certainly does want the movements referred there, and hiding a live referral to the ward they
+   * just typed would be the worse defect. The bug was never the match; it was the silence about why.
+   */
+  const askedNames = movement.referredUnitIds
+    .map((id) => units.find((candidate) => candidate.id === id)?.name)
+    .filter((name): name is string => name !== undefined);
+  const destinationCell = destination
+    ? destination.name
+    : movement.referredUnitIds.length > 0
+      ? `${movement.referredUnitIds.length} ward${movement.referredUnitIds.length === 1 ? "" : "s"} asked, none has accepted${askedNames.length > 0 ? ` — ${askedNames.join(", ")}` : ""}`
+      : "No destination chosen";
   return (
     <tr>
       <td>{movement.id}</td>
       <td>{stageCopy[movement.stage].label}</td>
       <td>{departmentLabel(movement)}</td>
-      <td>{destination?.name ?? "No destination chosen"}</td>
+      <td>{destinationCell}</td>
       <td>{elapsedLabel(movement, now)}</td>
       <td>
         <Link className={styles.resultLink} href={`/mockups/ward-flow/movements/${movement.id}`}>

@@ -5,6 +5,8 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { stripAllComments } from "./helpers/strip-source-comments";
+
 /**
  * NINE CLAIMS THAT WERE FALSE ON THE COMMUNITY SCREENS, PINNED SO THAT NONE OF THEM CAN COME BACK.
  *
@@ -148,8 +150,15 @@ describe("claims 1 and 2 — the demo clock shifts the admission instants, and t
     }
   });
 
+  // ⚠️ MATCHED WITH COMMENTS STRIPPED (`stripAllComments`, see
+  // tests/ward-guard-comment-blindness.test.ts). This checks that the guard REALLY reads both
+  // files — a code write, not prose — via a raw path string. Unstripped, a comment merely
+  // mentioning "src/components/ward-management/ward-model.ts" satisfies the match exactly as well
+  // as the real `MODEL_FILES` array entry does. Proved live 2026-09-04: emptying `MODEL_FILES` in
+  // `tests/ward-reanchor.test.ts` and leaving only an explanatory comment naming both paths passed
+  // this test unchanged.
   it("the guard really does read both model files, which is the claim the screen had inverted", () => {
-    const guard = sourceOf(REANCHOR_TEST_PATH);
+    const guard = stripAllComments(sourceOf(REANCHOR_TEST_PATH));
     expect(guard).toContain("src/components/ward-management/ward-model.ts");
     expect(guard).toContain("src/components/ward-management/ward-admissions.ts");
   });
@@ -351,7 +360,14 @@ describe("claims 6 and 7 — the switcher is the way across, and carries no coun
      * the shape a careless check waves through. Pin the reasoning, never the bare figure.
      */
     const nav = sourceOf(NAV_TEST_PATH);
-    expect(nav).toContain("/mockups/ward-flow/community/[teamId]");
+    // ⚠️ MATCHED WITH COMMENTS STRIPPED (`stripAllComments`) for this one assertion only. This is a
+    // code-write check — is the route really a registered dynamic-route entry — not a prose check,
+    // so a comment merely naming the route must not satisfy it. Proved live 2026-09-04: removing all
+    // three real `MODEL_FILES`-style entries from `ward-nav.test.ts` and leaving one decoy comment
+    // naming the route passed this test unchanged. The two checks below stay on the unstripped `nav`
+    // deliberately: one pins a documented explanation (reads a comment on purpose) and the other is
+    // an absence check, the conservative direction already.
+    expect(stripAllComments(nav)).toContain("/mockups/ward-flow/community/[teamId]");
     expect(nav, "the nav test no longer explains that 0 is a scan limit rather than an orphan").toContain(
       "a limit of a source scan, not an orphan",
     );

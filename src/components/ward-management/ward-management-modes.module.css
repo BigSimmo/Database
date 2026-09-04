@@ -1,43 +1,18 @@
 .modeShell {
   composes: descendantKillWithScroll from "./ward-reduced-motion.module.css";
-  --ward-blue: var(--clinical-accent);
-  --ward-blue-soft: var(--clinical-accent-soft);
-  --ward-blue-border: var(--clinical-accent-border);
-  --ward-canvas: var(--surface);
-  --ward-chrome: var(--surface-chrome);
-  --ward-subtle: var(--surface-subtle);
-  --ward-border: var(--neutral-500);
-  --ward-border-strong: var(--text-muted);
-  --ward-text: var(--text);
-  --ward-heading: var(--text-heading);
-  --ward-muted: var(--text-muted);
-  --ward-success: var(--success-text);
-  --ward-success-soft: var(--success-bg);
-  --ward-warning: var(--warning-text);
-  --ward-warning-soft: var(--warning-bg);
-  --ward-danger: var(--danger-text);
-  --ward-danger-soft: var(--danger-bg);
-  --ward-space-2: 0.125rem;
-  --ward-space-3: 0.1875rem;
-  --ward-space-4: 0.25rem;
-  --ward-space-6: 0.375rem;
-  --ward-space-7: 0.4375rem;
-  --ward-space-8: 0.5rem;
-  --ward-space-10: 0.625rem;
-  --ward-space-12: 0.75rem;
-  --ward-space-14: 0.875rem;
-  --ward-space-16: 1rem;
-  --ward-space-20: 1.25rem;
-  --ward-leading-compact: 1;
-  --ward-leading-tight: 1.2;
-  --ward-leading-body: 1.4;
-  --ward-leading-relaxed: 1.45;
-  --ward-leading-prose: 1.5;
+  composes: wardTokens from "./ward-tokens.module.css";
+  /*
+   * These three are local, not part of the shared layer: nothing outside this file uses them,
+   * and the shared `ward-tokens.module.css` (Task 1) does not declare them. `--ward-leading-*`,
+   * `--ward-border`/`--ward-border-strong` and every other token this rule used to declare now
+   * come from the `wardTokens` compose above — and for `--ward-leading-compact` (was 1, now
+   * 1.1), `--ward-leading-tight` (was 1.2, now 1.15) and `--ward-leading-prose` (was 1.5, now
+   * 1.55) that is a deliberate change: this file had drifted from the other two declarations of
+   * the layer, and the shared file adopts the value the other two agreed on.
+   */
   --ward-stroke-thin: 0.0625rem;
   --ward-stroke-accent: 0.1875rem;
   --ward-radius-round: 50%;
-  --ward-z-base: 1;
-  --ward-z-phone: 20;
 
   display: grid;
   height: 100dvh;
@@ -48,7 +23,8 @@
      `.modeContent` is the second and last row. */
   grid-template-rows: 4rem minmax(0, 1fr);
   overflow: hidden;
-  background: var(--ward-canvas);
+  /* The shell owns the ground — do not reintroduce a background here in any spelling
+     (`--ward-canvas`, `--ward-ground`, or otherwise). */
   color: var(--ward-text);
   font-variant-numeric: tabular-nums;
 }
@@ -420,7 +396,7 @@
   align-items: center;
   gap: var(--ward-space-8);
   border: 0;
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   background: var(--ward-canvas);
   padding: var(--ward-space-10);
   color: var(--ward-text);
@@ -501,7 +477,7 @@
 
 .dataTable th,
 .dataTable td {
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   padding: var(--ward-space-10) var(--ward-space-8);
   text-align: left;
   vertical-align: middle;
@@ -610,7 +586,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--ward-space-6);
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   padding-bottom: var(--ward-space-8);
 }
 
@@ -709,7 +685,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--ward-space-8);
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   padding: var(--ward-space-8) 0;
   color: var(--ward-text);
   font-size: var(--text-2xs);
@@ -949,7 +925,7 @@
   .modeHeader {
     position: sticky;
     top: var(--spacing-ward-phone-bar);
-    z-index: var(--ward-z-phone);
+    z-index: var(--ward-z-phone-header);
     display: grid;
     min-height: 4.25rem;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1315,6 +1291,72 @@
 }
 
 /*
+ * ⚠️ `color: CanvasText` IS THE LOAD-BEARING LINE HERE, NOT `color-scheme: light`.
+ *
+ * `.modeShell` sets `color: var(--ward-text)` ON ITSELF (via the `wardTokens` compose above). The
+ * dark ramp is scoped by the CLASS `.ckb-v2.dark.ckb-v2` rather than by a media query, so
+ * `color-scheme: light` cannot make it re-resolve; and `globals.css` resets print colour on
+ * `html, body`, which cannot reach an element that declares the property itself. Printing this
+ * shell from dark mode therefore put pale text on white paper. An ancestor cannot override a
+ * property an element sets on itself, so the reset has to live in the file that made the
+ * declaration.
+ *
+ * ⚠️ THE RESET COVERS EVERY DESCENDANT, NOT JUST THIS ROOT, AND THAT IS DELIBERATE FROM THE START
+ * HERE — never an enumeration. The same "ancestor cannot override" sentence is just as true one
+ * level down: a rule like `.dataTable th { color: var(--ward-muted) }` sets colour on itself too,
+ * and `.modeShell { color: CanvasText }` cannot reach past it either. `board.module.css` tried the
+ * enumeration route — 56 coloured selectors listed across a 250-line print block — and still
+ * missed five content selectors. An enumerated list is the defect regenerating: any new coloured
+ * selector re-opens it, silently, forever. The wildcard `.modeShell *` cannot drift, and it
+ * flattens nothing anybody wanted — a sweep of every existing print block across these seven files
+ * found zero non-`CanvasText` colour declarations inside any of them.
+ *
+ * ⚠️ `!important` IS REQUIRED ON `color` HERE, AND THE WILDCARD ALONE IS NOT ENOUGH — measured
+ * through an actual cascade (jsdom's computed-style engine), not read off the CSS. Specificity is
+ * resolved before source order, so sitting at the end of the file buys nothing: `.modeShell *` is
+ * one class plus the universal selector (specificity 0,1,0; the universal contributes zero), and
+ * any rule combining a class with a type, pseudo-class or attribute selector outranks it — this
+ * file has dozens: `.dataTable th` (0,1,1), every `.networkNode[data-band="…"]` variant (0,2,0),
+ * `.sourceList a` (0,1,1). Confirmed on an equivalent-shaped selector: it computed
+ * `rgb(244, 246, 248)` — still near-white — with the wildcard alone, and `rgb(0, 0, 0)` once
+ * `!important` was added. `color-scheme` needs no `!important`: nothing competes for it.
+ * `coordinator.module.css` already carries `color: CanvasText !important` in its own print
+ * blocks — this file now matches that precedent rather than re-deriving it.
+ *
+ * ⚠️ THE WILDCARD ALONE WOULD HAVE LOOKED FIXED. It corrects every plain element, so a spot-check
+ * on any single-class element prints black and the fix reads as confirmed, while the data table,
+ * the network diagram's banded nodes, and every other compound-selector element stay invisible.
+ * Fix one instance, verify on the instance in front of you, never revisit the siblings: the same
+ * defect recurring at a third level, after file and after selector.
+ *
+ * NOT VERIFIED ON PAPER. This is a jsdom cascade resolution, not an observation of a printout —
+ * `!important` winning over specificity is spec behaviour common to every rendering engine,
+ * including the one that will actually print the page, so the result should carry over.
+ */
+@media print {
+  .modeShell,
+  .modeShell * {
+    color-scheme: light;
+    color: CanvasText !important;
+    /*
+     * 🔴 THE MISSING HALF, AND WITHOUT IT THE LINE ABOVE MAKES THE PAGE WORSE. Measured in
+     * Chromium 151 under print + dark: a themed card kept `rgb(23, 26, 29)` because nothing
+     * resets backgrounds, while the reset forced its text to `rgb(0, 0, 0)`. **Black on a dark
+     * card — gone.** Before the text reset that same text was near-white on the dark card:
+     * wasteful, and READABLE. The fix and the untouched background are each defensible alone
+     * and strictly worse together, and nothing either of us checked would have caught it,
+     * because we were both looking at text colour on a white page.
+     *
+     * ⚠️ `background-color`, NEVER the `background` shorthand. `board.module.css` hatches its
+     * blocked, held and past-date bed states with `background-image: repeating-linear-gradient`.
+     * The shorthand wipes `background-image` and would silently erase the pattern that
+     * distinguishes a blocked bed from an empty one — a state distinction, not decoration.
+     */
+    background-color: Canvas !important;
+  }
+}
+
+/*
  * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
  *
  * The border aliases above deliberately SEVER the chain to `--border`. Measured against
@@ -1332,5 +1374,14 @@
   .modeShell {
     --ward-border: var(--border);
     --ward-border-strong: var(--border-strong);
+    /* ⚠️ ADDED 2026-09-04 WITH THE FOUR `--ward-divider` RECLASSIFICATIONS, because the comment
+       above says this repoint "is not optional" and four between-row rules had just moved onto a
+       token the block did not name — a stated invariant with a silent hole in it.
+       Honest about what this does and does not do: forced-colors mode overrides `border-color`
+       downstream of custom-property resolution, so it changes nothing anybody can see today, and
+       a claim that it fixes a live contrast defect was made on this branch and measured false.
+       It is here so the block covers every border token this file uses, which is what its own
+       comment promises. */
+    --ward-divider: var(--border);
   }
 }

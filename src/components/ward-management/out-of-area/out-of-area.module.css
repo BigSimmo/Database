@@ -1,31 +1,31 @@
 /*
- * Phase 8 Task 5 (spec D8-3): the out-of-area ledger. Same self-contained-tokens convention every
- * other ward-management module documents on its own root class (see `discharges.module.css`,
- * `handover.module.css`): every local custom property this file needs is declared here, never
- * borrowed from another module's scope.
+ * Phase 8 Task 5 (spec D8-3): the out-of-area ledger.
+ *
+ * ⚠️ THIS FILE NO LONGER DECLARES ITS OWN SCALE. It used to, and this comment used to say so —
+ * "never borrowed from another module's scope", citing `handover.module.css` as the exemplar.
+ * `handover.module.css` abandoned that convention in the same change this file did, on
+ * 2026-09-04: `.screen` composes `ward-tokens.module.css` and every spacing and leading value
+ * comes from there.
  *
  * Nothing in this file changes colour with a duration. There is no threshold styling, no warning
  * ramp and no red row — the screen shows elapsed time and nothing else, and a colour that switched
  * at some number of hours would be inventing exactly the target the notice above it disclaims.
  */
 .screen {
-  --wf-border: var(--neutral-500);
-  --oa-space-4: 0.25rem;
-  --oa-space-6: 0.375rem;
-  --oa-space-8: 0.5rem;
-  --oa-space-10: 0.625rem;
-  --oa-space-12: 0.75rem;
-  --oa-space-14: 0.875rem;
-  --oa-space-16: 1rem;
-  --oa-space-20: 1.25rem;
-  --oa-space-24: 1.5rem;
-  --oa-space-48: var(--spacing-tap);
-  --oa-leading-body: 1.45;
+  composes: wardTokens from "../ward-tokens.module.css";
 
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /*
+   * ⚠️ NO background HERE, DELIBERATELY, and do not reintroduce one in any spelling. The shell
+   * owns the ground. This screen previously painted `var(--surface)` over it.
+   *
+   * The guard is `tests/ward-design-language-contract.test.ts`'s `added` assertion, NOT
+   * `ward-shell.dom.test.tsx` as this comment first claimed. That one pins the single stylesheet
+   * allowed to paint `--ward-ground`, and this screen never painted `--ward-ground` — so it would
+   * not catch the regression being warned about here.
+   */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -35,21 +35,21 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--oa-space-16);
+  gap: var(--ward-space-16);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--oa-space-16) var(--oa-space-20) var(--oa-space-24);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
 }
 
 .governanceBanner {
   display: flex;
-  min-height: var(--oa-space-48);
+  min-height: var(--spacing-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--oa-space-12);
-  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   background: var(--surface-chrome);
-  padding: var(--oa-space-8) var(--oa-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -58,7 +58,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--oa-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .prototypeBadge {
@@ -66,7 +66,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--oa-space-4) var(--oa-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -77,7 +77,7 @@
 .pageHeader {
   display: flex;
   flex-direction: column;
-  gap: var(--oa-space-4);
+  gap: var(--ward-space-4);
 }
 
 .pageTitle {
@@ -100,14 +100,14 @@
  */
 .counts {
   margin: 0;
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--oa-space-12) var(--oa-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
   color: var(--text);
   font-size: var(--text-sm, 0.875rem);
   font-weight: 600;
-  line-height: var(--oa-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 /*
@@ -119,29 +119,29 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
   background: var(--warning-bg);
-  padding: var(--oa-space-10) var(--oa-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--warning-text);
   font-size: var(--text-xs);
-  line-height: var(--oa-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 /* Quieter than the two notices above: it qualifies the list rather than disclaiming a figure. */
 .provenance {
   margin: 0;
-  border-left: 0.125rem solid var(--wf-border, var(--neutral-500));
-  padding-left: var(--oa-space-10);
+  border-left: 0.125rem solid var(--ward-border);
+  padding-left: var(--ward-space-10);
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--oa-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .section {
   display: grid;
-  gap: var(--oa-space-8);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--oa-space-12) var(--oa-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }
 
 .sectionHeading {
@@ -203,8 +203,8 @@
 
 .table th,
 .table td {
-  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
-  padding: var(--oa-space-6) var(--oa-space-8);
+  border-bottom: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-6) var(--ward-space-8);
   text-align: left;
   vertical-align: top;
 }
@@ -231,11 +231,11 @@
 
 .card {
   display: grid;
-  gap: var(--oa-space-4);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-4);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  padding: var(--oa-space-10) var(--oa-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
 }
 
 .cardTop {
@@ -243,7 +243,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--oa-space-8);
+  gap: var(--ward-space-8);
 }
 
 .cardRegion {
@@ -286,7 +286,7 @@
 
   .cardList {
     display: grid;
-    gap: var(--oa-space-8);
+    gap: var(--ward-space-8);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -304,6 +304,63 @@
  */
 @media (forced-colors: active) {
   .screen {
-    --wf-border: var(--border);
+    /*
+     * ⚠️ REPOINTED AT `--ward-border`/`--ward-divider`, NOT DELETED. `ward-tokens.module.css`
+     * carries no forced-colors block of its own, so dropping this override would silently cost a
+     * high-contrast user the system border colour.
+     */
+    --ward-border: var(--border);
+    --ward-divider: var(--border);
+  }
+}
+
+/*
+ * 🔴 PRINTING THIS SCREEN PRODUCED A BLANK SHEET UNTIL THIS BLOCK EXISTED, and the cause was not
+ * the background — it was the colour.
+ *
+ * Dark tokens here are scoped by the CLASS `.ckb-v2.dark.ckb-v2`, not by a media query, so the
+ * class stays on <html> while printing and `--text` stays near-white. `globals.css` sets a black
+ * print colour on `body`, but `.screen` is a class selector and beats `body`, so this root's own
+ * `color: var(--text)` won and printed near-white text.
+ *
+ * ⚠️ WHILE THE ROOT ALSO PAINTED AN OPAQUE DARK BACKGROUND THIS WAS MERELY UGLY — light text on a
+ * dark band, obviously broken. Deleting that background when this screen adopted the shared token
+ * layer removed the band and left near-white on white paper. **The adoption turned an obviously
+ * broken page into a silently blank one**, and blank is worse: a dark band gets reported, an empty
+ * sheet reads as "nothing to print".
+ *
+ * ⚠️ IT CANNOT BE FIXED CENTRALLY. `ward-shell.module.css` setting `color` under print cannot beat
+ * `.screen`'s own declaration, so the reset belongs in the file that made the declaration.
+ *
+ * `background: none` does nothing today — this root no longer paints — and is kept so that a
+ * future root background cannot reappear as a printed band.
+ */
+@media print {
+  /*
+   * 🔴 THE WILDCARD AND `!important` ARE BOTH LOAD-BEARING, AND NEITHER IS BELT-AND-BRACES.
+   *
+   * `.screen` alone is one class, specificity (0,1,0). Every class-plus-type rule in this file
+   * outranks it — `.table td`, `.table th`, `.governanceBanner p` — so a print reset written only
+   * on the root leaves those cells painting their themed colour. In dark mode that is near-white
+   * on white paper: the row is on the page, sized and spaced correctly, and invisible.
+   *
+   * ⚠️ THE WILDCARD ALONE DOES NOT FIX IT EITHER. `.screen *` is a class plus the universal
+   * selector, and the universal contributes ZERO — still (0,1,0). It loses the same fight, and
+   * loses it silently: every plain element prints black, so a spot-check on a heading or a
+   * paragraph confirms the fix while the table rows stay invisible. Specificity resolves before
+   * source order, so sitting last in the file buys nothing. `!important` is what wins.
+   *
+   * `coordinator.module.css` reached this conclusion first and its print block does exactly this;
+   * this is that rule, not a new invention. `color-scheme` needs no `!important` — nothing
+   * competes for it.
+   */
+  .screen,
+  .screen * {
+    color: CanvasText !important;
+  }
+
+  .screen {
+    background: none;
+    color-scheme: light;
   }
 }

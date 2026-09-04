@@ -897,7 +897,13 @@ describe("seeding", () => {
     // — added so FD-23 ("a ward cannot see where else a patient has been referred") has a real
     // seeded record to demonstrate against, not only the reducer-built fixture in
     // `tests/ward-referral-visibility.test.ts`.
-    expect(state.referrals).toHaveLength(11);
+    // Thirteen since 2026-09-04: RF-012 and RF-013 are the origins of WF-002 and WF-009 (owner
+    // ruling R-2026-09-04-D). Not one of the twenty seeded movements carried a `referralId`, so
+    // the front-door link resolved for nobody and looked exactly like a link that did not work.
+    // They had to be AUTHORED rather than picked from the eleven above: a journey cannot precede
+    // the referral that produced it, and every existing ED-addressed referral was raised long
+    // after the youngest movement at its own department. See their comment in `ward-movements.ts`.
+    expect(state.referrals).toHaveLength(13);
     expect(state.referrals.map((r) => r.id)).toEqual([
       "RF-001",
       "RF-002",
@@ -916,6 +922,10 @@ describe("seeding", () => {
       "RF-010",
       // FD-23's multi-destination demonstration fixture, added 2026-09-02 — see the comment above.
       "RF-011",
+      // The origins of WF-002 and WF-009, added 2026-09-04 — the only referrals any seeded
+      // MOVEMENT points at, and the first time `referralForMovement` resolves for anybody.
+      "RF-012",
+      "RF-013",
     ]);
     expect(state.frontDoorReferralSequence).toBe(0);
   });

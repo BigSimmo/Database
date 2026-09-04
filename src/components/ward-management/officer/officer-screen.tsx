@@ -18,7 +18,63 @@ import styles from "./officer.module.css";
  * `canRefer` already hold to. The two branches below are read straight off the reducer's own
  * `case "TRANSPORT_ACCEPTED"`, in the same order, so the two can never silently drift apart.
  */
-function acceptedBlockedReason(movement: Movement): string | undefined {
+/**
+ * The four actions this screen dispatches, read back as THE WORDS ALREADY ON THE BUTTON.
+ *
+ * ⚠️ `Rejection.attempted` is the event's own type string verbatim (see `makeRejection` in
+ * `ward-flow-reducer.ts`) — `PATIENT_COLLECTED`, not "Collected". Rendering it raw would put a
+ * SCREAMING_CASE token in front of a clinician, which this repository has already had to repair
+ * once on a clinical heading. Same shape and same reason as `WARD_ACTION_REJECTION_LABELS` in
+ * `ward-screen.tsx`.
+ *
+ * 🔴 THIS MAP IS ALSO THE SCOPE FILTER, AND THAT IS DELIBERATE. A refusal whose `attempted` is not
+ * one of these four is not this screen's business — and because an unknown key is dropped rather
+ * than displayed, no event type added later can render as a raw token here by default. The filter
+ * and the anti-token guarantee are the same line of code.
+ *
+ * ⚠️ IT FILTERS BY ACTION, NEVER BY THE JOBS VISIBLE ABOVE. The refusal this surface exists for
+ * happens exactly when somebody else has closed the movement, which REMOVES it from the job list.
+ * Scoping to what is on screen is the intuitive choice and would hide the motivating case.
+ *
+ * ⚠️ And `Rejection.movementId` holds a REFERRAL id for the referral events, so showing everything
+ * would print referral ids under a movement label. These four are all movement-scoped.
+ */
+const OFFICER_ACTION_REJECTION_LABELS: Record<string, string> = {
+  TRANSPORT_ACCEPTED: "Accepted",
+  TRANSPORT_EN_ROUTE: "En route",
+  PATIENT_COLLECTED: "Collected",
+  PATIENT_ARRIVED: "Arrived",
+};
+
+/*
+ * 🔴 EVERY PREDICATE BELOW MUST CHECK `movement.closure` FIRST, AND THAT CHECK WAS MISSING FROM ALL
+ * FOUR UNTIL 2026-09-04.
+ *
+ * The four reducer cases these mirror — TRANSPORT_ACCEPTED, TRANSPORT_EN_ROUTE, PATIENT_COLLECTED,
+ * PATIENT_ARRIVED — each reject a closed movement before anything else. These predicates mirrored
+ * the stage and transport preconditions and omitted the closure one. So on a movement an ED user
+ * had closed, the officer's button RENDERED ENABLED, the press produced a rejection, and the
+ * movement came back byte-identical. A clinician pressed a button on a phone and nothing happened
+ * and nothing said why.
+ *
+ * ⚠️ CLOSURE IS CHECKED FIRST HERE BECAUSE IT IS CHECKED FIRST THERE. Order is not cosmetic: a
+ * closed movement also fails the stage guard, so putting closure second would show the clinician a
+ * stage message for a movement that has ENDED — true, and the wrong reason.
+ *
+ * ⚠️ AND READ THIS BEFORE TRUSTING A COMMENT ON ONE OF THESE. Each of these functions carried a
+ * comment saying it "mirrors `case X` exactly"; the arrival one went further and named the floor
+ * guard on empty beds as its evidence of completeness. Every word of that was TRUE, and all four
+ * omitted closure. A COMMENT THAT ENUMERATES WHAT IT COVERS READS AS AN INVENTORY, and `ed-screen.tsx`
+ * then cited these four as the convention to hold to. The enumeration is what stopped anyone looking.
+ *
+ * `tests/ward-officer-blocked-reason-parity.test.ts` now DRIVES every movement each predicate
+ * permits through the matching reducer case and asserts none is rejected. That is the check that
+ * cannot be satisfied by a comment: it never reads either implementation.
+ */
+export function acceptedBlockedReason(movement: Movement): string | undefined {
+  if (movement.closure) {
+    return `${movement.id} has already closed (${movement.closure.reason}). Transport cannot be accepted for a movement that has ended.`;
+  }
   if (movement.stage !== "handover_ready" || !movement.transport) {
     return `${movement.id} is ${stageCopy[movement.stage].label.toLowerCase()}, not ready for a transport handover.`;
   }
@@ -28,8 +84,11 @@ function acceptedBlockedReason(movement: Movement): string | undefined {
   return undefined;
 }
 
-/** Mirrors `case "TRANSPORT_EN_ROUTE"` exactly. */
-function enRouteBlockedReason(movement: Movement): string | undefined {
+/** Mirrors `case "TRANSPORT_EN_ROUTE"`, closure guard first. See the block above the group. */
+export function enRouteBlockedReason(movement: Movement): string | undefined {
+  if (movement.closure) {
+    return `${movement.id} has already closed (${movement.closure.reason}). Transport cannot be moved for a movement that has ended.`;
+  }
   if (movement.stage !== "handover_ready" || movement.transport?.acceptedAt === undefined) {
     return `Transport for ${movement.id} cannot go en route before it has been accepted.`;
   }
@@ -39,10 +98,15 @@ function enRouteBlockedReason(movement: Movement): string | undefined {
   return undefined;
 }
 
-/** Mirrors `case "PATIENT_COLLECTED"` exactly. The reducer carries no "already collected" check
- * of its own — collecting moves the stage to `moving`, so the stage guard above already covers a
- * second attempt — and this stays a faithful mirror rather than adding a check the reducer lacks. */
-function collectedBlockedReason(movement: Movement): string | undefined {
+/** Mirrors `case "PATIENT_COLLECTED"`, closure guard first. The reducer carries no "already
+ * collected" check of its own — collecting moves the stage to `moving`, so the stage guard already
+ * covers a second attempt — and this stays a faithful mirror rather than adding a check the reducer
+ * lacks. ⚠️ That sentence was true while the function omitted closure entirely; it describes one
+ * deliberate omission and was silent about an accidental one. See the block above the group. */
+export function collectedBlockedReason(movement: Movement): string | undefined {
+  if (movement.closure) {
+    return `${movement.id} has already closed (${movement.closure.reason}). A patient cannot be collected for a movement that has ended.`;
+  }
   if (movement.stage !== "handover_ready" || movement.transport?.enRouteAt === undefined) {
     return `${movement.id} cannot be marked collected before transport is en route.`;
   }
@@ -50,14 +114,18 @@ function collectedBlockedReason(movement: Movement): string | undefined {
 }
 
 /**
- * Mirrors `case "PATIENT_ARRIVED"` exactly, including the floor guard on the receiving unit's
- * physically empty beds — the most consequential precondition on this screen, since it is the
- * one a driver could otherwise tap straight into a refusal for. `unit` is passed in already
+ * Mirrors `case "PATIENT_ARRIVED"`, closure guard first, and including the floor guard on the
+ * receiving unit's physically empty beds. ⚠️ THIS COMMENT ONCE SAID "exactly, including the floor
+ * guard" WHILE THE FUNCTION OMITTED CLOSURE — naming the hardest precondition it did cover read as
+ * proof it covered them all. `unit` is passed in already
  * resolved from the LIVE `units` array the provider hands back (never `unitById` from
  * `ward-sites.ts`, which reads the frozen fixture and would never see an earlier arrival that
  * already consumed the receiving unit's last empty bed).
  */
-function arrivedBlockedReason(movement: Movement, unit: Unit | undefined): string | undefined {
+export function arrivedBlockedReason(movement: Movement, unit: Unit | undefined): string | undefined {
+  if (movement.closure) {
+    return `${movement.id} has already closed (${movement.closure.reason}). A patient cannot be marked arrived for a movement that has ended.`;
+  }
   if (movement.stage !== "moving" || movement.transport?.collectedAt === undefined) {
     return `${movement.id} cannot be marked arrived before the patient has been collected.`;
   }
@@ -101,13 +169,32 @@ function formRequiredLabel(transport: TransportJob): string {
  * inflates that job's own button count.
  */
 export function OfficerScreen() {
-  const { movements, units, now, dispatch } = useWardFlow();
+  const { movements, units, now, dispatch, rejections } = useWardFlow();
 
   // Every job not yet arrived — never filtered to an inferred "mine", per the model constraint
   // above. `movement.transport` guards existence; `arrivedAt` is the one stamp `PATIENT_ARRIVED`
   // writes, so its absence is exactly "not yet arrived" regardless of `movement.stage`.
+  /*
+   * CLOSURE IS ADDED HERE; THE STAGE QUESTION IS DELIBERATELY NOT.
+   *
+   * The comment above defends ignoring `movement.stage`, and that reasoning is sound: `arrivedAt`
+   * is the one stamp `PATIENT_ARRIVED` writes, so its absence really is "not yet arrived". But it
+   * says nothing about CLOSURE, which is a different fact. A transport job on a CLOSED movement is
+   * not a job an officer can do - nobody is going anywhere - and by the filter's own logic it sat
+   * here forever with its elapsed time counting up.
+   *
+   * `movement.closure === undefined`, NOT `isOpen(movement)`. `isOpen` is two conditions bolted
+   * together - closure absent AND stage not "arrived" - and the second is exactly the stage
+   * exclusion the comment above rejects for this screen. Using it here would smuggle that back in.
+   *
+   * THE TRANSPORT BOARD IN `ward-management-modes.tsx` DIFFERS ON STAGE, AND THAT IS CORRECT, NOT
+   * DRIFT. The board asks "what is in flight" and excludes arrived; this phone screen asks "what
+   * have I not yet delivered" and must keep showing a job until its own arrival stamp lands. The
+   * two agree on closure and differ on stage, on purpose. Do not "fix" the asymmetry.
+   */
   const jobs = movements.filter(
-    (movement) => movement.transport !== undefined && movement.transport.arrivedAt === undefined,
+    (movement) =>
+      movement.transport !== undefined && movement.transport.arrivedAt === undefined && movement.closure === undefined,
   );
 
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -118,6 +205,11 @@ export function OfficerScreen() {
   // `selectedJob.id` off this same live, freshly filtered array, never a stale closure, so a
   // fallback selection can never change what an action actually targets.
   const selectedJob = jobs.find((job) => job.id === selectedId) ?? jobs[0];
+
+  // Newest first: `rejections` is appended in raise order, and a driver wants what just failed.
+  const officerRefusals = [...rejections]
+    .reverse()
+    .filter((rejection) => OFFICER_ACTION_REJECTION_LABELS[rejection.attempted] !== undefined);
 
   return (
     <div className={styles.screen} data-testid="ward-officer-screen">
@@ -133,6 +225,40 @@ export function OfficerScreen() {
             arrived, not a filtered list of &ldquo;your&rdquo; jobs.
           </p>
         </div>
+
+        {/*
+         * 🔴 THE REFUSAL SURFACE. Until 2026-09-04 this screen read `rejections` NOWHERE — the only
+         * ward screen with no channel to report a refusal — while coordinator, ED, ward, referrals
+         * and morning-tour all had one. That is what turned a wrong gate into a phantom: a
+         * clinician pressed a button, the reducer refused, the movement came back byte-identical,
+         * and the phone said nothing at all.
+         *
+         * ⚠️ THIS IS DELIBERATELY NOT FILTERED TO THE JOBS VISIBLE ABOVE. The refusal this exists
+         * for happens exactly when a movement has just been closed by somebody else and has
+         * therefore LEFT the `jobs` list — filtering to the list would hide the one case that
+         * motivated the surface. Scoping it to what is on screen is the intuitive choice and the
+         * wrong one.
+         *
+         * Persistent, not a toast (spec §7.4, the same rule the coordinator's exceptions drawer
+         * follows): it renders nothing until the first refusal, and then never goes silent.
+         * Newest first, because `rejections` is appended in raise order and a driver wants what
+         * just failed, not what failed first today.
+         */}
+        {officerRefusals.length > 0 ? (
+          <section className={styles.refusals} aria-label="Refused actions" data-testid="ward-officer-refusals">
+            <h2 className={styles.refusalsTitle}>
+              {officerRefusals.length} refused action{officerRefusals.length === 1 ? "" : "s"}
+            </h2>
+            <ul className={styles.refusalsList}>
+              {officerRefusals.map((rejection) => (
+                <li key={rejection.id} className={styles.refusalsItem}>
+                  <strong>{rejection.movementId}</strong> &mdash; {OFFICER_ACTION_REJECTION_LABELS[rejection.attempted]}{" "}
+                  was refused: {rejection.reason}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         {jobs.length === 0 ? (
           <p className={styles.placeholder} data-testid="ward-officer-empty">

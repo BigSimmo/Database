@@ -8,9 +8,19 @@
  * every one of them silently computed to nothing on that route.
  */
 
+/*
+ * `.phoneBar` used to share this block but has been pulled out: it now composes the canonical
+ * `wardTokens` layer directly (see its own rule below) instead of hand-declaring a local subset,
+ * which is how `--ward-leading-tight` (1.2 here vs 1.15 canonical), `--ward-leading-body` (1.5 vs
+ * 1.4) and `--ward-z-phone` (30 vs 20 — genuinely a different layer, see ward-tokens.module.css)
+ * drifted from the canonical token layer in the first place. `.panel` and `.drawerBody` keep
+ * their own local declarations per this file's self-contained-tokens convention above —
+ * `.drawerBody` in particular renders through a portal, outside the shell's DOM subtree, so it
+ * cannot rely on inheriting canonical tokens from an ancestor. The leading values below are now
+ * corrected to match canonical rather than removed, for the same reason.
+ */
 .panel,
-.drawerBody,
-.phoneBar {
+.drawerBody {
   --ward-blue: var(--clinical-accent);
   --ward-blue-soft: var(--clinical-accent-soft);
   --ward-blue-border: var(--clinical-accent-border);
@@ -27,10 +37,9 @@
   --ward-space-10: 0.625rem;
   --ward-space-12: 0.75rem;
   --ward-space-16: 1rem;
-  --ward-leading-tight: 1.2;
-  --ward-leading-body: 1.5;
+  --ward-leading-tight: 1.15;
+  --ward-leading-body: 1.4;
   --ward-z-panel: 3;
-  --ward-z-phone: 30;
 }
 
 /*
@@ -277,11 +286,12 @@
  * `--spacing-ward-phone-bar` in its own phone media query.
  */
 .phoneBar {
+  composes: wardTokens from "./ward-tokens.module.css";
   position: fixed;
   top: 0;
   right: 0;
   left: 0;
-  z-index: var(--ward-z-phone);
+  z-index: var(--ward-z-phone-bar);
   display: none;
   height: var(--spacing-ward-phone-bar);
   align-items: center;
@@ -358,6 +368,41 @@
 }
 
 /*
+ * `.brandName`, `.brandTagline`, `.collapseButton`, `.groupLabel`, `.link`/`.linkActive`,
+ * `.exampleTag`, `.guest`, `.phoneBrandName` and `.menuButton` all declare their own colour, so
+ * the print reset carried by whichever screen hosts the sidebar cannot reach them — a colour
+ * declared on an element itself cannot be overridden by any ancestor rule. This file has three
+ * roots rather than one, because the same content mounts in three different DOM locations:
+ * `.panel` (the desktop panel), `.drawerBody` (the portalled phone drawer — `WardSidebarContent`
+ * mounted a second time, per the doc comment above `.drawerBody`) and `.phoneBar` (the fixed
+ * phone header, a separate tree entirely). Every other class this file declares sits inside one
+ * of the three, so `.panel, .panel *, .drawerBody, .drawerBody *, .phoneBar, .phoneBar *` reaches
+ * all of them at once. `!important` is required, not decorative: each `* ` reset has specificity
+ * (0,1,0), which a compound descendant selector in the hosting screen can equal or beat.
+ *
+ * ⚠️ `background-color`, NOT `background`. `.panel`, `.phoneBar`, `.collapseButton:hover`,
+ * `.link:hover`, `.linkActive`, `.rule`, `.guest` and `.menuButton` all declare a themed
+ * background (`--ward-chrome`, `--ward-canvas`, `--ward-blue-soft`, `--ward-border`) that
+ * survives print in dark mode exactly as the text colour did — measured in Chromium: a themed
+ * surface still reads its DARK background under `emulateMedia({ media: "print", colorScheme:
+ * "dark" })`, so forcing text to `CanvasText` without also resetting the background prints black
+ * text on a dark surface, which is WORSE than doing neither. The `background` shorthand would
+ * additionally reset `background-image` to `none`; the long-form `background-color` leaves it
+ * alone.
+ */
+@media print {
+  .panel,
+  .panel *,
+  .drawerBody,
+  .drawerBody *,
+  .phoneBar,
+  .phoneBar * {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+}
+
+/*
  * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
  *
  * The border aliases above deliberately SEVER the chain to `--border`. Measured against
@@ -370,9 +415,20 @@
  * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
  * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
  * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ *
+ * ⚠️ `.panel` AND `.drawerBody` MUST BE NAMED HERE TOO, NOT ONLY `.phoneBar`. `--ward-border` is
+ * declared on `.panel, .drawerBody` (top of this file) as well as consumed there — `.panel`'s own
+ * border-right, `.rule`, `.exampleTag`, `.footer`, `.collapseButton:hover` and `.link:hover` all
+ * resolve it against THAT declaration, the nearest ancestor that defines the custom property, not
+ * against `.phoneBar`'s. A repoint on `.phoneBar` alone can never reach a property that `.panel`
+ * and `.drawerBody` declare themselves. This file declares no `--ward-divider` or
+ * `--ward-border-strong` of its own (unlike `board.module.css`'s `.screen`, the model for this
+ * block) — only `--ward-border` — so only that one token needs repointing here.
  */
 @media (forced-colors: active) {
-  .phoneBar {
+  .phoneBar,
+  .panel,
+  .drawerBody {
     --ward-border: var(--border);
   }
 }
