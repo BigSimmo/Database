@@ -2462,7 +2462,7 @@ describe("RAG structured-output fallback", () => {
       title: "GENERATION_CONTEXT_ROUTE_ONLY_TITLE",
       file_name: "generation-context-route-only.pdf",
       section_heading: "ANC and FBC",
-      content: "GENERATION_CONTEXT_ROUTE_ONLY_SNIPPET mentions ANC and FBC monitoring.",
+      content: "GENERATION_CONTEXT_ROUTE_ONLY_SNIPPET states the required clozapine ANC and FBC monitoring schedule.",
       similarity: 0.2,
       hybrid_score: 0.2,
       text_rank: 0.01,
@@ -2486,7 +2486,7 @@ describe("RAG structured-output fallback", () => {
       input
         .split("\n")
         .filter((line) =>
-          /^answer_plan\.(?:retrieval_quality|source_selection|source_policy):|^source_count:/.test(line),
+          /^answer_plan\.(?:retrieval_quality|source_selection|source_policy):|^source_(?:count|relevance):/.test(line),
         );
     expect(routeWideInputs).toHaveLength(1);
     expect(servedOnlyInputs).toHaveLength(1);

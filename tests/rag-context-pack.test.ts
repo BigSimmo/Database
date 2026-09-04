@@ -506,8 +506,6 @@ describe("claim-oriented context packing", () => {
 
   it("admits both sides of a verified conflict atomically or omits both", () => {
     const local = evidence("local-conflict", "Use the local action.", {
-      corpusScope: "uploaded_local",
-      sourceRole: "local_guideline",
       contentHash: "same-family",
     });
     const australian = evidence("au-conflict", "Use the national action.", {
@@ -517,6 +515,13 @@ describe("claim-oriented context packing", () => {
       contentHash: "same-family",
     });
     const lane = selection("treatment", [local, australian], "treatment", [conflict(local, australian, "treatment")]);
+    const fittingPack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [lane],
+      coverage: coverage(["treatment"]),
+      tokenBudget: 1_000,
+    });
+    const pairTokens = fittingPack.usedTokens;
     const oneSideTokens = estimatePackedRagSourceBlockTokens(
       packClaimOrientedContext({
         ...trustedAdmission(),
@@ -525,14 +530,16 @@ describe("claim-oriented context packing", () => {
         tokenBudget: 1_000,
       }).groups,
     );
-    const pack = packClaimOrientedContext({
+    const constrainedPack = packClaimOrientedContext({
       ...trustedAdmission(),
       selections: [lane],
       coverage: coverage(["treatment"]),
       tokenBudget: oneSideTokens,
     });
 
-    expect(packedEvidenceResults(pack)).toEqual([]);
+    expect(packedEvidenceResults(fittingPack).map((result) => result.id)).toEqual([local.id, australian.id]);
+    expect(pairTokens).toBeGreaterThan(oneSideTokens);
+    expect(packedEvidenceResults(constrainedPack)).toEqual([]);
   });
 
   it("tries the next fitting group so one large first candidate cannot starve another required lane", () => {

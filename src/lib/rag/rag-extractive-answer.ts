@@ -28,6 +28,7 @@ import {
   extractQuoteCards,
   selectBestSourceRecommendation,
 } from "@/lib/evidence";
+import { buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import {
   hasForeignMedicationClinicalValueBinding,
   isAntipsychoticMedicationEntity,
@@ -3383,6 +3384,7 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
   const citations = candidate.citations.filter((citation) => cleanSourceIds.has(citation.chunk_id));
   const citedChunkIds = new Set(citations.map((citation) => citation.chunk_id));
   const sources = cleanSources.filter((source) => citedChunkIds.has(source.id));
+  const sourcesNarrowed = sources.length !== candidate.sources.length;
   const retainedDocumentIds = new Set(sources.map((source) => source.document_id));
   const answerSections = (candidate.answerSections ?? [])
     .map((section) => ({
@@ -3391,7 +3393,8 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
     }))
     .filter((section) => section.citation_chunk_ids.length > 0);
   const quoteCards = (candidate.quoteCards ?? []).filter((quote) => citedChunkIds.has(quote.chunk_id));
-  const visualEvidence = rebuildDerivedArtifacts
+  const refreshResultDerivedArtifacts = rebuildDerivedArtifacts || sourcesNarrowed;
+  const visualEvidence = refreshResultDerivedArtifacts
     ? buildVisualEvidence(sources)
     : (candidate.visualEvidence ?? []).filter((card) => citedChunkIds.has(card.source_chunk_id));
   const bestSource = rebuildDerivedArtifacts
@@ -3399,7 +3402,7 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
     : candidate.bestSource && citedChunkIds.has(candidate.bestSource.chunk_id)
       ? candidate.bestSource
       : null;
-  const rebuiltConflictsOrGaps = rebuildDerivedArtifacts ? detectConflictsOrGaps(sources) : [];
+  const rebuiltConflictsOrGaps = refreshResultDerivedArtifacts ? detectConflictsOrGaps(sources) : [];
   const retainedConflictsOrGaps = (candidate.conflictsOrGaps ?? [])
     .map((item) => {
       if (!item.source_chunk_ids) return item;
@@ -3421,13 +3424,25 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
   const documentBreakdown = buildDocumentBreakdown(sources, quoteCards);
   const evidenceSummary = buildEvidenceSummary(sources, quoteCards);
   const sourceCoverage = buildSourceCoverage(sources);
-  const memoryCardsUsed = (candidate.memoryCardsUsed ?? [])
-    .map((card) => ({
-      ...card,
-      source_chunk_ids: card.source_chunk_ids.filter((chunkId) => citedChunkIds.has(chunkId)),
-    }))
-    .filter((card) => card.source_chunk_ids.length > 0);
-  const scoreExplanations = (candidate.scoreExplanations ?? []).filter((item) => citedChunkIds.has(item.chunk_id));
+  const memoryCardsUsed = refreshResultDerivedArtifacts
+    ? collectMemoryCards(sources)
+    : (candidate.memoryCardsUsed ?? [])
+        .map((card) => ({
+          ...card,
+          source_chunk_ids: card.source_chunk_ids.filter((chunkId) => citedChunkIds.has(chunkId)),
+        }))
+        .filter((card) => card.source_chunk_ids.length > 0);
+  const scoreExplanations = refreshResultDerivedArtifacts
+    ? buildAnswerScoreExplanations(sources)
+    : (candidate.scoreExplanations ?? []).filter((item) => citedChunkIds.has(item.chunk_id));
+  const artifactQuery = candidate.smartApiPlan?.query ?? candidate.smartPanel?.query;
+  const relevance =
+    refreshResultDerivedArtifacts && artifactQuery
+      ? buildEvidenceRelevance(artifactQuery, sources)
+      : candidate.relevance;
+  const indexingQuality = refreshResultDerivedArtifacts
+    ? buildIndexingQuality(sources, memoryCardsUsed)
+    : candidate.indexingQuality;
   const sourceGovernanceWarnings = (candidate.sourceGovernanceWarnings ?? []).filter(
     (warning) => !warning.document_id || retainedDocumentIds.has(warning.document_id),
   );
@@ -3443,9 +3458,13 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
     const bestChunkIds = document.best_chunk_ids.filter((chunkId) => citedChunkIds.has(chunkId));
     return bestChunkIds.length ? [{ ...document, best_chunk_ids: bestChunkIds }] : [];
   });
+  const smartPanelBase =
+    refreshResultDerivedArtifacts && artifactQuery
+      ? buildSmartPanel(artifactQuery, sources, { relevance, visualEvidence })
+      : candidate.smartPanel;
   const smartPanel = candidate.smartPanel
     ? {
-        ...candidate.smartPanel,
+        ...smartPanelBase,
         total_sources: sources.length,
         documents: documentBreakdown,
         quotes: quoteCards,
@@ -3455,21 +3474,23 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
         evidenceSummary,
         sourceCoverage,
         conflictsOrGaps,
+        relevance,
         relatedDocuments,
       }
     : candidate.smartPanel;
-  const smartApiPlan = candidate.smartApiPlan
-    ? (() => {
-        const coreSourceLinks = candidate.smartApiPlan.coreSourceLinks.filter((link) =>
-          citedChunkIds.has(link.chunk_id),
-        );
-        return {
-          ...candidate.smartApiPlan,
-          sourceLinkCount: coreSourceLinks.length,
-          coreSourceLinks,
-        };
-      })()
-    : candidate.smartApiPlan;
+  const smartApiPlan =
+    candidate.smartApiPlan && sourcesNarrowed
+      ? buildSmartRagApiPlan({
+          query: candidate.smartApiPlan.query,
+          queryClass: candidate.smartApiPlan.queryClass,
+          results: sources,
+          routeMode: candidate.smartApiPlan.answerPlan.routeMode,
+          routeReason: candidate.routingReason,
+          conflictsOrGaps,
+          retrievalStrategy: candidate.smartApiPlan.retrievalStrategy,
+          preferredResponseMode: candidate.smartApiPlan.responseMode,
+        })
+      : candidate.smartApiPlan;
   const retained = {
     ...candidate,
     citations,
@@ -3482,7 +3503,9 @@ export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candi
     documentBreakdown,
     evidenceSummary,
     sourceCoverage,
+    relevance,
     memoryCardsUsed,
+    indexingQuality,
     scoreExplanations,
     sourceGovernanceWarnings,
     safetyWarnings,

@@ -18,6 +18,8 @@ import {
   splitClinicalEvidenceSentences,
 } from "../src/lib/rag/rag-extractive-answer";
 import { classifyRagQuery } from "../src/lib/clinical-search";
+import { buildSelectedEvidenceArtifacts } from "../src/lib/retrieval-selection";
+import { buildSmartRagApiPlan } from "../src/lib/smart-rag-api";
 import type { RagAnswer, RagQueryClass, SearchResult } from "../src/lib/types";
 
 function extractiveAnswerFor(query: string, results: SearchResult[], queryClass?: RagQueryClass) {
@@ -1388,22 +1390,91 @@ describe("escalation fallback intent", () => {
   });
 
   it("removes uncited smart-plan source links from extractive fallback artifacts", () => {
-    const kept = figureChunk({ id: "kept-plan-source", document_id: "kept-plan-document" });
-    const removed = figureChunk({ id: "removed-plan-source", document_id: "removed-plan-document" });
+    const query = "What ANC monitoring is required for clozapine?";
+    const queryClass = classifyRagQuery(query).queryClass;
+    const routeReason = "generation_fallback:provider_timeout; source_backed_extractive_fallback";
+    const kept = figureChunk({
+      id: "kept-plan-source",
+      document_id: "kept-plan-document",
+      title: "Clozapine monitoring guidance",
+      content: "Clozapine monitoring requires regular clinical review.",
+      similarity: 0.3,
+      hybrid_score: 0.3,
+    });
+    const removed = figureChunk({
+      id: "removed-plan-source",
+      document_id: "removed-plan-document",
+      title: "Clozapine ANC monitoring schedule",
+      content: "Clozapine ANC monitoring requires weekly FBC.",
+      similarity: 0.95,
+      hybrid_score: 0.95,
+    });
+    const smartApiPlan = buildSmartRagApiPlan({
+      query,
+      queryClass,
+      results: [kept, removed],
+      routeMode: "extractive",
+      routeReason,
+      retrievalStrategy: "hybrid",
+    });
+    const expectedPlan = buildSmartRagApiPlan({
+      query,
+      queryClass,
+      results: [kept],
+      routeMode: "extractive",
+      routeReason,
+      retrievalStrategy: "hybrid",
+    });
+    const broadArtifacts = buildSelectedEvidenceArtifacts(query, [kept, removed]);
+    const expectedArtifacts = buildSelectedEvidenceArtifacts(query, [kept]);
     const answer = retainCitedExtractiveFallbackEvidence({
       answer: "Keep the cited source.",
       grounded: true,
       confidence: "medium",
       citations: [citationFromResult(kept, "deterministic_support")],
       sources: [kept, removed],
-      smartApiPlan: {
-        sourceLinkCount: 2,
-        coreSourceLinks: [kept, removed].map((source) => ({ chunk_id: source.id })),
-      },
-    } as unknown as RagAnswer);
+      routingMode: "extractive",
+      routingReason: routeReason,
+      queryClass,
+      smartApiPlan,
+      quoteCards: broadArtifacts.quoteCards,
+      documentBreakdown: broadArtifacts.documentBreakdown,
+      evidenceSummary: broadArtifacts.evidenceSummary,
+      sourceCoverage: broadArtifacts.sourceCoverage,
+      conflictsOrGaps: broadArtifacts.conflictsOrGaps,
+      visualEvidence: broadArtifacts.visualEvidence,
+      bestSource: broadArtifacts.bestSource,
+      smartPanel: broadArtifacts.smartPanel,
+      relevance: broadArtifacts.relevance,
+      memoryCardsUsed: broadArtifacts.memoryCardsUsed,
+      indexingQuality: broadArtifacts.indexingQuality,
+      scoreExplanations: broadArtifacts.scoreExplanations,
+    } as RagAnswer);
 
-    expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([kept.id]);
-    expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
+    expect(answer.sources.map((source) => source.id)).toEqual([kept.id]);
+    expect(answer.relevance).toEqual(expectedArtifacts.relevance);
+    expect(answer.scoreExplanations).toEqual(expectedArtifacts.scoreExplanations);
+    expect(answer.documentBreakdown).toEqual(expectedArtifacts.documentBreakdown);
+    expect(answer.evidenceSummary).toEqual(expectedArtifacts.evidenceSummary);
+    expect(answer.sourceCoverage).toEqual(expectedArtifacts.sourceCoverage);
+    expect(answer.bestSource).toBeNull();
+    expect(answer.memoryCardsUsed).toEqual(expectedArtifacts.memoryCardsUsed);
+    expect(answer.indexingQuality).toEqual(expectedArtifacts.indexingQuality);
+    expect(answer.smartPanel).toMatchObject({
+      total_sources: 1,
+      relevance: expectedArtifacts.relevance,
+      bestSource: null,
+    });
+    expect(answer.smartApiPlan).toEqual(expectedPlan);
+    const retainedPlan = answer.smartApiPlan!;
+    expect(retainedPlan.answerPlan.sourceSelection.selectedCount).toBe(1);
+    expect(retainedPlan.answerPlan.retrievalQuality).toBe(expectedPlan.answerPlan.retrievalQuality);
+    expect(retainedPlan.answerPlan.sourceSelection.matchedSignals).toEqual(
+      expectedPlan.answerPlan.sourceSelection.matchedSignals,
+    );
+    expect(retainedPlan.answerPlan.sourceSelection.missingRequiredSignals).toEqual(
+      expectedPlan.answerPlan.sourceSelection.missingRequiredSignals,
+    );
   });
 
   it("keeps top-level and smart-panel related documents aligned to cited fallback sources", () => {

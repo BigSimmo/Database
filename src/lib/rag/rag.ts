@@ -2776,6 +2776,7 @@ async function answerQuestionWithScopeUncoalesced(
     mode: RagAnswer["routingMode"] = route.mode,
     reason = route.reason,
     planResults = answerInputResults,
+    planArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, planResults),
   ) =>
     buildSmartRagApiPlan({
       query: answerFocusQuery,
@@ -2783,7 +2784,7 @@ async function answerQuestionWithScopeUncoalesced(
       results: planResults,
       routeMode: mode,
       routeReason: reason,
-      conflictsOrGaps: buildSelectedEvidenceArtifacts(answerFocusQuery, planResults).conflictsOrGaps,
+      conflictsOrGaps: planArtifacts.conflictsOrGaps,
       retrievalStrategy: search.telemetry.retrieval_strategy,
       preferredResponseMode: reason.includes("validated_admission_discharge_extractive_first")
         ? "multi_document_synthesis"
@@ -2870,7 +2871,6 @@ async function answerQuestionWithScopeUncoalesced(
     };
     return finalized;
   };
-
   if (route.mode === "unsupported") {
     const relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
     const unsupportedWithNearbySources = answerInputResults.length > 0;
@@ -3196,14 +3196,14 @@ async function answerQuestionWithScopeUncoalesced(
           source_coverage: finalizedAnswer.sourceCoverage,
         },
       });
-
     if (answerCachePolicyAllowed && answerRouteResultCanBeCached(routeDeadline, finalizedAnswer))
       await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return finalizedAnswer;
   }
   function buildAnswerInput(contextResults: SearchResult[]) {
-    const contextSmartApiPlan = buildCurrentSmartApiPlan(route.mode, route.reason, contextResults);
+    const contextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, contextResults);
+    const contextSmartApiPlan = buildCurrentSmartApiPlan(route.mode, route.reason, contextResults, contextArtifacts);
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
     const fusedBrief = crossDocumentPlan.enabled
       ? buildCrossDocumentFusionBrief(answerFocusQuery, contextResults).text
@@ -3263,7 +3263,7 @@ async function answerQuestionWithScopeUncoalesced(
       `valid_evidence_chunk_ids: ${validEvidenceChunkIds || "none"}`,
       `evidence_contract: every clinical claim must be supported by one or more valid_evidence_chunk_ids; unsupported clinical claims must be omitted or converted to a source-gap statement`,
       `source_count: ${contextResults.length}`,
-      `source_relevance: ${relevance.label}`,
+      `source_relevance: ${contextArtifacts.relevance.label}`,
     ].join("\n");
     return `Question:
 ${args.query}
