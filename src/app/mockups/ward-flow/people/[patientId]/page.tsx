@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { WardMovementNotFound } from "@/components/ward-management/ward-management-console";
 import { PersonScreen } from "@/components/ward-management/patients/person-screen";
 import type { PatientId } from "@/components/ward-management/ward-patients";
 
@@ -19,12 +20,31 @@ export const metadata: Metadata = {
 };
 
 /**
- * A URL segment is always just text, so the shape is CHECKED before it is asserted — the same guard
- * the movement route carries. An id that is not a person id renders the screen’s own not-found
- * state deliberately, rather than arriving unvalidated.
+ * A URL segment is always just text, so the shape is CHECKED before it is asserted.
+ *
+ * 🔴 THIS ROUTE CARRIED THE SAME WELL-TYPED LIE ITS TWIN DID, AND THE COMMENT ABOVE IT VOUCHED FOR
+ * THE TWIN. `PatientId` is the template literal `` `PT-${string}` ``, so the bare string `"PT-"`
+ * satisfies it, and any unrecognised id was cast to that sentinel and handed to `PersonScreen`.
+ * The old comment said the guard was "the same guard the movement route carries" — and the movement
+ * route stopped carrying it when its own sentinel was removed hours earlier. ⚠️ **A comment whose
+ * justification is a sibling file decays silently the moment the sibling changes, and nothing local
+ * ever fails.**
+ *
+ * `PersonScreen` never quoted the sentinel, so unlike the movements route no id the user never
+ * typed reached the screen. What it did instead was collapse two different answers into one:
+ * `/people/WF-013` — the mirror mistake, and the likely one between sibling routes — was told no
+ * such PERSON exists, when WF-013 is not a person id at all and its movement page is one click
+ * away. That is the same defect as the twin's with the roles swapped.
+ *
+ * Both routes now name what the id actually is and point at the screen that holds it. The right
+ * long-term shape is one place that owns id ownership and both routes call it, rather than two
+ * routes each citing the other; recorded as owed rather than built here.
  */
 export default async function WardPersonPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = await params;
   const id = decodeURIComponent(patientId);
-  return <PersonScreen patientId={id.startsWith("PT-") ? (id as PatientId) : ("PT-" as PatientId)} />;
+  if (!id.startsWith("PT-")) {
+    return <WardMovementNotFound requestedId={id} reason="not-a-person-id" />;
+  }
+  return <PersonScreen patientId={id as PatientId} />;
 }

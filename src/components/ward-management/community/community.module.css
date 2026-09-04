@@ -1,8 +1,14 @@
 /*
- * The community hub. Same self-contained-tokens convention every other ward-management module
- * documents on its own root class (see `out-of-area.module.css`, `discharges.module.css`): every
- * local custom property this file needs is declared here, never borrowed from another module's
- * scope.
+ * The community hub. Composes the shared ward token layer (`ward-tokens.module.css`) — adopted
+ * 2026-09-04, replacing the self-contained `--cm-*` scale this file used to declare. Every
+ * `--cm-space-*` value was an exact twin of its `--ward-space-*` counterpart, so the substitution
+ * moved no pixel.
+ *
+ * ⚠️ EXCEPT ONE, AND IT IS THE ONE TO CHECK IF THIS SCREEN LOOKS WRONG. `--cm-leading-body` was
+ * `1.45`, which is `--ward-leading-RELAXED`, NOT `--ward-leading-body` (1.4). Seven declarations
+ * here take it. The names invite the wrong mapping and no test in this repository would catch it —
+ * mutation-checked on the sibling index screen the same day, across 194 test files, with a failure
+ * set identical to the control.
  *
  * ⚠️ NOTHING IN THIS FILE CHANGES WITH A DURATION OR A DATE. There is no threshold styling, no
  * warning ramp, no red row and no colour keyed to how long ago somebody was discharged. This is the
@@ -14,24 +20,23 @@
  * sentences that stop an empty list being read as an all-clear.
  */
 .screen {
-  --wf-border: var(--neutral-500);
-  --wf-border-strong: var(--text-muted);
-  --cm-space-4: 0.25rem;
-  --cm-space-6: 0.375rem;
-  --cm-space-8: 0.5rem;
-  --cm-space-10: 0.625rem;
-  --cm-space-12: 0.75rem;
-  --cm-space-14: 0.875rem;
-  --cm-space-16: 1rem;
-  --cm-space-20: 1.25rem;
-  --cm-space-24: 1.5rem;
-  --cm-tap: var(--spacing-tap);
-  --cm-leading-body: 1.45;
+  composes: wardTokens from "../ward-tokens.module.css";
 
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /* ⚠️ NO `background` HERE, DELIBERATELY. This was painting `var(--surface)` straight over
+     `--ward-ground`, which `WardGround` (`ward-shell.module.css`) paints on a real DOM ancestor of
+     this page's `<main>` — the defect `COVERING_THE_GROUND` named this file for. Removed
+     2026-09-04.
+
+     ⚠️ AND IT MUST BE DELETED, NEVER RENAMED. `--ward-canvas` is an alias for `--surface`, so
+     repainting this as `var(--ward-canvas)` covers the ground exactly as before while reading as
+     adoption in the diff. The detector could not tell the difference until it was fixed earlier
+     the same day; the rule holds whether or not a gate is watching.
+
+     On grey: this hub's own panels paint their own surfaces, so the space between and around them
+     now shows the shell's ground rather than a second, redundant white layer. */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -41,21 +46,21 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--cm-space-16);
+  gap: var(--ward-space-16);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--cm-space-16) var(--cm-space-20) var(--cm-space-24);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
 }
 
 .governanceBanner {
   display: flex;
-  min-height: var(--cm-tap);
+  min-height: var(--ward-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--cm-space-12);
-  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-border);
   background: var(--surface-chrome);
-  padding: var(--cm-space-8) var(--cm-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -64,7 +69,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--cm-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .prototypeBadge {
@@ -72,7 +77,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--cm-space-4) var(--cm-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -83,7 +88,7 @@
 .pageHeader {
   display: flex;
   flex-direction: column;
-  gap: var(--cm-space-4);
+  gap: var(--ward-space-4);
 }
 
 .pageTitle {
@@ -106,29 +111,29 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
   background: var(--warning-bg);
-  padding: var(--cm-space-10) var(--cm-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--warning-text);
   font-size: var(--text-xs);
-  line-height: var(--cm-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 /* Quieter than the notices above: it qualifies the lists rather than disclaiming a claim. */
 .provenance {
   margin: 0;
-  border-left: 0.125rem solid var(--wf-border, var(--neutral-500));
-  padding-left: var(--cm-space-10);
+  border-left: 0.125rem solid var(--ward-border);
+  padding-left: var(--ward-space-10);
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--cm-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .section {
   display: grid;
-  gap: var(--cm-space-8);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--cm-space-12) var(--cm-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }
 
 .sectionHeading {
@@ -148,10 +153,10 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-md);
   background: var(--warning-bg);
-  padding: var(--cm-space-10) var(--cm-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--warning-text);
   font-size: var(--text-xs);
-  line-height: var(--cm-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .count {
@@ -159,14 +164,14 @@
   color: var(--text);
   font-size: var(--text-sm, 0.875rem);
   font-weight: 600;
-  line-height: var(--cm-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .footnote {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--cm-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 .emptyNote {
@@ -184,7 +189,7 @@
  */
 .cardList {
   display: grid;
-  gap: var(--cm-space-8);
+  gap: var(--ward-space-8);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -192,11 +197,11 @@
 
 .card {
   display: grid;
-  gap: var(--cm-space-4);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-4);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  padding: var(--cm-space-10) var(--cm-space-12);
+  padding: var(--ward-space-10) var(--ward-space-12);
 }
 
 .cardUnit {
@@ -216,16 +221,16 @@
 
 .teamSwitcher {
   display: grid;
-  gap: var(--cm-space-8);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--cm-space-12) var(--cm-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }
 
 .teamList {
   display: grid;
-  gap: var(--cm-space-6);
+  gap: var(--ward-space-6);
   margin: 0;
   padding: 0;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
@@ -236,12 +241,12 @@
    WCAG figure, which reintroduces a known ui-smoke flake. */
 .teamLink {
   display: flex;
-  min-height: var(--cm-tap);
+  min-height: var(--ward-tap);
   align-items: center;
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  padding: var(--cm-space-8) var(--cm-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
   color: var(--text);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -249,7 +254,7 @@
 }
 
 .teamLink:hover {
-  border-color: var(--wf-border-strong, var(--text-muted));
+  border-color: var(--ward-border-strong);
   color: var(--text-heading);
 }
 
@@ -264,7 +269,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-xs);
-  line-height: var(--cm-leading-body);
+  line-height: var(--ward-leading-relaxed);
 }
 
 /*
@@ -283,17 +288,83 @@
 }
 
 /*
- * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
- * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
- * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and 8.21:1.
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. `--ward-border` (`ward-tokens.module.css`, which
+ * this screen now composes) deliberately SEVERS the chain to `--border`, because `--border` is not
+ * a faint line, it is no line at all.
  *
- * But severing it would also cost a high-contrast user the system border colour, which globals.css
- * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
- * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ * ⚠️ FIGURES CORRECTED 2026-09-04, AND THE ORIGINALS WERE MEASURED AGAINST THE LOSING DECLARATION.
+ * They were computed from `globals.css`'s surfaces. `ckb-v2-tokens.css` wins: `.ckb-v2.ckb-v2` is
+ * specificity (0,2,0) against `:root`'s (0,1,0), both match `<html>`, so specificity decides and
+ * import order is irrelevant. Recomputed against the values that actually apply, light / dark,
+ * anchored on black-on-white returning exactly 21.0000:
+ *
+ *     --border         1.20 / 1.58 on the canvas,  1.11 / 1.70 on the ground
+ *     --neutral-500    4.97 / 4.85 on the canvas,  4.63 / 5.23 on the ground
+ *     --text-muted     6.15 / 8.45 on the canvas,  5.72 / 9.11 on the ground
+ *
+ * The conclusion survives the correction — `--border` is invisible and `--neutral-500` clears the
+ * 3:1 a boundary needs — but every one of the six original numbers was wrong, and the same six
+ * appear in 26 other ward stylesheets. Reported rather than swept from here.
+ *
+ * ⚠️ THAT COUNT SAID 27 UNTIL 2026-09-04 AND WAS ITSELF A STALE FIGURE — the correction to this
+ * file removed one of the 27, and the comment recording the correction kept the pre-correction
+ * total. `grep -rl '1.21:1' src/components/ward-management/` returns 26. Small, and exactly the
+ * failure this comment is about: a number written from recollection while prose was being composed,
+ * inside the paragraph correcting six other numbers written the same way.
+ *
+ * ⚠️ THE BLOCK BELOW IS NOT REDUNDANT AND MUST NOT BE "CLEANED UP" BECAUSE ITS TOKENS MOVED.
+ * Severing the chain costs a high-contrast user the system border colour, which globals.css maps to
+ * `ButtonBorder`/`CanvasText` under forced colours — and `--neutral-500` is NOT remapped there,
+ * while `--border` is. None of the six Board-layer stylesheets carries a forced-colors block to
+ * inherit, so a screen that adopts the shared layer and drops this block loses Windows High
+ * Contrast support outright. No test in this repository renders under forced colours, so nothing
+ * would say so. A fix for one group of users that quietly breaks it for another is not a fix.
  */
 @media (forced-colors: active) {
   .screen {
-    --wf-border: var(--border);
-    --wf-border-strong: var(--border-strong);
+    --ward-border: var(--border);
+    --ward-border-strong: var(--border-strong);
+  }
+}
+
+/*
+ * ⚠️ PRINT: THE ROOT'S OWN TEXT COLOUR MUST BE RESET, OR THIS SCREEN PRINTS BLANK IN DARK MODE.
+ *
+ * `.screen` sets `color: var(--text)` on itself. Dark tokens are scoped by the CLASS
+ * `.ckb-v2.dark.ckb-v2` rather than by a media query, so that class is still on `<html>` while
+ * printing and `--text` is still `#f4f6f8` — near-white. `globals.css` resets `body` to black for
+ * print, but an ancestor's declaration cannot beat one made on the element itself, at any
+ * specificity.
+ *
+ * Until 2026-09-04 this root also painted an opaque background, so the result was light text on a
+ * dark band: wrong, but obviously wrong, and therefore reported. Deleting that background during
+ * token adoption removed the band and left near-white ink on white paper — a page that reads as
+ * "there was nothing to print". The background deletion is correct; it just needs this half too.
+ *
+ * ⚠️ BOTH DECLARATIONS ARE LOAD-BEARING. `color-scheme: light` alone does NOT fix it — it governs
+ * UA-rendered chrome and `light-dark()`, and does not re-resolve a token scoped by a class. It is
+ * here so `CanvasText` resolves to black rather than white; `color: CanvasText` is what actually
+ * overrides the root's `var(--text)`. Remove either and the page goes blank again.
+ *
+ * Not fixable centrally at `.shell`: a colour set on an ancestor cannot beat `.screen`'s own
+ * declaration. It has to live in the file that made the declaration.
+ *
+ * The reset below covers `.screen` AND its descendants, because a colour declared on an element
+ * itself cannot be overridden by any ancestor rule at any specificity — a descendant that sets
+ * `color: var(--text)` directly needs the same reset `.screen` gets, not just its ancestor's.
+ */
+@media print {
+  .screen,
+  .screen * {
+    color-scheme: light;
+    /* `!important`, not a specificity chase: a compound descendant selector such as `.table td`
+       (0,1,1) outranks this rule's `.screen *` (0,1,0) on specificity alone, so without
+       `!important` a themed leaf using a type-qualified selector would still win and print
+       near-white. The intent here is genuinely "nothing on this sheet overrides this ink". */
+    color: CanvasText !important;
+    /* The background needs the same floor: dark-theme tokens survive into print because nothing
+       else here resets them, so forcing text to `CanvasText` without also neutralising the
+       background produces black ink on a still-dark card. */
+    background-color: Canvas !important;
   }
 }
