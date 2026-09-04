@@ -62,7 +62,15 @@ async function main() {
   requireServerEnv();
 
   const args = parseArgs(process.argv.slice(2));
-  const limit = Number.isFinite(args.limit) ? args.limit : 50;
+  // Mirror the RPC's own clamp (`greatest(1, least(coalesce(p_limit, 50), 500))`) here, not
+  // just inside selectStrictGateRepairCandidates: that function's internal clamp never runs
+  // for --limit=0 or a negative value, because the paging loop below exits before its first
+  // iteration on `candidates.length < limit`, which is already true at `0 < 0` or `0 < -5`.
+  // The preview would then report zero candidates while the RPC still clamps p_limit to at
+  // least 1 and applies to one unpreviewed document — exactly the blind mutation this script
+  // exists to prevent. Clamping the raw arg here keeps the preview and the RPC's own floor
+  // in agreement regardless of what was typed.
+  const limit = Number.isFinite(args.limit) ? Math.min(500, Math.max(1, args.limit)) : 50;
   const supabase = createAdminClient();
 
   console.log("=== Strict Enrichment Gate Repair ===");

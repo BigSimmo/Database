@@ -7428,6 +7428,10 @@ begin
         and j.locked_at is not null
         and j.locked_at >= now() - make_interval(mins => 45)
       )
+      and not (
+        j.status = 'pending'
+        and j.created_at >= now() - make_interval(mins => 45)
+      )
     returning j.document_id
   ),
   deferred_open_jobs as (
@@ -7450,6 +7454,10 @@ begin
         j.status = 'processing'
         and j.locked_at is not null
         and j.locked_at >= now() - make_interval(mins => 45)
+      )
+      and not (
+        j.status = 'pending'
+        and j.created_at >= now() - make_interval(mins => 45)
       )
     returning j.document_id
   ),

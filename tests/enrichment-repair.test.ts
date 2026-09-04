@@ -213,6 +213,17 @@ describe("repair script preview scans before it limits", () => {
     expect(source).toContain("if (rows.length < PAGE_SIZE) break;");
   });
 
+  // Found in review on PR #2548, same failure shape as the bounded-page defect above but from
+  // the other direction: --limit=0 or a negative --limit was accepted as finite, so the
+  // paging loop's own exit condition (`candidates.length < limit`) was already true before
+  // its first iteration — 0 < 0, or 0 < a negative number — and selectStrictGateRepairCandidates'
+  // internal clamp never ran, because the loop that calls it never ran. The preview reported
+  // zero candidates while the RPC's own `greatest(1, ...)` still clamped p_limit to at least
+  // one and applied to a document the operator was never shown.
+  it("clamps a zero or negative --limit before the paging loop can skip it", () => {
+    expect(source).toContain("Math.min(500, Math.max(1, args.limit))");
+  });
+
   // The predicate stays in one place. Reimplementing it as PostgREST filters would change its
   // null handling (`neq` drops NULLs; the TS reads NULL as not-completed), and that direction
   // undercounts — which is the direction that costs money.
@@ -229,5 +240,35 @@ describe("repair script preview scans before it limits", () => {
       missing: ["index_units"],
     });
     expect(selectStrictGateRepairCandidates([...healthy, failing], 50)).toEqual([failing]);
+  });
+});
+
+// Found in review on PR #2548. The processing-lease guard on completed_open_jobs and
+// deferred_open_jobs exempts only a fresh `processing` row, so a `pending` row queued moments
+// ago by a concurrent atomic reindex was still matched: gate_passed can be true while the OLD
+// generation's artifacts are still live, so a just-queued reindex job sits in `pending` for
+// the instant before a worker claims it, and a repair run landing in that window marked it
+// completed (or relabelled it deferred) instead of leaving it for the worker to perform.
+describe("repair migration guards a freshly queued pending job, not only a locked processing one", () => {
+  const migration = readFileSync(
+    new URL(
+      "../supabase/migrations/20260902120000_repair_strict_enrichment_gate_unsticks_agent_jobs.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
+  const pendingGuard = "j.status = 'pending'\n        and j.created_at >= now() - make_interval(mins => 45)";
+
+  it("excludes a pending row created within the same 45-minute window the lease guards use", () => {
+    // created_at is set once at insert and never touched again, so it is a safe freshness
+    // signal here — unlike locked_at, which the worker can refresh while a job is legitimately
+    // in flight.
+    const occurrences = migration.split(pendingGuard).length - 1;
+    expect(occurrences).toBe(2); // completed_open_jobs and deferred_open_jobs, once each.
+  });
+
+  it("keeps supabase/schema.sql's deployed copy byte-identical to the migration for this guard", () => {
+    expect(schema).toContain(pendingGuard);
   });
 });
