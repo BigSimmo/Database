@@ -241,7 +241,7 @@ maintained docs still resolve.
 Verification gates (see `package.json` for the full chain):
 
 ```bash
-npm run verify:cheap    # 37 static/consistency gates (check:runtime through
+npm run verify:cheap    # 38 static/consistency gates (check:runtime through
                         # check:owner-scope; `npm run check:gate-manifest` lists
                         # them) + lint + typecheck + test
 npm run verify:pr-local # closest local mirror of the PR gate: format + verify:cheap,
