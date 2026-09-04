@@ -15,19 +15,44 @@
    written only inside a mockup component produced no rule at all, the class
    landed on the element, and nothing failed.
 
-   It was not hypothetical. Thirty-two utilities in the Caring Contacts prototype
-   were inert this way — the block/panel spacing, every custom `grid-cols`, the
-   hero type scale, the eyebrow tracking, the phone dock's `min-h`, and both wide
-   table `min-w`s. A utility survived only by coincidence: if production happened
-   to use the identical string, production's copy is what emitted it.
+   It was not hypothetical. Five hundred and fifty-three utilities across the mockup
+   tree were inert this way. In Caring Contacts alone it was the block and panel
+   spacing, every custom `grid-cols`, the hero type scale, the eyebrow tracking, the
+   phone dock's `min-h` and both wide table `min-w`s. A utility survived only by
+   coincidence: if production happened to use the identical string, production's copy
+   is what emitted it.
 
    A later, more specific `@source` re-includes an excluded path, which is what
-   this line does. It restores this sheet to the "complete utility vocabulary"
+   the lines below do. They restore this sheet to the "complete utility vocabulary"
    its comment above already claims. Production is untouched — `globals.css` keeps
    the exclusion, and only mockup routes load this sheet.
 
-   Scoped to Caring Contacts deliberately. The other eight mockup areas have the
-   same latent defect; re-including them would change how they render, which
-   wants its own look rather than a silent ride here. `tests/mockup-utility-emission.test.ts`
-   fails if a Caring Contacts prototype utility stops being emitted. */
+   Both kinds of entry below are needed, and that is measured rather than reasoned.
+   Counting inert utilities across every mockup component in the repository:
+
+     directory entries alone   475 inert
+     file globs alone          125 inert
+     both together               0 inert
+
+   They cover different files. A directory entry reaches a tree whose files are named
+   plainly — `caring-contacts/mockups/product-pages.tsx` is not itself named for a
+   mockup, so no file-shape glob finds it. A file glob reaches the mockups that live
+   loose beside production components, where there is no directory to name: 34 of them
+   sit directly in `src/components`, and they were the largest single block of the 553.
+
+   Neither list is decorative, so do not prune one because the other looks like it
+   covers the same ground. `tests/mockup-utility-emission.test.ts` compiles this sheet
+   and fails if any mockup utility stops being emitted, which is what makes the numbers
+   above a standing check rather than a note about one afternoon. */
+@source "../../components/*-mockup.tsx";
+@source "../../components/*-mockups.tsx";
+@source "../../components/*/*-mockup.tsx";
+@source "../../components/*/*-mockups.tsx";
+@source "../../components/*/*-mockup-page.tsx";
+@source "../../components/calculator-mockups";
+@source "../../components/care-plan/mockups";
 @source "../../components/caring-contacts/mockups";
+@source "../../components/favourites-phone-perfected-mockups";
+@source "../../components/settings-search-mockups";
+@source "../../components/therapy-navigation-mockups";
+@source "../../components/tools-page-mockups";
