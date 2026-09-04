@@ -97,21 +97,14 @@ afterEach(async () => {
 });
 
 describe("SettingsDialog — destructive and account actions", () => {
-  // A Development section carries the in-progress surfaces while they are being
-  // built. The route is a mockup, so the entry navigates through <Link> and
-  // closes the sheet behind it.
-  it("opens the Development page from a gated Development section", () => {
+  // Prototype workspaces (e.g. the Development hub) are isolated from live
+  // navigation — Settings no longer carries a Developer section or a link to
+  // /mockups/development. See "Isolate prototype workspaces from live
+  // navigation".
+  it("does not render a Development section", () => {
     renderDialog();
-    const development = document.querySelector('[data-settings-section="development"]');
-    expect(development).not.toBeNull();
-    expect(development).toHaveTextContent("Developer");
-    expect(development).toHaveTextContent("Synthetic data only");
-
-    const prototypeLink = screen.getByTestId("settings-row-development-page");
-    expect(prototypeLink).toHaveAttribute("href", "/mockups/development");
-    expect(prototypeLink).toHaveTextContent("Developer");
-    expect(prototypeLink).toHaveTextContent("Temporary");
-    expect(development?.contains(prototypeLink)).toBe(true);
+    expect(document.querySelector('[data-settings-section="development"]')).toBeNull();
+    expect(screen.queryByTestId("settings-row-development-page")).toBeNull();
 
     expect(screen.getByRole("navigation", { name: "Settings sections" }).closest("aside")).toHaveClass(
       "hidden",

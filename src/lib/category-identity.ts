@@ -75,7 +75,6 @@ export const CATEGORY_ICON_KEYS = [
   "route",
   "fileSignature",
   "heart",
-  "heartHandshake",
   "brainCircuit",
   "bookOpenCheck",
   "tags",
