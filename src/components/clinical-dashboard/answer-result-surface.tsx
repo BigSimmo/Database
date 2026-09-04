@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
-import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
+import { CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 
@@ -35,9 +35,23 @@ import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, S
  *
  * @returns The staged answer surface.
  */
-/** The header status chips share one shape so they read as one status line. */
-const chipShape =
-  "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs font-semibold uppercase tracking-eyebrow";
+/** The header status chips share one shape so they read as one status line.
+ *
+ * Sentence case at `--text-xs`, replacing uppercase at `--text-3xs`. **Owner preference, not a
+ * spec violation being corrected** — `docs/design-system/sweep-2026-08-29-unenforced-rules.md`
+ * row 9 counts `uppercase tracking-eyebrow` sites among the 75 SANCTIONED ones, so the previous
+ * setting was allowed and SPEC §11 carries no gate either way. Recorded as preference so a later
+ * reader does not take it for a rule.
+ *
+ * The size change is not cosmetic and must not be reverted with the capitalisation. At 10px,
+ * `uppercase` + `tracking-eyebrow` was carrying real legibility: every glyph sat at cap height
+ * with 0.08em of air. Sentence case at 10px drops most glyphs to x-height and takes the spacing
+ * away, which would have left the single most load-bearing string on this screen quieter than
+ * before rather than calmer. `--text-xs` is also what SPEC §"Type scale" assigns to chips; 10px
+ * is the micro floor for count bubbles and legends.
+ *
+ * Nothing about what these state has changed: same words, same amber tokens, same icons. */
+const chipShape = "inline-flex min-h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold";
 /**
  * An interactive chip is a small pill inside a full-size button, not a small
  * button. `before:-inset-y-*` hit expansion draws the same 48px region and is
@@ -54,8 +68,9 @@ const chipButton =
   // 390px before that was removed: the safety chip covered a 133x9px band of the
   // support chip beside it and a 133x2px band of the answer prose below, and a
   // tap in either band opened the chip instead of doing nothing. Keep the full
-  // 48px hitbox in layout; `AnswerCard` gives these chips a row of their own so
-  // the honest height costs nothing.
+  // 48px hitbox in layout; `AnswerCard` puts these chips in a centre-aligned
+  // status row that takes its height from the tallest child, so the honest 48px
+  // costs nothing even while they share the line with the static support pill.
   "inline-flex min-h-12 shrink-0 items-center focus-visible:outline-none";
 const chipFocus =
   "group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)]";
@@ -176,6 +191,9 @@ function StagedAnswerResultSurfaceImpl({
    * fallback for the case where the opener has since unmounted.
    */
   const safetyOpenerRef = useRef<HTMLButtonElement | null>(null);
+  // One trigger, so a plain ref is enough — unlike the safety rail, which has a button per
+  // finding and needs `resolveSafetyReturnFocus` to send focus back to the one that was tapped.
+  const limitationsTriggerRef = useRef<HTMLButtonElement>(null);
   function openSafetyFindings(event: MouseEvent<HTMLButtonElement>) {
     safetyOpenerRef.current = event.currentTarget;
     setSafetyFindingsOpen(true);
@@ -237,14 +255,14 @@ function StagedAnswerResultSurfaceImpl({
    * glance invite the reader to look for a difference between them.
    *
    * The safety findings themselves are NOT here any more (owner decision,
-   * 2026-09-03). They render as the Clinical points rail below the prose, at the
+   * 2026-09-03). They render as the Key points rail below the prose, at the
    * seam where the answer ends and its evidence begins, because a finding is
    * extracted content rather than a statement about the answer's status. This
    * row is now the support chip plus the limitations control alone.
    */
   const answerMetaChips = null;
   /**
-   * The Clinical points rail: one pill per finding kind, in severity order,
+   * The Key points rail: one pill per finding kind, in severity order,
    * every pill opening the same sheet.
    *
    * Grouped by kind because `SafetyFinding` carries no short title — only
@@ -263,11 +281,11 @@ function StagedAnswerResultSurfaceImpl({
     safetyFindings.length > 0 ? (
       <section
         data-testid="answer-clinical-points"
-        aria-label={`Clinical points — ${safetyFindings.length} ${safetyFindings.length === 1 ? "point" : "points"}`}
+        aria-label={`Key points — ${safetyFindings.length} ${safetyFindings.length === 1 ? "point" : "points"}`}
         className="flex min-w-0 items-center gap-2 overflow-x-auto scrollbar-none"
       >
         <span className="shrink-0 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-          Points
+          Key points
         </span>
         {clinicalPointGroups.map((group, index) => (
           <button
@@ -281,7 +299,7 @@ function StagedAnswerResultSurfaceImpl({
             type="button"
             onClick={openSafetyFindings}
             className={cn("group shrink-0", chipButton)}
-            aria-label={`Open clinical points — ${group.label}${group.count > 1 ? `, ${group.count}` : ""}`}
+            aria-label={`Open key points — ${group.label}${group.count > 1 ? `, ${group.count}` : ""}`}
           >
             <span
               className={cn(
@@ -350,36 +368,36 @@ function StagedAnswerResultSurfaceImpl({
           id="answer-limitations-trigger"
           data-testid="answer-limitations-trigger"
           type="button"
-          onClick={() => setEvidenceGapsOpen((current) => !current)}
+          ref={limitationsTriggerRef}
+          onClick={() => setEvidenceGapsOpen(true)}
           className={cn("group", chipButton)}
-          aria-expanded={evidenceGapsOpen}
           aria-label={`Answer limitations — ${answerLimitationsChipLabel}`}
-          // Unconditional, because the panel below is mounted whether or not it
-          // is open. The conditional attribute this replaces was well formed —
-          // attribute and target appeared and disappeared together, which is
-          // what the feedback trigger in `evidence-panels.tsx` still does, and
-          // correctly. It is only redundant here now that the target is always
-          // present.
-          aria-controls="answer-limitations-detail"
+          // `aria-haspopup`, not `aria-expanded`/`aria-controls`. This opens a dialog now, and
+          // the two announcements are not interchangeable: `aria-expanded` promises a region
+          // revealed in place, which is exactly the behaviour that has gone. The dialog is not
+          // in the tree while closed, so a persistent `aria-controls` would dangle.
+          aria-haspopup="dialog"
         >
           <span
             className={cn(
               chipShape,
               evidenceGapsOpen
                 ? "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] group-hover:bg-[color:var(--surface-subtle)]",
+                : // `--text`, not `--text-muted`. On a source-only answer `VerificationNotice` is
+                  // `hidden print:flex`, so this label is the ONLY on-screen carrier of "no model
+                  // wrote this answer" and "a cited source is overdue". Muted grey made the
+                  // one string that must be read the quietest thing in the row.
+                  "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text)] group-hover:bg-[color:var(--surface-subtle)]",
               "transition",
               chipFocus,
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
             {answerLimitationsChipLabel}
-            {/* The chip looked identical open and closed, so on a phone the only
-                way to tell was to find the panel. */}
-            <ChevronDown
-              aria-hidden="true"
-              className={cn("size-icon-xs shrink-0 transition-transform", evidenceGapsOpen && "rotate-180")}
-            />
+            {/* No chevron. A chevron promises an expansion in place; this opens a sheet, and
+                the sheet's own arrival is the state change a reader sees. The earlier note
+                here — that the chip looked identical open and closed, so on a phone the only
+                way to tell was to find the panel — no longer applies for the same reason. */}
           </span>
         </button>
       </>
@@ -409,9 +427,14 @@ function StagedAnswerResultSurfaceImpl({
       />
     ) : null;
   /**
-   * The disclosure, mounted whether or not the chip is expanded so
-   * `aria-controls` above always resolves, and rendered by `AnswerCard`
-   * immediately under the chip row rather than below the whole answer.
+   * The limitations content, now the body of a sheet rather than a panel that expanded in place.
+   *
+   * The move is not cosmetic. `evidence-panels.tsx` already records what an in-flow disclosure
+   * does on this surface: it opens partly behind the fixed phone composer and cannot scroll
+   * clear of it, so the reader is shown a panel they cannot finish reading. A `Sheet` owns its
+   * own scrollport above that composer. It also settles the layout argument that put the chip on
+   * its own row — a panel that is no longer in the flow cannot push the governed caution below
+   * it down the page, which is what the previous placement note here was guarding against.
    *
    * It exists for an overdue-sources banner alone, not only for warnings —
    * otherwise moving the banner in here would delete it outright on an answer
@@ -424,16 +447,7 @@ function StagedAnswerResultSurfaceImpl({
    */
   const answerEvidenceGapsDetail =
     renderModel.warnings.length > 0 || overdueSourcesBanner || sourceOnly ? (
-      <div
-        id="answer-limitations-detail"
-        hidden={!evidenceGapsOpen}
-        // Display comes from the class only while open, so the `hidden`
-        // attribute is never fighting a `grid` display it cannot override.
-        className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
-      >
-        <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-          Answer limitations
-        </p>
+      <div id="answer-limitations-detail" className="grid gap-2">
         {/* The governed extractive wording, verbatim from the same lookup the
             Source-only pill used before it was folded in here. Never reworded at
             this call site. */}
@@ -535,7 +549,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement="content"
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaDetail={answerEvidenceGapsDetail}
               >
                 {answerProse}
               </AnswerCard>
@@ -548,7 +561,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaDetail={answerEvidenceGapsDetail}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -629,9 +641,9 @@ function StagedAnswerResultSurfaceImpl({
           <Sheet
             open={safetyFindingsOpen}
             onClose={closeSafetyFindingsReview}
-            title="Clinical points"
+            title="Key points"
             description="Drawn from the cited source text. Verify before clinical use."
-            closeLabel="Close clinical points"
+            closeLabel="Close key points"
             // The warning tones are written out rather than layered onto
             // `iconTilePremium`: that recipe carries the clinical-accent border and
             // background, so appending `text-…` recoloured only the glyph — the sheet
@@ -668,6 +680,34 @@ function StagedAnswerResultSurfaceImpl({
             returnFocusRef={safetyTriggerRef}
           >
             <SafetyFindingsListContent findings={safetyFindings} />
+          </Sheet>
+        ) : null}
+
+        {/* The limitations sheet. Same shape as the key-points sheet above deliberately: two chips
+            sitting on one status line should not open two different kinds of thing. */}
+        {answerEvidenceGapsDetail ? (
+          <Sheet
+            open={evidenceGapsOpen}
+            onClose={() => setEvidenceGapsOpen(false)}
+            title="Answer limitations"
+            description="What qualifies the evidence behind this answer."
+            closeLabel="Close answer limitations"
+            headerLeading={
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
+                <CircleAlert aria-hidden="true" className="h-3.5 w-3.5" />
+              </span>
+            }
+            headerClassName="gap-2 p-2.5 sm:p-3"
+            titleClassName="text-base-minus leading-5"
+            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
+            // Plain block scrollport, not `flex flex-col`, for the reason recorded on the sheet
+            // above: as a flex column the single child is shrunk to the space left rather than
+            // kept at its natural height, and the overflow is clipped instead of scrolled.
+            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-3 pt-2 sm:p-3"
+            returnFocusRef={limitationsTriggerRef}
+          >
+            {answerEvidenceGapsDetail}
           </Sheet>
         ) : null}
       </div>

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7c6d8a93-fde5-41c8-8cb0-cc0727c14dc9",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Answer generation silently gives up and returns the source-only stub, so no written answer and no inline citation marks",
+    "detail": "Reported live 2026-09-04: the query 'lithium level timing' returned sourceBackedGenerationTimeoutAnswer (rag-extractive-answer.ts:2951) with three citations and answerSections: []. The owner read the absent in-prose source marks as a rendering bug. It is not: resolveClaimMarks (answer-claim-marks.ts:193) matches a rendered sentence against answer.supportedClaims by exact normalised text, the stub's two sentences are not recorded claims, and rag-answer-instructions.ts:49 forbids the model from writing citation digits in prose at all. So no marker parser exists or should exist, and adding one would change nothing on this path. The defect is upstream: no written answer was produced for a query whose corpus evidence was good enough to cite three documents. Same shape as J8SJQ9 (antipsychotic metabolic monitoring), which names the first diagnostic step as establishing whether generation was attempted at all - that run recorded provider_attempted:false for 11 of 30 targeting cases. Owner reports the stub is rare in normal use, so this is scheduled work rather than an incident. Three trigger sites: rag.ts:3121 extractiveNeedsReviewFallback, rag.ts:4169 sourceBackedReviewReason, rag.ts:4200 finalizedFallbackNeedsReview. Do not relax the eval case to hide it.",
+    "source": "Owner phone report 2026-09-04 during PR #2590 follow-up; screenshot of Answer mode, query 'lithium level timing'",
+    "issueUlid": "01M1N79ZX3E9F5GWKSCBF87Y3W"
+  }
+}
