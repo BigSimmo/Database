@@ -250,7 +250,7 @@ export function searchMedicationCatalog(
   const analysis = analyzeMedicationCatalogQuery(query, records);
   const rankExpansions = [...new Set([...analysis.expansions, ...rankingExpansions])];
   const matches = analysis.correctedQuery
-    ? rankMedicationRecords(records, analysis.correctedQuery, limit, rankExpansions)
+    ? rankMedicationRecords(records, analysis.correctedQuery, limit, rankExpansions, true)
     : [];
   return { matches, analysis };
 }
