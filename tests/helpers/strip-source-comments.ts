@@ -69,7 +69,61 @@ function atLineStart(source: string, index: number): boolean {
   return true;
 }
 
+/**
+ * Blanks CSS comments IN PLACE, preserving every newline and every column.
+ *
+ * ⚠️ WHY BLANKING RATHER THAN DELETING. A guard that strips comments by deleting them reports the
+ * WRONG LINE NUMBER for everything below the first comment, and a guard that names the wrong line
+ * is worse than one that names none — the reader goes to that line, finds nothing, and concludes
+ * the guard is broken rather than that the file is. Replacing each comment character with a space
+ * and each newline with itself keeps every subsequent offset exact.
+ *
+ * CSS only: `/* … *\/` is the only comment form in CSS, and a `//` in a stylesheet is part of a
+ * URL far more often than it is a comment.
+ */
+export function blankCssComments(css: string): string {
+  let out = "";
+  let i = 0;
+  while (i < css.length) {
+    if (css.startsWith("/*", i)) {
+      const end = css.indexOf("*/", i + 2);
+      const stop = end === -1 ? css.length : end + 2;
+      for (let j = i; j < stop; j += 1) out += css[j] === LINE_FEED ? LINE_FEED : " ";
+      i = stop;
+      continue;
+    }
+    out += css[i];
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Strips comments INCLUDING trailing ones. Same character-by-character, literal-aware scan as
+ * `stripSourceComments`; the only difference is that a `//` does not have to start its line.
+ *
+ * 🔴 WHY THIS IS A SECOND FUNCTION RATHER THAN A FLAG ON THE FIRST. `stripSourceComments` keeps a
+ * trailing comment ON PURPOSE — three caring-contacts guards rely on still firing when a forbidden
+ * name appears in one, and one of them pins that behaviour. Widening the shared function would
+ * silently change what those guards catch. So the wider scan is opt-in, and only for guards where
+ * the realistic defect is CODE COMMENTED OUT rather than prose mentioning a name.
+ *
+ * ⚠️ USE IT ONLY FOR GUARDS THAT WATCH A CODE WRITE. For a guard watching prose or structure, the
+ * narrower function is sufficient, and a second mechanism is a second thing to keep true.
+ *
+ * The reason it is safe to widen here at all is that this scan is STRING-AWARE: a `"https://x"`
+ * is copied through as a string literal, so the `//` inside a URL is never mistaken for a comment.
+ * A regex-based widening could not make that claim, which is what the note above warns against.
+ */
+export function stripAllComments(source: string): string {
+  return scan(source, true);
+}
+
 export function stripSourceComments(source: string): string {
+  return scan(source, false);
+}
+
+function scan(source: string, stripTrailingLineComments: boolean): string {
   let out = "";
   let i = 0;
   const n = source.length;
@@ -104,7 +158,7 @@ export function stripSourceComments(source: string): string {
     }
 
     // Code, or the code inside a `${ ... }`.
-    if (source.startsWith("//", i) && atLineStart(source, i)) {
+    if (source.startsWith("//", i) && (stripTrailingLineComments || atLineStart(source, i))) {
       const end = source.indexOf(LINE_FEED, i);
       i = end === -1 ? n : end;
       continue;

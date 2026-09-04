@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "4b71f0d2-5c66-4a3e-9d0e-2a9f6c1e8b47",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "d1b3491f-5e2e-49e3-b6a5-fa47be1cb8c1",
+    "reason": "The detail called the mobile /documents/search LCP breach reproducible and said the one passing re-run was the outlier rather than the rule. A third graded measurement on the same PR refutes that: CI run 33684986161 (head 957a0387, 2026-09-02 21:36 UTC) measured 2323ms against the 2282ms baseline, +41ms, and reported 'Every graded route is within tolerance of the committed baseline.' The cell has now produced two breaches near 2750ms and at least two passes near 2320ms on the same pinned Chromium, so the correct reading is a bimodal measurement whose two modes straddle the tolerance, not a page that got half a second slower. Cancelled and replaced by a corrected request that states all four outcomes and asks for the variance to be characterised rather than for a regression hunt or a baseline refresh."
+  }
+}

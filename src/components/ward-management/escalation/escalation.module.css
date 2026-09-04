@@ -1,24 +1,17 @@
 /*
- * Task 5: the escalation board. Same self-contained-tokens convention `handover.module.css` and
- * `officer.module.css` document on their own `.screen`: every local custom property this file
- * needs is declared here, never borrowed from another module's scope.
+ * Task 5: the escalation board. Composes the shared token layer (`ward-tokens.module.css`) instead
+ * of declaring its own private scale — unlike `handover.module.css` and `officer.module.css`, which
+ * still document the older self-contained-tokens convention on their own `.screen`.
  */
 .screen {
-  --es-space-4: 0.25rem;
-  --es-space-6: 0.375rem;
-  --es-space-8: 0.5rem;
-  --es-space-12: 0.75rem;
-  --es-space-14: 0.875rem;
-  --es-space-16: 1rem;
-  --es-space-20: 1.25rem;
-  --es-space-24: 1.5rem;
-  --es-space-48: var(--spacing-tap);
-  --es-leading-body: 1.4;
+  composes: wardTokens from "../ward-tokens.module.css";
 
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /* background deleted — was `var(--surface)`. Do not restore it as `--ward-ground` or
+   * `--ward-canvas`: `--ward-canvas` is an alias for `--surface`, so that would repaint the
+   * shared ground exactly as before while looking like adoption in the diff. */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -28,21 +21,21 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--es-space-20);
+  gap: var(--ward-space-20);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--es-space-16) var(--es-space-20) var(--es-space-24);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
 }
 
 .governanceBanner {
   display: flex;
-  min-height: var(--es-space-48);
+  min-height: var(--ward-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--es-space-12);
-  border-bottom: 0.0625rem solid var(--border);
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   background: var(--surface-chrome);
-  padding: var(--es-space-8) var(--es-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -51,7 +44,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--es-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .prototypeBadge {
@@ -59,7 +52,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--es-space-4) var(--es-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -70,7 +63,7 @@
 .pageHeader {
   display: flex;
   flex-direction: column;
-  gap: var(--es-space-4);
+  gap: var(--ward-space-4);
 }
 
 .pageTitle {
@@ -88,11 +81,11 @@
 
 .section {
   display: grid;
-  gap: var(--es-space-8);
-  border: 0.0625rem solid var(--border);
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--es-space-12) var(--es-space-14);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }
 
 .sectionHeading {
@@ -117,8 +110,8 @@
 
 .table th,
 .table td {
-  border-bottom: 0.0625rem solid var(--border);
-  padding: var(--es-space-6) var(--es-space-8);
+  border-bottom: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-6) var(--ward-space-8);
   text-align: left;
   vertical-align: top;
 }
@@ -164,5 +157,63 @@
 @media (max-width: 40rem) {
   .screen {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .screen {
+    --ward-border: var(--border);
+    --ward-divider: var(--border);
+  }
+}
+
+/*
+ * ⚠️ PRINT: THE ROOT'S OWN TEXT COLOUR MUST BE RESET, OR THIS SCREEN PRINTS BLANK IN DARK MODE.
+ *
+ * `.screen` sets `color: var(--text)` on itself. Dark tokens are scoped by the CLASS
+ * `.ckb-v2.dark.ckb-v2` rather than by a media query, so that class is still on `<html>` while
+ * printing and `--text` is still `#f4f6f8` — near-white. `globals.css` resets `body` to black for
+ * print, but an ancestor's declaration cannot beat one made on the element itself, at any
+ * specificity.
+ *
+ * Until 2026-09-04 this root also painted an opaque background, so the result was light text on a
+ * dark band: wrong, but obviously wrong, and therefore reported. Deleting that background during
+ * token adoption removed the band and left near-white ink on white paper — a page that reads as
+ * "there was nothing to print". The background deletion is correct; it just needs this half too.
+ *
+ * ⚠️ BOTH DECLARATIONS ARE LOAD-BEARING. `color-scheme: light` alone does NOT fix it — it governs
+ * UA-rendered chrome and `light-dark()`, and does not re-resolve a token scoped by a class. It is
+ * here so `CanvasText` resolves to black rather than white; `color: CanvasText` is what actually
+ * overrides the root's `var(--text)`. Remove either and the page goes blank again.
+ *
+ * Not fixable centrally at `.shell`: a colour set on an ancestor cannot beat `.screen`'s own
+ * declaration. It has to live in the file that made the declaration.
+ *
+ * The reset below covers `.screen` AND its descendants, because a colour declared on an element
+ * itself cannot be overridden by any ancestor rule at any specificity — a descendant that sets
+ * `color: var(--text)` directly needs the same reset `.screen` gets, not just its ancestor's.
+ */
+@media print {
+  .screen,
+  .screen * {
+    color-scheme: light;
+    /* `!important`, not a specificity chase: a compound descendant selector such as `.table td`
+       (0,1,1) outranks this rule's `.screen *` (0,1,0) on specificity alone, so without
+       `!important` a themed leaf using a type-qualified selector would still win and print
+       near-white. The intent here is genuinely "nothing on this sheet overrides this ink". */
+    color: CanvasText !important;
+    /* The background needs the same floor: dark-theme tokens survive into print because nothing
+       else here resets them, so forcing text to `CanvasText` without also neutralising the
+       background produces black ink on a still-dark card. */
+    background-color: Canvas !important;
   }
 }

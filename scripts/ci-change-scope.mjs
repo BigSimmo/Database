@@ -105,12 +105,26 @@ const mockupPatterns = [
   /^tests\/.*mockup.*\.spec\.ts$/,
   /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
   // Ward Flow is a gated /mockups/ward-flow prototype. Its implementation tree
-  // and the three ui-ward-*.spec.ts journeys carry no "mockup" in the path, so
-  // every rule above misses them. After those specs moved into chromium-mockups,
-  // a component-only or spec-only edit left advisory_ui_changed=false and the
+  // and the ui-ward-*.spec.ts journeys carry no "mockup" in the path, so every
+  // rule above misses them. After those specs moved into chromium-mockups, a
+  // component-only or spec-only edit left advisory_ui_changed=false and the
   // 46 journeys ran in neither lane.
+  //
+  // `morning` was added to playwright.config.ts's `mockupSpecPattern` by Phase 6
+  // Task 2 but never here, so `assertMockupSpecParity` below had been failing
+  // `check:ci-scope` on this branch — the exact drift that guard exists to name,
+  // caught by it and repaired here rather than by widening the guard. Keep this
+  // alternation and that one in step; a spec in one and not the other either
+  // never runs or trips this gate.
   "src/components/ward-management",
-  /^tests\/ui-ward-(?:management|coordinator|discharges|roles)\.spec\.ts$/,
+  // `forced-colors` added 2026-09-04, and by the same route as `morning` before it: the spec was
+  // added to `mockupSpecPattern` in playwright.config.ts on a ward branch and never here, so the
+  // union resolution that brought that branch onto the integration line tripped
+  // `assertMockupSpecParity` immediately. The guard named the file and the consequence
+  // ("editing that spec would leave advisory_ui_changed=false and the journey unrun") — repaired
+  // here rather than by widening the guard, which is the second time this exact drift has been
+  // caught by it and the second time the repair is one alternative in this list.
+  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning|referrals|forced-colors)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {
@@ -318,7 +332,7 @@ const dbPatterns = [
   "src/lib/supabase",
   "docs/database-drift-detection.md",
   "docs/supabase-migration-reconciliation.md",
-  /^scripts\/(check-drift|generate-drift-manifest|check-m13-migration|check-retrieval-owner-migration|check-supabase-project|audit-tables|reindex|reindex-health|cleanup-abandoned-reindex-generations)\.ts$/,
+  /^scripts\/(check-drift|check-chain-mirror-parity|generate-drift-manifest|check-m13-migration|check-retrieval-owner-migration|check-supabase-project|audit-tables|reindex|reindex-health|cleanup-abandoned-reindex-generations)\.ts$/,
   /^tests\/(supabase|drift|private-rag|private-access|retrieval-owner).*\.test\.ts$/,
 ];
 

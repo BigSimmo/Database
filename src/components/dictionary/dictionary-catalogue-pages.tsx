@@ -700,7 +700,7 @@ export function DictionaryTopicsPage() {
                 <Link
                   key={kind}
                   href={`/dictionary/search?kind=${kind}`}
-                  className="flex min-h-10 items-center justify-between border-b border-[color:var(--border)] text-sm font-semibold text-[color:var(--clinical-accent)]"
+                  className="flex min-h-tap items-center justify-between border-b border-[color:var(--border)] text-sm font-semibold text-[color:var(--clinical-accent)]"
                 >
                   {dictionaryKindLabel(kind)}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
