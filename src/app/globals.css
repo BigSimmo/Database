@@ -1067,6 +1067,18 @@ select,
   outline-offset: 0;
 }
 
+/* Same caret contract as `.chat-composer-input` (see the note there), for the
+   standalone field recipe: `fieldControl` is fixed to `h-tap` and sets no
+   leading, so its inputs — the document-scope filter and the other filter and
+   picker search boxes — inherited the 1.5 body leading, a 24px line box around
+   an 18px glyph box at `text-sm`. The caret is drawn off the glyph box, so it
+   rendered taller than the text it sits in. `textarea.field-control` is
+   deliberately excluded: it is genuinely multi-line and wants the inherited
+   prose leading. */
+input.field-control {
+  line-height: normal;
+}
+
 /* Standalone field recipe (`fieldControl`). Tailwind `outline-none` loses to
    the unlayered rule above; this is the real owner. Focus is a quiet border
    shift — no second outline. */
@@ -2099,6 +2111,30 @@ summary::-webkit-details-marker {
   outline: none;
 }
 
+/* Composer text field. This is the typographic owner for EVERY composer in the
+   app; `.answer-footer-search-input` only re-sizes it per breakpoint.
+
+   `line-height: normal` is load-bearing, not a default worth tidying into a
+   leading token. A single-line control has exactly one line, so leading buys
+   nothing — but the moment its CSS line box stops matching its glyph box, the
+   caret and the text are placed off two different boxes: the engine centres the
+   glyphs on the line box while the caret is drawn from the font's own ascent
+   and descent. Desktop engines paper over the difference; mobile Safari does
+   not, and rendered the caret taller than the text and hanging below it in
+   every search bar (reported 2026-09-04 on iPhone).
+
+   This field was diverging in both directions at once. `.chat-composer-input`
+   set no leading at all, so a standalone composer inherited the 1.5 body
+   leading — a 24px line box around a 21px glyph box. The footer composer then
+   overrode that with the fluid display heading's 1.12 companion, which is
+   TIGHTER than the glyph box: 17.92px against 21px at 16px, and 20.16px against
+   23px at the ≥431px 18px step, so the text overflowed its own line box by ~3px
+   and the negative half-leading pushed the caret low. `normal` makes the two
+   boxes identical, so there is one box for every engine to centre.
+
+   Never give this field a leading token. Heights come from `--spacing-tap` and
+   are unaffected either way, so a leading value here changes nothing except
+   whether the caret lands on the text. */
 .chat-composer-input {
   min-width: 0;
   min-height: var(--spacing-tap);
@@ -2109,6 +2145,7 @@ summary::-webkit-details-marker {
   color: var(--text);
   font-size: 1rem;
   font-weight: 500;
+  line-height: normal;
   outline: none;
 }
 
@@ -2236,8 +2273,12 @@ summary::-webkit-details-marker {
   padding-inline: 0.35rem;
   font-size: 16px;
   font-weight: 560;
-  /* Hero companion on this 16px field is deliberate coupling (DS-P2-12). */
-  line-height: var(--text-hero--line-height);
+  /* Leading deliberately absent — `.chat-composer-input` owns it and must keep
+     owning it. This rule used to re-point it at the hero heading's 1.12
+     companion (DS-P2-12 mapped a raw literal onto the nearest named token; the
+     coupling was never a typographic decision), which is display leading on a
+     16px UI field and left the glyph box overflowing the line box. See the
+     caret note on `.chat-composer-input`. */
   letter-spacing: 0;
 }
 
