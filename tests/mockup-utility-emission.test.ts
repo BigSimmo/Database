@@ -33,17 +33,45 @@ const mockupComponentsDir = join(root, "src", "components", "caring-contacts", "
 const stylesheetPath = join(root, "src", "app", "mockups", "mockups.css");
 
 /**
- * Tailwind arbitrary-value utilities, captured WITH their variant chain, because
- * the variant is part of the emitted class name: `lg:max-w-[32rem]` becomes the
- * selector `.lg\:max-w-\[32rem\]`, and there is no bare `.max-w-\[32rem\]` to find.
- * Values containing a quote are skipped rather than guessed at — a class would
- * have to be built dynamically to hold one, and a dynamic class is not statically
- * detectable by Tailwind in the first place.
+ * Tailwind arbitrary-value utilities, captured WITH their variant chain and WITH any
+ * trailing opacity modifier, because both are part of the emitted class name:
+ * `lg:max-w-[32rem]` becomes the selector `.lg\:max-w-\[32rem\]`, and there is no bare
+ * `.max-w-\[32rem\]` to find.
+ *
+ * The modifier matters as much as the variant. The prototype's sticky header is
+ * `bg-[color:var(--surface-chrome)]/95`, and the same file also uses the unmodified
+ * `bg-[color:var(--surface-chrome)]`, so BOTH rules exist in the sheet. Stopping the
+ * capture at the closing bracket would record only the shorter name, which the sheet
+ * satisfies on its own — and the header's transparency could then stop being emitted
+ * with this test still green. That is the precise failure this file exists to prevent,
+ * so the modifier is captured and checked.
+ *
+ * Values containing a quote are skipped rather than guessed at — a class would have to
+ * be built dynamically to hold one, and a dynamic class is not statically detectable by
+ * Tailwind in the first place.
  */
-const ARBITRARY_UTILITY = /(?<![\w:/-])((?:[a-z][a-z0-9-]*:)*[a-z][a-z0-9-]*-\[[^\]"'`]+\])/g;
+const ARBITRARY_UTILITY =
+  /(?<![\w:/-])((?:[a-z][a-z0-9-]*:)*[a-z][a-z0-9-]*-\[[^\]"'`]+\](?:\/[A-Za-z0-9._%[\]()-]+)?)/g;
 
 function utilitiesIn(source: string): Set<string> {
   return new Set(Array.from(source.matchAll(ARBITRARY_UTILITY), (match) => match[1]));
+}
+
+/**
+ * Characters a class name can continue with. A match followed by one of these is not
+ * the class we are looking for, it is a longer class that merely begins the same way —
+ * `.bg-[color:var(--surface-chrome)]` found inside `.bg-[color:var(--surface-chrome)]/95`.
+ * Without this a short name is satisfied by its own longer sibling.
+ */
+const CLASS_NAME_CONTINUES = /[A-Za-z0-9_/[.-]/;
+
+export function selectorIsEmitted(unescapedCss: string, utility: string): boolean {
+  const needle = `.${utility}`;
+  for (let at = unescapedCss.indexOf(needle); at !== -1; at = unescapedCss.indexOf(needle, at + 1)) {
+    const next = unescapedCss[at + needle.length];
+    if (next === undefined || !CLASS_NAME_CONTINUES.test(next)) return true;
+  }
+  return false;
 }
 
 function prototypeUtilities(): Map<string, string[]> {
@@ -80,7 +108,7 @@ describe("Caring Contacts prototype utility emission", () => {
 
     const css = await compileMockupStylesheetUnescaped();
     const missing = [...used.entries()]
-      .filter(([utility]) => !css.includes(`.${utility}`))
+      .filter(([utility]) => !selectorIsEmitted(css, utility))
       .map(([utility, files]) => `${utility}  (${files.join(", ")})`)
       .sort();
 
@@ -96,5 +124,24 @@ describe("Caring Contacts prototype utility emission", () => {
     // Named explicitly so removing the line fails here with the reason, rather than
     // only as a long list of missing utilities in the test above.
     expect(readFileSync(stylesheetPath, "utf8")).toContain('@source "../../components/caring-contacts/mockups";');
+  });
+
+  // The two checks below guard the checker itself. Both cover the same hole: a utility
+  // whose name is a prefix of another utility's name. Without them the suite above can
+  // pass while the longer selector is missing, which is a green test hiding the exact
+  // defect it was written for.
+  it("carries the opacity modifier into the utility it checks", () => {
+    const header = 'className="sticky bg-[color:var(--surface-chrome)]/95 backdrop-blur-md"';
+
+    expect(utilitiesIn(header)).toContain("bg-[color:var(--surface-chrome)]/95");
+  });
+
+  it("does not accept a longer selector as proof that a shorter one was emitted", () => {
+    // Only the modified rule exists here. The unmodified name appears in the text, but
+    // solely as the first part of it — which is not a rule for the unmodified class.
+    const onlyTheModifiedRule = ".bg-[color:var(--surface-chrome)]/95{background-color:red}";
+
+    expect(selectorIsEmitted(onlyTheModifiedRule, "bg-[color:var(--surface-chrome)]/95")).toBe(true);
+    expect(selectorIsEmitted(onlyTheModifiedRule, "bg-[color:var(--surface-chrome)]")).toBe(false);
   });
 });
