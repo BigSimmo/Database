@@ -57,5 +57,11 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // back-link `<Link>` — so an exact match is correct here, not a prefix: a
   // `startsWith` would wrongly claim the slot for that child route too.
   if (pathname === "/mockups/development") return true;
+  // on-call/on-call-nav-header.tsx, mounted by each of the six section pages
+  // (contacts, playbook, referrals, orientation, education, logistics) — the
+  // same six routes `isInformationPage` claims for on-call, and `search` is
+  // excluded there by the shared `TOOL_SUFFIXES` set, so this line alone
+  // covers exactly those six and never `/on-call/search`.
+  if (isSlugDetail(pathname, "/on-call")) return true;
   return false;
 }
