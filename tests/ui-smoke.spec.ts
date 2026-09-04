@@ -3531,9 +3531,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     // of them may claim a model wrote the answer.
     await expect(sourceOnlyRow).toContainText(/Copied from/);
     await expect(sourceOnlyRow).not.toContainText("AI-generated");
-    const panelWarnings = (await gapsDetail.locator("> p").allInnerTexts()).filter(
-      (text) => !/^Answer limitations$/i.test(text.trim()) && !/^Source-only\b/.test(text.trim()),
-    );
+    // Excluded by ELEMENT, not by text. The source-only row's eyebrow is
+    // `uppercase`, so `innerText` reports "SOURCE-ONLY" and a case-sensitive
+    // text filter silently counted this row as a limitation.
+    const panelWarnings = (
+      await gapsDetail.locator('> p:not([data-testid="answer-limitation-source-only"])').allInnerTexts()
+    ).filter((text) => !/^Answer limitations$/i.test(text.trim()));
     const gapWarnings = panelWarnings.filter((text) => !/\bdue for review\.$/.test(text.trim()));
     expect(panelWarnings.length).toBeGreaterThan(0);
     await expect(gapsChip).toContainText(`${gapWarnings.length} limitation${gapWarnings.length === 1 ? "" : "s"}`);
