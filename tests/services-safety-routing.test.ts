@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { catalogToServiceRecord } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot } from "@/lib/service-catalog";
-import {
-  detectServiceUrgentIntents,
-  type ServiceUrgentIntent,
-} from "@/lib/service-urgent-routing";
+import { detectServiceUrgentIntents } from "@/lib/service-urgent-routing";
 import { rankServiceRecords } from "@/lib/service-ranker";
 import { serviceRecords } from "@/lib/services";
 
@@ -16,7 +13,7 @@ function titles(query: string, limit = 8) {
 describe("services safety routing", () => {
   it("recognises high-consequence intent without conflating aftercare and postvention", () => {
     expect(detectServiceUrgentIntents("15-year-old actively suicidal in Bunbury tonight")).toEqual(
-      expect.arrayContaining<ServiceUrgentIntent>(["emergency", "camhs_crisis", "regional_after_hours"]),
+      expect.arrayContaining(["emergency", "camhs_crisis", "regional_after_hours"]),
     );
     expect(detectServiceUrgentIntents("discharged after a suicide attempt and needs follow-up")).toContain(
       "suicide_aftercare",
