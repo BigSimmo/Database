@@ -288,6 +288,76 @@ export function referralForMovement(movement: Movement, referrals: Referral[]): 
   return referrals.find((candidate) => candidate.id === movement.referralId);
 }
 
+/**
+ * WHAT THIS JOURNEY'S FRONT-DOOR REFERRAL IS, **OR WHY IT HAS NONE** — owner ruling
+ * R-2026-09-04-D, second half, and the half the ruling says is the one that matters.
+ *
+ * `referralForMovement` above answers with a referral or with `undefined`, and `undefined` was
+ * doing the work of three different situations at once:
+ *
+ *   - **`none_raised`** — somebody recorded that nobody referred this person. **The only CLINICAL
+ *     one**, and the only arm a screen may treat as an assertion rather than as a gap.
+ *   - **`not_asked`** — the journey was raised at runtime and nothing asked which referral it came
+ *     from (`RAISE_REFERRAL` writes this itself). Record-keeping.
+ *   - **`not_recorded`** — nothing has been recorded either way; in today's fixture that means the
+ *     movement predates the link. Record-keeping, and the DEFAULT for all existing data.
+ *
+ * Two further arms keep the reader honest rather than tidy: `unresolved` for an id naming a
+ * referral this state does not hold (unreachable through `RAISE_REFERRAL`, which refuses one, but
+ * reachable by hand), and `referral` for the resolved join.
+ *
+ * ⚠️ **A SET `referralId` WINS OVER ANY ABSENCE RECORD, AND THAT PRECEDENCE IS DELIBERATE.** The
+ * reducer refuses to create the contradiction — `RECORD_NO_REFERRAL` rejects a movement that names
+ * a referral — so a movement carrying both is hand-authored data. Reporting "nobody referred this
+ * person" while a real referral resolves beside it is the fabrication this ruling exists to
+ * prevent; reporting the referral is the conservative reading.
+ *
+ * ⚠️ **`none_raised` DOES NOT MEAN "NOBODY IS LOOKING FOR A BED FOR THIS PATIENT".** It means no
+ * referral brought them in. Whether anyone is searching for a bed is `referredUnitIds`/`declines`,
+ * which has its own unresolved version of this same three-causes problem — see the doc block in
+ * `ed/ed-home-derivations.ts`, which refuses to count it for exactly that reason. Do not read one
+ * as the other.
+ */
+export type MovementReferralLink =
+  | { kind: "referral"; referral: Referral }
+  | { kind: "unresolved"; referralId: string }
+  | { kind: "none_raised"; at: Instant }
+  | { kind: "not_asked"; at: Instant }
+  | { kind: "not_recorded" };
+
+export function movementReferralLink(movement: Movement, referrals: Referral[]): MovementReferralLink {
+  if (movement.referralId !== undefined) {
+    const referral = referralForMovement(movement, referrals);
+    return referral ? { kind: "referral", referral } : { kind: "unresolved", referralId: movement.referralId };
+  }
+  const absence = movement.referralAbsence;
+  if (absence === undefined) return { kind: "not_recorded" };
+  return absence.reason === "none_raised"
+    ? { kind: "none_raised", at: absence.at }
+    : { kind: "not_asked", at: absence.at };
+}
+
+/**
+ * WHETHER THIS PATIENT NEEDS TRANSPORT — three states, owner ruling R-2026-09-04-C.
+ *
+ * `"not_recorded"` is the DEFAULT and is not a soft `"not_needed"`: nobody has answered. The three
+ * names exist so a caller cannot write `movement.transportNeed?.needed ?? false` and silently turn
+ * an unanswered question into a stated "no" — the exact collapse the ED referral form's
+ * `specialling` checkbox was ordered fixed for, and the reason `Referral.medicalClearance` is
+ * shaped this way too.
+ *
+ * ⚠️ **IT IS NOT DERIVED FROM `Movement.transport`, AND MUST NOT BE.** A booked job proves need;
+ * the absence of one proves nothing at all, which is the whole gap this state closes. A movement
+ * carrying a transport job and no recorded need still reads `"not_recorded"` here — honest, and
+ * visibly so — rather than being upgraded to `"needed"` by an inference nobody made.
+ */
+export type TransportNeedState = "needed" | "not_needed" | "not_recorded";
+
+export function transportNeedState(movement: Pick<Movement, "transportNeed">): TransportNeedState {
+  if (movement.transportNeed === undefined) return "not_recorded";
+  return movement.transportNeed.needed ? "needed" : "not_needed";
+}
+
 export function unitSiteCode(unit: Unit) {
   return siteByCode(unit.siteCode)?.code ?? unit.siteCode;
 }
@@ -1138,11 +1208,19 @@ export function movementTimeline(movement: Movement) {
  * own timeline (`movementTimeline` above stays scoped to a single movement; this is the
  * statewide counterpart). Newest first, so the most recent decision is the one a reviewer sees
  * without scrolling.
+ *
+ * ⚠️ **WIDENED FOR TASK 5'S STEP-BACK PAIR (2026-09-04): `"stage_corrected"` and
+ * `"acceptance_withdrawn"` join the two `UnwindRecord` kinds already here.** They are the same
+ * category of thing — a coordinator's own mutating decision, unwinding some earlier state — so
+ * excluding them from this board's audit would be the false-by-omission twin of leaving a real
+ * decision off it. The loop below already iterates every `movement.unwinds` entry regardless of
+ * kind, so nothing there needed to change to pick them up; only this type did.
  */
 export type ChangeAuditEntry = {
   at: Instant;
   movementId: string;
-  kind: "urgency" | "legal_status" | "pull_released" | "transport_cancelled";
+  kind:
+    "urgency" | "legal_status" | "pull_released" | "transport_cancelled" | "stage_corrected" | "acceptance_withdrawn";
   by: string;
   detail: string;
 };
@@ -1169,6 +1247,28 @@ export function changeAudit(movements: Movement[]): ChangeAuditEntry[] {
       });
     }
     for (const unwind of movement.unwinds) {
+      if (unwind.kind === "stage_corrected" || unwind.kind === "acceptance_withdrawn") {
+        /*
+         * ⚠️ **FLAGGED, NOT A DEFAULT PAPERED OVER.** `unwind.reason` here is a `StepBackReason`
+         * (`ward-model.ts`), and `STEP_BACK_REASONS` carries no `changeReasonLabels` entry —
+         * that lookup table lives in `ward-change-reasons.ts`, outside this build's assigned
+         * scope, and is deferred alongside the reason-picker UI these two events feed. Looking the
+         * raw reason up in `changeReasonLabels` anyway would silently produce `undefined` for a
+         * field typed `string` (masked by the same unsafe cast the branch below uses for the
+         * other two kinds) — exactly the "field with no producer" class of defect this project has
+         * been bitten by before. Rather than fabricate a label here (a second place authoring text
+         * for `STEP_BACK_REASONS`, which is the "two places for one fact" this project also
+         * forbids), this renders the FACT without the specific reason until that label map exists.
+         */
+        entries.push({
+          at: unwind.at,
+          movementId: movement.id,
+          kind: unwind.kind,
+          by: unwind.by,
+          detail: unwind.kind === "stage_corrected" ? "Stage corrected" : "Acceptance withdrawn",
+        });
+        continue;
+      }
       // `UnwindRecord.reason` is typed as a plain `string` on `Movement` (ward-model.ts) because
       // `RELEASE_PULL` and `CANCEL_TRANSPORT` share one record shape for two different fixed
       // reason lists. The reducer only ever writes a `ReleasePullReason` into a "pull_released"

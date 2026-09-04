@@ -1,22 +1,14 @@
 /*
- * Task 9: the transport officer's phone. A small module in its own right, following the same
- * convention `ward.module.css` documents on its own `.screen` — every local token this file
- * needs is declared here, never borrowed from another module's scope.
+ * Task 9: the transport officer's phone.
+ *
+ * ⚠️ THIS FILE NO LONGER DECLARES ITS OWN SCALE. It used to, and this comment used to say so —
+ * "never borrowed from another module's scope", citing `ward.module.css` as the exemplar. That
+ * convention was abandoned here on 2026-09-04: `.screen` composes `ward-tokens.module.css` and
+ * every spacing and leading value comes from there.
  */
 .screen {
+  composes: wardTokens from "../ward-tokens.module.css";
   composes: descendantKill from "../ward-reduced-motion.module.css";
-  --wf-border: var(--neutral-500);
-  --of-space-4: 0.25rem;
-  --of-space-6: 0.375rem;
-  --of-space-8: 0.5rem;
-  --of-space-10: 0.625rem;
-  --of-space-12: 0.75rem;
-  --of-space-14: 0.875rem;
-  --of-space-16: 1rem;
-  --of-space-20: 1.25rem;
-  --of-space-48: var(--spacing-tap);
-  --of-leading-body: 1.4;
-  --of-leading-prose: 1.5;
   /*
    * The pinned action bar's own reserve, following `coordinator.module.css`'s
    * `--co-shortlist-bar-*` trio exactly (see that file's comment on why the three stay
@@ -26,15 +18,15 @@
    * button row and border so `.main`'s padding-bottom can never drift from the bar's real
    * height.
    */
-  --of-bar-pad-y: var(--of-space-8);
-  --of-bar-safe-bottom: max(var(--of-space-8), var(--safe-area-bottom));
-  --of-bar-reserve: calc(var(--of-space-48) + var(--of-bar-pad-y) + var(--of-bar-safe-bottom) + 0.0625rem);
+  --of-bar-pad-y: var(--ward-space-8);
+  --of-bar-safe-bottom: max(var(--ward-space-8), var(--safe-area-bottom));
+  --of-bar-reserve: calc(var(--spacing-tap) + var(--of-bar-pad-y) + var(--of-bar-safe-bottom) + 0.0625rem);
   display: grid;
   min-height: 100dvh;
   /* The rail track stays reserved at every supported width, same as the ward and coordinator
      screens — see ward-management.module.css's own note on this. */
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /* No background here, deliberately — do not reintroduce one in any spelling. */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -44,21 +36,52 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--of-space-16);
+  gap: var(--ward-space-16);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: var(--of-space-16) var(--of-space-20) var(--of-space-20);
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-20);
+}
+
+/*
+ * THE REFUSAL SURFACE. Toned as a warning rather than as chrome: this appears only when the
+ * reducer has refused something, and on a phone it must be findable without scrolling past the
+ * job it refers to. Persistent by design (spec 7.4) — it renders nothing until the first refusal
+ * and then never goes silent, so it must not be styled as a transient toast.
+ */
+.refusals {
+  border-bottom: 0.0625rem solid var(--ward-divider);
+  background: var(--warning-bg);
+  padding: var(--ward-space-8) var(--ward-space-12);
+}
+
+.refusalsTitle {
+  margin: 0 0 var(--ward-space-4);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  line-height: var(--ward-leading-body);
+}
+
+.refusalsList {
+  margin: 0;
+  padding: 0 0 0 var(--ward-space-16);
+}
+
+.refusalsItem {
+  color: var(--text);
+  font-size: var(--text-3xs);
+  line-height: var(--ward-leading-body);
 }
 
 .governanceBanner {
   display: flex;
-  min-height: var(--of-space-48);
+  min-height: var(--spacing-tap);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--of-space-12);
-  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   background: var(--surface-chrome);
-  padding: var(--of-space-8) var(--of-space-12);
+  padding: var(--ward-space-8) var(--ward-space-12);
 }
 
 .governanceBanner p {
@@ -67,7 +90,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
-  line-height: var(--of-leading-body);
+  line-height: var(--ward-leading-body);
 }
 
 .prototypeBadge {
@@ -75,7 +98,7 @@
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
   background: var(--warning-bg);
-  padding: var(--of-space-4) var(--of-space-8);
+  padding: var(--ward-space-4) var(--ward-space-8);
   color: var(--warning-text);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -91,7 +114,7 @@
 
 .jobList {
   display: grid;
-  gap: var(--of-space-12);
+  gap: var(--ward-space-12);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -101,11 +124,11 @@
 .jobCardActive {
   display: grid;
   min-width: 0;
-  gap: var(--of-space-8);
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  gap: var(--ward-space-8);
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-subtle);
-  padding: var(--of-space-12);
+  padding: var(--ward-space-12);
 }
 
 .jobCardActive {
@@ -118,7 +141,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--of-space-8);
+  gap: var(--ward-space-8);
 }
 
 .jobHeader strong {
@@ -134,7 +157,7 @@
 
 .jobDetails {
   display: grid;
-  gap: var(--of-space-6);
+  gap: var(--ward-space-6);
   margin: 0;
 }
 
@@ -142,7 +165,7 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: var(--of-space-8);
+  gap: var(--ward-space-8);
   font-size: var(--text-xs);
 }
 
@@ -160,13 +183,13 @@
 
 .selectButton {
   display: inline-flex;
-  min-height: var(--of-space-48);
+  min-height: var(--spacing-tap);
   align-items: center;
   justify-content: center;
-  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  padding: 0 var(--of-space-14);
+  padding: 0 var(--ward-space-14);
   color: var(--text-heading);
   font-size: var(--text-xs);
   font-weight: 700;
@@ -175,19 +198,19 @@
 .actionRow {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--of-space-8);
+  gap: var(--ward-space-8);
 }
 
 .actionButton {
   display: inline-flex;
-  min-height: var(--of-space-48);
+  min-height: var(--spacing-tap);
   flex: 1 1 6rem;
   align-items: center;
   justify-content: center;
   border: 0.0625rem solid var(--clinical-accent-border);
   border-radius: var(--radius-md);
   background: var(--clinical-accent);
-  padding: 0 var(--of-space-10);
+  padding: 0 var(--ward-space-10);
   color: var(--clinical-accent-contrast);
   font-size: var(--text-3xs);
   font-weight: 700;
@@ -197,7 +220,7 @@
 
 .actionButton[aria-disabled="true"] {
   cursor: not-allowed;
-  border-color: var(--wf-border, var(--neutral-500));
+  border-color: var(--ward-border);
   background: var(--surface-subtle);
   color: var(--text-muted);
 }
@@ -219,16 +242,16 @@
     bottom: 0;
     left: 0;
     flex-wrap: nowrap;
-    border-top: 0.0625rem solid var(--wf-border, var(--neutral-500));
+    border-top: 0.0625rem solid var(--ward-divider);
     background: var(--surface);
     box-shadow: var(--e2);
-    padding: var(--of-bar-pad-y) var(--of-space-12) var(--of-bar-safe-bottom);
+    padding: var(--of-bar-pad-y) var(--ward-space-12) var(--of-bar-safe-bottom);
   }
 
   .actionButton {
     flex: 1 1 0;
     min-width: 0;
-    padding: 0 var(--of-space-4);
+    padding: 0 var(--ward-space-4);
   }
 
   /*
@@ -266,6 +289,58 @@
  */
 @media (forced-colors: active) {
   .screen {
-    --wf-border: var(--border);
+    --ward-border: var(--border);
+    --ward-divider: var(--border);
+  }
+}
+
+/*
+ * 🔴 PRINTING THIS SCREEN PRODUCED A BLANK SHEET UNTIL THIS BLOCK EXISTED, and the cause was not
+ * the background — it was the colour.
+ *
+ * Dark tokens here are scoped by the CLASS `.ckb-v2.dark.ckb-v2`, not by a media query, so the
+ * class stays on <html> while printing and `--text` stays near-white. `globals.css` sets a black
+ * print colour on `body`, but `.screen` is a class selector and beats `body`, so this root's own
+ * `color: var(--text)` won and printed near-white text.
+ *
+ * ⚠️ WHILE THE ROOT ALSO PAINTED AN OPAQUE DARK BACKGROUND THIS WAS MERELY UGLY — light text on a
+ * dark band, obviously broken. Deleting that background when this screen adopted the shared token
+ * layer removed the band and left near-white on white paper. **The adoption turned an obviously
+ * broken page into a silently blank one**, and blank is worse: a dark band gets reported, an empty
+ * sheet reads as "nothing to print".
+ *
+ * ⚠️ IT CANNOT BE FIXED CENTRALLY. `ward-shell.module.css` setting `color` under print cannot beat
+ * `.screen`'s own declaration, so the reset belongs in the file that made the declaration.
+ *
+ * `background: none` does nothing today — this root no longer paints — and is kept so that a
+ * future root background cannot reappear as a printed band.
+ */
+@media print {
+  /*
+   * 🔴 THE WILDCARD AND `!important` ARE BOTH LOAD-BEARING, AND NEITHER IS BELT-AND-BRACES.
+   *
+   * `.screen` alone is one class, specificity (0,1,0). Every class-plus-type rule in this file
+   * outranks it — `.table td`, `.table th`, `.governanceBanner p` — so a print reset written only
+   * on the root leaves those cells painting their themed colour. In dark mode that is near-white
+   * on white paper: the row is on the page, sized and spaced correctly, and invisible.
+   *
+   * ⚠️ THE WILDCARD ALONE DOES NOT FIX IT EITHER. `.screen *` is a class plus the universal
+   * selector, and the universal contributes ZERO — still (0,1,0). It loses the same fight, and
+   * loses it silently: every plain element prints black, so a spot-check on a heading or a
+   * paragraph confirms the fix while the table rows stay invisible. Specificity resolves before
+   * source order, so sitting last in the file buys nothing. `!important` is what wins.
+   *
+   * `coordinator.module.css` reached this conclusion first and its print block does exactly this;
+   * this is that rule, not a new invention. `color-scheme` needs no `!important` — nothing
+   * competes for it.
+   */
+  .screen,
+  .screen * {
+    color: CanvasText !important;
+  }
+
+  .screen {
+    background: none;
+    color-scheme: light;
   }
 }

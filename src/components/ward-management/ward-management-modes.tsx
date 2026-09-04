@@ -43,6 +43,7 @@ import {
   roleTaskLabel,
   MINIMUM_EFFECTIVENESS_SAMPLE,
   stageSummaries,
+  transportLeg,
   unitCapacity,
   type ChangeAuditEntry,
   type EffectivenessMeasure,
@@ -97,6 +98,12 @@ const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
   legal_status: "Legal status change",
   pull_released: "Pull released",
   transport_cancelled: "Transport cancelled",
+  // Task 5 (ward-flow movement step-track plan, 2026-09-04). Kept as generic as the `detail`
+  // field `changeAudit` currently produces for these two (`ward-derivations.ts`) — a
+  // per-reason label needs `STEP_BACK_REASONS` to gain a `changeReasonLabels` entry first, which
+  // is outside this build's scope. Widen both together, not this one alone.
+  stage_corrected: "Stage corrected",
+  acceptance_withdrawn: "Acceptance withdrawn",
 };
 
 /** Same role-ordering rule as the command console: human urgency order stays, role just re-sorts by owner. */
@@ -200,8 +207,21 @@ function DecisionPanel({
   // Whole-branch review Critical 1: resolved from the live `units`, not `unitById`.
   const offShortlistUnit = !selected && selectedId ? units.find((unit) => unit.id === selectedId) : undefined;
   const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, now) : undefined;
-  const recordedDestination = destinationUnit(patient, units);
-  const isSuggested = selected !== undefined && selected.unit.id !== recordedDestination?.id;
+  /*
+   * ⚠️ NOT ACCEPTED-ONLY HERE, AND THAT IS THE OPPOSITE OF THE OTHER SITES — this asks whether the
+   * selected ward is something a PERSON RECORDED or something the shortlist COMPUTED, and a
+   * referral is recorded. Narrowing to `acceptedUnitId` would label every referred ward
+   * "Suggested destination", which is the fabrication the badge exists to prevent.
+   *
+   * ⚠️ THE DEFECT IS THE `[0]`, NOT THE FALLBACK. `destinationUnit` is
+   * `acceptedUnitId ?? referredUnitIds[0]`, so it recognises only the FIRST referred ward. On a
+   * movement referred to two wards in parallel, selecting the SECOND one compared unequal and the
+   * panel announced a real, recorded referral as the system's own suggestion. Membership is the
+   * question being asked, so membership is what is tested.
+   */
+  const isRecordedDestination = (unitId: string) =>
+    unitId === patient.acceptedUnitId || patient.referredUnitIds.includes(unitId);
+  const isSuggested = selected !== undefined && !isRecordedDestination(selected.unit.id);
 
   return (
     <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label={`AI best-fit review for ${patient.id}`}>
@@ -405,6 +425,13 @@ function QueueView({ role }: { role: WardRole }) {
         <DecisionPanel
           patient={selected}
           role={role}
+          // ⚠️ `destinationUnit` IS CORRECT HERE AND MUST NOT BE NARROWED. This picks which
+          // candidate is PRESELECTED; it asserts nothing. **A fallback is only a lie where
+          // something reads it as a statement** — and nothing on this panel says the
+          // preselected ward is the destination. Accepted, then first referred, then first
+          // candidate is the right precedence for a default. The sibling call twenty lines
+          // above WAS a claim and was changed; this one was not, and a sweep replacing every
+          // call site would have broken it.
           selectedId={destinationUnit(selected, units)?.id ?? eligibleCandidatesAmong(selected, units, now)[0]?.unit.id}
           onSelectId={() => undefined}
         />
@@ -736,9 +763,44 @@ function ExceptionsView() {
   );
 }
 
+/**
+ * The tone for a transport row's status word.
+ *
+ * ⚠️ **A CANCELLED JOURNEY MUST NOT RENDER GREEN, WHICH IS WHAT IT DID.** `statusGood` was the
+ * fallback for everything that was not `stalled`, and `stalled` only fires on an accepted job that
+ * has not left — so a cancelled job took the green branch and told the coordinator it was fine.
+ * Cancellation is the one leg that means the journey is not happening, so it takes `statusDanger`.
+ *
+ * Reads the leg through `transportLeg` rather than the raw stamps, so this can never disagree with
+ * the word printed beside it about what state the job is in.
+ */
+function legStatusClass(transport: Movement["transport"], stalled: boolean): string {
+  if (transportLeg(transport) === "Cancelled") return styles.statusDanger;
+  return stalled ? styles.statusWarning : styles.statusGood;
+}
+
 function TransportView() {
   const { movements } = useWardFlow();
-  const transportPatients = movements.filter((patient) => patient.stage !== "arrived" && patient.transport).slice(0, 8);
+  /*
+   * ⚠️ `isOpen`, NOT `stage !== "arrived"` — owner ruling relayed 2026-09-04. A transport job on a
+   * CLOSED movement has nothing anyone can act on, and it sat here accruing elapsed time forever.
+   * `stage !== "arrived"` excludes only the arrival closure; a movement closed as `did_not_proceed`
+   * keeps whatever stage it stopped at, so it stayed on this board indefinitely.
+   *
+   * ⚠️ `isOpen` HERE IS CLOSURE **AND** NOT-ARRIVED, AND THE OFFICER SCREEN DELIBERATELY DIFFERS.
+   * `officer/officer-screen.tsx` filters on `transport.arrivedAt === undefined` plus closure, and
+   * does NOT exclude by stage. The two screens agree on CLOSURE - a job on a closed movement is
+   * actionable by nobody - and differ on STAGE because they answer different questions: this board
+   * asks "what is in flight", the officer's phone asks "what have I not yet delivered". That
+   * asymmetry is a ruling, not drift; do not align them.
+   *
+   * ⚠️ A CANCELLED JOB ON AN OPEN MOVEMENT STAYS, DELIBERATELY. The ruling was explicit: a cancelled
+   * journey nobody has re-arranged is precisely what this board is for, and hiding it would make the
+   * cancellation invisible — worse than showing it. What was wrong was the LABEL (a hand-rolled copy
+   * missing its cancelled branch) and the TONE (green), both fixed above. Do not add a cancellation
+   * filter here; that would re-hide what the label now states.
+   */
+  const transportPatients = movements.filter((patient) => isOpen(patient) && patient.transport).slice(0, 8);
   return (
     <div className={styles.pageGrid} data-testid="ward-transport-view">
       <section className={styles.panel}>
@@ -765,13 +827,24 @@ function TransportView() {
                   </small>
                 </div>
                 <div>
-                  <span className={stalled ? styles.statusWarning : styles.statusGood}>
+                  {/*
+                   * ⚠️ `transportLeg`, NOT A LOCAL TERNARY. What stood here was a hand-rolled copy of
+                   * the shared precedence with its top TWO branches missing: no `cancelledAt` and no
+                   * `collectedAt`. Both shared helpers in `ward-derivations.ts` test `cancelledAt`
+                   * FIRST, precisely because a cancellation overrides every other stamp — so a
+                   * cancelled job still carrying `acceptedAt` read here as "Accepted, awaiting
+                   * departure", in `statusGood` green, on the board a coordinator uses to see who is
+                   * moving. The row filter is `stage !== "arrived" && patient.transport`, which does
+                   * not exclude a cancelled job or a closed movement, so nothing else caught it.
+                   *
+                   * `transportLeg` returns the leg ALONE — `transportStatusLabel` would have been
+                   * wrong here, because two of its seven outputs embed the provider name and this row
+                   * already prints the provider itself, which would have read "St John: St John
+                   * requested".
+                   */}
+                  <span className={legStatusClass(patient.transport, stalled)}>
                     {patient.transport ? `${patient.transport.provider}: ` : ""}
-                    {patient.transport?.enRouteAt !== undefined
-                      ? "En route"
-                      : patient.transport?.acceptedAt !== undefined
-                        ? "Accepted, awaiting departure"
-                        : "Requested"}
+                    {transportLeg(patient.transport) ?? "Not yet requested"}
                   </span>
                   <small>
                     {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
@@ -1122,6 +1195,25 @@ function RoleFocus({ role }: { role: WardRole }) {
   );
 }
 
+/**
+ * ⚠️ **`governance` IS NAMED, AND THE TAIL IS A `never` CHECK. IT USED TO BE NEITHER.**
+ *
+ * This chain checked six of the seven modes by name and reached `governance` by falling off the
+ * end. **A ninth mode added to `WardMode` would have silently rendered the governance screen** — no
+ * compile error, no runtime error, and a user looking at the wrong page with nothing to tell them.
+ *
+ * 🔴 THE FINDING WAS NOT THE FALLTHROUGH. It was that this same file enforces totality TWICE
+ * elsewhere: `modeCopy` and `WARD_VIEW_ICONS` are total `Record`s over the same union and break at
+ * compile time when a member is added. **So the one construct that failed soft was the screen
+ * router — the only one whose failure a user actually sees** — and an author reading this file sees
+ * exhaustiveness enforced twice and reasonably assumes the third is too.
+ *
+ * Found by a switch-ladder sweep across 62 ladders in 32 files. ⚠️ **Its own stated limit is worth
+ * carrying: its member-name search list was hand-picked, so a chain over a union whose member names
+ * it did not guess is invisible to it — and this is an if-chain, not a `switch`, found by accident
+ * rather than by method.** The `never` tail below is what makes the next one a compile error
+ * instead of a sweep's lucky day.
+ */
 function ModeBody({ mode, role }: { mode: Exclude<WardMode, "command">; role: WardRole }) {
   if (mode === "network") return <WardNetworkWorkspace />;
   if (mode === "queue") return <QueueView role={role} />;
@@ -1129,7 +1221,19 @@ function ModeBody({ mode, role }: { mode: Exclude<WardMode, "command">; role: Wa
   if (mode === "movements") return <MovementsView />;
   if (mode === "exceptions") return <ExceptionsView />;
   if (mode === "transport") return <TransportView />;
-  return <GovernanceView />;
+  if (mode === "governance") return <GovernanceView />;
+  return assertEveryModeIsRouted(mode);
+}
+
+/**
+ * The tail of `ModeBody`. A new `WardMode` member reaches here, fails to be assignable to `never`,
+ * and breaks the build — which is the entire point. The runtime return exists only because this
+ * function has to return something if the union is ever widened by a cast rather than by an edit;
+ * it renders nothing rather than guessing a screen, because guessing a screen is the defect.
+ */
+function assertEveryModeIsRouted(mode: never): null {
+  void mode;
+  return null;
 }
 
 export function WardModeWorkspace({ mode }: { mode: Exclude<WardMode, "command"> }) {

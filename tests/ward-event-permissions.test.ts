@@ -111,6 +111,19 @@ describe("who may raise which event", () => {
     RECORD_ESCALATION: ["coordinator"],
     RECORD_EXAMINATION: ["ed"],
     RECORD_MEDICAL_CLEARANCE: ["ed"],
+    /* ADDED 2026-09-04, owner rulings R-2026-09-04-C and -D.
+     *
+     * `RECORD_TRANSPORT_NEED` mirrors `BOOK_TRANSPORT`'s three senders INCLUDING its exclusion:
+     * `TR-D1` rejects the coordinator from booking by name, because it owns the bed search and
+     * does not know whether this patient can travel. Whether transport is needed at all is that
+     * same knowledge one step earlier, so the same role is refused it.
+     *
+     * `RECORD_NO_REFERRAL` is `ed`-only on `RECORD_MEDICAL_CLEARANCE`'s reasoning: the department
+     * physically holding the patient is the only party that can say nobody referred them. A
+     * coordinator would be inferring it from its own empty search, which is the inference the
+     * ruling exists to replace. */
+    RECORD_TRANSPORT_NEED: ["ed", "ward", "community"],
+    RECORD_NO_REFERRAL: ["ed"],
     RECORD_LEAVE_BED: ["ward"],
     RECORD_LOCAL_BED_SOUGHT: ["coordinator"],
     REFER_TO_UNITS: ["coordinator"],
@@ -203,6 +216,22 @@ describe("who may raise which event", () => {
      * wider than `RAISE_REFERRAL`: withdrawal is refused by the reducer unless the referral is
      * still live and unaccepted, so the narrowing is done by state rather than by role. */
     WITHDRAW_REFERRAL: ["ed", "community", "ward", "coordinator"],
+    /* ADDED 2026-09-04, Task 5 (ward-flow movement step-track plan), owner ruling F1: only the
+     * coordinator may raise either event. F1's ENTIRE enforcement is this one-role table entry —
+     * the reducer's generic role check rejects any other role before either event's payload is
+     * even inspected, exactly as it does for every other role-gated event above.
+     *
+     * `STEP_BACK_STAGE` is the coordinator's own record correction (moves `stage` backwards,
+     * touches nothing else). `WITHDRAW_ACCEPTANCE` is the coordinator undoing a WARD's earlier
+     * "yes" — a different act on a different actor's decision from `WITHDRAW_REFERRAL` above
+     * (the REFERRER taking its own referral back), despite sharing the English verb "withdraw".
+     *
+     * What the reducer writes for this role, as this guard demands: `event.role` ("coordinator")
+     * into both a `stageChanges` entry's `by` and an `unwinds` entry's `by` — a ROLE, never a
+     * person, the same discipline every other `by` field in this model already has. Asserted
+     * directly in `tests/ward-movement-step-back-reducer.test.ts`. */
+    STEP_BACK_STAGE: ["coordinator"],
+    WITHDRAW_ACCEPTANCE: ["coordinator"],
   };
 
   it("covers every event that exists, so a new event cannot arrive unpermissioned", () => {
