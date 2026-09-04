@@ -41,11 +41,14 @@ hybrid-RPC error rate and the degraded/source-only answer rate, both from
 `OPS_DEGRADED_ANSWER_RATE_{UNKNOWN,WARNING,PAGE}`,
 `OPS_PROJECTED_DAILY_SPEND_WARNING` and `OPS_EVAL_CANARY_STALE_WARNING`).
 
-Nothing in this repository computes an answer-latency percentile, a source-gap
-rate, or an unsupported rate, and no alert code exists for any of them. Their
-"warn" and "page" rows below are **targets with a hand-run SQL probe, not
-alerts**: a breach is invisible until an operator runs the query. Each such
-section is labelled `Manual SQL - not alerted`. Do not cite an unlabelled
+No **production monitor** computes an answer-latency percentile, a source-gap
+rate, or an unsupported rate, and no alert code exists for any of them. (The
+eval harness does compute a latency percentile - `scripts/eval-retrieval.ts`
+enforces a p90 budget over its evaluated cases, cited under "Anchors" below -
+but it runs on demand against a fixture corpus, so it says nothing about live
+traffic.) Their "warn" and "page" rows below are **targets with a hand-run SQL
+probe, not alerts**: a breach is invisible until an operator runs the query.
+Each such section is labelled `Manual SQL - not alerted`. Do not cite an unlabelled
 threshold as evidence of monitoring coverage, and if one of these is wired up
 later, add its `OPS_*` code here and remove the label in the same change.
 
@@ -75,6 +78,8 @@ group by 1;
 ```
 
 ### Database latency — Sentry production DB span SLO (#183)
+
+_Sentry-side alert - provisioning unverified. Nothing in this repository provisions, reads, or tests this alert; `SENTRY_AUTH_TOKEN` appears only in the build-time sourcemap upload (`next.config.ts`). Treat the criteria below as the intended Sentry configuration, not as proof an alert exists._
 
 Sentry metric alert criteria for production database query span duration. Guards against unindexed queries, table locks, RPC latency spikes, and connection pool exhaustion:
 
