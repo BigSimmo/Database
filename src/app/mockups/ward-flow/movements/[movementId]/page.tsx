@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
+import { WardMovementNotFound, WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
 import type { MovementId } from "@/components/ward-management/ward-model";
 
 export const metadata: Metadata = {
@@ -19,16 +19,23 @@ export const metadata: Metadata = {
  * what it holds.
  *
  * A URL segment is always just text, so this is the one place a cast is right: the shape is
- * CHECKED and then asserted. An id that is not a movement id now renders the workspace's own
- * not-found state deliberately, rather than arriving as a `string` nothing had ever validated.
+ * CHECKED and then asserted. That is why the cast below sits AFTER the `startsWith` guard and
+ * nowhere else.
+ *
+ * ⚠️ **THE WRONG-SHAPED CASE USED TO CAST TOO, AND IT LIED.** `MovementId` is the template literal
+ * type `` `WF-${string}` ``, so the bare string `"WF-"` satisfies it — and this route passed
+ * exactly that as a sentinel, which the workspace's not-found sentence then quoted. `/movements/
+ * PT-004` rendered *No synthetic movement matches “WF-”*: an id the user never typed, quoted back
+ * at them, well-typed enough that `tsc` had nothing to say and asserted by no test. It now renders
+ * the not-found screen directly with the text that was actually requested, and says the true
+ * thing about it — that it is not a movement id at all, which is a different fact from there being
+ * no such movement.
  */
 export default async function WardMovementPage({ params }: { params: Promise<{ movementId: string }> }) {
   const { movementId } = await params;
   const id = decodeURIComponent(movementId);
   if (!id.startsWith("WF-")) {
-    // Not a movement id at all — most likely a person id, which this screen has never been able to
-    // show. Handing it on unchecked is what produced a dead end that looked like a data problem.
-    return <WardPatientWorkspace movementId={"WF-" as MovementId} />;
+    return <WardMovementNotFound requestedId={id} reason="not-a-movement-id" />;
   }
   return <WardPatientWorkspace movementId={id as MovementId} />;
 }

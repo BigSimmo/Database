@@ -726,6 +726,115 @@ describe("examination", () => {
     expect(enRoute.rejections).toHaveLength(1);
     expect(movement(enRoute, "WF-005").transport?.enRouteAt).toBeUndefined();
   });
+
+  it("REFER_TO_UNITS, ACCEPT_IN_PRINCIPLE and PULL_PATIENT actually reach a pulled bed with a pulled admission", () => {
+    // Non-vacuity for the test below: proves the walk to a pulled bed is real — a genuine bed held
+    // (allocatable drops to 0) and a genuine `Admission` recorded with state "pulled" — so the
+    // expected-failure test cannot be resting on a setup that silently did nothing.
+    const TARGET = "WF-012";
+    const steps = [
+      { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+      { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+      { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+    ] as const;
+    let state = seeded();
+    for (const step of steps) {
+      state = wardFlowReducer(state, { ...step, now: NOW, movementId: TARGET } as never);
+    }
+    expect(state.rejections).toEqual([]);
+
+    const pulled = movement(state, TARGET);
+    expect(pulled.stage).toBe("pulled");
+    expect(pulled.admissionId).toBe("AD-ARR-01");
+
+    const unit = state.units.find((candidate) => candidate.id === "rph-adult-secure")!;
+    expect(unit.allocatable.value).toBe(0);
+
+    const admission = state.admissions.find((candidate) => candidate.id === "AD-ARR-01");
+    expect(admission?.state).toBe("pulled");
+  });
+
+  it("RECORD_EXAMINATION on a pulled bed is ACCEPTED and does release the bed", () => {
+    // ⚠️ THE CONTROL THAT THE `it.fails` BELOW CANNOT PROVIDE FOR ITSELF, AND IT IS NOT OPTIONAL.
+    // `it.fails` passes when its body throws for ANY reason — including a dispatch the reducer
+    // REFUSED. A refused `RECORD_EXAMINATION` would leave the admission in place, so the assertion
+    // below would throw and the pin would stay green forever while proving nothing. Inverting that
+    // assertion does not distinguish the two cases either: a refusal satisfies the inverted form
+    // just as a real defect does.
+    //
+    // The discriminator is that the dispatch CHANGED something: allocatable goes 0 -> 1 and the
+    // movement closes. That is asserted HERE, in a normal test that goes RED if the action is ever
+    // refused — role renamed, guard added, stage renamed. Without this test the pin is unfalsifiable.
+    const TARGET = "WF-012";
+    let state = seeded();
+    for (const step of [
+      { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+      { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+      { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+    ] as const) {
+      state = wardFlowReducer(state, { ...step, now: NOW, movementId: TARGET } as never);
+    }
+    const before = state.units.find((candidate) => candidate.id === "rph-adult-secure")!;
+    expect(before.allocatable.value).toBe(0);
+
+    const after = wardFlowReducer(state, {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW + 1,
+      movementId: TARGET,
+      outcome: "revoked",
+    });
+
+    // Not refused: the reducer records refusals rather than throwing, so an unchanged rejection
+    // list is what "the action was permitted" looks like here.
+    expect(after.rejections).toEqual(state.rejections);
+    // And it did the capacity half of the work — the half that WAS ported from RELEASE_PULL.
+    expect(after.units.find((candidate) => candidate.id === "rph-adult-secure")!.allocatable.value).toBe(1);
+    expect(movement(after, TARGET).closure?.outcome).toBe("did_not_proceed");
+  });
+
+  /**
+   * ⚠️ `RECORD_EXAMINATION`'s discharge branch (`community_order`/`revoked`, ~lines 986-1002) gives
+   * the held bed back to `unit.allocatable.value` but never deletes the `Admission` the earlier
+   * `PULL_PATIENT` created, and never clears `movement.admissionId` — so a closed, revoked movement
+   * is left pointing at an admission still recorded `state: "pulled"`, and the ward board goes on
+   * showing a phantom occupant in a bed the unit's own count says is free again.
+   *
+   * `RELEASE_PULL` (~line 2996) was fixed for this exact shape on 2026-09-01: it filters the
+   * admission out of `state.admissions` and sets `movement.admissionId` to `undefined`.
+   * `RECORD_EXAMINATION` ported only the capacity half of that fix, not the admission half.
+   *
+   * This is `it.fails` because the assertion below is the CORRECT post-condition — what the
+   * reducer should do once fixed — and today it throws. The day this test starts reporting
+   * "expected to fail but passed", the reducer has been fixed for this shape; convert this to a
+   * normal `it` at that point.
+   */
+  it.fails(
+    "deletes the pulled admission and clears movement.admissionId when a pulled bed's examination is revoked",
+    () => {
+      const TARGET = "WF-012";
+      const steps = [
+        { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+        { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+        { type: "PULL_PATIENT", role: "ward", unitId: "rph-adult-secure" },
+      ] as const;
+      let state = seeded();
+      for (const step of steps) {
+        state = wardFlowReducer(state, { ...step, now: NOW, movementId: TARGET } as never);
+      }
+
+      const after = wardFlowReducer(state, {
+        type: "RECORD_EXAMINATION",
+        role: "ed",
+        now: NOW + 1,
+        movementId: TARGET,
+        outcome: "revoked",
+      });
+
+      expect(after.admissions.some((candidate) => candidate.id === "AD-ARR-01")).toBe(false);
+      expect(movement(after, TARGET).admissionId).toBeUndefined();
+    },
+  );
 });
 
 describe("capacity confirmation", () => {
