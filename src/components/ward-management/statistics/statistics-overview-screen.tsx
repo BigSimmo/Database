@@ -100,12 +100,12 @@ export function StatisticsOverviewScreen() {
           record holds, and there is already a worked example: the statistics home page shows{" "}
           <strong>no declines-per-ward figure</strong>, which is the statistic the owner named first. The model holds
           declines in two places that mean different things, and only one can name a ward — a referral decline sits on{" "}
-          <code className={styles.field}>ReferralAddressing</code>, whose only unit field,{" "}
-          <code className={styles.field}>acceptedUnitId</code>, is set solely when a ward ACCEPTS — so an acceptance
-          names a ward and a decline cannot. <code className={styles.field}>Movement.declines</code> does name a unit,
-          but describes a ward refusing somebody already inside an emergency department. Choosing between them would
-          decide what the published number means, which is the owner&apos;s decision. Every aggregate proposed here has
-          to answer that same question before it appears.
+          <code className={styles.fieldName}>ReferralAddressing</code>, whose only unit field,{" "}
+          <code className={styles.fieldName}>acceptedUnitId</code>, is set solely when a ward ACCEPTS — so an acceptance
+          names a ward and a decline cannot. <code className={styles.fieldName}>Movement.declines</code> does name a
+          unit, but describes a ward refusing somebody already inside an emergency department. Choosing between them
+          would decide what the published number means, which is the owner&apos;s decision. Every aggregate proposed
+          here has to answer that same question before it appears.
         </p>
       </section>
     </StatisticsSectionFrame>

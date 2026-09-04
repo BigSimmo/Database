@@ -1178,7 +1178,7 @@ describe("ReferralBoard", () => {
     ).not.toContain("arriv");
   });
 
-  it("renders the real fixture's seven decided referrals, most recently decided first", () => {
+  it("renders the real fixture's nine decided referrals, most recently decided first", () => {
     renderBoard();
     // Real fixture decidedAt offsets from NOW_ANCHOR: RF-002 -10, RF-003 -15, RF-004 -25,
     // RF-006 -5, RF-007 -8, RF-008 -45 (Phase 8 Task 2's added out-of-area seed) — most recent
@@ -1189,12 +1189,17 @@ describe("ReferralBoard", () => {
     // on purpose — the person it concerns has since been discharged to the community, and a
     // community destination left "queued" would put a live 24-day wait on the coordinator's bed
     // board, which is the exact defect `fa616d1c9` removed nine referrals for.
+    //
+    // RF-012 (-180) and RF-013 (-420) joined on 2026-09-04 (owner ruling R-2026-09-04-D): the two
+    // referrals `WF-002` and `WF-009` were actually raised from. Both are ACCEPTED rather than
+    // queued — each has a movement in the fixture proving its department answered — so they land
+    // here, between RF-008 and RF-010, in the same decidedAt-descending order as everything else.
     const table = screen.getByTestId("ward-referral-board-decided-table");
     const ids = within(table)
       .getAllByRole("row")
       .slice(1)
       .map((row) => row.querySelector("td")?.textContent);
-    expect(ids).toEqual(["RF-006", "RF-007", "RF-002", "RF-003", "RF-004", "RF-008", "RF-010"]);
+    expect(ids).toEqual(["RF-006", "RF-007", "RF-002", "RF-003", "RF-004", "RF-008", "RF-012", "RF-013", "RF-010"]);
   });
 
   /**
@@ -1226,6 +1231,8 @@ describe("ReferralBoard", () => {
       "ward-referral-board-decided-card-RF-003",
       "ward-referral-board-decided-card-RF-004",
       "ward-referral-board-decided-card-RF-008",
+      "ward-referral-board-decided-card-RF-012",
+      "ward-referral-board-decided-card-RF-013",
       "ward-referral-board-decided-card-RF-010",
     ]);
   });

@@ -131,17 +131,17 @@ export function StatisticsEdScreen({ edId }: { edId: string }) {
          */}
         <p className={styles.body} data-testid="ward-statistics-ed-attributable">
           <strong>Nothing is stored on a department itself.</strong>{" "}
-          <code className={styles.field}>EmergencyDepartment</code> holds an id, a site code and a name, and no figure
-          could ever sit on it. Two other records name one, and they are where a department&apos;s figures would come
-          from: <code className={styles.field}>Movement.originEdId</code> says which department a person is physically
-          in — a required field, never missing — alongside when their movement opened, what stage it has reached and
-          every ward decline against it; and a referral addressed to this department&apos;s psychiatry service carries{" "}
-          <code className={styles.field}>edId</code> on its destination. The referral&apos;s own clocks are weaker than
-          they look: <code className={styles.field}>raisedAt</code> is always there, but{" "}
-          <code className={styles.field}>triagedAt</code> is optional, so a referral may carry no triage instant at all
-          — and where both exist the triage can precede the referral, because somebody can be in a department for hours
-          before psychiatry is called. So how many people this department is currently waiting on, and how long each has
-          been waiting, are derivable from the movement side, and simply not yet derived.
+          <code className={styles.fieldName}>EmergencyDepartment</code> holds an id, a site code and a name, and no
+          figure could ever sit on it. Two other records name one, and they are where a department&apos;s figures would
+          come from: <code className={styles.fieldName}>Movement.originEdId</code> says which department a person is
+          physically in — a required field, never missing — alongside when their movement opened, what stage it has
+          reached and every ward decline against it; and a referral addressed to this department&apos;s psychiatry
+          service carries <code className={styles.fieldName}>edId</code> on its destination. The referral&apos;s own
+          clocks are weaker than they look: <code className={styles.fieldName}>raisedAt</code> is always there, but{" "}
+          <code className={styles.fieldName}>triagedAt</code> is optional, so a referral may carry no triage instant at
+          all — and where both exist the triage can precede the referral, because somebody can be in a department for
+          hours before psychiatry is called. So how many people this department is currently waiting on, and how long
+          each has been waiting, are derivable from the movement side, and simply not yet derived.
         </p>
 
         <p className={styles.body} data-testid="ward-statistics-ed-unrecordable">
@@ -155,11 +155,11 @@ export function StatisticsEdScreen({ edId }: { edId: string }) {
 
         <p className={styles.body} data-testid="ward-statistics-ed-near-miss">
           <strong>And one figure would be easy to publish and wrong.</strong> A movement can close with the outcome{" "}
-          <code className={styles.field}>did_not_proceed</code>, which looks like a count of people who left without a
-          bed and is not one: it records a movement that ended without admission, typically because an examination found
-          admission was not needed. Publishing it under that heading would rename a clinical outcome as a failure of
-          flow. Whether anything here should be counted as leaving without a bed is a question for the owner, and until
-          it is answered this page shows no such figure — deliberately, and never as a nought.
+          <code className={styles.fieldName}>did_not_proceed</code>, which looks like a count of people who left without
+          a bed and is not one: it records a movement that ended without admission, typically because an examination
+          found admission was not needed. Publishing it under that heading would rename a clinical outcome as a failure
+          of flow. Whether anything here should be counted as leaving without a bed is a question for the owner, and
+          until it is answered this page shows no such figure — deliberately, and never as a nought.
         </p>
 
         <p className={styles.body}>
