@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "c72c40f8dd47813137300ef08373146a0556b963",
-    "committed_at": "2026-09-04T14:25:03+00:00"
+    "sha": "3882b364448fc9eebbbe809d32b38369d7443092",
+    "committed_at": "2026-09-04T15:29:41+00:00"
   },
   "routes": {
     "modes": [
@@ -33,7 +33,7 @@
       {
         "id": "documents",
         "label": "Documents",
-        "home": "/documents",
+        "home": "/?mode=documents",
         "dev_only": false
       },
       {
@@ -220,11 +220,6 @@
         "area": "product"
       },
       {
-        "path": "/documents",
-        "file": "src/app/(search-app)/documents/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/documents/[id]",
         "file": "src/app/(search-app)/documents/[id]/page.tsx",
         "area": "product"
@@ -307,11 +302,6 @@
       {
         "path": "/formulation/search",
         "file": "src/app/(search-app)/formulation/search/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/medications",
-        "file": "src/app/(search-app)/medications/page.tsx",
         "area": "product"
       },
       {
@@ -1202,6 +1192,11 @@
         "target": "/?mode=differentials"
       },
       {
+        "path": "/documents",
+        "file": "src/app/(search-app)/documents/page.tsx",
+        "target": "/?mode=documents"
+      },
+      {
         "path": "/documents/source",
         "file": "src/app/(search-app)/documents/source/page.tsx",
         "target": "/documents/[id]"
@@ -1230,6 +1225,11 @@
         "path": "/formulation",
         "file": "src/app/(search-app)/formulation/page.tsx",
         "target": "/?mode=formulation"
+      },
+      {
+        "path": "/medications",
+        "file": "src/app/(search-app)/medications/page.tsx",
+        "target": "/?mode=prescribing"
       },
       {
         "path": "/mockups/favourites-hub",
@@ -1506,10 +1506,10 @@
     ],
     "counts": {
       "modes": 16,
-      "pages": 213,
-      "product_pages": 68,
+      "pages": 211,
+      "product_pages": 66,
       "mockup_pages": 145,
-      "redirects": 18,
+      "redirects": 20,
       "api": 60
     }
   },
@@ -3306,6 +3306,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/prompts/sources-mode-extraction.md",
+        "section": "prompts",
+        "catalogued": false
+      },
+      {
         "path": "docs/pwa.md",
         "section": "root",
         "catalogued": true
@@ -3527,6 +3532,16 @@
       },
       {
         "path": "docs/services-mode-governance.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/site-map.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/site-map.md",
         "section": "root",
         "catalogued": true
       },
@@ -5845,9 +5860,9 @@
       }
     ],
     "counts": {
-      "documents": 852,
-      "catalogued": 587,
-      "uncatalogued": 265,
+      "documents": 855,
+      "catalogued": 589,
+      "uncatalogued": 266,
       "sections": 22
     }
   },
@@ -7331,6 +7346,14 @@
         "scope": "document results responsive UI polish",
         "outcome": "P2 tap-target review finding fixed with 48px actions and regression coverage",
         "checks": "focused production Playwright 1 passed; eslint passed; format passed; diff-check passed"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/sources-mode-redesign-73uxmc",
+        "head": "0f85b916d62d48c188fc80da4aceec37d7307d26",
+        "scope": "prlanded",
+        "outcome": "PR #2593 merged as 0f85b91 (true merge, not squash). Verified by content: all seven branch commits are ancestors of origin/main; the eight changed files are byte-identical between branch tip 87b1d5e and main; the whole-tree diff 87b1d5e..0f85b91 is empty, so the merge took the branch tree wholesale and nothing was orphaned by the auto-merge race. Remote branch deleted on merge (0 refs), so no post-merge commit can be stranded. Sources browse redesign: Topics and Publishers moved onto the shared SearchResultsHeaderBand chrome, honour ?q=, and gained filter/empty-state parity with Catalogue. Three Codex P2 findings fixed pre-merge in 666e030 (non-lead/alias members unsearchable; Clear search wiping filters; date-only UTC month shift). One unrelated CI break, tests/ui-smoke.spec.ts setup-status checklist, was caused by main f552a2f and fixed on the branch in 87b1d5e by another session.",
+        "checks": "Post-merge on 0f85b91: sources-browse-facets + sources-mode.dom + source-catalogue-core = 102 passed under TZ=America/Los_Angeles. Pre-merge on the branch: verify:cheap (design-system contract passed, colour-only status indicators 0), ui-sources.spec.ts 7/7 and ui-mode-nav-density.spec.ts 57/57 in Chromium, prettier --check clean. Full verify:ui and verify:pr-local were NOT run locally; left to CI. Three verify:cheap failures (clinical-hazard-controls, privacy-readiness-contract, rag-plan-package-parity) are shallow-clone artefacts that fail identically on base a5c56ce."
       },
       {
         "date": "2026-07-30",

@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { appModeHomeHref } from "@/lib/app-modes";
+import { appModeHomeHref, appModeSelectionHref } from "@/lib/app-modes";
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
-
-import { MedicationsHomeClient } from "./medications-home-client";
 
 export const metadata: Metadata = {
   title: "Medication - PsychSift",
@@ -33,25 +31,33 @@ function searchParamsFromRecord(params: Record<string, string | string[] | undef
 }
 
 /**
- * The Medication mode home.
+ * The Medication mode home has no page of its own any more.
  *
- * Replaces the former blanket 307 alias to `/?mode=prescribing`: `/` is now the
- * single shared home for every mode, so prescribing needs its own home like every
- * other mode. `/medications` is always-standalone and owns its body via
- * `MedicationsHomeClient` (the shared shell does not mount the dashboard here).
+ * Like most other modes, `/medications` now forwards to the shared home at
+ * `/?mode=prescribing` when idle, instead of rendering its own "Dose / Safety /
+ * Monitoring / Access" shortcut tiles — those held no patient- or drug-specific
+ * data, only navigational shortcuts that populated and ran a search, so retiring
+ * them removes no clinical content.
  *
- * Submitted deep links (`q` + `run=1`) still resolve to the dashboard-owned
- * prescribing results surface at `/?mode=prescribing&q=…&run=1`, preserving old
- * bookmarks from when this path was a full redirect.
+ * Unlike the ten-plus-Documents modes in `consolidatedModeHomePaths`
+ * (`@/lib/consolidated-mode-home-redirect`), Medication is deliberately kept out
+ * of that shared map: there is no `/medications/search` route, so the map's
+ * generic `${pathname}/search` submitted-target logic would send a submitted
+ * medication search to a page that doesn't exist. Its own bespoke redirect below
+ * keeps the branch that already worked (submitted searches resolving to the
+ * dashboard-owned prescribing results surface at `/?mode=prescribing&q=…&run=1`,
+ * rendered by `ClinicalDashboard` via `MedicationPrescribingWorkspace`) and adds
+ * the missing unsubmitted branch alongside it. `src/proxy.ts` mirrors both
+ * branches for a fast 307; this stays as its backstop.
  */
 export default async function MedicationsHomeRoute({ searchParams }: MedicationsRouteProps) {
   const params = searchParams ? await searchParams : {};
   const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
   const focus = firstSearchParam(params.focus) === "1";
   const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
+  const navigationContext = readSearchNavigationContext(searchParamsFromRecord(params));
 
   if (hasSubmittedSearch) {
-    const navigationContext = readSearchNavigationContext(searchParamsFromRecord(params));
     redirect(
       appModeHomeHref("prescribing", {
         query,
@@ -62,7 +68,18 @@ export default async function MedicationsHomeRoute({ searchParams }: Medications
         scopeRef: navigationContext.scopeRef,
       }),
     );
+  } else {
+    // A draft link (e.g. the PWA shortcut's `?focus=1`, or a query typed but not
+    // yet run) still carries navigation context that must survive the redirect —
+    // see src/proxy.ts's `medicationsHomeTarget`, which mirrors this exact branch.
+    redirect(
+      appModeSelectionHref("prescribing", {
+        query,
+        focus,
+        queryMode: navigationContext.queryMode,
+        scopeFilters: navigationContext.scopeFilters,
+        scopeRef: navigationContext.scopeRef,
+      }),
+    );
   }
-
-  return <MedicationsHomeClient />;
 }

@@ -14,6 +14,16 @@ const metadataHeaderPattern = /^(?:source|sources|support|pages?|chunk|file|docu
 const metadataCellPattern =
   /\b(?:page|pages|p\.|chunk|source|citation|citations)\s*[:#-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi;
 const fileNamePattern = /\b[\w .()[\]-]+\.(?:pdf|docx?|pptx?|xlsx?|png|jpe?g|tiff?)\b/gi;
+// Audit L19: scrubbing "p. 14" out of "0.6 mmol/L (p. 14)" left "()" behind, so
+// a clinical cell rendered bracket debris. A bracketed pointer is removed with
+// its brackets, and any pair left empty by the scrubs above is swept after them.
+const metadataPointerSource =
+  "(?:see\\s+)?\\b(?:pages?|pp?\\.|chunk|sources?|citations?)\\s*[:#-]?\\s*(?:n/a|\\d+(?:\\s*[-,\u2013\u2014]\\s*\\d+)*)";
+const bracketedMetadataPattern = new RegExp(
+  `\\s*(?:\\(\\s*${metadataPointerSource}\\s*\\)|\\[\\s*${metadataPointerSource}\\s*\\])`,
+  "gi",
+);
+const emptyBracketPattern = /\s*(?:\(\s*\)|\[\s*\])/g;
 
 function parseMarkdownTable(markdown?: string | null) {
   if (!markdown) return null;
@@ -34,9 +44,11 @@ function parseMarkdownTable(markdown?: string | null) {
 
 function cleanClinicalTableText(value: string) {
   return normalizeExtractedGlyphs(value)
+    .replace(bracketedMetadataPattern, "")
     .replace(metadataCellPattern, "")
     .replace(fileNamePattern, "")
     .replace(/\b(?:direct|partial|nearby|unsupported|source-linked)\s+support\b/gi, "")
+    .replace(emptyBracketPattern, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([,.;:])/g, "$1")
     .trim();
@@ -127,9 +139,18 @@ function clinicalOnlyTable(table: NormalizedAccessibleTable) {
     .map(({ index }) => index);
 
   const indexes = keptIndexes.length ? keptIndexes : table.header.map((_, index) => index);
-  const header = indexes.map((index) => cleanClinicalTableText(table.header[index])).filter(Boolean);
+  // Audit H3: cleaning can blank a header that survived the metadata-header
+  // filter, because that filter only matches a bare word ("source") while the
+  // cell cleaner also strips "Source: 3", "Page 2" and file names. Dropping the
+  // blanked header on its own left body rows at their original width, and the
+  // renderer reads each body cell by header position — so every later value
+  // shifted one column left, printing a dose under the wrong heading and
+  // discarding the last value. Drop the header and its body cells together.
+  const cleanedHeader = indexes.map((index) => cleanClinicalTableText(table.header[index]));
+  const renderedIndexes = indexes.filter((_, position) => Boolean(cleanedHeader[position]));
+  const header = cleanedHeader.filter(Boolean);
   const body = table.body
-    .map((row) => indexes.map((index) => cleanClinicalTableText(row[index] ?? "")))
+    .map((row) => renderedIndexes.map((index) => cleanClinicalTableText(row[index] ?? "")))
     .filter((row) => row.some(Boolean));
 
   if (!header.length || !body.length) return null;
