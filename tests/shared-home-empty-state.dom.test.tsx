@@ -108,6 +108,12 @@ const expectedPresentations = [
     subtitle: "Clinical source catalogue.",
     iconClass: "lucide-library-big",
   },
+  {
+    modeId: "on-call",
+    title: "On Call",
+    subtitle: "Your service's numbers, escalation, orientation and teaching.",
+    iconClass: "lucide-phone-call",
+  },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;

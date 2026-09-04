@@ -208,6 +208,18 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // panel must not query the remote index.
     remoteSearchEnabled: false,
   },
+  "on-call": {
+    // On Call reads its own operational catalogue — see the mode definition in
+    // src/lib/app-modes.ts — so its command panel must not query the remote index.
+    examples: [...sharedHomePresentation["on-call"].suggestions],
+    suggestions: [
+      { text: "after-hours registrar", meta: "Contacts" },
+      { text: "acute behavioural disturbance", meta: "Pathways" },
+      { text: "ward 4B number", meta: "Contacts" },
+    ],
+    crossModes: ["services", "forms", "documents"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {
