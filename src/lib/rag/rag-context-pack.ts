@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
 
+import {
+  retrievalAccessScopeKey,
+  retrievalAccessScopeMatchesOwner,
+  type RetrievalAccessScope,
+} from "@/lib/owner-scope";
+import { ragContextSnapshotCacheKey } from "@/lib/rag/rag-context-snapshot";
+import type { ModelContextEvidenceSelection } from "@/lib/rag/rag-context-selection";
 import { evidenceFamilyIdsForResult, type CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 import {
   buildRagSourceBlock,
@@ -10,6 +17,7 @@ import {
 } from "@/lib/rag/rag-source-block";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { searchResultEligibilityForClaim, sourceRoleEligibleForClaim } from "@/lib/source-role-policy";
+import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type {
   AnswerCoveragePlan,
@@ -54,8 +62,8 @@ export type ClaimOrientedContextPackInput = {
   tokenBudget: number;
   queryClass?: RagQueryClass;
   planVersion?: string;
-  snapshotIdentity?: string;
-  accessScope?: string;
+  snapshot: RagContextSnapshot;
+  accessScope: RetrievalAccessScope;
 };
 
 const knownCorpusScopes = new Set<SourceCorpusScope>([
@@ -97,6 +105,10 @@ function stableHash(value: unknown) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+function legacyStableHash(value: string) {
+  return createHash("sha256").update(value).digest("hex").slice(0, 16);
+}
+
 function stringMetadata(metadata: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
     const value = metadata[key];
@@ -107,7 +119,7 @@ function stringMetadata(metadata: Record<string, unknown>, ...keys: string[]) {
 
 function ownerIdForResult(result: SearchResult) {
   const metadata = metadataRecord(result);
-  const owner = metadata.row_owner_id ?? metadata.owner_id;
+  const owner = metadata.row_owner_id;
   return typeof owner === "string" && owner.trim() ? owner.trim() : null;
 }
 
@@ -141,7 +153,11 @@ function sanitizeStructuredTableFacts(result: SearchResult): SearchResult {
   return tableFacts.length === result.table_facts.length ? result : { ...result, table_facts: tableFacts };
 }
 
-function eligibleResult(result: SearchResult, claimRole: ClinicalClaimRole) {
+function eligibleResult(
+  result: SearchResult,
+  claimRole: ClinicalClaimRole,
+  expected: Pick<ClaimOrientedContextPackInput, "accessScope" | "snapshot">,
+) {
   if (!knownCorpusScopes.has(result.corpus_scope as SourceCorpusScope)) return false;
   if (
     result.corpus_scope === "clinical_kb_site"
@@ -149,7 +165,25 @@ function eligibleResult(result: SearchResult, claimRole: ClinicalClaimRole) {
       : result.site_content_domain != null
   )
     return false;
+  const metadata = metadataRecord(result);
   if (result.source_metadata?.corpus_scope !== result.corpus_scope) return false;
+  if (!Object.hasOwn(metadata, "row_owner_id")) return false;
+  if (!retrievalAccessScopeMatchesOwner(expected.accessScope, ownerIdForResult(result))) return false;
+  if (stringMetadata(metadata, "source_policy_version") !== expected.snapshot.sourcePolicyVersion) return false;
+  if (result.corpus_scope === "clinical_kb_site") {
+    const site = expected.snapshot.publicSiteContent;
+    if (
+      stringMetadata(metadata, "site_content_release_id") !== site.releaseId ||
+      stringMetadata(metadata, "site_content_release_digest") !== site.releaseDigest ||
+      stringMetadata(metadata, "site_content_change_epoch") !== site.changeEpoch
+    )
+      return false;
+  } else if (
+    stringMetadata(metadata, "index_generation_id", "publication_reviewed_index_generation_id") !==
+    expected.snapshot.documentIndexGeneration
+  ) {
+    return false;
+  }
   if (result.source_metadata?.source_kind === "registry_record") {
     return (
       result.corpus_scope === "clinical_kb_site" &&
@@ -258,7 +292,7 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
 
   for (const selection of input.selections) {
     for (const rawResult of selection.orderedEvidence) {
-      if (!eligibleResult(rawResult, selection.claimRole)) continue;
+      if (!eligibleResult(rawResult, selection.claimRole, input)) continue;
       const result = sanitizeStructuredTableFacts(rawResult);
       const evidenceFamilyIds = evidenceFamilyIdsForResult(result);
       const duplicate = evidenceFamilyIds.map((family) => groupByFamily.get(family)).find(Boolean);
@@ -296,7 +330,7 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
   const selected: PackedEvidenceGroup[] = [];
   const selectedIds = new Set<string>();
   const omittedIds = new Set<string>();
-  const tryAdd = (group: PackedEvidenceGroup) => {
+  const tryAdd = (group: PackedEvidenceGroup, firstAllocationCeiling?: number) => {
     if (selectedIds.has(group.id)) return true;
     const truncationSensitive =
       group.atomicFeatures.hasException ||
@@ -307,6 +341,13 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
       group.members.some(
         (member) => !ragSourceSerializationPreservesAtomicEvidence(member, { queryClass: input.queryClass }),
       )
+    ) {
+      omittedIds.add(group.id);
+      return false;
+    }
+    if (
+      firstAllocationCeiling !== undefined &&
+      estimatePackedRagSourceBlockTokens([group], { queryClass: input.queryClass }) > firstAllocationCeiling
     ) {
       omittedIds.add(group.id);
       return false;
@@ -322,10 +363,13 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
     return true;
   };
 
-  for (const subquestion of input.coverage.subquestions) {
-    if (!subquestion.required) continue;
-    const first = candidates.find((group) => group.subquestionIds.includes(subquestion.id));
-    if (first) tryAdd(first);
+  const requiredSubquestions = input.coverage.subquestions.filter((subquestion) => subquestion.required);
+  const firstAllocationCeiling = Math.floor(Math.max(0, input.tokenBudget) / Math.max(1, requiredSubquestions.length));
+  for (const subquestion of requiredSubquestions) {
+    if (selected.some((group) => group.subquestionIds.includes(subquestion.id))) continue;
+    for (const candidate of candidates.filter((group) => group.subquestionIds.includes(subquestion.id))) {
+      if (tryAdd(candidate, firstAllocationCeiling)) break;
+    }
   }
   for (const group of candidates) tryAdd(group);
 
@@ -337,8 +381,8 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
     budget: input.tokenBudget,
     queryClass: input.queryClass ?? "unknown",
     planVersion: input.planVersion ?? "unknown-plan",
-    snapshotIdentity: stableHash(input.snapshotIdentity ?? "unknown-snapshot"),
-    accessScope: stableHash(input.accessScope ?? "unknown-access"),
+    snapshotIdentity: ragContextSnapshotCacheKey(input.snapshot),
+    accessScope: stableHash(retrievalAccessScopeKey(input.accessScope)),
     groupIds: selected.map((group) => group.id),
     omittedGroupIds: [...omittedIds],
   }).slice(0, 32)}`;
@@ -373,19 +417,35 @@ export function packedContextCacheKey(
     coverage?: AnswerCoveragePlan | null;
     selections?: CoverageEvidenceSelection[];
     planVersion?: string;
-    snapshotIdentity?: string;
-    accessScope?: string;
+    snapshot?: RagContextSnapshot;
+    accessScope?: RetrievalAccessScope;
   } = {},
 ) {
   const contextLimit = sourceContextPackLimit(queryClass, options);
+  if (!options.coverage || !options.selections?.length) {
+    const scopeKey = options.documentIds?.length
+      ? legacyStableHash([...new Set(options.documentIds)].sort().join("|"))
+      : "all-documents";
+    return [
+      queryClass,
+      options.crossDocument ? "cross-document" : "single-document",
+      `scope:${scopeKey}`,
+      contextLimit,
+      ...results
+        .slice(0, contextLimit)
+        .map((result) => `${result.id}:${result.document_id}:${result.chunk_index}:${result.page_number ?? "na"}`),
+    ].join("|");
+  }
+  if (!options.snapshot || !options.accessScope)
+    throw new Error("Governed context packing requires trusted admission.");
   return `${ragContextPackVersion}:${stableHash({
     queryClass,
     crossDocument: Boolean(options.crossDocument),
     scope: [...new Set(options.documentIds ?? [])].sort(),
     tokenBudget: options.tokenBudget ?? contextPackTokenCeiling(queryClass, options),
     planVersion: options.planVersion ?? "legacy-plan",
-    snapshotIdentity: stableHash(options.snapshotIdentity ?? "legacy-snapshot"),
-    accessScope: stableHash(options.accessScope ?? "legacy-access"),
+    snapshotIdentity: ragContextSnapshotCacheKey(options.snapshot),
+    accessScope: stableHash(retrievalAccessScopeKey(options.accessScope)),
     coverage: options.coverage
       ? options.coverage.coverage.map((item) => [item.subquestionId, item.status, item.chunkIds, item.reasonCodes])
       : null,
@@ -422,25 +482,19 @@ export function packedContextCacheKey(
   }).slice(0, 40)}`;
 }
 
-type ContextPackingSelection = {
-  results: SearchResult[];
-  coverageSelections: CoverageEvidenceSelection[];
-  coverage: AnswerCoveragePlan | null;
-};
-
 export function createGenerationContextPacker(options: {
   queryClass: RagQueryClass;
   crossDocument: boolean;
   documentIds?: string[];
   planVersion?: string;
-  snapshotIdentity?: string;
-  accessScope: string;
+  snapshot: RagContextSnapshot;
+  accessScope: RetrievalAccessScope;
   loadLegacy: (results: SearchResult[]) => Promise<SearchResult[]>;
   onCacheHit?: () => void;
   onDuration?: (durationMs: number) => void;
 }) {
   const cache = new Map<string, SearchResult[]>();
-  return async (selection: ContextPackingSelection) => {
+  return async (selection: ModelContextEvidenceSelection) => {
     const tokenBudget = contextPackTokenCeiling(options.queryClass, options);
     const identity = {
       crossDocument: options.crossDocument,
@@ -449,7 +503,7 @@ export function createGenerationContextPacker(options: {
       coverage: selection.coverage,
       selections: selection.coverageSelections,
       planVersion: options.planVersion,
-      snapshotIdentity: options.snapshotIdentity,
+      snapshot: options.snapshot,
       accessScope: options.accessScope,
     };
     const key = packedContextCacheKey(selection.results, options.queryClass, identity);
@@ -468,7 +522,7 @@ export function createGenerationContextPacker(options: {
               tokenBudget,
               queryClass: options.queryClass,
               planVersion: options.planVersion,
-              snapshotIdentity: options.snapshotIdentity,
+              snapshot: options.snapshot,
               accessScope: options.accessScope,
             }),
           )

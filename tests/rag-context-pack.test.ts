@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   contextPackTokenCeiling,
+  createGenerationContextPacker,
   packClaimOrientedContext,
   packedEvidenceResults,
   packedContextCacheKey,
 } from "@/lib/rag/rag-context-pack";
 import { buildPackedRagSourceBlock, estimatePackedRagSourceBlockTokens } from "@/lib/rag/rag-source-block";
 import type { CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
+import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
 import type {
   AnswerCoveragePlan,
   ClinicalClaimRole,
@@ -128,6 +130,35 @@ function coverage(ids: string[]): AnswerCoveragePlan {
   };
 }
 
+const currentReleaseId = "12345678-1234-5678-9234-123456789abc";
+const currentReleaseDigest = "a".repeat(64);
+
+function currentSnapshot(): RagContextSnapshot {
+  return {
+    version: "rag-context-snapshot-v1",
+    resolvedAt: "2026-09-01T00:00:00.000Z",
+    documentIndexGeneration: "generation-current",
+    sourcePolicyVersion: "source-policy-v1",
+    rolloutVersion: "rollout-v1",
+    siteContentRegistryVersion: "site-content-registry-v1",
+    publicSiteContent: {
+      releaseId: currentReleaseId,
+      staticManifestDigest: "b".repeat(64),
+      dynamicStateDigest: "c".repeat(64),
+      releaseDigest: currentReleaseDigest,
+      changeEpoch: "7",
+      state: "current",
+    },
+  };
+}
+
+function trustedAdmission() {
+  return {
+    accessScope: { includePublic: true },
+    snapshot: currentSnapshot(),
+  };
+}
+
 describe("claim-oriented context packing", () => {
   it("keeps a population exception, action, dose, unit and qualifier in one atomic group", () => {
     const source = evidence(
@@ -135,6 +166,7 @@ describe("claim-oriented context packing", () => {
       "For adults use 500 mg nightly. For adults over 65 years, use 250 mg nightly and do not exceed 500 mg daily.",
     );
     const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
       selections: [selection("dose", [source], "dose_or_monitoring")],
       coverage: coverage(["dose"]),
       tokenBudget: 1_200,
@@ -160,6 +192,7 @@ describe("claim-oriented context packing", () => {
       "For pregnancy, do not use Drug A above 25 mg daily; use Drug B 5 mg nightly instead.",
     );
     const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
       selections: [selection("safety", [source], "safety")],
       coverage: coverage(["safety"]),
       tokenBudget: 8,
@@ -177,6 +210,7 @@ describe("claim-oriented context packing", () => {
       `${"Background context without a decision. ".repeat(70)} For pregnancy, use 5 mg nightly only.`,
     );
     const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
       selections: [selection("dose", [source], "dose_or_monitoring")],
       coverage: coverage(["dose"]),
       tokenBudget: 2_000,
@@ -216,6 +250,7 @@ describe("claim-oriented context packing", () => {
       ],
     });
     const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
       selections: [selection("threshold", [source], "dose_or_monitoring")],
       coverage: coverage(["threshold"]),
       tokenBudget: 1_200,
@@ -231,7 +266,7 @@ describe("claim-oriented context packing", () => {
     expect(pack.usedTokens).toBe(estimatePackedRagSourceBlockTokens(pack.groups, { queryClass: "table_threshold" }));
   });
 
-  it("joins only citable adjacent members with matching document, generation, access and role", () => {
+  it("rejects staged, private and wrong-release evidence before grouping adjacent members", () => {
     const primary = evidence("primary", "Adults should receive the first action.", { chunk_index: 5 });
     const adjacent = evidence("adjacent", "For pregnancy, use the exception action.", { chunk_index: 6 });
     const crossGeneration = evidence("staged", "Staged generation text.", {
@@ -246,8 +281,25 @@ describe("claim-oriented context packing", () => {
       chunk_index: 3,
       sourceRole: "service_directory",
     });
+    const wrongRelease = evidence("wrong-release", "Content from a different site release.", {
+      corpusScope: "clinical_kb_site",
+      sourceRole: "clinical_reference",
+      document_id: "site-doc",
+      source_metadata: {
+        ...evidence("site-template", "template", {
+          corpusScope: "clinical_kb_site",
+          sourceRole: "clinical_reference",
+        }).source_metadata!,
+        site_content_release_id: "87654321-4321-5678-9234-cba987654321",
+        site_content_release_digest: "d".repeat(64),
+        site_content_change_epoch: "8",
+      } as SearchResult["source_metadata"],
+    });
     const pack = packClaimOrientedContext({
-      selections: [selection("treatment", [primary, adjacent, crossGeneration, privateAdjacent, wrongRole])],
+      ...trustedAdmission(),
+      selections: [
+        selection("treatment", [primary, adjacent, crossGeneration, privateAdjacent, wrongRole, wrongRelease]),
+      ],
       coverage: coverage(["treatment"]),
       tokenBudget: 2_000,
     });
@@ -257,9 +309,7 @@ describe("claim-oriented context packing", () => {
     expect(
       pack.groups.every((group) => new Set(group.members.map((member) => member.id)).size === group.members.length),
     ).toBe(true);
-    expect(packedEvidenceResults(pack).map((member) => member.id)).toEqual(
-      expect.arrayContaining(["primary", "adjacent", "staged", "private"]),
-    );
+    expect(packedEvidenceResults(pack).map((member) => member.id)).toEqual(["primary", "adjacent"]);
   });
 
   it("deduplicates evidence families and gives every required subquestion a bounded first group", () => {
@@ -279,6 +329,9 @@ describe("claim-oriented context packing", () => {
         document_status: "current",
         clinical_validation_status: "approved",
         extraction_quality: "good",
+        site_content_release_id: currentReleaseId,
+        site_content_release_digest: currentReleaseDigest,
+        site_content_change_epoch: "7",
         site_content_lineage: [
           { sourceId: monitoring.document_id, sourceHash: "family-monitoring", relationship: "derived_from" },
         ],
@@ -289,6 +342,7 @@ describe("claim-oriented context packing", () => {
       contentHash: "family-escalation",
     });
     const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
       selections: [
         selection("monitoring", [monitoring]),
         selection("escalation", [derivedDuplicate, escalation], "safety"),
@@ -305,6 +359,31 @@ describe("claim-oriented context packing", () => {
     );
   });
 
+  it("tries the next fitting group so one large first candidate cannot starve another required lane", () => {
+    const largeFirst = evidence("large-first", `Background ${"context ".repeat(150)}without a required action.`, {
+      document_id: "doc-large",
+    });
+    const compactFirst = evidence("compact-first", "Use the compact treatment action.", {
+      document_id: "doc-compact",
+    });
+    const compactSecond = evidence("compact-second", "Monitor the compact safety action.", {
+      document_id: "doc-safety",
+    });
+    const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
+      selections: [selection("treatment", [largeFirst, compactFirst]), selection("safety", [compactSecond], "safety")],
+      coverage: coverage(["treatment", "safety"]),
+      tokenBudget: 600,
+    });
+
+    expect(pack.groups.flatMap((group) => group.members.map((member) => member.id))).toEqual([
+      "compact-first",
+      "compact-second",
+    ]);
+    expect(new Set(pack.groups.flatMap((group) => group.subquestionIds))).toEqual(new Set(["treatment", "safety"]));
+    expect(pack.usedTokens).toBeLessThanOrEqual(600);
+  });
+
   it("uses content-free versioned identities and never exceeds the route ceiling", () => {
     const rawQuestion = "private pregnancy wording 7461";
     const source = evidence("identity", "Current public clinical guidance.");
@@ -312,12 +391,11 @@ describe("claim-oriented context packing", () => {
     const selections = [selection(rawQuestion, [source])];
     const tokenBudget = contextPackTokenCeiling("broad_summary", { crossDocument: true });
     const pack = packClaimOrientedContext({
+      ...trustedAdmission(),
       selections,
       coverage: answerCoverage,
       tokenBudget,
       planVersion: "rag-query-plan-v1",
-      snapshotIdentity: "public-release-7",
-      accessScope: "anonymous_public",
     });
     const key = packedContextCacheKey([source], "broad_summary", {
       crossDocument: true,
@@ -325,8 +403,7 @@ describe("claim-oriented context packing", () => {
       coverage: answerCoverage,
       selections,
       planVersion: "rag-query-plan-v1",
-      snapshotIdentity: "public-release-7",
-      accessScope: "anonymous_public",
+      ...trustedAdmission(),
     });
     const changed = packedContextCacheKey([{ ...source, content: "Changed serialized input." }], "broad_summary", {
       crossDocument: true,
@@ -334,8 +411,7 @@ describe("claim-oriented context packing", () => {
       coverage: answerCoverage,
       selections,
       planVersion: "rag-query-plan-v1",
-      snapshotIdentity: "public-release-7",
-      accessScope: "anonymous_public",
+      ...trustedAdmission(),
     });
 
     expect(pack.packId).not.toContain(rawQuestion);
@@ -343,5 +419,40 @@ describe("claim-oriented context packing", () => {
     expect(key).not.toContain(rawQuestion);
     expect(changed).not.toBe(key);
     expect(pack.usedTokens).toBeLessThanOrEqual(tokenBudget);
+  });
+
+  it("preserves the predecessor cache key bytes when governed packing is inapplicable", () => {
+    const source = evidence("legacy-key", "Legacy context.", {
+      document_id: "legacy-document",
+      chunk_index: 4,
+      page_number: 9,
+    });
+
+    expect(packedContextCacheKey([source], "broad_summary", { crossDocument: true })).toBe(
+      "broad_summary|cross-document|scope:all-documents|8|legacy-key:legacy-document:4:9",
+    );
+  });
+
+  it("uses the predecessor loader unchanged when governed packing is inapplicable", async () => {
+    const source = evidence("legacy-source", "Legacy input.");
+    const selectionResults = [source];
+    const loaded = [{ ...source, adjacent_context: "Legacy adjacent context." }];
+    let calls = 0;
+    const packForGeneration = createGenerationContextPacker({
+      queryClass: "document_lookup",
+      crossDocument: false,
+      accessScope: { includePublic: true },
+      snapshot: currentSnapshot(),
+      loadLegacy: async (results) => {
+        calls += 1;
+        expect(results).toBe(selectionResults);
+        return loaded;
+      },
+    });
+
+    const result = await packForGeneration({ results: selectionResults, coverageSelections: [], coverage: null });
+
+    expect(result).toBe(loaded);
+    expect(calls).toBe(1);
   });
 });

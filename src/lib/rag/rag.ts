@@ -4,7 +4,7 @@ import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-d
 import { answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
-import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, retrievalRpcScopeArgs } from "@/lib/owner-scope";
+import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
   createChunkLoadCache,
@@ -3268,9 +3268,9 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     queryClass,
     crossDocument: contextPackOptions.crossDocument,
     documentIds: args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : undefined,
-    planVersion: requestQueryPlan?.version,
-    snapshotIdentity: args.ragRequestContext?.snapshotCacheKey,
-    accessScope: retrievalAccessScopeKey(contextPackAccessScope),
+    planVersion: args.ragQueryPlanVersion,
+    snapshot: args.ragRequestContext!.snapshot,
+    accessScope: contextPackAccessScope,
     loadLegacy: (results) =>
       routeDeadline.race(packAdjacentSourceContext(createAdminClient(), results, queryClass, contextPackOptions)),
     onCacheHit: () => void (contextPackCacheHits += 1),
@@ -3486,6 +3486,8 @@ ${qualityRetryInstruction}`
     queryPlan: requestQueryPlan ?? undefined,
     siteContentState: args.ragRequestContext?.snapshot.publicSiteContent.state,
     sourcePolicyConflicts: args.sourcePolicyConflicts,
+    accessScope: contextPackAccessScope,
+    snapshot: args.ragRequestContext?.snapshot,
   });
   const modelContextResults = modelContextSelection.results;
   const strongRetryContextResults = strongRetryContextSelection.results;
