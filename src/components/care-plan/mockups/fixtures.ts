@@ -249,7 +249,8 @@ export const syntheticCmhtContacts = [
  * administrator-gated `/mockups` prototype. Nothing ages these dates
  * automatically, so a stale `verifiedOn` is invisible until someone checks: the
  * next due date is 20 August 2027. Re-verify each number and availability window
- * against its `sourceUrl` (the WA Health service pages), then move the
+ * against its `sourceUrl` — three cite East Metropolitan Health Service pages
+ * and `000` cites Triple Zero — then move the
  * `verifiedOn` date only for the entries actually re-checked. These strings
  * render on the printed Personal Safety Plan and Patient Plan, which is the one
  * place the prototype's "everything is synthetic" framing does not protect the
