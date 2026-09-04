@@ -4,18 +4,32 @@ import type { ReactNode } from "react";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { SourcesBrowseClient } from "@/components/sources/sources-browse-client";
 import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
 import { Chip } from "@/components/ui/chip";
+import {
+  derivePublisherBrowseSummaries,
+  deriveTopicBrowseSummaries,
+  sourceTopicLabel,
+} from "@/lib/sources/browse-facets";
 import {
   SOURCE_RATING_WEIGHTS,
   type ClinicalSourceCatalogueEntry,
   type SourceGeographyScope,
   type SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
-import { deriveSourceCatalogueFacets } from "@/lib/sources/catalogue-view";
 import { loadSourceCatalogue } from "@/lib/sources/load-source-catalogue";
 import { sourceAttentionFlags, sourceProvenanceNotes } from "@/lib/sources/source-status-presentation";
 import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation";
+
+/** WA first: local applicability is the question this catalogue exists to answer. */
+const PUBLISHER_SCOPES: readonly SourceGeographyScope[] = [
+  "wa",
+  "australian_national",
+  "australian_state",
+  "international",
+  "unknown",
+];
 
 const bandLabels: Record<SourceQualityBand, string> = {
   A: "A · Preferred",
@@ -66,89 +80,23 @@ export async function SourcesCataloguePage(): Promise<ReactNode> {
 }
 
 export async function SourcesTopicsPage(): Promise<ReactNode> {
-  const { entries } = await loadSourceCatalogue();
-  const topics = deriveSourceCatalogueFacets(entries).topics;
+  const { entries, hostedDocuments } = await loadSourceCatalogue();
   return (
-    <InformationPageShell testId="sources-topics-main">
-      <PageName>Topics</PageName>
-      {topics.length ? (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {topics.map((topic) => (
-            <li
-              key={topic.value}
-              className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
-            >
-              <Link
-                className="flex min-h-12 items-center justify-between gap-4 font-semibold text-[color:var(--primary)]"
-                href={`/sources/search?topic=${encodeURIComponent(topic.value)}`}
-              >
-                <span>{titleCase(topic.value)}</span>
-                <span className="text-sm text-[color:var(--text-muted)]">{topic.count}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="rounded-xl border border-dashed border-[color:var(--border)] p-6 text-sm">
-          No structured source topics are available.
-        </p>
-      )}
-    </InformationPageShell>
+    <SourcesBrowseClient
+      kind="topic"
+      summaries={deriveTopicBrowseSummaries(entries)}
+      hostedDocuments={hostedDocuments}
+    />
   );
 }
 
 export async function SourcesPublishersPage(): Promise<ReactNode> {
-  const { entries } = await loadSourceCatalogue();
-  const publisherScopes: readonly { scope: SourceGeographyScope; label: string }[] = [
-    { scope: "wa", label: "Western Australia" },
-    { scope: "australian_national", label: "Australian national" },
-    { scope: "australian_state", label: "Another Australian state" },
-    { scope: "international", label: "International" },
-    { scope: "unknown", label: "Unknown jurisdiction" },
-  ];
-  const publisherGroups = publisherScopes
-    .map((group) => ({
-      ...group,
-      publishers: deriveSourceCatalogueFacets(
-        entries.filter((entry) => entry.publisher && entry.geography.scope === group.scope),
-      ).publishers,
-    }))
-    .filter((group) => group.publishers.length > 0);
-  return (
-    <InformationPageShell testId="sources-publishers-main">
-      <PageName>Publishers</PageName>
-      {publisherGroups.length ? (
-        <div className="grid gap-6">
-          {publisherGroups.map((group) => (
-            <section key={group.scope} className="grid gap-3" aria-labelledby={`publisher-scope-${group.scope}`}>
-              <h2 id={`publisher-scope-${group.scope}`} className="text-xl font-semibold">
-                {group.label}
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.publishers.map((publisher) => (
-                  <Link
-                    key={publisher.value}
-                    href={`/sources/search?publisher=${encodeURIComponent(publisher.value)}&jurisdiction=${group.scope}`}
-                    aria-label={`View ${publisher.value} sources`}
-                    className="grid min-h-12 gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] motion-reduce:transition-none"
-                  >
-                    <span className="font-semibold text-[color:var(--text-heading)]">{publisher.value}</span>
-                    <span className="text-sm text-[color:var(--text-muted)]">
-                      {publisher.count} {publisher.count === 1 ? "source" : "sources"}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      ) : (
-        <p className="rounded-xl border border-dashed border-[color:var(--border)] p-6 text-sm">
-          No structured publishers are available.
-        </p>
-      )}
-    </InformationPageShell>
-  );
+  const { entries, hostedDocuments } = await loadSourceCatalogue();
+  // Derived per jurisdiction, not globally: a publisher can appear under two
+  // scopes, and the catalogue link carries the scope, so a merged row would
+  // promise a count the filtered result cannot deliver.
+  const summaries = PUBLISHER_SCOPES.flatMap((scope) => derivePublisherBrowseSummaries(entries, scope));
+  return <SourcesBrowseClient kind="publisher" summaries={summaries} hostedDocuments={hostedDocuments} />;
 }
 
 export function SourcesMethodPage(): ReactNode {
@@ -232,6 +180,22 @@ export function SourcesMethodPage(): ReactNode {
             identified replacement
           </li>
         </ul>
+        {/* A reader who has just learned what "D · Review required" means is
+            usually asking which sources are in it. The definitions stay prose;
+            the route to the sources is a separate row rather than a link
+            wrapped around a definition. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-sm text-[color:var(--text-muted)]">Browse a band:</span>
+          {(["A", "B", "C", "D", "excluded"] as const).map((band) => (
+            <Link
+              key={band}
+              href={`/sources/search?band=${band}`}
+              className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-semibold text-[color:var(--primary)] hover:border-[color:var(--border-strong)] sm:min-h-compact-meta"
+            >
+              {bandLabels[band]}
+            </Link>
+          ))}
+        </div>
       </section>
       <section className="grid gap-3 text-sm leading-6" aria-labelledby="method-limits">
         <h2 id="method-limits" className="text-xl font-semibold">
@@ -315,15 +279,17 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
 
   // Only the fields that carry a value. A grid of "Unknown" tiles reads as data
   // when it is the absence of data, and it pushes the usages below the fold.
-  const identityRows = [
-    ["Publisher", entry.publisher],
-    ["Version", entry.version],
-    ["Jurisdiction", entry.geography.label],
-    ["Source type", titleCase(entry.sourceType)],
-    ["Published", dateOrNull(entry.publicationDate)],
-    ["Reviewed", dateOrNull(entry.reviewDate)],
-    ["Expires", dateOrNull(entry.expiryDate)],
-  ].filter((row): row is [string, string] => Boolean(row[1]));
+  const identityRows: [string, string][] = (
+    [
+      ["Publisher", entry.publisher],
+      ["Version", entry.version],
+      ["Jurisdiction", entry.geography.label],
+      ["Source type", titleCase(entry.sourceType)],
+      ["Published", dateOrNull(entry.publicationDate)],
+      ["Reviewed", dateOrNull(entry.reviewDate)],
+      ["Expires", dateOrNull(entry.expiryDate)],
+    ] as [string, string | null][]
+  ).filter((row): row is [string, string] => Boolean(row[1]));
 
   return (
     <>
@@ -433,7 +399,18 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
                 className="flex items-baseline justify-between gap-3 border-b border-[color:var(--border)] py-1.5"
               >
                 <dt className="text-sm text-[color:var(--text-muted)]">{label}</dt>
-                <dd className="text-sm font-medium">{value}</dd>
+                <dd className="text-sm font-medium">
+                  {label === "Publisher" ? (
+                    <Link
+                      href={`/sources/search?publisher=${encodeURIComponent(value)}&jurisdiction=${entry.geography.scope}`}
+                      className="text-[color:var(--primary)] underline"
+                    >
+                      {value}
+                    </Link>
+                  ) : (
+                    value
+                  )}
+                </dd>
               </div>
             ))}
           </dl>
@@ -447,8 +424,22 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
               <strong>Supersedes:</strong> {entry.supersedes.join(", ")}
             </p>
           ) : null}
+          {/* Topics were a muted comma list, which made the record a dead end:
+              the one question a reader has after reading a source is what else
+              covers the same ground, and the catalogue can already answer it. */}
           {entry.topics.length ? (
-            <p className="text-sm text-[color:var(--text-muted)]">Topics: {entry.topics.map(titleCase).join(", ")}</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-sm text-[color:var(--text-muted)]">Topics:</span>
+              {entry.topics.map((topic) => (
+                <Link
+                  key={topic}
+                  href={`/sources/search?topic=${encodeURIComponent(topic)}`}
+                  className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-compact-meta"
+                >
+                  {sourceTopicLabel(topic)}
+                </Link>
+              ))}
+            </div>
           ) : null}
         </section>
       </InformationPageShell>
