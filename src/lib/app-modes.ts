@@ -24,6 +24,7 @@ export const appModeIds = [
   "factsheets",
   "dictionary",
   "sources",
+  "on-call",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -483,6 +484,33 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "on-call",
+    label: "On Call",
+    description: "Your service's contacts, escalation, orientation and teaching",
+    href: "/on-call",
+    search: {
+      // On Call searches the owner's own operational entries, which are already
+      // in the browser — a local catalogue, like Factsheets and Dictionary — so
+      // it borrows the benign "tools" command kind rather than adding a search
+      // kind that would have to be threaded through universal search.
+      kind: "tools",
+      placeholder: "Search a ward, a number, a service, a session...",
+      inputAriaLabel: "Search your on-call information",
+      submitIdleLabel: "On Call",
+      submitBusyLabel: "On Call",
+      submitAriaLabel: "Search your on-call information",
+      emptyTitle: "Search your on-call information",
+      readyTitle: "Find a number, a pathway or a session",
+      progressLabel: "Searching your on-call entries.",
+      resultKind: "tools",
+      resultHeading: "On Call",
+      resultsSurface: "results-band",
+      statusLabel: "On Call",
+      nextStep: "Open an entry",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -521,6 +549,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "sources",
   "tools",
   "calculators",
+  "on-call",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

@@ -200,7 +200,7 @@ describe("app mode search contract", () => {
     const config = appModeSearchConfig("sources");
     const mode = appModeDefinitions.find((definition) => definition.id === "sources");
 
-    expect(appModeIds).toHaveLength(16);
+    expect(appModeIds).toHaveLength(17);
     expect(mode).toMatchObject({
       label: "Sources",
       description: "Ranked clinical source catalogue and traceability",
@@ -443,6 +443,9 @@ describe("app mode search contract", () => {
       favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
+      // On Call has no search route by design: its own home filters in place,
+      // like Favourites and Tools.
+      "on-call": "/on-call?q=clozapine&run=1",
     });
   });
 

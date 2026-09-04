@@ -105,6 +105,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "publishers", label: "Publishers", href: "/sources/publishers" },
     { id: "method", label: "Method", href: "/sources/method" },
   ],
+  "on-call": [],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
