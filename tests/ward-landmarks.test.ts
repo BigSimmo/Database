@@ -1,8 +1,16 @@
+import { StatisticsScreen } from "../src/components/ward-management/statistics/statistics-screen";
+import { StatisticsOverviewScreen } from "../src/components/ward-management/statistics/statistics-overview-screen";
+import { StatisticsCompareScreen } from "../src/components/ward-management/statistics/statistics-compare-screen";
+import { StatisticsWardScreen } from "../src/components/ward-management/statistics/statistics-ward-screen";
+import { StatisticsEdScreen } from "../src/components/ward-management/statistics/statistics-ed-screen";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { CommunityScreen } from "../src/components/ward-management/community/community-screen";
+import { CommunityIndex } from "../src/components/ward-management/community/community-index";
+import { COMMUNITY_TEAM_PAGES } from "../src/components/ward-management/community/community-derivations";
 
 /**
  * Task 5/6 (D5, D6, D7). This file is `.test.ts`, not `.dom.test.tsx`, so it collects under
@@ -21,6 +29,11 @@ import { describe, expect, it, vi } from "vitest";
  * `document.addEventListener`, all effect/handler-only). `next/navigation`'s `useRouter` is
  * different: `ContextualBackLink` (used by `WardPatientWorkspace`) calls it synchronously during
  * render, so it needs the same module mock tests/ward-patient-page.dom.test.tsx already uses.
+ * `useSearchParams` is the same story for `AddPatientForm` and `ReferralIntakeForm`: this is the
+ * `node` project, with no `window` at all, so the mock returns an always-empty `URLSearchParams`
+ * rather than the `new URLSearchParams(window.location.search)` the jsdom suites use — there is
+ * no real querystring for `renderToStaticMarkup` to read here, and both forms already treat an
+ * absent value as a real case (see each file's own comment).
  */
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string; [key: string]: unknown }) =>
@@ -34,6 +47,7 @@ const router = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
@@ -43,9 +57,18 @@ import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { EscalationBoardPage } from "@/components/ward-management/escalation/escalation-board";
 import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { HandoverPage } from "@/components/ward-management/handover/handover-page";
+import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
+import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
+import { PersonScreen } from "@/components/ward-management/patients/person-screen";
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
+import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
+import { WardIndex } from "@/components/ward-management/wards/ward-index";
+import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
+import { AddPatientForm } from "@/components/ward-management/patients/add-patient";
+import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
+import { WardBoard } from "@/components/ward-management/board/ward-board";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -82,7 +105,9 @@ const wardFlowRoutes = collectWardFlowRoutes(WARD_FLOW_ROOT);
  * `/mockups/ward-flow/constellation` is a `redirect()`-only stub (its own doc comment: "Phase 2
  * retired the constellation command view into the coordinator screen and the network diagram. The
  * route stays as a bookmark/deep-link backstop..."). It renders no landmark, no heading, and no
- * nav of its own — it is not one of the 15 live routes the D5/D7/D8 measurements are about.
+ * nav of its own — it is not one of the live routes the D5/D7/D8 measurements are about. (That
+ * sentence named a figure until 2026-09-01, and the figure had been wrong for months: a count
+ * typed into prose beside a count the tests recompute is the half nothing goes red on.)
  * Recorded here, by name, with a reason, rather than silently missing from RENDERABLE_ROUTES: the
  * coverage test below fails loudly if this set and the filesystem scan ever disagree on anything
  * else.
@@ -100,8 +125,30 @@ type RouteRender = { route: string; render: () => ReactNode };
  * same fixture movement as `patientId`). This mapping is checked against the filesystem scan in
  * the coverage test below — a route with no entry here, or an entry with no matching route, fails
  * that test rather than silently under- or over-counting.
+ *
+ * `/mockups/ward-flow/morning` (Phase 6 Task 2/6, `MorningPage`) was landed on this branch
+ * without an entry here — a SIXTH fail-closed registration site this repo's routes have to clear,
+ * beyond the five the phase plan already named (nav link, `sitemap:update`,
+ * `docs/codebase-index.md`, `route-reachability.test.ts`'s allowlist, and this file's own
+ * `RENDERABLE_ROUTES`/`REDIRECT_ONLY_ROUTES` pair). Found by the coverage test below going red
+ * ("route(s) on disk with no test coverage: /mockups/ward-flow/morning"), not by inspection.
+ * `/mockups/ward-flow/referrals/new` (Phase 7 Task 4, `ReferralIntakeForm`) added this entry in
+ * the same commit that added the route, precisely to avoid repeating that omission.
+ * `/mockups/ward-flow/referrals` (Phase 7 Task 5, `ReferralBoard`) does the same.
+ * `/mockups/ward-flow/out-of-area` (Phase 8 Task 5, `OutOfAreaBoard`) does the same again.
  */
 const RENDERABLE_ROUTES: RouteRender[] = [
+  { route: `${ROUTE_PREFIX}/statistics`, render: () => createElement(StatisticsScreen) },
+  { route: `${ROUTE_PREFIX}/statistics/overview`, render: () => createElement(StatisticsOverviewScreen) },
+  { route: `${ROUTE_PREFIX}/statistics/compare`, render: () => createElement(StatisticsCompareScreen) },
+  {
+    route: `${ROUTE_PREFIX}/statistics/ward/[unitId]`,
+    render: () => createElement(StatisticsWardScreen, { unitId: "rph-adult-secure" }),
+  },
+  {
+    route: `${ROUTE_PREFIX}/statistics/ed/[edId]`,
+    render: () => createElement(StatisticsEdScreen, { edId: "peel-ed" }),
+  },
   { route: ROUTE_PREFIX, render: () => createElement(CoordinatorScreen) },
   { route: `${ROUTE_PREFIX}/queue`, render: () => createElement(WardModeWorkspace, { mode: "queue" }) },
   { route: `${ROUTE_PREFIX}/capacity`, render: () => createElement(WardModeWorkspace, { mode: "capacity" }) },
@@ -110,25 +157,63 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/network`, render: () => createElement(WardModeWorkspace, { mode: "network" }) },
   { route: `${ROUTE_PREFIX}/exceptions`, render: () => createElement(WardModeWorkspace, { mode: "exceptions" }) },
   { route: `${ROUTE_PREFIX}/ed/[edId]`, render: () => createElement(EdScreen, { edId: "peel-ed" }) },
+  {
+    route: `${ROUTE_PREFIX}/community/[teamId]`,
+    render: () => createElement(CommunityScreen, { teamId: COMMUNITY_TEAM_PAGES[0].id }),
+  },
   { route: `${ROUTE_PREFIX}/escalation`, render: () => createElement(EscalationBoardPage) },
   { route: `${ROUTE_PREFIX}/discharges`, render: () => createElement(DischargeBoard) },
   { route: `${ROUTE_PREFIX}/handover`, render: () => createElement(HandoverPage) },
+  { route: `${ROUTE_PREFIX}/morning`, render: () => createElement(MorningPage) },
   { route: `${ROUTE_PREFIX}/search`, render: () => createElement(PatientSearchPage) },
   { route: `${ROUTE_PREFIX}/transport`, render: () => createElement(LiveTracker) },
   { route: `${ROUTE_PREFIX}/transport/officer`, render: () => createElement(OfficerScreen) },
   { route: `${ROUTE_PREFIX}/ward/[unitId]`, render: () => createElement(WardScreen, { unitId: "rph-adult-secure" }) },
   {
-    route: `${ROUTE_PREFIX}/patients/[patientId]`,
-    render: () => createElement(WardPatientWorkspace, { patientId: "WF-001" }),
+    route: `${ROUTE_PREFIX}/board/[unitId]`,
+    render: () => createElement(WardBoard, { unitId: "rph-adult-secure" }),
   },
+  {
+    route: `${ROUTE_PREFIX}/movements/[movementId]`,
+    render: () => createElement(WardPatientWorkspace, { movementId: "WF-001" }),
+  },
+  {
+    route: `${ROUTE_PREFIX}/people/[patientId]`,
+    render: () => createElement(PersonScreen, { patientId: seedWardFlowState().patients[0].id }),
+  },
+  { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
+  { route: `${ROUTE_PREFIX}/people/new`, render: () => createElement(AddPatientForm) },
+  { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
+  { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
+  { route: `${ROUTE_PREFIX}/wards`, render: () => createElement(WardIndex) },
+  { route: `${ROUTE_PREFIX}/community`, render: () => createElement(CommunityIndex) },
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 17 measured on this branch (16 renderable + 1 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 32 (31 renderable + 1 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
-    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count.
-    expect(wardFlowRoutes.length).toBe(17);
+    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 21, not 20: Phase 8 Task 5
+    // added `/mockups/ward-flow/out-of-area` (`OutOfAreaBoard`) — see RENDERABLE_ROUTES's own doc
+    // comment.
+    // 22 at the fold, not 21: the ward board branch added `/board/[unitId]` while Phase 8 added
+    // `/out-of-area`, and each branch had moved this number to 21 for its own route. Both entries
+    // are present in RENDERABLE_ROUTES below and both routes are rail-linked, verified before this
+    // number moved.
+    // 23, not 22: Phase 8 added `/wards` (`WardIndex`), the ward index — the page that gives the
+    // other 22 of `ward/[unitId]`'s 23 wards a way in. 22 renderable + 1 redirect-only
+    // (`/constellation`) = 23.
+    // 24, not 23: 2026-08-30 added `/people/[patientId]` (`PersonScreen`), a PERSON's own screen —
+    // distinct from `/patients/[patientId]`, which despite its name looked a MOVEMENT up by id. Its
+    // way in is the people list on `/search`, whose rows were inert until the same change.
+    // 23 renderable + 1 redirect-only (`/constellation`) = 24. `/patients/[patientId]` has since
+    // moved to `/movements/[movementId]`, nested under the existing `/movements` mode page — the
+    // renderable count stays 24.
+    // 31, not 30: 2026-09-01 added `/community` (`CommunityIndex`), the community team index — the
+    // page that gives `community/[teamId]`'s teams a way in that is not typing a URL. Registered in
+    // ward-nav.ts in the same change, because an index nothing links to makes nothing reachable.
+    // 30 renderable + 1 redirect-only (`/constellation`) = 31.
+    expect(wardFlowRoutes.length).toBe(32);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
@@ -140,8 +225,15 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
   });
 
-  it("RENDERABLE_ROUTES has exactly 16 entries, one per live route", () => {
-    expect(RENDERABLE_ROUTES.length).toBe(16);
+  it("RENDERABLE_ROUTES has exactly 31 entries, one per live route", () => {
+    // 21 at the fold: both branches added one renderable route each, and both entries merged in.
+    // 22 with the ward index (`/wards`, `WardIndex`) — Phase 8.
+    // 23 with a person's own screen (`/people/[patientId]`, `PersonScreen`) — 2026-08-30.
+    // 30 with the community team index (`/community`, `CommunityIndex`) — 2026-09-01.
+    // The title of this test said 24 while this line said 29, from 2026-08-30 until 2026-09-01: a
+    // count in a title is prose, so nothing recomputes it and nothing can go red on it. Both halves
+    // are moved together from here on, and that is the only thing keeping them honest.
+    expect(RENDERABLE_ROUTES.length).toBe(31);
   });
 });
 

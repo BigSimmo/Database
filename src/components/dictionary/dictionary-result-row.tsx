@@ -161,7 +161,7 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
           <SourceLine label={hit.reason} />
           <Link
             href={dictionaryCompareHref([compareWith ?? "", entry.slug])}
-            className="inline-flex min-h-8 items-center gap-1 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-tap items-center gap-1 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
           >
             <GitCompareArrows className="h-3.5 w-3.5" aria-hidden="true" />
             Add to compare

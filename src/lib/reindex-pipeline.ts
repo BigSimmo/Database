@@ -83,3 +83,27 @@ export function abandonedReindexGenerationTotal(counts: AbandonedReindexGenerati
 export function hasAbandonedReindexGenerations(counts: AbandonedReindexGenerationCounts) {
   return abandonedReindexGenerationTotal(counts) > 0;
 }
+
+/**
+ * Exit code for a read-only (dry-run) pass of the abandoned-generation cleanup.
+ *
+ * A dry run that finds abandoned staged rows still exits 0 today, so a scheduled
+ * probe could not tell "nothing to reap" from "rows are leaking". `--alert-on-abandoned`
+ * makes detection loud: non-zero so `.github/workflows/reindex-reaper.yml` can open an
+ * alert issue. Mirrors `--alert-on-stuck` in `scripts/ingestion-autopilot.ts`.
+ *
+ * Detection only — this never deletes anything, and it does NOT close `#Q4Y7TR`.
+ * The recorded fix there is for the commit RPC to enqueue `storage_cleanup_jobs`
+ * rows for superseded generations at commit time; that is a migration and ships
+ * in a separate batch.
+ */
+export function abandonedReindexGenerationAlertExitCode(args: {
+  counts: AbandonedReindexGenerationCounts;
+  alertOnAbandoned: boolean;
+  apply: boolean;
+}) {
+  // Never re-purpose the apply path's exit code: --apply already reports its own
+  // success/failure, and an alert exit there would mask a real cleanup failure.
+  if (!args.alertOnAbandoned || args.apply) return 0;
+  return hasAbandonedReindexGenerations(args.counts) ? 2 : 0;
+}

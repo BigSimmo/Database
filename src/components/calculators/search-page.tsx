@@ -22,6 +22,7 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 import {
   calculatorDomainCandidateCount,
@@ -267,6 +268,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   );
   const query = hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery;
   const normalizedQuery = normalizeCalculatorQuery(query);
+  const smartExpansions = useMemo(() => smartSearchExpansions("calculators", query), [query]);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedDomains, setSelectedDomains] = useState<ReadonlySet<CalculatorDomain>>(new Set());
@@ -290,11 +292,11 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   );
   const results = useMemo(
     () =>
-      filterCalculatorRecords(records, query, filters).map((record) => ({
+      filterCalculatorRecords(records, query, filters, smartExpansions).map((record) => ({
         ...record,
         context: matchContext(record.calc, normalizedQuery),
       })),
-    [filters, normalizedQuery, query, records],
+    [filters, normalizedQuery, query, records, smartExpansions],
   );
   const inProgress = useMemo(() => records.filter((record) => record.derived.started), [records]);
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
@@ -333,7 +335,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Clinical domain",
     selected: selectedDomains,
     options: domainOrder.map((domain) => {
-      const count = calculatorDomainCandidateCount(records, query, filters, domain);
+      const count = calculatorDomainCandidateCount(records, query, filters, domain, smartExpansions);
       return {
         value: domain,
         label: domainLabels[domain],
@@ -348,7 +350,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Session progress",
     value: progress,
     options: progressOptions.map((option) => {
-      const count = calculatorProgressCandidateCount(records, query, filters, option.value);
+      const count = calculatorProgressCandidateCount(records, query, filters, option.value, smartExpansions);
       return {
         ...option,
         hint: String(count),
@@ -363,7 +365,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Completion time",
     value: time,
     options: timeOptions.map((option) => {
-      const count = calculatorTimeCandidateCount(records, query, filters, option.value);
+      const count = calculatorTimeCandidateCount(records, query, filters, option.value, smartExpansions);
       return {
         ...option,
         hint: String(count),

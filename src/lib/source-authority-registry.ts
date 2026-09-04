@@ -101,6 +101,15 @@ export const sourceAuthorityRegistry = [
     tier: "wa_validated",
   }),
   authority({
+    key: "office-of-the-chief-psychiatrist-wa",
+    codes: ["OCP WA", "OCPWA"],
+    publisher: "Office of the Chief Psychiatrist WA",
+    publisherAliases: ["Office of the Chief Psychiatrist", "Office of Chief Psychiatrist WA"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+  }),
+  authority({
     key: "armadale-kalamunda-group",
     codes: ["AKG"],
     publisher: "Armadale Kalamunda Group",

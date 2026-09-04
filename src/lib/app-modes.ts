@@ -1,6 +1,10 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { consolidatedModeHomeModeIds, consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import {
+  consolidatedModeHomeModeIds,
+  consolidatedModeSearchPath,
+  standaloneModeSearchPath,
+} from "@/lib/consolidated-mode-home-redirect";
 import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 
 export const appModeIds = [
@@ -19,6 +23,7 @@ export const appModeIds = [
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -455,6 +460,29 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "sources",
+    label: "Sources",
+    description: "Ranked clinical source catalogue and traceability",
+    href: "/sources",
+    search: {
+      kind: "tools",
+      placeholder: "Search sources, publishers, or topics...",
+      inputAriaLabel: "Search sources, publishers, or topics",
+      submitIdleLabel: "Sources",
+      submitBusyLabel: "Sources",
+      submitAriaLabel: "Search sources",
+      emptyTitle: "Search sources",
+      readyTitle: "Search the clinical source catalogue",
+      progressLabel: "Searching the source catalogue.",
+      resultKind: "tools",
+      resultHeading: "Sources",
+      resultsSurface: "results-band",
+      statusLabel: "Sources",
+      nextStep: "Filter by quality, location, publisher, topic, or usage",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -490,6 +518,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
   "tools",
   "calculators",
 ]);
@@ -522,8 +551,16 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     // shared home: routing a submitted query back to the bare path would bounce
     // through that redirect and return here, an infinite loop
     // (tests/app-modes.test.ts pins the no-loop property for every mode).
+    //
+    // A standalone mode home that keeps its results on a separate route resolves
+    // the same way, for the same reason: `/sources` renders a home, so a submitted
+    // query has to reach `/sources/search` rather than the home that cannot show
+    // it. Both paths are read from `consolidated-mode-home-redirect.ts` so an href
+    // built here cannot disagree with the redirect the proxy serves for it.
     const namespacedHref =
-      query && consolidatedModeHomeModeIds.has(modeId) ? consolidatedModeSearchPath(modeId) : mode.href;
+      query && consolidatedModeHomeModeIds.has(modeId)
+        ? consolidatedModeSearchPath(modeId)
+        : ((query && standaloneModeSearchPath(modeId)) ?? mode.href);
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 

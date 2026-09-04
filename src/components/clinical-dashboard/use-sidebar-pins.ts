@@ -25,6 +25,7 @@ export const pinnableSidebarModeIds = [
   "formulation",
   "therapy-compass",
   "dictionary",
+  "sources",
 ] as const satisfies readonly AppModeId[];
 
 const changeEvent = "clinical-kb-sidebar-pins-change";

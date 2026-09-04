@@ -20,7 +20,6 @@ const routes = [
     path: "/dictionary/compare?a=mental-state-examination&b=mini-mental-state-examination",
     testId: "dictionary-compare-main",
   },
-  { path: "/dictionary/sources", testId: "dictionary-sources-main" },
 ] as const;
 
 async function blockExternalRequests(page: Page) {

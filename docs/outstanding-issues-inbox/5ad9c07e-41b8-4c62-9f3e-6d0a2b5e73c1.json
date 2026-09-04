@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5ad9c07e-41b8-4c62-9f3e-6d0a2b5e73c1",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Three unscoped getByTestId('caring-contacts-guidance') assertions can hit a strict-mode violation while the lazily-imported shell is still being placed, reddening unrelated PRs",
+    "detail": "OBSERVED ONCE, then cleared by a single re-run. CI run 33690849576 attempt 1, job 'Production UI (2)', head 22fd4da9e of PR #2536: tests/ui-caring-contacts-workspace.spec.ts:2670 failed with 'strict mode violation: getByTestId(\"caring-contacts-guidance\") resolved to 2 elements', the two being an unscoped match and getByRole('main').getByTestId(...), with identical class attributes. 212 other tests in the shard passed. Attempt 2 of the same job on the same commit passed, so the condition is intermittent rather than a standing break. classify-playwright-failures.mjs reported 'needs investigation' and the flake ledger is empty, so nothing had recorded it. NOT PR #2536's: that diff is twelve medication and documentation files and touches no Caring Contacts code; the same job passed on its previous head 957a0387. WHAT THE SOURCE SHOWS: data-testid='caring-contacts-guidance' is rendered in exactly one place, ProgrammeGuidance at src/components/caring-contacts/workspace/programme-guidance.tsx:63; src/app/caring-contacts/guidance/page.tsx renders it once, and CaringContactsShell interpolates {children} once (shell.tsx:392). So the second node is not a second render site in the source. HYPOTHESIS, NOT VERIFIED \u2014 I did not reproduce it: that page loads its shell through next/dynamic, and the test navigates with waitUntil:'load', which resolves before React finishes relocating out-of-order streamed content. During that window the streamed copy and the placed copy can both be in the DOM, which matches the two locators exactly. Anything that makes the runner slower widens the window, which is consistent with a first-attempt failure clearing on re-run. NEXT STEP: scope the locator to the landmark rather than the document \u2014 page.getByRole('main').getByTestId('caring-contacts-guidance') \u2014 at all three unscoped sites (lines 2294, 2669 and 2803 as of origin/main 705c2f64a), or await the heading before resolving the locator. Confirm the hypothesis first by reading the retained trace (artifact production-ui-diagnostics-33690849576-shard2) rather than changing the test on this reasoning alone. Do NOT quarantine it: one reproduction is below the repository's three-on-the-same-SHA bar, and the fix is a locator change rather than a suppression.",
+    "source": "CI run 33690849576 attempts 1 and 2 on PR #2536, 2026-09-02",
+    "issueUlid": "01M1J7X4KP2NRB8VCT6D3ZQY5F"
+  }
+}

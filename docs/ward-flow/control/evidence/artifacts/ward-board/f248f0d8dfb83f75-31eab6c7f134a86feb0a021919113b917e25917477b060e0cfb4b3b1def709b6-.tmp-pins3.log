@@ -1,0 +1,35 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-referral-control-labels.dom.test.tsx (2 tests | 1 failed) 208ms
+     × the match view's decline control reads "Decline referral" 16ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-referral-control-labels.dom.test.tsx > the two referral controls are findable by the words on them > the match view's decline control reads "Decline referral"
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ referralCandidates src/components/ward-management/ward-referrals.ts:36:16
+     34|   now: Instant,
+     35| ): { unit: Unit; verdict: EligibilityVerdict }[] {
+     36|   return units.map((unit) => ({ unit, verdict: referralEligibility(ref…
+       |                ^
+     37| }
+     38|
+ ❯ ReferralMatchView src/components/ward-management/referrals/referral-match.tsx:105:22
+ ❯ Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25904:20
+ ❯ renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:7662:22
+ ❯ updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:10166:19
+ ❯ beginWork node_modules/react-dom/cjs/react-dom-client.development.js:11778:18
+ ❯ runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:874:13
+ ❯ performUnitOfWork node_modules/react-dom/cjs/react-dom-client.development.js:17641:22
+ ❯ workLoopSync node_modules/react-dom/cjs/react-dom-client.development.js:17469:41
+ ❯ renderRootSync node_modules/react-dom/cjs/react-dom-client.development.js:17450:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  03:22:39
+   Duration  2.01s (transform 415ms, setup 218ms, import 534ms, tests 208ms, environment 863ms)
+

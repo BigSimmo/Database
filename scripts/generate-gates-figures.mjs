@@ -52,18 +52,36 @@ export function renderFigures(baseline) {
   return lines.join("\n");
 }
 
+/**
+ * Locate the single marked block, refusing anything ambiguous. `indexOf` alone takes
+ * the FIRST marker pair, so a duplicated or stray marker (a bad merge, a copy-pasted
+ * example) would silently retarget both the comparison and the `--write` overwrite at
+ * the wrong slice, reporting success while §0 stayed stale. Fail loudly instead.
+ */
+function blockBounds(document) {
+  const starts = [...document.matchAll(new RegExp(START.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))];
+  const ends = [...document.matchAll(new RegExp(END.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))];
+  if (starts.length !== 1 || ends.length !== 1) {
+    throw new Error(
+      `GATES.md must contain exactly one ${START} and one ${END} ` +
+        `(found ${starts.length} start, ${ends.length} end). Ambiguous markers would silently ` +
+        `retarget the generated block.`,
+    );
+  }
+  const start = starts[0].index;
+  const end = ends[0].index;
+  if (end < start) throw new Error("GATES.md figures end marker precedes its start marker");
+  return { start, end: end + END.length };
+}
+
 function replaceBlock(document, rendered) {
-  const start = document.indexOf(START);
-  const end = document.indexOf(END);
-  if (start === -1 || end === -1) throw new Error(`GATES.md is missing the ${START} / ${END} markers`);
-  return document.slice(0, start) + rendered + document.slice(end + END.length);
+  const { start, end } = blockBounds(document);
+  return document.slice(0, start) + rendered + document.slice(end);
 }
 
 function currentBlock(document) {
-  const start = document.indexOf(START);
-  const end = document.indexOf(END);
-  if (start === -1 || end === -1) throw new Error(`GATES.md is missing the ${START} / ${END} markers`);
-  return document.slice(start, end + END.length);
+  const { start, end } = blockBounds(document);
+  return document.slice(start, end);
 }
 
 /**

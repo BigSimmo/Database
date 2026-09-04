@@ -43,6 +43,20 @@ describe("shared-search route ownership", () => {
     expect(shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "answer", pathname: "/" })).toBe(true);
   });
 
+  it("keeps the Sources catalogue route-owned before and after submission", () => {
+    expect(isStandaloneModeHomePath("/sources")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/sources")).toBe(true);
+    expect(shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "sources", pathname: "/sources" })).toBe(
+      false,
+    );
+    expect(shouldRenderDashboardSearch({ hasSubmittedSearch: true, mode: "sources", pathname: "/sources" })).toBe(
+      false,
+    );
+    expect(shouldRenderClinicalDashboard({ hasSubmittedSearch: true, mode: "sources", pathname: "/sources" })).toBe(
+      false,
+    );
+  });
+
   it("never replaces an explicit medication detail or document-search mockup", () => {
     expect(
       shouldRenderClinicalDashboard({
@@ -61,7 +75,7 @@ describe("shared-search route ownership", () => {
   });
 
   it("classifies standalone mode homes from pathname alone", () => {
-    for (const pathname of ["/favourites", "/tools", "/medications", "/documents"]) {
+    for (const pathname of ["/favourites", "/tools", "/medications", "/documents", "/sources"]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
     expect(isStandaloneModeHomePath("/")).toBe(false);
@@ -122,6 +136,7 @@ describe("shared-search route ownership", () => {
     expect(isAlwaysStandaloneShellPath("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
     expect(isAlwaysStandaloneShellPath("/medications/acamprosate")).toBe(true);
     expect(isAlwaysStandaloneShellPath("/tools")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/sources")).toBe(true);
     // `/` and Documents still need searchParams for the dashboard gate.
     expect(isAlwaysStandaloneShellPath("/")).toBe(false);
     expect(isAlwaysStandaloneShellPath("/documents/search")).toBe(false);

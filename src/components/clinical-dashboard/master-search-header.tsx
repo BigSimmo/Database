@@ -81,6 +81,7 @@ import {
   setModeHomeComposerReservePending,
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
+import { phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
 import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
@@ -97,32 +98,6 @@ const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
-
-const modeMenuGroups = [
-  {
-    id: "find",
-    label: "Find",
-    hint: "Answers, sources, services",
-    modeIds: ["answer", "documents", "services", "forms", "favourites"],
-  },
-  {
-    id: "diagnose",
-    label: "Diagnose",
-    hint: "Criteria, clues, formulation",
-    modeIds: ["differentials", "dsm", "specifiers", "formulation"],
-  },
-  {
-    id: "care",
-    label: "Care",
-    hint: "Medication, calculators, reference, therapy",
-    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
-  },
-] as const satisfies ReadonlyArray<{
-  id: string;
-  label: string;
-  hint: string;
-  modeIds: readonly AppModeId[];
-}>;
 
 function splitFilterText(value: string) {
   return value
@@ -647,16 +622,12 @@ export function MasterSearchHeader({
   // not swap to brand copy that hides what the input actually does.
   const queryPlaceholder = composerPlaceholder ?? selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
-  const actionMenuModeOptions = useMemo<ModeActionModeOption[]>(
-    () =>
-      visibleAppModeOptions.map((mode) => ({
-        id: mode.id,
-        label: mode.label,
-        description: mode.id === "answer" ? "Source-backed mode" : mode.description,
-        icon: appModeIcons[mode.id],
-      })),
-    [visibleAppModeOptions],
-  );
+  const actionMenuModeOptions: ModeActionModeOption[] = visibleAppModeOptions.map((mode) => ({
+    id: mode.id,
+    label: mode.label,
+    description: mode.id === "answer" ? "Source-backed mode" : mode.description,
+    icon: appModeIcons[mode.id],
+  }));
   const actionMenuSetId: ModeActionSetId =
     searchMode === "prescribing"
       ? "prescribing"
@@ -1261,7 +1232,7 @@ export function MasterSearchHeader({
   }
 
   function renderGroupedDesktopModeMenuOptions() {
-    return modeMenuGroups.map((group) => {
+    return phoneModeGroups.map((group) => {
       const groupModes = group.modeIds.flatMap((modeId) => {
         const mode = desktopModeMenuOptions.find((candidate) => candidate.id === modeId);
         return mode ? [mode] : [];
@@ -1272,7 +1243,7 @@ export function MasterSearchHeader({
         <section key={group.id} role="group" aria-labelledby={headingId} className="pt-2 first:pt-0">
           <h3
             id={headingId}
-            className="sticky top-0 z-[2] border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-2 py-1.5 text-2xs font-black uppercase tracking-kicker text-[color:var(--text-muted)] backdrop-blur-md"
+            className="sticky top-0 z-[5] border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-2 py-1.5 text-2xs font-black uppercase tracking-kicker text-[color:var(--text-muted)] backdrop-blur-md"
           >
             {group.label}
           </h3>
@@ -2171,7 +2142,7 @@ export function MasterSearchHeader({
               ) : usesSendAffordance ? (
                 <Send aria-hidden="true" className="size-icon-lg" />
               ) : usesModeIdentityAffordance ? (
-                <ModeIdentityIcon className="size-icon-lg" />
+                <ModeIdentityIcon aria-hidden="true" className="size-icon-lg" />
               ) : (
                 <Search aria-hidden="true" className="size-icon-lg" />
               )}
@@ -2556,7 +2527,7 @@ export function MasterSearchHeader({
           closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition-colors duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border motion-reduce:transition-none"
         >
           <div ref={phoneModeMenuListRef} id="app-mode-menu" role="menu" aria-label="Choose app mode">
-            {modeMenuGroups.map((group) => {
+            {phoneModeGroups.map((group) => {
               const groupModes = group.modeIds.flatMap((modeId) => {
                 const mode = visibleAppModeOptions.find((candidate) => candidate.id === modeId);
                 return mode ? [mode] : [];

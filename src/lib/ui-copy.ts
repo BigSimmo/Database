@@ -114,6 +114,11 @@ export const sharedHomePresentation = {
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
     suggestions: ["mental state examination", "auditory hallucination", "ACT"],
   },
+  sources: {
+    title: "Sources",
+    subtitle: "Clinical source catalogue.",
+    suggestions: ["Australian guidelines", "RANZCP", "review required"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */

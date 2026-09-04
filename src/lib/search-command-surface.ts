@@ -1,4 +1,5 @@
 import type { AppModeId } from "@/lib/app-modes";
+import { isSmartLocalOnlyMode, interpretSmartSearch } from "@/lib/smart-search-intent";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
 export type CommandSuggestion = {
@@ -179,6 +180,16 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // src/lib/app-modes.ts — so the command panel must not query the remote index.
     remoteSearchEnabled: false,
   },
+  sources: {
+    examples: [...sharedHomePresentation.sources.suggestions],
+    suggestions: [
+      { text: "Australian guidelines", meta: "Catalogue" },
+      { text: "RANZCP", meta: "Publisher" },
+      { text: "review required", meta: "Quality band" },
+    ],
+    crossModes: ["documents", "dictionary", "answer"],
+    remoteSearchEnabled: false,
+  },
   "therapy-compass": {
     // Every example was run through the real scorer (`scoreTherapyCandidate`,
     // src/lib/therapy-ranking.ts) against the generated 205-record catalogue, so
@@ -203,9 +214,19 @@ export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurf
   return searchCommandSurfaceByMode[modeId] ?? null;
 }
 
-export function commandSurfaceRemoteSearchEnabled(modeId: AppModeId) {
+export function commandSurfaceRemoteSearchEnabled(modeId: AppModeId, smartNaturalLanguage = false) {
+  if (smartNaturalLanguage && isSmartLocalOnlyMode(modeId)) return false;
   const config = searchCommandSurfaceConfig(modeId);
   return Boolean(config && config.remoteSearchEnabled !== false);
+}
+
+export function filterCommandSurfaceCrossModesForSmartSearch(
+  modeId: AppModeId,
+  query: string,
+  modeIds: readonly AppModeId[],
+): AppModeId[] {
+  if (!isSmartLocalOnlyMode(modeId) || !interpretSmartSearch(modeId, query).naturalLanguage) return [...modeIds];
+  return modeIds.filter((targetModeId) => !["documents", "answer", "favourites"].includes(targetModeId));
 }
 
 export const differentialRedFlagTerms = ["confusion", "overdose", "suicid", "chest pain", "unresponsive", "catatoni"];

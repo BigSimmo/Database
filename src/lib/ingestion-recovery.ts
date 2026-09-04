@@ -115,3 +115,88 @@ export function buildIngestionRecoveryPlan(args: {
     retryCount: orderedActions.filter((action) => action.action === "retry").length,
   };
 }
+
+export type IngestionRecoverySkipReason =
+  /** The job left the open-recovery statuses entirely (completed, or the row was deleted). */
+  | "job_closed"
+  /** The job is still open, but the re-derived plan no longer prescribes this action for it. */
+  | "state_changed";
+
+export type IngestionRecoveryRowState = {
+  jobStatus: string | null;
+  jobLockedAt: string | null;
+  documentStatus: string | null;
+  documentOwnerId: string | null;
+};
+
+export type ReconciledIngestionRecoveryAction = {
+  action: IngestionRecoveryAction;
+  /**
+   * Row state observed in the re-read. Every write is guarded on these values so a row that
+   * moved again between the re-read and the write is left alone instead of being overwritten.
+   */
+  expected: IngestionRecoveryRowState;
+};
+
+export type IngestionRecoveryReconciliation = {
+  applicable: ReconciledIngestionRecoveryAction[];
+  skipped: Array<{ action: IngestionRecoveryAction; reason: IngestionRecoverySkipReason }>;
+};
+
+function recoveryActionKey(action: IngestionRecoveryAction) {
+  return `${action.action}:${action.jobId}`;
+}
+
+/**
+ * Re-validate a previously computed recovery plan against a fresh read of the queue.
+ *
+ * `buildIngestionRecoveryPlan` runs against a point-in-time snapshot, and the operator then
+ * spends unbounded wall-clock time reading the preview before confirming. In that window a job
+ * can finish normally, a worker can re-claim it, or a document can become `indexed` — and the
+ * plan's retry branch is destructive (`reset_document_index` deletes every chunk, page, image and
+ * section for the document with no guard of its own). Applying a stale plan therefore destroys a
+ * freshly committed index or races a live worker.
+ *
+ * This re-derives the plan from the fresh rows and keeps only actions the queue still asks for,
+ * carrying the observed row state forward so the caller can guard each write on it.
+ */
+export function reconcileIngestionRecoveryPlan(args: {
+  planned: IngestionRecoveryAction[];
+  jobs: IngestionRecoveryJob[];
+  now?: Date;
+  staleAfterMinutes: number;
+}): IngestionRecoveryReconciliation {
+  const fresh = buildIngestionRecoveryPlan({
+    jobs: args.jobs,
+    now: args.now,
+    staleAfterMinutes: args.staleAfterMinutes,
+  });
+  const freshKeys = new Set(fresh.actions.map(recoveryActionKey));
+  const jobsById = new Map(args.jobs.map((job) => [job.id, job] as const));
+
+  const applicable: ReconciledIngestionRecoveryAction[] = [];
+  const skipped: IngestionRecoveryReconciliation["skipped"] = [];
+
+  for (const action of args.planned) {
+    const job = jobsById.get(action.jobId);
+    if (!job) {
+      skipped.push({ action, reason: "job_closed" });
+      continue;
+    }
+    if (!freshKeys.has(recoveryActionKey(action))) {
+      skipped.push({ action, reason: "state_changed" });
+      continue;
+    }
+    applicable.push({
+      action,
+      expected: {
+        jobStatus: job.status ?? null,
+        jobLockedAt: job.locked_at ?? null,
+        documentStatus: job.documents?.status ?? null,
+        documentOwnerId: job.documents?.owner_id ?? null,
+      },
+    });
+  }
+
+  return { applicable, skipped };
+}

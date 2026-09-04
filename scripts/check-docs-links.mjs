@@ -103,14 +103,23 @@ const SCOPED_ALLOWLIST = new Map([
   ],
   [
     "docs/ward-flow-pinned-clock-handover.md",
-    // Both files exist on `claude/ward-flow-phases-6-7-design` and not on this branch —
+    // Every path below exists on `claude/ward-flow-phases-6-7-design` and not on this branch —
     // naming them is the entire point of the handover, which exists to send a later session
     // to that branch to finish the work. The document says so where it names them, and gives
-    // the `git show` command to read the spec from there. Remove this entry once Phase 6
-    // lands on `main` and both paths resolve normally.
+    // the `git fetch` + `git show` commands to read that branch from anywhere, including a
+    // cloud container. The three added on 2026-09-02 are the evidence for the re-measured §4:
+    // the rollup suite is where D5's clock rule IS covered, the travel suite is the sole
+    // unrelated grep hit that establishes the rendered branch is covered NOWHERE, and
+    // morning-page.tsx carries the stale workaround comment to correct. Naming them is what
+    // makes that finding checkable rather than assertion. Remove this entry once Phase 6 lands
+    // on `main` and every path resolves normally.
     new Set([
       "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
       "tests/ward-morning-page.dom.test.tsx",
+      "tests/ward-morning-rollup.test.ts",
+      "tests/ward-travel-grouping.test.ts",
+      "tests/ui-ward-morning.spec.ts",
+      "src/components/ward-management/morning/morning-page.tsx",
     ]),
   ],
   [
@@ -184,6 +193,87 @@ const SCOPED_ALLOWLIST = new Map([
     // then was deleted -- the report says so where it names it. The table it produced is quoted in
     // the report, which is the durable part.
     new Set(["tests/caring-contacts-demo-seed-timeline-proof.test.ts"]),
+  ],
+
+  // ── Ward Flow historical records. Each names a path that is absent ON PURPOSE; rewriting any
+  // of them to something that resolves today would falsify the record, which is what these
+  // documents exist to hold. None of the seventeen turned out to be a genuinely stale citation
+  // in a maintained document.
+  [
+    "docs/ward-flow/cleanup-awaiting-approval.md",
+    // Two scratch probes a session created, quoted, and deleted. `git log --all` shows ZERO
+    // commits touching either: they never entered git, so no path could ever resolve them.
+    new Set(["tests/scratch_forensic_probe.test.ts", "tests/scratch_ward_accept_bypass_probe.test.ts"]),
+  ],
+  [
+    "docs/ward-flow/register/ward-builder-one-findings.md",
+    // A probe test written to produce one finding and removed with it. Never committed.
+    new Set(["tests/ward-morning-tour-paused.test.ts"]),
+  ],
+  [
+    "docs/ward-flow/register/ward-builder-two-findings.md",
+    // As above: a module-graph probe that existed only in the session's working tree.
+    new Set(["tests/ward-flow-module-graph.test.ts"]),
+  ],
+  [
+    "docs/ward-flow/rescued/ward-builder-three/wf-build3-006-triage-progress.md",
+    // An ELIDED path in a table cell, not a citation — the full path is given in prose at the
+    // top of the same document and does resolve.
+    new Set(["docs/…/wf-build3-005-ts-test-sweep.md"]),
+  ],
+  [
+    "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-1-brief.md",
+    // The brief specs the route under the name it had when the task was written. It was later
+    // renamed to `movements/[movementId]`; the brief is the record of what was asked for then.
+    new Set(["src/app/mockups/ward-flow/patients/[patientId]/page.tsx"]),
+  ],
+  [
+    "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-1-report.md",
+    // The matching report, naming the same pre-rename route.
+    new Set(["src/app/mockups/ward-flow/patients/[patientId]/page.tsx"]),
+  ],
+  [
+    "docs/ward-flow/sdd-rescued/builder-plan-2026-09-01/task-statistics-report.md",
+    // A scratch probe the task created, quoted the output of, and deleted. Never committed.
+    new Set(["tests/zz-scratch-probe.test.ts"]),
+  ],
+  [
+    "docs/ward-flow/triage/wf-build2-006-batch-b.md",
+    // A module the triage batch proposed and that was never written. Never committed.
+    new Set(["src/components/ward-management/ward-release-notes.ts"]),
+  ],
+  [
+    "docs/ward-flow/triage/wf-build2-006-batch-c.md",
+    // As above: a leak-probe module named in the batch and never created.
+    new Set(["src/components/ward-management/ward/ward-referral-dynamic-leak.ts"]),
+  ],
+  [
+    "docs/ward-flow/wf-build3-005-ts-test-sweep.md",
+    // A FALSIFIER, and its absence is the point: the document says "re-create the page at this
+    // path" to describe what would make the test green for the wrong reason. It has never
+    // existed on any branch.
+    new Set(["src/app/(search-app)/ward-management/page.tsx"]),
+  ],
+  [
+    "docs/ward-flow-ledger.md",
+    // The row's own text says the decision was "drafted in ... on `claude/Ward-design`". It was
+    // committed (6f99ce970) and later deleted with the owner's approval as a spent handoff file
+    // (728947769). The citation records where the text was, which is still true.
+    new Set(["docs/ward-flow-decision-wb-db-18.md"]),
+  ],
+  [
+    "docs/ward-flow-orchestrator-handover.md",
+    // Quoted AS THE PATH THAT NO LONGER RESOLVES: "28 missing paths, ALL in dated plans ... that
+    // name `src/app/ward-management/**` — the structure moved". Rewriting it to the path that
+    // works today would delete the sentence's subject.
+    new Set(["src/app/ward-management/**"]),
+  ],
+  [
+    "docs/ward-flow-safety-checklist.md",
+    // Same quotation of the moved layout as the handover above; and `check-ward-citations.mjs`
+    // lives on `claude/Wardquestions`, the branch these ward documents came from, which has
+    // never been folded into this line.
+    new Set(["src/app/ward-management/**", "scripts/check-ward-citations.mjs"]),
   ],
 ]);
 
@@ -324,7 +414,12 @@ function codeSpanCandidates(markdown) {
 
 function linkCandidates(markdown) {
   const candidates = new Set();
-  for (const match of markdown.matchAll(/\]\(([^)\s]+)\)/g)) {
+  // A BACKSLASH-ESCAPED `\\]` does not close a link label — that is markdown's own rule, and
+  // without the lookbehind a regex QUOTED IN A DOCUMENT is read as a link target. It happened:
+  // `docs/ward-flow/triage/reexport-blindness-sweep.md` records an import-scanning regex whose
+  // `["']([^"']+)` was reported as a MISSING path. The document already escapes markdown
+  // characters for its table (`\\|` for pipes); this makes the checker honour that escaping.
+  for (const match of markdown.matchAll(/(?<!\\)\]\(([^)\s]+)\)/g)) {
     candidates.add(match[1].trim());
   }
   return candidates;
@@ -366,97 +461,116 @@ function isExternalLink(value) {
   return /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(value);
 }
 
+function getAnchorsForFile(absPath, relPath, targetAnchorsCache) {
+  if (targetAnchorsCache.has(absPath)) return targetAnchorsCache.get(absPath);
+  if (!existsSync(absPath) || !relPath.endsWith(".md")) return null;
+  const content = markdownForTarget(relPath, absPath);
+  const anchors = markdownAnchorSlugs(content);
+  targetAnchorsCache.set(absPath, anchors);
+  return anchors;
+}
+
+/**
+ * Check every repo-path reference (inline code spans and markdown link
+ * targets) found in one document's markdown, resolving relative links
+ * against the file that contains them. Returns the failure labels for that
+ * document plus how many references were checked, so callers can accumulate
+ * totals across documents exactly as `main()` used to inline.
+ */
+export function collectDocumentFailures({ target, markdown, targetAnchorsCache = new Map() }) {
+  let checked = 0;
+  const failures = [];
+  const targetDir = path.posix.dirname(target);
+  const currentFileAnchors = markdownAnchorSlugs(markdown);
+  targetAnchorsCache.set(path.join(repoRoot, target), currentFileAnchors);
+
+  const check = (repoRelative, label) => {
+    if (isAllowedPath(repoRelative, target)) return;
+    checked += 1;
+    if (!repoPathExists(repoRelative)) failures.push(label);
+  };
+
+  // Inline code spans: repo-root-relative repo paths.
+  for (const rawCandidate of codeSpanCandidates(markdown)) {
+    const value = stripSuffixes(rawCandidate);
+    const base = ROOT_PREFIXES.some((prefix) => value.startsWith(prefix)) ? globBaseDir(value) : null;
+    if (base !== null) {
+      if (isAllowedPath(value, target)) continue;
+      checked += 1;
+      if (!existsSync(path.join(repoRoot, base))) failures.push(`${value} (glob base '${base}' missing)`);
+      continue;
+    }
+    if (!looksLikeRootPath(value)) continue;
+    check(value, value);
+  }
+
+  // Markdown link targets: repo docs use both repo-root-relative targets
+  // (`src/lib/env.ts`) and file-relative targets (`codebase-index.md`,
+  // `../AGENTS.md`). Accept whichever resolves, confined to the repository.
+  for (const rawCandidate of linkCandidates(markdown)) {
+    if (isExternalLink(rawCandidate)) continue;
+    let targetPart = rawCandidate;
+    let anchorPart = null;
+    const hashIndex = targetPart.indexOf("#");
+    if (hashIndex !== -1) {
+      anchorPart = targetPart.slice(hashIndex + 1);
+      targetPart = targetPart.slice(0, hashIndex);
+    }
+    targetPart = stripSuffixes(targetPart);
+
+    if (targetPart === "") {
+      // Same-document anchor link: [heading](#heading)
+      if (anchorPart) {
+        checked += 1;
+        const normalizedAnchor = anchorPart.toLowerCase();
+        if (!currentFileAnchors.has(normalizedAnchor)) {
+          failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${target})`);
+        }
+      }
+      continue;
+    }
+
+    if (targetPart.includes("*") || /[<>{}$\\]/.test(targetPart) || /\s/.test(targetPart)) continue;
+    const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, targetPart));
+    if (relative.startsWith("..")) {
+      checked += 1;
+      failures.push(`${rawCandidate} (escapes repository root)`);
+      continue;
+    }
+    const rootStyle = path.posix.normalize(targetPart);
+    const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
+    if (candidates.some((candidate) => isAllowedPath(candidate, target))) continue;
+    checked += 1;
+    const matchingPath = candidates.find((candidate) => repoPathExists(candidate));
+    if (!matchingPath) {
+      failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
+    } else if (anchorPart && matchingPath.endsWith(".md")) {
+      const absFound = path.join(repoRoot, matchingPath);
+      const targetAnchors = getAnchorsForFile(absFound, matchingPath, targetAnchorsCache);
+      if (targetAnchors && !targetAnchors.has(anchorPart.toLowerCase())) {
+        failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${matchingPath})`);
+      }
+    }
+  }
+
+  return { failures, checked };
+}
+
 function main() {
   let missing = 0;
   let checked = 0;
   const targetAnchorsCache = new Map();
 
-  function getAnchorsForFile(absPath, relPath) {
-    if (targetAnchorsCache.has(absPath)) return targetAnchorsCache.get(absPath);
-    if (!existsSync(absPath) || !relPath.endsWith(".md")) return null;
-    const content = markdownForTarget(relPath, absPath);
-    const anchors = markdownAnchorSlugs(content);
-    targetAnchorsCache.set(absPath, anchors);
-    return anchors;
-  }
-
   for (const target of defaultTargets()) {
     const absoluteTarget = path.join(repoRoot, target);
     if (!existsSync(absoluteTarget)) continue;
     const markdown = markdownForTarget(target, absoluteTarget);
-    const targetDir = path.posix.dirname(target);
-    const failures = [];
-    const currentFileAnchors = markdownAnchorSlugs(markdown);
-    targetAnchorsCache.set(absoluteTarget, currentFileAnchors);
-
-    const check = (repoRelative, label) => {
-      if (isAllowedPath(repoRelative, target)) return;
-      checked += 1;
-      if (!repoPathExists(repoRelative)) failures.push(label);
-    };
-
-    // Inline code spans: repo-root-relative repo paths.
-    for (const rawCandidate of codeSpanCandidates(markdown)) {
-      const value = stripSuffixes(rawCandidate);
-      const base = ROOT_PREFIXES.some((prefix) => value.startsWith(prefix)) ? globBaseDir(value) : null;
-      if (base !== null) {
-        if (isAllowedPath(value, target)) continue;
-        checked += 1;
-        if (!existsSync(path.join(repoRoot, base))) failures.push(`${value} (glob base '${base}' missing)`);
-        continue;
-      }
-      if (!looksLikeRootPath(value)) continue;
-      check(value, value);
-    }
-
-    // Markdown link targets: repo docs use both repo-root-relative targets
-    // (`src/lib/env.ts`) and file-relative targets (`codebase-index.md`,
-    // `../AGENTS.md`). Accept whichever resolves, confined to the repository.
-    for (const rawCandidate of linkCandidates(markdown)) {
-      if (isExternalLink(rawCandidate)) continue;
-      let targetPart = rawCandidate;
-      let anchorPart = null;
-      const hashIndex = targetPart.indexOf("#");
-      if (hashIndex !== -1) {
-        anchorPart = targetPart.slice(hashIndex + 1);
-        targetPart = targetPart.slice(0, hashIndex);
-      }
-      targetPart = stripSuffixes(targetPart);
-
-      if (targetPart === "") {
-        // Same-document anchor link: [heading](#heading)
-        if (anchorPart) {
-          checked += 1;
-          const normalizedAnchor = anchorPart.toLowerCase();
-          if (!currentFileAnchors.has(normalizedAnchor)) {
-            failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${target})`);
-          }
-        }
-        continue;
-      }
-
-      if (targetPart.includes("*") || /[<>{}$\\]/.test(targetPart) || /\s/.test(targetPart)) continue;
-      const relative = path.posix.normalize(path.posix.join(targetDir === "." ? "" : targetDir, targetPart));
-      if (relative.startsWith("..")) {
-        checked += 1;
-        failures.push(`${rawCandidate} (escapes repository root)`);
-        continue;
-      }
-      const rootStyle = path.posix.normalize(targetPart);
-      const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
-      if (candidates.some((candidate) => isAllowedPath(candidate, target))) continue;
-      checked += 1;
-      const matchingPath = candidates.find((candidate) => repoPathExists(candidate));
-      if (!matchingPath) {
-        failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
-      } else if (anchorPart && matchingPath.endsWith(".md")) {
-        const absFound = path.join(repoRoot, matchingPath);
-        const targetAnchors = getAnchorsForFile(absFound, matchingPath);
-        if (targetAnchors && !targetAnchors.has(anchorPart.toLowerCase())) {
-          failures.push(`${rawCandidate} (missing anchor #${anchorPart} in ${matchingPath})`);
-        }
-      }
-    }
+    const { failures, checked: checkedForTarget } = collectDocumentFailures({
+      target,
+      markdown,
+      targetAnchorsCache,
+    });
+    checked += checkedForTarget;
 
     if (failures.length > 0) {
       missing += failures.length;

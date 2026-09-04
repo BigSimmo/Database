@@ -17,6 +17,7 @@ vi.mock("@/lib/supabase/client", () => ({
 
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { NaturalLanguageAnswer, primaryAnswerDisplayText } from "@/components/clinical-dashboard/answer-content";
+import { compactVerificationWordingFor } from "@/components/ui/verification-notice";
 import { type AnswerSourceRow } from "@/components/clinical-dashboard/answer-source-rows";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { SupportedClaim } from "@/lib/types";
@@ -76,7 +77,6 @@ function renderProse({
     <NaturalLanguageAnswer
       text={ANSWER}
       query="clozapine monitoring"
-      sourceOnly={false}
       bestSource={null}
       sources={[]}
       sourceLinks={[]}
@@ -158,7 +158,6 @@ describe("in-prose source marks", () => {
         <>
           <NaturalLanguageAnswer
             text={ANSWER}
-            sourceOnly={false}
             bestSource={null}
             sources={[]}
             sourceLinks={[]}
@@ -197,7 +196,6 @@ describe("in-prose source marks", () => {
         <>
           <NaturalLanguageAnswer
             text={ANSWER}
-            sourceOnly={false}
             bestSource={null}
             sources={[]}
             sourceLinks={[]}
@@ -252,7 +250,6 @@ describe("in-prose source marks", () => {
         <>
           <NaturalLanguageAnswer
             text={ANSWER}
-            sourceOnly={false}
             bestSource={null}
             sources={[]}
             sourceLinks={[]}
@@ -305,7 +302,6 @@ describe("in-prose source marks", () => {
     render(
       <NaturalLanguageAnswer
         text={bolded}
-        sourceOnly={false}
         bestSource={null}
         sources={[]}
         sourceLinks={[]}
@@ -328,7 +324,6 @@ describe("in-prose source marks", () => {
     render(
       <NaturalLanguageAnswer
         text={ANSWER}
-        sourceOnly={false}
         bestSource={null}
         sources={[]}
         sourceLinks={[]}
@@ -345,15 +340,17 @@ describe("in-prose source marks", () => {
   });
 });
 
-describe("source-only disclosure", () => {
-  it("folds the governed verification warning into the compact disclosure", async () => {
-    const user = userEvent.setup();
+describe("answer body no longer owns a source-status row", () => {
+  it("renders no Source-only disclosure in the answer body", () => {
+    // Owner decision, 2026-09-03: the Source-only pill was the fourth warning
+    // surface above the first cited passage and the only one built from its own
+    // disclosure mechanism. Its governed wording now leads the Answer
+    // limitations disclosure in `answer-result-surface.tsx`, which the chip row
+    // opens. `NaturalLanguageAnswer` therefore owns no status row at all.
     render(
       <NaturalLanguageAnswer
         text={ANSWER}
         query="clozapine monitoring"
-        sourceOnly
-        sourceOnlyVerificationState="ungrounded"
         bestSource={null}
         sources={[]}
         sourceLinks={[]}
@@ -363,41 +360,39 @@ describe("source-only disclosure", () => {
       />,
     );
 
-    const disclosure = screen.getByTestId("source-only-disclosure");
-    expect(disclosure).toHaveTextContent("Source-only");
-    expect(disclosure).not.toHaveTextContent("Copied from cited sources without model synthesis");
-    expect(disclosure.className).toContain("text-2xs");
-    expect(disclosure.parentElement?.className).not.toContain("py-1");
+    expect(screen.queryByTestId("source-only-disclosure")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-status-row")).not.toBeInTheDocument();
+  });
 
-    await user.click(within(disclosure).getByRole("button", { name: /Source-only/ }));
-    expect(disclosure).toHaveTextContent(
+  it("keeps the governed extractive wording verbatim for the limitations disclosure", () => {
+    // The strings themselves are the contract, so they stay pinned here even
+    // though the element that renders them moved. `answer-result-surface.tsx`
+    // calls this exact lookup with "extractive"; it never rewords at the call
+    // site. Pinned by `answer-support-priority.dom.test.tsx`.
+    expect(compactVerificationWordingFor("ungrounded", "extractive")).toBe(
       "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     );
+    expect(compactVerificationWordingFor("source_only", "extractive")).toBe(
+      "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
+    );
+
+    // The panel takes whichever state won precedence, not always source_only:
+    // #207 lets stale, partial and ungrounded outrank it. Every extractive
+    // variant must therefore open with the same attribution and must never
+    // claim a model wrote the answer, or the panel would contradict the chip
+    // that opened it.
+    for (const state of ["ready", "stale_evidence", "partial_retrieval", "ungrounded", "source_only"] as const) {
+      const wording = compactVerificationWordingFor(state, "extractive");
+      expect(wording).toMatch(/^Copied from/);
+      expect(wording).not.toContain("AI-generated");
+    }
   });
 
-  it("places review-due status beside Source-only and keeps the cited-page route", async () => {
-    const user = userEvent.setup();
-    const onOpenStateSource = vi.fn();
+  it("renders no status row at all when the answer is synthesized", () => {
     render(
       <NaturalLanguageAnswer
         text={ANSWER}
         query="clozapine monitoring"
-        sourceOnly
-        sourceOnlyVerificationState="stale_evidence"
-        answerState={{
-          kind: "stale_evidence",
-          sourceCount: 2,
-          overdue: [
-            {
-              sourceId: "doc-chunk-a",
-              title: "Clozapine monitoring protocol",
-              locator: "p. 8",
-              reviewDueOn: "2025-11-01",
-              status: "review_due",
-            },
-          ],
-        }}
-        onOpenStateSource={onOpenStateSource}
         bestSource={null}
         sources={[]}
         sourceLinks={[]}
@@ -407,46 +402,7 @@ describe("source-only disclosure", () => {
       />,
     );
 
-    const row = screen.getByTestId("answer-source-status-row");
-    expect(within(row).getByTestId("source-only-disclosure")).toBeInTheDocument();
-    const reviewDue = within(row).getByTestId("retrieval-state-stale-toggle");
-    expect(reviewDue).toHaveTextContent(/Review due\s*· 1 source/);
-    await user.click(reviewDue);
-    await user.click(screen.getByRole("button", { name: "Open Clozapine monitoring protocol, p. 8" }));
-    expect(onOpenStateSource).toHaveBeenCalledWith("doc-chunk-a", "p. 8");
-  });
-
-  it("keeps review-due status in the source row when the answer is synthesized", () => {
-    render(
-      <NaturalLanguageAnswer
-        text={ANSWER}
-        query="clozapine monitoring"
-        sourceOnly={false}
-        answerState={{
-          kind: "stale_evidence",
-          sourceCount: 2,
-          overdue: [
-            {
-              sourceId: "doc-chunk-a",
-              title: "Clozapine monitoring protocol",
-              locator: "p. 8",
-              reviewDueOn: "2025-11-01",
-              status: "review_due",
-            },
-          ],
-        }}
-        onOpenStateSource={vi.fn()}
-        bestSource={null}
-        sources={[]}
-        sourceLinks={[]}
-        railRows={ROWS}
-        copied={false}
-        onCopy={vi.fn()}
-      />,
-    );
-
-    const row = screen.getByTestId("answer-source-status-row");
-    expect(within(row).queryByTestId("source-only-disclosure")).not.toBeInTheDocument();
-    expect(within(row).getByTestId("retrieval-state-stale-toggle")).toHaveTextContent(/Review due\s*· 1 source/);
+    expect(screen.queryByTestId("answer-source-status-row")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("retrieval-state-stale-toggle")).not.toBeInTheDocument();
   });
 });

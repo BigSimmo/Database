@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-01T08:51:09.830Z",
+  "generated_at": "2026-09-02T09:52:54.161Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "b3bbf9618572fc961d73fadaf5ba8b70aa794fc0357817a2e28781ff692166b1",
-  "replay_seconds": 18,
+  "schema_sha256": "0dd2be4957f38ac67a26278ede747600ff49aff09d94eb7ea4476a2f12a8a674",
+  "replay_seconds": 11,
   "snapshot": {
     "views": [
       {
@@ -7416,7 +7416,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "ebb4dbc57321d9c0c4c011c52fc0dde1",
+        "def_hash": "497a62a59a14726895c8ba1177515bec",
         "signature": "public.get_related_document_metadata(uuid[],uuid)"
       },
       {
@@ -7888,7 +7888,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "8670d32d9286b89c09ce6117da24c5e0",
+        "def_hash": "48e17e9e4566efb99150256848c0aaf2",
         "signature": "public.set_document_corpus_access_mode(text)"
       },
       {
@@ -8417,7 +8417,7 @@
         "table": "document_labels"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "document_labels_owner_id_fkey",
         "table": "document_labels"
       },
@@ -8542,7 +8542,7 @@
         "table": "document_summaries"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "document_summaries_owner_id_fkey",
         "table": "document_summaries"
       },
@@ -8557,7 +8557,7 @@
         "table": "document_table_facts"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "document_table_facts_owner_id_fkey",
         "table": "document_table_facts"
       },
@@ -8607,8 +8607,13 @@
         "table": "documents"
       },
       {
-        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
         "name": "documents_owner_id_fkey",
+        "table": "documents"
+      },
+      {
+        "def": "CHECK (((owner_id IS NOT NULL) OR (NOT ((metadata -> 'public_corpus'::text) IS DISTINCT FROM 'true'::jsonb)) OR (status = 'failed'::text)))",
+        "name": "documents_ownerless_requires_publication_marker",
         "table": "documents"
       },
       {

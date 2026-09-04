@@ -221,6 +221,35 @@ describe("medications API", () => {
     expect(payload.governance?.acamprosate?.validationStatus).toBe("unverified");
   });
 
+  it("re-derives the public governance map instead of caching it for the process lifetime", async () => {
+    // The public/demo governance map is memoised so the route does not remap every
+    // record per request. Source freshness is a function of the reading clock, so a
+    // lifetime cache would re-freeze exactly what read-time derivation unfreezes: a
+    // long-lived process started before a record aged out would keep serving the
+    // pre-ageing status until it happened to restart.
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    type GovernancePayload = {
+      governance?: Record<string, { sourceStatus?: string }>;
+    };
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-09-02T00:00:00.000Z"));
+      const first = (await (await GET(request("/api/medications"))).json()) as GovernancePayload;
+      expect(first.governance?.acamprosate?.sourceStatus).toBe("current");
+
+      // Well past the 365-day review interval for the whole catalogue.
+      vi.setSystemTime(new Date("2028-09-02T00:00:00.000Z"));
+      const second = (await (await GET(request("/api/medications"))).json()) as GovernancePayload;
+      expect(second.governance?.acamprosate?.sourceStatus).toBe("review_due");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("serves an identity-only slim catalog for fields=index", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
@@ -260,11 +289,20 @@ describe("medications API", () => {
 
     const brandResponse = await GET(request("/api/medications?q=campral&limit=5"));
     const brandPayload = (await brandResponse.json()) as {
-      matches?: Array<{ medication: { slug: string }; reasons: string[] }>;
+      matches?: Array<{ medication: { slug: string }; result: { match: string }; reasons: string[] }>;
     };
     expect(brandResponse.status).toBe(200);
     expect(brandPayload.matches?.[0]?.medication.slug).toBe("acamprosate");
+    expect(brandPayload.matches?.[0]?.result.match).toBe("Exact clinical fit");
     expect(brandPayload.matches?.[0]?.reasons).toContain("brand");
+
+    const exactResponse = await GET(request("/api/medications?q=sertraline&limit=5"));
+    const exactPayload = (await exactResponse.json()) as {
+      matches?: Array<{ medication: { slug: string }; result: { match: string } }>;
+    };
+    expect(exactResponse.status).toBe(200);
+    expect(exactPayload.matches?.[0]?.medication.slug).toBe("sertraline");
+    expect(exactPayload.matches?.[0]?.result.match).toBe("Exact clinical fit");
 
     const typoResponse = await GET(request("/api/medications?q=sertaline&limit=5"));
     const typoPayload = (await typoResponse.json()) as {
@@ -275,6 +313,61 @@ describe("medications API", () => {
     expect(typoPayload.matches?.[0]?.medication.slug).toBe("sertraline");
     expect(typoPayload.interpretation?.correctedQuery).toBe("sertraline");
     expect(typoPayload.interpretation?.corrections).toContainEqual({ from: "sertaline", to: "sertraline" });
+  });
+
+  it("uses Prescribing expansions for ordinary catalogue matches without exposing Smart analysis", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(
+      request("/api/medications?q=medicine%20that%20needs%20regular%20blood%20tests&limit=10"),
+    );
+    const payload = (await response.json()) as {
+      matches?: Array<{
+        medication: { slug: string };
+        result: { id: string; match: string };
+        score: number;
+        reasons: string[];
+      }>;
+      interpretation?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.map((match) => match.medication.slug)).toContain("warfarin-vka");
+    expect(payload.matches?.find((match) => match.medication.slug === "warfarin-vka")?.result.match).toBe(
+      "Related match",
+    );
+    expect(Object.keys(payload.matches?.[0] ?? {}).sort()).toEqual(["medication", "reasons", "result", "score"]);
+    expect(payload.interpretation).toBeUndefined();
+  });
+
+  it("keeps literal medication identity wording in mixed Smart queries", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const cases = [
+      ["sertraline antidepressant sexual side effects", "sertraline"],
+      ["lithium medicine that needs regular blood tests", "lithium-carbonate-ir-sr"],
+      ["valproate medicine that needs regular blood tests", "sodium-valproate-oral-iv"],
+    ] as const;
+
+    for (const [query, expectedSlug] of cases) {
+      const response = await GET(request(`/api/medications?q=${encodeURIComponent(query)}&limit=5`));
+      const payload = (await response.json()) as {
+        matches?: Array<{
+          medication: { slug: string };
+          result: { match: string };
+          reasons: string[];
+        }>;
+      };
+
+      expect(response.status).toBe(200);
+      expect(payload.matches?.[0]?.medication.slug).toBe(expectedSlug);
+      expect(payload.matches?.[0]?.reasons).toEqual(expect.arrayContaining(["name", "brand"]));
+      expect.soft(payload.matches?.[0]?.result.match, query).toBe("Exact clinical fit");
+    }
   });
 
   it("projects matched medications to the index shape when fields=index&q is set", async () => {

@@ -331,15 +331,30 @@ describe("MDQ three-criterion screen", () => {
 describe("result summary text", () => {
   const phq9 = fixture("phq9");
 
+  // This text leaves the app on the clipboard, so it is the one place a score can
+  // be read with none of the interface around it. The caveat travels with it.
+  const SCOPE_LINE =
+    "Clinical reference — not validated decision support. Confirm scoring and interpretation against the source instrument.";
+
   it("reports score, maximum and band once the scale is complete", () => {
     const state = deriveCalculator(phq9, answersForScore(phq9, 12));
-    expect(formatResultSummary(phq9, state)).toBe("PHQ-9 12/27 — Moderate");
+    expect(formatResultSummary(phq9, state)).toBe(`PHQ-9 12/27 — Moderate\n${SCOPE_LINE}`);
   });
 
   it("appends progress while the scale is incomplete", () => {
     const state = deriveCalculator(phq9, { p1: 3, p2: 3 });
     expect(state.complete).toBe(false);
-    expect(formatResultSummary(phq9, state)).toBe("PHQ-9 6/27 — Incomplete (2 of 9 answered)");
+    expect(formatResultSummary(phq9, state)).toBe(`PHQ-9 6/27 — Incomplete (2 of 9 answered)\n${SCOPE_LINE}`);
+  });
+
+  it("never yields a bare score line without its scope caveat", () => {
+    // Guards the defect this replaced: a pasted "PHQ-9 18/27 — Moderately severe"
+    // reads as an assessment result the software stands behind.
+    for (const score of [0, 6, 12, 27]) {
+      const summary = formatResultSummary(phq9, deriveCalculator(phq9, answersForScore(phq9, score)));
+      expect(summary.split("\n")).toHaveLength(2);
+      expect(summary.endsWith(SCOPE_LINE)).toBe(true);
+    }
   });
 
   it("counts endorsements rather than answers for checkbox-only scales", () => {

@@ -124,6 +124,18 @@ type FollowUpTemplate = {
  * is asserted over all 48 class×intent cells in tests/answer-follow-up.test.ts, so
  * a future menu edit fails loudly instead of silently dropping a chip.
  */
+/**
+ * The one authored way to ask about a gap the answer reported.
+ *
+ * It lives outside the menus because the builder offers it for every menu key,
+ * not only `management` — the menu that happens to list it. A reported gap is a
+ * statement about this answer's evidence, so it is worth asking about whatever
+ * shape the question had; and the `dosing`, `escalation`, `threshold` and
+ * `comparison` menus have no gap item of their own, so without this a gap on
+ * those queries would go unmentioned.
+ */
+const reportedGapQuestion = (topic: string) => `What does the indexed guidance not cover for ${topic}?`;
+
 const menuFollowUpTemplates: Record<Exclude<RelatedInformationMenuKey, "none">, readonly FollowUpTemplate[]> = {
   dosing: [
     {
@@ -232,7 +244,7 @@ const menuFollowUpTemplates: Record<Exclude<RelatedInformationMenuKey, "none">, 
     },
     {
       kind: "source_gap",
-      question: (topic) => `What does the indexed guidance not cover for ${topic}?`,
+      question: reportedGapQuestion,
       // Only offered when the answer itself reported a gap or conflict; the
       // haystack check below is satisfied by that report, not by source prose.
       evidenceTerms: ["reported_gap"],
@@ -430,16 +442,28 @@ function templatesForMenuKey(menuKey: RelatedInformationMenuKey, answer: RagAnsw
   return generalTemplates;
 }
 
+/**
+ * Follow-up questions taken verbatim from the answer's own reported gaps.
+ *
+ * Only a gap that is ALREADY a question is offered. This used to wrap any gap
+ * in `What does the source say about <message lowercased>?`, which cannot
+ * produce English: every message `detectConflictsOrGaps` writes is a full
+ * advisory sentence, not a noun phrase. On the live answer page that rendered
+ * as "What does the source say about current evidence comes from one document;
+ * broaden document scope if you need cross-document comparison?" — and the
+ * threshold-conflict message, being two sentences, came out worse still, with a
+ * lowercased "confirm the correct cut-off..." stranded mid-question.
+ *
+ * Nothing is lost by declining: the `source_gap` template below is authored for
+ * exactly this case, is gated on the same `reported_gap` evidence, and asks the
+ * question in words a clinician can read.
+ */
 function gapFollowUpTemplates(answer: RagAnswer) {
   const gaps = answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? [];
   return gaps
     .map((gap) => gap.message.trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((message) => {
-      const cleaned = message.replace(/\.$/, "");
-      return cleaned.endsWith("?") ? cleaned : `What does the source say about ${cleaned.toLowerCase()}?`;
-    });
+    .filter((message) => message.endsWith("?"))
+    .slice(0, 2);
 }
 
 /**
@@ -483,7 +507,23 @@ export function buildAnswerFollowUpSuggestions(
     if (suggestions.length >= maxFollowUpSuggestions) break;
     push(gap);
   }
-  const hasReportedGap = (answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []).length > 0;
+  // Whether a gap supplied its own question, which is what the `source_gap`
+  // suppression below actually means. Reading it off `suggestions.length` was
+  // safe only while gaps were the sole thing that could have run by then; now
+  // that a gap has to already be a question to qualify, that test would suppress
+  // the authored `source_gap` item whenever any earlier menu template matched.
+  const gapAskedItself = suggestions.length > 0;
+  const reportedGapsOrConflicts = answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? [];
+  const hasReportedGap = reportedGapsOrConflicts.length > 0;
+  /**
+   * A conflict is not a gap, and the authored gap question says the wrong thing
+   * about one. `detectConflictsOrGaps` writes `type: "conflict"` when sources
+   * disagree on a withholding threshold — that answer HAS coverage, from several
+   * sources; the problem is that they contradict each other. Offering "What does
+   * the indexed guidance not cover for X?" there misstates the evidence and
+   * points the clinician at the wrong follow-up.
+   */
+  const hasMissingCoverage = reportedGapsOrConflicts.some((item) => item.type === "gap");
   const answerText = (answer.answer ?? "").toLowerCase();
   const emittedSectionKinds = new Set(
     (answer.answerSections ?? []).map((section) => section.kind).filter((kind): kind is AnswerSectionKind => !!kind),
@@ -503,9 +543,35 @@ export function buildAnswerFollowUpSuggestions(
     // answer body's own words, or — for the source-gap item — a gap chip that is
     // already asking the specific question.
     if (emittedSectionKinds.has(template.kind)) continue;
-    if (template.kind === "source_gap" && suggestions.length > 0) continue;
+    if (template.kind === "source_gap" && gapAskedItself) continue;
     if (template.answeredTerms.some((term) => answerText.includes(term))) continue;
     push(template.question(topic));
+  }
+
+  /**
+   * The authored gap question, for the menus that carry no `source_gap` item of
+   * their own — only `management` does, so before this a reported gap on a
+   * dosing, escalation, threshold or comparison query went unmentioned.
+   *
+   * Offered LAST, and only into a spare slot. A question about what the evidence
+   * does not cover is worth less than a concrete evidence-backed one when the
+   * four slots are contested: put it first and a gapped `medication_dose_risk`
+   * answer trades "How is lithium dosed in renal or hepatic impairment?" for a
+   * meta-question. It also costs the reader little to lose, because the gap's
+   * own words are already on screen as a caveat (`answer-render-policy.ts`).
+   *
+   * The `emittedSectionKinds` check is the menu loop's rule 3 applied here:
+   * `source_gap` is a real emitted section kind (`rag.ts` maps gap/unsupported
+   * headings onto it), so without this the chip could ask what the guidance does
+   * not cover directly beneath a Source gap section that just said.
+   */
+  if (
+    hasMissingCoverage &&
+    !gapAskedItself &&
+    !emittedSectionKinds.has("source_gap") &&
+    suggestions.length < maxFollowUpSuggestions
+  ) {
+    push(reportedGapQuestion(topic));
   }
 
   return suggestions;

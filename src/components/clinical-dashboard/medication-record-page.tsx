@@ -495,7 +495,8 @@ export function MedicationRecordPage({
           )}
         </div>
         <InformationPageFooter className="mt-4 pb-1">
-          PsychSift provides evidence summaries, not medical advice. Verify clinical decisions.
+          PsychSift is a clinical reference prototype, not validated decision support. Verify every dose and interaction
+          against the linked source before acting on it.
         </InformationPageFooter>
       </InformationPageShell>
     </>

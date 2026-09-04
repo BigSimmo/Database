@@ -80,6 +80,7 @@ const documentedRedirectTargets: Record<string, string> = {
   // Pinned because the page forwards the incoming query string, so its
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
+  "/dictionary/sources": "/sources/search?usedBy=dictionary",
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
 
@@ -116,7 +117,8 @@ const routeDescriptions: Record<string, string> = {
   "/dictionary/compare": "Side-by-side clinical term definition and nuance comparison.",
   "/dictionary/search":
     "The clinical term and abbreviation catalogue: an empty query lists everything, a typed query narrows the same list.",
-  "/dictionary/sources": "Clinical dictionary governance, references, and source catalogue.",
+  "/dictionary/sources":
+    "Query-preserving compatibility redirect to `/sources/search?usedBy=dictionary`; incoming catalogue filters are retained and application usage is set to Dictionary.",
   "/dictionary/topics": "Clinical dictionary topic category index.",
   "/dictionary/topics/[slug]": "Clinical dictionary topic category term list.",
   "/differentials": "Differentials home and search surface.",
@@ -155,6 +157,13 @@ const routeDescriptions: Record<string, string> = {
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
+  "/sources": "Sources mode home; a submitted `?q=…&run=1` forwards to `/sources/search`, where the catalogue lives.",
+  "/sources/[sourceId]": "Clinical source traceability record: identity, rating, canonical locations and usage.",
+  "/sources/method": "How the catalogue rates, reviews and traces a source, and its stated limitations.",
+  "/sources/publishers": "Publishing bodies grouped by jurisdiction scope.",
+  "/sources/search":
+    "The ranked clinical source catalogue: filter and sort by quality band, jurisdiction, source type, publisher, topic, lifecycle and application usage.",
+  "/sources/topics": "Clinical topics derived from registered source metadata.",
   "/specifiers": "Psychiatric specifier home and local search surface.",
   "/specifiers/[slug]": "Psychiatric specifier decision-support guide.",
   "/specifiers/builder": "Structured diagnostic wording builder.",
@@ -406,6 +415,7 @@ function renderModeRoutes() {
     "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
     dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
+    sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -523,7 +533,14 @@ function renderModePageIndex() {
       home: appModeHomeHref("dictionary"),
       search: appModeHomeHref("dictionary", { query: "MSE", focus: true, run: true }),
       detail:
-        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
+        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare` and `/dictionary/[slug]` records; `/dictionary/sources` redirects to Sources.",
+    },
+    {
+      mode: "Sources",
+      home: appModeHomeHref("sources"),
+      search: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
+      detail:
+        "`/sources` keeps a home of its own; `/sources/search` is the filterable catalogue. Also `/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
     },
     {
       mode: "Therapy Compass",

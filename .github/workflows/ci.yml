@@ -292,6 +292,19 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:ledger-write-discipline
 
+      # Refuses a diff that guts a test file of its cases, or commits a tool's truncation
+      # banner as source. Both are the #Y30AXB shape: a regenerated-not-edited file whose
+      # gutted suite would have merged on a green run had a merge conflict not intervened.
+      # Deliberately unconditional, matching verify:pr-local's commonScripts. Rule 2 is an
+      # all-file invariant: a tool truncation banner lands in YAML or markdown as easily as in
+      # a spec, and a workflow-only diff sets none of the scope predicates (verify with
+      # `node scripts/ci-change-scope.mjs --files .github/workflows/ci.yml`), so any predicate
+      # list here is a hole. The gate only diffs and parses changed files, so it is cheap.
+      - name: Diff integrity
+        env:
+          DIFF_INTEGRITY_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: npm run check:diff-integrity
+
       - name: PR mergeability workflow contract
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:pr-mergeability
@@ -350,6 +363,10 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:icon-scale
 
+      - name: Design drift ratchet
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:design-drift-ratchet
+
       - name: Brand asset check
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run brand:check
@@ -366,6 +383,10 @@ jobs:
       - name: Site map drift
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run sitemap:check
+
+      - name: Mockup retirement policy
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:mockups
 
       - name: Repo awareness snapshot
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
@@ -385,6 +406,13 @@ jobs:
       - name: Act section summary drift
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:mha-act-sections
+
+      # Derives sha256/bytes/passwordProtected from the committed form PDFs. The badge a
+      # clinician reads before relying on a statutory form must match the file on disk;
+      # a hand-maintained flag had nothing checking it against the bytes.
+      - name: Forms PDF manifest drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:forms-pdf-manifest
 
       - name: Design-system contract
         if: needs.changes.outputs.static_heavy_changed == 'true'
@@ -1093,6 +1121,60 @@ jobs:
             );
           }
           NODE
+
+      # #QCNE6N. The step above proves the manifest is not stale and `supabase
+      # migration up --local` proved the chain APPLIES. Neither compares the
+      # RESULT of the chain against supabase/schema.sql, so a migration whose
+      # function body or policy predicate diverges from the mirror passes every
+      # pre-merge gate — which is how correct_clinical_query_terms(text,real)
+      # reached main red on 2026-09-01, caught only by the post-merge live-drift
+      # alarm.
+      #
+      # The mirror side is the manifest `drift:manifest` just regenerated from
+      # THIS PR's schema.sql, so no second replay is built here. That does mean
+      # the two sides come from different images (emulator vs the pinned bare
+      # supabase/postgres) and some reported difference will be platform
+      # provenance — see the header of scripts/check-chain-mirror-parity.ts.
+      #
+      # REPORT-ONLY on purpose. The divergences that already exist cannot be
+      # enumerated offline (docs/database-drift-detection.md backlog item 10
+      # records ~13 chain-vs-mirror keys plus schema.sql-only storage buckets),
+      # so this lands printing them rather than blocking on a set nobody has
+      # measured. The follow-up commits supabase/chain-mirror-allowlist.json from
+      # this job's summary, adds `--strict`, and drops the `continue-on-error`
+      # lines below in the same change. tests/chain-mirror-parity.test.ts pins
+      # those two facts to each other so they cannot drift apart.
+      - name: Capture the migration chain's schema snapshot
+        id: chain-snapshot
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # --filter rather than `| grep | head`: under `set -o pipefail` a SIGPIPE
+          # from head is a step failure, and grep exiting 1 on no match aborts
+          # before the explicit `test -n` can say what went wrong.
+          db_container="$(docker ps --format '{{.Names}}' --filter 'name=^supabase_db_' | head -n 1)"
+          test -n "${db_container}"
+          docker exec -i "${db_container}" \
+            psql -U postgres -d postgres -tA -v ON_ERROR_STOP=1 \
+            -c 'select public.schema_drift_snapshot()::text;' > /tmp/chain-snapshot.json
+          test -s /tmp/chain-snapshot.json
+
+      - name: Compare the migration chain against supabase/schema.sql
+        id: chain-mirror-parity
+        continue-on-error: true
+        if: steps.chain-snapshot.outcome == 'success'
+        run: |
+          npm run check:chain-mirror-parity -- \
+            --chain /tmp/chain-snapshot.json \
+            --mirror-manifest supabase/drift-manifest.json
+
+      - name: Report a chain/mirror parity step that produced no evidence
+        # Both steps above carry continue-on-error, so without this a crashing
+        # compare step is a grey mark nobody reads and is indistinguishable from
+        # a clean run. Cover the compare outcome too, not just the capture.
+        if: steps.chain-snapshot.outcome != 'success' || steps.chain-mirror-parity.outcome != 'success'
+        run: |
+          echo "::warning::chain/mirror parity produced no evidence (capture=${{ steps.chain-snapshot.outcome }}, compare=${{ steps.chain-mirror-parity.outcome }}). It is report-only today so it does not block the merge, but the comparison did not run."
 
       - name: Upload regenerated drift manifest
         if: always()

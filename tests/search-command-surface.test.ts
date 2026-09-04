@@ -9,6 +9,7 @@ import {
   commandDropdownPointerMediaQuery,
   commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
+  filterCommandSurfaceCrossModesForSmartSearch,
   filteredSuggestions,
   isFormCodeQuery,
   searchCommandSurfaceConfig,
@@ -74,6 +75,49 @@ describe("search command surface", () => {
     expect(commandSurfaceRemoteSearchEnabled("calculators")).toBe(false);
     expect(commandSurfaceRemoteSearchEnabled("documents")).toBe(true);
     expect(commandSurfaceRemoteSearchEnabled("therapy-compass")).toBe(false);
+  });
+
+  it("suppresses remote command search only for natural-language local catalogue modes", () => {
+    const configuredRemoteSearch = {
+      prescribing: true,
+      tools: true,
+      calculators: false,
+      factsheets: false,
+      dictionary: false,
+    } as const;
+
+    for (const [modeId, expected] of Object.entries(configuredRemoteSearch) as [
+      keyof typeof configuredRemoteSearch,
+      boolean,
+    ][]) {
+      expect(commandSurfaceRemoteSearchEnabled(modeId, true)).toBe(false);
+      expect(commandSurfaceRemoteSearchEnabled(modeId)).toBe(expected);
+    }
+
+    expect(commandSurfaceRemoteSearchEnabled("services", true)).toBe(true);
+    expect(commandSurfaceRemoteSearchEnabled("therapy-compass", true)).toBe(false);
+  });
+
+  it("removes universal cross-modes only for natural-language local catalogue searches", () => {
+    const configuredCrossModes = ["documents", "answer", "favourites", "forms"] as const;
+
+    expect(
+      filterCommandSurfaceCrossModesForSmartSearch(
+        "tools",
+        "where can I check medication interactions?",
+        configuredCrossModes,
+      ),
+    ).toEqual(["forms"]);
+    expect(filterCommandSurfaceCrossModesForSmartSearch("tools", "sertraline", configuredCrossModes)).toEqual(
+      configuredCrossModes,
+    );
+    expect(
+      filterCommandSurfaceCrossModesForSmartSearch(
+        "services",
+        "where can a young person get support after discharge?",
+        configuredCrossModes,
+      ),
+    ).toEqual(configuredCrossModes);
   });
 
   it("detects form code queries", () => {

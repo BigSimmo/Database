@@ -300,11 +300,29 @@ test.describe("pages that fit the window have no scroll range", () => {
     { name: "dashboard mode home", route: "/?mode=documents" },
     { name: "standalone mode home", route: "/medications" },
     { name: "addon nav row route", route: "/factsheets/topics" },
+    // #6KR6BR: the 2026-08-27 sweep after PR #2419 reported 2px of residual
+    // range here at 1280x1200 and nowhere else. Re-measured 2026-09-02 across
+    // 1024/1280/1440 x 800/1200 at deviceScaleFactor 1 and 2, in both page
+    // states, it is 0 — the catalogue's content is a fixed 1018px tall, so a
+    // 1200px window clears it by 182px. Both states are pinned at the exact
+    // reported viewport so a future content-driven regression is caught here
+    // rather than by another ad-hoc sweep. The catalogue is static module data,
+    // so its length does not vary with demo vs live mode.
+    {
+      name: "calculators catalogue",
+      route: "/calculators/search",
+      viewport: { width: 1280, height: 1200 },
+    },
+    {
+      name: "calculators submitted results",
+      route: "/calculators/search?q=depression&run=1",
+      viewport: { width: 1280, height: 1200 },
+    },
   ];
 
-  for (const { name, route } of fitsWithoutScrolling) {
+  for (const { name, route, viewport = { width: 1440, height: 1200 } } of fitsWithoutScrolling) {
     test(`desktop: ${name} has zero scroll range`, async ({ page }) => {
-      await page.setViewportSize({ width: 1440, height: 1200 });
+      await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
       // Late chrome (composer portal, nav row, notices) mounts after first paint
@@ -320,4 +338,33 @@ test.describe("pages that fit the window have no scroll range", () => {
       expect(stable.maxScrollTop, `${route} grew a scroll range after late chrome mounted`).toBe(0);
     });
   }
+
+  test("desktop: tall documents home centres its action cluster in the available canvas", async ({ page }) => {
+    await page.setViewportSize({ width: 1720, height: 1350 });
+    await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+
+    const geometry = await page.evaluate(() => {
+      const home = document.querySelector<HTMLElement>('[data-testid="shared-home-empty-state"]');
+      const canvas = document.querySelector<HTMLElement>("[data-mode-home-canvas]");
+      const main = document.getElementById("main-content");
+      if (!home || !canvas || !main) return null;
+
+      const homeRect = home.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        homeMidY: homeRect.top + homeRect.height / 2,
+        canvasMidY: canvasRect.top + canvasRect.height / 2,
+        maxScrollTop: Math.max(0, main.scrollHeight - main.clientHeight),
+      };
+    });
+
+    expect(geometry).not.toBeNull();
+    expect(Math.abs(geometry!.homeMidY - geometry!.canvasMidY)).toBeLessThanOrEqual(1);
+    expect(geometry!.maxScrollTop).toBe(0);
+  });
 });
