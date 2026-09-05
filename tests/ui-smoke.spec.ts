@@ -1364,6 +1364,51 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
   });
 
+  test("sidebar shortcuts switch mode in place, on the shared home and after an answer", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "0"));
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
+    const sidebar = page.locator("#clinical-tools-sidebar");
+    await expect(sidebar).toBeVisible();
+    const documentsShortcut = sidebar.getByRole("link", { name: "Documents", exact: true });
+
+    // On the shared home a shortcut is the mode pill's in-place switch: the URL
+    // is rewritten and the mode flips with no navigation request at all.
+    const navigationRequests: string[] = [];
+    page.on("request", (request) => {
+      const headers = request.headers();
+      if (headers["rsc"] === "1" && headers["next-router-prefetch"] !== "1") navigationRequests.push(request.url());
+    });
+    await documentsShortcut.click();
+    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=documents$/);
+    await expect(documentsShortcut).toHaveAttribute("aria-current", "page");
+    expect(navigationRequests).toEqual([]);
+
+    await sidebar.getByRole("link", { name: "Answer", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=answer$/);
+    expect(navigationRequests).toEqual([]);
+
+    // After an answer the dashboard is off the shared home. The shortcut must
+    // still land on the mode it names: the submission left the UI-change flag
+    // raised, and the URL sync used to mistake the next navigation for a UI
+    // change and skip it — URL on Documents, header and answer still on Answer.
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await fillVisibleQuestionInput(page, question);
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+    await expect(page).toHaveURL(/run=1/);
+
+    await documentsShortcut.click();
+    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=documents/);
+    await expect(documentsShortcut).toHaveAttribute("aria-current", "page");
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
+  });
+
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
