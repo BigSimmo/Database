@@ -78,6 +78,9 @@ npm run docs:check-links
 - [error-tracking.md](error-tracking.md) — privacy-safe, opt-in production exception tracking envelope
 - [governance-incident-runbooks.md](governance-incident-runbooks.md) — operator response checklists for clinical, source, privacy, provider, and answer-pipeline rollback incidents
 - [clinical-hazard-analysis.md](clinical-hazard-analysis.md) — clinical hazard register
+- [caring-contacts/hazard-log.md](caring-contacts/hazard-log.md) — **DRAFT, unsigned** Caring Contacts hazard log: the four hazards with no control (safety officer, lived-experience review, Aboriginal cultural safety review, referral feed) and the thirty-four the code enforces, each with the `file:line` of its control
+- [caring-contacts/message-review-pack.md](caring-contacts/message-review-pack.md) — **DRAFT, unsigned** facilitation pack for the lived-experience review of every patient-visible Caring Contacts message, the policy check on each, and the evidence the check runs
+- [care-plan/crisis-lines-verification.md](care-plan/crisis-lines-verification.md) — **DRAFT, unsigned** verification record for every crisis number printed by the Care Plan prototype: source, verification date, and the six-monthly re-verification cadence
 - [rag-injection-threat-model.md](rag-injection-threat-model.md) — prompt-injection threat model
 - [privacy-impact-assessment.md](privacy-impact-assessment.md) — PIA findings and launch blockers
 - [openai-cross-border-basis.md](openai-cross-border-basis.md) — cross-border data-processing basis

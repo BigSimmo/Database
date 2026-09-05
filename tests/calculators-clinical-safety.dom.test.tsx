@@ -17,7 +17,7 @@ import {
 import { actionsForBand } from "@/components/calculators/calculator-pathways";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { CalculatorSheet } from "@/components/calculators/calculator-sheet";
-import { NextActionsPanel } from "@/components/calculators/search-detail";
+import { NextActionsPanel, ScorePanel } from "@/components/calculators/search-detail";
 import { CopyResultButton, deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
@@ -166,6 +166,33 @@ describe("completion is not inferred from a partial score", () => {
     render(<CopyResultButton calc={calc} state={partial} />);
 
     expect(screen.getByRole("button", { name: "Copy result" })).toBeDisabled();
+  });
+
+  /**
+   * L7: the internal governance record is attached to every calculator's
+   * sourceIds and was rendered in the same "Sources:" line as a validation
+   * study. It is provenance, not clinical evidence, so it must be labelled
+   * separately while keeping its link.
+   */
+  it("separates the internal governance record from the clinical sources line", () => {
+    const calc = fixture("phq9");
+    const complete = deriveCalculator(calc, explicitAnswers(calc));
+    const governance = calculatorEvidence.sources.find((source) => source.type === "internal_governance_record");
+    expect(governance).toBeDefined();
+
+    const { container } = render(<ScorePanel calc={calc} derived={complete} onReset={vi.fn()} />);
+
+    const sourcesLine = Array.from(container.querySelectorAll("p")).find((node) =>
+      node.textContent?.startsWith("Sources:"),
+    );
+    expect(sourcesLine).toBeDefined();
+    expect(sourcesLine?.textContent).not.toContain(governance!.title);
+
+    const provenanceLine = Array.from(container.querySelectorAll("p")).find((node) =>
+      node.textContent?.startsWith("Governance reference:"),
+    );
+    expect(provenanceLine?.textContent).toContain(governance!.title);
+    expect(screen.getByRole("link", { name: governance!.title })).toHaveAttribute("href", governance!.url);
   });
 
   it("renders a completed clinical consideration with its source link", () => {
