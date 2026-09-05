@@ -7,9 +7,20 @@ const detail = readFileSync("src/app/api/on-call/entries/[id]/route.ts", "utf8")
 const verify = readFileSync("src/app/api/on-call/entries/[id]/verify/route.ts", "utf8");
 
 describe("On Call entries route", () => {
-  it("never reads the database for an anonymous caller", () => {
-    expect(list).toContain("if (!access.ownerId)");
-    expect(list).toMatch(/signedOut:\s*true/);
+  // Reversed deliberately on 2026-09-04: On Call entries are readable by any visitor, so an
+  // anonymous caller now gets the shared set instead of an empty list. What must NOT come back
+  // is the rest of the old contract — the caller still passes the rate limiter first, and
+  // `signedOut` still reports whether there is an account, because the client uses it to decide
+  // whether to offer editing.
+  it("serves the shared entries to an anonymous caller rather than an empty list", () => {
+    expect(list).toContain("fetchVisibleOnCallEntries");
+    expect(list).not.toMatch(/entries:\s*\[\]/);
+    expect(list).toMatch(/signedOut:\s*!access\.ownerId/);
+  });
+
+  it("still rate limits every caller before touching the database", () => {
+    expect(list).toContain("consumeSubjectApiRateLimit");
+    expect(list.indexOf("consumeSubjectApiRateLimit")).toBeLessThan(list.indexOf("fetchVisibleOnCallEntries"));
   });
 
   it("takes the owner from the access context, never from the request", () => {
@@ -17,9 +28,12 @@ describe("On Call entries route", () => {
     expect(list).not.toMatch(/searchParams\.get\(\s*["']owner/);
   });
 
-  it("uses the admin client and scopes through the repository helper", () => {
+  it("uses the admin client and reads through the repository helper", () => {
     expect(list).toContain("createAdminClient");
-    expect(list).toContain("fetchOwnerOnCallEntries");
+    expect(list).toContain("fetchVisibleOnCallEntries");
+    // The route must not reach past the helper to query the table itself: the personal-entry
+    // exclusion that keeps world-readable reads safe lives inside it.
+    expect(list).not.toContain('from("on_call_entries").select');
   });
 
   it("maps AuthenticationError to a 401 and falls through to jsonError otherwise", () => {
