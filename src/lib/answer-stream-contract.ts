@@ -26,8 +26,11 @@ export type VerifiedAnswerSectionUnit = {
 
 export type VerifiedUnit = VerifiedEvidencePreviewUnit | VerifiedAnswerSectionUnit;
 
-// A unit is a bounded preview, never a transport for full documents. Sized to the
-// client-source snippet policy (≤900 chars/source, ≤12 sources) with headroom.
+// A unit is a bounded preview, never a transport for full documents. This cap is a ceiling
+// the builder must fit under, not a size it can assume: a real trimmed source is ~7,000 JSON
+// characters (the ≤900-char snippet is carried twice, plus scoring, labels, indexing quality
+// and relevance), so twelve of them overrun it. `answer-preview.ts` shrinks the unit to fit
+// this exact check before emitting; the check here is the boundary's own last line.
 const verifiedUnitMaxJsonChars = 64_000;
 const evidencePreviewMaxSources = 12;
 const clientSourceSnippetMaxChars = 900;
