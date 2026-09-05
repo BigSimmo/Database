@@ -187,8 +187,8 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * loudest thing in the header.
  *
  * What makes it a *band* rather than a row is the ground: one accent wash
- * anchored at the top-left corner, behind the mark, dissolving before it reaches
- * the close control, over a vertical surface fade that only resolves in dark
+ * anchored at the top edge, dissolving before it reaches the close control and
+ * before the divider, over a vertical surface fade that only resolves in dark
  * (where `--surface-lux` and `--surface-raised` differ). It is the same idiom
  * the document-summary and mode-switch headers already use, so the drawer gains
  * a lit top edge without inventing a colour. The wash strength is the
@@ -196,6 +196,31 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * and dark need opposite recipes to land on the same read — see its definition
  * in `globals.css`. The divider stays a real `border-b`: a pseudo-element rule
  * would disappear in forced-colors, which is exactly where a divider matters.
+ *
+ * On the phone drawer that top edge is the top of the screen, and the band has
+ * to own it. Under `viewport-fit=cover` the panel's own `pt-safe` used to paint
+ * the notch strip in plain `--surface-raised`, directly above a wash anchored at
+ * `0% 0%` — its strongest point sat exactly on that join, so a tinted band met a
+ * white strip along a dead-straight line across the top of the drawer, reported
+ * from an iPhone as a stark cut-off. Dark had the same seam one layer down,
+ * where the surface fade opened at `--surface-lux` against a `--surface-raised`
+ * strip. `drawerHeader` therefore pulls itself up over that padding and re-adds
+ * the inset as its own, so the ground runs to the physical top of the display:
+ * the only boundary left is the edge of the screen, which cannot read as a line.
+ * The other end is handled by the falloff, which completes before the divider,
+ * so the band dissolves into the menu rather than stopping against it.
+ *
+ * Two consequences worth keeping in mind before editing either end. The wash now
+ * sits behind the system status bar, so its strongest point is diluted by the
+ * first stop rather than landing at full strength under the clock — do not
+ * collapse those two stops back into one. And the reach (`105%` tall, clear at
+ * `74%`) has to survive the notch inset: the mark sits at roughly 70% of the
+ * band's height on a device with a notch, so a shorter falloff would leave the
+ * lockup on bare surface.
+ *
+ * For the same reason the band carries no `--shadow-inset` bevel: that is an
+ * inset 1px top highlight, i.e. a straight line drawn along an edge this ground
+ * exists to dissolve.
  *
  * The mark is drawn bare on that ground, never on a tile: see the brand note in
  * `@/components/clinical-dashboard/brand` for why the tiled form is reserved for
@@ -205,7 +230,7 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * dialog in the app uses that header, and the case for a compact brand header
  * is specific to a navigation drawer that is already showing its own contents. */
 const brandHeaderGround =
-  "bg-[radial-gradient(125%_165%_at_0%_0%,var(--brand-band-wash)_0%,transparent_60%),linear-gradient(180deg,var(--surface-lux)_0%,var(--surface-raised)_100%)]";
+  "bg-[radial-gradient(95%_105%_at_4%_0%,color-mix(in_oklab,var(--brand-band-wash)_45%,transparent)_0%,var(--brand-band-wash)_16%,transparent_74%),linear-gradient(180deg,var(--surface-lux)_0%,var(--surface-raised)_100%)]";
 /* Wordmark and strapline as one type pair, so the drawer and the sidebar cannot
  * drift into two different settings of the same two lines.
  *
@@ -224,7 +249,7 @@ const brandHeaderGround =
 const brandWordmark =
   "truncate text-lg font-extrabold leading-5 tracking-[var(--tracking-display)] text-[color:var(--text-heading)]";
 const brandStrapline = "block truncate text-xs font-medium leading-5 text-[color:var(--text-muted)]";
-const drawerHeader = `gap-x-3 border-[color:var(--border-lux)] px-4 py-3 shadow-[var(--shadow-inset)] sm:px-5 sm:py-3.5 ${brandHeaderGround}`;
+const drawerHeader = `-mt-[var(--safe-area-top)] gap-x-3 border-[color:var(--border-lux)] px-4 pb-3 pt-[calc(0.75rem+var(--safe-area-top))] sm:px-5 sm:pb-3.5 sm:pt-[calc(0.875rem+var(--safe-area-top))] ${brandHeaderGround}`;
 const drawerHeaderTitle = brandWordmark;
 /* Ghost close control, matching the collapsed rail's idiom (transparent border
  * that resolves on hover, so forced-colors still has an edge to paint) instead
@@ -708,7 +733,7 @@ export function ClinicalSidebarContent({
            that padding; both live in this file, a few hundred lines apart. */
         <div
           className={cn(
-            "-mx-4 -mt-4 flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--border-lux)] px-4 pb-3.5 pt-4 shadow-[var(--shadow-inset)]",
+            "-mx-4 -mt-4 flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--border-lux)] px-4 pb-3.5 pt-4",
             brandHeaderGround,
           )}
         >
