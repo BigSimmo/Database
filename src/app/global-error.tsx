@@ -21,7 +21,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
   }, [error]);
 
   return (
-    <html lang="en">
+    <html lang="en-AU">
       <body
         style={{
           margin: 0,
