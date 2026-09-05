@@ -47,10 +47,25 @@ export function isAtomicReindexCandidate(document: { status?: string | null; met
   return document.status === "indexed";
 }
 
+/**
+ * Mirror of the SQL predicate `public.is_committed_document_generation`:
+ *
+ *   select row_generation is null or row_generation = document_generation;
+ *
+ * Audit L11: the second arm used to fail OPEN in TypeScript — a document whose
+ * `metadata.index_generation_id` was absent accepted rows from ANY generation,
+ * while the SQL comparison against a NULL document generation yields NULL and
+ * excludes them. During the first atomic reindex of a legacy (never-stamped)
+ * indexed document, that let the document viewer interleave staged,
+ * uncommitted chunks/pages/images/table facts with the live ones — duplicate or
+ * half-built evidence on screen that `search_document_chunks` would never
+ * return. A row that carries a generation is committed only when the document
+ * names that same generation.
+ */
 export function isCommittedGenerationMetadata(args: { rowMetadata?: unknown; committedGeneration?: string | null }) {
   const rowGeneration = committedIndexGeneration(args.rowMetadata);
   if (!rowGeneration) return true;
-  if (!args.committedGeneration) return true;
+  if (!args.committedGeneration) return false;
   return rowGeneration === args.committedGeneration;
 }
 
