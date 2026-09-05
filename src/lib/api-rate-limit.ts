@@ -68,7 +68,15 @@ export type ApiRateLimitResult = {
   remaining: number;
   retryAfterSeconds: number;
   resetAt: string;
+  /**
+   * Which ceiling produced this decision. `anonymous_generation_ceiling` marks the
+   * aggregate all-anonymous provider-spend ceiling so the 429 can carry its own code
+   * rather than being read as an ordinary per-caller limit.
+   */
+  scope?: ApiRateLimitScope;
 };
+
+export type ApiRateLimitScope = "subject" | "anonymous_generation_ceiling";
 
 const apiRateLimitDefaults = {
   answer: { limit: 30, windowSeconds: 60 },
@@ -108,6 +116,52 @@ const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit:
   // leaving ample headroom for legitimate public browsing.
   registry: { limit: 60, windowSeconds: 60 },
 };
+
+/**
+ * Aggregate ceiling on ALL anonymous provider-backed generation, counted in one shared
+ * bucket across every anonymous caller and every generation route.
+ *
+ * The two tables above bound a single caller. They cannot bound total spend: an anonymous
+ * caller is identified only by a hashed forwarding IP, every caller without a trusted
+ * forwarding header shares one `unknown-ip` bucket, and each generation bucket carries its
+ * own separate all-anonymous ceiling (answer 30/min + clinical_ask 20/min +
+ * speech_transcription 12/min = 62 paid calls a minute before anything says no). Rotating
+ * network identities therefore multiply paid OpenAI calls without limit over an hour.
+ *
+ * Numbers, and why:
+ * - **300 requests per 3600 s**, shared by `answer`, `clinical_ask`, `speech_transcription`
+ *   and anonymous document summaries.
+ * - The per-minute per-bucket ceilings already bound bursts, so this window is deliberately
+ *   long: it is a sustained-spend cap, not a burst cap. 300/hour is ~5 paid calls a minute
+ *   sustained — far above ordinary anonymous browsing of a single-clinician reference site,
+ *   and roughly a twelfth of the 62/min the per-bucket ceilings alone would permit.
+ * - Denials are reported with {@link ANONYMOUS_GENERATION_CEILING_CODE} rather than the
+ *   generic `rate_limited`, so an operator reading logs can tell "one caller is hammering
+ *   us" from "the site as a whole has hit its anonymous spend ceiling".
+ * - Authenticated callers never consume or observe this ceiling; signing in is the
+ *   documented way past it.
+ *
+ * Raising these numbers raises the owner's maximum unauthenticated provider bill, so treat a
+ * change here as a spend decision, not a tuning knob.
+ */
+export const ANONYMOUS_GENERATION_CEILING = { limit: 300, windowSeconds: 3600 } as const;
+
+/** Single durable-limiter row shared by every anonymous generation call. */
+export const ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY = "anon:generation:aggregate";
+
+/** Bucket column value for the aggregate row; deliberately not an {@link ApiRateLimitBucket}. */
+export const ANONYMOUS_GENERATION_CEILING_BUCKET = "anonymous_generation";
+
+/** Distinct 429 code for aggregate-ceiling denials. */
+export const ANONYMOUS_GENERATION_CEILING_CODE = "anonymous_generation_ceiling";
+
+const ANONYMOUS_GENERATION_CEILING_MESSAGE =
+  "The shared limit for anonymous generated answers has been reached. Sign in to continue, or retry later.";
+
+/** Provider-backed generation buckets that count against the aggregate anonymous ceiling. */
+function isAnonymousGenerationBucket(bucket: ApiRateLimitBucket) {
+  return bucket === "answer" || bucket === "clinical_ask" || bucket === "speech_transcription";
+}
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -150,7 +204,7 @@ const durableApiRateLimitDenyCache = ((
   globalThis as GlobalWithRateLimitFallback
 ).__clinicalKbDurableApiRateLimitDenyCache ??= new Map<string, DurableRateLimitDenyCacheEntry>());
 
-function durableDenyCacheKey(identity: string, bucket: ApiRateLimitBucket) {
+function durableDenyCacheKey(identity: string, bucket: string) {
   return `${identity}:${bucket}`;
 }
 
@@ -163,7 +217,7 @@ function durableDenyCacheEnabled() {
   return true;
 }
 
-function tryReadDurableRateLimitDenyCache(identity: string, bucket: ApiRateLimitBucket): ApiRateLimitResult | null {
+function tryReadDurableRateLimitDenyCache(identity: string, bucket: string): ApiRateLimitResult | null {
   if (!durableDenyCacheEnabled()) return null;
   const key = durableDenyCacheKey(identity, bucket);
   const entry = durableApiRateLimitDenyCache.get(key);
@@ -182,7 +236,7 @@ function tryReadDurableRateLimitDenyCache(identity: string, bucket: ApiRateLimit
   };
 }
 
-function rememberDurableRateLimitDenyCache(identity: string, bucket: ApiRateLimitBucket, result: ApiRateLimitResult) {
+function rememberDurableRateLimitDenyCache(identity: string, bucket: string, result: ApiRateLimitResult) {
   if (!durableDenyCacheEnabled()) return;
   const key = durableDenyCacheKey(identity, bucket);
   if (!result.limited) {
@@ -279,6 +333,68 @@ export async function consumeApiRateLimit(args: {
 }
 
 /**
+ * Consumes one unit of the aggregate anonymous generation ceiling (see
+ * {@link ANONYMOUS_GENERATION_CEILING}). Shared by every anonymous provider-backed generation
+ * path so they all draw down the same durable row.
+ */
+async function consumeAnonymousGenerationCeiling(args: {
+  supabase: SupabaseAdmin;
+  allowInMemoryFallbackOnUnavailable: boolean;
+}): Promise<ApiRateLimitResult> {
+  const scope = "anonymous_generation_ceiling" as const;
+  const cached = tryReadDurableRateLimitDenyCache(
+    ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY,
+    ANONYMOUS_GENERATION_CEILING_BUCKET,
+  );
+  if (cached) return { ...cached, scope };
+
+  const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
+    p_subject_key: ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY,
+    p_bucket: ANONYMOUS_GENERATION_CEILING_BUCKET,
+    p_limit: ANONYMOUS_GENERATION_CEILING.limit,
+    p_window_seconds: ANONYMOUS_GENERATION_CEILING.windowSeconds,
+  });
+
+  const row = error ? null : parseRateLimitRow(data);
+  if (!row || typeof row.limited !== "boolean") {
+    // The ceiling exists to bound paid provider work, so an unreadable limiter must not open it.
+    // Only the explicitly permitted single-instance fallback may substitute a per-process count.
+    if (!args.allowInMemoryFallbackOnUnavailable) throw new ApiRateLimitUnavailableError();
+    sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_FALLBACK, {
+      bucket: ANONYMOUS_GENERATION_CEILING_BUCKET,
+      backend: "in_memory",
+      fallback: true,
+      event: "anonymous",
+    });
+    return {
+      ...consumeInMemoryApiRateLimit({
+        ownerId: ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY,
+        bucket: ANONYMOUS_GENERATION_CEILING_BUCKET,
+        limit: ANONYMOUS_GENERATION_CEILING.limit,
+        windowSeconds: ANONYMOUS_GENERATION_CEILING.windowSeconds,
+      }),
+      scope,
+    };
+  }
+
+  const result = {
+    limited: row.limited,
+    limit: Number(row.limit_value ?? ANONYMOUS_GENERATION_CEILING.limit),
+    remaining: Number(row.remaining ?? 0),
+    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? ANONYMOUS_GENERATION_CEILING.windowSeconds)),
+    resetAt: String(
+      row.reset_at ?? new Date(Date.now() + ANONYMOUS_GENERATION_CEILING.windowSeconds * 1000).toISOString(),
+    ),
+  } satisfies ApiRateLimitResult;
+  rememberDurableRateLimitDenyCache(
+    ANONYMOUS_GENERATION_CEILING_SUBJECT_KEY,
+    ANONYMOUS_GENERATION_CEILING_BUCKET,
+    result,
+  );
+  return { ...result, scope };
+}
+
+/**
  * Applies an API rate limit to an owner or anonymous subject.
  *
  * Anonymous requests to answer and document upload buckets are constrained by
@@ -319,13 +435,18 @@ export async function consumeSubjectApiRateLimit(args: {
   const defaults = anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket];
   const limit = args.limit ?? defaults.limit;
   const windowSeconds = args.windowSeconds ?? defaults.windowSeconds;
-  const consumeAnonymousLimit = async (subjectKey: string, requestedLimit: number, requestedWindowSeconds: number) => {
-    const denied = tryReadDurableRateLimitDenyCache(subjectKey, args.bucket);
+  const consumeAnonymousLimit = async (
+    subjectKey: string,
+    requestedLimit: number,
+    requestedWindowSeconds: number,
+    limiterBucket: string = args.bucket,
+  ) => {
+    const denied = tryReadDurableRateLimitDenyCache(subjectKey, limiterBucket);
     if (denied) return denied;
 
     const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
       p_subject_key: subjectKey,
-      p_bucket: args.bucket,
+      p_bucket: limiterBucket,
       p_limit: requestedLimit,
       p_window_seconds: requestedWindowSeconds,
     });
@@ -341,7 +462,7 @@ export async function consumeSubjectApiRateLimit(args: {
         });
         return consumeInMemoryApiRateLimit({
           ownerId: subjectKey,
-          bucket: args.bucket,
+          bucket: limiterBucket,
           limit: requestedLimit,
           windowSeconds: requestedWindowSeconds,
         });
@@ -360,7 +481,7 @@ export async function consumeSubjectApiRateLimit(args: {
         });
         return consumeInMemoryApiRateLimit({
           ownerId: subjectKey,
-          bucket: args.bucket,
+          bucket: limiterBucket,
           limit: requestedLimit,
           windowSeconds: requestedWindowSeconds,
         });
@@ -375,7 +496,7 @@ export async function consumeSubjectApiRateLimit(args: {
       retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? requestedWindowSeconds)),
       resetAt: String(row.reset_at ?? new Date(Date.now() + requestedWindowSeconds * 1000).toISOString()),
     } satisfies ApiRateLimitResult;
-    rememberDurableRateLimitDenyCache(subjectKey, args.bucket, result);
+    rememberDurableRateLimitDenyCache(subjectKey, limiterBucket, result);
     return result;
   };
 
@@ -404,6 +525,24 @@ export async function consumeSubjectApiRateLimit(args: {
   if (subjectResult.limited) return subjectResult;
   const globalResult = await consumeAnonymousLimit(globalKey, globalDefaults.limit, globalDefaults.windowSeconds);
   if (globalResult.limited) return globalResult;
+
+  // Aggregate provider-spend ceiling across every anonymous generation route. Consumed last so
+  // a caller already denied by a narrower limit does not also burn the shared allowance.
+  if (isAnonymousGenerationBucket(args.bucket)) {
+    const ceilingResult = await consumeAnonymousGenerationCeiling({
+      supabase: args.supabase,
+      allowInMemoryFallbackOnUnavailable: allowAnonymousRateLimitFallback(
+        args.bucket,
+        allowInMemoryFallbackOnUnavailable,
+      ),
+    });
+    if (ceilingResult.limited) return ceilingResult;
+    return {
+      ...subjectResult,
+      remaining: Math.min(subjectResult.remaining, globalResult.remaining, ceilingResult.remaining),
+    };
+  }
+
   return {
     ...subjectResult,
     remaining: Math.min(subjectResult.remaining, globalResult.remaining),
@@ -453,16 +592,27 @@ export async function consumeSummaryRateLimits(args: {
     throw new ApiRateLimitUnavailableError();
   }
 
-  return {
-    bucket: validBucket,
-    rateLimit: {
-      limited: row.limited,
-      limit: Number(row.limit_value ?? summaryDefaults.limit),
-      remaining: Number(row.remaining ?? 0),
-      retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? summaryDefaults.windowSeconds)),
-      resetAt: String(row.reset_at ?? new Date(Date.now() + summaryDefaults.windowSeconds * 1000).toISOString()),
-    },
+  const rateLimit: ApiRateLimitResult = {
+    limited: row.limited,
+    limit: Number(row.limit_value ?? summaryDefaults.limit),
+    remaining: Number(row.remaining ?? 0),
+    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? summaryDefaults.windowSeconds)),
+    resetAt: String(row.reset_at ?? new Date(Date.now() + summaryDefaults.windowSeconds * 1000).toISOString()),
   };
+
+  // Streamed summaries are provider-backed generation too, so anonymous ones draw down the same
+  // aggregate ceiling. Consumed after the atomic decision so a caller already denied by the answer
+  // or summary bucket does not also burn the shared allowance.
+  if (!rateLimit.limited && args.subject.kind === "anonymous") {
+    const ceiling = await consumeAnonymousGenerationCeiling({
+      supabase: args.supabase,
+      allowInMemoryFallbackOnUnavailable: false,
+    });
+    if (ceiling.limited) return { bucket: "answer", rateLimit: ceiling };
+    rateLimit.remaining = Math.min(rateLimit.remaining, ceiling.remaining);
+  }
+
+  return { bucket: validBucket, rateLimit };
 }
 
 function consumeInMemoryApiRateLimit({
@@ -472,7 +622,8 @@ function consumeInMemoryApiRateLimit({
   windowSeconds,
 }: {
   ownerId: string;
-  bucket: ApiRateLimitBucket;
+  // Plain string: the aggregate anonymous ceiling keys its own row and is not an API bucket.
+  bucket: string;
   limit: number;
   windowSeconds: number;
 }): ApiRateLimitResult {
@@ -515,9 +666,15 @@ export function rateLimitJsonResponse(
   rateLimit: ApiRateLimitResult,
   meta?: { bucket?: ApiRateLimitBucket },
 ) {
+  // An aggregate-ceiling denial is not the caller's own quota running out: it says the site as a
+  // whole has spent its anonymous generation allowance, and signing in is the way past it. Give it
+  // its own code and message so clients and logs can tell the two apart.
+  const hitAnonymousGenerationCeiling = rateLimit.scope === "anonymous_generation_ceiling";
+  const code = hitAnonymousGenerationCeiling ? ANONYMOUS_GENERATION_CEILING_CODE : "rate_limited";
+  const publicMessage = hitAnonymousGenerationCeiling ? ANONYMOUS_GENERATION_CEILING_MESSAGE : message;
   // Example wide event: denial counts by bucket without subject identifiers.
   sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMITED, {
-    code: "rate_limited",
+    code,
     status: 429,
     bucket: meta?.bucket,
     retry_after_seconds: rateLimit.retryAfterSeconds,
@@ -526,9 +683,9 @@ export function rateLimitJsonResponse(
   });
   return NextResponse.json(
     apiErrorPayloadSchema.parse({
-      error: message,
-      message,
-      code: "rate_limited",
+      error: publicMessage,
+      message: publicMessage,
+      code,
       details: {
         kind: "rate_limit",
         retryAfterSeconds: rateLimit.retryAfterSeconds,
