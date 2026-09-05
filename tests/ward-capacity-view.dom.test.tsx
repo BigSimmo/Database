@@ -60,9 +60,7 @@ vi.mock("next/link", () => ({
 
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { CapacityScreen } from "@/components/ward-management/capacity/capacity-screen";
-import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
-import { WARD_NAV } from "@/components/ward-management/ward-nav";
 import { NOW_ANCHOR, unitById } from "@/components/ward-management/ward-sites";
 
 /**
@@ -152,26 +150,29 @@ describe("ward capacity board", () => {
   });
 
   /*
-   * ⚠️ **STILL PARKED, AND STILL RENDERING THE DEAD MODE ON PURPOSE — see the file header.**
-   * A ward's sex mix is rendered by NOTHING reachable (every read of `unit.sexMix` in `src` is
-   * eligibility logic or the reducer), and specialling headroom likewise appears only as an
-   * eligibility gate for one named patient, never as a network figure. Whether either belongs on a
-   * capacity board is an owner question; the sex-mix half additionally overlaps Ward Lead's unbuilt
-   * sex-mix ruling and the unsettled question of whether `Unit.sexMix` or `derivedSexMix` is the
-   * honest source.
+   * RETIRED 2026-09-06 — "shows sex mix and specialling capacity per unit row — both directions".
+   * Recorded in `diff-integrity.json`. It was the LAST case in the repository still rendering
+   * `<WardModeWorkspace mode="capacity" />`, a surface no route reaches since capacity moved to
+   * `CapacityScreen`; every other case in this file already renders the live screen.
+   *
+   * ⚠️ **IT WAS RETIRED BECAUSE ITS SUBJECT WAS RULED OUT, NOT BECAUSE IT WAS INCONVENIENT.**
+   * `capacity-screen.tsx` carries the decision at the site it applies to: *"No sex mix appears here
+   * and none should: whether those counts belong on a network view is still an open question for
+   * the owner. What is said is only what a coordinator needs and what is safe to state."* A test
+   * asserting the counts DO appear is asserting the opposite of the ruling, and it could only stay
+   * green by pointing at a screen nobody can open.
+   *
+   * ⚠️ **WHAT IS GENUINELY LOST, STATED PLAINLY SO IT IS NOT DISCOVERED LATER AS A SURPRISE.** The
+   * live capacity screen shows a coordinator NO sex mix and NO specialling headroom. The old mode
+   * surface showed both. That is a real reduction in what a placement decision can see, it is an
+   * owner question and not a defect, and it is now recorded in three places rather than guarded by
+   * a green test about a dead screen: here, at the render site, and in the pull request.
+   *
+   * What survives and is guarded on the live screen is the SIGNAL rather than the data — the
+   * mid-update caution (`ward-capacity-mid-update-*`), which fires only when a ward's recorded
+   * male/female total disagrees with its occupancy. That is the safety half, and it has its own
+   * coverage in `ward-capacity-sexmix-release.dom.test.tsx`.
    */
-  it("shows sex mix and specialling capacity per unit row — both directions", () => {
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
-      </WardFlowProvider>,
-    );
-
-    expect(screen.getByTestId("ward-capacity-sexmix-sjgs-adult-secure")).toHaveTextContent("Female 4 · Male 3");
-    expect(screen.getByTestId("ward-capacity-specialling-sjgs-adult-secure")).toHaveTextContent("0");
-    expect(screen.getByTestId("ward-capacity-sexmix-scgh-adult-open")).toHaveTextContent("Female 10 · Male 9");
-    expect(screen.getByTestId("ward-capacity-specialling-scgh-adult-open")).toHaveTextContent("3");
-  });
 
   /*
    * RETIRED 2026-09-05 — "replaces the per-unit row's undifferentiated Potential lump with its own

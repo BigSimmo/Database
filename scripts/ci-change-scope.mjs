@@ -124,7 +124,15 @@ const mockupPatterns = [
   // ("editing that spec would leave advisory_ui_changed=false and the journey unrun") — repaired
   // here rather than by widening the guard, which is the second time this exact drift has been
   // caught by it and the second time the repair is one alternative in this list.
-  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning|referrals|forced-colors)\.spec\.ts$/,
+  //
+  // `search`, `statistics-compare` and `table-thresholds` added 2026-09-06 — the THIRD occurrence,
+  // and this one arrived three specs at a time because the integration merge resolved
+  // playwright.config.ts's `mockupSpecPattern` as a union of both sides while this list was not in
+  // that conflict at all, so nothing marked the divergence. `assertMockupSpecParity` named
+  // `ui-ward-search.spec.ts` and CI's `Static PR checks` went red on it. Three occurrences of one
+  // drift by one mechanism is the argument for deriving this alternation from
+  // `mockupSpecPattern` rather than restating it; that refactor is not this change.
+  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning|referrals|forced-colors|search|statistics-compare|table-thresholds)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {

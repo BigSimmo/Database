@@ -78,21 +78,31 @@ describe("the Ward Flow design language holds across every Ward Flow stylesheet"
    * ⚠️ PINNED, NOT CAPPED — following the shape already established in
    * tests/ward-primitives-shared.test.ts (`KNOWN_BACKLOG`). A `<=` count survives a violation
    * moving between files and survives a broken walk returning fewer files; a named list fails on
-   * either. Measured 2026-09-04 against the stylesheets that exist today; two of the five hits are
-   * a PR-number reference inside a comment (`#2384`) and a border colour keyword, not necessarily
-   * new fork colours — they are recorded exactly as the regex measures them, because that is what
-   * this guard polices, and fixing the regex to parse CSS comments is a larger change this task
-   * does not make.
+   * either.
+   *
+   * ✅ **EMPTY SINCE 2026-09-06, BECAUSE THE DEBT IS PAID — AND IT HAD BEEN PAID FOR SOME TIME
+   * WITHOUT ANYTHING SAYING SO.** It held five entries measured on 2026-09-04. Re-measured with
+   * this guard's OWN regex against the same 51 stylesheets: **zero offenders.** Not one of the
+   * five still matched. The hexes had gone into `/* *\/` comments documenting measured contrast
+   * ratios, or were never colours at all — `#2384` is a PR number.
+   *
+   * 🔴 **A STALE ALLOWLIST CANNOT FAIL, AND THIS ONE WAS READ AS A DEBT REGISTER.**
+   * `surprises = offenders.filter((o) => !KNOWN_HEX_BACKLOG.includes(o))` is empty whenever
+   * `offenders` is empty, so every entry could rot indefinitely with the test green. Meanwhile the
+   * list still READS as "five ward stylesheets bypass the token layer", which is what a person
+   * sizing tokenisation debt would take from it. **The cost of a stale allowlist is not a weak
+   * guard; it is the plan somebody makes from reading it** — on 2026-09-06 a sweep across these
+   * stylesheets was scoped and then dropped once four chats measured the tree and found nothing to
+   * tokenise. I am not claiming this list produced that figure; I did not see how it was reached,
+   * and the coordinator says it verified the count separately. What is measured here is only that
+   * the list is stale and that nothing in the suite would ever have said so.
+   *
+   * The staleness check below is what stops it happening again, and it is the same shape
+   * `tests/ward-nav.test.ts` already uses for `WARD_NAV_INTENTIONALLY_UNLISTED`.
    */
-  const KNOWN_HEX_BACKLOG = [
-    `${join(ROOT, "board", "board.module.css")}: #ff9ca4 #fff #000`,
-    `${join(ROOT, "handover", "handover.module.css")}: #12161a #0e1216`,
-    `${join(ROOT, "morning", "morning.module.css")}: #12161a #0e1216`,
-    `${join(ROOT, "referrals", "referrals.module.css")}: #101315`,
-    `${join(ROOT, "ward-management-modes.module.css")}: #2384`,
-  ];
+  const KNOWN_HEX_BACKLOG: readonly string[] = [];
 
-  it("uses no raw hex outside the token layer beyond the known backlog", () => {
+  function hexOffenders(): string[] {
     const offenders: string[] = [];
     for (const file of CSS) {
       if (file === TOKEN_FILE) continue;
@@ -107,7 +117,11 @@ describe("the Ward Flow design language holds across every Ward Flow stylesheet"
       );
       if (hex.length) offenders.push(`${file}: ${hex.slice(0, 4).join(" ")}`);
     }
-    const surprises = offenders.filter((o) => !KNOWN_HEX_BACKLOG.includes(o));
+    return offenders;
+  }
+
+  it("uses no raw hex outside the token layer beyond the known backlog", () => {
+    const surprises = hexOffenders().filter((o) => !KNOWN_HEX_BACKLOG.includes(o));
     expect(surprises, `new raw hex not in KNOWN_HEX_BACKLOG: ${surprises.join("\n")}`).toEqual([]);
   });
 
@@ -136,12 +150,49 @@ describe("the Ward Flow design language holds across every Ward Flow stylesheet"
    */
   const KNOWN_FONT_BACKLOG = [join(ROOT, "board", "board.module.css")];
 
+  function fontOffenders(): string[] {
+    return CSS.filter((f) => f !== TOKEN_FILE && /font-family:\s*(?!var\()\S/u.test(readFileSync(f, "utf8")));
+  }
+
   it("declares no font-family outside the token layer beyond the known backlog", () => {
-    const offenders = CSS.filter(
-      (f) => f !== TOKEN_FILE && /font-family:\s*(?!var\()\S/u.test(readFileSync(f, "utf8")),
-    );
-    const surprises = offenders.filter((o) => !KNOWN_FONT_BACKLOG.includes(o));
+    const surprises = fontOffenders().filter((o) => !KNOWN_FONT_BACKLOG.includes(o));
     expect(surprises, `new font-family(s) not in KNOWN_FONT_BACKLOG: ${surprises.join("\n")}`).toEqual([]);
+  });
+
+  /**
+   * 🔴 **THE HALF THAT WAS MISSING: AN ALLOWLIST NOBODY EVER CHECKS BACK AGAINST REALITY.**
+   *
+   * Both lists above are subtracted from a live measurement, so an entry that stops matching
+   * anything makes the test no weaker — and no louder. It simply stays, and keeps describing debt
+   * that has been paid. **On 2026-09-06 all five hex entries were stale and the suite was green.**
+   *
+   * ⚠️ **IT DISCRIMINATES, and that was checked rather than assumed.** Run on the day it was
+   * written: the five hex entries were stale and the one font entry — `board.module.css`, which
+   * really does still declare `font-family: inherit` three times — was NOT. A check that called
+   * every backlog stale would be worthless, and this one does not.
+   *
+   * The floor is on the entries WALKED, not on how many are stale: a floor on staleness goes red
+   * the day somebody clears the last one, which is the outcome this check exists to produce.
+   */
+  it("carries no backlog entry that has stopped matching anything — a paid debt leaves the list", () => {
+    const walked = [
+      ...KNOWN_HEX_BACKLOG.map((entry) => ({ list: "KNOWN_HEX_BACKLOG", entry, live: hexOffenders() })),
+      ...KNOWN_FONT_BACKLOG.map((entry) => ({ list: "KNOWN_FONT_BACKLOG", entry, live: fontOffenders() })),
+    ];
+    expect(
+      walked.length,
+      "both backlogs are empty, so this check walks nothing. That is a legitimate state — the debt " +
+        "is cleared — but say so here rather than leaving a check that cannot fail.",
+    ).toBeGreaterThan(0);
+
+    const stale = walked
+      .filter(({ entry, live }) => !live.includes(entry))
+      .map(({ list, entry }) => `${list}: ${entry}`);
+    expect(
+      stale,
+      "these entries record debt that no longer exists. Delete them: while they stand, the list " +
+        "reads as a register of files that bypass the token layer, and somebody will size work from it.",
+    ).toEqual([]);
   });
 });
 
