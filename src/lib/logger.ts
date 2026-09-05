@@ -10,8 +10,13 @@ const MAX_STRING_LENGTH = 512;
 const MAX_DEPTH = 5;
 
 // Keys whose values may carry secrets or PII. Matched case-insensitively as substrings.
+// `query`, `question` and `answer` are deliberately unanchored: `_` and letters are
+// word characters, so a `\b`-bounded `query` matched the bare key only and let
+// `queryText`, `query_text`, `rawQuery`, `normalizedQuery`, `answerText` and
+// `answer_text` through. Over-redacting a `queryMode`-style label is the accepted
+// cost of a redaction layer that does not depend on call-site discipline.
 const SENSITIVE_KEY =
-  /authorization|cookie|token|secret|api[-_]?key|password|service[-_]?role|email|\bquery\b|prompt|\bcontent\b|\banswer\b|patient|\bmrn\b/i;
+  /authorization|cookie|token|secret|api[-_]?key|password|service[-_]?role|email|query|question|prompt|\bcontent\b|answer|patient|\bmrn\b/i;
 
 const SENSITIVE_VALUE_PATTERN = /\b(?:mrn|ur|unit\s*no\.?)\s*[:#]?\s*\d{6,10}\b|\b\d{3}\s\d{3}\s\d{4}\b/i;
 
