@@ -29,7 +29,7 @@ describe("services safety routing", () => {
     );
   });
 
-  it("never pins planned, closed, superseded or legacy-unverified services as an immediate route", () => {
+  it("never pins planned, closed, superseded or temporarily-unavailable services as an immediate route", () => {
     const matches = rankServiceRecords(
       serviceRecords,
       "15-year-old actively suicidal in Bunbury tonight",
@@ -39,8 +39,17 @@ describe("services safety routing", () => {
     );
     const pinned = matches.filter(({ reasons }) => reasons.includes("urgent route"));
     expect(pinned.length).toBeGreaterThan(0);
-    for (const { service } of pinned) {
-      expect(service.verification?.availabilityStatus ?? "active").toBe("active");
+    for (const { service, reasons } of pinned) {
+      const status = service.verification?.availabilityStatus ?? "active";
+      // A camhs_crisis match is allowed to stay pinned when it is only "unknown" (not yet
+      // re-verified) rather than a confirmed non-active status — see service-urgent-routing.ts.
+      // Every other urgent intent still requires a fully active, confirmed status.
+      const isCamhsCrisis = reasons.includes("camhs crisis");
+      if (isCamhsCrisis) {
+        expect(["active", "unknown"]).toContain(status);
+      } else {
+        expect(status).toBe("active");
+      }
     }
   });
 });
@@ -67,5 +76,31 @@ describe("services provenance presentation", () => {
     expect(nonActive).toBeTruthy();
     const record = catalogToServiceRecord(nonActive!);
     expect(record.source?.status).not.toBe("Source checked");
+  });
+
+  it("splits a composite Metro/Peel phone contact into separately-dialable numbers", () => {
+    const snapshot = loadServicesSnapshot();
+    const mherl = snapshot.services.find((service) => service.name.includes("Mental Health Emergency Response Line"));
+    expect(mherl).toBeTruthy();
+
+    const record = catalogToServiceRecord(mherl!);
+    const phoneContacts = record.contacts?.filter((contact) => contact.kind === "phone") ?? [];
+    expect(phoneContacts.length).toBe(2);
+    const compact = phoneContacts.map((contact) => contact.value?.replace(/[^\d+]/g, ""));
+    expect(compact).toEqual(["1300555788", "1800676822"]);
+    // Never a single contact holding both numbers concatenated into one undialable string.
+    expect(compact.every((value) => value !== "13005557881800676822")).toBe(true);
+  });
+
+  it("splits a composite Metro/Country phone contact into separately-dialable numbers", () => {
+    const snapshot = loadServicesSnapshot();
+    const aod = snapshot.services.find((service) => service.name === "Alcohol and Drug Support Line");
+    expect(aod).toBeTruthy();
+
+    const record = catalogToServiceRecord(aod!);
+    const phoneContacts = record.contacts?.filter((contact) => contact.kind === "phone") ?? [];
+    expect(phoneContacts.length).toBe(2);
+    const compact = phoneContacts.map((contact) => contact.value?.replace(/[^\d+]/g, ""));
+    expect(compact).toEqual(["0894425000", "1800198024"]);
   });
 });

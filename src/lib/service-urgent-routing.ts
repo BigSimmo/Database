@@ -65,9 +65,16 @@ const TAG_MATCHERS: Record<ServiceUrgentIntent, RegExp[]> = {
   suicide_postvention: [/postvention/i, /bereavement.*suicid/i, /support after suicide/i],
 };
 
-function serviceIsCurrentlyUsable(service: ServiceRecord): boolean {
+function serviceIsCurrentlyUsable(service: ServiceRecord, intent: ServiceUrgentIntent): boolean {
   const status = service.verification?.availabilityStatus;
-  if (status && status !== "active") return false;
+  if (status && status !== "active") {
+    // "unknown" means the record has not yet been re-verified — it is not the same signal as
+    // a confirmed non-active status (planned/closed/superseded/temporarily_unavailable). Don't
+    // let that verification gap silently drop an urgent CAMHS-crisis match; every other urgent
+    // intent still requires a fully active, confirmed status.
+    const isUnverifiedCamhsCrisis = status === "unknown" && intent === "camhs_crisis";
+    if (!isUnverifiedCamhsCrisis) return false;
+  }
 
   const labels = (service.statusChips ?? []).map((chip) => chip.label?.toLowerCase() ?? "");
   return !labels.some((label) =>
@@ -79,7 +86,7 @@ function findFirstUsable(records: readonly ServiceRecord[], intent: ServiceUrgen
   const titleMatchers = TITLE_MATCHERS[intent];
   const tagMatchers = TAG_MATCHERS[intent];
   return records.find((service) => {
-    if (!serviceIsCurrentlyUsable(service)) return false;
+    if (!serviceIsCurrentlyUsable(service, intent)) return false;
     if (titleMatchers.some((pattern) => pattern.test(service.title))) return true;
     return (service.tags ?? []).some((tag) => tagMatchers.some((pattern) => pattern.test(tag)));
   });

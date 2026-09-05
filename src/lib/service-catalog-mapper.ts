@@ -147,6 +147,25 @@ function buildContacts(service: CatalogService): ServiceContact[] {
   if ((service.structured_contacts?.length ?? 0) > 0) {
     for (const contact of service.structured_contacts ?? []) {
       const kind = contactKind(contact.kind, contact.value);
+      // Some governed structured contacts pack multiple destinations into one string
+      // (e.g. MHERL's Metro/Peel numbers, the AOD support line's Metro/Country numbers).
+      // A single "phone" contact there would strip to a concatenated, undialable tel:
+      // link. Split into one contact per number actually found — never fabricate a
+      // number, so a value with 0 or 1 extractable phones is left exactly as before.
+      if (kind === "phone") {
+        const phones = extractPhones(contact.value);
+        if (phones.length > 1) {
+          phones.forEach((phone, index) => {
+            contacts.push({
+              label: contact.label ? `${contact.label} ${index + 1}` : `Phone ${index + 1}`,
+              value: phone,
+              detail: hours,
+              kind: "phone",
+            });
+          });
+          continue;
+        }
+      }
       contacts.push({
         label: contact.label || (kind === "unknown" ? "Contact" : kind[0].toUpperCase() + kind.slice(1)),
         value: contact.value,
