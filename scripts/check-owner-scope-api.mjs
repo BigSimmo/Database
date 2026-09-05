@@ -48,20 +48,30 @@ import { fileURLToPath } from "node:url";
 import { emptyTierNames, scanRpcDispatch, scanTenancy } from "./lib/tenancy-scan.mjs";
 
 // Recognised owner-scoping constructs. If any appears in the enclosing handler of an
-// owner-scoped `.from(...)`, that query is considered scoped. `owner_id` (as a substring)
-// covers `.eq("owner_id"...)`, `.is("owner_id"...)`, `.or("owner_id.eq...")`, insert/update
-// `owner_id:` payloads, and `documents.owner_id` inner-join predicates. The named helpers
-// cover the cases where scoping is delegated to a shared primitive.
+// owner-scoped `.from(...)`, that query is considered scoped. These are FILTER shapes,
+// not the bare `owner_id` substring the guard accepted until audit L47: a projection such
+// as `.select("id,owner_id,title")`, a comment, or an unrelated object key all contain the
+// substring and none of them scopes anything. Recognised:
+//   - a filter call naming the column: `.eq("owner_id"`, `.is("owner_id"`, `.in("owner_id"`,
+//     `.neq/.not/.match/.filter("owner_id"`, and the `documents.owner_id` inner-join form
+//   - PostgREST filter strings: `owner_id.eq.`, `owner_id.is.`, `owner_id.in.`
+//   - an `owner_id:` insert/update payload key (a write is scoped by what it writes)
+//   - a `documents!inner(owner_id)` join projection, which only makes sense with the
+//     `documents.owner_id` predicate that follows it
+// The named helpers cover the cases where scoping is delegated to a shared primitive.
 const SCOPE_TOKENS = [
-  "owner_id",
-  "withOwnerReadScope",
-  "requireOwnerScope",
-  "retrievalOwnerFilter",
-  "requireOwnedDocument",
-  "loadOwnedDocument",
-  "ownedDocumentId",
-  "assertGlobalSearchAllowed",
-  "resolveSearchScope",
+  /\.(?:eq|neq|is|in|not|match|filter)\(\s*["'`](?:documents\.)?owner_id["'`]/,
+  /\bowner_id\.(?:eq|is|in|neq)\./,
+  /\bowner_id\s*:/,
+  /documents!inner\(owner_id\)/,
+  /\bwithOwnerReadScope\b/,
+  /\brequireOwnerScope\b/,
+  /\bretrievalOwnerFilter\b/,
+  /\brequireOwnedDocument\b/,
+  /\bloadOwnedDocument\b/,
+  /\bownedDocumentId\b/,
+  /\bassertGlobalSearchAllowed\b/,
+  /\bresolveSearchScope\b/,
 ];
 
 // Intentional exceptions: a handler that queries an owner-scoped table where ownership
@@ -201,7 +211,7 @@ export function analyzeFile(file, text, ownerTables) {
     // ownership is enforced by the handler(s) that call them within the same file (e.g. a
     // `selectLabels` helper reached only after `requireOwnedDocument`).
     const scopeText = segment && segment.isHandler ? segment.text : text;
-    const scoped = SCOPE_TOKENS.some((tok) => scopeText.includes(tok));
+    const scoped = SCOPE_TOKENS.some((tok) => tok.test(scopeText));
     if (!scoped) violations.push({ file, table, line: lineNo });
   }
   return violations;
@@ -291,6 +301,36 @@ function runSelfTest() {
     analyzeFile("fixture-nested.ts", nestedLeak, ownerTables).length === 1,
     "nested helper / sibling handler must not mask an unscoped query",
   );
+
+  // The substring shape the guard used to accept (audit L47): a projection that merely
+  // NAMES owner_id is not an owner filter, and neither is a comment. Both must be flagged.
+  const selectListOnly = `export async function GET(request) {
+    // owner_id is returned to the client for display
+    const { data } = await supabase.from("documents").select("id,owner_id,title");
+    return NextResponse.json({ data });
+  }`;
+  expect(
+    analyzeFile("fixture-select-list.ts", selectListOnly, ownerTables).length === 1,
+    "select-list-only handler should be flagged",
+  );
+
+  // Every filter construct the codebase uses to scope a query must still pass.
+  const filterShapes = [
+    `.is("owner_id", null)`,
+    `.in("owner_id", [user.id])`,
+    `.or("owner_id.eq." + user.id)`,
+    `.eq("documents.owner_id", user.id)`,
+    `.select("id, documents!inner(owner_id)").eq("documents.owner_id", user.id)`,
+    `.insert({ owner_id: user.id, title })`,
+    `.eq('owner_id', user.id)`,
+  ];
+  for (const shape of filterShapes) {
+    const scopedShape = `export async function POST(request) {
+      const { data } = await supabase.from("documents")${shape};
+      return NextResponse.json({ data });
+    }`;
+    expect(analyzeFile("fixture-shape.ts", scopedShape, ownerTables).length === 0, `${shape} handler should pass`);
+  }
 
   // A non-owner-scoped table is not PHASE 1's concern — it has no owner_id column to filter
   // on. This is blind spot A, and it is closed by phase 2's derived-tier inventory, not by

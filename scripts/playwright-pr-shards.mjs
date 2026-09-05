@@ -65,7 +65,9 @@ export const prUiSpecProfiles = Object.freeze([
   // `tools-show-all` while this matcher still said only `tools` — so the spec was a production
   // journey that belonged to no shard. Zero timing follows the convention above: keep it on the
   // lightest measured shard until hosted timing is available, and replace this at the next
-  // refresh. A spec wired into no gate is a spec that never runs.
+  // refresh. A spec wired into no gate is a spec that never runs — the spec (PR #2008) was
+  // collected by NO project from 2026-08-16 until audit M32, and the two-way parity test in
+  // tests/playwright-pr-shards.test.ts now fails on that shape.
   { file: "tests/ui-tools-show-all.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Critical-only acceptance coverage; the required critical job owns its runtime.
   { file: "tests/ui-clinical-ask.spec.ts", shard: 1, fullSeconds: 1, criticalSeconds: 1 },
