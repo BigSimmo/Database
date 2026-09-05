@@ -45,7 +45,7 @@ import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/u
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
-import { interpretSmartSearch, isSmartLocalOnlyMode, isSmartNaturalSearchMode } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, isSmartLocalOnlyMode } from "@/lib/smart-search-intent";
 
 // Domains whose live result totals a cross-mode chip should sum. Answer/favourites
 // chips have no countable domain; the
@@ -174,17 +174,18 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
   );
 }
 
-function SmartRotatingHint({
+function ExampleTicker({
   examples,
   modeLabel,
-  showSmartLine,
+  showLine,
   showPhoneTicker,
   onPickExample,
 }: {
   examples: string[];
   modeLabel: string;
-  /** Smart is a provider-free capability of the supported catalogue modes. */
-  showSmartLine: boolean;
+  /** Tablet/desktop rotating "Try …" line above the pill. Mode-home hero only. */
+  showLine: boolean;
+  /** Compact tappable ticker below an in-flow phone home composer. */
   showPhoneTicker: boolean;
   onPickExample: (example: string) => void;
 }) {
@@ -193,7 +194,7 @@ function SmartRotatingHint({
   const [isTickerHeld, setIsTickerHeld] = useState(false);
   const activeExample = examples[activeExampleIndex % examples.length];
 
-  const visible = showSmartLine || showPhoneTicker;
+  const visible = showLine || showPhoneTicker;
 
   useEffect(() => {
     if (!visible) return;
@@ -221,12 +222,13 @@ function SmartRotatingHint({
 
   return (
     <>
-      {showSmartLine ? (
-        <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text">
-          <span>Smart search</span>
-          <span aria-hidden="true">·</span>
+      {showLine ? (
+        // One wording for every mode. It carries no "Smart" promise, so the
+        // dormant modes (Documents, Answer, Favourites) can share the exact
+        // same home composer as the catalogue modes.
+        <div data-testid="search-example-ticker" className="search-example-ticker">
           <span>
-            Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
+            Try <span className="search-example-ticker-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
           </span>
         </div>
       ) : null}
@@ -470,6 +472,7 @@ export function UniversalSearchCommandSurface({
   onListboxIdReady,
   onActiveItemIdChange,
   showPhoneSuggestionTicker = false,
+  showHomeSuggestions = false,
   placement = "inline",
   children,
 }: {
@@ -492,6 +495,13 @@ export function UniversalSearchCommandSurface({
   onActiveItemIdChange?: (activeItemId: string | null) => void;
   /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
   showPhoneSuggestionTicker?: boolean;
+  /**
+   * Show the tablet/desktop home helpers: the rotating "Try …" line above the
+   * pill and the "Prompts" chip rail below it. Only the mode-home hero composer
+   * opts in; submitted result views, page slots, and the answer dock render the
+   * pill alone so every mode's results page carries one compact search bar.
+   */
+  showHomeSuggestions?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -1112,12 +1122,13 @@ export function UniversalSearchCommandSurface({
     >
       <SmartIntentCue active={smartNaturalSearch} modeLabel={mode.label} />
       {smartNaturalSearch ? null : (
-        // The phone ticker and desktop line both demonstrate deterministic
-        // catalogue search. Neither depends on Clinical Ask or a provider flag.
-        <SmartRotatingHint
+        // The phone ticker and the tablet/desktop line both demonstrate an
+        // ordinary example search. Neither depends on Clinical Ask or a
+        // provider flag, and both are home-only.
+        <ExampleTicker
           examples={config.examples}
           modeLabel={mode.label}
-          showSmartLine={isSmartNaturalSearchMode(modeId)}
+          showLine={showHomeSuggestions}
           showPhoneTicker={showPhoneSuggestionTicker}
           onPickExample={(example) => {
             onQueryChange(example);
@@ -1180,14 +1191,16 @@ export function UniversalSearchCommandSurface({
           />
         ) : null}
       </div>
-      <SmartPromptRow
-        examples={config.examples}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          if (dropdownDisplayable) onDropdownOpenChange(true);
-          onFocusSearchInput?.();
-        }}
-      />
+      {showHomeSuggestions ? (
+        <SmartPromptRow
+          examples={config.examples}
+          onPickExample={(example) => {
+            onQueryChange(example);
+            if (dropdownDisplayable) onDropdownOpenChange(true);
+            onFocusSearchInput?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
