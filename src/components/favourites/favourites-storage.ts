@@ -1,7 +1,15 @@
 "use client";
 
-export const DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY = "database:favourites:last-opened-v1";
-export const DATABASE_FAVOURITES_PINNED_STORAGE_KEY = "database:favourites:pinned-v1";
+import {
+  DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY,
+  DATABASE_FAVOURITES_PINNED_STORAGE_KEY,
+  subscribeAccountTransition,
+} from "@/lib/account-scoped-browser-state";
+
+// The keys are defined beside the auth provider's account-transition clear
+// (src/lib/account-scoped-browser-state.ts), which removes them without
+// importing this module; re-exported so existing importers keep one name.
+export { DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY, DATABASE_FAVOURITES_PINNED_STORAGE_KEY };
 
 const DEFAULT_PINNED_ITEM_IDS = ["acamprosate-renal-screen", "lithium-monitoring-guideline"];
 
@@ -149,6 +157,37 @@ export function toggleFavouritePinnedId(itemId: string): Set<string> {
   notifyListeners();
   return current;
 }
+
+// Account-transition clear (sign-out, session expiry, user change). Both keys
+// are global and carry no owner id, so on a shared workstation they would
+// otherwise tell the next clinician which items the previous one opened and
+// order the Favourites library by someone else's usage (2026-09-02 audit, L2).
+// Resets the memoised caches too — a `storage` event only fires in *other*
+// tabs — and notifies subscribers so a mounted library re-reads honest absence.
+export function clearFavouritesStorage(): void {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem(DATABASE_FAVOURITES_LAST_OPENED_STORAGE_KEY);
+      localStorage.removeItem(DATABASE_FAVOURITES_PINNED_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors; the caches are dropped regardless.
+    }
+  }
+  dropCachesAndNotify();
+}
+
+function dropCachesAndNotify(): void {
+  inMemoryLastOpened = null;
+  inMemoryPinned = null;
+  notifyListeners();
+}
+
+// The auth provider is a lib module and cannot import this one, so it removes
+// the keys itself and announces the transition on `window`; this module only
+// has to forget what it memoised and tell its subscribers. Registered at load,
+// not on first subscribe: a cache filled by an earlier mount must not survive
+// the transition just because nothing was subscribed at the time.
+subscribeAccountTransition(dropCachesAndNotify);
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
