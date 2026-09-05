@@ -1,52 +1,45 @@
 /**
- * 🔴 **THIS FILE IS STILL RED IN `ward-mode-workspace-reachability.test.ts`, ON PURPOSE. TWO CASES
- * REMAIN POINTED AT THE DEAD MODE AND MUST NOT BE MADE GREEN BY DELETING THEM.**
+ * 🔴 **ONE CASE HERE STILL RENDERS THE DEAD MODE, ON PURPOSE. IT IS THE LAST ONE IN THE
+ * REPOSITORY, AND IT MUST NOT BE MADE GREEN BY DELETING IT.**
  *
- * It began with 13 cases against `<WardModeWorkspace mode="capacity" />`, the mode MERGE 02
- * replaced with `CapacityScreen`. It now holds six: four against the live screen, two parked.
- * Every reduction is recorded in `diff-integrity.json`, and each note below names the mutation that
- * proved its claim — because "the subject moved" and "the subject is guarded where it moved to" are
- * different claims and only the second is worth retiring on.
+ * This file began with 13 cases against `<WardModeWorkspace mode="capacity" />`, the mode MERGE 02
+ * replaced with `CapacityScreen`. It now holds five: four against the live screen, and one parked.
+ * Every reduction is recorded in `diff-integrity.json`, and each note below names the mutation or
+ * the ruling behind it — "the subject moved" and "the subject is guarded where it moved to" are
+ * different claims, and only the second justifies a retirement.
  *
- * ## The four that are now live, and three of them are live because the SCREEN was changed
+ * ## What happened to the other eight
  *
- * The owner approved four of the five open questions on 2026-09-05, so the honest resolution
- * stopped being "retire or park" and became "build it, then re-point":
+ * Three retired because their subject moved to `ward-screen.tsx` at `/ward/[unitId]` and was
+ * PROVED guarded there by mutation. Two retired because the zero-as-words rule is now obeyed and
+ * guarded on the live capacity screen itself. One re-pointed into
+ * `ward-bed-release.dom.test.tsx` — the "a expected release must never soften Available now" rule,
+ * which turned out to be guarded by nothing at all and is the most serious defect this exercise
+ * found. Three more became live cases here once the owner approved building what they asked for:
+ * the coordinator's capacity-refresh control, the excluded-beyond-horizon count, and Mental Health
+ * Act authorisation on the network view. And the six-figure headline retired on the owner's own
+ * ruling — leave the strip out.
  *
- *   - **The coordinator's capacity-refresh control** was rebuilt on `CapacityScreen`. It had been
- *     lost by ACCIDENT, not by decision: `REQUEST_CAPACITY_REFRESH` was dispatched from exactly one
- *     place in the codebase — the retired capacity view — while the event type, the reducer case,
- *     the provider list and the ward-side DISPLAY of a request all kept working. A field with no
- *     producer, invisible to every gate because each half was individually correct.
- *   - **The excluded-beyond-horizon count** was built (`releasesBeyondToday`) and is stated on the
- *     screen. A bed freeing after today is correctly left out of every figure; being left out of a
- *     figure is not the same as being unmentioned.
- *   - **A ward's Mental Health Act authorisation** was added to the network view. ⚠️ It was never
- *     wholly lost — `ward/ward-screen.tsx` and `coordinator/flow-diagram.tsx` both render it. What
- *     the fold lost is seeing it for every ward AT ONCE, which is the question a capacity board
- *     answers and a per-ward page cannot.
- *   - **A zero stated in words** was fixed on the screen, and its two cases RETIRED rather than
- *     re-pointed, because `ward-capacity-screen.dom.test.tsx` now guards the claim for every row
- *     including both directions on the absence. A second guard over one fact drifts from the first.
+ * ## The one that remains, and why it is not unfinished tidying
  *
- * ## The two that remain parked, and why neither is unfinished tidying
+ * **A ward's sex mix and its specialling headroom, as FIGURES, on a network view.** Every read of
+ * `unit.sexMix` in `src/` is eligibility logic or the reducer; no screen states a ward's
+ * male/female counts. `ward-board.tsx` shows each occupant's own sex on their row, so the fact is
+ * reachable one patient at a time. Specialling appears only as an eligibility gate for one named
+ * patient.
  *
- *   1. **A ward's sex mix, and its specialling headroom, on a network view.** Every read of
- *      `unit.sexMix` in `src/` is eligibility logic or the reducer — no screen states a ward's
- *      male/female counts. `ward-board.tsx` shows each occupant's own sex on their row, so the fact
- *      is reachable one patient at a time. Specialling appears only as an eligibility gate for one
- *      named patient. ⚠️ The sex-mix half additionally overlaps Ward Lead's unbuilt sex-mix ruling
- *      AND an unsettled question of source: `ward-board-derivations.ts` carries `derivedSexMix`,
- *      whose own comment says it "replaces the hand-maintained `Unit.sexMix`". Building this
- *      without settling that first is how the two come to disagree.
- *   2. **The six-figure headline that never shows a sum.** `CapacityScreen` has no headline of that
- *      shape, so the structural guard against a seventh "total" card has nothing to stand over.
- *      **The owner made no ruling on this one and none was read into his silence.**
+ * ⚠️ **THE SEX-MIX *SIGNAL* IS BUILT AND IS NOT WHAT THIS CASE IS ABOUT.** `CapacityScreen` now
+ * says *"this ward's bed records are mid-update — this figure may not be settled"* when a ward's
+ * recorded total and its occupancy disagree, and `ward-capacity-sexmix-release.dom.test.tsx`
+ * guards it against the live screen. That was Ward Lead's ruling: carry the SIGNAL, not the data.
+ * **Whether the DATA belongs on a network view is a separate question the owner has not been
+ * asked**, and building it would answer it on his behalf.
  *
- * ⚠️ **DO NOT "FIX" EITHER BY POINTING IT AT `CapacityScreen`.** Both would fail, and the tempting
+ * ⚠️ **DO NOT "FIX" THIS BY POINTING IT AT `CapacityScreen`.** It would fail, and the tempting
  * repair is to weaken the assertion until it passes — which converts an open question into a false
- * answer. The honest routes stay what they were: build the missing surface, or retire the case with
- * an `approvedReductions` entry once an owner has decided it is not coming back.
+ * answer. The honest routes stay what they were: build the missing surface once someone has decided
+ * it should exist, or retire the case with an `approvedReductions` entry once someone has decided
+ * it should not.
  */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -204,52 +197,24 @@ describe("ward capacity board", () => {
  * that moves no bed figure at all.
  */
 describe("ward capacity headline (Task 7)", () => {
-  it("renders the capacity headline as six separate figures and never a sum", () => {
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
-      </WardFlowProvider>,
-    );
-
-    const headline = screen.getByTestId("ward-capacity-headline");
-    // Structural proof, not a text scan: exactly these six testids exist under the headline and
-    // no others — a seventh card (a "total"/"sum") would fail this count even if it were labelled
-    // something this test does not otherwise search for. The count rose from five to six with the
-    // bed-model rework of 2026-08-28, which added `blocked-releases`; the guard is unchanged in
-    // kind, and every card is still named individually below so the count alone can never stand
-    // in for knowing WHICH cards are there.
-    const cards = headline.querySelectorAll('[data-testid^="ward-capacity-headline-"]');
-    expect(cards).toHaveLength(6);
-
-    // "Ready" since the owner's 2026-09-04 ruling — one word for one number. The test id keeps its
-    // old spelling deliberately: it is an addressing handle, not clinician-facing copy, and
-    // renaming it would churn every selector for no reader's benefit.
-    expect(screen.getByTestId("ward-capacity-headline-available-now")).toHaveTextContent("Ready");
-    expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveTextContent("Confirmed today");
-    expect(screen.getByTestId("ward-capacity-headline-expected-today")).toHaveTextContent("Expected today");
-    // Deliberately "Blocked releases", not the bare "Blocked": the per-unit rows below already
-    // use that word for physically blocked BEDS, which is a different fact.
-    expect(screen.getByTestId("ward-capacity-headline-blocked-releases")).toHaveTextContent("Blocked releases");
-    expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent("Held");
-    expect(screen.getByTestId("ward-capacity-headline-leave-usable")).toHaveTextContent("Leave (usable)");
-
-    // Spec D9 (#WG24JB): confirmed and expected pending discharge cards link to the discharge
-    // board. Read the expected href from WARD_NAV (the single source of Ward Flow destinations)
-    // rather than pinning a duplicate literal, so a renamed/regrouped route fails this test
-    // instead of silently drifting from the rail.
-    const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
-    expect(dischargeHref).toBeTruthy();
-    expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveAttribute("href", dischargeHref);
-    // RENAMED predicted -> expected on this line by 390eba058, "A discharge is EXPECTED,
-    // confirmed or discharged". Main's copy of this assertion still said "predicted"; the
-    // href behaviour it checks is unchanged and is main's, the vocabulary is ours.
-    expect(screen.getByTestId("ward-capacity-headline-expected-today")).toHaveAttribute("href", dischargeHref);
-    expect(screen.getByTestId("ward-capacity-headline-available-now")).not.toHaveAttribute("href");
-
-    // No card anywhere in the headline claims to be a total/sum of the other four.
-    expect(within(headline).queryByText(/total/i)).not.toBeInTheDocument();
-    expect(within(headline).queryByText(/^sum$/i)).not.toBeInTheDocument();
-  });
+  /*
+   * RETIRED 2026-09-06 — "renders the capacity headline as six separate figures and never a sum".
+   * Recorded in `diff-integrity.json`. **The owner ruled on it**, with the recommendation put to him:
+   * leave the strip out.
+   *
+   * The case guarded a structural property of a headline that no longer exists — exactly six cards
+   * under the headline, so a seventh "total" could not be added unnoticed. `CapacityScreen` has no
+   * headline of that shape, so the guard had nothing to stand over.
+   *
+   * ⚠️ **THE REASONING BEHIND THE RULING IS WORTH KEEPING, because it is the reason not to
+   * reintroduce the strip casually.** The six figures count different things — beds ready now, beds
+   * confirmed to free today, beds expected to free, blocked releases, held beds, usable leave beds.
+   * A total of them would be a number with no referent, and a row of figures side by side is an
+   * invitation to add them. The screen answers "where is the network short" instead, which is a
+   * question no sum helps with.
+   *
+   * If a summary strip is ever wanted here, this guard is the one to bring back with it.
+   */
 
   /*
    * RE-POINTED 2026-09-05 into `ward-bed-release.dom.test.tsx`, against the live `WardScreen` and

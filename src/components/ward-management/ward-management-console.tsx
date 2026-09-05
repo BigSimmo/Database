@@ -355,7 +355,7 @@ function attentionItems({
         who: "Nothing to chase",
         chip: movement.closure?.outcome === "arrived" ? "Arrived" : "Closed",
         level: movement.closure?.outcome === "arrived" ? "accepted" : "cancelled",
-        say: "No deadline, bed hold, escort, referral or transport check is raised on this movement, because none of them can be acted on now. What happened, and why it stopped, is stated above.",
+        say: "No deadline, bed pull, escort, referral or transport check is raised on this movement, because none of them can be acted on now. What happened, and why it stopped, is stated above.",
       },
     ];
   }
@@ -387,10 +387,10 @@ function attentionItems({
   if (movement.pullExpiresAt !== undefined && movement.pullExpiresAt <= now) {
     items.push({
       key: "pull",
-      who: destination ? `Bed held at ${destination.name}` : "Bed held for this patient",
-      chip: "Hold expired",
+      who: destination ? `Bed pulled at ${destination.name}` : "Bed pulled for this patient",
+      chip: "Pull expired",
       level: "urgent",
-      say: `The hold on that bed ran out at ${formatInstantWithDay(movement.pullExpiresAt, now)} — ${formatRemaining(minutesUntil(movement.pullExpiresAt, now))}. Unless the ward has held it anyway, nothing is being kept for this patient.`,
+      say: `The pull on that bed ran out at ${formatInstantWithDay(movement.pullExpiresAt, now)} — ${formatRemaining(minutesUntil(movement.pullExpiresAt, now))}. Unless the ward has kept it anyway, nothing is being kept for this patient.`,
     });
   }
 
@@ -756,8 +756,9 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
    * ⚠️ **REORDERING IS NOT THE FIX, AND IT LOOKS LIKE ONE.** Whichever key sorts third disappears,
    * so a reorder only changes which fact vanishes. The ceiling is real and stays — amber means
    * "look here" and directs the eye nowhere when everything carries it — so the ceiling keeps
-   * deciding the COLOUR and stops deciding what the reader is told. `withheldFlagLabel` below is
-   * what makes the difference visible.
+   * deciding the COLOUR and stops deciding what the reader is told. `urgentFigureFlags` returns the
+   * withheld fact by name and the strip states it underneath; `tests/ward-urgent-figure-flags.test.ts`
+   * holds the property over all eight combinations.
    *
    * Order is the owner's ruling of 2026-09-06: a breached deadline first, then the declines, and
    * the expired hold yields. A refusal is a fact a coordinator must act on; an expired hold is
@@ -825,7 +826,7 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
       ? [
           {
             at: patient.pullExpiresAt,
-            label: `The hold on the bed${destination ? ` at ${destination.name}` : ""} ran out`,
+            label: `The pull on the bed${destination ? ` at ${destination.name}` : ""} ran out`,
           },
         ]
       : []),
@@ -922,7 +923,7 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
   }
   if (patient.pullExpiresAt !== undefined) {
     untimed.push(
-      "A bed was pulled and held for this patient. The record holds the moment that hold runs out, but nothing recorded the moment it was pulled.",
+      "A bed was pulled for this patient. The record holds the moment that pull runs out, but nothing recorded the moment it was pulled.",
     );
   }
   if (patient.transport !== undefined && patient.transport.escortRequired) {
@@ -1292,7 +1293,7 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
                       <WardChip level="accepted">Clear</WardChip>
                     </span>
                     <span className={styles.attentionSay}>
-                      Every check this page can make came back clear: no recorded deadline is close or past, no bed hold
+                      Every check this page can make came back clear: no recorded deadline is close or past, no bed pull
                       has run out, no ward has declined without an acceptance, no escort is outstanding, and nobody has
                       recorded a blocker. That is the checks passing, not a guarantee that nothing is wrong.
                     </span>

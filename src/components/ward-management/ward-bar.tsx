@@ -19,7 +19,14 @@ import styles from "./ward-bar.module.css";
  *      band carrying meaning alone is unreadable to anyone who cannot separate the hues, and
  *      nothing about a screenshot reveals it.
  *   2. **An all-zero bar.** It draws as an empty grey rail, which reads as a loading state rather
- *      than as "nothing is in any of these categories". An absence of that kind belongs in words.
+ *      than as "nothing is in any of these categories". The words that replace it depend on which
+ *      zero it is, and only the call site knows — see the refusal itself for the ruling.
+ *
+ * ⚠️ **EVERY REFUSAL HERE IS A CONTRACT ON THE CALL SITE, AND EACH ONE IS A CRASH IF IT REACHES A
+ * READER.** These throw during render, so there is no degraded state: a call site that trips one
+ * takes its whole page down. That is the right trade for a component whose failure mode is stating
+ * something false about beds and waiting patients — but it means the guarding belongs at every call
+ * site, and `tests/ward-bar-zero-is-reachable.test.ts` exists because one of them did not have it.
  */
 export type WardBarTone = "good" | "warning" | "danger" | "accent" | "rest";
 export type WardBarSegment = { label: string; value: number; tone: WardBarTone };
@@ -30,10 +37,34 @@ export function WardBar({ segments, caption }: { segments: WardBarSegment[]; cap
       throw new Error("WardBar: every segment needs a label — a coloured band with no word says nothing.");
     }
   }
+  /*
+   * 🔴 **THIS REFUSAL IS A CALL-SITE CONTRACT, NOT A SAFETY NET, AND THE DIFFERENCE IS A BLANK
+   * SCREEN.** It throws during render, so a call site that reaches it does not degrade — it takes
+   * the whole page down. Every caller must therefore decide the empty case BEFORE constructing a
+   * bar. Reaching this message at runtime is already the failure; the message exists to make the
+   * next person's fix the right one rather than the quick one.
+   *
+   * ⚠️ **AND THE OLD MESSAGE ASKED FOR THE WRONG FIX.** It read *"Render the absence in words
+   * instead"* — which sends a caller holding a MEASURED zero to write an absence sentence over it.
+   * Ward Lead ruled on exactly that distinction on 2026-09-06, and the wording here was pulling
+   * against the ruling:
+   *
+   *     a measured zero  — the count ran and found none      → a plain word: "None." "Nobody is waiting."
+   *     an unknown       — nothing derived a figure at all   → the absence sentence, saying what is missing
+   *
+   * The component cannot tell those apart and never will: both arrive as the number 0. Only the call
+   * site knows whether a derivation ran. That is the whole reason this throws instead of rendering
+   * something reasonable — a bar drawn over either one would say "nothing in any category" when the
+   * true statement might be "we cannot say".
+   */
   const total = segments.reduce((sum, segment) => sum + segment.value, 0);
   if (total === 0) {
     throw new Error(
-      "WardBar: every segment is zero, which renders as an empty grey rail that looks like a loading state. Render the absence in words instead.",
+      "WardBar: every segment is zero, and an empty rail reads as a loading state rather than as a result. " +
+        "This is a decision for the call site, because only it knows which zero this is. If the count RAN and " +
+        'found none, say so in a plain word — "None", "Nobody is waiting" — and do not draw a bar. If nothing ' +
+        "derived a figure at all, use the absence sentence that says what is missing and why. Do not use the " +
+        "absence sentence over a measured zero: it would be false about a real figure.",
     );
   }
 

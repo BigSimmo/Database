@@ -1344,7 +1344,7 @@
   border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-lg);
   background: var(--surface-chrome);
-  padding: var(--wd-space-14, 0.875rem);
+  padding: var(--ward-space-14, 0.875rem);
 }
 
 .destinationsHeading {
@@ -1355,7 +1355,7 @@
 }
 
 .destinationsIntro {
-  margin: var(--wd-space-4, 0.25rem) 0 var(--wd-space-12, 0.75rem);
+  margin: var(--ward-space-4, 0.25rem) 0 var(--ward-space-12, 0.75rem);
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
@@ -1394,7 +1394,7 @@
  */
 .destination {
   border-left: 0.1875rem solid var(--ward-border-strong);
-  padding-left: var(--wd-space-10, 0.625rem);
+  padding-left: var(--ward-space-10, 0.625rem);
 }
 
 .destinationRegion {
@@ -1411,7 +1411,7 @@
 }
 
 .destinationTeam {
-  margin: var(--wd-space-2, 0.125rem) 0 0;
+  margin: var(--ward-space-2, 0.125rem) 0 0;
   color: var(--text-muted);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
@@ -1422,7 +1422,7 @@
    a coordinator has to do something about — and rendering absence in the faintest ink on the panel
    is how it went unnoticed as an empty gap before. */
 .destinationTeamAbsent {
-  margin: var(--wd-space-2, 0.125rem) 0 0;
+  margin: var(--ward-space-2, 0.125rem) 0 0;
   color: var(--text-heading);
   font-size: var(--text-xs);
   font-weight: 700;

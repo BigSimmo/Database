@@ -81,6 +81,25 @@ export function CapacityScreen() {
     <div className={styles.screen} data-testid="ward-capacity-page">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
+        {/*
+          🔴 **THE SYNTHETIC-DATA DISCLOSURE, ADDED 2026-09-06.** This screen shipped without
+          one and showed invented figures under real Perth hospital names with nothing saying
+          so. Twenty-four other ward screens carried it; the three that did not were the three
+          the 2026-09-05 merges created.
+
+          ⚠️ **IT IS OPT-IN PER SCREEN, WHICH IS WHY THEY MISSED IT.** There is no shared
+          component and no layout providing it, so a new screen gets none by default and
+          nothing reported the absence. `tests/ward-prototype-disclosure.test.ts` now walks
+          every ward ROUTE and requires the tree it renders to disclose somewhere — a route is
+          what a reader opens, and a component nothing routes to cannot disclose to anybody.
+        */}
+        <div className={styles.governanceBanner}>
+          <span className={styles.prototypeBadge}>Synthetic prototype</span>
+          <p>
+            Every bed count, ward name and waiting patient on this screen is invented. No figure here describes a real
+            hospital, and nothing on it is a clinical record.
+          </p>
+        </div>
         <header className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Capacity</h1>
           <p className={styles.pageSubtitle}>
@@ -195,9 +214,31 @@ export function CapacityScreen() {
               title="Every ward in the network"
               count={`${networkRows.length} ${networkRows.length === 1 ? "ward" : "wards"}`}
             >
+              {/*
+                🔴 **EVERY FIGURE IN THIS GROUP COUNTS WARDS. THE BAR ABOVE COUNTS BEDS. THEY USED
+                THE SAME WORDS.**
+
+                Found by Ward Verifier, 2026-09-06, by sweeping for the label rather than by eye,
+                then confirmed by arithmetic on the table below:
+
+                    "Ready now" bar key   Locked ready  8   -> 8 locked BEDS
+                    this filter chip      Locked ready  7   -> 7 WARDS holding one
+
+                **Both were on screen at the same time, in the same words, and nothing
+                distinguished them.** A coordinator reading "Locked ready 7" under a bar reading
+                "Locked ready 8" has no way to know the two are different quantities rather than a
+                figure that has drifted — and "the number disagrees with itself" is precisely what
+                this screen exists to help them notice elsewhere.
+
+                ⚠️ **THE FIX IS THE LABEL, NOT THE NUMBER. Both figures are correct.** The chip is
+                now phrased like its own sibling, "Has a bed ready", which was already unambiguously
+                ward-shaped — so the whole group reads as one unit and the odd one out is gone. The
+                legend names the unit once for assistive technology, which reads the group's label
+                before any chip in it.
+              */}
               <div className={styles.filters}>
                 <WardFilters
-                  legend="Show"
+                  legend="Show which wards"
                   activeId="all"
                   onChange={() => {}}
                   options={[
@@ -205,7 +246,7 @@ export function CapacityScreen() {
                     { id: "ready", label: "Has a bed ready", count: networkRows.filter((row) => row.ready > 0).length },
                     {
                       id: "locked-ready",
-                      label: "Locked ready",
+                      label: "Has a locked bed ready",
                       count: networkRows.filter((row) => row.lockedReady > 0).length,
                     },
                     {
@@ -456,6 +497,27 @@ function NetworkRow({
         {row.pendingPreparation !== undefined && row.pendingPreparation > 0 ? (
           <small className={styles.beingMadeReady} data-testid="ward-capacity-network-pending">
             {row.pendingPreparation} still being made ready
+          </small>
+        ) : null}
+        {/*
+          🔴 **THE SEX-MIX SIGNAL — Ward Lead ruling 2026-09-05, built here 2026-09-06.**
+
+          A ward whose recorded male/female total disagrees with its occupancy is mid-update:
+          `RELEASE_BED` raises `allocatable` and `empty` together and cannot touch `sexMix`, because
+          nothing in the model knows which sex left and guessing would invent a fact about a person.
+          `allocatable` is what `ready` reads, so the figure beside this note has just moved.
+
+          ⚠️ **THE SIGNAL, NOT THE DATA.** No sex mix appears here and none should: whether those
+          counts belong on a network view is still an open question for the owner. What is said is
+          only what a coordinator needs and what is safe to state.
+
+          ⚠️ It renders ONLY when the two genuinely disagree. At seed every ward holds the identity,
+          so this is silent on a settled board — an always-visible caution would be ignored within a
+          day and would make every figure look doubtful.
+        */}
+        {row.bedRecordsMidUpdate ? (
+          <small className={styles.midUpdate} data-testid={`ward-capacity-mid-update-${row.unit.id}`}>
+            This ward&rsquo;s bed records are mid-update — this figure may not be settled.
           </small>
         ) : null}
       </td>

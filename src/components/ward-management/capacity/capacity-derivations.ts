@@ -13,7 +13,7 @@ import { dayOf } from "@/components/ward-management/ward-clock";
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { bedsPendingPreparation } from "@/components/ward-management/ward-bed-availability";
 import { lockedBedsFree, openBedsFree } from "@/components/ward-management/ward-bed-designation";
-import { isOpen } from "@/components/ward-management/ward-derivations";
+import { isOpen, unitCapacity } from "@/components/ward-management/ward-derivations";
 import type { Cohort, Movement, Security, Unit, BedRelease } from "@/components/ward-management/ward-model";
 
 /**
@@ -163,6 +163,24 @@ export type NetworkWardRow = {
    * cleaned" and "we were not told" are different facts and only one of them is safe to imply.
    */
   pendingPreparation?: number;
+  /**
+   * 🔴 **TRUE WHEN THIS WARD'S BED RECORDS ARE MID-UPDATE — the SIGNAL, never the data.**
+   *
+   * Ward Lead ruling 2026-09-05, built 2026-09-06. `RELEASE_BED` raises `allocatable.value` and
+   * `empty.value` together (`ward-flow-reducer.ts` 2335-2343, verified rather than recalled) and
+   * **does not touch `sexMix`** — the model cannot know which sex left, and guessing a decrement
+   * would be inventing a fact about a person. So for a moment the ward's recorded male/female total
+   * and its occupancy disagree, and `allocatable` — which is what `ready` reads — has just moved.
+   *
+   * ⚠️ **THIS CARRIES THE SIGNAL AND NOT THE FIGURE, DELIBERATELY.** No sex mix is exposed here and
+   * none should be: whether a ward's male/female counts belong on a network view is an open owner
+   * question. What a coordinator needs from this screen is narrower and safe to state — that the
+   * number in front of them may not have settled yet.
+   *
+   * `occupied` comes from `unitCapacity`, the model's own derivation, rather than a second
+   * subtraction written here, so this predicate cannot drift from the figure it qualifies.
+   */
+  bedRecordsMidUpdate: boolean;
 };
 
 /**
@@ -207,6 +225,12 @@ export function networkWardRows(units: Unit[], now: Instant, releases?: BedRelea
     // being made ready.
     pendingPreparation: releases === undefined ? undefined : bedsPendingPreparation(unit.id, releases),
     confirmedAt: unit.allocatable.confirmedAt,
+    // `releases ?? []` only because `unitCapacity` takes them for its `potential` field, which this
+    // never reads; `occupied` is derived from `beds`, `empty` and `blocked` alone, so the answer is
+    // the same whether or not a caller supplied releases.
+    bedRecordsMidUpdate:
+      Object.values(unit.sexMix).reduce((sum, count) => sum + count, 0) !==
+      unitCapacity(unit, [...(releases ?? [])]).occupied,
   }));
 }
 

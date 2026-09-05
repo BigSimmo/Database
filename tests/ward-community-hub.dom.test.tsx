@@ -296,9 +296,27 @@ describe("community hub — an empty list must never read as an all-clear", () =
     // nothing writes it and nothing reads it. The negative pin below is what stops the false version
     // returning; see `tests/ward-community-index.test.ts` for the full pin and the measurement.
     expectSays(notice, "the follow-up provenance note", ["follow-up", "admission"]);
-    expect(notice, "the false 'no such field' claim has come back").not.toContain(
-      "is not recorded anywhere in this prototype",
-    );
+    /*
+     * ⚠️ **THIS BANNED ONE EXACT SENTENCE UNTIL 2026-09-06, AND THE CLAIM IT GUARDS IS TRIVIAL TO
+     * RESTATE.** The false version said the field is not recorded anywhere in this prototype;
+     * `Admission.followUp` exists, carries a state, an instant and a role, and is seeded. Any of
+     * "there is no such field", "the model has no field for it", "we do not hold that" says the same
+     * false thing and walked straight past a single-string ban.
+     *
+     * The true claim is narrower and is asserted separately, by the model rather than by wording:
+     * the field has NO PRODUCER — see "no reducer event gives Admission.followUp a value" in this
+     * file, which reads the reducer and goes red if that stops being true. **A ban on wording and a
+     * check on the model guard different halves, and neither substitutes for the other**: the model
+     * check cannot see the page tell a lie about the schema, and this cannot see the schema change.
+     */
+    expectNeverSaysAgain(notice, "the follow-up provenance note", [
+      "is not recorded anywhere",
+      "no such field",
+      "has no field",
+      "does not exist in this prototype",
+      "is not held anywhere",
+      "nothing in the model records",
+    ]);
     expectSays(notice.toLowerCase(), "the follow-up caveat", ["does not mean", "followed up"]);
   });
 

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "6752103a629c9813ef9a9fe67f8645978cfc7fe0",
-    "committed_at": "2026-09-06T00:10:14+08:00"
+    "sha": "e6c6a009879ce8809ec01c5849a41ffe13495de2",
+    "committed_at": "2026-09-06T06:08:26+08:00"
   },
   "routes": {
     "modes": [
@@ -5179,6 +5179,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/forced-colors-status-tokens-proposal-2026-09-06.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/handover-assessment-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5360,6 +5365,11 @@
       },
       {
         "path": "docs/ward-flow/parked-debt-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/parked-referral-join-unreadable-2026-09-06.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -6148,9 +6158,9 @@
       }
     ],
     "counts": {
-      "documents": 899,
+      "documents": 901,
       "catalogued": 590,
-      "uncatalogued": 309,
+      "uncatalogued": 311,
       "sections": 22
     }
   },
@@ -26010,6 +26020,14 @@
         "scope": "PR #1912 heavy review follow-up: post-scroll active-state repair",
         "outcome": "Exact-head Production UI trace showed the jump selection was reasserted in the same frame as the physical scroll, then overwritten by the scroll spy on its following geometry frame. Delayed the hash-guarded reassertion by one additional animation frame and added a focused ordering regression. The existing popstate guard remains unchanged. A separate builder Start over failure touched no PR-modified source and is left for the replacement exact-head run to classify.",
         "checks": "Production trace: 177 tests passed and the map active state alone reverted after the target scroll; deterministic frame model changed final state from episode-features to course-onset while suppressing stale reassertion after back navigation; TypeScript transpile PASS for hook and focused regression; git diff --check PASS; no manual production or provider-backed gate run."
+      },
+      {
+        "date": "2026-09-05",
+        "ref": "codex/services-canonical-safety-foundation (PR #2609)",
+        "head": "f2c3ea64a05661709f92033c57613185b5bad32b",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "before: PR required FAILURE, BEHIND main, 3 unresolved P1 threads (registry parser rejecting new provenance fields incl. a second self-found gap on allUrls; CAMHS crisis route dropped for unverified-but-active youth crisis; composite MHERL/AOD phone contacts collapsing into one undialable tel: link). after: all 3 fixed with narrow tests, merged origin/main (clean), all threads replied and resolved.",
+        "checks": "npx vitest run tests/services-safety-routing.test.ts tests/registry-client-contract.test.ts (11 passed, each confirmed to fail pre-fix); npm run typecheck (clean, recorded pass); prettier --write (unchanged). No provider-backed checks run."
       },
       {
         "date": "2026-08-18",

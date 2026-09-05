@@ -826,17 +826,41 @@ describe("the two empty states say WHY, mechanically", () => {
     // Not vacuous: the page has to have rendered real prose for the absences below to mean
     // anything at all.
     expect(page.length).toBeGreaterThan(2000);
-    expect(page).not.toContain("not the same person");
-    expect(page).not.toMatch(/collide/i);
-    expect(page).not.toMatch(/by accident/i);
-    expect(page).not.toMatch(/numbered separately/i);
-    expect(page).not.toMatch(/weeks before/i);
-    // The two unearned claims that travelled with them: one mint site stated as though it were the
-    // only one, and a fixture fact ("the field is populated") stated as a model fact.
-    expect(page).not.toMatch(/ward tag/i);
-    expect(page).not.toContain("the field is populated");
-    // And the two model-level claims corrected in the same pass.
+    /*
+     * ⚠️ **SEVEN BARE BANS STOOD HERE AS LOOSE `not.toContain` / `not.toMatch` CALLS UNTIL
+     * 2026-09-06, AND TWO OF THEM FORBADE ORDINARY ENGLISH ACROSS THE WHOLE PAGE.** `/by accident/i`
+     * goes red on "this is not by accident"; `/weeks before/i` goes red on any honest date phrasing
+     * anywhere on a statistics screen — and the scope here is the entire rendered page, which
+     * multiplies the chance rather than reducing it. Neither had a named subject or a failure
+     * message, so a future red would have arrived as a bare boolean beside a line number.
+     *
+     * **The page-wide SCOPE is deliberate and is kept**: these claims were duplicated between this
+     * screen and `statistics-derivations.ts`, and a correction applied to one and not the other is
+     * the exact half-landed fix this test exists for. Narrowing to an element would be the bug.
+     *
+     * So what changed is the PHRASES, not the reach. Each now carries enough of the retired
+     * sentence to be the CLAIM rather than an English commonplace — "the two collide" instead of
+     * the bare word, "weeks before anyone raised" instead of two words that mean nothing on their
+     * own. A ban has to be defeatable only by dropping the claim, never by writing a normal
+     * sentence that happens to share two words with it.
+     */
     expectNeverSaysAgain(page, "the statistics page", [
+      // The referral-join narrative, retired because it described the FIXTURE as though it were
+      // the model. Each phrase carries the claim; none of them is a phrase honest copy would reach
+      // for by accident — including this one.
+      "not the same person",
+      "the two collide",
+      "where they collide",
+      "matching pair is an accident",
+      "match by accident",
+      "numbered separately",
+      "weeks before anyone raised",
+      "weeks before the referral",
+      // The two unearned claims that travelled with them: one mint site stated as though it were
+      // the only one, and a fixture fact stated as a model fact.
+      "its own ward tag",
+      "the field is populated",
+      // And the two model-level claims corrected in the same pass.
       "nothing marks the moment preparation started",
       "nothing records when preparation started",
       "These beds are already free",
@@ -1171,11 +1195,49 @@ describe("referrals where every ward asked so far has refused", () => {
      * Pinned now as a PROPERTY rather than a phrase: the note must not tell a reader that the
      * unasked wards are knowable, however it words that. Wording may change; this may not.
      */
-    expect(why).not.toContain("never been asked");
-    expect(why).not.toContain("at most");
-    expect(why).toContain("not on how many have been asked");
+    expectNeverSaysAgain(why, "the refused-so-far note", [
+      "never been asked",
+      "have not been asked",
+      "yet to be asked",
+    ]);
+
+    /*
+     * 🔴 **A BARE `not.toContain("at most")` STOOD HERE UNTIL 2026-09-06 AND IT BANNED A TRUE
+     * SENTENCE.** The cap is a CONCURRENCY limit — the live copy says a movement can be live at
+     * three wards *at once* — so **"live at at most three wards at once" is correct English and
+     * correct fact, and the old ban forbade it.** The falsehood was never the phrase "at most"; it
+     * was attaching a maximum to how many wards a movement has been ASKED over its life, which the
+     * record cannot measure at all.
+     *
+     * ⚠️ **A ban on two common English words cannot tell those apart, and this project has now
+     * shipped that mistake twice** — the other was a ban on "not a missing timestamp" that went red
+     * on the sentence its own paragraph existed to state. Both were phrases standing in for a
+     * property, and both would have fired on the owner's next redesign.
+     *
+     * So the property is asserted where it actually lives: **wherever this note states a maximum, it
+     * must say in the same sentence that the maximum is about wards deciding TOGETHER.** A sentence
+     * capping what has been asked, with no concurrency qualifier, is the defect — however it is
+     * worded, and whether or not it uses the words "at most".
+     */
+    const CAPS = ["at most", "no more than", "a maximum of", "up to"];
+    const CONCURRENT = ["at once", "at the same time", "simultaneously", "concurrently", "together"];
+    const uncapped = why
+      .split(/(?<=[.;])\s+/u)
+      .filter((sentence) => CAPS.some((cap) => sentence.toLowerCase().includes(cap)))
+      .filter((sentence) => !CONCURRENT.some((word) => sentence.toLowerCase().includes(word)));
+    expect(
+      uncapped,
+      "this sentence states a maximum without saying it is a limit on wards deciding TOGETHER, so it " +
+        "reads as a cap on how many wards a movement has been put to over its life — a number nothing " +
+        "on the record measures. Say what the cap is a cap ON; do not delete the word.",
+    ).toEqual([]);
+
+    // The positive half, as a concept. It was pinned as the exact eight-word phrase "not on how many
+    // have been asked" until 2026-09-06, which is the same fighter one clause further on: a faithful
+    // rewrite of a true sentence would have gone red.
+    expectSays(why, "the not-a-lifetime-total clause", ["how many have been asked", "how many wards", "over its life"]);
     // And it must say what the number IS, not only what it is not.
-    expect(why).toContain("worklist");
+    expectSays(why, "the what-this-number-is clause", ["worklist", "needs a decision"]);
 
     /*
      * ⚠️ **THE CAP IS A CEILING AND THE NOTE MAY NOT PROMOTE IT TO A TYPICAL FIGURE.** Until
@@ -1203,9 +1265,34 @@ describe("referrals where every ward asked so far has refused", () => {
      * What is pinned now is the property the paragraph exists to protect: the note must say the
      * total is unmeasured, and must not offer any bound on it.
      */
-    expect(why).toContain("nothing on the record measures how many wards a movement has actually been put to");
-    expect(why).toContain("no ceiling here at all");
-    expect(why).not.toMatch(/at most|ceiling here[^ ]* is|most of what is counted/i);
+    expectSays(why, "the unmeasured-total claim", [
+      "nothing on the record measures",
+      "the record does not measure",
+      "no record of how many",
+    ]);
+    expectSays(why, "the what-is-unmeasured clause", ["how many wards", "how many have been asked"]);
+    expectSays(why, "the no-ceiling claim", ["no ceiling", "no upper bound", "no limit on how many"]);
+
+    /*
+     * ⚠️ **THE BAN HERE ALSO CARRIED `at most`, AND IT WAS THE SAME FIGHTER AS THE ONE REMOVED
+     * ABOVE — three lines from a comment warning that a correction which pins its own remainder is
+     * worse than no correction.** Dropped, and NOT because the claim stopped mattering: a maximum
+     * offered on the lifetime total is exactly the defect this block was rewritten twice to remove.
+     * It is now caught by the sentence-level property earlier in this same test, which requires any
+     * maximum to say in the same sentence that it bounds wards deciding TOGETHER. That catches the
+     * false claim in wordings this regex never could, and — measured, not argued — it passes on
+     * "a movement is live at at most three wards at once", which is true, which the page may
+     * legitimately say, and which this regex went red on.
+     *
+     * What remains here is the one phrase that is false however it is qualified: a claim about how
+     * many of the counted movements reached any particular number, which is a distribution no line
+     * of source can witness.
+     */
+    expectNeverSaysAgain(why, "the refused-so-far ceiling note", [
+      "most of what is counted",
+      "most of these",
+      "most of them",
+    ]);
   });
 
   /**

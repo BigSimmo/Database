@@ -562,8 +562,20 @@ export function StatisticsScreen({
              */}
             <article className={styles.figure} data-testid="ward-statistics-blocked-discharges-by-reason">
               <h3 className={styles.figureHeading}>Blocked discharges by blocker</h3>
+              {/*
+               * ⚠️ **BLOCKER, NOT REASON, AND THE HEADING WAS ALREADY RIGHT.** This blurb opened
+               * "counted against the REASON recorded for it" while its own next sentence, and the
+               * heading above it, both said blocker — two nouns for one thing, three lines apart.
+               *
+               * The model settles it and there is no judgement in it: these values come from
+               * `BED_RELEASE_BLOCKERS`, and the sibling figure's come from `DECLINE_REASONS`. So
+               * "Declines by reason" and "Blocked discharges by blocker" are each already using
+               * their own vocabulary's noun, and the odd word out was here. Corrected 2026-09-06
+               * toward the model rather than toward the neighbouring heading, which is what makes
+               * the two headings differ on purpose instead of by accident.
+               */}
               <p className={styles.figureBlurb}>
-                Everyone still on the ward whose bed will not yet let them go, counted against the reason recorded for
+                Everyone still on the ward whose bed will not yet let them go, counted against the blocker recorded for
                 it. This is the blocker recorded against the ADMISSION, not the one recorded against a movement — a
                 referral still finding a placement is a different fact from a bed that will not yet release its
                 occupant.

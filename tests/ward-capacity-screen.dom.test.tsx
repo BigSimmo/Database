@@ -370,3 +370,60 @@ describe("the Capacity screen", () => {
     }
   });
 });
+
+/*
+ * 🔴 **TWO FIGURES ON ONE SCREEN MUST NOT SHARE A LABEL WHEN THEY COUNT DIFFERENT THINGS.**
+ *
+ * Found by Ward Verifier on 2026-09-06, by sweeping for the label rather than by eye:
+ *
+ *     "Ready now" bar key   Locked ready  8   -> 8 locked BEDS
+ *     the ward filter chip  Locked ready  7   -> 7 WARDS holding one
+ *
+ * Both visible at once, in identical words, with nothing to tell them apart. A coordinator reading
+ * 7 under 8 has no way to know these are different quantities rather than one figure disagreeing
+ * with itself — and noticing exactly that kind of disagreement is what the screen is for.
+ *
+ * ⚠️ **THIS IS A PROPERTY, NOT A PIN ON THE PHRASE THAT HAPPENED TO COLLIDE.** Asserting the new
+ * wording would go green the day somebody reintroduces the collision under different words. What is
+ * asserted is that the two groups share NO label at all: the bar's key counts beds, every filter
+ * chip counts wards, so any label common to both is a units collision whatever it says.
+ *
+ * The floor matters as much as the assertion. Both sets must be non-empty and must genuinely
+ * differ in size — if the bar ever rendered no key, or the filters no chips, an intersection of
+ * nothing would pass while proving nothing.
+ */
+describe("the Capacity screen never labels a bed count and a ward count with the same words", () => {
+  function labelsIn(container: HTMLElement, selector: string): string[] {
+    return (
+      Array.from(container.querySelectorAll(selector))
+        .map((node) => (node.textContent ?? "").replace(/\s+/gu, " ").trim())
+        // Both a key item and a filter chip render "<label> <count>"; the count is what differs
+        // between them and is not part of the name being compared.
+        .map((text) => text.replace(/\s*\d+\s*$/u, "").trim())
+        .filter((text) => text !== "")
+    );
+  }
+
+  it("has a bar key and a filter group to compare, or the intersection below is vacuous", () => {
+    renderScreen();
+    const bar = document.querySelector('[data-ward-primitive="bar"]') as HTMLElement;
+    const filters = document.querySelector('[data-ward-primitive="filters"]') as HTMLElement;
+    expect(bar, "no WardBar on the capacity screen — this guard has nothing to stand over").not.toBeNull();
+    expect(filters, "no filter group on the capacity screen").not.toBeNull();
+    expect(labelsIn(bar, "li").length, "the bar renders no key items").toBeGreaterThan(0);
+    expect(labelsIn(filters, "button").length, "the filter group renders no chips").toBeGreaterThan(0);
+  });
+
+  it("shares no label between the bed-counting bar key and the ward-counting filter chips", () => {
+    renderScreen();
+    const barLabels = labelsIn(document.querySelector('[data-ward-primitive="bar"]') as HTMLElement, "li");
+    const chipLabels = labelsIn(document.querySelector('[data-ward-primitive="filters"]') as HTMLElement, "button");
+    const shared = barLabels.filter((label) => chipLabels.includes(label));
+
+    expect(
+      shared,
+      "these words label a BED count in the bar and a WARD count in the filters, on screen at the " +
+        "same time. Rename one — the numbers are both correct and neither should move.",
+    ).toEqual([]);
+  });
+});

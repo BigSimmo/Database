@@ -142,12 +142,12 @@ export function StatisticsEdScreen({ edId }: { edId: string }) {
 
           <h3 className={styles.subHeading}>Marked urgent</h3>
           <p className={styles.body} data-testid="ward-stat-ed-urgent">
-            {urgent} of the {onTheList} above are flagged urgent.
+            {urgent} of the {onTheList} above {urgent === 1 ? "is" : "are"} flagged urgent.
           </p>
 
           <h3 className={styles.subHeading}>No ward yet</h3>
           <p className={styles.body} data-testid="ward-stat-ed-unplaced">
-            {unplaced} of the {onTheList} above have no ward that has accepted them yet.
+            {unplaced} of the {onTheList} above {unplaced === 1 ? "has" : "have"} no ward that has accepted them yet.
           </p>
 
           <p className={styles.note}>

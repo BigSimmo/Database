@@ -42,8 +42,23 @@ import styles from "./delays.module.css";
  * If a tabular region is ever wanted here, it uses the shared `WardTable` — never a div grid, which
  * is how two tables come to exist.
  */
-export function DelaysScreen() {
-  const { movements, units, now } = useWardFlow();
+/**
+ * ⚠️ **`movements` IS OVERRIDABLE SO THIS SCREEN'S EMPTY STATE CAN BE RENDERED AT ALL.**
+ *
+ * Added 2026-09-06 with the crash fix below, and it is the reason the fix is provable rather than
+ * merely present. This screen crashed whenever no movement was open, and no test could reach that
+ * state: it read every movement from the provider, whose seed always has people waiting. **The
+ * screen most exposed to the defect was the one whose failing state was unreachable**, so the
+ * strongest guard available was a scan of the source for a guard's presence — which cannot tell a
+ * correct guard from a wrong one.
+ *
+ * The prop follows `StatisticsWardScreen`, which takes `units` and `admissions` the same way and
+ * for the same reason. Live behaviour is unchanged: absent the prop, the provider is the source, so
+ * no route passes it and no screen resolves its data from anywhere new.
+ */
+export function DelaysScreen({ movements: movementsOverride }: { movements?: Movement[] } = {}) {
+  const { movements: liveMovements, units, now } = useWardFlow();
+  const movements = movementsOverride ?? liveMovements;
   const open = movements.filter(isOpen);
   const groups = delayGroups(movements, units, now);
   const split = waitingSplit(movements, now);
@@ -72,6 +87,25 @@ export function DelaysScreen() {
     <div className={styles.screen} data-testid="ward-delays-page">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
+        {/*
+          🔴 **THE SYNTHETIC-DATA DISCLOSURE, ADDED 2026-09-06.** This screen shipped without
+          one and showed invented figures under real Perth hospital names with nothing saying
+          so. Twenty-four other ward screens carried it; the three that did not were the three
+          the 2026-09-05 merges created.
+
+          ⚠️ **IT IS OPT-IN PER SCREEN, WHICH IS WHY THEY MISSED IT.** There is no shared
+          component and no layout providing it, so a new screen gets none by default and
+          nothing reported the absence. `tests/ward-prototype-disclosure.test.ts` now walks
+          every ward ROUTE and requires the tree it renders to disclose somewhere — a route is
+          what a reader opens, and a component nothing routes to cannot disclose to anybody.
+        */}
+        <div className={styles.governanceBanner}>
+          <span className={styles.prototypeBadge}>Synthetic prototype</span>
+          <p>
+            Every waiting patient, refusal and escalation on this screen is invented. Nobody here is a real person, and
+            nothing on it is a clinical record.
+          </p>
+        </div>
         <header className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Delays</h1>
           <p className={styles.pageSubtitle}>Why each waiting patient is still waiting, one row per person.</p>
@@ -84,9 +118,44 @@ export function DelaysScreen() {
                   says what the RAIL is, which is the misreading the caption exists to prevent.
                   Removed here rather than suppressed in the primitive, because "render the caption
                   only when it adds something" is not a property any component can evaluate. */}
-        <WardPanel title={`How long the ${open.length} have waited`}>
+        {/*
+         * 🔴 **THIS SCREEN CRASHED WHEN NOBODY WAS WAITING, WHICH IS THE BEST DAY IT CAN HAVE.**
+         * Fixed 2026-09-06. `waitingSplit` returns its three bands all at zero whenever no movement
+         * is open, and `WardBar` THROWS on an all-zero total — deliberately, because an empty rail
+         * reads as a loading state. There was no guard here at all, so the page went blank. Every
+         * other state this screen can be in is worse than an empty one, and the empty one was the
+         * only state that killed it.
+         *
+         * ⚠️ **THE THROW IS NOT THE DEFECT AND MUST NOT BE SOFTENED.** `WardBar` cannot tell a
+         * MEASURED zero from an UNKNOWN one — both arrive as the number 0 — and this call site can,
+         * because it knows `waitingSplit` ran over the live movements. So the refusal is a contract
+         * on callers, and the decision belongs here. Ward Lead's ruling, 2026-09-06:
+         *
+         *     a measured none  → a plain word. Nobody is waiting.
+         *     a genuine unknown → the absence sentence, saying what is missing and why
+         *
+         * This is the first kind. The count RAN. So it is stated plainly and NOT dressed as an
+         * absence — "nothing can say how many are waiting" would be false over a real figure.
+         *
+         * ⚠️ **THE TITLE WAS THE SAME DEFECT ONE LINE UP**: `How long the ${open.length} have waited`
+         * reads "How long the 0 have waited" at zero, and "the 1 have waited" at one.
+         */}
+        <WardPanel
+          title={
+            open.length === 0
+              ? "How long people have waited"
+              : `How long the ${open.length} ${open.length === 1 ? "person has" : "people have"} waited`
+          }
+        >
           <div className={styles.bar}>
-            <WardBar segments={split} caption={`${open.length} people waiting`} />
+            {open.length === 0 ? (
+              <p className={styles.absent} data-testid="ward-delays-nobody-waiting">
+                Nobody is waiting in any emergency department right now. That is a measured count over every open
+                movement, not a figure this screen could not produce.
+              </p>
+            ) : (
+              <WardBar segments={split} caption={`${open.length} ${open.length === 1 ? "person" : "people"} waiting`} />
+            )}
           </div>
           <p className={styles.foot}>
             <strong>This bar is the only thing on the screen showing everyone at once.</strong> The waiting time is

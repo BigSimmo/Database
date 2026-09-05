@@ -174,3 +174,42 @@
     padding-top: var(--spacing-ward-phone-bar);
   }
 }
+
+/*
+ * The synthetic-data disclosure every other ward screen already carries. Added 2026-09-06 after a
+ * walk of the running app found this screen showing invented figures and named Perth hospitals with
+ * nothing on the page saying so. Copied from `ward/ward.module.css` unchanged rather than restyled —
+ * a disclosure that looks different on different screens reads as decoration.
+ */
+.governanceBanner {
+  display: flex;
+  min-height: var(--ward-tap);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-12);
+  border-bottom: 0.0625rem solid var(--ward-divider);
+  background: var(--surface-chrome);
+  padding: var(--ward-space-8) var(--ward-space-12);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ward-leading-body);
+}
+
+.prototypeBadge {
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-2) var(--ward-space-8);
+  color: var(--ward-warning);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

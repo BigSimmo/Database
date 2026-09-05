@@ -1078,21 +1078,48 @@ export function CommunityScreen({
             {sameService.length > 0 && ratifiedBy !== undefined ? (
               <p className={styles.ratifiedNotice} data-testid="ward-community-ratified-alias">
                 <strong>
-                  A person has ruled that this team and{" "}
+                  {ratifiedBy.decidedByKind === "person"
+                    ? "A person has ruled that this team and "
+                    : "This team has been recorded as the same service as "}
                   {sameService.map((name, index) => (
                     <span key={name}>
                       {index > 0 ? (index === sameService.length - 1 ? " and " : ", ") : ""}
                       <span className={styles.fieldName}>{name}</span>
                     </span>
-                  ))}{" "}
-                  are one service.
+                  ))}
+                  {ratifiedBy.decidedByKind === "person" ? " are one service." : ", pending review."}
                 </strong>{" "}
                 This is a judgement about the real clinic, not an observation that the names look alike. No rule here
                 could have reached it and none did. Referrals typed under each spelling are still listed on that
                 spelling&apos;s own page: the decision is recorded, and nobody has been moved.
+                {/*
+                 * 🔴 **TWO SENTENCES, BECAUSE ONE OF THEM WOULD BE A FABRICATED CLINICAL SIGNATURE.**
+                 * Until 2026-09-06 every row here was the owner's, so this block could hard-code
+                 * *"A person has ruled…"* and *"after being shown each spelling and the suburbs it
+                 * routes"* and both were simply true. **The first agent-decided rows made both false
+                 * without changing a character of this file** — the page would have told a clinician
+                 * a named human signed a merge nobody had seen. The wording now switches on
+                 * `decidedByKind`, which is a required field precisely so a new row cannot arrive
+                 * claiming a signature by saying nothing.
+                 *
+                 * ⚠️ **THE AGENT SENTENCE NAMES ITS OWN LIMIT RATHER THAN SOFTENING IT.** "Recorded"
+                 * not "ruled", "pending review" in the headline where a reader cannot miss it, and
+                 * the provenance line says in terms that no person has seen the figures. A hedge
+                 * that reads as confidence is worse than no hedge.
+                 */}
                 <span className={styles.ratifiedProvenance} data-testid="ward-community-ratified-provenance">
-                  Decided by {ratifiedBy.decidedBy} on {ratifiedBy.decidedOn}, after being shown each spelling and the
-                  suburbs it routes.
+                  {ratifiedBy.decidedByKind === "person" ? (
+                    <>
+                      Decided by {ratifiedBy.decidedBy} on {ratifiedBy.decidedOn}, after being shown each spelling and
+                      the suburbs it routes.
+                    </>
+                  ) : (
+                    <>
+                      Recorded by {ratifiedBy.decidedBy} on {ratifiedBy.decidedOn}. No person has seen these spellings
+                      or the suburbs they route, and this entry is waiting to be reviewed. Treat it as a working note,
+                      not as a decision anyone has signed.
+                    </>
+                  )}
                 </span>
               </p>
             ) : null}

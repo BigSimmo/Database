@@ -46,7 +46,12 @@ const ORDER: { cause: DelayCause; title: string; note: string }[] = [
   },
   { cause: "no_eligible_bed", title: "No suitable bed anywhere in the network", note: "" },
   { cause: "awaiting_ward_answer", title: "Awaiting a ward's answer", note: "" },
-  { cause: "bed_pull_expired", title: "Bed pull expired", note: "the hold lapsed before the bed was used" },
+  // ⚠️ The note said "the hold lapsed" until 2026-09-06 — the same event named two ways inside one
+  // object literal, with the title already calling it a pull. That was recorded as an open question
+  // for the owner rather than decided; he has since ruled that a reserved bed is a PULL, so it is
+  // decided and applied here. The word "hold" is not banned anywhere: this is one site changed to
+  // match a ruling, not a prohibition.
+  { cause: "bed_pull_expired", title: "Bed pull expired", note: "the pull lapsed before the bed was used" },
   { cause: "awaiting_bed_ready", title: "Awaiting the bed itself", note: "each has a named bed" },
   { cause: "awaiting_transport", title: "Awaiting transport", note: "" },
   { cause: "patient_or_family", title: "Patient or family factors", note: "" },
@@ -56,6 +61,21 @@ const ORDER: { cause: DelayCause; title: string; note: string }[] = [
 /** Every cause, worst first — the ranking itself, so a caller can reason about position rather than
  *  hand-listing members. Derived from `ORDER`, never a second list. */
 export const DELAY_CAUSE_ORDER: readonly DelayCause[] = ORDER.map((entry) => entry.cause);
+
+/**
+ * The copy table itself, exported READ-ONLY for `tests/ward-delay-cause-vocabulary.test.ts`.
+ *
+ * ⚠️ **Exported so a guard can walk EVERY entry, not just the populated ones.** `delayGroups()`
+ * returns only causes that have movements today, so a guard reading it would silently skip any
+ * entry the fixture happens not to fill — and an entry nothing renders is exactly where a
+ * half-renamed pair survives longest. This is the same reason `DELAY_CAUSE_ORDER` is derived from
+ * `ORDER` rather than hand-listed: one table, read two ways, never copied.
+ */
+export const DELAY_CAUSE_COPY: readonly {
+  readonly cause: DelayCause;
+  readonly title: string;
+  readonly note: string;
+}[] = ORDER;
 
 /**
  * 🔴 **THE CAUSES NOTHING ROUTINE RESOLVES — HERE, BESIDE THE RANKING, BECAUSE THE TWO DISAGREED.**

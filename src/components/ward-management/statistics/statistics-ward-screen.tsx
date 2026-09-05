@@ -135,8 +135,8 @@ export function StatisticsWardScreen({
               <>No admission on this ward has both arrived and left, so there is no completed stay to average yet.</>
             ) : (
               <>
-                {statistics.averageLengthOfStayDays} days, averaged over the admissions on this ward that have both
-                arrived and left.
+                {statistics.averageLengthOfStayDays} {statistics.averageLengthOfStayDays === 1 ? "day" : "days"},
+                averaged over the admissions on this ward that have both arrived and left.
               </>
             )}
           </p>
@@ -149,7 +149,10 @@ export function StatisticsWardScreen({
                 empty stretch to average.
               </>
             ) : (
-              <>{statistics.averageEmptyBedMinutes} minutes between a bed being given away and the person arriving.</>
+              <>
+                {statistics.averageEmptyBedMinutes} {statistics.averageEmptyBedMinutes === 1 ? "minute" : "minutes"}{" "}
+                between a bed being given away and the person arriving.
+              </>
             )}
           </p>
 
@@ -201,8 +204,9 @@ export function StatisticsWardScreen({
               <>None. Every admission on this ward that could leave is free to.</>
             ) : (
               <>
-                {statistics.readyToLeaveCannot} on this ward could leave and cannot, each with a blocker recorded
-                against it.
+                {statistics.readyToLeaveCannot}{" "}
+                {statistics.readyToLeaveCannot === 1 ? "admission on this ward could" : "admissions on this ward could"}{" "}
+                leave and cannot, each with a blocker recorded against it.
               </>
             )}
           </p>
@@ -212,19 +216,65 @@ export function StatisticsWardScreen({
             {statistics.longStays === 0 ? (
               <>None. No admission on this ward has passed three months.</>
             ) : (
-              <>{statistics.longStays} on this ward have been here longer than three months.</>
+              <>
+                {statistics.longStays}{" "}
+                {statistics.longStays === 1 ? "admission on this ward has" : "admissions on this ward have"} been here
+                longer than three months.
+              </>
             )}
           </p>
 
           <h3 className={styles.subHeading}>Discharge dates</h3>
+          {/*
+           * 🔴 **TWO POPULATIONS, AND UNTIL 2026-09-06 THIS SENTENCE PRESENTED THEM AS ONE.** It read
+           * "Of 1 with a date written down, 1 met, 0 missed and 11 moved" on a live ward page. Eleven
+           * of one. Every number was correct — that is what made it dangerous — and the derivation
+           * had already written the rule down, in `ward-statistics.ts`:
+           *
+           * > `met`/`missed`/`moved` are therefore NOT a three-way partition of the same population
+           * > and must never be summed to `consideredCount`.
+           *
+           * `moved` is counted over EVERY admission on this ward. `met` and `missed` only over the
+           * ones with a date whose person has since left. So the two cannot share a denominator, and
+           * they now get a sentence each rather than a clause each.
+           *
+           * ⚠️ **THE EMPTY BRANCH WAS SAYING SOMETHING FALSE, NOT MERELY SOMETHING VAGUE.** It fires
+           * on `consideredCount === 0` — no outcome RESOLVED — and it claimed no discharge date had
+           * been written down. On a ward where every admission carries a planned date and nobody has
+           * left yet, that is untrue, and it is the reading a coordinator acts on: it says the
+           * planning has not happened.
+           *
+           * ⚠️ **AND IT DROPPED `moved` ENTIRELY.** A ward with no resolved outcome and eight revised
+           * dates published neither figure. An unresolved outcome is not a reason to withhold a
+           * measure that IS resolved, so the revision count now stands on its own in both branches.
+           *
+           * `tests/ward-statistics-discharge-date-populations.dom.test.tsx` holds all three as
+           * properties rather than wordings — reword this freely, it stays green.
+           */}
           <p className={styles.body} data-testid="ward-stat-discharge-outcomes">
             {statistics.dischargeDateOutcomes.consideredCount === 0 ? (
-              <>None. No admission on this ward has had a discharge date written down, so none can have been met.</>
+              <>
+                No discharge date on this ward can be judged yet: judging one needs a date written down and the person
+                to have since left, and no admission here has both.
+              </>
             ) : (
               <>
-                Of {statistics.dischargeDateOutcomes.consideredCount} with a date written down,{" "}
-                {statistics.dischargeDateOutcomes.met} met, {statistics.dischargeDateOutcomes.missed} missed and{" "}
-                {statistics.dischargeDateOutcomes.moved} moved.
+                Of {statistics.dischargeDateOutcomes.consideredCount} whose date can be judged — written down, and the
+                person has since left — {statistics.dischargeDateOutcomes.met} met and{" "}
+                {statistics.dischargeDateOutcomes.missed} missed.
+              </>
+            )}{" "}
+            {statistics.dischargeDateOutcomes.moved === 0 ? (
+              <>No admission on this ward has had its discharge date revised.</>
+            ) : (
+              <>
+                Separately, {statistics.dischargeDateOutcomes.moved}{" "}
+                {statistics.dischargeDateOutcomes.moved === 1
+                  ? "admission on this ward has"
+                  : "admissions on this ward have"}{" "}
+                had a discharge date revised at least once. That is counted over every admission here, including those
+                still in a bed, so it is a wider population than the judged dates and the two figures do not reconcile
+                to each other.
               </>
             )}
           </p>

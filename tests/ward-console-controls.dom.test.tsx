@@ -472,7 +472,40 @@ describe("D3 — the audit timeline must not promise ten kinds of event and deli
     renderWorkspace("WF-004");
     const timeline = screen.getByTestId("ward-console-timeline");
     expect(within(timeline).getByText("Movement opened")).toBeInTheDocument();
-    expect(within(timeline).getByText("The hold on the bed at BTY Adult Secure ran out")).toBeInTheDocument();
+
+    /*
+     * ⚠️ **THIS WAS AN EXACT-STRING `getByText` ON RENDERED COPY UNTIL 2026-09-06, AND IT WENT RED
+     * THE MOMENT THAT COPY WAS CORRECTED.** The label said "The hold on the bed at … ran out"; the
+     * owner has ruled a reserved bed is a PULL, so the label changed and this assertion had to move
+     * with it — which is the tell. **A guard that must be edited every time correct copy is reworded
+     * is a tripwire on the redesign, not on the defect**, and the owner's standing instruction is
+     * that testing works with redesigns rather than fighting them.
+     *
+     * Re-pinning the new sentence verbatim would have moved the tripwire one rewording along and
+     * cost the same edit again next time. So it asserts the CLAIM instead: this timeline names the
+     * bed reservation ending, at the named destination. Reword it freely; it may not stop saying it.
+     *
+     * The vocabulary itself is pinned where it belongs — `ward-pull-vocabulary.dom.test.tsx` for
+     * the rendered controls, and `ward-delay-cause-vocabulary.test.ts` for the copy table. This
+     * assertion deliberately does NOT check which word is used, because two guards over one fact
+     * disagree eventually and the wording one is already owned elsewhere.
+     */
+    // Found by the DESTINATION, which is data rather than copy and so cannot be reworded. My first
+    // attempt at this located the row by matching "ran out" — swapping one pinned phrase for
+    // another, which is the same defect one step quieter.
+    const bedRow = within(timeline)
+      .getAllByRole("listitem")
+      .map((row) => row.textContent ?? "")
+      .find((text) => text.includes("BTY Adult Secure"));
+    expect(
+      bedRow,
+      "the timeline no longer carries a dated row naming BTY Adult Secure. The bed reservation " +
+        "ending is a DATED fact the record holds and the figure strip already prints, so its " +
+        "absence here is the short-list defect this test exists for — not a wording change.",
+    ).toBeDefined();
+    expectSays(bedRow ?? "", "the bed-reservation row", ["bed"]);
+    expectSays(bedRow ?? "", "the bed-reservation row's ending", ["ran out", "expired", "lapsed", "ended"]);
+
     expect(timeline.querySelectorAll("li").length).toBeGreaterThan(1);
   });
 

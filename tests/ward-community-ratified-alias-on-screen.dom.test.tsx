@@ -47,6 +47,11 @@ const RATIFIED_MEMBERS = new Map<string, readonly string[]>(
   ),
 );
 
+/** The entry behind each member, so a guard can read its recorded provenance rather than a phrase. */
+const RATIFIED_ENTRIES = new Map(
+  RATIFIED_SERVICE_ALIASES.flatMap((entry) => entry.members.map((member) => [member, entry] as const)),
+);
+
 function renderTeam(teamId: string) {
   return render(
     <WardFlowProvider>
@@ -117,7 +122,23 @@ describe("a ratified service ruling reaches the reader", () => {
       for (const other of others) {
         if (!text.includes(other)) wrong.push(`${team.name} does not name ${other}`);
       }
-      expect(text, `${team.name} does not say who decided`).toMatch(/Decided by /u);
+      /*
+       * ⚠️ **THIS PINNED THE LITERAL PHRASE `"Decided by "` AND WENT RED ON AN HONEST CHANGE.**
+       * The block now opens with "Recorded by" for an entry no person signed, because saying
+       * "Decided by" over an agent's working note is the fabricated-signature this whole field
+       * exists to prevent — so the guard was forbidding the correct fix.
+       *
+       * The property that survives either wording, and is stronger than the phrase was: the page
+       * names WHO decided and WHEN, in the entry's own words. Reading them from the entry rather
+       * than restating them here is not a tautology — the entry is the source of truth for
+       * provenance and the question is whether the SCREEN carries it.
+       */
+      const entry = RATIFIED_ENTRIES.get(team.name);
+      expect(entry, `${team.name} has members but no entry`).toBeDefined();
+      if (entry !== undefined) {
+        expect(text, `${team.name} does not say who decided`).toContain(entry.decidedBy);
+        expect(text, `${team.name} does not say when it was decided`).toContain(entry.decidedOn);
+      }
       cleanup();
     }
 

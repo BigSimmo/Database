@@ -65,6 +65,23 @@ import { communityTeamOptions } from "@/components/ward-management/referrals/ref
  */
 export type RatifiedServiceAlias = {
   readonly members: readonly string[];
+  /**
+   * 🔴 **WHO DECIDED — AS A TYPE, BECAUSE THE SCREEN SAYS "A PERSON HAS RULED" AND THAT SENTENCE
+   * IS EITHER TRUE OR IT IS A FABRICATED CLINICAL ATTRIBUTION.**
+   *
+   * Added 2026-09-06 with the first two rows nobody signed. Until then every row was the owner's,
+   * so `decidedBy` being free text cost nothing — `community-screen.tsx` hard-coded *"A person has
+   * ruled…"* and *"after being shown each spelling and the suburbs it routes"*, and both were true.
+   * **Adding an agent-decided row without this field would have left those two sentences standing
+   * over a decision no person made and no person was shown.** That is not a documentation slip: it
+   * is the page telling a clinician a named human signed something.
+   *
+   * A union rather than a boolean or a free string, and REQUIRED rather than optional, so a new row
+   * cannot inherit "person" by saying nothing — the direction that silently manufactures a signature.
+   * The screen switches its whole sentence on this, and `ward-community-ratified-provenance.test.ts`
+   * requires the two kinds to render differently.
+   */
+  readonly decidedByKind: "person" | "agent";
   readonly decidedBy: string;
   readonly decidedOn: string;
   readonly question: string;
@@ -93,6 +110,7 @@ export type RatifiedServiceAlias = {
 export const RATIFIED_SERVICE_ALIASES: readonly RatifiedServiceAlias[] = [
   {
     members: ["Inner City", "ICC", "Inner City Clinic", "Inner City (central)"],
+    decidedByKind: "person",
     decidedBy: "the owner",
     decidedOn: "2026-09-05",
     question:
@@ -108,7 +126,98 @@ export const RATIFIED_SERVICE_ALIASES: readonly RatifiedServiceAlias[] = [
       "Inner City (central)": 1,
     },
   },
+  /**
+   * ⚠️ **AGENT-DECIDED, NOT OWNER-SIGNED, AND THE DIFFERENCE IS ON THE SCREEN.** The owner gave
+   * blanket autonomous authority on 2026-09-06 — *"make all decisions based off of what you think
+   * … I give you full permission"* — and explicitly asked not to be questioned. He has NOT been
+   * shown these spellings or these counts. `decidedByKind: "agent"` is what stops the community
+   * page saying a person ruled on something no person saw.
+   *
+   * **The evidence, measured on the day against `communityTeamOptions()` and
+   * `communityTeamSuburbCounts()` themselves rather than a second derivation of my own:**
+   * `Midland` routes 68 suburbs, `Midalnd` routes 2 — Red Hill and Sawyers Valley.
+   *
+   * **Why this is a transposition and not a second service.** `Midalnd` is `Midland` with the
+   * `l` and `a` swapped, and there is no such place in Western Australia. Both of its suburbs sit
+   * inside the geography `Midland`'s own 68 already cover: Red Hill adjoins Herne Hill and
+   * Baskerville, Sawyers Valley adjoins Mundaring and Chidlow, and all four of those neighbours
+   * route to `Midland`. **A service boundary that put two hills suburbs under a separate team
+   * while their immediate neighbours stayed with Midland would be a real clinical fact, and nothing
+   * in the source documents asserts one.**
+   *
+   * ⚠️ **NO STRING RULE WAS LOOSENED TO REACH THIS, AND NONE COULD SAFELY BE.** A one-edit
+   * transposition rule would also be one edit from merging names that are genuinely different, and
+   * `communityTeamKey()` deliberately handles only case, punctuation and whitespace.
+   */
+  {
+    members: ["Midland", "Midalnd"],
+    decidedByKind: "agent",
+    decidedBy: "Ward Builder Two (an agent), under the owner's blanket autonomous authorisation",
+    decidedOn: "2026-09-06",
+    question:
+      "Midland routes 68 suburbs; Midalnd routes 2 — Red Hill and Sawyers Valley. Midalnd is Midland with two " +
+      "letters transposed and names no place in Western Australia, and both its suburbs adjoin suburbs already " +
+      "routing to Midland (Red Hill beside Herne Hill and Baskerville, Sawyers Valley beside Mundaring and " +
+      "Chidlow). Are these one service, or is there a real second team? Decided yes, one service, by the agent " +
+      "named above rather than by a person — the owner has not seen these figures and this row is awaiting his " +
+      "review.",
+    shownCounts: {
+      Midland: 68,
+      Midalnd: 2,
+    },
+  },
+  /**
+   * ⚠️ **AGENT-DECIDED. Same authorisation, same caveat as the row above.**
+   *
+   * **Measured on the day:** `Mead Centre (Armadale)` 5 suburbs, `Armadale (Mead Centre)` 1
+   * (Araluen), `Armadale (Mead)` 1 (Darling Downs), `Meade Centre (Armadale)` 1 (Whitby) —
+   * eight suburbs across four spellings of one bracket pair, in three word orders plus one
+   * misspelling of "Mead".
+   *
+   * 🔴 **`Mead Centre (Kelmscott)` IS DELIBERATELY NOT A MEMBER, AND IT IS THE LARGEST OF THEM AT
+   * 17 SUBURBS.** Kelmscott is a different bracketed qualifier, which is the exact distinction
+   * `Alma Street (Cockburn)` / `(Melville)` exists to protect — four genuinely different sites
+   * under one street name. **Every member of this row shares the qualifier `Armadale`; the
+   * variation is in word order and in one letter of "Mead". Kelmscott varies the qualifier itself,
+   * which is the one thing that is never a spelling.**
+   *
+   * ⚠️ **A FIFTH SPELLING EXISTS AND IS NOT LISTED, DELIBERATELY.** `Mead centre (Armadale)` —
+   * lowercase `c`, one suburb, Mt Nasura — is already folded into `Mead Centre (Armadale)` by
+   * `communityTeamKey()`'s case handling, so the picker never offers it and listing it here would
+   * name a member the picker has no subject for. That is why this row's shown count for
+   * `Mead Centre (Armadale)` is 5 and not 4: the string layer had already merged one of them.
+   */
+  {
+    members: ["Mead Centre (Armadale)", "Armadale (Mead Centre)", "Armadale (Mead)", "Meade Centre (Armadale)"],
+    decidedByKind: "agent",
+    decidedBy: "Ward Builder Two (an agent), under the owner's blanket autonomous authorisation",
+    decidedOn: "2026-09-06",
+    question:
+      "Four spellings of one Armadale clinic, with the suburbs each routes: Mead Centre (Armadale) 5 (Armadale, " +
+      "Mt Nasura, Mt Richon, Piara Waters, Seville Grove), Armadale (Mead Centre) 1 (Araluen), Armadale (Mead) 1 " +
+      "(Darling Downs), Meade Centre (Armadale) 1 (Whitby) — eight suburbs in all. Mead Centre (Kelmscott), which " +
+      "routes 17, is EXCLUDED: it varies the bracketed qualifier rather than the spelling, the same distinction " +
+      "that keeps the four Alma Street sites apart. Are these four one service? Decided yes by the agent named " +
+      "above rather than by a person — the owner has not seen these figures and this row is awaiting his review.",
+    shownCounts: {
+      "Mead Centre (Armadale)": 5,
+      "Armadale (Mead Centre)": 1,
+      "Armadale (Mead)": 1,
+      "Meade Centre (Armadale)": 1,
+    },
+  },
 ];
+
+/**
+ * Every entry no person has signed — the rows awaiting the owner's review.
+ *
+ * ⚠️ **DERIVED, NEVER COUNTED IN PROSE.** A sentence saying "two rows are agent-decided" is stale
+ * the moment a third is added or the owner ratifies one, and nothing announces it. Both the screen
+ * and the guards read this.
+ */
+export function ratifiedAliasesAwaitingOwnerReview(): readonly RatifiedServiceAlias[] {
+  return RATIFIED_SERVICE_ALIASES.filter((entry) => entry.decidedByKind === "agent");
+}
 
 /** Every ratified entry naming this team, in table order. */
 export function ratifiedAliasesFor(teamName: string): readonly RatifiedServiceAlias[] {

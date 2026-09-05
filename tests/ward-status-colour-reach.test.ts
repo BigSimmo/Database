@@ -154,10 +154,27 @@ function tokensUsedIn(css: string): string[] {
   const used: string[] = [];
   let index = css.indexOf("var(");
   while (index >= 0) {
-    const close = css.indexOf(")", index);
-    if (close < 0) break;
-    used.push(css.slice(index + "var(".length, close).trim());
-    index = css.indexOf("var(", close);
+    const rest = css.slice(index + "var(".length);
+    // Cut at the first separator, so a FALLBACK is not swallowed into the token name and a longer
+    // hyphenated property is never truncated into a shorter one.
+    let end = rest.length;
+    for (const separator of [",", ")", " "]) {
+      const at = rest.indexOf(separator);
+      if (at >= 0 && at < end) end = at;
+    }
+    used.push(rest.slice(0, end).trim());
+    // ⚠️ ADVANCE PAST THE `var(`, NEVER PAST THE CLOSING PAREN. This resumed at the first `)` until
+    // 2026-09-06, which STEPPED OVER A NESTED `var(` ENTIRELY: on
+    // `var(--success-bg-hover, var(--success-bg))` the outer read returned
+    // "--success-bg-hover, var(--success-bg" — correctly not a token — and the scan then resumed
+    // after the inner `)`, so the unprotected fallback was never visited. **An unprotected token
+    // hidden in a fallback was invisible to this guard**, which is the one place it is easiest to
+    // hide and the shape the ward stylesheets already use in seven other rules.
+    //
+    // Not live when found — none of those seven named a status token in the fallback position — so
+    // nothing was being missed today. It was a hole in the detector, not a defect in the estate,
+    // and the two are indistinguishable from a green.
+    index = css.indexOf("var(", index + "var(".length);
   }
   return used;
 }
@@ -201,8 +218,17 @@ describe("no ward rule reaches past the ward layer for a status colour", () => {
       ".alsoReaches { background: var(--warning-bg); }",
       ".aliased { color: var(--ward-danger); }",
       ".unrelated { color: var(--ward-text); }",
+      // 🔴 THE NESTED-FALLBACK PAIR, ADDED 2026-09-06 BECAUSE THE DETECTOR MISSED THE FIRST ONE.
+      // A fallback is the easiest place in CSS to hide a token, and the parser used to resume
+      // scanning after the first `)` — stepping over the inner `var(` entirely. The ward
+      // stylesheets already use this shape in seven rules, so it was one edit away from mattering.
+      // Both directions: the unprotected fallback must be FOUND, and the aliased one must not,
+      // because a fix that simply matched more aggressively would fire on `--success-bg-hover`,
+      // a real and separate property whose name merely starts with a token name.
+      ".hidesInFallback { background: var(--success-bg-hover, var(--success-bg)); }",
+      ".fallbackIsAliased { background: var(--warning-bg-hover, var(--ward-warning-soft)); }",
     ].join("\n");
-    expect(unprotectedUsesIn(fixture, SAFE).sort()).toEqual(["--danger-text", "--warning-bg"]);
+    expect(unprotectedUsesIn(fixture, SAFE).sort()).toEqual(["--danger-text", "--success-bg", "--warning-bg"]);
   });
 
   it("keeps every file at or below its recorded ceiling, and every unlisted file at zero", () => {

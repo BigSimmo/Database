@@ -61,6 +61,25 @@ export function MovementsScreen() {
     <div className={styles.screen} data-testid="ward-movements-page">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
+        {/*
+          🔴 **THE SYNTHETIC-DATA DISCLOSURE, ADDED 2026-09-06.** This screen shipped without
+          one and showed invented figures under real Perth hospital names with nothing saying
+          so. Twenty-four other ward screens carried it; the three that did not were the three
+          the 2026-09-05 merges created.
+
+          ⚠️ **IT IS OPT-IN PER SCREEN, WHICH IS WHY THEY MISSED IT.** There is no shared
+          component and no layout providing it, so a new screen gets none by default and
+          nothing reported the absence. `tests/ward-prototype-disclosure.test.ts` now walks
+          every ward ROUTE and requires the tree it renders to disclose somewhere — a route is
+          what a reader opens, and a component nothing routes to cannot disclose to anybody.
+        */}
+        <div className={styles.governanceBanner}>
+          <span className={styles.prototypeBadge}>Synthetic prototype</span>
+          <p>
+            Every patient journey, transport leg and department on this screen is invented. Nobody here is a real
+            person, and nothing on it is a clinical record.
+          </p>
+        </div>
         <header className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Movements</h1>
           <p className={styles.pageSubtitle}>

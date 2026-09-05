@@ -75,9 +75,9 @@
   flex-shrink: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ap-space-4) var(--ap-space-8);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -125,7 +125,7 @@
      the exact defect this register carries as WB2-110: an undeclared custom property with no
      fallback makes the declaration invalid at computed-value time and the background silently
      vanishes. Nothing fails; the box just stops looking like a warning. Verified declared. */
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ap-space-14);
 }
 
@@ -138,7 +138,7 @@
 
 .duplicateLead {
   margin: 0;
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   line-height: var(--ap-leading-body);
@@ -198,9 +198,9 @@
   margin: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ap-space-12) var(--ap-space-14);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: var(--ap-leading-body);
@@ -210,9 +210,9 @@
   margin: 0;
   border: 0.0625rem solid var(--danger-border);
   border-radius: var(--radius-lg);
-  background: var(--danger-bg);
+  background: var(--ward-danger-soft);
   padding: var(--ap-space-12) var(--ap-space-14);
-  color: var(--danger-text);
+  color: var(--ward-danger);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: var(--ap-leading-body);

@@ -87,9 +87,9 @@
   flex-shrink: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-2) var(--ward-space-8);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -164,9 +164,9 @@
   margin: 0;
   border: 0.0625rem solid var(--danger-border);
   border-radius: var(--radius-lg);
-  background: var(--danger-bg);
+  background: var(--ward-danger-soft);
   padding: var(--ward-space-12) var(--ward-space-14);
-  color: var(--danger-text);
+  color: var(--ward-danger);
   font-size: var(--text-xs);
   font-weight: 600;
   line-height: var(--ward-leading-body);
@@ -214,9 +214,9 @@
   justify-self: start;
   border: 0.0625rem solid var(--danger-border);
   border-radius: var(--radius-sm);
-  background: var(--danger-bg);
+  background: var(--ward-danger-soft);
   padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--danger-text);
+  color: var(--ward-danger);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -265,7 +265,7 @@
    concern — this is a departmental performance measure, not a legal one, and must never share a
    visual register with the notices that are. */
 .clockRow[data-state="over"] dd {
-  color: var(--warning-text);
+  color: var(--ward-warning);
 }
 
 .referralState {
