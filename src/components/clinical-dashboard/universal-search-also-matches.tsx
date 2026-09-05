@@ -39,7 +39,7 @@ function AlsoMatchesSkeletonCard({ className }: { className?: string }) {
     <div
       aria-hidden
       className={cn(
-        "flex min-w-0 flex-col gap-2.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--e1)]",
+        "flex min-w-0 flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--e1)]",
         className,
       )}
     >
@@ -183,7 +183,7 @@ export function UniversalSearchAlsoMatches({
         // Border only, no `--shadow-inset`: card-recipes.ts records that pairing
         // a bevel with a border puts two edge treatments on one surface, which
         // is what made this panel read flat beside the cards above it.
-        "basis-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1.5 sm:p-2.5",
+        "basis-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1.5 sm:p-2",
         "motion-safe:animate-fade-up forced-colors:border",
         // Content spacing below the last interactive section on phones — not a
         // chrome/dock reserve restore (those stay 0rem when scroll-hidden).
@@ -206,7 +206,7 @@ export function UniversalSearchAlsoMatches({
           "hover:bg-[color:var(--surface)]",
           focusRing,
           // From sm up the panel is always open, so the header is inert copy rather than a control.
-          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2.5 sm:px-1 sm:pb-2 sm:pt-0.5 sm:hover:bg-transparent",
+          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2 sm:px-1 sm:pb-1.5 sm:pt-0.5 sm:hover:bg-transparent",
         )}
       >
         <span
@@ -259,7 +259,7 @@ export function UniversalSearchAlsoMatches({
           // 1024px content well leaves each mode card too narrow for a
           // two-line clinical title, which is what forced the old single-line
           // truncation ("Mental Health Hospital in th…").
-          "grid-cols-1 gap-2 sm:grid sm:grid-cols-2 sm:gap-2.5 xl:grid-cols-4",
+          "grid-cols-1 gap-2 sm:grid sm:grid-cols-2 xl:grid-cols-4",
           expanded ? "mt-1.5 grid sm:mt-0" : "hidden",
         )}
       >
@@ -276,7 +276,7 @@ export function UniversalSearchAlsoMatches({
           </>
         ) : null}
         {!searchPending && currentGroups.length === 0 ? (
-          <p className="rounded-lg px-2.5 py-3 text-xs font-medium text-[color:var(--text-muted)]">{emptyMessage}</p>
+          <p className="rounded-lg px-2 py-2 text-xs font-medium text-[color:var(--text-muted)]">{emptyMessage}</p>
         ) : null}
         {currentGroups.map((group) => {
           const targetModeId = group.modeId;
@@ -286,31 +286,49 @@ export function UniversalSearchAlsoMatches({
             <div
               key={targetModeId}
               data-category-accent={accent}
-              // Vertical card: identity row, then full-width result rows, then a
-              // footer link. The old horizontal `tile | text | View all` row
-              // squeezed the titles into the middle third and truncated them at
-              // every width; giving the titles the whole card width is what makes
-              // a two-line clinical name readable on a phone and on a 4-up.
+              // Two rows, not three. The identity row IS the "view all" control —
+              // tapping a mode's name is the obvious way to ask for more of it, and
+              // folding the two together removes a whole 48px row per card, which on
+              // a phone is four rows of pure chrome across the panel.
+              //
+              // Vertical rather than the old `tile | titles | View all` row: that
+              // squeezed the titles into the middle third and truncated them at every
+              // width. Giving the titles the full card width is what makes a two-line
+              // clinical name readable on a phone and in a 4-up.
               className="group/card flex min-w-0 flex-col rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)] transition-colors hover:border-[color:var(--cat-border)] forced-colors:border"
             >
-              <div className="flex min-w-0 items-center gap-2 px-2.5 pt-2.5">
+              <Link
+                href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
+                className={cn(
+                  "flex min-h-tap min-w-0 items-center gap-2 rounded-t-xl px-2 text-left transition-colors hover:bg-[color:var(--cat-soft)] sm:min-h-compact-meta sm:py-1",
+                  focusRing,
+                )}
+              >
                 <CategoryIconTile icon={APP_MODE_ICON[targetModeId]} accent={accent} size="sm" />
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--text-heading)]">
-                    {targetMode.label}
-                  </span>
-                  <span className="inline-flex w-fit max-w-full items-center truncate rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-1.5 py-px text-2xs font-semibold text-[color:var(--cat-accent)] forced-colors:border">
-                    {targetMode.search.statusLabel}
-                  </span>
+                <span className="min-w-0 flex-1 truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--text-heading)]">
+                  <span className="sr-only">View all in </span>
+                  {targetMode.label}
                 </span>
-              </div>
-              <ul className="mt-1.5 flex min-w-0 flex-col px-1 pb-1.5">
+                {/* Short code beside the full mode name it abbreviates — decorative
+                    in the accessible name, which already says the name in full. */}
+                <span
+                  aria-hidden
+                  className="inline-flex shrink-0 items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-1.5 py-px text-2xs font-semibold text-[color:var(--cat-accent)] forced-colors:border"
+                >
+                  {targetMode.search.statusLabel}
+                </span>
+                <ArrowRight
+                  className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-colors group-hover/card:text-[color:var(--cat-accent)]"
+                  aria-hidden
+                />
+              </Link>
+              <ul className="flex min-w-0 flex-col border-t border-[color:var(--border)] px-1 py-1">
                 {group.items.map((item) => (
                   <li key={item.href} className="min-w-0">
                     <Link
                       href={item.href}
                       className={cn(
-                        "flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-snug text-[color:var(--text)] transition-colors hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] sm:min-h-0 sm:py-1.5",
+                        "flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-xs font-medium leading-snug text-[color:var(--text)] transition-colors hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] sm:min-h-0 sm:py-1",
                         focusRing,
                       )}
                     >
@@ -323,16 +341,6 @@ export function UniversalSearchAlsoMatches({
                   </li>
                 ))}
               </ul>
-              <Link
-                href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
-                className={cn(
-                  "mt-auto flex min-h-tap items-center justify-between gap-2 rounded-b-xl border-t border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] sm:min-h-compact-meta",
-                  focusRing,
-                )}
-              >
-                View all in {targetMode.label}
-                <ArrowRight className="size-icon-sm shrink-0" aria-hidden />
-              </Link>
             </div>
           );
         })}
