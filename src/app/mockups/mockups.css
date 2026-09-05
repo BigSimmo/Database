@@ -36,3 +36,4 @@
    already renders. Without this line its `line-clamp-2`, `lg:grid-cols-[…]` and
    `max-w-5xl` would be inert for exactly the reason described above. */
 @source "../../components/answer-page-perfected-mockups.tsx";
+@source "../../components/answer-page-subtle-mockups.tsx";

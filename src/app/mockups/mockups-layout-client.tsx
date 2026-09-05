@@ -67,7 +67,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
     pathname === "/mockups/answer-chat-perfected" ||
     pathname === "/mockups/answer-chat-perfected-v2" ||
     // Third pass: the page below the prose. Same frames, same reason.
-    pathname === "/mockups/answer-page-perfected";
+    pathname === "/mockups/answer-page-perfected" ||
+    pathname === "/mockups/answer-page-subtle";
   // The loading study draws its own top bar, transcript and composer inside every
   // phone and desktop frame, and its whole subject is what occupies the answer
   // column before the answer. Shared chrome above those frames would read as a
