@@ -76,7 +76,22 @@ describe("useOnCallEntries", () => {
     expect(result.current.cachedAt).toBe(savedAt);
   });
 
-  it("does not overwrite an existing cache with a signed-out response", async () => {
+  // On Call entries became readable by any visitor on 2026-09-04, so a signed-out response
+  // now carries the shared set and IS worth caching. What still must not happen is an empty
+  // response erasing a good cache mid-shift — the reason the old signed-out guard existed.
+  it("caches a signed-out response, because it now carries the shared entries", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [contact], signedOut: true }));
+
+    const { result } = renderHook(() => useOnCallEntries());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.signedOut).toBe(true);
+    expect(result.current.entries).toEqual([contact]);
+    expect(readCachedOnCallEntries()?.entries).toEqual([contact]);
+  });
+
+  it("does not let an empty response erase a non-empty cache", async () => {
     cacheOnCallEntries([contact]);
     const cachedBefore = readCachedOnCallEntries();
 
@@ -86,9 +101,7 @@ describe("useOnCallEntries", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.signedOut).toBe(true);
-    // The stale-but-real cache from the earlier signed-in session is still
-    // shown, not blanked by the signed-out response's empty list.
+    // The stale-but-real cache is still shown rather than blanked.
     expect(result.current.entries).toEqual([contact]);
     expect(readCachedOnCallEntries()).toEqual(cachedBefore);
   });
