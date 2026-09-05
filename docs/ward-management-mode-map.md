@@ -1,13 +1,16 @@
 # Ward Flow mode map
 
-> **Status (2026-09-02):** superseded. The role screens this document says are unbuilt now exist as the developer-gated sandbox under `/mockups/ward-flow` (17 routes; see `docs/codebase-index.md` § Ward Flow). Kept as the pre-sandbox design record.
+> **Status (2026-09-02):** superseded. The role screens this document says are unbuilt now exist as the developer-gated sandbox under `/mockups/ward-flow` (32 routes; see `docs/codebase-index.md` § Ward Flow). Kept as the pre-sandbox design record.
 
 **Superseded:** the nine-mode strip this document describes is superseded by the role-first
 structure (flow coordinator, ED, ward, transport officer, specialist boards) set out in
 [`docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`](./superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md).
-That design has not been built yet — Phase 2 is what actually retires these modes — so this
-document still describes the routes as they exist today. Read the design spec for where the
-product is headed; read this document for what is currently live.
+Phases 2-5 of that design are built (see `docs/ward-flow-context.md` for the phase table). The
+route table below is the **coordinator-view subset** — the eight `WARD_VIEWS` entries. The role
+screens and specialist boards added by Phases 3-5 (and since expanded further) are listed in the
+second table below; the source of truth for both is `WARD_VIEWS` + `WARD_NAV` in
+`src/components/ward-management/ward-nav.ts`, and `tests/ward-landmarks.test.ts` pins the full
+count (32 routes: 31 renderable + 1 redirect-only).
 
 **Phase 2 update (Task 9):** Constellation (`/mockups/ward-flow/constellation`) is retired. The
 route remains as a server `redirect()` to `/mockups/ward-flow/network` so live-main bookmarks do
@@ -50,6 +53,48 @@ The public WA sources used to ground the wireframes establish five important con
 | Exceptions     | `/mockups/ward-flow/exceptions` | Which time-sensitive exception needs an owner action?                       | Action inbox organised by overdue, expiring and stale state            | All roles             |
 | Transport      | `/mockups/ward-flow/transport`  | Is the legal/document/booking chain ready for safe transfer?                | Transport readiness board and metro/country pathway cues               | ED / Flow coordinator |
 | Governance     | `/mockups/ward-flow/governance` | Why did the system recommend this, who confirmed it, and what is synthetic? | AI assurance, audit trail, data boundary and source register           | Authorised reviewers  |
+
+### Role screens and specialist boards (Phases 3-5, and later additions)
+
+The 24 routes below complete the 32-route sandbox (8 core views above + these 24 = 32). They are
+not modes in the eight-view sense: the three role screens (`ed/[edId]`, `ward/[unitId]`,
+`board/[unitId]`) are entered from `WardRoleSwitcher` (the dynamic ones can only be linked as one
+example instance each, `exampleOnly` in `WARD_NAV`), and the remaining boards, indexes and
+workspaces sit outside the eight views. Source of truth: `WARD_NAV` in
+`src/components/ward-management/ward-nav.ts` and the filesystem scan in
+`tests/ward-landmarks.test.ts`.
+
+**`/mockups/ward-flow/patients/[patientId]` no longer exists.** It was renamed to
+`/mockups/ward-flow/movements/[movementId]`, nested under the existing `/movements` mode page
+(see `tests/ward-landmarks.test.ts`'s own note: "despite its name [it] looked a MOVEMENT up by
+id").
+
+| Route                                         | What it is                                                                                  | Source                                               |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `/mockups/ward-flow/ed/[edId]`                | Emergency department role screen (Phase 3); rail links the `peel-ed` example                | `src/app/mockups/ward-flow/ed/[edId]`                |
+| `/mockups/ward-flow/ward/[unitId]`            | Ward role screen (Phase 3); rail links the `rph-adult-secure` example                       | `src/app/mockups/ward-flow/ward/[unitId]`            |
+| `/mockups/ward-flow/board/[unitId]`           | Ward board for one unit; rail links the `rph-adult-secure` example                          | `src/app/mockups/ward-flow/board/[unitId]`           |
+| `/mockups/ward-flow/transport/officer`        | Transport officer phone screen (Phase 3)                                                    | `src/app/mockups/ward-flow/transport/officer`        |
+| `/mockups/ward-flow/movements/[movementId]`   | Patient workspace for one movement (renamed from `/patients/[patientId]`)                   | `src/app/mockups/ward-flow/movements/[movementId]`   |
+| `/mockups/ward-flow/people/[patientId]`       | A person's own screen, distinct from the movement workspace above                           | `src/app/mockups/ward-flow/people/[patientId]`       |
+| `/mockups/ward-flow/people/new`               | Add-patient form                                                                            | `src/app/mockups/ward-flow/people/new`               |
+| `/mockups/ward-flow/handover`                 | Shift handover board (Phase 4)                                                              | `src/app/mockups/ward-flow/handover`                 |
+| `/mockups/ward-flow/escalation`               | Escalation board (Phase 4)                                                                  | `src/app/mockups/ward-flow/escalation`               |
+| `/mockups/ward-flow/search`                   | Patient search board (Phase 4); the only Ward Flow surface with a search slot               | `src/app/mockups/ward-flow/search`                   |
+| `/mockups/ward-flow/discharges`               | Discharges board (Phase 5)                                                                  | `src/app/mockups/ward-flow/discharges`               |
+| `/mockups/ward-flow/morning`                  | Morning bed state board                                                                     | `src/app/mockups/ward-flow/morning`                  |
+| `/mockups/ward-flow/referrals`                | Referral board                                                                              | `src/app/mockups/ward-flow/referrals`                |
+| `/mockups/ward-flow/referrals/new`            | New referral intake form                                                                    | `src/app/mockups/ward-flow/referrals/new`            |
+| `/mockups/ward-flow/out-of-area`              | Out-of-area board                                                                           | `src/app/mockups/ward-flow/out-of-area`              |
+| `/mockups/ward-flow/wards`                    | All-wards index — the page that gives `ward/[unitId]` a way in                              | `src/app/mockups/ward-flow/wards`                    |
+| `/mockups/ward-flow/community`                | All-community-teams index — the page that gives `community/[teamId]` a way in               | `src/app/mockups/ward-flow/community`                |
+| `/mockups/ward-flow/community/[teamId]`       | Community team screen                                                                       | `src/app/mockups/ward-flow/community/[teamId]`       |
+| `/mockups/ward-flow/statistics`               | Statistics index                                                                            | `src/app/mockups/ward-flow/statistics`               |
+| `/mockups/ward-flow/statistics/overview`      | Statistics overview                                                                         | `src/app/mockups/ward-flow/statistics/overview`      |
+| `/mockups/ward-flow/statistics/compare`       | Statistics comparison view                                                                  | `src/app/mockups/ward-flow/statistics/compare`       |
+| `/mockups/ward-flow/statistics/ward/[unitId]` | Ward statistics                                                                             | `src/app/mockups/ward-flow/statistics/ward/[unitId]` |
+| `/mockups/ward-flow/statistics/ed/[edId]`     | Emergency department statistics                                                             | `src/app/mockups/ward-flow/statistics/ed/[edId]`     |
+| `/mockups/ward-flow/constellation`            | Redirect-only stub to `/mockups/ward-flow/network` (Phase 2 retirement; see the note above) | `src/app/mockups/ward-flow/constellation`            |
 
 **Navigation:** the left `ClinicalRail` carries both the global PsychSift application switcher
 and, below it, Ward Flow's own eight mode links (icon-only, each with its own accessible name) —

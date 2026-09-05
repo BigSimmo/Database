@@ -31,10 +31,18 @@ updates:
     # not a function"). Same shape as the TypeScript hold — the lint toolchain is
     # not yet ESLint-10-ready. Remove once eslint-config-next supports ESLint 10.
     # Context: closed #1022.
+    #
+    # Hold the @types/node major: the types must track engines.node (24.x —
+    # .nvmrc, both Dockerfiles and the Railway images all run Node 24), or tsc
+    # accepts an API the deployed runtime does not have. Dependabot #549 is how
+    # the current 26.x line arrived; the pin back to 24.x is tracked in
+    # docs/framework-dependency-modernization-checklist.md (audit L20).
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
@@ -62,4 +70,37 @@ updates:
     open-pull-requests-limit: 2
     groups:
       docker-images:
+        patterns: ["*"]
+
+  # The ingestion worker parses attacker-supplied PDFs and images with
+  # PyMuPDF, Pillow, pytesseract and docling. Without these two entries nothing
+  # in the repo reports a published CVE against a pinned parser (audit M20).
+  - package-ecosystem: "pip"
+    directory: "/worker/python"
+    # Hash-pinned by pip-compile: a bump must regenerate the hashes with
+    # `npm run generate:worker-python-lock`, then pass
+    # `npm run check:worker-python-locks:static`, rather than edit a version.
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Australia/Perth"
+    open-pull-requests-limit: 2
+    groups:
+      worker-python:
+        patterns: ["*"]
+
+  - package-ecosystem: "pip"
+    directory: "/eval/docling"
+    # Hash-pinned Gate B lab lock that Dockerfile.worker builds the docling venv
+    # from; regenerate per docs/worker-deploy-runbook.md and confirm with
+    # `npm run check:worker-python-locks:static` before merging a bump.
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Australia/Perth"
+    open-pull-requests-limit: 2
+    groups:
+      docling-python:
         patterns: ["*"]
