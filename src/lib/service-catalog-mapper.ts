@@ -19,7 +19,16 @@ import type {
 
 export { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails, splitCatalogClauses };
 
-const UNKNOWN_VALUES = /^(?:not publicly stated|not applicable|none|n\/a|unknown)$/i;
+// The trailing `[^|]*` (not `.*`) matters: these clauses must not cross a `|`
+// clause boundary. Catalogue fields like referral_pathway are pipe-joined
+// blobs of several source paraphrases — one placeholder clause ("Not
+// publicly stated on summary page | ... | Referral must come from public or
+// private mental health service") must not make the WHOLE field look
+// unknown when a later clause is concrete. Per-clause placeholder filtering
+// already happens downstream in compactCatalogField/splitCatalogParts; this
+// gate only short-circuits a field that is unknown in its entirety.
+const UNKNOWN_VALUES =
+  /^(?:not publicly stated(?:\s+(?:in|by|on)\b[^|]*)?|not applicable|none|n\/a|unknown|does not specify\b[^|]*)$/i;
 
 const CARD_MAX = 120;
 const ROW_MAX = 160;
@@ -63,16 +72,55 @@ function acuityLabel(flag: string) {
   return flag.replace(/_/g, " ");
 }
 
+function availabilityLabel(status: string) {
+  if (status === "active") return "Active";
+  if (status === "planned") return "Planned — not open";
+  if (status === "temporarily_unavailable") return "Temporarily unavailable";
+  if (status === "closed") return "Closed";
+  if (status === "superseded") return "Superseded";
+  if (status === "unknown") return "Availability unverified";
+  return status.replace(/_/g, " ");
+}
+
+function availabilityTone(status: string): ServiceChipTone {
+  if (status === "active") return "success";
+  if (status === "planned" || status === "temporarily_unavailable" || status === "unknown") return "warning";
+  if (status === "closed" || status === "superseded") return "danger";
+  return "neutral";
+}
+
+function isReviewOverdue(nextReviewAt: string | undefined): boolean {
+  if (!nextReviewAt?.trim()) return true;
+  const timestamp = Date.parse(`${nextReviewAt}T23:59:59Z`);
+  if (!Number.isFinite(timestamp)) return true;
+  return timestamp < Date.now();
+}
+
 function sourceStatusForService(service: CatalogService): string {
+  const availability = service.availability_status;
+  if (availability && availability !== "active") return "Not currently referable";
+
+  const hasDurableSource = (service.evidence_sources?.length ?? 0) > 0 || service.public_source_urls.length > 0;
+  const hasVerifiedDate = Boolean(service.last_verified?.trim());
+  const currentReview = !isReviewOverdue(service.next_review_at);
+
   if (
     service.confidence === "High" &&
-    service.public_source_urls.length > 0 &&
-    Boolean(service.web_review_status.trim()) &&
+    hasDurableSource &&
+    hasVerifiedDate &&
+    currentReview &&
     service.verification_flags.length === 0
   ) {
     return "Source checked";
   }
-  if (service.verification_flags.length > 0 || service.confidence === "Medium" || service.confidence === "Low") {
+  if (
+    service.verification_flags.length > 0 ||
+    service.confidence === "Medium" ||
+    service.confidence === "Low" ||
+    !hasDurableSource ||
+    !hasVerifiedDate ||
+    !currentReview
+  ) {
     return "Local confirmation required";
   }
   return "Review required";
@@ -83,35 +131,77 @@ function resolvePathway(service: CatalogService): string | undefined {
   return displayField(service.referral_pathway) ?? displayField(labeled.pathway) ?? undefined;
 }
 
+function contactKind(kind: string | undefined, value: string): ServiceContact["kind"] {
+  const normalized = kind?.toLowerCase() ?? "";
+  if (normalized.includes("email") || extractEmails(value).length > 0) return "email";
+  if (normalized.includes("phone") || extractPhones(value).length > 0) return "phone";
+  if (normalized.includes("web") || /^https?:\/\//i.test(value)) return "web";
+  if (normalized.includes("text")) return "text";
+  return "unknown";
+}
+
 function buildContacts(service: CatalogService): ServiceContact[] {
   const contacts: ServiceContact[] = [];
-  const contactBlob = [service.contact_details, service.referral_details].filter(Boolean).join(" ");
-  const phones = extractPhones(contactBlob);
-  const emails = extractEmails(contactBlob);
   const hours = displayField(service.hours, ROW_MAX);
 
-  for (const phone of phones) {
-    contacts.push({
-      label: phones.length > 1 ? `Phone ${contacts.filter((entry) => entry.kind === "phone").length + 1}` : "Phone",
-      value: phone,
-      detail: hours,
-      kind: "phone",
-    });
+  if ((service.structured_contacts?.length ?? 0) > 0) {
+    for (const contact of service.structured_contacts ?? []) {
+      const kind = contactKind(contact.kind, contact.value);
+      // Some governed structured contacts pack multiple destinations into one string
+      // (e.g. MHERL's Metro/Peel numbers, the AOD support line's Metro/Country numbers).
+      // A single "phone" contact there would strip to a concatenated, undialable tel:
+      // link. Split into one contact per number actually found — never fabricate a
+      // number, so a value with 0 or 1 extractable phones is left exactly as before.
+      if (kind === "phone") {
+        const phones = extractPhones(contact.value);
+        if (phones.length > 1) {
+          phones.forEach((phone, index) => {
+            contacts.push({
+              label: contact.label ? `${contact.label} ${index + 1}` : `Phone ${index + 1}`,
+              value: phone,
+              detail: hours,
+              kind: "phone",
+            });
+          });
+          continue;
+        }
+      }
+      contacts.push({
+        label: contact.label || (kind === "unknown" ? "Contact" : kind[0].toUpperCase() + kind.slice(1)),
+        value: contact.value,
+        detail: kind === "phone" ? hours : undefined,
+        kind,
+      });
+    }
+  } else {
+    const contactBlob = [service.contact_details, service.referral_details].filter(Boolean).join(" ");
+    const phones = extractPhones(contactBlob);
+    const emails = extractEmails(contactBlob);
+
+    for (const phone of phones) {
+      contacts.push({
+        label: phones.length > 1 ? `Phone ${contacts.filter((entry) => entry.kind === "phone").length + 1}` : "Phone",
+        value: phone,
+        detail: hours,
+        kind: "phone",
+      });
+    }
+
+    for (const email of emails) {
+      contacts.push({
+        label: "Email",
+        value: email,
+        kind: "email",
+      });
+    }
   }
 
-  for (const email of emails) {
-    contacts.push({
-      label: "Email",
-      value: email,
-      kind: "email",
-    });
-  }
-
-  for (const url of service.public_source_urls) {
+  const serviceWebsite = service.service_website?.trim();
+  if (serviceWebsite && !contacts.some((contact) => contact.kind === "web" && contact.value === serviceWebsite)) {
     contacts.push({
       label: "Website",
-      value: url,
-      detail: "Public source URL",
+      value: serviceWebsite,
+      detail: "Service website",
       kind: "web",
     });
   }
@@ -133,6 +223,13 @@ function buildContacts(service: CatalogService): ServiceContact[] {
 function buildStatusChips(service: CatalogService): ServiceStatusChip[] {
   const chips: ServiceStatusChip[] = [];
 
+  if (service.availability_status) {
+    chips.push({
+      label: availabilityLabel(service.availability_status),
+      tone: availabilityTone(service.availability_status),
+    });
+  }
+
   for (const flag of service.tags.acuity_flags) {
     chips.push({ label: acuityLabel(flag), tone: acuityChipTone(flag) });
   }
@@ -141,7 +238,11 @@ function buildStatusChips(service: CatalogService): ServiceStatusChip[] {
     chips.push({ label: `${service.confidence} confidence`, tone: confidenceTone(service.confidence) });
   }
 
-  if (service.verification_flags.length > 0) {
+  if (
+    service.verification_flags.length > 0 ||
+    service.verification_status === "legacy_unverified" ||
+    isReviewOverdue(service.next_review_at)
+  ) {
     chips.push({ label: "Verify before use", tone: "warning" });
   }
 
@@ -213,9 +314,7 @@ function buildReferralInfo(service: CatalogService): ServiceInfoRow[] {
   };
 
   const pathway = displayField(service.referral_pathway, ROW_MAX) ?? displayField(labeled.pathway, ROW_MAX);
-  if (pathway) {
-    rows.push({ label: "Primary route", value: pathway });
-  }
+  if (pathway) rows.push({ label: "Primary route", value: pathway });
 
   const phones = extractPhones([service.contact_details, service.referral_details].join(" "));
   phones.forEach((phone, index) => add(phones.length > 1 ? `Phone ${index + 1}` : "Phone", phone));
@@ -228,12 +327,18 @@ function buildReferralInfo(service: CatalogService): ServiceInfoRow[] {
   add("Patient group", cleanField(service.patient_group) ?? labeled.patientGroup);
   add("Hours", cleanField(service.hours) ?? labeled.hours);
   add("Cost / funding", cleanField(service.cost_funding) ?? labeled.cost);
-  const exclusions = splitCatalogClauses(service.exclusion_rejection_criteria, ROW_MAX);
-  if (exclusions.length > 0) {
-    rows.push({ label: "Exclusions", value: exclusions.join(" | ") });
-  }
-  add("Discharge planning", service.discharge_planning_usefulness);
 
+  const exclusions = splitCatalogClauses(service.exclusion_rejection_criteria, ROW_MAX);
+  if (exclusions.length > 0) rows.push({ label: "Exclusions", value: exclusions.join(" | ") });
+
+  for (const route of service.referral_routes ?? []) {
+    if (route.requiredDocuments.length > 0) {
+      rows.push({ label: "What to send", value: route.requiredDocuments.join(", ") });
+      break;
+    }
+  }
+
+  add("Discharge planning", service.discharge_planning_usefulness);
   return rows;
 }
 
@@ -241,38 +346,50 @@ function buildCriteria(service: CatalogService): ServiceCriterion[] {
   const criteria: ServiceCriterion[] = [];
   const seen = new Set<string>();
 
+  const addCriterion = (label: string, tone: ServiceCriterion["tone"]) => {
+    const compacted = displayField(label, CARD_MAX);
+    if (!compacted) return;
+    const key = `${tone}:${compacted.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    criteria.push({ label: compacted, tone });
+  };
+
   const addMeet = (value: string | undefined, prefix?: string) => {
     const compacted = displayField(value, CARD_MAX);
     if (!compacted) return;
-    const label = prefix ? `${prefix}${compacted}` : compacted;
-    const key = label.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    criteria.push({ label, tone: "meet" });
+    addCriterion(prefix ? `${prefix}${compacted}` : compacted, "meet");
   };
 
   addMeet(service.best_use_indication);
   addMeet(service.referral_pathway, "Referral: ");
 
-  for (const clause of splitCatalogClauses(service.eligibility_referral_criteria, CARD_MAX)) {
-    addMeet(clause);
+  for (const clause of splitCatalogClauses(service.eligibility_referral_criteria, CARD_MAX)) addMeet(clause);
+  for (const clause of splitCatalogClauses(service.exclusion_rejection_criteria, CARD_MAX))
+    addCriterion(clause, "reject");
+  for (const clause of service.not_for ?? []) addCriterion(clause, "reject");
+
+  const availability = service.availability_status;
+  if (availability === "planned") addCriterion("Planned service — not currently referable", "reject");
+  if (availability === "temporarily_unavailable")
+    addCriterion("Temporarily unavailable — use an alternative pathway", "reject");
+  if (availability === "closed") addCriterion("Closed service — do not refer", "reject");
+  if (availability === "superseded") {
+    addCriterion(
+      service.superseded_by
+        ? `Superseded — use ${service.superseded_by}`
+        : "Superseded service — use the replacement pathway",
+      "reject",
+    );
   }
 
-  for (const clause of splitCatalogClauses(service.exclusion_rejection_criteria, CARD_MAX)) {
-    const key = clause.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    criteria.push({ label: clause, tone: "reject" });
-  }
+  for (const flag of service.verification_flags) addCriterion(flag, "caution");
+  for (const issue of service.unresolved_issues ?? []) addCriterion(issue, "caution");
 
-  for (const flag of service.verification_flags) {
-    const note = displayField(flag, CARD_MAX);
-    if (note) criteria.push({ label: note, tone: "caution" });
+  if (isUnknown(service.hours) || service.structured_hours?.verificationStatus === "unable_to_verify") {
+    addCriterion("Hours not confirmed", "caution");
   }
-
-  if (isUnknown(service.hours)) {
-    criteria.push({ label: "Hours not confirmed", tone: "caution" });
-  }
+  if (isReviewOverdue(service.next_review_at)) addCriterion("Verification review is overdue", "caution");
 
   return criteria;
 }
@@ -285,6 +402,11 @@ function flattenTags(service: CatalogService): string[] {
     ...service.tags.acuity_flags,
     ...service.tags.substance_flags,
     ...service.tags.housing_flags,
+    ...(service.tags.specialist_groups ?? []),
+    ...(service.tags.availability_flags ?? []),
+    ...(service.specialist_groups ?? []),
+    ...(service.quick_route_intents ?? []),
+    ...(service.aliases ?? []),
     ...service.merged_aliases,
     service.id,
   ].filter((value, index, array) => value && array.indexOf(value) === index);
@@ -293,37 +415,52 @@ function flattenTags(service: CatalogService): string[] {
 function buildCatchments(service: CatalogService): string[] {
   const catchments = [...service.tags.catchments];
   const region = displayField(service.region_catchment, ROW_MAX);
-  if (region && !catchments.some((entry) => entry.toLowerCase() === region.toLowerCase())) {
-    catchments.unshift(region);
-  }
+  if (region && !catchments.some((entry) => entry.toLowerCase() === region.toLowerCase())) catchments.unshift(region);
   return catchments;
 }
 
+function highestRisk(service: CatalogService): string | undefined {
+  const risks = (service.claims ?? []).map((claim) => claim.riskLevel);
+  if (risks.includes("critical")) return "critical";
+  if (risks.includes("high")) return "high";
+  if (risks.includes("moderate")) return "moderate";
+  if (risks.includes("low")) return "low";
+  return undefined;
+}
+
 function buildSource(service: CatalogService): ServiceSource {
+  const evidence = service.evidence_sources ?? [];
+  const allUrls = evidence.length > 0 ? evidence.map((source) => source.url) : service.public_source_urls;
+  const sourceNames = evidence.map((source) => `${source.issuer}: ${source.title}`);
   const notes = [
     ...service.verification_flags,
+    ...sourceNames,
     service.web_review_status,
     service.analyst_notes,
+    ...(service.unresolved_issues ?? []),
     service.source_documents.length > 0 ? `Source documents: ${service.source_documents.join(", ")}` : "",
   ].filter(Boolean);
 
   return {
-    label: service.sections[0] ?? "WA psychiatric services catalogue",
+    label: evidence[0]?.title ?? service.sections[0] ?? "WA psychiatric services catalogue",
     status: sourceStatusForService(service),
-    url: service.public_source_urls[0] ?? undefined,
-    reviewed: service.web_review_status || undefined,
+    url: allUrls[0] ?? undefined,
+    published: evidence[0]?.publicationOrEffectiveDate || undefined,
+    reviewed: service.last_verified ? `Verified ${service.last_verified}` : service.web_review_status || undefined,
     notes,
+    allUrls,
   };
 }
 
 export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
   const contacts = buildContacts(service);
-  const primaryContact = contacts[0];
+  const primaryContact = contacts.find((contact) => contact.kind === "phone") ?? contacts[0];
   const pathway = resolvePathway(service);
   const bestUse = displayField(service.best_use_indication) ?? displayField(service.discharge_planning_usefulness);
   const eligibility = displayField(service.eligibility_referral_criteria) ?? displayField(service.inclusion_criteria);
   const cost = displayField(service.cost_funding);
   const referral = pathway ?? displayField(service.referral_details, ROW_MAX);
+  const verificationNotes = [...service.verification_flags, ...(service.unresolved_issues ?? [])];
 
   return {
     slug: catalogServiceSlug(service),
@@ -342,9 +479,15 @@ export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
     bestUse,
     criteria: buildCriteria(service),
     verification: {
-      locallyVerified: false,
+      locallyVerified: service.verification_status === "locally_confirmed",
       confidence: (service.confidence as "High" | "Medium" | "Low" | undefined) ?? "Unknown",
-      notes: service.verification_flags.length > 0 ? service.verification_flags : ["Verify locally before use"],
+      notes: verificationNotes.length > 0 ? verificationNotes : ["Verify locally before use"],
+      availabilityStatus: service.availability_status ?? null,
+      lastVerifiedAt: service.last_verified ?? null,
+      nextReviewAt: service.next_review_at ?? null,
+      reviewer: service.claims?.[0]?.reviewer ?? null,
+      riskLevel: highestRisk(service) ?? null,
+      unresolvedIssues: service.unresolved_issues ?? [],
     },
     tags: flattenTags(service),
     catchments: buildCatchments(service),
@@ -352,10 +495,13 @@ export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
     navigatorQuery:
       cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
     source: buildSource(service),
-    // Facet matching needs the typed tag dimensions only. Keeping the full
-    // catalogue record here would inflate every registry response with unused
-    // source text and metadata.
-    catalogPayload: { tags: service.tags },
+    catalogPayload: {
+      tags: service.tags,
+      stableId: service.stable_id ?? service.id,
+      availabilityStatus: service.availability_status,
+      referralRoutes: service.referral_routes ?? [],
+      claims: service.claims ?? [],
+    },
   };
 }
 
@@ -365,12 +511,8 @@ export function mapCatalogToServiceRecords(services: CatalogService[]): ServiceR
 
   for (const service of services) {
     const record = catalogToServiceRecord(service);
-    if (!record.title.trim()) {
-      throw new Error(`Catalog service ${service.id} is missing a title.`);
-    }
-    if (seenSlugs.has(record.slug)) {
-      throw new Error(`Duplicate service slug: ${record.slug}`);
-    }
+    if (!record.title.trim()) throw new Error(`Catalog service ${service.id} is missing a title.`);
+    if (seenSlugs.has(record.slug)) throw new Error(`Duplicate service slug: ${record.slug}`);
     seenSlugs.add(record.slug);
     records.push(record);
   }

@@ -1,6 +1,7 @@
 import { expectedFileCoverage } from "@/lib/eval-document-matching";
 import type { RagEvalCase } from "@/lib/rag/rag-eval-cases";
 import type { RagAnswer, SearchResult, VisualEvidenceCard } from "@/lib/types";
+import { findOwnerIdByEmail } from "./lib/find-owner-id-by-email";
 
 export { expectedFileCoverage, type ExpectedFileCoverage } from "@/lib/eval-document-matching";
 
@@ -115,20 +116,8 @@ export async function withProviderBackoffProgress<TProgress, TResult>(
   return { result, progress: successfulProgress };
 }
 
-export async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string) {
-  const normalized = email.trim().toLowerCase();
-  const perPage = 1000;
-
-  for (let page = 1; page < 50; page += 1) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) throw new Error(error.message);
-    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalized);
-    if (user?.id) return user.id;
-    if (data.users.length < perPage) break;
-  }
-
-  throw new Error(`No Supabase Auth user found for ${email}. Sign in once before running evals.`);
-}
+/** Shared owner lookup; see scripts/lib/find-owner-id-by-email.ts. Re-exported so eval callers keep their import. */
+export { findOwnerIdByEmail };
 
 /**
  * Committed default eval owner. Since the 2026-07-06 public promotion the live corpus is entirely

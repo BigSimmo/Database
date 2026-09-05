@@ -32,6 +32,7 @@ export function useHomeModeSeed({
   focusComposerInput,
   stopSearch,
   modeChangeFromUiRef,
+  searchModeRef,
   lastSyncedSearchParamsRef,
 }: {
   pathname: string | null;
@@ -49,6 +50,8 @@ export function useHomeModeSeed({
   focusComposerInput: (retainTarget?: boolean) => void;
   stopSearch: () => void;
   modeChangeFromUiRef: MutableRefObject<boolean>;
+  /** The mode the dashboard currently holds; read, never a dependency. */
+  searchModeRef: MutableRefObject<AppModeId>;
   lastSyncedSearchParamsRef: MutableRefObject<string>;
 }) {
   const homeModeSeededRef = useRef(false);
@@ -67,15 +70,23 @@ export function useHomeModeSeed({
     const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
     setQueryMode(nextSearchContext.queryMode);
     setScopeFilters(nextSearchContext.scopeFilters);
+    // A UI-originated change (mode pill, submit, New chat) raises the flag before
+    // it moves the URL, and always moves it to the mode it has just set itself.
+    // The flag is one-shot: whichever URL change arrives next consumes it, a
+    // `run=1` result URL included. Leaving it raised past a result URL let the
+    // *next* change — a sidebar shortcut, Back — be mistaken for a UI change and
+    // skipped, with the address bar on one mode and the page on another.
+    const changedFromUi = modeChangeFromUiRef.current;
+    modeChangeFromUiRef.current = false;
     if (searchParams.get("run") === "1") return;
 
     const mode = searchParams.get("mode");
     if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
 
-    if (modeChangeFromUiRef.current) {
-      modeChangeFromUiRef.current = false;
-      return;
-    }
+    // Trust the flag only when the URL names the mode the UI already holds. A
+    // mismatch means this change did not come from the UI, however the flag was
+    // left, so the URL owns the mode.
+    if (changedFromUi && mode === searchModeRef.current) return;
 
     const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
     const shouldFocusComposer = searchParams.get("focus") === "1";
@@ -97,6 +108,7 @@ export function useHomeModeSeed({
     focusComposerInput,
     lastSyncedSearchParamsRef,
     modeChangeFromUiRef,
+    searchModeRef,
     setAnswerProgress,
     setError,
     setLoading,

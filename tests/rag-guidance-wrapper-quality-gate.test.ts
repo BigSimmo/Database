@@ -202,6 +202,21 @@ describe("#NPQJKP — reachability of the enforcing gate on the grounded extract
     expect(finalized.answer).not.toContain("compliance, monitoring and evaluation");
   });
 
+  it("preserves the rejected candidate text in rejectedCandidateText, distinct from the delivered fallback", () => {
+    // scripts/eval-quality.ts records this field so a failed canary shows what the gate actually
+    // read (see its "answerText" field), rather than only the generic evidence-gap wrapper the
+    // user was shown. Debug-only: it must not change what is returned to the user.
+    const finalized = finalizeRagAnswerQuality(
+      capturedGroundedExtractiveAnswer(METABOLIC_ANSWER),
+      METABOLIC_QUERY,
+      METABOLIC_CLASS,
+    );
+
+    expect(finalized.rejectedCandidateText).toBe(METABOLIC_ANSWER);
+    expect(finalized.answer).not.toBe(METABOLIC_ANSWER);
+    expect(finalized.answer).not.toContain("compliance, monitoring and evaluation");
+  });
+
   it("is bypassed only by the preformatted-and-grounded early return", () => {
     // The one remaining way past the quality gate on this path. Whether the two captured answers
     // were preformatted cannot be read from here — the dumps are gitignored on the owner's

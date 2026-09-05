@@ -952,7 +952,7 @@ function MedicationResults({
         })}
       </div>
 
-      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
+      <UniversalSearchAlsoMatches modeId="prescribing" query={query} />
 
       <StatusNotice
         realDataReady={realDataReady}

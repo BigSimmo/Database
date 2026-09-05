@@ -11,14 +11,20 @@ function runGit(args) {
   return (result.stdout || "").trim();
 }
 
+const PRUNE_COMMAND = "git remote prune origin";
+
 function parseArgs(argv) {
   const apply = argv.includes("--apply");
-  const prune = !argv.includes("--no-prune");
+  // Network is opt-in: `git remote prune origin` contacts GitHub, and a dry-run report
+  // must not do that unless the operator asks. `--no-prune` (the old opt-out) is still
+  // accepted and means the default.
+  const prune = argv.includes("--prune") && !argv.includes("--no-prune");
   if (argv.includes("--help") || argv.includes("-h")) {
-    console.log(`Usage: node scripts/sweep-merged-branches.mjs [--apply] [--no-prune]
+    console.log(`Usage: node scripts/sweep-merged-branches.mjs [--apply] [--prune]
 
 Dry-run by default. Lists local branches already merged into main.
 Pass --apply to delete those local branches with git branch -d.
+Pass --prune to first run \`${PRUNE_COMMAND}\` (contacts origin; off by default).
 Remote branches are never deleted.`);
     process.exit(0);
   }
@@ -30,6 +36,8 @@ function main() {
 
   if (prune) {
     runGit(["remote", "prune", "origin"]);
+  } else {
+    console.log(`Not contacting origin (pass --prune to run \`${PRUNE_COMMAND}\` first).`);
   }
 
   const currentBranch = runGit(["rev-parse", "--abbrev-ref", "HEAD"]);

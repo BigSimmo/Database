@@ -88,18 +88,43 @@ describe("GET /api/health", () => {
     expect(body.checks).toMatchObject({ supabaseConfig: "ok", openaiConfig: "skipped" });
   });
 
-  it("gates the deep probe without a token and omits diagnostic snapshots", async () => {
+  it("returns 401, not 503, for an unauthorized deep probe (#L29)", async () => {
+    // Before this fix, GET /api/health?deep=1 without the diagnostic token
+    // reported HTTP 503 status: "degraded" — indistinguishable from a genuine
+    // outage to a monitor that pages on 5xx, when the service was actually
+    // healthy and the caller simply omitted a bearer token.
     mockEnv({ configured: true, deepSecret: true });
     const { GET } = await import("../src/app/api/health/route");
 
     const response = await GET(healthRequest("?deep=1"));
     const body = await payload(response);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(401);
     expect(body.checks).toMatchObject({ supabase: "unauthorized" });
     expect(body.slo).toBeUndefined();
     expect(body.cache).toBeUndefined();
     expect(body.coalescing).toBeUndefined();
+  });
+
+  it("still reports 503 degraded for a real Supabase outage on an authorized deep probe", async () => {
+    mockEnv({ configured: true, deepSecret: true });
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth: vi.fn(async () => ({
+        ok: false,
+        checkedAt: "2026-07-22T00:00:00.000Z",
+        message: "Supabase health check failed.",
+        rawMessage: "permission denied",
+      })),
+    }));
+    const { GET } = await import("../src/app/api/health/route");
+
+    const response = await GET(healthRequest("?deep=1", { "x-health-deep-token": DEEP_TOKEN }));
+    const body = await payload(response);
+
+    expect(response.status).toBe(503);
+    expect(body.status).toBe("degraded");
+    expect(body.checks).toMatchObject({ supabase: "error" });
   });
 
   it("exposes the in-process cache hit-rate counter on an authorized deep probe", async () => {
@@ -186,5 +211,40 @@ describe("GET /api/health/ready", () => {
     expect(body.status).toBe("degraded");
     expect(body.checks).toMatchObject({ supabase: "error" });
     expect(JSON.stringify(body)).not.toContain("permission denied");
+  });
+
+  // #L29: this route is Railway's healthcheck target, so it cannot require
+  // auth or a token, and it runs an unauthenticated, unlimited Supabase probe
+  // on every hit. A short in-process result cache means a burst of hits
+  // (Railway's own healthcheck interval, or anyone else) shares one probe
+  // instead of paying for one each — without adding a durable rate limiter
+  // that would itself need a database round trip to check.
+  it("caches the readiness result briefly so a burst of hits shares one Supabase probe (#L29)", async () => {
+    vi.useFakeTimers();
+    try {
+      mockEnv({ configured: true });
+      const probeSupabaseHealth = vi.fn(async () => ({
+        ok: true,
+        checkedAt: "2026-07-22T00:00:00.000Z",
+        message: "ok",
+      }));
+      vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
+      vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
+      const { GET } = await import("../src/app/api/health/ready/route");
+
+      const first = await GET(new Request("http://localhost/api/health/ready"));
+      const second = await GET(new Request("http://localhost/api/health/ready"));
+      expect(probeSupabaseHealth).toHaveBeenCalledTimes(1);
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect((await second.json()).checks).toMatchObject({ supabase: "ok" });
+
+      await vi.advanceTimersByTimeAsync(2_001);
+      const third = await GET(new Request("http://localhost/api/health/ready"));
+      expect(probeSupabaseHealth).toHaveBeenCalledTimes(2);
+      expect(third.status).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

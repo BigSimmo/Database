@@ -287,6 +287,12 @@ function setupStatusResponse(payload: SetupStatusPayload) {
   return NextResponse.json(payload, {
     headers: {
       "Cache-Control": "private, max-age=5, stale-while-revalidate=30",
+      // GET below picks between the full diagnostic payload and the coarse one using the
+      // operator token (`x-health-deep-token`, see allowDeepHealthProbe) and the
+      // administrator bearer in `Authorization`. Both variants are cacheable for the same
+      // URL, so a cache with no Vary can replay one caller's detail level to the other
+      // (2026-09-02 audit, L110). `private` already keeps this inside one browser.
+      Vary: "Authorization, x-health-deep-token",
       "X-Poll-After-Ms": String(payload.pollAfterMs ?? ""),
     },
   });
