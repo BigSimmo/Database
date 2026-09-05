@@ -3521,6 +3521,7 @@ function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQu
   return {
     ...answer,
     answer: finalQualityGapAnswer(query, queryClass),
+    rejectedCandidateText: answer.answer,
     grounded: false,
     confidence: "unsupported",
     answerSections: [],
@@ -3972,6 +3973,7 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
     return {
       ...answer,
       answer: gapAnswer,
+      rejectedCandidateText: answer.answer,
       grounded: false,
       confidence: "unsupported",
       citations: [],
