@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "30d5e095-6087-4663-a091-822273cf25c2",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Crisis-line re-verification cadence is stated as six months in the new record and twelve months in the audit",
+    "detail": "docs/care-plan/crisis-lines-verification.md proposes a six-monthly cadence with no repository precedent; the 2026-09-02 audit finding L4 proposed twelve. The fixtures.ts header comment no longer states an interval at all, so the document is the single source - but the interval itself is unsettled and is a clinical judgement for the owner. Also unresolved: the Lifeline 13 11 14 and 13YARN 13 92 76 numbers in src/lib/caring-contacts/message-rules.ts:117 carry no source and no verification date anywhere in the repository, and nothing ages them. Raised during audit remediation P10/P21 (2026-09-04).",
+    "issueUlid": "01M1PW981AQ33JV6ACQQRB3Y7G"
+  }
+}
