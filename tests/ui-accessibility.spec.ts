@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
 import { visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
@@ -117,20 +118,6 @@ async function mockDifferentialSearch(page: Page) {
       },
     });
   });
-}
-
-async function gotoApp(page: Page, path = "/") {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-}
-
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
 }
 
 async function expectDashboardUsable(page: Page) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy, shouldBlockProductionMockups } from "../src/proxy";
 import { env } from "@/lib/env";
+import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
 import * as ssr from "@supabase/ssr";
 import { vi } from "vitest";
 
@@ -192,6 +193,16 @@ describe("production mockup boundary", () => {
     expect(shouldBlockProductionMockups("/mockups/development-notes", { NODE_ENV: "production" })).toBe(true);
     expect(shouldBlockProductionMockups("/mockups/caring-contacts-archive", { NODE_ENV: "production" })).toBe(true);
   });
+
+  // #L69: ward-flow is the fourth entry in DEVELOPER_GATED_PATH_PREFIXES but had
+  // no coverage here at all (only development, caring-contacts and care-plan
+  // did) — a dropped prefix would fail closed (404), but nothing would catch it.
+  it("lets the Ward Flow subtree through the blanket block, and keeps a look-alike prefix blocked", () => {
+    for (const path of ["/mockups/ward-flow", "/mockups/ward-flow/constellation"]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" }), path).toBe(false);
+    }
+    expect(shouldBlockProductionMockups("/mockups/ward-flow-archive", { NODE_ENV: "production" })).toBe(true);
+  });
 });
 
 describe("developer-area header (x-developer-area)", () => {
@@ -218,6 +229,22 @@ describe("developer-area header (x-developer-area)", () => {
     // Spoofed header must not survive into the forwarded request.
     expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
     expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area-path")).toBeNull();
+  });
+
+  // #L69: the test above only ever exercised /mockups/development and
+  // /mockups/care-plan/**, so a regression that dropped /mockups/caring-contacts
+  // or /mockups/ward-flow from DEVELOPER_GATED_PATH_PREFIXES would fail closed
+  // (a bare 404 via the blanket production block) rather than open — safe, but
+  // silent, and a reviewer counting "two subtrees" from the test names alone
+  // would not know to look for the other two. Iterates the constant itself so
+  // this cannot silently narrow again the way the two prefixes above did.
+  it("sets the header for every prefix in DEVELOPER_GATED_PATH_PREFIXES, not only the two the case above names", async () => {
+    for (const prefix of DEVELOPER_GATED_PATH_PREFIXES) {
+      const deepPath = `${prefix}/deep/path`;
+      const response = await proxy(requestFor(deepPath));
+      expect(response.headers.get("x-middleware-request-x-developer-area"), deepPath).toBe("1");
+      expect(response.headers.get("x-middleware-request-x-developer-area-path"), deepPath).toBe(deepPath);
+    }
   });
 });
 

@@ -7,6 +7,7 @@ import {
   parseStatusRows,
   type StatusRow,
 } from "@/lib/api-list-response";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoJobs } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
@@ -54,6 +55,18 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
+
+    // Same sibling gap as /api/ingestion/quality and /api/ingestion/jobs (#L43).
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "ingestion_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many ingestion administration requests. Retry shortly.", rateLimit);
+    }
+
     const { data, error, count } = await supabase
       .from("ingestion_jobs")
       .select("*, documents!inner(title,file_name,status)", { count: "exact" })

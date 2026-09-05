@@ -194,14 +194,14 @@ The interface must never quietly substitute a draft, superseded version, or empt
 
 ## Existing planning artifacts
 
-| Artifact            | Location                                                                                                        | State                             |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Start point         | [`CLAUDE-START-HERE.md`](./CLAUDE-START-HERE.md)                                                                | Complete                          |
-| Approved design     | [`2026-08-20-ed-care-plans-design.md`](../superpowers/specs/2026-08-20-ed-care-plans-design.md)                 | Complete and user-approved        |
-| Domain glossary     | [`ed-care-plans-context.md`](../ed-care-plans-context.md)                                                       | Complete                          |
-| Implementation plan | [`2026-08-20-ed-care-plans-implementation.md`](../superpowers/plans/2026-08-20-ed-care-plans-implementation.md) | Complete; nine tasks              |
-| Conversation        | [`conversation-transcript-2026-08-21.md`](./conversation-transcript-2026-08-21.md)                              | Complete through handover request |
-| Evidence            | [`verification-log-2026-08-21.md`](./verification-log-2026-08-21.md)                                            | Current handover evidence         |
+| Artifact            | Location                                                                                                | State                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Start point         | [`CLAUDE-START-HERE.md`](./CLAUDE-START-HERE.md)                                                        | Complete                          |
+| Approved design     | [`2026-08-20-care-plan-design.md`](../superpowers/specs/2026-08-20-care-plan-design.md)                 | Complete and user-approved        |
+| Domain glossary     | [`care-plan-context.md`](../care-plan-context.md)                                                       | Complete                          |
+| Implementation plan | [`2026-08-20-care-plan-implementation.md`](../superpowers/plans/2026-08-20-care-plan-implementation.md) | Complete; nine tasks              |
+| Conversation        | [`conversation-transcript-2026-08-21.md`](./conversation-transcript-2026-08-21.md)                      | Complete through handover request |
+| Evidence            | [`verification-log-2026-08-21.md`](./verification-log-2026-08-21.md)                                    | Current handover evidence         |
 
 At handover creation the three original planning files contained 1,554 lines in total: glossary 135, design 418, and implementation plan 1,001.
 
