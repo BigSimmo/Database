@@ -58,7 +58,7 @@ function SortControl({ compact = false }: { compact?: boolean }) {
       <select
         defaultValue="relevance"
         aria-label="Sort results"
-        className="cursor-pointer appearance-none bg-transparent font-extrabold text-[color:var(--text)] outline-none"
+        className="cursor-pointer appearance-none self-stretch bg-transparent font-extrabold text-[color:var(--text)] outline-none"
       >
         <option value="relevance">Relevance</option>
         <option value="alpha">A–Z</option>
@@ -242,7 +242,7 @@ function ScopeControl({ compact = false }: { compact?: boolean }) {
         <select
           defaultValue="all"
           aria-label="Filter results by source"
-          className="min-w-0 cursor-pointer appearance-none bg-transparent font-extrabold text-[color:var(--text)] outline-none"
+          className="min-w-0 cursor-pointer appearance-none self-stretch bg-transparent font-extrabold text-[color:var(--text)] outline-none"
         >
           <option value="all">All</option>
           <option value="guidelines">Guides</option>
@@ -267,7 +267,7 @@ function ScopeControl({ compact = false }: { compact?: boolean }) {
       <select
         defaultValue="all"
         aria-label="Filter results by source"
-        className="min-w-0 cursor-pointer appearance-none truncate bg-transparent font-extrabold text-[color:var(--text)] outline-none"
+        className="min-w-0 cursor-pointer appearance-none self-stretch truncate bg-transparent font-extrabold text-[color:var(--text)] outline-none"
       >
         <option value="all">All sources</option>
         <option value="guidelines">Guidelines</option>
