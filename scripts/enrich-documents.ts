@@ -2,19 +2,10 @@ import { loadEnvConfig } from "@next/env";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Json } from "@/lib/supabase/database.types";
 import { createHash } from "node:crypto";
+import { type EnrichArgs, parseEnrichArgs } from "./lib/enrich-documents-args";
+import { findOwnerIdByEmail } from "./lib/find-owner-id-by-email";
 
 loadEnvConfig(process.cwd());
-
-type EnrichArgs = {
-  ownerEmail?: string;
-  ownerId?: string;
-  allOwners: boolean;
-  mode: string;
-  limit: number;
-  documentId?: string;
-  includeCurrent: boolean;
-  document?: string;
-};
 
 type SupabaseAdmin = Awaited<ReturnType<typeof loadAdminClient>>;
 type MetadataRow = { id?: string; document_id: string; metadata?: unknown; source?: string | null };
@@ -22,59 +13,6 @@ type MetadataRow = { id?: string; document_id: string; metadata?: unknown; sourc
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
-}
-
-function parseArgs(argv: string[]): EnrichArgs {
-  const args: EnrichArgs = {
-    ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
-    ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
-    allOwners:
-      !process.env.RAG_EVAL_OWNER_EMAIL && !process.env.RAG_EVAL_OWNER_ID && !process.env.LOCAL_NO_AUTH_OWNER_ID,
-    mode: "summaries-labels-images",
-    limit: 25,
-    includeCurrent: false,
-  };
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (!token.startsWith("--")) continue;
-    if (token === "--all-owners") {
-      args.allOwners = true;
-      continue;
-    }
-    if (token === "--include-current") {
-      args.includeCurrent = true;
-      continue;
-    }
-    const value = argv[index + 1];
-    if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
-    index += 1;
-
-    if (token === "--owner-email") args.ownerEmail = value;
-    if (token === "--owner-id") args.ownerId = value;
-    if (token === "--mode") args.mode = value;
-    if (token === "--limit") args.limit = Number.parseInt(value, 10);
-    if (token === "--document-id") args.documentId = value;
-    if (token === "--document") args.document = value;
-  }
-
-  if (!Number.isInteger(args.limit) || args.limit <= 0) throw new Error("--limit must be a positive integer.");
-  return args;
-}
-
-async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string) {
-  const normalized = email.trim().toLowerCase();
-  const perPage = 1000;
-
-  for (let page = 1; page < 50; page += 1) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) throw new Error(error.message);
-    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalized);
-    if (user?.id) return user.id;
-    if (data.users.length < perPage) break;
-  }
-
-  throw new Error(`No Supabase Auth user found for ${email}. Sign in once before enriching documents.`);
 }
 
 async function loadDocuments(supabase: SupabaseAdmin, args: EnrichArgs, ownerId?: string) {
@@ -503,15 +441,21 @@ async function stampExistingEnrichmentVersion(args: {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (!args.ownerId && !args.ownerEmail && !args.allOwners) {
-    throw new Error(
-      'Provide --owner-id, set LOCAL_NO_AUTH_OWNER_ID or RAG_EVAL_OWNER_ID, provide --owner-email "you@example.com", or pass --all-owners.',
-    );
+  const args = parseEnrichArgs(process.argv.slice(2));
+
+  // Confirm the target project before any client exists: this script writes through the
+  // service-role key, so a stale or mismatched .env.local must stop it here.
+  const { checkSupabaseProjectConfig, expectedSupabaseProject, formatSupabaseProjectCheck } =
+    await import("@/lib/supabase/project");
+  const projectCheck = checkSupabaseProjectConfig({
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
+    SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+  });
+  if (projectCheck.status === "missing" || projectCheck.status === "mismatch") {
+    throw new Error(`Project check failed: ${formatSupabaseProjectCheck(projectCheck)}`);
   }
-  if (!["summaries-labels-images", "metadata-stamp", "deep-memory"].includes(args.mode)) {
-    throw new Error("--mode supports summaries-labels-images, deep-memory, or metadata-stamp.");
-  }
+  console.log(`Project: ${expectedSupabaseProject.name} (${expectedSupabaseProject.ref})`);
 
   const [
     { requireOpenAIEnv, requireServerEnv },
@@ -531,7 +475,7 @@ async function main() {
     !args.allOwners && args.ownerId
       ? args.ownerId
       : args.ownerEmail && !args.allOwners
-        ? await findOwnerIdByEmail(supabase, args.ownerEmail)
+        ? await findOwnerIdByEmail(supabase, args.ownerEmail, { purpose: "enriching documents" })
         : undefined;
   const loadedDocuments = await loadDocuments(supabase, args, ownerId);
   const coverage = await loadEnrichmentCoverage(
@@ -557,8 +501,14 @@ async function main() {
     .slice(0, args.limit);
 
   console.log(
-    `Enriching ${documents.length} indexed document(s). scope=${ownerId ? "owner" : "all"} version=${ragEnrichmentVersion}`,
+    `${args.write ? "Enriching" : "DRY RUN — would enrich"} ${documents.length} indexed document(s). scope=${ownerId ? "owner" : "all"} mode=${args.mode} version=${ragEnrichmentVersion}`,
   );
+
+  if (!args.write) {
+    for (const document of documents) console.log(`  WOULD ENRICH ${document.file_name} (${document.id})`);
+    console.log("\nNo writes performed and no OpenAI call made. Re-run with --write to persist enrichment.");
+    return;
+  }
 
   let completed = 0;
   const CONCURRENCY = 1;
