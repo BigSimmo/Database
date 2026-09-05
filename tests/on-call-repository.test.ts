@@ -8,8 +8,10 @@ import {
 
 function fakeClient(rows: unknown[]) {
   const chain = {
-    select: vi.fn(() => chain),
-    eq: vi.fn(() => chain),
+    select: vi.fn((_columns: string) => chain),
+    // Typed parameters so assertions can read back which column each call filtered on;
+    // an untyped vi.fn() records the call but types its args as an empty tuple.
+    eq: vi.fn((_column: string, _value: unknown) => chain),
     order: vi.fn(() => chain),
     limit: vi.fn(() => Promise.resolve({ data: rows, error: null })),
   };
