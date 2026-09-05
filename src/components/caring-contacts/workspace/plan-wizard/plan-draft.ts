@@ -17,7 +17,7 @@
 // promising tab lifetime is not an enforcement, and `tests/caring-contacts-plan-draft.dom.test.tsx`
 // scans this whole directory for the other name so that a later edit cannot quietly widen it.
 //
-// THREE WAYS THE DRAFT GOES AWAY, and the tab closing is only one of them:
+// FOUR WAYS THE DRAFT GOES AWAY, and the tab closing is only one of them:
 //
 //   1. the tab closes — `sessionStorage`'s own lifetime, which is why it was chosen;
 //   2. `clearPlanDraft()` on successful activation — Task 9 calls this the moment the plan is
@@ -25,9 +25,18 @@
 //   3. `clearPlanDraft()` on abandoning the flow — the wizard's own discard control. Relying on
 //      the tab closing alone means a clinician who finishes and walks away leaves the previous
 //      patient's details for the next person at that machine, which is the failure the whole
-//      ruling exists to prevent.
+//      ruling exists to prevent;
+//   4. an ACCOUNT TRANSITION — the app's sign-out, session expiry and change of signed-in user
+//      (2026-09-02 audit, L6). `sessionStorage` survives a sign-out and the next sign-in in the
+//      same tab, so without this a coordinator who signs out mid-draft and hands the tab to a
+//      colleague leaves the patient's name and mobile for whoever opens the same referral next —
+//      the ruling's failure, in the one path the wizard's own controls never see. The auth
+//      provider is a lib module and may not import this one, so it removes the key itself
+//      (`src/lib/account-scoped-browser-state.ts` names it, and this module imports it from
+//      there) and announces the transition on `window`; `clearCaringContactsBrowserState()`
+//      answers that event here, dropping the cached parse and telling the wizard.
 //
-// A fourth is a consequence rather than a rule: reading a draft that belongs to a DIFFERENT
+// A fifth is a consequence rather than a rule: reading a draft that belongs to a DIFFERENT
 // referral removes it. One key holds one draft, so starting a second sign-up cannot leave the
 // first one's answers sitting in storage unreferenced.
 //
@@ -36,6 +45,7 @@
 // here degrades to "there is no draft" rather than throwing. The wizard asks
 // `planDraftStorageAvailable()` and tells the clinician which of the two is true, because a notice
 // promising the page will remember is false when the browser refused.
+import { PLAN_DRAFT_STORAGE_KEY, subscribeAccountTransition } from "@/lib/account-scoped-browser-state";
 import { SENDING_PREFERENCES, type SendingPreference } from "@/lib/caring-contacts/model";
 
 import { EMPTY_PLAN_ACTIVATION, type PlanActivationDraft, type PlanSubmissionIdentity } from "./plan-activation";
@@ -54,8 +64,11 @@ import { isPlanWizardStage, type PlanWizardStage } from "./stages";
  *
  * The referral the draft belongs to travels INSIDE the value instead, where `readPlanDraft` checks
  * it.
+ *
+ * Defined beside the auth provider's account-transition clear (way 4 above), which must remove the
+ * key without importing this module; re-exported here so the wizard and its tests keep one name.
  */
-export const PLAN_DRAFT_STORAGE_KEY = "caring-contacts:plan-draft";
+export { PLAN_DRAFT_STORAGE_KEY };
 
 /**
  * The coordinator's own confirmations at stage 1.
@@ -582,3 +595,20 @@ export function clearPlanDraft(): void {
   }
   notifyPlanDraftListeners();
 }
+
+/**
+ * Everything Caring Contacts keeps in this browser for the signed-in person — today, the draft.
+ *
+ * THE ACCOUNT-BOUNDARY SEAM, answering the auth provider's transition event at sign-out, session
+ * expiry and a change of signed-in user (way 4 above). It is a separate name from `clearPlanDraft`
+ * so that a later store this workspace adds to the browser is cleared by adding it HERE, where the
+ * account boundary already reaches, rather than by teaching the provider a second thing. The
+ * provider has already removed the stored key by the time this runs — it cannot import this module
+ * — so what is left to do is drop the cached parse and the in-memory fallback and tell the wizard.
+ * Registered at module load so a cache filled by an earlier mount does not outlive the transition.
+ */
+export function clearCaringContactsBrowserState(): void {
+  clearPlanDraft();
+}
+
+subscribeAccountTransition(clearCaringContactsBrowserState);
