@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
@@ -35,15 +36,6 @@ const uiAssertionTimeoutMs = 30_000;
 const demoAnswerThreadOwnerId = "local-demo-session";
 const demoAnswerThreadStorageKey = `${answerThreadStorageKey}:${demoAnswerThreadOwnerId}`;
 const demoRecentQueryStorageKey = `${recentQueryStorageKey}:${demoAnswerThreadOwnerId}`;
-
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
-}
 
 async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
   // Next streaming can leave a hidden DocumentFrame clone (#093); bare getByTestId
@@ -95,11 +87,6 @@ async function installClipboardMock(page: Page) {
       },
     });
   });
-}
-
-async function gotoApp(page: Page, path: string) {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onScroll" | "onSubmit") {
