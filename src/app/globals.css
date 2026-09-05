@@ -2520,7 +2520,7 @@ summary::-webkit-details-marker {
   align-items: stretch;
   gap: 0.375rem;
 }
-.smart-search-rotating-text,
+.search-example-ticker,
 .smart-search-prompt-row {
   display: none;
 }
@@ -2586,7 +2586,7 @@ summary::-webkit-details-marker {
     display: none;
   }
 
-  .smart-search-rotating-text {
+  .search-example-ticker {
     display: flex;
   }
   .smart-search-prompt-row {
@@ -2595,12 +2595,12 @@ summary::-webkit-details-marker {
 }
 
 /* BEGIN tablet mode-home composer geometry */
-/* Across 640-1279px the settled one-line surface is 160px: rotating hint
-   (24px), composer, gaps, and prompt rail. Pre-reserve that exact height in
-   this bounded band. The portal host's pending/non-empty selectors remain the
-   owner, so a hidden composer still reserves zero. At 1280px+ the existing
-   88px default remains deliberately unchanged because measured CLS stays
-   below 0.01. */
+/* Across 640-1279px the settled one-line surface is 160px: example ticker
+   line (24px), composer, gaps, and prompt rail. Every mode home renders that
+   same stack. Pre-reserve that exact height in this bounded band. The portal
+   host's pending/non-empty selectors remain the owner, so a hidden composer
+   still reserves zero. At 1280px+ the existing 88px default remains
+   deliberately unchanged because measured CLS stays below 0.01. */
 @media (min-width: 640px) and (max-width: 1279.98px) {
   :root {
     --spacing-mode-home-composer-wide: 10rem;
@@ -2634,7 +2634,7 @@ summary::-webkit-details-marker {
 }
 /* END sm+ hero home canvas alignment */
 
-.smart-search-rotating-text {
+.search-example-ticker {
   min-height: 1.5rem;
   align-items: center;
   justify-content: center;
@@ -2646,7 +2646,7 @@ summary::-webkit-details-marker {
   letter-spacing: 0.01em;
 }
 
-.smart-search-rotating-query {
+.search-example-ticker-query {
   color: var(--clinical-accent);
 }
 
@@ -2871,6 +2871,18 @@ summary::-webkit-details-marker {
   .mode-home-composer-slot {
     width: min(100%, clamp(28rem, 50vw, 48rem));
     max-width: calc(100vw - 3rem - var(--safe-area-left) - var(--safe-area-right));
+  }
+
+  /* Result-view page slots (GlobalSearchShell and the dashboard result slot)
+     host the compact pill alone: 80px settled at every sm+ width (py-3 form
+     padding around the 56px pill; no ticker, prompt rail, or privacy line).
+     They share the mode-home token so the pending/filled gating stays one
+     contract, but the mode-home value is sized for the hero stack: 160px in
+     the tablet band left a blank band under every result composer, and 88px
+     at 1280px+ over-reserved too. Override the token on the page slot to the
+     exact height. */
+  .desktop-page-composer-slot {
+    --spacing-mode-home-composer-wide: 5rem;
   }
 
   .universal-top-search-edge {
