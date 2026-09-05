@@ -1,5 +1,19 @@
 # Ingestion state machine — documents × ingestion_jobs × index generations
 
+> **Status (2026-09-02): dated snapshot as of 2026-07-07.** The lease model described below
+> (R1 "no heartbeat", R2 unfenced completion) was closed the day after this analysis: commit
+> 79501bf75 (2026-07-08) added a guarded lease heartbeat in `worker/main.ts`
+> (`updateJobProgress` refreshes `locked_at` only while `locked_by = workerId` and
+> `status = 'processing'`, and throws "Ingestion lease lost" when zero rows match; the
+> extraction phase runs it on a timer of at most 60 s, the general cadence is one third of
+> `WORKER_STALE_AFTER_MINUTES`), and migration `20260708130000_ingestion_concurrency_rpc_hardening.sql`
+> lease-fenced `complete_ingestion_job` / `fail_or_retry_ingestion_job` with `p_worker_id`
+> (`ok:false` when the caller no longer holds the lease; the worker then stands down). The
+> 45-minute stale window is therefore a **liveness** signal today: a live worker keeps its
+> lease, and only a worker that has stopped heartbeating (crashed, OOM-killed, network-lost)
+> is reclaimed. Statements below that say "no heartbeat" are kept as the historical record and
+> are marked where they occur; read the runbooks for current operating guidance.
+
 Phase-1 deliverable of the ingestion-concurrency/scale review (2026-07-07, branch
 `claude/ingestion-concurrency-scale`). Documents every legal state of the ingestion
 pipeline, which writer may perform each transition, what happens on a crash
@@ -39,7 +53,8 @@ stateDiagram-v2
 
     note right of processing
         ingestion_jobs: pending to processing to completed or failed.
-        Lease has no heartbeat; 45-min staleness is a runtime ceiling, not liveness.
+        Lease had no heartbeat at the time of this snapshot; 45-min staleness was a runtime ceiling, not liveness.
+        Closed 2026-07-08 (see status banner): the worker now heartbeats and the lease is fenced.
     end note
 ```
 
@@ -59,14 +74,14 @@ stateDiagram-v2
 
 ### ingestion_jobs (many rows per document; core pipeline queue)
 
-| Column                           | Values / meaning                                                                                                                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `status`                         | `pending` → `processing` → `completed` \| `failed`. `failed`+retry goes back to `pending`. No unique constraint prevents multiple open jobs per document.                                         |
-| `stage`, `progress`              | Human-readable progress; drives UI.                                                                                                                                                               |
-| `attempt_count` / `max_attempts` | Incremented **at claim** by `claim_ingestion_jobs`; reset to 0 by the retry route and queue recovery.                                                                                             |
-| `locked_at`, `locked_by`         | Lease. Set once at claim. **There is no heartbeat** — a running worker never refreshes `locked_at`; the lease only ages. Staleness (45 min default) is therefore _runtime ceiling_, not liveness. |
-| `next_run_at`                    | Retry backoff (`nextRetryAt`, exp backoff capped 30 min). Also used as a per-request fence stamp by the retry route.                                                                              |
-| `completed_at`                   | Terminal timestamp.                                                                                                                                                                               |
+| Column                           | Values / meaning                                                                                                                                                                                                                                                                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`                         | `pending` → `processing` → `completed` \| `failed`. `failed`+retry goes back to `pending`. No unique constraint prevents multiple open jobs per document.                                                                                                                                                                     |
+| `stage`, `progress`              | Human-readable progress; drives UI.                                                                                                                                                                                                                                                                                           |
+| `attempt_count` / `max_attempts` | Incremented **at claim** by `claim_ingestion_jobs`; reset to 0 by the retry route and queue recovery.                                                                                                                                                                                                                         |
+| `locked_at`, `locked_by`         | Lease. Set at claim. **As of 2026-07-07 there was no heartbeat** — a running worker never refreshed `locked_at`; the lease only aged, so staleness (45 min default) was a _runtime ceiling_, not liveness. Closed 2026-07-08 (status banner): `updateJobProgress` now refreshes `locked_at` while the worker holds the lease. |
+| `next_run_at`                    | Retry backoff (`nextRetryAt`, exp backoff capped 30 min). Also used as a per-request fence stamp by the retry route.                                                                                                                                                                                                          |
+| `completed_at`                   | Terminal timestamp.                                                                                                                                                                                                                                                                                                           |
 
 ### indexing_v3_agent_jobs (exactly one row per document; enrichment queue)
 
@@ -164,8 +179,8 @@ Everything else observed is a violation (§6).
 ## 5. Crash-window analysis
 
 Crash = process death / network loss between two adjacent steps. Because there
-is no lease heartbeat, every worker window below also has a "slow, not crashed"
-variant after 45 minutes.
+was no lease heartbeat at the time of this snapshot, every worker window below also has a
+"slow, not crashed" variant after 45 minutes (closed 2026-07-08 — see the status banner).
 
 **Upload (W3)** — R14
 
@@ -402,7 +417,7 @@ lacks the seed-insert and the `d.status='indexed'` join that live has
 never returned, burning attempts invisibly. Tests and scratch environments are
 validating a different state machine than production runs.
 
-**R1 [enabler] — No lease heartbeat.** Confirmed root enabler for R2-R8: any
+**R1 [enabler] — No lease heartbeat (closed 2026-07-08; see the status banner).** Confirmed root enabler for R2-R8: any
 job >45 min is reclaimed while its worker is alive, with `WORKER_STALE_AFTER_MINUTES`
 acting as a hard runtime ceiling rather than a liveness signal. On its own it
 costs double compute; composed, it produces everything in Tier 2.

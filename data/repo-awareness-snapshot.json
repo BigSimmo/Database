@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "42f0ddb075ddb3ee9e839762c53552c771248cd3",
-    "committed_at": "2026-09-04T17:36:37+00:00"
+    "sha": "adf5b8eada49b1a304758af930d7dd88fa08d3ab",
+    "committed_at": "2026-09-04T16:58:11+00:00"
   },
   "routes": {
     "modes": [
@@ -1581,7 +1581,7 @@
       {
         "path": "docs/adr/0001-use-a-shared-local-first-clinical-ask-orchestrator.md",
         "section": "adr",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents-guide.md",
@@ -1591,92 +1591,92 @@
       {
         "path": "docs/agents/bug-hunter-shortcut.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/claude-hook-scripts.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-cloud-environment.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-dependency-shortcut.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-desktop-worktree-setup.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-github-review.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-productivity-defaults.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-reasoning-effort.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-review-throttling.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/cursor-cloud.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/dead-code-deletion.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/external-skill-precedence.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/pull-request-workflow.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/repository-skills-and-issues.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/test-deletion-guard.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/upload-shortcut.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/verification-gates.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/wiring-and-bundle-budget.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/answer-page-redesign-handover.md",
@@ -1691,62 +1691,62 @@
       {
         "path": "docs/app-modes-decision-brief.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/BRANCH_ARCHIVE_20260709.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/branch-cleanup-2026-06-28.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/branch-progress-2026-07-05.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/branch-review-ledger-2026-q3.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/clinical-chat-ui-implementation-plan.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/clinical-chat-ui-phase-checklist.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/cloud-chat-reconciliation-2026-07-22.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/cloud-chat-reconciliation-postmortem-2026-07-23.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/COLOR_REDESIGN_PLAN.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/design-qa-2026-07-15.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/design-qa.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/operator-apply-july8-batch.md",
@@ -1756,22 +1756,22 @@
       {
         "path": "docs/archive/operator-decisions-2026-07-04.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/operator-decisions-2026-07-06.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/phase-3-design-decision-log.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/phase-6-reaudit-2026-06-29.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/project-alignment-cleanup.md",
@@ -1781,57 +1781,57 @@
       {
         "path": "docs/archive/rag-scalability-wip-remediation-2026-07-17.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/rag-scalability-wip-review-handover-2026-07-15.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-0-baseline.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-1-api-validation.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-2-answer-plan.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-3-synthesis-output.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-4-canonical-render-policy.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-5-source-review-ux.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-5.5-retrieval-quality-source-selection.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-5.5b-retrieval-follow-up.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-pre-phase-2-diff-classification.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/source-governance-priorities-2026-07-02.md",
@@ -1846,7 +1846,7 @@
       {
         "path": "docs/archive/TOOLS_CONTEXT_FOR_NEW_CHAT.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/2026-07-20-repository-maturity.md",
@@ -1891,7 +1891,7 @@
       {
         "path": "docs/audit/gate-consolidation-audit-2026-09-02.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/latency-audit-2026-07-28.md",
@@ -1901,37 +1901,37 @@
       {
         "path": "docs/audit/live-design-interaction-audit-2026-08-06.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/live-drift-forensics-2026-08.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/performance-image-cwv-audit-2026-08-02.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/primary-checkout-reconciliation-2026-07-24.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/repo-audit-2026-07-01.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/repo-wide-review-remediation-plan-2026-07-23.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/repo-wide-review-sweep-2026-07-19.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/scale-readiness-review.md",
@@ -1946,12 +1946,12 @@
       {
         "path": "docs/audit/ux-accessibility-review-2026-07-07.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/worktree-reconciliation-2026-08-23.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/auth-connection-cap-runbook.md",
@@ -1986,42 +1986,42 @@
       {
         "path": "docs/care-plan-context.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/accessibility-acceptance.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/claude-build-handover-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/CLAUDE-START-HERE.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/clinical-language-trace.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/cloud-session.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/complete-work-ledger.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/conversation-transcript-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/crisis-lines-verification.md",
@@ -2031,162 +2031,162 @@
       {
         "path": "docs/care-plan/HANDOFF-2026-08-24-SUPERSEDED.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/HANDOFF-START-HERE.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/implementation-handoff.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/interaction-matrix.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/patient-facing-sheets/README.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/final-fix-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-10-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-11-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-3-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-3-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-4-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-4-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-5-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-5-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-6-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-6-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-7-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-7-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-8-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-8-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-9-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-9-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-d1-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/sdd-ledger.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/session-handoff-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/session-handoff-2026-08-23.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/verification-log-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/verification-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/accessibility-acceptance.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/clinical-language-trace.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/copy-decisions-recommended.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/copy-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/hazard-log.md",
@@ -2196,12 +2196,12 @@
       {
         "path": "docs/caring-contacts/interaction-matrix.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/linked-prototype-handoff.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/message-review-pack.md",
@@ -2211,612 +2211,612 @@
       {
         "path": "docs/caring-contacts/phase-1-handoff.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-build-record.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-continuation-prompt.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-handoff.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/00-live-ledger-verbatim.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/condensed-service-bar-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/final-fix-wave-a-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/final-fix-wave-b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-1-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-10-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-10-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11a-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11a-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-12-13-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-12-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-13-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-14-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-14-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-15-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-16-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-16-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-17-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-17-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-18-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-18-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-3-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-3-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-5-7-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-5-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-6-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-7-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-8-9-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-8-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-9-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-visual-differences.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-build-record.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-pr-body.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-round-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/merge-checklist.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-2-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-round-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-17-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-18-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-20-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-21-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-3-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-3-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-exit-only-trigger-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-round-2-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-privacy-url-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-safety-fixes-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/whole-branch-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/task-seed-timeline-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/task-seed-wireframe-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/verification-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/visual-reference-manifest.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/chunking-ocr-reindex-lever-finding-2026-07-08.md",
@@ -2826,7 +2826,7 @@
       {
         "path": "docs/ci-operations.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/claude-cloud.md",
@@ -2876,32 +2876,32 @@
       {
         "path": "docs/codex/architecture-maintainability/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/data-database-safety/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/documentation-ownership/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/functional-correctness/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/performance-reliability/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/tests-quality-gates/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/comparison-behaviour.md",
@@ -2916,7 +2916,7 @@
       {
         "path": "docs/corpus-health-panel-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/current-clinical-work-brief.md",
@@ -2931,17 +2931,17 @@
       {
         "path": "docs/database-remediation-coordination.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/database-remediation-plan.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/database-remediation-playbook.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/db-maintenance.md",
@@ -2951,7 +2951,7 @@
       {
         "path": "docs/decisions/ccz4hb-review-coverage.md",
         "section": "decisions",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/deploy-corrector-public-titles.md",
@@ -2966,7 +2966,7 @@
       {
         "path": "docs/design-system-contract.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system.md",
@@ -3006,7 +3006,7 @@
       {
         "path": "docs/design-system/HANDOVER-2026-08-07.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/README.md",
@@ -3021,42 +3021,42 @@
       {
         "path": "docs/design-system/sweep-2026-08-29-structure.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-2026-08-29-unenforced-rules.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-2026-08-29-visual.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-duration-display.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-missing-values-round-2.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-missing-values.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-tap-floors-round-2.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-tap-floors.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-visible-live-regions.md",
@@ -3086,32 +3086,32 @@
       {
         "path": "docs/evidence/bundle-budget-production-rebaseline-2026-08-18.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/mha-2014-section-summaries-review.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/rag-reliability-evidence-2026-07-27.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/factsheets-reading-model-brief.md",
@@ -3121,7 +3121,7 @@
       {
         "path": "docs/filter-contract.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/forward-codify-retrieval-rpcs-workorder.md",
@@ -3181,12 +3181,12 @@
       {
         "path": "docs/medication-interaction-lexicon-review.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/medication-lexicon-review-worklist.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mockup-retirement-policy.md",
@@ -3226,7 +3226,7 @@
       {
         "path": "docs/operations-runbook.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/operator-apply-performance-latency-remediation.md",
@@ -3241,7 +3241,7 @@
       {
         "path": "docs/operator-supabase-branching-cap.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3251,7 +3251,7 @@
       {
         "path": "docs/performance.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/phone-chrome-physical-acceptance.md",
@@ -3261,32 +3261,32 @@
       {
         "path": "docs/plans/design-system-live-convergence-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/document-viewer-phase2-unified-chrome.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/document-viewer-phase3-handover.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/document-viewer-redesign-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/edge-ingestion-overhaul-3pr-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/tooling-activation-implementation-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/pr-handoff-stop-cross-agent-gap.md",
@@ -3306,7 +3306,7 @@
       {
         "path": "docs/product/clinical-trust-direction.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/production-readiness-checklist.md",
@@ -3321,67 +3321,67 @@
       {
         "path": "docs/prompts/codex-architecture-maintainability-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-design-status-semantics.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-detailed-task.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-review/1-codex-full-stack-master-review-prompt.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-review/2-codex-full-stack-master-prompt-review-and-stress-test.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-review/3-codex-agents-md-companion.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-data-database-safety-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-documentation-ownership-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-functional-correctness-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-performance-reliability-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-tests-quality-gates-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/mode-aware-clinical-ask-codex-cloud-handover.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/rag-coverage-gate-extraction.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/sources-mode-extraction.md",
@@ -3396,27 +3396,27 @@
       {
         "path": "docs/rag-behaviour/behaviour-map.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-behaviour/README.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-behaviour/refuted-approaches.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-behaviour/safeguards.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-evaluation.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-hybrid-findings-and-todo.md",
@@ -3446,12 +3446,12 @@
       {
         "path": "docs/rag-improvement/gate-b-decision-record-2026-08-18.md",
         "section": "rag-improvement",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-improvement/gate-b-decision-record.md",
         "section": "rag-improvement",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-improvement/HANDOVER.md",
@@ -3471,7 +3471,7 @@
       {
         "path": "docs/README.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/reconciliation-playbook.md",
@@ -3481,82 +3481,82 @@
       {
         "path": "docs/redesign/01-audit.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/02-design-direction.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/03-decision-log.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/04-deferred.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/05-changelog.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/06-verification.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/07-token-adoption-audit.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/08-design-review-prompt.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/09-page-polish-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/09-ui-primitives-recipes.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/clinical-white-aegean-master-implementation-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/crisp-white-colour-system-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/dictionary-reference-spine.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/m2-atomic-reindex-migration-note.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/permanent-colour-direction.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/premium-colour-system-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/reindex-runbook.md",
@@ -3576,7 +3576,7 @@
       {
         "path": "docs/review-findings-2026-08-02.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/samd-classification-medication-considerations.md",
@@ -3611,7 +3611,7 @@
       {
         "path": "docs/services-mode-governance.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/site-map.md",
@@ -3646,207 +3646,207 @@
       {
         "path": "docs/superpowers/plans/2026-07-04-public-anonymous-access-rate-limits.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-07-24-webkit-rsc-prefetch-disposition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-05-editable-pin-menu-mockups.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-14-caring-contact-coordination-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-14-ward-management-mockups.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-15-caring-contact-design-phase.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-18-ward-flow-model-and-modes.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-18-ward-flow-phase-1-model.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-19-caring-contact-domain-and-datastore.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-care-plan-implementation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-evaluation-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-verified-incremental-delivery.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-COMPLETION.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-HANDOFF.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-WORKLOG.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-rag-repository-content-sync.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-22-developer-hub-phase-2-HANDOFF.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-22-developer-hub-phase-2.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-22-mode-aware-clinical-ask-implementation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-clinical-trust-cockpit.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-lighthouse-local-build-reliability.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-outstanding-p2-p3-remediation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-performance-remediation-current-main.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-platform-contracts-readiness.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-24-caring-contact-phase-2b-screens.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-developer-hub-ingestion-panel.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-ward-flow-phase-4-specialist-boards.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-ward-flow-sandbox-and-design-repair.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-ward-flow-standalone-and-nav-repair.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-27-ward-flow-phase-6-morning-page.md",
@@ -3881,27 +3881,27 @@
       {
         "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-native-smart-catalogue-search.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-sources-mode.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-04-on-call-mode.md",
@@ -3966,287 +3966,287 @@
       {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/connected-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/execution-order.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/sdd-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.cloud.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.local.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/CLOUD-EXECUTION-PROMPT.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/approval-matrix.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/connected-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/execution-order.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-australian-source-governance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-evaluation-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-verified-incremental-delivery.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-rag-repository-content-sync.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/sdd-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/specs/2026-08-20-rag-answer-and-australian-sources-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/START-HERE.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/execution-artifacts/rag-answer-quality-and-repository-coverage-v1/README.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/execution-receipts/rag-answer-quality-and-repository-coverage-v1/README.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/LOCAL-CONNECTED-EXECUTION-PROMPT.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/approval-matrix.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/connected-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/execution-order.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-australian-source-governance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-evaluation-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-verified-incremental-delivery.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-21-rag-repository-content-sync.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/sdd-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/specs/2026-08-20-rag-answer-and-australian-sources-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/START-HERE.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-07-02-triage-security-reliability-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-05-editable-pin-menu-mockups-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-14-ward-management-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-20-care-plan-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-20-rag-answer-and-australian-sources-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-21-developer-hub-phase-1-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-21-mode-aware-clinical-ask-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-22-developer-hub-phase-2-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-23-clinical-operations-programme-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-23-outstanding-p2-p3-remediation-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
@@ -4316,22 +4316,22 @@
       {
         "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-native-smart-catalogue-search-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-sources-mode-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
@@ -4386,12 +4386,12 @@
       {
         "path": "docs/ward-flow-complete-ledger.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-context.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-coordination-rules.md",
@@ -4501,282 +4501,282 @@
       {
         "path": "docs/ward-flow-phase-2-kickoff.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-ledger.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-rulings.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/clinical-changes-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/concurrent-session-inventory.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/flow-diagram-fix-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/flow-diagram-fix-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/handover-stage-coherence-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/preflight-tasks-9-to-12.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/progress.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/README.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-1-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-1-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-1-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-10-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-10-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-11-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-11-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-addendum.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-journey-design.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-2-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-2-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-2-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-3-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-3-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-3-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-4-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-4-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-4-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-5-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-5-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-5-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-fix-round-3-findings.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-re-review-rounds-3-4.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-re-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-7-addendum.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-7-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-7-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-8-addendum.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-8-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-8-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-9-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-9-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/transport-leg-helper-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/transport-stage-coherence-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/whole-branch-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-5-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-5-kickoff-prompt.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-6-7-decisions.md",
@@ -4811,12 +4811,12 @@
       {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-pinned-clock-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-plan.md",
@@ -4861,7 +4861,7 @@
       {
         "path": "docs/ward-flow-roadmap.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-safety-checklist.md",
@@ -5841,17 +5841,17 @@
       {
         "path": "docs/ward-management-context.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-management-decisions.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-management-mode-map.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/webhooks.md",
@@ -5939,8 +5939,8 @@
     ],
     "counts": {
       "documents": 858,
-      "catalogued": 118,
-      "uncatalogued": 740,
+      "catalogued": 590,
+      "uncatalogued": 268,
       "sections": 22
     }
   },
