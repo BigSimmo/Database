@@ -6,5 +6,5 @@
 # lab benchmarks extraction on CPU exactly as the worker would run it.
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-docling==2.120.2
-PyMuPDF==1.28.0
+docling==2.124.0
+PyMuPDF==1.28.2
