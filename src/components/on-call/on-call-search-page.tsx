@@ -13,6 +13,7 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { cardInteractive, cardPadding } from "@/components/card-recipes";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
@@ -271,6 +272,8 @@ export function OnCallSearchPage({ initialQuery = "", now: nowProp }: { initialQ
             />
           )
         ) : null}
+
+        <UniversalSearchAlsoMatches modeId="on-call" query={initialQuery} />
       </main>
     </div>
   );
