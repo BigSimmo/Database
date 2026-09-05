@@ -181,3 +181,95 @@ export function deferralDecision(args: {
     },
   };
 }
+
+/**
+ * Claim limit for the agent endpoint.
+ *
+ * `Number(url.searchParams.get("limit"))` alone lets `?limit=abc` reach the
+ * claim RPC as `NaN::integer`, which Postgres rejects with a cast error — a 500
+ * before a single job is claimed. Mirror the ingestion-worker function: finite
+ * check first, then truncate and clamp.
+ */
+export const AGENT_CLAIM_LIMIT_DEFAULT = 8;
+export const AGENT_CLAIM_LIMIT_MAX = 50;
+
+export function parseAgentClaimLimit(
+  raw: string | null | undefined,
+  fallback = AGENT_CLAIM_LIMIT_DEFAULT,
+  max = AGENT_CLAIM_LIMIT_MAX,
+): number {
+  if (raw === null || raw === undefined || raw.trim() === "") return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(max, Math.trunc(parsed)));
+}
+
+/** The endpoint claims and mutates jobs; only POST may reach it. */
+export function isAllowedAgentMethod(method: string): boolean {
+  return method === "POST";
+}
+
+export type ClaimedBatchResult<TJob> = {
+  processed: number;
+  deferred: number;
+  failed: number;
+  deferrals: Array<{ job: TJob; missing: string[] }>;
+  failures: Array<{ job: TJob; error: string; failure_record_error: string | null }>;
+};
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : JSON.stringify(error);
+}
+
+/**
+ * Run one claimed batch, isolating BOTH the per-job work and the per-job
+ * failure recording.
+ *
+ * The bug this exists to prevent (audit L13): `markJobFailure` throws whenever
+ * the status RPC returns `ok:false` or the database errors. Called unguarded in
+ * the loop's catch, that throw escaped to the request-level catch and returned
+ * 500 with every not-yet-processed job in the batch still `processing` under
+ * its lock — invisible until the 45-minute stale reclaim, each one attempt
+ * closer to the terminal `failed` state that is never re-queued. One job's
+ * failure must never abandon its siblings, so the failure-recording call gets
+ * its own guard and the loop continues.
+ */
+export async function runClaimedJobBatch<TJob>(
+  jobs: readonly TJob[],
+  handlers: {
+    processJob: (job: TJob) => Promise<{ status: "completed" | "deferred"; missing: string[] }>;
+    markJobFailure: (job: TJob, message: string) => Promise<unknown>;
+  },
+): Promise<ClaimedBatchResult<TJob>> {
+  const result: ClaimedBatchResult<TJob> = {
+    processed: 0,
+    deferred: 0,
+    failed: 0,
+    deferrals: [],
+    failures: [],
+  };
+
+  for (const job of jobs) {
+    try {
+      const outcome = await handlers.processJob(job);
+      if (outcome.status === "completed") {
+        result.processed += 1;
+      } else {
+        result.deferred += 1;
+        result.deferrals.push({ job, missing: outcome.missing });
+      }
+    } catch (error) {
+      const message = errorMessage(error);
+      let failureRecordError: string | null = null;
+      try {
+        await handlers.markJobFailure(job, message);
+      } catch (recordError) {
+        failureRecordError = errorMessage(recordError);
+      }
+      result.failed += 1;
+      result.failures.push({ job, error: message, failure_record_error: failureRecordError });
+    }
+  }
+
+  return result;
+}
