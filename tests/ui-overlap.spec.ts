@@ -292,6 +292,26 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
+  test("desktop result views render the pill alone in every mode (no prompts, no Smart line)", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoDashboard(page);
+
+    for (const route of ["/forms/search?q=lithium&run=1", "/services/search?q=crisis&run=1"]) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(async () => {
+        const header = page.locator("header#search");
+        await expect(header).toHaveCount(1);
+        await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeVisible();
+      }).toPass({ timeout: 30_000 });
+
+      await expect(page.getByTestId("smart-search-prompt-row"), route).toHaveCount(0);
+      await expect(page.getByTestId("smart-search-rotating-text"), route).toHaveCount(0);
+      await expect(page.getByTestId("smart-search-phone-ticker"), route).toHaveCount(0);
+      // The APP-5 privacy line is the only chrome that stays under the pill.
+      await expect(page.getByTestId("answer-composer-privacy-warning"), route).toBeVisible();
+    }
+  });
+
   test("phone home keeps one tappable example ticker without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);

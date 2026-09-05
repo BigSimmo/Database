@@ -145,7 +145,20 @@ describe("MasterSearchHeader DOM", () => {
 
     rerender(<MasterSearchHeader {...props} query="13YARN" />);
     expect(screen.queryByTestId("smart-search-intent-cue")).not.toBeInTheDocument();
-    expect(screen.getByTestId("smart-search-rotating-text")).toHaveTextContent("Smart search");
+    // A literal query shows no Smart promise at all: the desktop
+    // "Smart search · Try" line was removed so every mode shares one composer.
+    expect(screen.queryByTestId("smart-search-rotating-text")).not.toBeInTheDocument();
+  });
+
+  it("renders the pill alone outside the mode-home hero (no prompt rail, no Smart line)", () => {
+    for (const searchMode of ["forms", "documents", "answer", "services"] as const) {
+      const { unmount } = render(<MasterSearchHeader {...defaultHeaderProps()} searchMode={searchMode} />);
+      expect(screen.getByTestId("global-search-input")).toBeInTheDocument();
+      expect(screen.queryByTestId("smart-search-prompt-row")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("smart-search-rotating-text")).not.toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+      unmount();
+    }
   });
 
   it("routes Factsheets Browse all sheets to the Topics page", async () => {

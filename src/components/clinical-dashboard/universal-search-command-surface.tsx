@@ -45,7 +45,7 @@ import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/u
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
-import { interpretSmartSearch, isSmartLocalOnlyMode, isSmartNaturalSearchMode } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, isSmartLocalOnlyMode } from "@/lib/smart-search-intent";
 
 // Domains whose live result totals a cross-mode chip should sum. Answer/favourites
 // chips have no countable domain; the
@@ -174,18 +174,11 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
   );
 }
 
-function SmartRotatingHint({
+function PhoneExampleTicker({
   examples,
-  modeLabel,
-  showSmartLine,
-  showPhoneTicker,
   onPickExample,
 }: {
   examples: string[];
-  modeLabel: string;
-  /** Smart is a provider-free capability of the supported catalogue modes. */
-  showSmartLine: boolean;
-  showPhoneTicker: boolean;
   onPickExample: (example: string) => void;
 }) {
   const [activeExampleIndex, setActiveExampleIndex] = useState(0);
@@ -193,17 +186,14 @@ function SmartRotatingHint({
   const [isTickerHeld, setIsTickerHeld] = useState(false);
   const activeExample = examples[activeExampleIndex % examples.length];
 
-  const visible = showSmartLine || showPhoneTicker;
-
   useEffect(() => {
-    if (!visible) return;
     if (isTickerHeld) return;
     if (examples.length <= 1) return;
     const intervalId = window.setInterval(() => {
       setActiveExampleIndex((current) => (current + 1) % examples.length);
     }, SMART_HINT_ROTATION_MS);
     return () => window.clearInterval(intervalId);
-  }, [examples, isTickerHeld, visible]);
+  }, [examples, isTickerHeld]);
 
   const freezeTicker = useCallback(() => {
     setHeldTickerExample(activeExample);
@@ -217,49 +207,36 @@ function SmartRotatingHint({
     heldTickerExample && examples.includes(heldTickerExample) ? heldTickerExample : activeExample;
   const resolvedTickerExample = isTickerHeld ? currentHeldTickerExample : activeExample;
 
-  if (!activeExample || !visible) return null;
+  if (!activeExample) return null;
 
   return (
-    <>
-      {showSmartLine ? (
-        <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text">
-          <span>Smart search</span>
-          <span aria-hidden="true">·</span>
-          <span>
-            Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
-          </span>
-        </div>
-      ) : null}
-      {showPhoneTicker ? (
-        <button
-          type="button"
-          data-testid="smart-search-phone-ticker"
-          className="smart-search-phone-ticker"
-          onClick={() => onPickExample(resolvedTickerExample)}
-          onFocus={freezeTicker}
-          onBlur={releaseTicker}
-          onMouseEnter={freezeTicker}
-          onMouseLeave={releaseTicker}
-          onPointerDown={freezeTicker}
-          onPointerUp={releaseTicker}
-          onPointerLeave={releaseTicker}
-          onPointerCancel={releaseTicker}
-          onTouchStart={freezeTicker}
-          onTouchEnd={releaseTicker}
-          onTouchCancel={releaseTicker}
-          aria-label={`Try suggested search: ${resolvedTickerExample}`}
-        >
-          <span className="smart-search-phone-ticker-kicker">
-            <Sparkles aria-hidden="true" className="size-icon-sm" />
-            Try this
-          </span>
-          <span className="smart-search-phone-ticker-query">{resolvedTickerExample}</span>
-          <span className="smart-search-phone-ticker-action" aria-hidden="true">
-            Tap to search
-          </span>
-        </button>
-      ) : null}
-    </>
+    <button
+      type="button"
+      data-testid="smart-search-phone-ticker"
+      className="smart-search-phone-ticker"
+      onClick={() => onPickExample(resolvedTickerExample)}
+      onFocus={freezeTicker}
+      onBlur={releaseTicker}
+      onMouseEnter={freezeTicker}
+      onMouseLeave={releaseTicker}
+      onPointerDown={freezeTicker}
+      onPointerUp={releaseTicker}
+      onPointerLeave={releaseTicker}
+      onPointerCancel={releaseTicker}
+      onTouchStart={freezeTicker}
+      onTouchEnd={releaseTicker}
+      onTouchCancel={releaseTicker}
+      aria-label={`Try suggested search: ${resolvedTickerExample}`}
+    >
+      <span className="smart-search-phone-ticker-kicker">
+        <Sparkles aria-hidden="true" className="size-icon-sm" />
+        Try this
+      </span>
+      <span className="smart-search-phone-ticker-query">{resolvedTickerExample}</span>
+      <span className="smart-search-phone-ticker-action" aria-hidden="true">
+        Tap to search
+      </span>
+    </button>
   );
 }
 
@@ -470,6 +447,7 @@ export function UniversalSearchCommandSurface({
   onListboxIdReady,
   onActiveItemIdChange,
   showPhoneSuggestionTicker = false,
+  showPromptRow = false,
   placement = "inline",
   children,
 }: {
@@ -492,6 +470,13 @@ export function UniversalSearchCommandSurface({
   onActiveItemIdChange?: (activeItemId: string | null) => void;
   /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
   showPhoneSuggestionTicker?: boolean;
+  /**
+   * Show the tablet/desktop "Prompts" chip rail under the pill. Only the
+   * mode-home hero composer opts in; submitted result views, page slots, and
+   * the answer dock render the pill alone so every mode's results page carries
+   * one compact search bar.
+   */
+  showPromptRow?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -1111,14 +1096,12 @@ export function UniversalSearchCommandSurface({
       )}
     >
       <SmartIntentCue active={smartNaturalSearch} modeLabel={mode.label} />
-      {smartNaturalSearch ? null : (
-        // The phone ticker and desktop line both demonstrate deterministic
-        // catalogue search. Neither depends on Clinical Ask or a provider flag.
-        <SmartRotatingHint
+      {smartNaturalSearch || !showPhoneSuggestionTicker ? null : (
+        // The phone ticker demonstrates deterministic catalogue search. It does
+        // not depend on Clinical Ask or a provider flag. Tablet/desktop carry no
+        // equivalent line: every mode home shows the same pill + prompt rail.
+        <PhoneExampleTicker
           examples={config.examples}
-          modeLabel={mode.label}
-          showSmartLine={isSmartNaturalSearchMode(modeId)}
-          showPhoneTicker={showPhoneSuggestionTicker}
           onPickExample={(example) => {
             onQueryChange(example);
             onFocusSearchInput?.();
@@ -1180,14 +1163,16 @@ export function UniversalSearchCommandSurface({
           />
         ) : null}
       </div>
-      <SmartPromptRow
-        examples={config.examples}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          if (dropdownDisplayable) onDropdownOpenChange(true);
-          onFocusSearchInput?.();
-        }}
-      />
+      {showPromptRow ? (
+        <SmartPromptRow
+          examples={config.examples}
+          onPickExample={(example) => {
+            onQueryChange(example);
+            if (dropdownDisplayable) onDropdownOpenChange(true);
+            onFocusSearchInput?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

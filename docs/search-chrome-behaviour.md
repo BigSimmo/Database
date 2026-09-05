@@ -875,12 +875,21 @@ ticker ("Try this … Tap to search") is the only worked example a phone home
 page carries, and it offers an ordinary search in every mode — governed or
 dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
 and nowhere else: a submitted result view, an answer thread, and a phone bottom
-dock all stay clear of it. The desktop `Smart search · Try "…"` line appears in
-the eleven shared-composer catalogue modes. Tools is the standalone-owner
-exception: its accessible `Search tools` control does not render that shared
-line or intent cue, while its deterministic local matching and ordinary
-`q`/`run=1` route remain the same. The intent cue appears only while a
-shared-composer query is being interpreted as natural language.
+dock all stay clear of it.
+
+Tablet and desktop composers carry no `Smart search · Try "…"` line in any
+mode. It used to render only in the eleven catalogue modes, which made a Forms
+or Services results page taller than the same view in Documents or Answer.
+The only helper row above 640px is the `Prompts` chip rail, and it is gated by
+placement rather than by mode: `MasterSearchHeader` passes
+`showPromptRow={isDesktopHomeComposer}`, so only the mode-home hero composer
+renders it. Every submitted result view, page slot, and the answer dock renders
+the pill plus the single APP-5 privacy line and nothing else, in every mode.
+Tools is the standalone-owner exception: its accessible `Search tools` control
+does not render the shared prompt rail or intent cue, while its deterministic
+local matching and ordinary `q`/`run=1` route remain the same. The intent cue
+appears only while a shared-composer query is being interpreted as natural
+language.
 
 There is still exactly one composer. No Ask rail, microphone control, duplicate
 input, or extra phone-dock reserve is mounted. Crossing from literal Search to

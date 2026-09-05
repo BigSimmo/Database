@@ -2037,6 +2037,9 @@ export function MasterSearchHeader({
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
           showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
+          // Only the mode-home hero keeps the prompt rail. Result views, page
+          // slots, and the answer dock render the pill alone in every mode.
+          showPromptRow={isDesktopHomeComposer}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
