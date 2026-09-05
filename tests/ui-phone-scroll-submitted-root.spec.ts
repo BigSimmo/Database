@@ -16,7 +16,7 @@ async function mockDemoDashboard(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical Guide",
+        appName: "PsychSift",
         projectId: "test-project",
         identityPath: "/api/local-project-id",
         localServer: {

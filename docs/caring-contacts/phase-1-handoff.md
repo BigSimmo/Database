@@ -106,10 +106,34 @@ behavioural assertion and independently re-verified by mutating `vitest.config.m
 
 ## Recovering the removed governance material
 
-Six documents — hazard log, evidence brief, referral feasibility, outreach drafts, message review pack
-and demonstration script — were removed from the working tree because they are governance and sponsor
-material, not building material. They are intact in history:
+**Corrected 2026-09-04. The recovery command that stood here did not work and never could have.**
+It read `git checkout 32d408c2f -- docs/caring-contacts/`, and `32d408c2f` is not a valid object in
+this repository (`git cat-file -t 32d408c2f` → `fatal: Not a valid object name`). Nor were the
+documents ever committed: `git log --all --name-only` across the full fetched history matches no
+path containing `hazard-log`, `message-review-pack` or `referral-feasibility`. The claim that they
+are "intact in history" was false, and it actively misdirected anyone trying to recover them. This
+is finding M6 of [`docs/audit/full-repository-audit-2026-09-02.md`](../audit/full-repository-audit-2026-09-02.md),
+independently confirmed there.
 
-```bash
-git checkout 32d408c2f -- docs/caring-contacts/
+Six documents — hazard log, evidence brief, referral feasibility, outreach drafts, message review
+pack and demonstration script — were left out of the working tree because they are governance and
+sponsor material, not building material. **They are not in git.** The only copies named anywhere are
+the off-machine handoff bundles recorded in [`PROGRESS-LEDGER.md`](PROGRESS-LEDGER.md) §3, §8 and §9:
+
 ```
+D:\Repos\caring-contacts-handoff-2026-08-20\
+D:\Repos\caring-contacts-handoff-2026-08-21\
+```
+
+PROGRESS-LEDGER §9 records that both directories are on the same workstation and are **not**
+protected by the push. Nothing in this repository can confirm they contain these six documents.
+
+Two of the six have since been re-drafted from scratch, from the code and the outstanding-issue
+ledger rather than recovered — they are new documents, not the originals, and both are unsigned
+drafts:
+
+- [`hazard-log.md`](hazard-log.md)
+- [`message-review-pack.md`](message-review-pack.md)
+
+The other four — evidence brief, referral feasibility, outreach drafts, demonstration script — have
+not been rewritten and remain unavailable.

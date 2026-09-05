@@ -73,9 +73,22 @@ export function PersonAvatar({ initials, size = "md" }: { initials: string; size
   );
 }
 
+/**
+ * A status pill hugs its label, including inside a grid cell.
+ *
+ * `Chip` is `inline-flex`, which is enough everywhere except a CSS grid: a grid item's default
+ * `justify-self` is `stretch`, so the pill silently grew to the width of its column. Three rows
+ * here stack into a single-column grid below `sm` and one of them is a four-column grid at every
+ * width, so the effect was a 316px-wide "Delivered" holding 67px of text on the phone Today
+ * screen, and a 262px "Requires action" on the desktop Schedule screen — a pill that reads as an
+ * empty input rather than a label. Measured before this line existed, on the built production app.
+ *
+ * `justify-self` has no meaning outside a grid, so this changes nothing in the flex rows the same
+ * chip appears in, and it fixes the call sites that do not exist yet as well as the three that do.
+ */
 export function StatusChip({ children, tone }: { children: ReactNode; tone: ChipStatusTone }) {
   return (
-    <Chip appearance={{ kind: "status", tone }} dot>
+    <Chip appearance={{ kind: "status", tone }} className="justify-self-start" dot>
       {children}
     </Chip>
   );
