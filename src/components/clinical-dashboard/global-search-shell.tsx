@@ -906,6 +906,7 @@ function GlobalStandaloneSearchShellBody({
                 onPrefetchAccount={prefetchAccountDialog}
                 onPrefetchApplications={prefetchApplications}
                 onOpenSearch={openSidebarSearch}
+                onSelectMode={changeMode}
               />
             </div>
           </div>
@@ -1192,6 +1193,7 @@ function GlobalStandaloneSearchShellBody({
           onPrefetchAccount={prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
           onOpenSearch={openSidebarSearch}
+          onSelectMode={changeMode}
         />
       </div>
     );
