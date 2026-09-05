@@ -16,28 +16,10 @@
 import { readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { extractDocument } from "../../../src/lib/extractors/document";
-import type { ExtractedDocument, ExtractedImage } from "../../../src/lib/types";
+import type { ExtractedDocument } from "../../../src/lib/types";
+import { tableFromImage, type LegacyTable } from "./legacy-tables";
 
 const TEXT_CAP_BYTES = Number(process.env.LAB_PER_DOC_TEXT_BYTES ?? 64 * 1024 * 1024);
-
-type LegacyTable = {
-  markdown: string | null;
-  rows: number | null;
-  cols: number | null;
-};
-
-function tableFromImage(image: ExtractedImage): LegacyTable | null {
-  if (image.sourceKind !== "table_crop") return null;
-  const metadata = image.metadata ?? {};
-  const markdown = metadata["accessible_table_markdown"];
-  const rows = metadata["table_rows"];
-  const cols = metadata["table_columns"];
-  return {
-    markdown: typeof markdown === "string" ? markdown : null,
-    rows: typeof rows === "number" ? rows : null,
-    cols: typeof cols === "number" ? cols : null,
-  };
-}
 
 function argValue(flag: string): string {
   const index = process.argv.indexOf(flag);
