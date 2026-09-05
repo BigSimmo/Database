@@ -64,6 +64,16 @@ describe("developer review state page", () => {
     expect(screen.getByTestId("developer-review-state-scope")).toHaveTextContent(/pull request/i);
   });
 
+  // #L121: review_state is deliberately excluded from the staleness gate
+  // (COMPARED_CONTENT_KEYS/REVISION_INPUTS in scripts/check-repo-awareness-snapshot.ts),
+  // so this page's own freshness stamp can lag the review corpus with nothing
+  // on the page saying so, before this fix.
+  it("discloses that the freshness stamp does not move for a review-record append", () => {
+    render(<ReviewStatePageContent />);
+    expect(screen.getByTestId("developer-review-state-scope")).toHaveTextContent(/does not move/i);
+    expect(screen.getByTestId("developer-review-state-scope")).toHaveTextContent(/docs:update/i);
+  });
+
   it("renders only the current page's records (up to 50 on page 1) — never the full committed set", () => {
     render(<ReviewStatePageContent />);
     const expectedFirstPageCount = Math.min(50, counts.records);
