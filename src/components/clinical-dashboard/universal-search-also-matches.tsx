@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, Layers } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches-state";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
-import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { focusRing } from "@/components/card-recipes";
+import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
@@ -21,6 +22,35 @@ function isFavouritesHref(href: string) {
 
 function matchCountLabel(count: number) {
   return count === 1 ? "1 related mode" : `${count} related modes`;
+}
+
+/**
+ * Loading placeholder that occupies the real card geometry.
+ *
+ * Replaces a single muted sentence, which collapsed the tray to one text line
+ * and then snapped it open to a four-card grid the moment results landed. The
+ * skeletons keep the tray the height it is about to be, so nothing below the
+ * panel jumps. Purely decorative — announcement is owned by the visually
+ * hidden `role="status"` node in the panel body (SPEC §9.2: a live region is
+ * never visible content).
+ */
+function AlsoMatchesSkeletonCard({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        "flex min-w-0 flex-col gap-2.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--e1)]",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className="h-9 w-9 shrink-0 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        <span className="h-3 w-20 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+      </div>
+      <span className="h-3 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+      <span className="h-3 w-3/5 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+    </div>
+  );
 }
 
 export function UniversalSearchAlsoMatches({
@@ -50,13 +80,13 @@ export function UniversalSearchAlsoMatches({
     trimmedQuery,
   );
   // Collapsed by default on phones so this cross-mode panel does not push the
-  // primary results down; desktop always shows the grid (see the sm: rules below),
-  // so the toggle state only governs the narrow-viewport disclosure.
+  // primary results down; from sm upward the grid is always shown (see the sm:
+  // rules below), so the toggle state only governs the narrow-viewport disclosure.
   const [expanded, setExpanded] = useState(false);
   // Track the sm breakpoint (640px) so the header's disclosure semantics match
-  // reality: on desktop the grid is always visible, so the button reports
-  // expanded and drops out of the interaction/tab flow rather than claiming to
-  // be a collapsed control the user can toggle to no effect.
+  // reality: from tablet width up the grid is always visible, so the button
+  // reports expanded and drops out of the interaction/tab flow rather than
+  // claiming to be a collapsed control the user can toggle to no effect.
   const [isWide, setIsWide] = useState(false);
   const [viewportReady, setViewportReady] = useState(false);
   useEffect(() => {
@@ -74,10 +104,7 @@ export function UniversalSearchAlsoMatches({
   // stream. Once mounted, keep the panel eager and invisible until real matches
   // arrive; a speculative phone disclosure would add dead space to short
   // answers that have no cross-mode matches.
-  // Prescribing hides this panel entirely (see early return below). Keep the
-  // fetch disabled too so wide viewports never fire `/api/search/universal`
-  // for results that cannot render.
-  const searchActive = modeId !== "prescribing" && submissionActive && (isWide || modeId === "answer" || expanded);
+  const searchActive = submissionActive && (isWide || modeId === "answer" || expanded);
   const universal = useUniversalSearch({
     query: trimmedQuery,
     enabled: trimmedQuery.length >= 2 && searchActive,
@@ -125,12 +152,9 @@ export function UniversalSearchAlsoMatches({
       : matchCount > 0
         ? matchCountLabel(matchCount)
         : "No additional matches";
-  const desktopMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : null;
+  const wideMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : null;
 
-  // Medication search is already a tightly scoped clinical result surface. Do
-  // not add cross-mode suggestions above its prescribing results: they displace
-  // the medication count, patient details, and primary matches on phones.
-  if (modeId === "prescribing" || !submissionActive) return null;
+  if (!submissionActive) return null;
   if (!viewportReady || trimmedQuery.length < 2) return null;
   if (modeId === "answer" && currentGroups.length === 0) return null;
   if (isWide && !searchPending && currentGroups.length === 0) return null;
@@ -142,9 +166,17 @@ export function UniversalSearchAlsoMatches({
   return (
     <section
       className={cn(
-        // Raised card — matches the library rows above, instead of a flat bar
-        // flush against the phone home-indicator / dock edge.
-        "basis-full rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)] motion-safe:animate-fade-up",
+        // A recessed tray, not a third peer card. The results above sit on
+        // `--surface-raised`; sinking this panel to `--surface-subtle` and
+        // raising its mode cards back out of it puts the cross-mode suggestions
+        // visibly one layer behind the answer to the question actually asked,
+        // instead of competing with it at the same elevation.
+        //
+        // Border only, no `--shadow-inset`: card-recipes.ts records that pairing
+        // a bevel with a border puts two edge treatments on one surface, which
+        // is what made this panel read flat beside the cards above it.
+        "basis-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1.5 sm:p-2.5",
+        "motion-safe:animate-fade-up forced-colors:border",
         // Content spacing below the last interactive section on phones — not a
         // chrome/dock reserve restore (those stay 0rem when scroll-hidden).
         "max-sm:mb-4",
@@ -162,18 +194,18 @@ export function UniversalSearchAlsoMatches({
         aria-controls={panelId}
         tabIndex={isWide ? -1 : undefined}
         className={cn(
-          "flex min-h-tap w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
-          "hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-          // On desktop the panel is always open, so the header is inert copy rather than a control.
-          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2 sm:px-2 sm:py-1.5 sm:hover:bg-transparent",
-          "sm:border-b sm:border-[color:var(--border)]",
+          "flex min-h-tap w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors",
+          "hover:bg-[color:var(--surface)]",
+          focusRing,
+          // From sm up the panel is always open, so the header is inert copy rather than a control.
+          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2.5 sm:px-1 sm:pb-2 sm:pt-0.5 sm:hover:bg-transparent",
         )}
       >
         <span
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-7 sm:w-7"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] forced-colors:border sm:h-7 sm:w-7"
           aria-hidden
         >
-          <Layers className="size-icon-sm" aria-hidden />
+          <Layers className="size-icon-lg sm:size-icon-md" aria-hidden />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
@@ -193,30 +225,50 @@ export function UniversalSearchAlsoMatches({
             {phoneSubtitle}
           </span>
         </span>
-        {desktopMeta ? (
-          <span className={cn("hidden text-2xs font-medium sm:inline", textMuted)}>{desktopMeta}</span>
+        {wideMeta ? (
+          <span
+            className="hidden shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-0.5 text-2xs font-semibold text-[color:var(--text-muted)] sm:inline-flex"
+            aria-hidden
+          >
+            {wideMeta}
+          </span>
         ) : null}
         <span
           className={cn(
-            "grid h-8 w-8 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform sm:hidden",
+            "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] transition-transform sm:hidden",
             expanded && "rotate-180",
           )}
           aria-hidden
         >
-          <ChevronDown className="size-icon-sm" aria-hidden="true" />
+          <ChevronDown className="size-icon-lg" aria-hidden="true" />
         </span>
       </button>
       <div
         id={panelId}
         className={cn(
-          "grid-cols-1 gap-2 px-1 pb-1 sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 sm:pt-2 xl:grid-cols-4",
+          // 1 → 2 → 4 across phone, tablet and wide desktop. The tablet band
+          // keeps two columns all the way to xl: four columns inside a
+          // 1024px content well leaves each mode card too narrow for a
+          // two-line clinical title, which is what forced the old single-line
+          // truncation ("Mental Health Hospital in th…").
+          "grid-cols-1 gap-2 sm:grid sm:grid-cols-2 sm:gap-2.5 xl:grid-cols-4",
           expanded ? "mt-1.5 grid sm:mt-0" : "hidden",
         )}
       >
-        {searchPending || currentGroups.length === 0 ? (
-          <p className={cn("rounded-lg px-2.5 py-3 text-xs font-medium", textMuted)} aria-live="polite">
-            {panelStatus}
-          </p>
+        {/* SPEC §9.2 — the live region is the announcer, never the visible content. */}
+        <span className="sr-only" role="status">
+          {panelStatus}
+        </span>
+        {searchPending ? (
+          <>
+            <AlsoMatchesSkeletonCard />
+            <AlsoMatchesSkeletonCard className="max-sm:hidden" />
+            <AlsoMatchesSkeletonCard className="hidden xl:flex" />
+            <AlsoMatchesSkeletonCard className="hidden xl:flex" />
+          </>
+        ) : null}
+        {!searchPending && currentGroups.length === 0 ? (
+          <p className="rounded-lg px-2.5 py-3 text-xs font-medium text-[color:var(--text-muted)]">{panelStatus}</p>
         ) : null}
         {currentGroups.map((group) => {
           const targetModeId = group.modeId;
@@ -226,35 +278,52 @@ export function UniversalSearchAlsoMatches({
             <div
               key={targetModeId}
               data-category-accent={accent}
-              className="flex min-w-0 items-start gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3"
+              // Vertical card: identity row, then full-width result rows, then a
+              // footer link. The old horizontal `tile | text | View all` row
+              // squeezed the titles into the middle third and truncated them at
+              // every width; giving the titles the whole card width is what makes
+              // a two-line clinical name readable on a phone and on a 4-up.
+              className="group/card flex min-w-0 flex-col rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)] transition-colors hover:border-[color:var(--cat-border)] forced-colors:border"
             >
-              <CategoryIconTile icon={APP_MODE_ICON[targetModeId]} accent={accent} size="sm" />
-              <span className="min-w-0 flex-1 space-y-1">
-                <span className="flex min-w-0 items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-2 px-2.5 pt-2.5">
+                <CategoryIconTile icon={APP_MODE_ICON[targetModeId]} accent={accent} size="sm" />
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--text-heading)]">
                     {targetMode.label}
                   </span>
-                  <span className="inline-flex shrink-0 items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-1.5 py-px text-2xs font-semibold text-[color:var(--cat-accent)] forced-colors:border">
+                  <span className="inline-flex w-fit max-w-full items-center truncate rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-1.5 py-px text-2xs font-semibold text-[color:var(--cat-accent)] forced-colors:border">
                     {targetMode.search.statusLabel}
                   </span>
                 </span>
+              </div>
+              <ul className="mt-1.5 flex min-w-0 flex-col px-1 pb-1.5">
                 {group.items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="block truncate text-xs font-medium leading-snug text-[color:var(--text)] underline-offset-2 hover:text-[color:var(--cat-accent)] hover:underline"
-                  >
-                    {item.title}
-                  </Link>
+                  <li key={item.href} className="min-w-0">
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-xs font-medium leading-snug text-[color:var(--text)] transition-colors hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] sm:min-h-0 sm:py-1.5",
+                        focusRing,
+                      )}
+                    >
+                      <span className="line-clamp-2 min-w-0 flex-1">{item.title}</span>
+                      <ChevronRight
+                        className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-opacity sm:opacity-0 sm:group-hover/card:opacity-100"
+                        aria-hidden
+                      />
+                    </Link>
+                  </li>
                 ))}
-              </span>
+              </ul>
               <Link
                 href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
-                // Top-align the label with the mode title; min-h-tap still grows the
-                // hit box downward so the 48px floor does not pull the text mid-card.
-                className="inline-flex min-h-tap shrink-0 items-start pt-0.5 text-2xs font-semibold text-[color:var(--text-muted)] underline-offset-2 hover:text-[color:var(--cat-accent)] hover:underline sm:min-h-0 sm:items-center sm:pt-0"
+                className={cn(
+                  "mt-auto flex min-h-tap items-center justify-between gap-2 rounded-b-xl border-t border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] sm:min-h-compact-meta",
+                  focusRing,
+                )}
               >
-                View all
+                View all in {targetMode.label}
+                <ArrowRight className="size-icon-sm shrink-0" aria-hidden />
               </Link>
             </div>
           );
