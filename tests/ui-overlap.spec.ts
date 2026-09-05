@@ -292,23 +292,62 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
-  test("desktop result views render the pill alone in every mode (no prompts, no Smart line)", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
+  test("tablet and desktop result views render the pill alone in every mode (no prompts, no Smart line)", async ({
+    page,
+  }) => {
     await mockDemoDashboard(page);
 
-    for (const route of ["/forms/search?q=lithium&run=1", "/services/search?q=crisis&run=1"]) {
+    for (const width of [820, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const route of ["/forms/search?q=lithium&run=1", "/services/search?q=crisis&run=1"]) {
+        const label = `${route} @ ${width}px`;
+        await page.goto(route, { waitUntil: "domcontentloaded" });
+        await expect(async () => {
+          const header = page.locator("header#search");
+          await expect(header).toHaveCount(1);
+          await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeVisible();
+        }).toPass({ timeout: 30_000 });
+
+        await expect(page.getByTestId("smart-search-prompt-row"), label).toHaveCount(0);
+        await expect(page.getByTestId("smart-search-rotating-text"), label).toHaveCount(0);
+        await expect(page.getByTestId("smart-search-phone-ticker"), label).toHaveCount(0);
+        // The APP-5 privacy line is the only chrome that stays under the pill.
+        await expect(page.getByTestId("answer-composer-privacy-warning"), label).toBeVisible();
+
+        // The page slot reserves exactly the settled composer height, so no
+        // blank band sits between the pill and the results at any sm+ width.
+        const geometry = await page.evaluate(() => {
+          const slot = document.querySelector('[data-testid="desktop-page-search-composer-slot"]');
+          const form = slot?.querySelector('form[role="search"]');
+          if (!slot || !form) return null;
+          return { slot: slot.getBoundingClientRect().height, form: form.getBoundingClientRect().height };
+        });
+        expect(geometry, `${label}: page slot and composer must render`).not.toBeNull();
+        expect(
+          Math.abs(geometry!.slot - geometry!.form),
+          `${label}: page slot must hug the composer (slot ${geometry!.slot}px vs composer ${geometry!.form}px)`,
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  test("phone result views keep the single compact dock in every mode", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoDashboard(page);
+
+    for (const route of ["/forms/search?q=lithium&run=1", "/documents/search?q=lithium"]) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(async () => {
-        const header = page.locator("header#search");
-        await expect(header).toHaveCount(1);
+        await expect(page.locator("header#search")).toHaveCount(1);
         await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeVisible();
       }).toPass({ timeout: 30_000 });
 
-      await expect(page.getByTestId("smart-search-prompt-row"), route).toHaveCount(0);
-      await expect(page.getByTestId("smart-search-rotating-text"), route).toHaveCount(0);
+      const dock = page.locator('form[role="search"][data-footer-variant="compact"]');
+      await expect(dock, route).toHaveCount(1);
       await expect(page.getByTestId("smart-search-phone-ticker"), route).toHaveCount(0);
-      // The APP-5 privacy line is the only chrome that stays under the pill.
-      await expect(page.getByTestId("answer-composer-privacy-warning"), route).toBeVisible();
+      await expect(page.getByTestId("smart-search-prompt-row"), route).toBeHidden();
+      // Phone result docks omit the privacy line so content keeps the screen.
+      await expect(page.getByTestId("answer-composer-privacy-warning"), route).toHaveCount(0);
     }
   });
 

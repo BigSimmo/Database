@@ -2856,6 +2856,18 @@ summary::-webkit-details-marker {
     max-width: calc(100vw - 3rem - var(--safe-area-left) - var(--safe-area-right));
   }
 
+  /* Result-view page slots (GlobalSearchShell and the dashboard result slot)
+     host the pill plus the privacy line only: 112px settled at every sm+
+     width (py-3 form padding, 56px pill, privacy line), measured 2026-09-05 at
+     810px, 1100px, and 1280px. They share the mode-home token so the pending/
+     filled gating stays one contract, but the mode-home value is sized for the
+     hero stack (prompt rail included): 128px in the tablet band left a 16px
+     blank band under every result composer, and 88px at 1280px+ let the slot
+     grow on adoption. Override the token on the page slot to the exact height. */
+  .desktop-page-composer-slot {
+    --spacing-mode-home-composer-wide: 7rem;
+  }
+
   .universal-top-search-edge {
     width: min(100%, clamp(28rem, 74vw, 54rem));
     max-width: calc(100vw - 3rem - var(--safe-area-left) - var(--safe-area-right));

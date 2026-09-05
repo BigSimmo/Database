@@ -885,6 +885,13 @@ placement rather than by mode: `MasterSearchHeader` passes
 `showPromptRow={isDesktopHomeComposer}`, so only the mode-home hero composer
 renders it. Every submitted result view, page slot, and the answer dock renders
 the pill plus the single APP-5 privacy line and nothing else, in every mode.
+Phones already had this shape: every result view is the compact bottom dock
+(no ticker, no prompt rail, no privacy line) and every mode home is the same
+ticker + pill + privacy stack, so the phone contract is pinned rather than
+changed. The result-view page slots (`GlobalSearchShell` and
+`DashboardDesktopResultComposerSlot`) carry `desktop-page-composer-slot`, which
+overrides the shared reserve token to the composer's exact 112px settled height
+at every sm+ width; the mode-home token stays sized for the hero stack.
 Tools is the standalone-owner exception: its accessible `Search tools` control
 does not render the shared prompt rail or intent cue, while its deterministic
 local matching and ordinary `q`/`run=1` route remain the same. The intent cue
