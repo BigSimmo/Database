@@ -12,10 +12,16 @@ import { onCallDetailsSchemaFor, type OnCallEntry } from "@/lib/on-call/entry-mo
  * band already accepts any status drawn from its own wider union, so a lib
  * module has no need to import a component's type to stay compatible with it.
  */
-export type OnCallSearchStatus = "loading" | "ready" | "unauthorized" | "error";
+export type OnCallSearchStatus = "loading" | "ready" | "error";
 
 /**
  * Derives the band status from `useOnCallEntries()`'s own state.
+ *
+ * Being signed out is NOT a fault here. On Call entries are readable by any visitor
+ * (owner decision, 2026-09-04), so a signed-out caller searches the shared set like anyone
+ * else; only personal entries are withheld, and their absence is not an error to report.
+ * `unauthorized` is therefore not in this mode's status union, though it stays in the band's
+ * own wider one for the modes that do gate on a session.
  *
  * The one case that matters: offline with nothing cached to search over.
  * That is not "zero matches" — the search never had anything to run against
@@ -27,16 +33,13 @@ export type OnCallSearchStatus = "loading" | "ready" | "unauthorized" | "error";
 export function onCallSearchStatus({
   loading,
   isOffline,
-  signedOut,
   entryCount,
 }: {
   loading: boolean;
   isOffline: boolean;
-  signedOut: boolean;
   entryCount: number;
 }): OnCallSearchStatus {
   if (loading) return "loading";
-  if (signedOut) return "unauthorized";
   if (isOffline && entryCount === 0) return "error";
   return "ready";
 }
