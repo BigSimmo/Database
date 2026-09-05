@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { appModeHomeHref, appModeSelectionHref } from "@/lib/app-modes";
+import { apiMutationCsrfVerdict, isCsrfGuardedApiRequest } from "@/lib/api-csrf";
 import {
   consolidatedModeHomeTarget,
   standaloneModeSubmittedSearchTarget,
@@ -158,13 +159,11 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (
-    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method) &&
-    pathname.startsWith("/api/") &&
-    !pathname.startsWith("/api/webhooks/")
-  ) {
-    const secFetchSite = request.headers.get("sec-fetch-site");
-    if (secFetchSite === "cross-site") {
+  // Fetch Metadata plus an Origin/Referer host check (see `@/lib/api-csrf` for why
+  // `Sec-Fetch-Site: cross-site` alone is not enough).
+  if (isCsrfGuardedApiRequest(request.method, pathname)) {
+    const verdict = apiMutationCsrfVerdict(request.headers, request.nextUrl.host);
+    if (!verdict.allowed) {
       const response = NextResponse.json(
         { error: "Cross-site request blocked.", code: "cross_site_forbidden" },
         { status: 403 },
@@ -185,8 +184,9 @@ export async function proxy(request: NextRequest) {
     // Untrusted: strip unconditionally so a client cannot set this header itself
     // and spoof past the parent `/mockups` layout's production gate on a route
     // that is not actually one of the developer-gated subtrees listed in
-    // DEVELOPER_GATED_PATH_PREFIXES (`/mockups/development`, the Caring Contact
-    // prototype, and the Care Plan prototype).
+    // DEVELOPER_GATED_PATH_PREFIXES. Deliberately not re-listed here: the
+    // enumeration went stale when a fourth prefix was added and the comment was
+    // not (2026-09-02 audit, L76). Read the constant.
     headers.delete(DEVELOPER_AREA_HEADER);
     headers.delete(DEVELOPER_AREA_PATH_HEADER);
     headers.delete(PROXY_AUTH_USER_HEADER);
@@ -351,13 +351,15 @@ export function shouldBlockProductionMockups(
 ) {
   if (!pathname.startsWith("/mockups") || environment.NODE_ENV !== "production") return false;
 
-  // `/mockups/development` and the two prototypes it links to — Caring Contact
-  // and Care Plan — carry their own signed-in-administrator gate
-  // (`DeveloperAreaGate`, applied in each subtree's layout via the
-  // x-developer-area header set above), so let them through this blanket block
-  // and let that gate run instead of a bare 404. The match is exact-or-slash, so
-  // a look-alike path such as `/mockups/care-plan-archive` is NOT let through.
-  // Every other /mockups/** path is unaffected.
+  // Every subtree listed in DEVELOPER_GATED_PATH_PREFIXES carries its own
+  // signed-in-administrator gate (`DeveloperAreaGate`, applied in each subtree's
+  // layout via the x-developer-area header set above), so let them through this
+  // blanket block and let that gate run instead of a bare 404. The prefixes are
+  // named once, in `src/lib/developer-area/headers.ts`, and not re-listed here:
+  // this comment kept naming a smaller set for months after a fourth prefix was
+  // added (2026-09-02 audit, L76). The match is exact-or-slash, so a look-alike path
+  // such as `/mockups/care-plan-archive` is NOT let through. Every other
+  // /mockups/** path is unaffected.
   if (isDeveloperGatedPath(pathname)) return false;
 
   // Mockups remain unavailable in every normal production process. The one

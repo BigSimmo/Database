@@ -4868,23 +4868,43 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
-/* Theme switch micro-interaction (Improvement 2.2) */
+/* Theme switch: snap every surface in one frame (was Improvement 2.2's crossfade).
+
+   This block used to declare, with `!important`, a 200ms colour transition on
+   `html.theme-transitioning` AND `html.theme-transitioning *` AND both
+   pseudo-element tiers - a transition on every node in the document at once.
+   Measured in Chromium 1194 on the settings dialog at 1440x900, switching Light
+   -> Dark: 1226 simultaneously running animations, after which the page went
+   546ms without presenting a frame (requestAnimationFrame samples landed at
+   313ms and 859ms with nothing in between). The one frame that survived that
+   stall was painted half in each theme - a light header band and light sidebar
+   chrome sitting over dark panels, with row headings still at the light-theme
+   ink colour on a dark surface, which is what the switch looked like to a user.
+   The crossfade it was paying for never rendered: sampled colour values had
+   already snapped to their dark end on the first frame after the click.
+
+   Fading only the root was tried and rejected: the ground then interpolated for
+   the full 200ms while every panel above it snapped, so a near-white page
+   background lingered behind dark chrome (body measured rgb(234,235,235) at
+   190ms with the header already dark). A partial fade reads worse than no fade.
+
+   So the class now suppresses transitions instead of adding them. That is what
+   this block's own `prefers-reduced-motion` branch already did for the identical
+   selector - and reduced motion is the one path this bug was never reported
+   from. The branch is gone because it is now the unconditional behaviour, so
+   reduced-motion users see exactly what they saw before. `transition: none`
+   creates no animation objects, so the switch
+   costs two style recalcs instead of 1226 concurrent animations, and every
+   surface flips together in a single frame with no mixed-theme paint.
+
+   Do not reintroduce a transition here. The 2026-08-02 CWV audit (RB-3) saw the
+   universal selector and judged it acceptable because it is user-triggered; that
+   is backwards - being user-triggered is exactly what made it visible. */
 html.theme-transitioning,
 html.theme-transitioning *,
 html.theme-transitioning *:before,
 html.theme-transitioning *:after {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
-  transition-duration: var(--duration-moderate) !important;
-  transition-timing-function: var(--ease-chrome-hide) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.theme-transitioning,
-  html.theme-transitioning *,
-  html.theme-transitioning *:before,
-  html.theme-transitioning *:after {
-    transition: none !important;
-  }
+  transition: none !important;
 }
 
 /* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3).

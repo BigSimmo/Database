@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy, shouldBlockProductionMockups } from "../src/proxy";
@@ -62,7 +64,10 @@ describe("proxy content-security-policy", () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co;");
-    expect(csp).toContain("connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io");
+    // No browser Sentry SDK exists, so connect-src carries no third-party telemetry
+    // origin (2026-09-02 audit, L34).
+    expect(csp).toContain("connect-src 'self' https://*.supabase.co;");
+    expect(csp).not.toContain("sentry.io");
     // OpenAI calls are server-side only; the browser must not be allowed to
     // reach the provider origin (2026-07-13 audit, finding 12).
     expect(csp).not.toContain("api.openai.com");
@@ -339,5 +344,66 @@ describe("cross-site mutation blocking", () => {
     });
     const response = await proxy(request);
     expect(response.status).not.toBe(403);
+  });
+});
+
+describe("API CSRF guard beyond Sec-Fetch-Site: cross-site (L28)", () => {
+  function mutation(headers: Record<string, string>) {
+    return new NextRequest(new URL("http://localhost/api/documents"), { method: "POST", headers });
+  }
+
+  it("blocks a same-site request whose Origin is a sibling subdomain", async () => {
+    const response = await proxy(mutation({ "sec-fetch-site": "same-site", origin: "http://evil.localhost" }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("cross_site_forbidden");
+  });
+
+  it("blocks a request without Fetch Metadata whose Origin does not match the request host", async () => {
+    const response = await proxy(mutation({ origin: "https://attacker.example" }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("cross_site_forbidden");
+  });
+
+  it("blocks a request without Fetch Metadata or Origin whose Referer is another host", async () => {
+    const response = await proxy(mutation({ referer: "https://attacker.example/form" }));
+    expect(response.status).toBe(403);
+  });
+
+  it("allows a request without Fetch Metadata whose Origin matches the request host", async () => {
+    const response = await proxy(mutation({ origin: "http://localhost" }));
+    expect(response.status).not.toBe(403);
+  });
+
+  it("allows a non-browser client that sends neither Fetch Metadata, Origin nor Referer", async () => {
+    const response = await proxy(mutation({}));
+    expect(response.status).not.toBe(403);
+  });
+
+  it("does not apply the Origin check to webhook routes", async () => {
+    const request = new NextRequest(new URL("http://localhost/api/webhooks/supabase"), {
+      method: "POST",
+      headers: { origin: "https://attacker.example" },
+    });
+    const response = await proxy(request);
+    expect(response.status).not.toBe(403);
+  });
+});
+
+// The developer-gated area grew from two prefixes to four, and three comments went on
+// describing "the two prototypes" / "the two developer-gated subtrees" — under-describing
+// the authorization surface on the files that implement it (2026-09-02 audit, L76/L82).
+// The durable fix is that a comment names the constant instead of counting, so this guard
+// checks the naming rather than any particular wording.
+describe("developer-gated area comments name the constant instead of counting (L76/L82)", () => {
+  const commented = ["src/proxy.ts", "src/app/mockups/layout.tsx"] as const;
+
+  it("points every gated-area comment at DEVELOPER_GATED_PATH_PREFIXES", () => {
+    for (const relativePath of commented) {
+      const source = readFileSync(resolve(process.cwd(), relativePath), "utf8");
+      expect(source).toContain("DEVELOPER_GATED_PATH_PREFIXES");
+      // Any wording that fixes the number is what went stale before.
+      expect(source).not.toMatch(/\btwo (?:prototypes|developer-gated|subtrees)/i);
+      expect(source).not.toMatch(/\bthe two (?:subtrees|prefixes)\b/i);
+    }
   });
 });
