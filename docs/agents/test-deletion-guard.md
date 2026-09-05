@@ -27,6 +27,16 @@ still measured as the whole drop. Two rules:
   This is the actual signature, and unlike the first rule it also covers the same tool failure
   landing in `src/`.
 
+A second known limitation: the gate measures the diff a **pull request** presents, never a
+merge commit's own resolution. On 2026-08-17 merge commit `ab7c5134f` (PR #2025) resolved a
+conflict in `tests/ui-tools.spec.ts` by dropping the 320 px low-confidence `AccessibleTable`
+journey that PR #2006 had added the day before; no non-merge commit ever removed it, so no PR
+diff ever showed the loss, and it went unnoticed until the 2026-09-02 audit (M31). A journey
+that must survive is therefore pinned **by name** in a unit test as well — see
+`tests/playwright-pr-shards.test.ts` for that spec — because a spec no matcher names is a
+spec that can vanish without anything failing. Prefer a dedicated spec file over a case
+appended to a large shared spec when a conflict there is likely.
+
 Known limitation, deliberately accepted: a `test()` inside a `for (const viewport of …)` loop
 counts once, not once per iteration, so shrinking that loop's array loses real cases without
 moving the count. Any static count has this hole; the aggregate and the truncation rule are
