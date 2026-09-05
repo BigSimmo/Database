@@ -1,16 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { apiErrorPayloadSchema } from "@/lib/api-error-payload";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 type SupabaseAdminClient = ReturnType<typeof createAdminClient>;
-
-type AgentEnrichmentJobRow = {
-  document_id: string | null;
-  status: string | null;
-  locked_at: string | null;
-  updated_at: string | null;
-};
 
 type IngestionJobStatus = "pending" | "processing" | "failed" | string;
 
@@ -180,11 +172,7 @@ export async function listDocumentsWithActiveAgentEnrichment(args: {
   const uniqueDocumentIds = Array.from(new Set(args.documentIds.filter(Boolean)));
   if (uniqueDocumentIds.length === 0) return [];
 
-  // indexing_v3_agent_jobs is not in the generated Database types (it is a
-  // worker-state table added by migration), so query it through an untyped
-  // client the same way the reindex route paginates dynamic tables.
-  const client = args.supabase as unknown as SupabaseClient;
-  const { data, error } = await client
+  const { data, error } = await args.supabase
     .from("indexing_v3_agent_jobs")
     .select("document_id,status,locked_at,updated_at")
     .in("document_id", uniqueDocumentIds)
@@ -194,7 +182,7 @@ export async function listDocumentsWithActiveAgentEnrichment(args: {
   const nowMs = (args.now ?? new Date()).getTime();
   return Array.from(
     new Set(
-      ((data ?? []) as AgentEnrichmentJobRow[])
+      (data ?? [])
         .filter((job) => isActiveAgentEnrichmentJob(job, args.staleAfterMinutes, nowMs))
         .map((job) => job.document_id)
         .filter((id): id is string => Boolean(id)),
@@ -254,15 +242,14 @@ export async function checkIngestionMutationSafety(args: {
 
   if (args.checkActiveAgentEnrichmentJobs) {
     const nowMs = (args.now ?? new Date()).getTime();
-    const client = args.supabase as unknown as SupabaseClient;
-    const { data: agentJobs, error: agentError } = await client
+    const { data: agentJobs, error: agentError } = await args.supabase
       .from("indexing_v3_agent_jobs")
       .select("document_id,status,locked_at,updated_at")
       .in("document_id", uniqueDocumentIds)
       .eq("status", "processing");
     if (agentError) throw new Error(agentError.message);
 
-    const activeAgentJobs = ((agentJobs ?? []) as AgentEnrichmentJobRow[])
+    const activeAgentJobs = (agentJobs ?? [])
       .filter((job) => Boolean(job.document_id) && isActiveAgentEnrichmentJob(job, args.staleAfterMinutes, nowMs))
       .map((job, index): IngestionJobRow => ({
         id: `agent-enrichment:${job.document_id ?? index}`,

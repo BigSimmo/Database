@@ -1302,6 +1302,15 @@ export const SCOPE_EXEMPTIONS = [
  */
 export const DERIVED_QUERY_INVENTORY = [
   {
+    file: "src/app/api/eval-cases/route.ts",
+    table: "document_chunks",
+    fn: "ownedChunkIdSet",
+    queries: 1,
+    proof: PROOF_KINDS.PARENT_DOCUMENT_VERIFIED,
+    reason:
+      'Audit L23. The capture body supplies candidate chunk ids, so this read is deliberately unscoped: it looks up only `id,document_id` for the ids the caller named. Nothing is returned from it directly. The parent documents are then read in the same function with `.eq("owner_id", args.ownerId)`, and the returned Set keeps only chunk ids whose document appears in that owner-scoped result — so a chunk the caller does not own can never leave this helper. Rejected ids are counted and reported, matching the existing malformed-id tally.',
+  },
+  {
     file: "src/app/api/clinical-quality/route.ts",
     table: "source_review_events",
     fn: "loadClinicalQualitySnapshot",
@@ -1415,10 +1424,10 @@ export const DERIVED_QUERY_INVENTORY = [
     file: "src/app/api/ingestion/jobs/route.ts",
     table: "ingestion_jobs",
     fn: "GET",
-    queries: 2,
+    queries: 3,
     proof: PROOF_KINDS.DOCUMENTS_INNER_JOIN,
     reason:
-      'Both the page query and the active-count query join `documents!inner` and filter `.eq("documents.owner_id", user.id)`, so ownership rides on the query chain itself.',
+      'The page query, the active-count query and the failed-count query each join `documents!inner` and filter `.eq("documents.owner_id", user.id)`, so ownership rides on every one of the three query chains itself. 2 -> 3 on 2026-09-04 when #L15 added the pre-pagination failed-job head count, built as a copy of the active-count chain precisely so it would carry the same on-chain filter rather than need a weaker proof.',
   },
   {
     file: "src/app/api/ingestion/quality/route.ts",

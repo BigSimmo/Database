@@ -235,6 +235,15 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:medication-lexicon-report
 
+      # The interaction index is generated from the medication snapshot plus the
+      # lexicon, and the UI reads it to decide whether a drug can be shown as
+      # clear. Same #333 shape as the lexicon report above: local-only until audit
+      # M30, so a snapshot-only merge through the bare-PR route shipped a stale
+      # index green. Same static-heavy condition verify-pr-local.mjs uses.
+      - name: Medication interaction index drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:medication-interactions
+
       - name: GitHub Actions pin check
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:github-actions
@@ -435,6 +444,18 @@ jobs:
       - name: Owner-scope guard
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:owner-scope
+
+      # The clinician-facing hazard register (docs/clinical-hazard-controls.json)
+      # names control symbols, control paths and proving tests per hazard. Until
+      # audit M33 the validator ran only inside the provider-backed
+      # governance:release chain, so a control rename, a gutted proof test or the
+      # register's own reviewExpiresAt lapsing produced no PR signal. Needs the
+      # fetch-depth 0 checkout above for the reviewedCommit ancestry checks; the
+      # script says so and skips only those on a shallow clone. Note: this step
+      # goes red on reviewExpiresAt until the register is re-reviewed — by design.
+      - name: Clinical hazard-controls register
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:clinical-hazard-controls
 
       - name: Lint
         if: needs.changes.outputs.static_heavy_changed == 'true'

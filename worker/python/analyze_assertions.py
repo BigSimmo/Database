@@ -92,9 +92,11 @@ def run(input_path, output_path=None):
 
     nlp = build_nlp(targets) if targets else None
     assertions = []
-    for chunk in chunks:
+    for index, chunk in enumerate(chunks):
         if not isinstance(chunk, dict) or not isinstance(chunk.get("text"), str) or "id" not in chunk:
-            warnings.append(f"skipped malformed chunk: {chunk!r:.120}")
+            # Never log the chunk itself: it carries clinical guideline text and
+            # must stay out of container/log-drain output. Index only.
+            warnings.append(f"skipped malformed chunk at index {index}")
             continue
         if nlp is None:
             assertions.append(

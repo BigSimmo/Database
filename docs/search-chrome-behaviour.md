@@ -875,12 +875,31 @@ ticker ("Try this … Tap to search") is the only worked example a phone home
 page carries, and it offers an ordinary search in every mode — governed or
 dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
 and nowhere else: a submitted result view, an answer thread, and a phone bottom
-dock all stay clear of it. The desktop `Smart search · Try "…"` line appears in
-the eleven shared-composer catalogue modes. Tools is the standalone-owner
-exception: its accessible `Search tools` control does not render that shared
-line or intent cue, while its deterministic local matching and ordinary
-`q`/`run=1` route remain the same. The intent cue appears only while a
-shared-composer query is being interpreted as natural language.
+dock all stay clear of it.
+
+Tablet and desktop mode homes all share one composer stack in every mode: the
+rotating `Try "…" in <Mode>.` example ticker line above the pill, the pill, the
+`Prompts` chip rail, and the single APP-5 privacy line. The line used to read
+`Smart search · Try "…"` and render only in the eleven catalogue modes, which
+made a Forms home taller than the Documents or Answer home; it now carries no
+Smart wording, so the dormant modes can share it without a Smart promise. Both
+helpers are gated by placement rather than by mode: `MasterSearchHeader` passes
+`showHomeSuggestions={isDesktopHomeComposer}`, so only the mode-home hero
+composer renders them. Every submitted result view and page slot renders the
+compact pill alone at every width (no ticker, prompt rail, or privacy line),
+matching the phone result dock; the answer dock is its own composer type and
+keeps its privacy line. Phones already had this shape: every result view is the
+compact bottom dock and every mode home is the same phone ticker + pill +
+privacy stack, so the phone contract is pinned rather than changed. The
+result-view page slots (`GlobalSearchShell` and
+`DashboardDesktopResultComposerSlot`) carry `desktop-page-composer-slot`, which
+overrides the shared reserve token to the compact composer's exact 80px settled
+height at every sm+ width; the mode-home token stays sized for the hero stack.
+Tools is the standalone-owner exception: its accessible `Search tools` control
+does not render the shared prompt rail or intent cue, while its deterministic
+local matching and ordinary `q`/`run=1` route remain the same. The intent cue
+appears only while a shared-composer query is being interpreted as natural
+language.
 
 There is still exactly one composer. No Ask rail, microphone control, duplicate
 input, or extra phone-dock reserve is mounted. Crossing from literal Search to

@@ -1178,7 +1178,19 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`public/images/${imageId}.png`, 600);
   });
 
-  it("allows legacy image signed URLs when parent document generation metadata is missing", async () => {
+  /*
+   * Audit L11 boundary case, pinned separately from the sibling below.
+   *
+   * A TRULY legacy image — one written before the worker began stamping
+   * `document_images.metadata.index_generation_id` (worker/main.ts gained that
+   * stamp in the same commit that introduced `commit_document_index_generation`,
+   * which stamps the parent document in the same transaction) — carries NO
+   * generation of its own. That is the SQL predicate's unconditional
+   * `row_generation is null` arm, so such an image stays accessible whatever the
+   * parent document carries. This case exists so the L11 fail-closed change can
+   * never be widened into "a legacy document loses its images".
+   */
+  it("allows signed URLs for an unstamped legacy image on an unstamped document", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "document_images") {
         return ok({
@@ -1186,7 +1198,7 @@ describe("private document API access", () => {
           storage_path: `${userId}/images/${imageId}.png`,
           mime_type: "image/png",
           caption: "Legacy indexed image",
-          metadata: { index_generation_id: "generation-a" },
+          metadata: {},
         });
       }
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
@@ -1205,6 +1217,47 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.mimeType).toBe("image/png");
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
+  });
+
+  /*
+   * Audit L11. This case previously asserted 200 and named itself "legacy", but its
+   * fixture is not a legacy image: the image CARRIES a generation while its parent
+   * document carries none. The SQL predicate excludes exactly that shape —
+   * `is_committed_artifact_generation` (supabase/schema.sql) is
+   * `row_generation is null or row_generation = document_generation`, and
+   * `'generation-a' = NULL` is NULL, not true. So the old expectation pinned the
+   * TypeScript predicate being MORE permissive than the database, which is the
+   * defect L11 exists to remove.
+   *
+   * The genuinely legacy shape (image with no generation) is pinned by the sibling
+   * case above and still returns 200, so no legacy document loses its images.
+   * This case now pins the staged/abandoned shape the SQL refuses.
+   */
+  it("refuses a stamped image whose parent document has no committed generation", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `${userId}/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Staged image from an uncommitted generation",
+          metadata: { index_generation_id: "generation-a" },
+        });
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok({ id: documentId, metadata: {} });
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
   it("rejects image signed URLs for uncommitted replacement generations", async () => {
@@ -2208,7 +2261,17 @@ describe("private document API access", () => {
 
   it("refuses to retry a job a live worker still holds (IDX-C3, B6)", async () => {
     const client = createSupabaseMock();
-    client.rpc.mockResolvedValueOnce(ok({ outcome: "active_worker" }));
+    // The route now consumes the ingestion_admin rate-limit bucket (its own
+    // consume_api_rate_limit RPC call) before retry_ingestion_job_if_idle
+    // (#L43), so a plain mockResolvedValueOnce would intercept that earlier
+    // call instead. Target the retry RPC by name and fall through to the
+    // mock's normal per-name behaviour (including the rate-limit check) for
+    // everything else.
+    const baseRpc = client.rpc.getMockImplementation()!;
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "retry_ingestion_job_if_idle") return ok({ outcome: "active_worker" });
+      return baseRpc(name, args);
+    });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
@@ -2234,12 +2297,18 @@ describe("private document API access", () => {
 
   it("re-queues a stale/non-processing job without resetting the live index (IDX-C3, IDX-H1, B6)", async () => {
     const client = createSupabaseMock();
-    client.rpc.mockResolvedValueOnce(
-      ok({
-        outcome: "queued",
-        job: { id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" },
-      }),
-    );
+    // Same reason as the previous test: target the retry RPC by name so the
+    // earlier rate-limit consume call keeps its own normal behaviour (#L43).
+    const baseRpc = client.rpc.getMockImplementation()!;
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "retry_ingestion_job_if_idle") {
+        return ok({
+          outcome: "queued",
+          job: { id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" },
+        });
+      }
+      return baseRpc(name, args);
+    });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 

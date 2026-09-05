@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "f0bdb476-35b8-4653-a31c-dd5d60aa6ba0",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Patient-plan mockup prints invented mobile numbers above the range this repo reserves for fiction",
+    "detail": "src/components/care-plan/mockups/patient-plan-fixtures.ts prints contacts at 0491 570 210-270. The block this repository treats as reserved for fiction ends at 156, so some of these may be real numbers. The range assertion at tests/care-plan-domain.test.ts:444 runs over a bundle built from fixtures.ts only, so it never sees them - the same defect class sdd-ledger.md:623-627 records fixing in fixtures.ts. Nothing was changed. Also unresolved: where the ACMA fiction block actually ends was never verified (cloud-session.md:258-259). Found during audit remediation P21 (PR #2626, 2026-09-04).",
+    "issueUlid": "01M1PW97VXH0HKFD091HT3SQFJ"
+  }
+}

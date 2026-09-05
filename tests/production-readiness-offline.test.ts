@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   clinicalAskReadinessFindings,
   isProviderFreeCodexCloud,
+  mockupsGateProductionRisk,
   openAIReadinessPolicy,
   validClinicalAskEvidenceArtifact,
 } from "../scripts/production-readiness";
@@ -162,6 +163,38 @@ describe("production readiness provider policy", () => {
     // integration check only requires both readiness areas to be reported.
     expect(result.stdout).toMatch(/Clinical Ask (?:not verified|evidence supplied) — hosted migration/);
     expect(result.stdout).toMatch(/Clinical Ask (?:not verified|evidence supplied) — physical iPhone acceptance/);
+  });
+
+  it("flags NEXT_PUBLIC_MOCKUPS_ENABLED=true alone in production as unguarded (#L30)", () => {
+    expect(
+      mockupsGateProductionRisk({
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "true",
+      }),
+    ).toBe("unguarded");
+    expect(
+      mockupsGateProductionRisk({
+        NODE_ENV: "production",
+        VERCEL_ENV: "production",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "true",
+      }),
+    ).toBe("unguarded");
+  });
+
+  it("treats the exact Playwright double-flag pairing as a flagged exception, not a plain pass", () => {
+    expect(
+      mockupsGateProductionRisk({
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "true",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+      }),
+    ).toBe("playwright-exception");
+  });
+
+  it("reports no risk outside production or with the flag unset", () => {
+    expect(mockupsGateProductionRisk({ NODE_ENV: "development", NEXT_PUBLIC_MOCKUPS_ENABLED: "true" })).toBe("none");
+    expect(mockupsGateProductionRisk({ NODE_ENV: "production" })).toBe("none");
+    expect(mockupsGateProductionRisk({ NODE_ENV: "production", NEXT_PUBLIC_MOCKUPS_ENABLED: "false" })).toBe("none");
   });
 
   it("documents local presence fill guidance for safety/query-hash/deep-probe gaps", () => {
