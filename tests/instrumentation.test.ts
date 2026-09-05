@@ -132,9 +132,27 @@ describe("instrumentation boot guard", () => {
     await expect(register()).resolves.toBeUndefined();
   });
 
-  it("is a no-op outside production", async () => {
+  it("is a no-op outside production, apart from the answer-feedback warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const register = await loadRegister({ NEXT_RUNTIME: "nodejs", NODE_ENV: "development" });
     await expect(register()).resolves.toBeUndefined();
+    // No throw and no provider work — but boot does say once why answer feedback cannot
+    // work without RAG_QUERY_HASH_SECRET, which is optional here (2026-09-02 audit, L44).
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain("Answer feedback is disabled");
+    warn.mockRestore();
+  });
+
+  it("says nothing at boot outside production when the feedback secret is configured", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const register = await loadRegister({
+      NEXT_RUNTIME: "nodejs",
+      NODE_ENV: "development",
+      RAG_QUERY_HASH_SECRET: "test-query-hash-secret-at-least-16-chars",
+    });
+    await expect(register()).resolves.toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("is a no-op on the Edge runtime", async () => {
