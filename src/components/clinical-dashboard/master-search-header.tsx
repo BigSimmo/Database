@@ -2422,7 +2422,7 @@ export function MasterSearchHeader({
               )}
             >
               <div className="border-b border-[color:var(--border)] p-3 pb-2.5">
-                <div className="grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)] transition-[border-color,box-shadow] focus-within:border-[color:var(--clinical-accent-border)]">
+                <div className="search-shell grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)] transition-[border-color,box-shadow]">
                   <Search aria-hidden="true" className="size-icon-md text-[color:var(--text-muted)]" strokeWidth={2} />
                   <input
                     ref={desktopModeMenuSearchRef}
@@ -2438,7 +2438,7 @@ export function MasterSearchHeader({
                     aria-controls="app-mode-options"
                     autoComplete="off"
                     spellCheck={false}
-                    className="min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text-heading)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-muted)]"
+                    className="search-shell-input min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text-heading)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-muted)]"
                   />
                   {modeMenuQuery ? (
                     <button
