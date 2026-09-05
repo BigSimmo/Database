@@ -2992,6 +2992,15 @@ function ClinicalDashboardContent({
   // matches for the prior query do not compete with the new Drafting stepper.
   const showUniversalAlsoMatches =
     !showSharedHome &&
+    // Prescribing declares `resultKind: "documents"` on purpose (it searches the
+    // indexed sources, not a forms table), so the documents arm below matches it
+    // and this dashboard would mount a SECOND panel over the one
+    // MedicationPrescribingWorkspace already renders under the medication list.
+    // The workspace owns the mount, because only it knows where the result list
+    // ends; the mode is named here rather than the result kind, because the kind
+    // is shared and the ownership is not. `tests/ui-stress.spec.ts` pins the count
+    // at one on `/?mode=prescribing`, which is how the duplicate was caught.
+    searchMode !== "prescribing" &&
     Boolean(universalAlsoMatchesQuery.trim()) &&
     (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||

@@ -76,6 +76,34 @@ describe("cross-mode also-matches coverage", () => {
     });
   }
 
+  it("lets exactly one owner mount the panel for a mode that borrows a result kind", () => {
+    // `resultKind` is shared: prescribing declares "documents", and factsheets,
+    // dictionary, sources and on-call all declare "tools". ClinicalDashboard gates
+    // its own mount on the result KIND, so any mode whose results render inside the
+    // dashboard AND whose own component mounts the panel gets two of them.
+    // Prescribing is that mode — `/?mode=prescribing` renders
+    // MedicationPrescribingWorkspace inside the dashboard — and it shipped two
+    // panels until ui-stress caught the count at 2.
+    const dashboard = read("src/components/ClinicalDashboard.tsx");
+    const gate = dashboard.slice(
+      dashboard.indexOf("const showUniversalAlsoMatches ="),
+      dashboard.indexOf("const showDesktopHomeComposer ="),
+    );
+    expect(gate.length, "the also-matches visibility gate must be findable").toBeGreaterThan(0);
+    expect(gate, "ClinicalDashboard must not mount a second panel for prescribing").toContain(
+      'searchMode !== "prescribing"',
+    );
+
+    // The sibling tools-kind borrowers stay on the shared home rather than rendering
+    // their results inside the dashboard, so they need no exclusion here. If one of
+    // them ever gains an in-dashboard results branch, this list is where to notice.
+    for (const modeId of ["factsheets", "dictionary", "sources", "on-call"] as const) {
+      expect(gate, `${modeId} is not expected to need a dashboard exclusion yet`).not.toContain(
+        `searchMode !== "${modeId}"`,
+      );
+    }
+  });
+
   it("keeps the panel free of a per-mode suppression list", () => {
     // The panel suppressed itself for `prescribing` while it was mounted ABOVE
     // the medication results. The mount moved below them; the suppression is
