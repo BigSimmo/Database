@@ -55,6 +55,54 @@ export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
   };
 }
 
+/**
+ * On Call is a shared reference surface: every entry is readable by any visitor, signed in or
+ * not. That is a deliberate visibility decision (owner request, 2026-09-04) and a reversal of
+ * this mode's original owner-only design — see docs/superpowers/specs/2026-09-04-on-call-mode-design.md.
+ *
+ * The app has no login wall, so "public" here means readable by anyone who reaches the site,
+ * not "readable by signed-in colleagues". There is no cohort tier to fall back on.
+ *
+ * ONE thing is never published: an entry flagged `is_personal`. The editor labels that checkbox
+ * "Personal number — excluded from the printable card and any export", and a world-readable
+ * fetch is an export. A personal number therefore stays with the account that wrote it, and is
+ * returned only to that owner by `fetchOwnerOnCallEntries`.
+ *
+ * Writes are unchanged: creating or editing still requires an account and still stamps owner_id.
+ */
+export async function fetchSharedOnCallEntries(supabase: AdminClient, options: { section?: OnCallSection } = {}) {
+  let query = supabase.from("on_call_entries").select(ROW_COLUMNS).eq("is_personal", false);
+  if (options.section) query = query.eq("section", options.section);
+  const { data, error } = await query.order("sort_order").limit(ON_CALL_MAX_ENTRIES);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => rowToOnCallEntry(row as Record<string, unknown>));
+}
+
+/**
+ * What a given viewer sees: every shared entry, plus their own entries including the personal
+ * ones the shared read withholds.
+ *
+ * Two queries rather than one `or(...)` filter, because a PostgREST `or=` string interpolates
+ * the owner id into filter syntax where a comma or parenthesis stops being data — the trap
+ * `withOwnerReadScope` guards with a UUID pattern. Merging two `.eq()` reads has no such edge,
+ * and both are capped at ON_CALL_MAX_ENTRIES.
+ */
+export async function fetchVisibleOnCallEntries(
+  supabase: AdminClient,
+  viewerOwnerId: string | undefined,
+  options: { section?: OnCallSection } = {},
+) {
+  const shared = await fetchSharedOnCallEntries(supabase, options);
+  if (!viewerOwnerId) return shared;
+
+  const own = await fetchOwnerOnCallEntries(supabase, viewerOwnerId, options);
+  const byId = new Map(shared.map((entry) => [entry.id, entry]));
+  // The owner's own copy wins on collision: it is the same row, and this keeps one identity per
+  // entry rather than two objects a renderer would key twice.
+  for (const entry of own) byId.set(entry.id, entry);
+  return [...byId.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
 export async function fetchOwnerOnCallEntries(
   supabase: AdminClient,
   ownerId: string,

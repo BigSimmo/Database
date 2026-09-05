@@ -17,8 +17,8 @@ stores no patient information, and it never authors clinical guidance in the app
 
 | Decision                  | Chosen                                                                                                            | Rejected, and why                                                                                                                                                                                                                                                             |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Where content lives       | Private rows in Supabase, owner-scoped, edited in the app                                                         | Committing real contacts/manuals into the repository — exposes internal service information to anyone with repo access and makes every correction a code change                                                                                                               |
-| Audience for v1           | The owner alone                                                                                                   | Cohort sharing. The app has exactly two visibility states, owner-only and fully public, and `psychiatry.tools` has no login wall, so the only available "share" would publish a hospital's internal contacts to the open internet. Deferred to its own reviewed project (§12) |
+| Where content lives       | Rows in Supabase, owner-written and ~~owner-scoped~~ publicly readable (amended below), edited in the app         | Committing real contacts/manuals into the repository — exposes internal service information to anyone with repo access and makes every correction a code change                                                                                                               |
+| Audience for v1           | ~~The owner alone~~ → **every visitor** (amended 2026-09-04, see below)                                           | Cohort sharing. The app has exactly two visibility states, owner-only and fully public, and `psychiatry.tools` has no login wall, so the only available "share" would publish a hospital's internal contacts to the open internet. Deferred to its own reviewed project (§12) |
 | Referrals list            | On Call keeps its own list                                                                                        | Reusing the Services registry — the owner asked for a separate list shaped for on-call use                                                                                                                                                                                    |
 | Orientation manuals       | The uploaded PDF is the source of truth; the owner may pin a short summary above it, labelled as the owner's note | Retyping manual content as app pages — creates a second copy that silently drifts from the real manual                                                                                                                                                                        |
 | Rosters                   | Not built                                                                                                         | A hand-maintained "who is on tonight" decays within a fortnight, and its failure mode is a junior calling the wrong person in an emergency. Role-based contacts give the same benefit without decay                                                                           |
@@ -30,6 +30,24 @@ stores no patient information, and it never authors clinical guidance in the app
 | Delivery                  | All six sections at once                                                                                          | Half the sections — the mode-registration cost is paid once regardless, so the extra sections are mostly presentation                                                                                                                                                         |
 | Freshness                 | Every entry carries a last-checked date and shows an unmissable stale state after **12 months**                   | Silent rot                                                                                                                                                                                                                                                                    |
 | Print                     | A one-page essentials card, personal details excluded                                                             | No print — juniors carry paper, and it is the safe way to share while group access does not exist                                                                                                                                                                             |
+
+> **Amendment — 2026-09-04, owner decision.** The audience row above no longer describes the
+> shipped behaviour. The owner was shown what "public" means in this app — no login wall, so
+> public is readable by anyone who reaches `psychiatry.tools`, and there is no signed-in-colleagues
+> tier to choose instead — and chose to publish the content on that basis.
+>
+> What changed: reads are no longer owner-scoped. `fetchSharedOnCallEntries` returns every entry
+> to any caller, signed in or not; `fetchVisibleOnCallEntries` adds the viewer's own entries on
+> top. Writes are unchanged — creating or editing still requires an account and still stamps
+> `owner_id`.
+>
+> What did NOT change: an entry flagged `is_personal` is never returned by the shared read. The
+> editor labels that checkbox "Personal number — excluded from the printable card and any export",
+> and a world-readable fetch is an export, so those entries stay with the account that wrote them.
+> `tests/on-call-repository.test.ts` pins this, and the assertion was mutation-tested.
+>
+> The cohort-sharing project in §12 is still the right answer for "my colleagues but not the
+> internet"; this amendment does not deliver it.
 
 ## 3. Sections
 
