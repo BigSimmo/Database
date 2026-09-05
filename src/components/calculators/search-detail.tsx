@@ -29,7 +29,7 @@ import {
   type CalculatorDomain,
   type CalculatorFixture,
 } from "./calculator-fixtures";
-import { evidenceSourcesFor } from "./calculator-evidence";
+import { partitionEvidenceSources, type CalculatorEvidenceSource } from "./calculator-evidence";
 import { actionsForBand } from "./calculator-pathways";
 import {
   BandLegend,
@@ -362,6 +362,46 @@ export function CalculatorSearchHome({
 
 /* ---------- detail view: score-linked panels ---------- */
 
+function EvidenceLinkList({ sources }: { sources: CalculatorEvidenceSource[] }) {
+  return (
+    <>
+      {sources.map((source, sourceIndex) => (
+        <span key={source.id}>
+          {sourceIndex ? ", " : null}
+          <a href={source.url} className="underline underline-offset-2">
+            {source.title}
+          </a>
+        </span>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The internal governance record rides on every instrument's `sourceIds`, so it
+ * would otherwise print beside a validation study as clinical evidence. It is
+ * kept and linked, under its own label.
+ */
+function ActionEvidenceLines({ sourceIds }: { sourceIds: string[] }) {
+  const { clinical, governance } = partitionEvidenceSources(sourceIds);
+  if (!clinical.length && !governance.length) return null;
+
+  return (
+    <>
+      {clinical.length ? (
+        <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          Sources: <EvidenceLinkList sources={clinical} />
+        </span>
+      ) : null}
+      {governance.length ? (
+        <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          Governance reference: <EvidenceLinkList sources={governance} />
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; derived: DerivedCalculator }) {
   const actions = actionsForBand(calc, derived);
 
@@ -401,19 +441,7 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
                   <span className="block text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                     {action.label}
                   </span>
-                  {action.sourceIds.length ? (
-                    <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-                      Sources:{" "}
-                      {evidenceSourcesFor(action.sourceIds).map((source, sourceIndex) => (
-                        <span key={source.id}>
-                          {sourceIndex ? ", " : null}
-                          <a href={source.url} className="underline underline-offset-2">
-                            {source.title}
-                          </a>
-                        </span>
-                      ))}
-                    </span>
-                  ) : null}
+                  <ActionEvidenceLines sourceIds={action.sourceIds} />
                 </span>
               </li>
             ))}
@@ -440,7 +468,7 @@ export function ScorePanel({
   derived: DerivedCalculator;
   onReset: () => void;
 }) {
-  const evidenceSources = evidenceSourcesFor(calc.sourceIds);
+  const { clinical: evidenceSources, governance: governanceSources } = partitionEvidenceSources(calc.sourceIds);
 
   return (
     <section
@@ -477,17 +505,16 @@ export function ScorePanel({
           <CopyResultButton calc={calc} state={derived} />
           <ResetButton onReset={onReset} disabled={!derived.started} />
         </div>
-        <p className="text-3xs font-semibold text-[color:var(--text-muted)]">
-          Sources:{" "}
-          {evidenceSources.map((source, sourceIndex) => (
-            <span key={source.id}>
-              {sourceIndex ? ", " : null}
-              <a href={source.url} className="underline underline-offset-2">
-                {source.title}
-              </a>
-            </span>
-          ))}
-        </p>
+        {evidenceSources.length ? (
+          <p className="text-3xs font-semibold text-[color:var(--text-muted)]">
+            Sources: <EvidenceLinkList sources={evidenceSources} />
+          </p>
+        ) : null}
+        {governanceSources.length ? (
+          <p className="text-3xs font-semibold text-[color:var(--text-muted)]">
+            Governance reference: <EvidenceLinkList sources={governanceSources} />
+          </p>
+        ) : null}
       </div>
     </section>
   );
