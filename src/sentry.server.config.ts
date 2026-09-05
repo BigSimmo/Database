@@ -21,17 +21,29 @@ const sentryDsn = process.env.SENTRY_DSN?.trim();
 const tracesSampleRate = resolveTracesSampleRate();
 const sentryRelease = resolveSentryRelease();
 
+// Sentry applies `ignoreErrors` before `beforeSend`: a string entry is a
+// substring match and a RegExp is `.test()`, each tried against the exception
+// value, `${type}: ${value}` and the event message. Every entry here is therefore
+// a start-anchored regex naming one intended shape. A bare `/404/`, `/Not Found/i`
+// or "NotFound" also dropped a Supabase Storage 404 during upload cleanup, a
+// provider 404 for a retired resource, and any future error type containing the
+// fragment — failures an operator must see (2026-09-02 audit, L8). Pinned by
+// tests/sentry-ignore-errors.test.ts.
 const ignoredServerErrors = [
-  /404/,
-  /Not Found/i,
-  /Cannot find module/i,
-  /Request failed with status code 404/i,
-  "NotFoundError: Not Found",
+  // Next.js `notFound()`: the error's message is its digest (current and legacy).
+  /^NEXT_HTTP_ERROR_FALLBACK;404$/,
+  /^NEXT_NOT_FOUND$/,
+  // HTTP-client 404 text, exact.
+  /^Request failed with status code 404$/i,
+  // Framework not-found error types (`Type: value`) and the exact value alone.
+  /^NotFound(?:Error)?(?::|$)/,
+  /^Not Found$/i,
+  // A missing module or chunk on a stale deploy; HTML served where JSON was expected.
+  /^Cannot find module /i,
   /^SyntaxError: Unexpected token </,
-  "NotFoundError",
-  "NotFound",
-  "BotAccessDenied",
-  "RateLimitedError",
+  // This app's own deliberate rejections, anchored on the error type.
+  /^BotAccessDenied(?::|$)/,
+  /^RateLimitedError(?::|$)/,
 ];
 
 function isBotTrafficEvent(event: Sentry.Event): boolean {
