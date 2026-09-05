@@ -122,8 +122,12 @@ export default function DeveloperRoutesPage() {
         heading={`Design-scratch pages · ${mockupPages.length}`}
       >
         <p className={META_CLASS}>
-          These do not exist in production. They are exempt from the button-wiring and reachability checks, and from
-          nothing else.
+          {/* #L82: this used to say these routes "do not exist in production" outright, which was
+           * false for the four developer-gated subtrees (this hub included — it is one of them) —
+           * see DEVELOPER_GATED_PATH_PREFIXES in src/lib/developer-area/headers.ts. */}
+          Design-scratch pages are unavailable in production except the developer-gated subtrees (development,
+          caring-contacts, care-plan, ward-flow), which require an administrator sign-in. They are exempt from the
+          button-wiring and reachability checks, and from nothing else.
         </p>
         <ul data-testid="developer-routes-pages-mockup" className="grid gap-2">
           {mockupPages.map((page) => (
