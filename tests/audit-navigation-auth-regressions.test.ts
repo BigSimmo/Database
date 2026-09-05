@@ -206,7 +206,11 @@ describe("audit navigation and auth regressions", () => {
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
     expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
-    expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
+    // The panel status is a three-way now — pending / a count / nothing found —
+    // because one fixed string announced "No additional matches" over a grid of
+    // populated mode cards. The pending arm is the one this contract is about.
+    expect(universalAlsoMatchesSource).toMatch(/const panelStatus = searchPending\s*\n?\s*\? "Searching other modes"/);
+    expect(universalAlsoMatchesSource).toContain('const emptyMessage = "No additional matches in other modes.";');
   });
 
   it("mounts Answer-mode also-matches only after generation completes", () => {

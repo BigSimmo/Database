@@ -143,8 +143,16 @@ export function UniversalSearchAlsoMatches({
 
   const currentGroups = universal.query === trimmedQuery ? groups : [];
   const searchPending = searchActive && (universal.loading || universal.query !== trimmedQuery);
-  const panelStatus = searchPending ? "Searching other modes" : "No additional matches in other modes.";
   const matchCount = currentGroups.length;
+  const emptyMessage = "No additional matches in other modes.";
+  // What the announcer says must be what the panel is showing. Rendering one
+  // fixed "searching / nothing found" string unconditionally would announce
+  // "No additional matches" over a grid of four populated mode cards.
+  const panelStatus = searchPending
+    ? "Searching other modes"
+    : matchCount > 0
+      ? `${matchCountLabel(matchCount)} also match this search.`
+      : emptyMessage;
   const phoneSubtitle = searchPending
     ? "Searching…"
     : !searchActive
@@ -268,7 +276,7 @@ export function UniversalSearchAlsoMatches({
           </>
         ) : null}
         {!searchPending && currentGroups.length === 0 ? (
-          <p className="rounded-lg px-2.5 py-3 text-xs font-medium text-[color:var(--text-muted)]">{panelStatus}</p>
+          <p className="rounded-lg px-2.5 py-3 text-xs font-medium text-[color:var(--text-muted)]">{emptyMessage}</p>
         ) : null}
         {currentGroups.map((group) => {
           const targetModeId = group.modeId;
