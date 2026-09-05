@@ -1,0 +1,118 @@
+-- Fail-fast validation guard for
+-- 20260904090000_align_corpus_flip_retrieval_scoped_child_owners.sql.
+--
+-- Modelled on 20260804110240_restore_rag_search_health_indexes.sql: it
+-- validates and never builds. It defines no object, replaces no function and
+-- creates no index; if the version it guards was recorded without executing its
+-- statements (the #Q5JHBJ failure shape, which neither the object inventory nor
+-- the history probe catches on its own for a function body that still exists in
+-- an older form), this version raises instead of passing quietly.
+--
+-- Timeouts use SET LOCAL so they do not leak into later migrations applied on
+-- the same CLI session connection (plain SET is session-scoped). SET LOCAL here
+-- does bound this guard: it runs as its own top-level statement before the DO
+-- block starts, which is the one position where a statement_timeout change
+-- takes effect.
+--
+-- The fragments below are the load-bearing half of the corpus switch: the three
+-- derived tables whose own owner_id reaches public.retrieval_owner_matches must
+-- be published with their documents and restored with them; the added work must
+-- carry the executable row ceiling (an explicit LIMIT on the probe and a
+-- GET DIAGNOSTICS re-check that raises), not a comment claiming a bound; and the
+-- switch must stay service-role-only with its search_path and lock_timeout
+-- pinned. A function-level statement_timeout is rejected on purpose: PostgreSQL
+-- arms that timer when the top-level statement starts, so a function SET clause
+-- cannot bound its own call and would only look like a safeguard.
+--
+-- The #ZBAC9D quarantine condition (20260902110200) is pinned here as well.
+-- 20260904090000 replaces the whole function, so it necessarily carries that
+-- condition forward; pinning it means a later rebase that reverted to the
+-- narrower deleted-owner-only test -- which
+-- documents_ownerless_requires_publication_marker (20260902110500) would then
+-- abort the return-to-private call on -- fails here instead of on the operator.
+
+set local search_path = public, extensions, pg_catalog;
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+
+do $migration$
+declare
+  target regprocedure;
+  normalized text;
+  acl_text text;
+  config_text text;
+  required record;
+  absent_objects text[] := array[]::text[];
+  missing_fragments text[] := array[]::text[];
+  wrong_settings text[] := array[]::text[];
+begin
+  target := to_regprocedure('public.set_document_corpus_access_mode(text)');
+
+  if target is null then
+    absent_objects := array_append(absent_objects, 'public.set_document_corpus_access_mode(text)');
+  else
+    normalized := btrim(regexp_replace(lower(pg_get_functiondef(target)), '[[:space:]]+', ' ', 'g'));
+
+    for required in
+      select *
+      from (
+        values
+          ('update public.document_labels l set owner_id = null'),
+          ('update public.document_summaries s set owner_id = null'),
+          ('update public.document_table_facts f set owner_id = null'),
+          ('update public.document_labels l set owner_id = existing_owner.id'),
+          ('update public.document_summaries s set owner_id = existing_owner.id'),
+          ('update public.document_table_facts f set owner_id = existing_owner.id'),
+          ('join auth.users existing_owner on existing_owner.id = snapshot.owner_id'),
+          ('v_max_child_rows constant integer := 200000'),
+          ('limit v_max_child_rows + 1'),
+          ('if v_child_row_probe > v_max_child_rows then'),
+          ('get diagnostics v_updated = row_count'),
+          ('if v_child_rows > v_max_child_rows then'),
+          ('using errcode = ''54000'''),
+          ('status = case when existing_owner.id is null and not ( snapshot.owner_id is null and snapshot.public_corpus_present and snapshot.public_corpus_value = ''true''::jsonb ) then ''failed'' else d.status end')
+      ) as t(fragment)
+    loop
+      if position(required.fragment in normalized) = 0 then
+        missing_fragments := array_append(missing_fragments, required.fragment);
+      end if;
+    end loop;
+
+    select
+      coalesce(array_to_string(p.proacl, ' '), ''),
+      coalesce(array_to_string(p.proconfig, ' '), '')
+      into acl_text, config_text
+    from pg_proc as p
+    where p.oid = target;
+
+    if position('search_path=' in replace(config_text, ' ', '')) = 0 then
+      wrong_settings := array_append(wrong_settings, 'search_path is not pinned');
+    end if;
+    if position('lock_timeout=' in replace(config_text, ' ', '')) = 0 then
+      wrong_settings := array_append(wrong_settings, 'lock_timeout is not pinned');
+    end if;
+    if position('statement_timeout=' in replace(config_text, ' ', '')) > 0 then
+      wrong_settings := array_append(
+        wrong_settings,
+        'statement_timeout is set on the function, where it cannot bound the running call'
+      );
+    end if;
+    if acl_text ~ '(^|[ ,])(anon|authenticated)=' or acl_text ~ '(^|[ ,])=X' then
+      wrong_settings := array_append(wrong_settings, 'execute is granted beyond service_role');
+    end if;
+    if position('service_role=x' in lower(acl_text)) = 0 then
+      wrong_settings := array_append(wrong_settings, 'service_role cannot execute the switch');
+    end if;
+  end if;
+
+  if cardinality(absent_objects) > 0
+     or cardinality(missing_fragments) > 0
+     or cardinality(wrong_settings) > 0 then
+    raise exception
+      'corpus access switch was recorded without its retrieval-scoped derived owner alignment, its row ceiling or the #ZBAC9D quarantine condition; apply 20260904090000 before marking this version applied. Missing: %; Unaligned: %; Settings: %',
+      coalesce(nullif(array_to_string(absent_objects, ', '), ''), '(none)'),
+      coalesce(nullif(array_to_string(missing_fragments, ', '), ''), '(none)'),
+      coalesce(nullif(array_to_string(wrong_settings, ', '), ''), '(none)');
+  end if;
+end
+$migration$;

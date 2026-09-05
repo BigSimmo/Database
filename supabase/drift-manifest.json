@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-04T15:23:44.543Z",
+  "generated_at": "2026-09-05T08:33:52.481Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "a94a6471bdb60502e9024c57b5a169a61645237b06ba9eb69891fa1ec3c2c994",
-  "replay_seconds": 11,
+  "schema_sha256": "bf1c74b6bf949d8dabfc82d48529ae93fa61062a8610bb03ed3629bdcf6474ff",
+  "replay_seconds": 26,
   "snapshot": {
     "views": [
       {
@@ -8063,7 +8063,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "48e17e9e4566efb99150256848c0aaf2",
+        "def_hash": "4508048c8709f0e5b1a057a791d868f2",
         "signature": "public.set_document_corpus_access_mode(text)"
       },
       {

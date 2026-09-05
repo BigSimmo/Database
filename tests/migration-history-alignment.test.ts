@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MIGRATION_HISTORY_VERSIONS_MIGRATION,
+  alignmentFailureMessage,
+  diffMigrationHistory,
   fetchRemoteVersions,
+  parseAlignmentOptions,
+  resolveAlignment,
 } from "../scripts/check-migration-history-alignment";
 
 const root = join(__dirname, "..");
@@ -123,5 +127,116 @@ describe("migration_history_versions definition parity (migration vs schema.sql)
       "revoke execute on function public.migration_history_versions() from public, anon, authenticated;",
     );
     expect(file).toContain("grant execute on function public.migration_history_versions() to service_role;");
+  });
+});
+
+/**
+ * AGENTS.md makes "check:drift AND check:migration-history green" the gate that a
+ * merged migration actually reached production. check:drift only compares the
+ * object inventory (views, tables, indexes, policies, triggers, functions,
+ * extensions, constraints, storage buckets), so a migration whose effect is a
+ * pg_cron job row, a COMMENT ON, an ALTER DATABASE SET, a data-only fix or a
+ * grant on a non-public schema is invisible to it. If this check also treats a
+ * merged-but-unapplied version as informational, "BOTH green" proves nothing for
+ * that class — the exact failure shape (#Q5JHBJ) the drift programme exists for.
+ */
+describe("merged-but-unapplied migrations fail the post-merge gate", () => {
+  it("reports the versions live history is missing", () => {
+    const diff = diffMigrationHistory(["20260101000000", "20260102000000"], ["20260101000000"]);
+
+    expect(diff.localOnly).toEqual(["20260102000000"]);
+    expect(diff.remoteOnly).toEqual([]);
+  });
+
+  it("fails when a local version never reached live history", () => {
+    const message = alignmentFailureMessage({ remoteOnly: [], localOnly: ["20260102000000"] }, { allowPending: false });
+
+    expect(message).toContain("20260102000000");
+    expect(message).toMatch(/1 local migration version/);
+    expect(message).toMatch(/--allow-pending/);
+  });
+
+  it("keeps remote-only versions fatal, with or without pending versions allowed", () => {
+    for (const allowPending of [false, true]) {
+      const message = alignmentFailureMessage({ remoteOnly: ["20259912310000"], localOnly: [] }, { allowPending });
+      expect(message).toContain("20259912310000");
+      expect(message).toMatch(/Preview/);
+    }
+  });
+
+  it("passes only when both sides agree", () => {
+    expect(alignmentFailureMessage({ remoteOnly: [], localOnly: [] }, { allowPending: false })).toBeNull();
+    expect(
+      alignmentFailureMessage({ remoteOnly: [], localOnly: ["20260102000000"] }, { allowPending: true }),
+    ).toBeNull();
+  });
+
+  it("accepts --allow-pending on the command line", () => {
+    expect(parseAlignmentOptions([]).allowPending).toBe(false);
+    expect(parseAlignmentOptions(["--allow-pending"]).allowPending).toBe(true);
+  });
+
+  it("waits out the integration's apply window before calling a version unapplied", async () => {
+    // The push-triggered live-drift run starts before the Supabase integration
+    // has applied the merged migration (measured at 34 s), so a single read
+    // would fail spuriously.
+    const reads = [["20260101000000"], ["20260101000000", "20260102000000"]];
+    const slept: number[] = [];
+
+    const result = await resolveAlignment({
+      localVersions: ["20260101000000", "20260102000000"],
+      readRemote: async () => ({
+        rows: (reads.shift() ?? []).map((version) => ({ version, name: null })),
+        source: "rpc",
+      }),
+      allowPending: false,
+      attempts: 3,
+      waitMs: 1_000,
+      sleep: async (ms: number) => {
+        slept.push(ms);
+      },
+      log: () => {},
+    });
+
+    expect(result.diff.localOnly).toEqual([]);
+    expect(slept).toEqual([1_000]);
+  });
+
+  it("gives up after the configured attempts and reports the pending versions", async () => {
+    const slept: number[] = [];
+
+    const result = await resolveAlignment({
+      localVersions: ["20260101000000", "20260102000000"],
+      readRemote: async () => ({ rows: [{ version: "20260101000000", name: null }], source: "rpc" }),
+      allowPending: false,
+      attempts: 3,
+      waitMs: 1_000,
+      sleep: async (ms: number) => {
+        slept.push(ms);
+      },
+      log: () => {},
+    });
+
+    expect(result.diff.localOnly).toEqual(["20260102000000"]);
+    expect(slept).toEqual([1_000, 1_000]);
+  });
+
+  it("does not wait at all when pending versions are explicitly allowed", async () => {
+    const slept: number[] = [];
+
+    const result = await resolveAlignment({
+      localVersions: ["20260101000000", "20260102000000"],
+      readRemote: async () => ({ rows: [{ version: "20260101000000", name: null }], source: "rpc" }),
+      allowPending: true,
+      attempts: 3,
+      waitMs: 1_000,
+      sleep: async (ms: number) => {
+        slept.push(ms);
+      },
+      log: () => {},
+    });
+
+    expect(result.diff.localOnly).toEqual(["20260102000000"]);
+    expect(slept).toEqual([]);
   });
 });
