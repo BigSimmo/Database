@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bc06ad0c-44a5-4a0b-8caa-bf426155c6e1",
+  "createdOn": "2026-09-05",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Home-page LCP sits on the Lighthouse trip-wire because the search-app loading.tsx Suspense boundary delays the hero heading",
+    "detail": "Measured 2026-09-05 on PR #2633: the hero heading paints ~750-880ms in because src/app/(search-app)/loading.tsx is a Suspense boundary, so React streams the real hero into a hidden div and reveals it on a later requestAnimationFrame. That is architectural, not a regression — an A/B of 9ca3b4e95 vs e09b41b6 on an identical browser build gave 881.3ms vs 881.5ms, refuting an earlier attribution to PR #2600. It sits close enough to the relative Lighthouse budget (which trips only on BOTH +20% and +100ms) that unrelated PRs keep flirting with it. Recommendation: rebaseline the Lighthouse budget for the home route rather than change first-paint behaviour, because removing the boundary changes how the first screen appears to users for a problem that is otherwise cosmetic to CI. Next action: decide rebaseline vs behaviour change with the owner, then adjust the pinned baseline (browser-pinned, path-scoped) in one PR.",
+    "source": "Session 2026-09-05, PR #2633 On Call public visibility; owner asked for the slowdown to be root-caused",
+    "issueUlid": "01M1RE7FFP8KXPKKD2AKYZ29HZ"
+  }
+}
