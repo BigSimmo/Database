@@ -20,7 +20,16 @@ export async function register() {
   // keeps its local/demo fallbacks, and the Edge runtime doesn't use the Node-only
   // server configuration these checks validate.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  if (process.env.NODE_ENV !== "production") return;
+
+  if (process.env.NODE_ENV !== "production") {
+    // Development and staging keep their fallbacks, but one of them is silent: without
+    // RAG_QUERY_HASH_SECRET answer feedback cannot work at all, and the UI's advice to
+    // "run the question again" can never fix it. Say so once, here, rather than leaving
+    // it to be discovered per rating (2026-09-02 audit, L44).
+    const { warnAnswerFeedbackDisabled } = await import("@/lib/env");
+    warnAnswerFeedbackDisabled();
+    return;
+  }
 
   // Playwright validates a real production build, but its runner must remain a
   // provider-free demo. Permit that otherwise-invalid combination only for the

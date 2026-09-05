@@ -27,7 +27,9 @@ name: Live Web Vitals baseline
 #   any breach
 #     -> only the breaching route's findings become actionable, ranked by
 #        measured contribution
-# Record the verdict in docs/outstanding-issues.md against #017 either way.
+# #017 was CLOSED on 2026-07-31, so do not record against it. Record the
+# verdict on the open Web-Vitals row in docs/outstanding-issues.md through
+# `npm run issues:update` (never a hand edit) either way.
 
 on:
   workflow_dispatch:
@@ -35,11 +37,16 @@ on:
       routes:
         description: "Comma-separated routes to measure"
         required: false
-        # Every entry must be a real page route. `/documents` is not one — the
-        # documents segment holds only `search`, `source` and `[id]` with no
-        # `page.tsx` (see docs/site-map.md), so it would have measured the 404
-        # document. `/documents/search` is the canonical documents-mode route.
-        default: "/,/therapy-compass,/documents/search,/dsm,/forms"
+        # Every entry must be a real page route that renders in place. The
+        # summariser rejects a report whose final URL differs from the requested
+        # one, so a redirecting entry can never be graded: `/therapy-compass`,
+        # `/dsm` and `/forms` became 307 redirects onto `/?mode=<id>` (#2157,
+        # #2308) and are measured through their `<mode>/search` result routes
+        # instead — the same reasoning as `$routes` in lighthouse-budget.json.
+        # A bare `/documents` would have measured the 404 document; the
+        # canonical documents-mode route is `/documents/search`. Guarded by
+        # tests/ci-audit-contracts.test.ts (audit M29).
+        default: "/,/therapy-compass/search,/documents/search,/dsm/search,/forms/search"
       samples:
         description: "Lighthouse runs per route/strategy (median is graded)"
         required: false
