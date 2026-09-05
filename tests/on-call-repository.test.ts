@@ -8,10 +8,8 @@ import {
 
 function fakeClient(rows: unknown[]) {
   const chain = {
-    select: vi.fn((_columns: string) => chain),
-    // Typed parameters so assertions can read back which column each call filtered on;
-    // an untyped vi.fn() records the call but types its args as an empty tuple.
-    eq: vi.fn((_column: string, _value: unknown) => chain),
+    select: vi.fn(() => chain),
+    eq: vi.fn(() => chain),
     order: vi.fn(() => chain),
     limit: vi.fn(() => Promise.resolve({ data: rows, error: null })),
   };
@@ -80,8 +78,7 @@ describe("fetchSharedOnCallEntries", () => {
   it("never narrows by owner, because there is no viewer to narrow to", async () => {
     const client = fakeClient([]);
     await fetchSharedOnCallEntries(client as never);
-    const columns = client.chain.eq.mock.calls.map((call) => call[0]);
-    expect(columns).not.toContain("owner_id");
+    expect(client.chain.eq).not.toHaveBeenCalledWith("owner_id", expect.anything());
   });
 
   it("still applies a section filter alongside the personal-entry exclusion", async () => {
@@ -97,8 +94,7 @@ describe("fetchVisibleOnCallEntries", () => {
     const client = fakeClient([SHARED_ROW]);
     const entries = await fetchVisibleOnCallEntries(client as never, undefined);
     expect(entries.map((entry) => entry.title)).toEqual(["Switchboard"]);
-    const columns = client.chain.eq.mock.calls.map((call) => call[0]);
-    expect(columns).not.toContain("owner_id");
+    expect(client.chain.eq).not.toHaveBeenCalledWith("owner_id", expect.anything());
   });
 
   it("adds the viewer's own entries, including the personal ones the shared read withholds", async () => {
