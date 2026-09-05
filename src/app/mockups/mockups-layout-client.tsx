@@ -64,7 +64,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // header and a second real search bar over the study.
   const isAnswerChatRedesignMockup = pathname === "/mockups/answer-chat-redesign";
   const isAnswerChatPerfectedMockup =
-    pathname === "/mockups/answer-chat-perfected" || pathname === "/mockups/answer-chat-perfected-v2";
+    pathname === "/mockups/answer-chat-perfected" ||
+    pathname === "/mockups/answer-chat-perfected-v2" ||
+    // Third pass: the page below the prose. Same frames, same reason.
+    pathname === "/mockups/answer-page-perfected";
   // The loading study draws its own top bar, transcript and composer inside every
   // phone and desktop frame, and its whole subject is what occupies the answer
   // column before the answer. Shared chrome above those frames would read as a

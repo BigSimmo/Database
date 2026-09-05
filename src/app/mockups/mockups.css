@@ -31,3 +31,8 @@
    wants its own look rather than a silent ride here. `tests/mockup-utility-emission.test.ts`
    fails if a Caring Contacts prototype utility stops being emitted. */
 @source "../../components/caring-contacts/mockups";
+
+/* The answer-page third pass is new, so re-including it changes nothing that
+   already renders. Without this line its `line-clamp-2`, `lg:grid-cols-[…]` and
+   `max-w-5xl` would be inert for exactly the reason described above. */
+@source "../../components/answer-page-perfected-mockups.tsx";

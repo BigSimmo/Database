@@ -175,14 +175,15 @@ section was wrong. `answer-chat-perfected` and `answer-chat-perfected-v2` are se
 halves of one design that shipped in full; the repo does say so in writing, in four commit
 bodies and three production source comments, which the earlier pass did not search.
 
-| Route                      | Status                                                                                                                                                                                         |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `answer-chat-perfected`    | Shipped — direction A refined, built by #2362. Also a **shared base**: `answer-chat-perfected-v2` and `answer-loading-redesign` import it, so it cannot be removed.                            |
-| `answer-chat-perfected-v2` | Shipped — applied to the live answer surface by #2388; `answer-content.tsx` cites this route as the approved reference.                                                                        |
-| `answer-loading-redesign`  | Shipped — direction B, applied 2026-08-27; `AnswerProgressStepper` is gone.                                                                                                                    |
-| `answer-chat-redesign`     | Superseded as a design (direction A won) but **kept**: it is the three-way comparison the winner was chosen from, cited by the answer handover doc and by `answer-chat-perfected-mockups.tsx`. |
-| `answer-evidence-popups`   | Retired 2026-09-02 — the five-tab Evidence sheet #2362 explicitly replaced.                                                                                                                    |
-| `answer-home-proposal`     | Retired 2026-09-02 — its copy never shipped, and #1512 overtook it before its own PR merged.                                                                                                   |
+| Route                      | Status                                                                                                                                                                                                          |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `answer-chat-perfected`    | Shipped — direction A refined, built by #2362. Also a **shared base**: `answer-chat-perfected-v2` and `answer-loading-redesign` import it, so it cannot be removed.                                             |
+| `answer-chat-perfected-v2` | Shipped — applied to the live answer surface by #2388; `answer-content.tsx` cites this route as the approved reference.                                                                                         |
+| `answer-page-perfected`    | Active study (2026-09-05) — third pass, the page below the prose: key points as lines, one status sentence, a vertical source list, desktop two-column. Imports the shared frames from `answer-chat-perfected`. |
+| `answer-loading-redesign`  | Shipped — direction B, applied 2026-08-27; `AnswerProgressStepper` is gone.                                                                                                                                     |
+| `answer-chat-redesign`     | Superseded as a design (direction A won) but **kept**: it is the three-way comparison the winner was chosen from, cited by the answer handover doc and by `answer-chat-perfected-mockups.tsx`.                  |
+| `answer-evidence-popups`   | Retired 2026-09-02 — the five-tab Evidence sheet #2362 explicitly replaced.                                                                                                                                     |
+| `answer-home-proposal`     | Retired 2026-09-02 — its copy never shipped, and #1512 overtook it before its own PR merged.                                                                                                                    |
 
 ### Factsheets
 
