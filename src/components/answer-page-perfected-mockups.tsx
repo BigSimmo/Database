@@ -25,9 +25,7 @@ import {
   DesktopFrame,
   DetailCard,
   Panel,
-  PHONE_WIDTH,
   PhoneFrame,
-  PROSE_MEASURE,
   TopBar,
   focusRing,
 } from "@/components/answer-chat-perfected-mockups";
@@ -317,10 +315,7 @@ const sectionLabel = "text-2xs font-semibold text-[color:var(--text-muted)]";
 function UserTurn({ text = QUESTION }: { text?: string }) {
   return (
     <div className="flex justify-end">
-      <p
-        style={{ maxWidth: "85%", borderBottomRightRadius: 6 }}
-        className="rounded-2xl bg-[color:var(--clinical-accent-soft)] px-3.5 py-2 text-sm leading-6 text-[color:var(--text-heading)]"
-      >
+      <p className="max-w-[85%] rounded-2xl rounded-br-md bg-[color:var(--clinical-accent-soft)] px-3.5 py-2 text-sm leading-6 text-[color:var(--text-heading)]">
         {text}
       </p>
     </div>
@@ -649,7 +644,7 @@ function PassageList({
             <NumberBadge number={source.number} />
           </span>
           <div className="min-w-0 flex-1">
-            <p style={PROSE_MEASURE} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
+            <p className="max-w-[68ch] text-base-minus leading-prose text-[color:var(--text-heading)]">
               {source.passage}
             </p>
             <button
@@ -674,7 +669,7 @@ function PassageList({
 
 function ReadyProse({ onOpenSource, activeId }: { onOpenSource: (id: string) => void; activeId: string | null }) {
   return (
-    <p style={PROSE_MEASURE} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
+    <p className="max-w-[68ch] text-base-minus leading-prose text-[color:var(--text-heading)]">
       {READY_PROSE.map((sentence, index) => (
         <span key={sentence.text}>
           {index > 0 ? " " : null}
@@ -986,7 +981,7 @@ function PerfectedScreen({
 
   const lead =
     kind === "source_only" ? (
-      <p style={PROSE_MEASURE} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
+      <p className="max-w-[68ch] text-base-minus leading-prose text-[color:var(--text-heading)]">
         No written answer was produced for this question. These are the three closest passages in your documents, each
         with the page it comes from.
       </p>
@@ -1109,7 +1104,7 @@ export function AnswerPagePerfectedMockupsPage() {
       <header className="mb-6">
         <p className={eyebrow}>Answer page · third pass</p>
         <h1 className="mt-1 text-2xl font-semibold text-[color:var(--text-heading)]">Below the prose</h1>
-        <p style={PROSE_MEASURE} className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+        <p className="max-w-[68ch] mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
           The first two passes settled the mark and the drawer, and stopped at the seam where the answer ends. This page
           is about everything under that seam, photographed on 2026-09-05: the key points, the status chips, the source
           strip, the library line and the follow-ups. It draws the photograph as shipped with its problems numbered,
@@ -1128,7 +1123,7 @@ export function AnswerPagePerfectedMockupsPage() {
           intro="The phone photograph redrawn at the same size with the same data, so the frame beside it is judged against the real thing. Each red number is a row in the table below."
         >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-            <div className="lg:shrink-0" style={{ width: "100%", maxWidth: PHONE_WIDTH }}>
+            <div className="w-full max-w-[390px] lg:shrink-0">
               <PhoneFrame caption="Phone · as shipped, 2026-09-05">
                 <ShippedScreen />
               </PhoneFrame>
@@ -1276,7 +1271,7 @@ export function AnswerPagePerfectedMockupsPage() {
               </tbody>
             </table>
           </div>
-          <p style={PROSE_MEASURE} className="mt-4 text-2xs leading-5 text-[color:var(--text-muted)]">
+          <p className="max-w-[68ch] mt-4 text-2xs leading-5 text-[color:var(--text-muted)]">
             Build order if this is approved: the status sentence and the key-point lines first, because they change what
             the reader sees before the first source and touch no data; then the source list, which replaces the strip on
             every answer; then the desktop column. The limitations sheet content, the drawer and the marks are unchanged

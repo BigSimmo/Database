@@ -4,14 +4,7 @@ import { useState } from "react";
 import { ArrowUp, Copy, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
-import {
-  DesktopFrame,
-  PHONE_WIDTH,
-  PhoneFrame,
-  PROSE_MEASURE,
-  TopBar,
-  focusRing,
-} from "@/components/answer-chat-perfected-mockups";
+import { DesktopFrame, PhoneFrame, TopBar, focusRing } from "@/components/answer-chat-perfected-mockups";
 
 /**
  * The answer page, fourth pass — subtle.
@@ -134,10 +127,7 @@ type AnswerKind = "source_only" | "ready";
 function UserTurn() {
   return (
     <div className="flex justify-end">
-      <p
-        style={{ maxWidth: "85%", borderBottomRightRadius: 6 }}
-        className="rounded-2xl bg-[color:var(--clinical-accent-soft)] px-3.5 py-2 text-sm leading-6 text-[color:var(--text-heading)]"
-      >
+      <p className="max-w-[85%] rounded-2xl rounded-br-md bg-[color:var(--clinical-accent-soft)] px-3.5 py-2 text-sm leading-6 text-[color:var(--text-heading)]">
         {QUESTION}
       </p>
     </div>
@@ -217,7 +207,7 @@ function Message({
   };
   if (flowing) {
     return (
-      <p style={PROSE_MEASURE} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
+      <p className="max-w-[68ch] text-base-minus leading-prose text-[color:var(--text-heading)]">
         {sentences.map((sentence, index) => (
           <span key={sentence.sourceId}>
             {index > 0 ? " " : null}
@@ -228,7 +218,7 @@ function Message({
     );
   }
   return (
-    <div style={PROSE_MEASURE} className="space-y-2 text-base-minus leading-prose text-[color:var(--text-heading)]">
+    <div className="max-w-[68ch] space-y-2 text-base-minus leading-prose text-[color:var(--text-heading)]">
       {sentences.map((sentence) => (
         <p key={sentence.sourceId}>{render(sentence)}</p>
       ))}
@@ -311,7 +301,7 @@ function AlsoLine() {
 function ComposerWithChips() {
   return (
     <div className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-3 pb-3 pt-2">
-      <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
+      <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
         {FOLLOW_UPS.map((item) => (
           <button
             key={item}
@@ -327,9 +317,7 @@ function ComposerWithChips() {
         ))}
       </div>
       <div className="flex items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] py-1 pl-3.5 pr-1 shadow-[var(--shadow-inset)]">
-        <span style={{ color: "var(--text-placeholder)" }} className="min-w-0 flex-1 truncate text-sm">
-          Ask a follow-up…
-        </span>
+        <span className="min-w-0 flex-1 truncate text-sm text-[color:var(--text-placeholder)]">Ask a follow-up…</span>
         <button
           type="button"
           onClick={() => undefined}
@@ -404,7 +392,7 @@ export function AnswerPageSubtleMockupsPage() {
           Answer page · fourth pass
         </p>
         <h1 className="mt-1 text-2xl font-semibold text-[color:var(--text-heading)]">Subtle</h1>
-        <p style={PROSE_MEASURE} className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+        <p className="max-w-[68ch] mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
           The third pass answered every issue with a block and was rejected as bulky. This one answers the same list
           with less: the answer reads as one message, the critical sentence is bold, the sources are a line of small
           links, and the follow-ups are chips above the composer. It fits one phone screen.
@@ -429,7 +417,7 @@ export function AnswerPageSubtleMockupsPage() {
         </DesktopFrame>
       </div>
 
-      <dl className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-5" style={{ maxWidth: PHONE_WIDTH * 3 }}>
+      <dl className="mt-6 grid max-w-6xl gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {CHANGES.map(([title, body]) => (
           <div key={title}>
             <dt className="text-2xs font-semibold text-[color:var(--text-heading)]">{title}</dt>
