@@ -47,9 +47,11 @@ function SortControl({ compact = false }: { compact?: boolean }) {
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "relative inline-flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
-        compact && "w-full justify-between",
+        // The label is the hit area for the select inside it, so the phone
+        // specimen takes the 48px tap floor and the desktop one keeps 40px.
+        compact ? "min-h-tap w-full justify-between" : "min-h-10",
       )}
     >
       <span className={cn("text-[color:var(--text-soft)]", compact && "max-[359px]:sr-only")}>Sort</span>
@@ -232,7 +234,7 @@ function ScopeControl({ compact = false }: { compact?: boolean }) {
     return (
       <label
         className={cn(
-          "relative inline-flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
+          "relative inline-flex min-h-tap min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
           "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         )}
       >
@@ -411,7 +413,7 @@ export function SearchHeadingMockupsPage() {
                   aria-pressed={state === value}
                   onClick={() => setState(value)}
                   className={cn(
-                    "inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition-colors",
+                    "inline-flex min-h-tap items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition-colors sm:min-h-9",
                     focusRing,
                     state === value
                       ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
