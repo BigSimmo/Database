@@ -381,7 +381,7 @@ describe("shared-search route ownership", () => {
     const tabletBand = globalsSource.slice(tabletBandStart, tabletBandEnd);
 
     expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1279.98px)");
-    expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 8rem");
+    expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 10rem");
     expect(tabletBand).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
     expect(tabletBand).toContain("flex-wrap: nowrap");
     expect(tabletBand).toContain("overflow-x: auto");

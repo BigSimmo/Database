@@ -1883,10 +1883,12 @@ export function MasterSearchHeader({
     // `mobileHomeComposerPlacement === "footer"` alone is not enough: it is set
     // for every /tools-prefixed route, so the home slot must also be present to
     // distinguish the tools home from a tools result dock.
-    // Tablet/desktop composers keep the site-wide notice everywhere.
+    // Tablet/desktop show it on the mode-home hero and the answer dock (its
+    // own composer type). Submitted result views and page slots render the
+    // compact pill alone, like the phone result dock.
     const showsComposerPrivacyNotice = usesPhoneSearchLayout
       ? isDesktopHomeComposer || (mobileHomeComposerPlacement === "footer" && Boolean(desktopHomeComposerSlotId))
-      : true;
+      : isDesktopHomeComposer || usesAnswerFooterStyle;
 
     const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
     const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
@@ -2037,9 +2039,10 @@ export function MasterSearchHeader({
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
           showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
-          // Only the mode-home hero keeps the prompt rail. Result views, page
-          // slots, and the answer dock render the pill alone in every mode.
-          showPromptRow={isDesktopHomeComposer}
+          // Only the mode-home hero keeps the "Try …" line and prompt rail.
+          // Result views, page slots, and the answer dock render the pill
+          // alone in every mode.
+          showHomeSuggestions={isDesktopHomeComposer}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -2169,10 +2172,10 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {/* Single site-wide APP-5 privacy line: every tablet/desktop composer
-            variant renders exactly one compact notice below the pill; no other
-            surface may duplicate it. Phones show it only on the home hero —
-            see showsComposerPrivacyNotice. */}
+        {/* Single site-wide APP-5 privacy line: the mode-home hero and the
+            answer dock render exactly one compact notice below the pill; no
+            other surface may duplicate it. Result composers omit it at every
+            width — see showsComposerPrivacyNotice. */}
         {showsComposerPrivacyNotice ? (
           <div role="group" aria-label="Search privacy notice">
             <PrivacyInputNotice

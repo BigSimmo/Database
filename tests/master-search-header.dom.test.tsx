@@ -145,20 +145,24 @@ describe("MasterSearchHeader DOM", () => {
 
     rerender(<MasterSearchHeader {...props} query="13YARN" />);
     expect(screen.queryByTestId("smart-search-intent-cue")).not.toBeInTheDocument();
-    // A literal query shows no Smart promise at all: the desktop
-    // "Smart search · Try" line was removed so every mode shares one composer.
-    expect(screen.queryByTestId("smart-search-rotating-text")).not.toBeInTheDocument();
+    // A literal query outside the mode-home hero shows no Smart wording at all.
+    expect(screen.queryByTestId("search-example-ticker")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Smart search/)).not.toBeInTheDocument();
   });
 
-  it("renders the pill alone outside the mode-home hero (no prompt rail, no Smart line)", () => {
-    for (const searchMode of ["forms", "documents", "answer", "services"] as const) {
+  it("renders the compact pill alone outside the mode-home hero (no ticker, prompts, or privacy line)", () => {
+    installMatchMediaStub(false);
+    for (const searchMode of ["forms", "documents", "services", "dsm"] as const) {
       const { unmount } = render(<MasterSearchHeader {...defaultHeaderProps()} searchMode={searchMode} />);
       expect(screen.getByTestId("global-search-input")).toBeInTheDocument();
       expect(screen.queryByTestId("smart-search-prompt-row")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("smart-search-rotating-text")).not.toBeInTheDocument();
-      expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+      expect(screen.queryByTestId("search-example-ticker")).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
       unmount();
     }
+    // The answer dock is its own composer type and keeps the APP-5 line.
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="answer" />);
+    expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
   });
 
   it("routes Factsheets Browse all sheets to the Topics page", async () => {
@@ -187,18 +191,21 @@ describe("MasterSearchHeader DOM", () => {
   });
 
   describe("#D8JBCV - mobile /tools home privacy notice in footer placement", () => {
-    it("shows the privacy notice on desktop layout regardless of mobileHomeComposerPlacement", () => {
+    it("keeps the desktop result composer free of the notice regardless of mobileHomeComposerPlacement", () => {
       installMatchMediaStub(false);
 
+      // Without a home slot the desktop composer is a result composer, which
+      // renders the compact pill alone; the phone-only placement flag must not
+      // reintroduce the notice there.
       const { rerender } = render(
         <MasterSearchHeader {...defaultHeaderProps()} searchMode="tools" mobileHomeComposerPlacement="hero" />,
       );
-      expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
 
       rerender(
         <MasterSearchHeader {...defaultHeaderProps()} searchMode="tools" mobileHomeComposerPlacement="footer" />,
       );
-      expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
     });
 
     it("omits the privacy notice on a footer-configured /tools result dock with no home slot", () => {

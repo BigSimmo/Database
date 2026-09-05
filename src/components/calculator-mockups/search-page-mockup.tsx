@@ -172,7 +172,7 @@ const promptExamples = ["depression", "anxiety", "drinking", "bipolar", "suicide
 /**
  * The calculators search composer, matching the app's universal composer: a
  * leading "+" (new search), the query input with an inline clear, and the teal
- * send button. `variant="full"` adds the prompt chips and
+ * send button. `variant="full"` adds the example ticker line, prompt chips, and
  * privacy notice (desktop header); `variant="compact"` shows the pill plus the
  * privacy line only (phone bottom dock).
  */
@@ -191,6 +191,14 @@ function CalculatorComposer({
 }) {
   return (
     <div className="grid gap-2">
+      {variant === "full" ? (
+        <div className="search-example-ticker" aria-live="polite">
+          <span>
+            Try <span className="search-example-ticker-query">&ldquo;depression severity&rdquo;</span> in Calculators.
+          </span>
+        </div>
+      ) : null}
+
       <form
         role="search"
         onSubmit={(event) => {
