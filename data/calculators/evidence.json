@@ -20,7 +20,11 @@
         "claim:sadpersons:interpretation",
         "claim:ybocs:interpretation"
       ],
-      "limitations": ["Records the release decision and does not replace an instrument source."]
+      "limitations": ["Records the release decision and does not replace an instrument source."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:phq9",
@@ -34,7 +38,11 @@
       "claimsSupported": ["claim:phq9:interpretation"],
       "limitations": [
         "A completed score supports assessment and monitoring; it is not a diagnosis or management decision."
-      ]
+      ],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:gad7",
@@ -46,7 +54,11 @@
       "jurisdiction": "International",
       "status": "reviewed",
       "claimsSupported": ["claim:gad7:interpretation"],
-      "limitations": ["A completed score supports anxiety assessment and does not establish a diagnosis."]
+      "limitations": ["A completed score supports anxiety assessment and does not establish a diagnosis."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:k10",
@@ -58,7 +70,11 @@
       "jurisdiction": "Australia",
       "status": "reviewed",
       "claimsSupported": ["claim:k10:interpretation"],
-      "limitations": ["The K10 measures psychological distress and is not a diagnostic category."]
+      "limitations": ["The K10 measures psychological distress and is not a diagnostic category."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:cage",
@@ -70,7 +86,11 @@
       "jurisdiction": "International",
       "status": "reviewed",
       "claimsSupported": ["claim:cage:interpretation"],
-      "limitations": ["CAGE is a lifetime problem-drinking screen and does not assess current use or withdrawal."]
+      "limitations": ["CAGE is a lifetime problem-drinking screen and does not assess current use or withdrawal."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:auditc",
@@ -82,7 +102,11 @@
       "jurisdiction": "Australia",
       "status": "reviewed",
       "claimsSupported": ["claim:auditc:interpretation"],
-      "limitations": ["The standard-drink reference does not establish a diagnosis or management decision."]
+      "limitations": ["The standard-drink reference does not establish a diagnosis or management decision."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:mdq",
@@ -94,7 +118,11 @@
       "jurisdiction": "International",
       "status": "permission_review_required",
       "claimsSupported": ["claim:mdq:interpretation"],
-      "limitations": ["Quarantined pending approval of digital-use rights and completion semantics."]
+      "limitations": ["Quarantined pending approval of digital-use rights and completion semantics."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:sadpersons",
@@ -106,7 +134,11 @@
       "jurisdiction": "International",
       "status": "not_for_active_use",
       "claimsSupported": ["claim:sadpersons:interpretation"],
-      "limitations": ["Not released for active score-based clinical decision support."]
+      "limitations": ["Not released for active score-based clinical decision support."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     },
     {
       "id": "source:ybocs",
@@ -118,7 +150,11 @@
       "jurisdiction": "International",
       "status": "permission_review_required",
       "claimsSupported": ["claim:ybocs:interpretation"],
-      "limitations": ["Quarantined because the current generic anchors are not a verified Y-BOCS implementation."]
+      "limitations": ["Quarantined because the current generic anchors are not a verified Y-BOCS implementation."],
+      "accessedAt": "2026-09-04",
+      "lastReviewed": "2026-09-01",
+      "nextReview": "2027-09-01",
+      "supersedes": null
     }
   ],
   "claims": [
