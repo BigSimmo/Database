@@ -14,7 +14,15 @@ import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
  *
  * Chosen direction: tinted code chip (option C). Desktop stays a 4-up grid;
  * phone stacks one mode card per line so titles and matches are not truncated
- * into a 2×2 or 4-up. Presentation only — not a production swap.
+ * into a 2×2 or 4-up.
+ *
+ * SHIPPED. `universal-search-also-matches.tsx` now carries option C in
+ * production — accent on the tile and the short code chip, mode title in
+ * heading colour, no rail. This file is kept as the record of what the other
+ * two treatments cost, so the decision does not have to be re-litigated from
+ * memory; the production card has since moved past it in layout (the title
+ * rows now span the full card width and "View all" is a footer link), so read
+ * this for the accent question only, not for geometry.
  */
 
 type CardTreatment = "rail" | "quiet" | "spine" | "chip";

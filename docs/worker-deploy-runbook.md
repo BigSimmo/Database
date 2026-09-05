@@ -125,9 +125,13 @@ Run **exactly one always-on worker** on Railway in Singapore
 (`asia-southeast1-eqsg3a` in `railway.worker.json`) — the closest available
 Railway region to the Supabase project in Sydney (ap-southeast-2). Scale the
 single instance first (`WORKER_BATCH_SIZE` / `WORKER_CONCURRENCY`); add
-replicas only for sustained backlog, and only after confirming p100 job
-duration stays under `WORKER_STALE_AFTER_MINUTES` (45 min) — otherwise two
-workers can reclaim and double-process the same document. See
+replicas only for sustained backlog. Job duration is not capped by
+`WORKER_STALE_AFTER_MINUTES` (45 min): a live worker refreshes `locked_at` on
+every persisted progress write and on a timer during extraction
+(`updateJobProgress` in `worker/main.ts`, guarded by `locked_by = workerId`), so
+only a job whose worker has stopped heartbeating for the whole stale window —
+crashed, OOM-killed, or network-lost — is reclaimed by another worker, and the
+completion/failure RPCs refuse a caller that no longer holds the lease. See
 `deployment-architecture.md` §3 for the queue-durability reasoning.
 
 ```bash

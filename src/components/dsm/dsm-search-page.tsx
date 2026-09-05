@@ -15,6 +15,7 @@ import {
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { mobileComposerVisibleReserve } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { cn, codeText, EmptyState, metadataPill, pageContainer } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
@@ -392,6 +393,7 @@ export function DsmSearchPage({
             }
           />
         )}
+        <UniversalSearchAlsoMatches modeId="dsm" query={query} />
       </div>
 
       <DsmMobileCompareStrip selected={selected} />

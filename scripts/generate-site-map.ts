@@ -152,11 +152,15 @@ const routeDescriptions: Record<string, string> = {
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
+  "/forms/search":
+    "Forms results surface: searches the WA MHA 2014 forms register by code, title and clinical purpose.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
   "/formulation/[slug]": "Formulation mechanism decision-support guide.",
   "/formulation/builder": "Structured clinical formulation builder.",
   "/formulation/compare": "Side-by-side mechanism comparison.",
   "/formulation/map": "Formulation mechanism domain map.",
+  "/formulation/search":
+    "Formulation results surface: searches mechanisms by pattern, clinical clue and hypothesis, and browses the full catalogue on an empty query.",
   "/medications": "Compatibility redirect to the shared Medication (prescribing) home.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Public privacy and data-processing transparency notice; governance approval pending.",
@@ -164,6 +168,8 @@ const routeDescriptions: Record<string, string> = {
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
+  "/services/search":
+    "Services results surface: searches the private services registry by need, catchment, eligibility and referral route.",
   "/sources": "Sources mode home; a submitted `?q=…&run=1` forwards to `/sources/search`, where the catalogue lives.",
   "/sources/[sourceId]": "Clinical source traceability record: identity, rating, canonical locations and usage.",
   "/sources/method": "How the catalogue rates, reviews and traces a source, and its stated limitations.",
@@ -176,6 +182,8 @@ const routeDescriptions: Record<string, string> = {
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
+  "/specifiers/search":
+    "Specifiers results surface: searches diagnostic specifiers by presentation, episode pattern, course and severity, and browses the full catalogue on an empty query.",
   "/therapy-compass": "Therapy home (source-grounded therapy reference).",
   "/therapy-compass/[slug]": "Therapy record detail.",
   "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
@@ -725,8 +733,8 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         : ["- No page-level redirects discovered."],
     ),
     ...section("Known caveats and stale-path flags", [
-      "- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.",
-      "- `/mockups/favourites-hub` is a legacy compatibility route and should redirect to `/favourites`.",
+      "- `/mockups/*` prototype routes are development-only: production returns 404 for every path except the four developer-gated subtrees (`/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, `/mockups/ward-flow`), which carry their own signed-in administrator gate. `robots.txt` deliberately allows crawling; responses under `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow` instead, so per-response indexing policy can be observed.",
+      "- `/mockups/favourites-hub` (to `/favourites`) and `/mockups/medication-prescribing` (to `/medications/acamprosate`) are legacy compatibility routes whose page-level redirects work in development only; in production the proxy's mockup block returns 404 before either page renders. `/mockups/document-search-command` is the one mockup path that still redirects in production, via `staticRouteRedirects` in `src/proxy.ts`.",
       "- Registry-backed service and form pages may show sign-in, load-error, or in-app not-found states for missing per-user records.",
       "- Live user registries may contain additional service or form slugs beyond the seeded/demo slugs listed here.",
       "- `/documents/[id]` is intentionally summarized as a route family; individual document IDs are private runtime data.",
