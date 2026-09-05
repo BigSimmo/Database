@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "bc90bba5-fcae-44a2-ba39-73c5786014a3",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Caring Contacts message-content controls are unreachable: validateGovernedMessage has no production caller",
+    "detail": "grep -rn \"validateGovernedMessage\" src worker scripts returns only message-copy.ts and the module itself. Every message-content policy control the new docs/caring-contacts/message-review-pack.md documents is therefore proof about a function, not about a delivered message. No present risk (nothing is being sent), but it must be treated as blocking for a real-patient pilot alongside the three unmitigated hazards in #1S81R8. Found while drafting the hazard log and review pack (audit remediation P21, PR #2626, 2026-09-04).",
+    "issueUlid": "01M1PW8WXCB16HW80SWS0CPC2Y"
+  }
+}
