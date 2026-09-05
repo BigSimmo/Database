@@ -76,4 +76,82 @@ describe("ingestion-admin rate limiting", () => {
     expect(body).toMatchObject({ code: "rate_limited" });
     expect(client.from).not.toHaveBeenCalled();
   });
+
+  // #L32: the hub polls this route every 5s while a job is active, and it is
+  // administrator-gated like ingestion/quality but was missing the same limiter.
+  it("returns 429 + Retry-After on /api/ingestion/jobs when the bucket is exhausted, before any table access", async () => {
+    const client = rateLimitedClient();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/ingestion/jobs/route");
+
+    const response = await GET(
+      new Request("http://localhost/api/ingestion/jobs", {
+        headers: { authorization: "Bearer valid-token" },
+      }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("37");
+    expect(body).toMatchObject({ code: "rate_limited" });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  // #L43: the same gap on the three sibling administrator ingestion routes,
+  // including the mutating retry POST.
+  it("returns 429 + Retry-After on /api/ingestion/batches when the bucket is exhausted, before any table access", async () => {
+    const client = rateLimitedClient();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/ingestion/batches/route");
+
+    const response = await GET(
+      new Request("http://localhost/api/ingestion/batches", {
+        headers: { authorization: "Bearer valid-token" },
+      }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("37");
+    expect(body).toMatchObject({ code: "rate_limited" });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 + Retry-After on the ingestion job retry POST when the bucket is exhausted, before any RPC call", async () => {
+    const client = rateLimitedClient();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/ingestion/jobs/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/retry", {
+        method: "POST",
+        headers: { authorization: "Bearer valid-token" },
+      }),
+      { params: Promise.resolve({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }) },
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("37");
+    expect(body).toMatchObject({ code: "rate_limited" });
+    expect(client.rpc).not.toHaveBeenCalledWith("retry_ingestion_job_if_idle", expect.anything());
+  });
+
+  it("returns 429 + Retry-After on /api/jobs when the bucket is exhausted, before any table access", async () => {
+    const client = rateLimitedClient();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/jobs/route");
+
+    const response = await GET(
+      new Request("http://localhost/api/jobs", {
+        headers: { authorization: "Bearer valid-token" },
+      }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("37");
+    expect(body).toMatchObject({ code: "rate_limited" });
+    expect(client.from).not.toHaveBeenCalled();
+  });
 });

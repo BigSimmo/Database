@@ -12,6 +12,7 @@ import {
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
@@ -371,6 +372,7 @@ export function SourcesCatalogueClient({
     <SearchResultsLayout
       testId="sources-catalogue-main"
       resultsLabel="Source results"
+      footer={<UniversalSearchAlsoMatches modeId="sources" query={filters.q ?? ""} />}
       header={
         <>
           {/* The band's own heading is the query, which a browse visit does not

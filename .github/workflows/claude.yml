@@ -1,7 +1,9 @@
 name: Claude
 
-# Runs a Claude Code session when a collaborator mentions "@claude" on a pull
-# request comment or review. Claude reads the triggering comment, works on the
+# Runs a Claude Code session when an owner, member or collaborator of this
+# repository mentions "@claude" on a pull request comment or review. The
+# author_association gate in the job's `if:` is what enforces that boundary;
+# the bot check alone would admit any account able to comment (audit L38). Claude reads the triggering comment, works on the
 # PR's current head, pushes a scoped fix to the PR branch, and replies in the
 # thread. Unlike a subscribed chat session, this fires on the webhook every
 # time, so it keeps working after the session that opened the PR has ended.
@@ -22,18 +24,23 @@ jobs:
   claude:
     name: Respond to @claude
     runs-on: ubuntu-24.04
-    # Only run when a human (not a bot) mentions @claude on a pull request, so
-    # ordinary comments — and Claude's own replies — never spin up a runner.
+    # Only run when a human (not a bot) with owner, member or collaborator
+    # association mentions @claude on a pull request, so ordinary comments —
+    # Claude's own replies, and accounts outside the maintainer's trust
+    # boundary — never spin up a runner that holds write and id-token scopes.
     if: >
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request != null &&
         github.event.comment.user.type != 'Bot' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
         contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' &&
         github.event.comment.user.type != 'Bot' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
         contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' &&
         github.event.review.user.type != 'Bot' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) &&
         github.event.review.body != null &&
         contains(github.event.review.body, '@claude'))
     permissions:

@@ -228,13 +228,22 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
-    expect(universalAlsoMatchesSource).toContain('modeId !== "prescribing" && submissionActive');
+    // `prescribing` was excluded here while the panel mounted ABOVE the medication
+    // results; the mount moved below them, so the mode is no longer suppressed and
+    // the deferral contract is the plain submission gate. tests/ui-stress.spec.ts
+    // pins the panel's position under those results.
+    expect(universalAlsoMatchesSource).toContain("const searchActive = submissionActive &&");
+    expect(universalAlsoMatchesSource).not.toContain('modeId !== "prescribing"');
     expect(universalAlsoMatchesSource).toContain('(isWide || modeId === "answer" || expanded)');
     expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
     expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
-    expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
+    // The panel status is a three-way now — pending / a count / nothing found —
+    // because one fixed string announced "No additional matches" over a grid of
+    // populated mode cards. The pending arm is the one this contract is about.
+    expect(universalAlsoMatchesSource).toMatch(/const panelStatus = searchPending\s*\n?\s*\? "Searching other modes"/);
+    expect(universalAlsoMatchesSource).toContain('const emptyMessage = "No additional matches in other modes.";');
   });
 
   it("mounts Answer-mode also-matches only after generation completes", () => {

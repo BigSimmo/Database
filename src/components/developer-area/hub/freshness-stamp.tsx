@@ -7,11 +7,27 @@ import type { Freshness } from "@/lib/developer-area/freshness";
  * the caller can say the revision is unknown rather than render the literal
  * "Invalid Date" beside a `NaN` age — a confident-looking stamp carrying no
  * information, which is precisely the failure this component exists to prevent.
+ *
+ * #L14: this is a Server Component, so without an explicit `timeZone` it
+ * follows the container's clock (UTC on Railway) while a client-rendered
+ * stamp on the same page (`IngestionPanel`'s `CheckedAt`) follows the
+ * browser's — an unlabelled eight-hour gap for a Perth reader on the one page
+ * that polls live. Pinned to `Australia/Perth` here so both agree regardless
+ * of where either half renders. The zone name is appended literally rather
+ * than via `timeZoneName`, because `Intl.DateTimeFormat` rejects
+ * `timeZoneName` combined with `dateStyle`/`timeStyle` on this runtime;
+ * Perth observes no daylight saving, so "AWST" is correct year-round and this
+ * is not a seasonal shortcut.
  */
 function formatDate(iso: string): string | null {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" });
+  const formatted = parsed.toLocaleString("en-AU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Australia/Perth",
+  });
+  return `${formatted} AWST`;
 }
 
 /**
