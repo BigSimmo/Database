@@ -23,6 +23,7 @@ import {
   type ResultFilterOption,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { DictionaryResultRow } from "@/components/dictionary/dictionary-result-row";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
@@ -513,6 +514,7 @@ export function DictionaryCataloguePage() {
             </div>
           )}
         </div>
+        <UniversalSearchAlsoMatches modeId="dictionary" query={params.q} className="mt-4" />
         <InformationPageFooter>
           All published entries link a source · Specialist clinical approval remains pending
         </InformationPageFooter>

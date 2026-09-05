@@ -466,7 +466,24 @@ test.describe("Medication responsive stress coverage", () => {
     await expect(phoneResult).toHaveAttribute("data-selected", "true");
     await expect(phoneResult).toHaveAttribute("data-verdict", "danger");
     await expect(phoneResult.getByRole("group", { name: /^Danger\. For this patient\./ })).toBeVisible();
-    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+    // Prescribing used to suppress the cross-mode panel outright, because it once
+    // sat ABOVE the medication results and displaced the count, patient strip and
+    // primary matches on a phone. The mount has since moved below the result list,
+    // so the panel is present here again — collapsed, after the results, and never
+    // between the reader and a dosing verdict.
+    const prescribingAlsoMatches = page.getByTestId("universal-also-matches");
+    await expect(prescribingAlsoMatches).toHaveCount(1);
+    await expect(prescribingAlsoMatches.getByRole("button", { name: /Also matches in other modes/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(
+      await prescribingAlsoMatches.evaluate((node) => {
+        const resultNode = document.querySelector('[data-testid="medication-result-acamprosate-phone"]');
+        return Boolean((resultNode?.compareDocumentPosition(node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }),
+      "the cross-mode panel must stay below the medication results on a phone",
+    ).toBe(true);
 
     const viewports = [
       { width: 320, height: 720 },
