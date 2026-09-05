@@ -153,23 +153,18 @@ export function UniversalSearchAlsoMatches({
     : matchCount > 0
       ? `${matchCountLabel(matchCount)} also match this search.`
       : emptyMessage;
-  const phoneSubtitle = searchPending
+  const headerMeta = searchPending
     ? "Searching…"
     : !searchActive
-      ? "Tap to browse related modes"
+      ? "Tap to open"
       : matchCount > 0
         ? matchCountLabel(matchCount)
-        : "No additional matches";
-  const wideMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : null;
+        : "No other matches";
 
   if (!submissionActive) return null;
   if (!viewportReady || trimmedQuery.length < 2) return null;
   if (modeId === "answer" && currentGroups.length === 0) return null;
   if (isWide && !searchPending && currentGroups.length === 0) return null;
-
-  // Count badge: ellipsis while collapsed/pending/empty so a finished-empty
-  // disclosure does not show a literal "0" next to "No additional matches".
-  const phoneCountBadge = !searchActive || searchPending || matchCount === 0 ? "…" : String(matchCount);
 
   return (
     <section
@@ -202,53 +197,46 @@ export function UniversalSearchAlsoMatches({
         aria-controls={panelId}
         tabIndex={isWide ? -1 : undefined}
         className={cn(
-          "flex min-h-tap w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors",
+          "flex min-h-tap w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors",
           "hover:bg-[color:var(--surface)]",
           focusRing,
           // From sm up the panel is always open, so the header is inert copy rather than a control.
-          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2 sm:px-1 sm:pb-1.5 sm:pt-0.5 sm:hover:bg-transparent",
+          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2.5 sm:px-1 sm:pb-2 sm:pt-0.5 sm:hover:bg-transparent",
         )}
       >
+        {/* Quiet mark, not a second brand block. The glyph carries the accent and
+            the tile is a hairline on the tray's own ground, so the eye lands on
+            the label rather than on a saturated square competing with the mode
+            tiles below it. */}
         <span
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] forced-colors:border sm:h-7 sm:w-7"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] forced-colors:border"
           aria-hidden
         >
-          <Layers className="size-icon-lg sm:size-icon-md" aria-hidden />
+          <Layers className="size-icon-md" aria-hidden />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className={cn(eyebrowText, "truncate text-[color:var(--text-heading)]")}>
-              Also matches
-              <span className="sr-only"> in other modes</span>
-            </span>
-            <span
-              className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-semibold tabular-nums text-[color:var(--clinical-accent)] sm:hidden"
-              aria-hidden={phoneCountBadge === "…"}
-            >
-              {phoneCountBadge}
-            </span>
-          </span>
-          {/* Visual cue only — keep the button name to the title (+ optional count). */}
-          <span className="text-2xs font-medium text-[color:var(--text-muted)] sm:hidden" aria-hidden>
-            {phoneSubtitle}
-          </span>
+        <span className={cn(eyebrowText, "shrink-0 text-[color:var(--text-heading)]")}>
+          Also matches
+          <span className="sr-only"> in other modes</span>
         </span>
-        {wideMeta ? (
-          <span
-            className="hidden shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-0.5 text-2xs font-semibold text-[color:var(--text-muted)] sm:inline-flex"
-            aria-hidden
-          >
-            {wideMeta}
-          </span>
-        ) : null}
+        {/* Label, rule, count — the editorial section-header device. The rule is
+            what lets the count sit at the far edge at every width without a
+            second line, and it replaces the phone's old stacked subtitle plus a
+            tinted count badge that said the same number twice. */}
+        <span className="h-px min-w-3 flex-1 bg-[color:var(--border)] forced-colors:bg-[CanvasText]" aria-hidden />
+        {/* Visual cue only — the button's name stays the title, so a screen
+            reader is not read a count that the sr-only status node already
+            announces properly. */}
+        <span className="shrink-0 text-2xs font-medium tabular-nums text-[color:var(--text-muted)]" aria-hidden>
+          {headerMeta}
+        </span>
         <span
           className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] transition-transform sm:hidden",
+            "-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform motion-reduce:transition-none sm:hidden",
             expanded && "rotate-180",
           )}
           aria-hidden
         >
-          <ChevronDown className="size-icon-lg" aria-hidden="true" />
+          <ChevronDown className="size-icon-md" aria-hidden="true" />
         </span>
       </button>
       <div
