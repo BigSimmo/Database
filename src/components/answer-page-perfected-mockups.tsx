@@ -689,7 +689,7 @@ function ReadyProse({ onOpenSource, activeId }: { onOpenSource: (id: string) => 
                 aria-pressed={activeId === source.id}
                 aria-label={`Source ${mark}, ${source.title}, page ${source.page}`}
                 className={cn(
-                  "nums ml-0.5 inline-grid h-4 min-w-4 place-items-center rounded-sm border px-0.5 align-super text-[0.6rem] font-bold leading-none",
+                  "nums ml-0.5 inline-grid h-4 min-w-4 place-items-center rounded-sm border px-0.5 align-super text-3xs font-bold leading-none",
                   activeId === source.id
                     ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
